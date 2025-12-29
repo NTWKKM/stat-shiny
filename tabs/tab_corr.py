@@ -48,7 +48,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
     """
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
-        ui.nav(
+        ui.nav_panel(
             "📉 Pearson/Spearman",
             ui.card(
                 ui.card_header("Continuous Correlation Analysis"),
@@ -96,7 +96,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
         ),
         
         # TAB 2: ICC (Reliability)
-        ui.nav(
+        ui.nav_panel(
             "📏 Reliability (ICC)",
             ui.card(
                 ui.card_header("Intraclass Correlation Coefficient"),
@@ -131,7 +131,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
         ),
         
         # TAB 3: Reference & Interpretation
-        ui.nav(
+        ui.nav_panel(
             "ℹ️ Reference",
             ui.card(
                 ui.card_header("📚 Reference & Interpretation Guide"),
