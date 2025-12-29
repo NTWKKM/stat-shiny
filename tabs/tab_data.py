@@ -239,7 +239,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
             else:
                 types.append("Continuous" if pd.api.types.is_numeric_dtype(d[col]) else "Categorical")
         settings_df = pd.DataFrame({"Variable Name": d.columns, "Type": types})
-        return render.DataGrid(settings_df, selection_mode="cell", editable=True)
+        return render.DataGrid(settings_df, selection_mode="row", editable=True)
 
     @reactive.Effect
     @reactive.event(lambda: input[ns("var_settings_table_cell_edit")]())
