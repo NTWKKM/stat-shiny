@@ -1,33 +1,18 @@
-# เปลี่ยนจาก 3.11 เป็น 3.10 เพื่อให้รองรับ firthlogist
-FROM python:3.10-slim
+# ใช้ Python Image เป็นฐาน
+FROM python:3.9
 
-WORKDIR /app
+# ตั้งค่า Working Directory
+WORKDIR /code
 
-# ติดตั้ง Git และเครื่องมือสำหรับ Build
-RUN apt-get update && apt-get install -y \
-    --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+# Copy ไฟล์ requirements และติดตั้ง
+COPY ./requirements.txt /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
-
+# Copy โค้ดทั้งหมดเข้า Container
 COPY . .
 
-# --- ส่วนที่เพิ่มเข้ามา ---
-# 1. สร้าง User ใหม่ชื่อ streamlit (เพื่อความปลอดภัย ไม่ใช้ root)
-RUN useradd -m -u 1000 streamlit && \
-    chown -R streamlit:streamlit /app
-
-# 2. สลับไปใช้ User นี้
-USER streamlit
-
-# 3. เพิ่ม Healthcheck (เพื่อให้รู้สถานะโปรแกรม)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:7860/_stcore/health || exit 1
-# ---------------------
-
+# เปิด Port 7860 (Port มาตรฐานของ Hugging Face Spaces)
 EXPOSE 7860
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
+
+# คำสั่งรัน App
+CMD ["shiny", "run", "app.py", "--host", "0.0.0.0", "--port", "7860"]
