@@ -3,26 +3,12 @@ import numpy as np
 import plotly.express as px
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler  # Added for robust scaling of continuous covariates
+from sklearn.pipeline import Pipeline    # 🟢 NEW: สำหรับสร้างโมเดลแบบรวมขั้นตอน
+from sklearn.compose import ColumnTransformer # 🟢 NEW: สำหรับระบุคอลัมน์ที่จะปรับขนาด
 import io, base64
 import html as _html
-
-# Try importing common palette, fallback if not found
-try:
-    from tabs._common import get_color_palette
-except ImportError:
-    def get_color_palette():
-        return {
-            'primary': '#007bff',
-            'primary_dark': '#0056b3',
-            'secondary': '#6c757d',
-            'background': '#f8f9fa',
-            'text': '#212529',
-            'text_secondary': '#6c757d',
-            'danger': '#dc3545'
-        }
+from tabs._common import get_color_palette
 
 # --- 1. Propensity Score Calculation ---
 def calculate_ps(df, treatment_col, covariate_cols):
@@ -30,16 +16,25 @@ def calculate_ps(df, treatment_col, covariate_cols):
     Estimate propensity scores and their logit (log-odds) for a binary treatment using logistic regression.
     
     Parameters:
-        df (pandas.DataFrame): Input dataset.
+        df (pandas.DataFrame): Input dataset. Must contain the treatment column and all covariate columns; missing values should be handled and categorical variables already encoded.
         treatment_col (str): Name of the binary treatment column (expected values 0 and 1).
-        covariate_cols (list[str]): List of column names to use as covariates.
+        covariate_cols (list[str]): List of column names to use as covariates in the propensity model.
     
     Returns:
-        tuple: (data with ps_score/ps_logit, fitted_classifier)
+        tuple:
+            data (pandas.DataFrame): A copy of the input with rows containing NA in treatment or covariates dropped and two new columns:
+                - ps_score: predicted probability of treatment (clipped to (1e-10, 1-1e-10)).
+                - ps_logit: log-odds of the propensity score.
+            clf (sklearn.linear_model.LogisticRegression): Fitted logistic regression model.
+    
+    Raises:
+        ValueError: If the treatment column is not of a numeric dtype.      
+    Includes Robust Scaling for continuous variables to ensure model stability.
     """
-    # Drop NA in relevant columns
+    # Drop NA ในคอลัมน์ที่เกี่ยวข้อง
     data = df.dropna(subset=[treatment_col, *covariate_cols]).copy()
     
+    # 🟢 NEW: Define X and identify columns for scaling vs passing through
     X = data[covariate_cols]
     y = data[treatment_col]
     
@@ -52,33 +47,35 @@ def calculate_ps(df, treatment_col, covariate_cols):
     # Identify binary/categorical columns to pass through without scaling
     pass_through_cols = [col for col in covariate_cols if col not in cont_cols]
     
-    # Create ColumnTransformer for preprocessing
+    # 🟢 NEW: Create ColumnTransformer for preprocessing
     preprocessor = ColumnTransformer(
         transformers=[
             ('scaler', StandardScaler(), cont_cols), # Scale continuous columns
             ('pass_through', 'passthrough', pass_through_cols) # Leave binary/categorical columns as is
         ],
-        remainder='drop',
-        verbose_feature_names_out=False
+        remainder='drop', # Drop any other unexpected columns
+        verbose_feature_names_out=False # NEW: Improves feature naming in Pipeline
     )
     
+    # ตรวจสอบ Data Type อีกครั้งเพื่อความชัวร์
     if not np.issubdtype(y.dtype, np.number):
         raise ValueError(f"Treatment column '{treatment_col}' must be numeric (0/1).")
 
-    # Create the full Pipeline (preprocessor + classifier)
-    # Using liblinear with L2 penalty (Robust default)
+    # 🟢 NEW: Create the full Pipeline (preprocessor + classifier)
+    # ใช้ liblinear with L2 penalty (Robust default)
     clf = Pipeline(steps=[
         ('preprocessor', preprocessor),
         ('classifier', LogisticRegression(solver='liblinear', random_state=42, max_iter=1000))
     ])
     
-    # Fit the Pipeline
+    # Fit the Pipeline (จะทำการ scale ข้อมูลก่อน fit classifier)
     clf.fit(X, y)
     
     # Get Probability (Score of class 1)
+    # Pipeline handles the scaling automatically before prediction
     data['ps_score'] = clf.predict_proba(X)[:, 1]
     
-    # Get Logit Score (prevent log(0))
+    # Get Logit Score (ป้องกัน Error log(0))
     eps = 1e-10
     data['ps_score'] = data['ps_score'].clip(eps, 1-eps)
     data['ps_logit'] = np.log(data['ps_score'] / (1 - data['ps_score']))
@@ -88,10 +85,10 @@ def calculate_ps(df, treatment_col, covariate_cols):
 # --- 2. Matching Algorithm ---
 def perform_matching(df, treatment_col, ps_col='ps_logit', caliper=0.2):
     """ 
-    Perform 1:1 greedy nearest-neighbor matching based on propensity score logit.
-    Matches each treated unit to the nearest control within a caliper.
+    Perform 1:1 greedy nearest-neighbor matching of treated and control units based on a propensity score logit.
+    Matches each treated unit to the nearest control within a caliper defined as (caliper * standard deviation of ps_col).
     """
-    # Separate groups
+    # แยกกลุ่ม (ต้องเป็น 0 กับ 1 เท่านั้น)
     treated = df[df[treatment_col] == 1].copy()
     control = df[df[treatment_col] == 0].copy()
     
@@ -103,7 +100,7 @@ def perform_matching(df, treatment_col, ps_col='ps_logit', caliper=0.2):
     # Caliper Calculation
     sd_logit = df[ps_col].std()
     
-    # Safety Check for zero variance
+    # 🟢 Safety Check for zero variance
     if not np.isfinite(sd_logit) or sd_logit < 1e-9:
         return None, f"Error: {ps_col} has zero or undefined variance; cannot apply caliper matching."
         
@@ -169,6 +166,7 @@ def calculate_smd(df, treatment_col, covariate_cols):
     control = df[df[treatment_col] == 0]
     
     for col in covariate_cols:
+        # คำนวณเฉพาะคอลัมน์ที่เป็นตัวเลข
         if pd.api.types.is_numeric_dtype(df[col]):
             mean_t = treated[col].mean()
             mean_c = control[col].mean()
@@ -176,7 +174,7 @@ def calculate_smd(df, treatment_col, covariate_cols):
             var_c = control[col].var()
             
             if pd.isna(var_t) or pd.isna(var_c):
-                smd = 0
+                smd = 0  # Handle constant columns
             else:
                 pooled_sd = np.sqrt((var_t + var_c) / 2)
                 smd = abs(mean_t - mean_c) / pooled_sd if pooled_sd > 1e-9 else 0
@@ -190,6 +188,7 @@ def plot_love_plot(smd_pre, smd_post):
     """ 
     Create an interactive Love plot using Plotly.
     """
+    # Get unified color palette
     COLORS = get_color_palette()
     
     smd_pre = smd_pre.copy()
@@ -198,6 +197,7 @@ def plot_love_plot(smd_pre, smd_post):
     smd_post['Stage'] = 'Matched'
     df_plot = pd.concat([smd_pre, smd_post])
     
+    # สร้าง Plotly scatter plot
     fig = px.scatter(
         df_plot,
         x='SMD',
@@ -214,6 +214,7 @@ def plot_love_plot(smd_pre, smd_post):
             'Unmatched': COLORS['danger'],
             'Matched': COLORS['primary']
         },
+        # 🟢 FIX: เปลี่ยน 'Matched' เป็น 'diamond' เพื่อให้แตกต่างทางสายตา
         symbol_map={ 
             'Unmatched': 'circle',
             'Matched': 'diamond' 
@@ -221,7 +222,7 @@ def plot_love_plot(smd_pre, smd_post):
         size_max=10
     )
     
-    # Add reference line (SMD = 0.1)
+    # เพิ่มเส้นอ้างอิง (SMD = 0.1)
     fig.add_vline(
         x=0.1,
         line_dash='dash',
@@ -231,6 +232,7 @@ def plot_love_plot(smd_pre, smd_post):
         annotation_position='top right'
     )
     
+    # ปรับแต่งเค้าโครง
     fig.update_layout(
         hovermode='closest',
         plot_bgcolor='rgba(240,240,240,0.5)',
@@ -240,6 +242,7 @@ def plot_love_plot(smd_pre, smd_post):
         height=max(400, len(smd_pre) * 40 + 100) # Dynamic height
     )
     
+    # ปรับแต่ง marker
     fig.update_traces(
         marker={'size': 8, 'opacity': 0.7},
         selector={'mode': 'markers'}
@@ -251,6 +254,7 @@ def generate_psm_report(title, elements):
     """ 
     Generate a styled HTML report.
     """
+    # Get unified color palette
     COLORS = get_color_palette()
     
     css = f"""
@@ -326,20 +330,21 @@ def generate_psm_report(title, elements):
         elif el['type'] == 'table':
             html += el['data'].to_html(classes='report-table', border=0, escape=True)
         elif el['type'] == 'plot':
+            # ตรวจสอบว่าเป็น Plotly Figure หรือ Matplotlib Figure
             plot_obj = el['data']
             
-            # Plotly Figure
+            # ถ้าเป็น Plotly Figure
             if hasattr(plot_obj, 'to_html'):
                 html += plot_obj.to_html(full_html=False, include_plotlyjs=False, div_id=f"plot_{id(plot_obj)}")
             else:
-                # Matplotlib Figure - convert to PNG
+                # ถ้าเป็น Matplotlib Figure - แปลงเป็น PNG และ embed
                 buf = io.BytesIO()
                 plot_obj.savefig(buf, format='png', bbox_inches='tight')
                 b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                 html += f'<img src="data:image/png;base64,{b64}" />'
     
     html += """<div class='report-footer'>
-    &copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank" style="text-decoration:none; color:inherit;">NTWKKM n Donate</a>. All Rights Reserved. | Powered by GitHub, Gemini, Shiny
+    &copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank" style="text-decoration:none; color:inherit;">NTWKKM n Donate</a>. All Rights Reserved. | Powered by GitHub, Gemini, Streamlit
     </div>"""
     html += "</body>\n</html>"
     return html
