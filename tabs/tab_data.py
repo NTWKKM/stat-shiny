@@ -1,4 +1,4 @@
-from shiny import ui, module, reactive, render
+from shiny import ui, module, reactive, render, session as shiny_session
 from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
@@ -6,10 +6,10 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-# แก้ไขบรรทัดนี้
+# --- 1. UI Definition ---
 def data_ui(id):
-    # ✅ สร้างฟังก์ชัน namespace ด้วยตัวเอง (id + "-" + ชื่อ input)
-    ns = lambda x: f"{id}-{x}"
+    # ✅ ใช้ Underscore (_) แทน Hyphen (-) เพื่อผ่านกฎ Validation
+    ns = lambda x: f"{id}_{x}"
     
     return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
@@ -60,14 +60,21 @@ def data_ui(id):
         )
     )
 
-@module.server
-def data_server(input, output, session, 
-                df, var_meta, uploaded_file_info, 
+# --- 2. Server Logic ---
+# ❌ ลบ @module.server ออก เพื่อจัดการ ID เอง
+def data_server(id, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
+    # ดึง Session และ Input ปัจจุบัน
+    session = shiny_session.get_current_session()
+    input = session.input
+    
+    # Helper สร้าง ID ให้ตรงกับ UI (ใช้ Underscore)
+    ns = lambda x: f"{id}_{x}"
+
     # --- 1. Data Loading Logic ---
     @reactive.Effect
-    @reactive.event(input.btn_load_example)
+    @reactive.event(lambda: input[ns("btn_load_example")]()) # เรียกผ่าน Dict key
     def _():
         logger.info("Generating example data...")
         id_notify = ui.notification_show("Generating simulation...", duration=None)
@@ -182,9 +189,9 @@ def data_server(input, output, session,
             ui.notification_show(f"Error: {e}", type="error")
 
     @reactive.Effect
-    @reactive.event(input.file_upload)
+    @reactive.event(lambda: input[ns("file_upload")]())
     def _():
-        file_infos: list[FileInfo] = input.file_upload()
+        file_infos: list[FileInfo] = input[ns("file_upload")]()
         if not file_infos: return
         f = file_infos[0]
         try:
@@ -209,7 +216,7 @@ def data_server(input, output, session,
             ui.notification_show(f"Error: {str(e)}", type="error")
 
     @reactive.Effect
-    @reactive.event(input.btn_reset_all)
+    @reactive.event(lambda: input[ns("btn_reset_all")]())
     def _():
         df.set(None)
         var_meta.set({})
@@ -219,8 +226,9 @@ def data_server(input, output, session,
         matched_covariates.set([])
         ui.notification_show("All data reset", type="warning")
 
+    # ตั้งชื่อ Function ให้ตรงกับ ns("var_settings_table") -> "data_var_settings_table"
     @render.data_frame
-    def var_settings_table():
+    def data_var_settings_table():
         d = df.get()
         m = var_meta.get()
         if d is None: return None
@@ -234,9 +242,9 @@ def data_server(input, output, session,
         return render.DataGrid(settings_df, selection_mode="cell", editable=True)
 
     @reactive.Effect
-    @reactive.event(input.var_settings_table_cell_edit)
+    @reactive.event(lambda: input[ns("var_settings_table_cell_edit")]())
     def _on_settings_edit():
-        edit_event = input.var_settings_table_cell_edit()
+        edit_event = input[ns("var_settings_table_cell_edit")]()
         d = df.get()
         if d is None: return
         if edit_event['col'] == 1:
@@ -260,25 +268,25 @@ def data_server(input, output, session,
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
-            ui.update_select("sel_var_edit", choices=cols)
+            ui.update_select(ns("sel_var_edit"), choices=cols)
 
     @reactive.Effect
-    @reactive.event(input.sel_var_edit)
+    @reactive.event(lambda: input[ns("sel_var_edit")]())
     def _load_meta_to_ui():
-        var_name = input.sel_var_edit()
+        var_name = input[ns("sel_var_edit")]()
         meta = var_meta.get()
         if var_name != "Select..." and var_name in meta:
             m = meta[var_name]
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
-            ui.update_text_area("txt_var_map", value=map_str)
+            ui.update_text_area(ns("txt_var_map"), value=map_str)
 
     @reactive.Effect
-    @reactive.event(input.btn_save_meta)
+    @reactive.event(lambda: input[ns("btn_save_meta")]())
     def _save_metadata():
-        var_name = input.sel_var_edit()
+        var_name = input[ns("sel_var_edit")]()
         if var_name == "Select...": return
         new_map = {}
-        for line in input.txt_var_map().split('\n'):
+        for line in input[ns("txt_var_map")]().split('\n'):
             if '=' in line:
                 k, v = line.split('=', 1)
                 try:
@@ -296,20 +304,20 @@ def data_server(input, output, session,
         ui.notification_show(f"Saved labels for {var_name}", type="message")
 
     @render.data_frame
-    def out_df_preview():
+    def data_out_df_preview():
         d = df.get()
         if d is not None:
             return render.DataGrid(d, filters=False, height="500px")
         return None
 
     @render.ui
-    def ui_btn_clear_match():
+    def data_ui_btn_clear_match():
         if is_matched.get():
              return ui.input_action_button(ns("btn_clear_match"), "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(input.btn_clear_match)
+    @reactive.event(lambda: input[ns("btn_clear_match")]())
     def _():
         df_matched.set(None)
         is_matched.set(False)
