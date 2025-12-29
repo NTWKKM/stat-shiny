@@ -14,6 +14,7 @@ from tabs import tab_diag
 from tabs import tab_logit  # 🟢 Logit Module
 from tabs import tab_corr   # 🟢 Correlation & ICC Module
 from tabs import tab_survival  # 🟢 Survival Analysis Module
+from tabs import tab_settings  # 🟢 Settings Module (NEW)
 
 # Initialize Logger
 LoggerFactory.configure()
@@ -88,8 +89,9 @@ app_ui = ui.page_navbar(
         tab_survival.survival_ui("survival")
     ),
 
+    # --- 6. Settings Module (NEW) ---
     ui.nav_panel("⚙️ Settings", 
-        ui.card(ui.p("🚧 Settings UI"))
+        tab_settings.settings_ui("settings")
     ),
 
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
@@ -414,6 +416,9 @@ def server(input, output, session: Session):
     tab_survival.survival_server("survival",
         df, var_meta, df_matched, is_matched
     )
+
+    # --- 6. Settings Module (NEW) ---
+    tab_settings.settings_server("settings", CONFIG)
 
 # ==========================================
 # 4. APP LAUNCHER
