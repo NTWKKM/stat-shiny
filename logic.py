@@ -4,6 +4,7 @@ import scipy.stats as stats
 import statsmodels.api as sm
 import warnings
 import html
+import streamlit as st 
 
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -29,6 +30,24 @@ try:
         def _validate_data_patch(self, X, y=None, reset=True, validate_separately=False, **check_params):
             """
             Compatibility shim that restores sklearn-style data validation expected by FirthLogisticRegression.
+            
+            Validates the provided input arrays using sklearn's check utilities. If `y` is None, returns the validated feature array for `X`; otherwise returns the validated `(X, y)` pair. Additional validation options may be passed via `**check_params`. The parameters `reset` and `validate_separately` are accepted to match the original signature and may be forwarded to the underlying validators when applicable.
+              
+            Parameters:
+                X: array-like
+                    Feature data to validate.
+                y: array-like, optional
+                    Target array to validate alongside `X`. If omitted, only `X` is validated.
+                reset: bool
+                    Accepted for signature compatibility; not used by this shim itself.
+                validate_separately: bool
+                    Accepted for signature compatibility; not used by this shim itself.
+                **check_params:
+                    Additional keyword arguments forwarded to sklearn.utils.validation.check_array or check_X_y.
+            
+            Returns:
+                ndarray or (ndarray, ndarray):
+                    The validated `X` array if `y` is None, otherwise a tuple `(X_validated, y_validated)`.
             """
             if y is None:
                 return check_array(X, **check_params)
@@ -56,6 +75,12 @@ warnings.filterwarnings("ignore", message=".*convergence.*")
 def clean_numeric_value(val):
     """
     Convert various scalar inputs into a cleaned numeric float.
+    
+    Parameters:
+        val: A scalar value (string, number, or missing). Common non-numeric characters such as leading '>' or '<' and thousands separators (commas) are removed before conversion.
+    
+    Returns:
+        float: The converted numeric value, or `NaN` if the input is missing or cannot be converted.
     """
     if pd.isna(val): 
         return np.nan
@@ -69,6 +94,12 @@ def clean_numeric_value(val):
 def _robust_sort_key(x):
     """
     Provide a sort key that places numeric-like values before non-numeric and missing values.
+    
+    Returns:
+        tuple: A (priority, value) tuple where
+            - priority 0: numeric values, with `value` as a float,
+            - priority 1: non-numeric values, with `value` as the string representation,
+            - priority 2: missing values (`NaN`), with `value` as an empty string.
     """
     try:
         # Check if it's already a number or can be one
@@ -81,6 +112,21 @@ def _robust_sort_key(x):
 def run_binary_logit(y, X, method='default'):
     """
     Fit a binary logistic regression using the specified estimation method.
+    
+    Parameters:
+        y (array-like): Binary outcome vector aligned to X.
+        X (DataFrame or array-like): Predictor matrix. An intercept column will be added if absent.
+        method (str): Estimation method to use. Accepted values:
+            - 'default': statsmodels Logit with default optimizer,
+            - 'bfgs': statsmodels Logit with BFGS optimizer,
+            - 'firth': Firth-penalized logistic regression (requires optional dependency).
+    
+    Returns:
+        params (pd.Series or None): Estimated coefficients indexed by predictor names (including intercept).
+        conf_int (pd.DataFrame or None): Two-column DataFrame of confidence interval bounds.
+        pvalues (pd.Series or None): Two-sided p-values for coefficients.
+        status (str): "OK" on success; otherwise an error message.
+        stats_metrics (dict): Dictionary containing model fit statistics (McFadden R2, Nagelkerke R2).
     """
     stats_metrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
     
@@ -161,8 +207,7 @@ def get_label(col_name, var_meta):
     else:
         return f"<b>{safe_name}</b>"
 
-# NOTE: @st.cache_data removed for Shiny compatibility. 
-# Use @reactive.Calc in the server function if caching is needed.
+@st.cache_data(show_spinner=False)
 def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
     """
     Generate an HTML report and effect estimates from univariate and multivariate logistic analyses for a binary outcome.
@@ -660,14 +705,14 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots:
         df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_results.items()])
         if not df_crude.empty:
             fig = create_forest_plot(df_crude, 'or', 'ci_low', 'ci_high', 'variable', 'p_value', "<b>Univariable: Crude OR</b>", "Odds Ratio", 1.0)
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs='cdn'))
+            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=True))
             has_plot = True
 
     if aor_results:
         df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_results.items()])
         if not df_adj.empty:
             fig = create_forest_plot(df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 'p_value', "<b>Multivariable: Adjusted OR</b>", "Adjusted OR", 1.0)
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs='cdn'))
+            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
             has_plot = True
 
     if not has_plot: 
@@ -703,6 +748,6 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
     plot_html = generate_forest_plot_html(or_res, aor_res)
     
     full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{plot_html}"
-    full_html += """<div class='report-footer'>&copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by Shiny</div>"""
+    full_html += """<div class='report-footer'>&copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by GitHub, Gemini, Streamlit</div>"""
     
     return full_html, or_res, aor_res
