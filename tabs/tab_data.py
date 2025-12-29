@@ -6,7 +6,7 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-@module.ui
+# 🟢 แก้ไข: ลบ @module.ui ออก เพื่อให้รับค่า id ได้ถูกต้อง
 def data_ui(id):
     ns = ui.namespace(id)
     return ui.nav_panel("📁 Data Management",
