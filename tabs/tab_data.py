@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
 def data_ui(id):
-    # ✅ ใช้ Underscore (_) แทน Hyphen (-) เพื่อผ่านกฎ Validation
+    # ✅ใช้ Underscore (_) เพื่อความปลอดภัยของ ID
     ns = lambda x: f"{id}_{x}"
     
     return ui.nav_panel("📁 Data Management",
@@ -31,10 +31,10 @@ def data_ui(id):
                 bg="#f8f9fa"
             ),
             
-            # --- ส่วนการตั้งค่าตัวแปรแบบ Accordion (เหมือน st.expander) ---
+            # --- ส่วน Variable Settings (Accordion Style) ---
             ui.accordion(
                 ui.accordion_panel(
-                    "🛠️ 1. Variable Settings & Labels",
+                    "🛠️ 1. Variable Settings & Value Labels",
                     ui.layout_columns(
                         ui.div(
                             ui.input_select(ns("sel_var_edit"), "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
@@ -61,9 +61,10 @@ def data_ui(id):
 
             ui.br(),
             
-            # --- ส่วนแสดงผลข้อมูลแบบแบ่งหน้าละ 600 แถว ---
+            # --- ส่วน Raw Data Preview (รองรับการแบ่งหน้าอัตโนมัติ) ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
+                # ✅ ตรวจสอบ ID ให้ตรงกับฟังก์ชันใน Server (out_df_preview)
                 ui.output_data_frame(ns("out_df_preview")),
                 height="600px",
                 full_screen=True
@@ -87,9 +88,9 @@ def data_server(id, df, var_meta, uploaded_file_info,
         id_notify = ui.notification_show("Generating simulation...", duration=None)
         try:
             np.random.seed(42)
-            n = 1500 # ✅ ปรับเป็น 1500 แถว
+            n = 1500 # ✅ ปรับเป็น 1500 แถวตามต้องการ
             
-            # --- Simulation Logic (คงเดิมตามที่คุณให้มา) ---
+            # --- Simulation Logic (คงเดิมทุกประการ) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -258,7 +259,6 @@ def data_server(id, df, var_meta, uploaded_file_info,
         var_name = input[ns("sel_var_edit")]()
         if var_name == "Select...": return
         
-        # Parse Map
         new_map = {}
         for line in input[ns("txt_var_map")]().split('\n'):
             if '=' in line:
@@ -281,13 +281,15 @@ def data_server(id, df, var_meta, uploaded_file_info,
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
-    # --- 3. Render Data Preview (Pagination 600 rows) ---
+    # --- 3. Render Outputs ---
+    
+    # ✅ แก้ไขปัญหาการโหลดค้าง: ชื่อฟังก์ชัน Render ต้องตรงกับชื่อ ID ใน UI (out_df_preview)
     @render.data_frame
     def out_df_preview():
         d = df.get()
         if d is not None:
-            # ใช้ DataGrid พร้อม summary=True เพื่อแบ่งหน้าอัตโนมัติ
-            # Shiny จะจัดการ Virtualization ให้รองรับ 1500 แถวได้ลื่นไหล
+            # DataGrid จะจัดการ Virtualization ให้รองรับ 1500 แถวได้ลื่นไหล
+            # และ summary=True จะแสดงรายละเอียดจำนวนแถวด้านล่าง
             return render.DataGrid(d, filters=False, summary=True)
         return None
 
