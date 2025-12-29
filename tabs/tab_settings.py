@@ -550,6 +550,7 @@ def settings_server(id: str, config) -> None:
     from shiny import input as shiny_input
     
     @render.text
+    @reactive.output(id=f"{id}-txt_logging_status")
     def txt_logging_status() -> str:
         """Display current logging configuration status."""
         enabled = config.get('logging.enabled')
@@ -562,7 +563,7 @@ def settings_server(id: str, config) -> None:
     # ==========================================
     @reactive.Effect
     @reactive.event(shiny_input[f"{id}-btn_save_analysis"])
-    def _save_analysis_settings():
+    def _save_analysis_settings() -> None:
         """Save analysis settings when button clicked."""
         try:
             config.update('analysis.logit_method', shiny_input[f"{id}-logit_method"]())
@@ -582,8 +583,8 @@ def settings_server(id: str, config) -> None:
             
             logger.info("✅ Analysis settings saved")
             ui.notification_show("✅ Analysis settings saved", type="message")
-        except Exception as e:
-            logger.error(f"Error saving analysis settings: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception("Error saving analysis settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
     
     # ==========================================
@@ -591,7 +592,7 @@ def settings_server(id: str, config) -> None:
     # ==========================================
     @reactive.Effect
     @reactive.event(shiny_input[f"{id}-btn_save_ui"])
-    def _save_ui_settings():
+    def _save_ui_settings() -> None:
         """Save UI settings when button clicked."""
         try:
             config.update('ui.page_title', shiny_input[f"{id}-page_title"]())
@@ -607,8 +608,8 @@ def settings_server(id: str, config) -> None:
             
             logger.info("✅ UI settings saved")
             ui.notification_show("✅ UI settings saved", type="message")
-        except Exception as e:
-            logger.error(f"Error saving UI settings: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception("Error saving UI settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
     
     # ==========================================
@@ -616,7 +617,7 @@ def settings_server(id: str, config) -> None:
     # ==========================================
     @reactive.Effect
     @reactive.event(shiny_input[f"{id}-btn_save_logging"])
-    def _save_logging_settings():
+    def _save_logging_settings() -> None:
         """Save logging settings when button clicked."""
         try:
             config.update('logging.enabled', bool(shiny_input[f"{id}-logging_enabled"]()))
@@ -633,8 +634,8 @@ def settings_server(id: str, config) -> None:
             
             logger.info("✅ Logging settings saved")
             ui.notification_show("✅ Logging settings saved", type="message")
-        except Exception as e:
-            logger.error(f"Error saving logging settings: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception("Error saving logging settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
     
     # ==========================================
@@ -642,7 +643,7 @@ def settings_server(id: str, config) -> None:
     # ==========================================
     @reactive.Effect
     @reactive.event(shiny_input[f"{id}-btn_save_perf"])
-    def _save_perf_settings():
+    def _save_perf_settings() -> None:
         """Save performance settings when button clicked."""
         try:
             config.update('performance.enable_caching', bool(shiny_input[f"{id}-caching_enabled"]()))
@@ -652,8 +653,8 @@ def settings_server(id: str, config) -> None:
             
             logger.info("✅ Performance settings saved")
             ui.notification_show("✅ Performance settings saved", type="message")
-        except Exception as e:
-            logger.error(f"Error saving performance settings: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception("Error saving performance settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
     
     # ==========================================
@@ -661,7 +662,7 @@ def settings_server(id: str, config) -> None:
     # ==========================================
     @reactive.Effect
     @reactive.event(shiny_input[f"{id}-btn_save_advanced"])
-    def _save_advanced_settings():
+    def _save_advanced_settings() -> None:
         """Save advanced settings when button clicked."""
         try:
             config.update('validation.strict_mode', bool(shiny_input[f"{id}-strict_mode"]()))
@@ -675,6 +676,6 @@ def settings_server(id: str, config) -> None:
             
             logger.info("✅ Advanced settings saved")
             ui.notification_show("✅ Advanced settings saved", type="message")
-        except Exception as e:
-            logger.error(f"Error saving advanced settings: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception("Error saving advanced settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
