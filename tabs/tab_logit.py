@@ -198,9 +198,10 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                                         {"original": f"📊 Original ({original_len})", 
                                          "matched": f"✅ Matched ({matched_len})"},
                                         selected="matched")
-            d = df.get()
-            row_count = len(d) if d is not None else 0
-            return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
+        # Fallback for non-matched data
+        d = df.get()
+        row_count = len(d) if d is not None else 0
+        return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
 
     # --- 2. Dynamic Input Updates ---
     @reactive.Effect
@@ -261,10 +262,15 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Running Logistic Regression...", detail="Calculating...")
             
-            # Run Logic from logic.py
-            html_rep, or_res, aor_res = process_data_and_generate_html(
-                final_df, target, var_meta=var_meta.get(), method=method
-            )
+            try:
+                # Run Logic from logic.py
+                html_rep, or_res, aor_res = process_data_and_generate_html(
+                    final_df, target, var_meta=var_meta.get(), method=method
+                )
+            except Exception as e:
+                ui.notification_show(f"Error: {e!s}", type="error")
+                logger.exception("Logistic regression error")
+                return
             
             # Generate Forest Plots using library
             fig_adj = None
@@ -383,7 +389,10 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @render.text
     def val_overall_or():
         res = subgroup_res.get()
-        if res: return f"{res['overall']['or']:.3f}"
+        if res:
+            overall = res.get('overall', {})
+            or_val = overall.get('or')
+            return f"{or_val:.3f}" if or_val is not None else "N/A"
         return "-"
 
     @render.text
@@ -419,7 +428,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             df_res = res['results_df'].copy()
             # Simple formatting for display
             cols = ['group', 'n', 'events', 'or', 'ci_low', 'ci_high', 'p_value']
-            return render.DataGrid(df_res[cols].round(4))
+            available_cols = [c for c in cols if c in df_res.columns]
+            return render.DataGrid(df_res[available_cols].round(4))
         return None
 
     # --- Subgroup Downloads ---
