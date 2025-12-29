@@ -550,7 +550,7 @@ def settings_server(id: str, config) -> None:
     from shiny import input as shiny_input
     
     @render.text
-    def txt_logging_status():
+    def txt_logging_status() -> str:
         """Display current logging configuration status."""
         enabled = config.get('logging.enabled')
         level = config.get('logging.level')
