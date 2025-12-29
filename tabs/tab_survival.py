@@ -224,7 +224,9 @@ def surv_ui(namespace: str) -> ui.TagChild:
                     col_widths=[4, 8]
                 ),
                 
-                ui.details(
+                # FIXED: Changed ui.details to ui.tags.details
+                ui.tags.details(
+                    ui.tags.summary("⚠️ Advanced Settings"),
                     ui.input_numeric(
                         f"{namespace}_sg_min_n",
                         "Min N per subgroup:",
@@ -234,8 +236,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
                         f"{namespace}_sg_min_events",
                         "Min events per subgroup:",
                         value=2, min=1, max=50
-                    ),
-                    summary="⚠️ Advanced Settings"
+                    )
                 ),
                 
                 ui.input_action_button(
@@ -473,9 +474,10 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         
         if result.get('assumptions_text'):
             ui_elements.append(
-                ui.details(
-                    ui.markdown(f"```\n{result['assumptions_text']}\n```"),
-                    summary="View Assumption Advice (Text)"
+                # FIXED: Changed ui.details to ui.tags.details
+                ui.tags.details(
+                    ui.tags.summary("View Assumption Advice (Text)"),
+                    ui.markdown(f"```\n{result['assumptions_text']}\n```")
                 )
             )
         
