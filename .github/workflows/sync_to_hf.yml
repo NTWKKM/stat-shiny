@@ -20,7 +20,7 @@ jobs:
           # ระบุ Username ของ Hugging Face
           HF_USERNAME: ntwkkm 
           # ระบุชื่อ Space (ต้องตรงกับที่สร้างไว้ใน HF)
-          SPACE_NAME: stat-shiny
+          SPACE_NAME: shinystat
         run: |
           # 1. ตั้งค่า Git User (จำเป็นสำหรับการ commit/push)
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
