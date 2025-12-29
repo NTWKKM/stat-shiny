@@ -547,9 +547,7 @@ def settings_server(id: str, config) -> None:
     Returns:
         None
     """
-    from shiny import input as shiny_input, reactive, Session
-    
-    session = Session.get_current()
+    from shiny import input as shiny_input
     
     @render.text
     def txt_logging_status():
