@@ -10,7 +10,8 @@ from logger import get_logger, LoggerFactory
 
 # Import Tabs Modules
 from tabs import tab_baseline_matching
-from tabs import tab_diag  # <--- 1. เพิ่มการ Import Module Diagnostic ที่นี่
+from tabs import tab_diag
+from tabs import tab_logit  # 🟢 1. Import Logit Module
 
 # Initialize Logger
 LoggerFactory.configure()
@@ -67,16 +68,18 @@ app_ui = ui.page_navbar(
 
     # --- 2. Diagnostic Tests Module ---
     ui.nav_panel("🧪 Diagnostic Tests", 
-        # <--- 2. แทนที่ Placeholder ด้วย UI ของ Module tab_diag
         tab_diag.diag_ui("diag")
+    ),
+
+    # --- 3. Logistic Regression Module ---
+    ui.nav_panel("📊 Risk Factors", 
+        # 🟢 2. เรียกใช้ UI ของ Logit Module
+        tab_logit.logit_ui("logit")
     ),
 
     # --- Placeholders for other tabs (To be implemented) ---
     ui.nav_panel("📈 Correlation & ICC", 
         ui.card(ui.p("🚧 Please convert 'tabs/tab_corr.py' to Shiny module."))
-    ),
-    ui.nav_panel("📊 Risk Factors", 
-        ui.card(ui.p("🚧 Please convert 'tabs/tab_logit.py' to Shiny module."))
     ),
     ui.nav_panel("⏳ Survival Analysis", 
         ui.card(ui.p("🚧 Please convert 'tabs/tab_survival.py' to Shiny module."))
@@ -104,8 +107,8 @@ def server(input, output, session: Session):
     # Matched data state (Shared across tabs)
     df_matched = reactive.Value(None)
     is_matched = reactive.Value(False)
-    matched_treatment_col = reactive.Value(None) # เพิ่ม state นี้
-    matched_covariates = reactive.Value([])      # เพิ่ม state นี้
+    matched_treatment_col = reactive.Value(None)
+    matched_covariates = reactive.Value([])
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps():
@@ -389,8 +392,13 @@ def server(input, output, session: Session):
     )
 
     # --- 2. Diagnostic Tests Module ---
-    # <--- 3. เรียกใช้งาน Server ของ tab_diag พร้อมส่งค่า State ที่จำเป็นเข้าไป
     tab_diag.diag_server("diag", 
+        df, var_meta, df_matched, is_matched
+    )
+
+    # --- 3. Logistic Regression Module ---
+    # 🟢 3. เรียกใช้ Server ของ Logit Module
+    tab_logit.logit_server("logit",
         df, var_meta, df_matched, is_matched
     )
 
