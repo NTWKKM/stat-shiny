@@ -11,7 +11,9 @@ from logger import get_logger, LoggerFactory
 # Import Tabs Modules
 from tabs import tab_baseline_matching
 from tabs import tab_diag
-from tabs import tab_logit  # 🟢 1. Import Logit Module
+from tabs import tab_logit  # 🟢 Logit Module
+from tabs import tab_corr   # 🟢 Correlation & ICC Module
+from tabs import tab_survival  # 🟢 Survival Analysis Module
 
 # Initialize Logger
 LoggerFactory.configure()
@@ -73,17 +75,19 @@ app_ui = ui.page_navbar(
 
     # --- 3. Logistic Regression Module ---
     ui.nav_panel("📊 Risk Factors", 
-        # 🟢 2. เรียกใช้ UI ของ Logit Module
         tab_logit.logit_ui("logit")
     ),
 
-    # --- Placeholders for other tabs (To be implemented) ---
+    # --- 4. Correlation & ICC Module ---
     ui.nav_panel("📈 Correlation & ICC", 
-        ui.card(ui.p("🚧 Please convert 'tabs/tab_corr.py' to Shiny module."))
+        tab_corr.corr_ui("corr")
     ),
+
+    # --- 5. Survival Analysis Module ---
     ui.nav_panel("⏳ Survival Analysis", 
-        ui.card(ui.p("🚧 Please convert 'tabs/tab_survival.py' to Shiny module."))
+        tab_survival.survival_ui("survival")
     ),
+
     ui.nav_panel("⚙️ Settings", 
         ui.card(ui.p("🚧 Settings UI"))
     ),
@@ -397,8 +401,17 @@ def server(input, output, session: Session):
     )
 
     # --- 3. Logistic Regression Module ---
-    # 🟢 3. เรียกใช้ Server ของ Logit Module
     tab_logit.logit_server("logit",
+        df, var_meta, df_matched, is_matched
+    )
+
+    # --- 4. Correlation & ICC Module ---
+    tab_corr.corr_server("corr",
+        df, var_meta, df_matched, is_matched
+    )
+
+    # --- 5. Survival Analysis Module ---
+    tab_survival.survival_server("survival",
         df, var_meta, df_matched, is_matched
     )
 
