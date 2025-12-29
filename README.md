@@ -38,15 +38,8 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- tabs /
 |   |-- __init__.py
 |   |-- _common.py
-|   |-- cox_regression /
-|   |   |-- __init__.py
-|   |   `-- subgroup_tab.py
-|   |-- logistic_regression /
-|   |   |-- __init__.py
-|   |   `-- subgroup_tab.py
 |   |-- tab_baseline_matching.py
 |   |-- tab_corr.py
-|   |-- tab_data.py
 |   |-- tab_diag.py
 |   |-- tab_logit.py
 |   |-- tab_settings.py
