@@ -554,15 +554,19 @@ def settings_server(id: str, config) -> None:
     # ---------------------------------------------------------
     # Manual Output Registration for Dynamic IDs
     # ---------------------------------------------------------
-    def txt_logging_status_impl() -> str:
+    def _txt_logging_status_logic():
         """Display current logging configuration status."""
         enabled = config.get('logging.enabled')
         level = config.get('logging.level')
         status = "✅ ENABLED" if enabled else "❌ DISABLED"
         return f"Logging Status: {status}\nLevel: {level}"
     
-    # Register the output manually because the ID is dynamic
-    session.output[f"{id}_txt_logging_status"] = render.text(txt_logging_status_impl)
+    # สำคัญ: เปลี่ยนชื่อฟังก์ชันให้ตรงกับ Dynamic ID ที่เราต้องการ
+    # Shiny จะลงทะเบียน output ตามชื่อ __name__ ของฟังก์ชันที่ถูก decorate
+    _txt_logging_status_logic.__name__ = f"{id}_txt_logging_status"
+    
+    # ลงทะเบียนด้วย render decorator แบบ manual call
+    render.text(_txt_logging_status_logic)
     
     # ==========================================
     # ANALYSIS SETTINGS SAVE
