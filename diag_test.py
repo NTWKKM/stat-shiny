@@ -68,7 +68,8 @@ def calculate_descriptive(df, col):
 # ========================================
 
 def calculate_ci_wilson_score(successes, n, ci=0.95):
-    if n <= 0: return np.nan, np.nan
+    if n <= 0:
+        return np.nan, np.nan
     z = stats.norm.ppf(1 - (1 - ci) / 2)
     p_hat = successes / n
     denominator = 1 + (z**2 / n)
