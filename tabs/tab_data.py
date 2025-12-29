@@ -27,54 +27,60 @@ def data_ui(id):
                 ui.output_ui(ns("ui_btn_clear_match")),
                 ui.input_action_button(ns("btn_reset_all"), "⚠️ Reset All Data", class_="btn-danger"),
                 
-                ui.hr(),
-                
-                ui.h5("2. Value Labels (Optional)"),
-                ui.input_select(ns("sel_var_edit"), "Select Var to Map:", choices=["Select..."]),
-                ui.panel_conditional(
-                    f"input['{ns('sel_var_edit')}'] != 'Select...'",
-                    ui.input_text_area(ns("txt_var_map"), "Labels (Format: 0=No)", height="80px"),
-                    ui.input_action_button(ns("btn_save_meta"), "💾 Save Map")
-                ),
                 width=300,
                 bg="#f8f9fa"
             ),
             
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("🛠️ 1. Variable Settings (แก้ไขประเภทตัวแปร)"),
-                    ui.output_data_frame(ns("var_settings_table")),
-                    height="350px"
+            # --- ส่วนการตั้งค่าตัวแปรแบบ Accordion (เหมือน st.expander) ---
+            ui.accordion(
+                ui.accordion_panel(
+                    "🛠️ Variable Settings & Value Labels",
+                    ui.layout_columns(
+                        ui.div(
+                            ui.input_select(ns("sel_var_edit"), "เลือกตัวแปรเพื่อตั้งค่า:", choices=["Select..."]),
+                        ),
+                        ui.div(
+                            ui.panel_conditional(
+                                f"input['{ns('sel_var_edit')}'] != 'Select...'",
+                                ui.input_radio_buttons(
+                                    ns("radio_var_type"), 
+                                    "ประเภทตัวแปร:", 
+                                    choices={"Continuous": "Continuous", "Categorical": "Categorical"},
+                                    inline=True
+                                ),
+                                ui.input_text_area(ns("txt_var_map"), "Value Labels (Format: 0=No, 1=Yes)", height="100px"),
+                                ui.input_action_button(ns("btn_save_meta"), "💾 Save Settings", class_="btn-primary")
+                            )
+                        ),
+                        col_widths=(4, 8)
+                    ),
                 ),
-                col_widths=12
+                id=ns("acc_settings"),
+                open=True
             ),
+
             ui.br(),
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("📄 2. Raw Data Preview (ตัวอย่างข้อมูล)"),
-                    ui.output_data_frame(ns("out_df_preview")),
-                    height="400px"
-                ),
-                col_widths=12
+            
+            # --- ส่วนแสดงผลข้อมูล ---
+            ui.card(
+                ui.card_header("📄 Raw Data Preview (Top 10 rows)"),
+                ui.output_data_frame(ns("data_out_df_preview")),
+                full_screen=True
             )
         )
     )
 
 # --- 2. Server Logic ---
-# ❌ ลบ @module.server ออก เพื่อจัดการ ID เอง
 def data_server(id, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # ดึง Session และ Input ปัจจุบัน
     session = shiny_session.get_current_session()
     input = session.input
-    
-    # Helper สร้าง ID ให้ตรงกับ UI (ใช้ Underscore)
     ns = lambda x: f"{id}_{x}"
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_load_example")]()) # เรียกผ่าน Dict key
+    @reactive.event(lambda: input[ns("btn_load_example")]())
     def _():
         logger.info("Generating example data...")
         id_notify = ui.notification_show("Generating simulation...", duration=None)
@@ -226,42 +232,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
         matched_covariates.set([])
         ui.notification_show("All data reset", type="warning")
 
-    # ตั้งชื่อ Function ให้ตรงกับ ns("var_settings_table") -> "data_var_settings_table"
-    @render.data_frame
-    def data_var_settings_table():
-        d = df.get()
-        m = var_meta.get()
-        if d is None: return None
-        types = []
-        for col in d.columns:
-            if col in m and 'type' in m[col]:
-                types.append(m[col]['type'])
-            else:
-                types.append("Continuous" if pd.api.types.is_numeric_dtype(d[col]) else "Categorical")
-        settings_df = pd.DataFrame({"Variable Name": d.columns, "Type": types})
-        return render.DataGrid(settings_df, selection_mode="row", editable=True)
-
-    @reactive.Effect
-    @reactive.event(lambda: input[ns("var_settings_table_cell_edit")]())
-    def _on_settings_edit():
-        edit_event = input[ns("var_settings_table_cell_edit")]()
-        d = df.get()
-        if d is None: return
-        if edit_event['col'] == 1:
-            row_idx = edit_event['row']
-            new_type = edit_event['value']
-            valid_types = ["Categorical", "Continuous"]
-            matched_type = next((t for t in valid_types if t.lower() == str(new_type).lower()), None)
-            if matched_type:
-                var_name = d.columns[row_idx]
-                current_meta = var_meta.get().copy()
-                if var_name in current_meta:
-                    current_meta[var_name]['type'] = matched_type
-                else:
-                    current_meta[var_name] = {'type': matched_type, 'map': {}, 'label': var_name}
-                var_meta.set(current_meta)
-            else:
-                ui.notification_show(f"Invalid type: {new_type}. Use 'Categorical' or 'Continuous'", type="warning")
+    # --- ส่วนการจัดการ Metadata (Variable Selection + Bullets) ---
 
     @reactive.Effect
     def _update_var_select():
@@ -277,6 +248,9 @@ def data_server(id, df, var_meta, uploaded_file_info,
         meta = var_meta.get()
         if var_name != "Select..." and var_name in meta:
             m = meta[var_name]
+            # โหลดประเภทตัวแปรลง Radio Buttons
+            ui.update_radio_buttons(ns("radio_var_type"), selected=m.get('type', 'Continuous'))
+            # โหลด Mapping ลง Text Area
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
             ui.update_text_area(ns("txt_var_map"), value=map_str)
 
@@ -285,6 +259,8 @@ def data_server(id, df, var_meta, uploaded_file_info,
     def _save_metadata():
         var_name = input[ns("sel_var_edit")]()
         if var_name == "Select...": return
+        
+        # 1. จัดการ Value Mapping
         new_map = {}
         for line in input[ns("txt_var_map")]().split('\n'):
             if '=' in line:
@@ -297,17 +273,25 @@ def data_server(id, df, var_meta, uploaded_file_info,
                     except ValueError: pass
                     new_map[k] = v.strip()
                 except Exception: pass
+        
+        # 2. อัปเดต Metadata ทั้งหมด (Type + Map)
         current_meta = var_meta.get().copy()
-        existing_type = current_meta.get(var_name, {}).get('type', 'Categorical')
-        current_meta[var_name] = {'type': existing_type, 'map': new_map, 'label': var_name}
+        current_meta[var_name] = {
+            'type': input[ns("radio_var_type")](),
+            'map': new_map,
+            'label': var_name
+        }
         var_meta.set(current_meta)
-        ui.notification_show(f"Saved labels for {var_name}", type="message")
+        ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
+
+    # --- 3. Render Outputs ---
 
     @render.data_frame
     def data_out_df_preview():
         d = df.get()
         if d is not None:
-            return render.DataGrid(d, filters=False, height="500px")
+            # ✅ แสดงผลเพียง 10 แถวแรก และปิด Filter
+            return render.DataGrid(d.head(10), filters=False, height="400px")
         return None
 
     @render.ui
