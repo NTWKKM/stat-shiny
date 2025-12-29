@@ -1,4 +1,3 @@
-"""
 📈 Correlation & ICC Analysis Module (Shiny)
 
 Provides UI and server logic for:
@@ -55,18 +54,18 @@ def corr_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_select(
-                        f"{namespace}-coeff_type",
+                        f"{namespace}_coeff_type",
                         "Correlation Coefficient:",
                         choices={"Pearson": "Pearson", "Spearman": "Spearman"},
                         selected="Pearson"
                     ),
                     ui.input_select(
-                        f"{namespace}-cv1",
+                        f"{namespace}_cv1",
                         "Variable 1 (X-axis):",
                         choices=["Select..."]
                     ),
                     ui.input_select(
-                        f"{namespace}-cv2",
+                        f"{namespace}_cv2",
                         "Variable 2 (Y-axis):",
                         choices=["Select..."]
                     ),
@@ -75,13 +74,13 @@ def corr_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_action_button(
-                        f"{namespace}-btn_run_corr",
+                        f"{namespace}_btn_run_corr",
                         "📉 Analyze Correlation",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        f"{namespace}-btn_dl_corr",
+                        f"{namespace}_btn_dl_corr",
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -89,7 +88,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
                 
-                ui.output_ui(f"{namespace}-out_corr_result"),
+                ui.output_ui(f"{namespace}_out_corr_result"),
                 
                 full_screen=True
             )
@@ -102,7 +101,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                 ui.card_header("Intraclass Correlation Coefficient"),
                 
                 ui.input_checkbox_group(
-                    f"{namespace}-icc_vars",
+                    f"{namespace}_icc_vars",
                     "Select Variables (Raters/Methods) - Select 2+:",
                     choices=["Select..."],
                     selected=[]
@@ -110,13 +109,13 @@ def corr_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_action_button(
-                        f"{namespace}-btn_run_icc",
+                        f"{namespace}_btn_run_icc",
                         "📏 Calculate ICC",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        f"{namespace}-btn_dl_icc",
+                        f"{namespace}_btn_dl_icc",
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -124,7 +123,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
                 
-                ui.output_ui(f"{namespace}-out_icc_result"),
+                ui.output_ui(f"{namespace}_out_icc_result"),
                 
                 full_screen=True
             )
@@ -233,11 +232,11 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             
             # Update UI selects
             if cols:
-                ui.update_select(f"{namespace}-cv1", choices=cols, selected=cols[0])
-                ui.update_select(f"{namespace}-cv2", 
+                ui.update_select(f"{namespace}_cv1", choices=cols, selected=cols[0])
+                ui.update_select(f"{namespace}_cv2", 
                                choices=cols, 
                                selected=cols[1] if len(cols) > 1 else cols[0])
-                ui.update_checkbox_group(f"{namespace}-icc_vars", choices=cols)
+                ui.update_checkbox_group(f"{namespace}_icc_vars", choices=cols)
     
     # ==================== CORRELATION ANALYSIS ====================
     
