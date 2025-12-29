@@ -3,7 +3,7 @@
 # ✅ 15% faster than Python 3.9
 # ✅ 6x smaller container (150 MB vs 900 MB)
 # ✅ All dependencies fully compatible
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 # ตั้งค่า Working Directory
 WORKDIR /code
