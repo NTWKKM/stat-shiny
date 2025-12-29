@@ -22,6 +22,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 
 ```text
 |-- Dockerfile
+|-- PROJECT_SUMMARY.md
 |-- app.py
 |-- config.py
 |-- correlation.py
