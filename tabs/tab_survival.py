@@ -58,17 +58,17 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_select(
-                        f"{namespace}-surv_time",
+                        f"{namespace}_surv_time",
                         "⛳ Time Variable:",
                         choices=["Select..."]
                     ),
                     ui.input_select(
-                        f"{namespace}-surv_event",
+                        f"{namespace}_surv_event",
                         "🗣️ Event Variable (1=Event):",
                         choices=["Select..."]
                     ),
                     ui.input_select(
-                        f"{namespace}-surv_group",
+                        f"{namespace}_surv_group",
                         "Compare Groups (Optional):",
                         choices=["None"]
                     ),
@@ -76,7 +76,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 ),
                 
                 ui.input_radio_buttons(
-                    f"{namespace}-plot_type",
+                    f"{namespace}_plot_type",
                     "Select Plot Type:",
                     choices={
                         "km": "Kaplan-Meier (Survival Function)",
@@ -88,13 +88,13 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_action_button(
-                        f"{namespace}-btn_run_curves",
+                        f"{namespace}_btn_run_curves",
                         "🚀 Generate Curve",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        f"{namespace}-btn_dl_curves",
+                        f"{namespace}_btn_dl_curves",
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -102,7 +102,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
                 
-                ui.output_ui(f"{namespace}-out_curves_result"),
+                ui.output_ui(f"{namespace}_out_curves_result"),
                 
                 full_screen=True
             )
@@ -117,26 +117,26 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 ui.markdown("**Principle:** Exclude patients with event/censoring before landmark time."),
                 
                 ui.input_slider(
-                    f"{namespace}-landmark_t",
+                    f"{namespace}_landmark_t",
                     "Landmark Time (t):",
                     min=0, max=100, value=10, step=1
                 ),
                 
                 ui.input_select(
-                    f"{namespace}-landmark_group",
+                    f"{namespace}_landmark_group",
                     "Compare Group:",
                     choices=["Select..."]
                 ),
                 
                 ui.layout_columns(
                     ui.input_action_button(
-                        f"{namespace}-btn_run_landmark",
+                        f"{namespace}_btn_run_landmark",
                         "🚀 Run Landmark Analysis",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        f"{namespace}-btn_dl_landmark",
+                        f"{namespace}_btn_dl_landmark",
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -144,7 +144,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
                 
-                ui.output_ui(f"{namespace}-out_landmark_result"),
+                ui.output_ui(f"{namespace}_out_landmark_result"),
                 
                 full_screen=True
             )
@@ -157,7 +157,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 ui.card_header("Cox Proportional Hazards Regression"),
                 
                 ui.input_checkbox_group(
-                    f"{namespace}-cox_covariates",
+                    f"{namespace}_cox_covariates",
                     "Select Covariates (Predictors):",
                     choices=[],
                     selected=[]
@@ -165,13 +165,13 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_action_button(
-                        f"{namespace}-btn_run_cox",
+                        f"{namespace}_btn_run_cox",
                         "🚀 Run Cox Model",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        f"{namespace}-btn_dl_cox",
+                        f"{namespace}_btn_dl_cox",
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -179,7 +179,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
                 
-                ui.output_ui(f"{namespace}-out_cox_result"),
+                ui.output_ui(f"{namespace}_out_cox_result"),
                 
                 full_screen=True
             )
@@ -193,17 +193,17 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_select(
-                        f"{namespace}-sg_time",
+                        f"{namespace}_sg_time",
                         "Follow-up Time:",
                         choices=["Select..."]
                     ),
                     ui.input_select(
-                        f"{namespace}-sg_event",
+                        f"{namespace}_sg_event",
                         "Event Indicator (Binary):",
                         choices=["Select..."]
                     ),
                     ui.input_select(
-                        f"{namespace}-sg_treatment",
+                        f"{namespace}_sg_treatment",
                         "Treatment/Exposure:",
                         choices=["Select..."]
                     ),
@@ -212,12 +212,12 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.input_select(
-                        f"{namespace}-sg_subgroup",
+                        f"{namespace}_sg_subgroup",
                         "📌 Stratify By:",
                         choices=["Select..."]
                     ),
                     ui.input_checkbox_group(
-                        f"{namespace}-sg_adjust",
+                        f"{namespace}_sg_adjust",
                         "Adjustment Variables:",
                         choices=[]
                     ),
@@ -226,12 +226,12 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 
                 ui.details(
                     ui.input_numeric(
-                        f"{namespace}-sg_min_n",
+                        f"{namespace}_sg_min_n",
                         "Min N per subgroup:",
                         value=5, min=2, max=50
                     ),
                     ui.input_numeric(
-                        f"{namespace}-sg_min_events",
+                        f"{namespace}_sg_min_events",
                         "Min events per subgroup:",
                         value=2, min=1, max=50
                     ),
@@ -239,13 +239,13 @@ def surv_ui(namespace: str) -> ui.TagChild:
                 ),
                 
                 ui.input_action_button(
-                    f"{namespace}-btn_run_sg",
+                    f"{namespace}_btn_run_sg",
                     "🚀 Run Subgroup Analysis",
                     class_="btn-primary",
                     width="100%"
                 ),
                 
-                ui.output_ui(f"{namespace}-out_sg_result"),
+                ui.output_ui(f"{namespace}_out_sg_result"),
                 
                 full_screen=True
             )
@@ -348,16 +348,16 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             cols = data.columns.tolist()
             numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
             
-            ui.update_select(f"{namespace}-surv_time", choices=numeric_cols)
-            ui.update_select(f"{namespace}-surv_event", choices=cols)
-            ui.update_select(f"{namespace}-surv_group", choices=["None"] + cols)
-            ui.update_select(f"{namespace}-sg_time", choices=numeric_cols)
-            ui.update_select(f"{namespace}-sg_event", choices=cols)
-            ui.update_select(f"{namespace}-sg_treatment", choices=cols)
-            ui.update_select(f"{namespace}-sg_subgroup", choices=cols)
-            ui.update_checkbox_group(f"{namespace}-sg_adjust", choices=cols)
-            ui.update_checkbox_group(f"{namespace}-cox_covariates", choices=cols)
-            ui.update_select(f"{namespace}-landmark_group", choices=cols)
+            ui.update_select(f"{namespace}_surv_time", choices=numeric_cols)
+            ui.update_select(f"{namespace}_surv_event", choices=cols)
+            ui.update_select(f"{namespace}_surv_group", choices=["None"] + cols)
+            ui.update_select(f"{namespace}_sg_time", choices=numeric_cols)
+            ui.update_select(f"{namespace}_sg_event", choices=cols)
+            ui.update_select(f"{namespace}_sg_treatment", choices=cols)
+            ui.update_select(f"{namespace}_sg_subgroup", choices=cols)
+            ui.update_checkbox_group(f"{namespace}_sg_adjust", choices=cols)
+            ui.update_checkbox_group(f"{namespace}_cox_covariates", choices=cols)
+            ui.update_select(f"{namespace}_landmark_group", choices=cols)
     
     # ==================== CURVES (KM/NA) ====================
     
@@ -370,9 +370,9 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         
         return ui.card(
             ui.card_header("📈 Results"),
-            ui.output_plot(f"{namespace}-out_curves_plot"),
+            ui.output_plot(f"{namespace}_out_curves_plot"),
             ui.card_header("📄 Statistics"),
-            ui.output_data_frame(f"{namespace}-out_curves_table")
+            ui.output_data_frame(f"{namespace}_out_curves_table")
         )
     
     @render.plot
@@ -407,9 +407,9 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             **N Included (Survived >= {result['t']:.2f}):** {result['n_post']}
             **N Excluded:** {result['n_pre'] - result['n_post']}
             """),
-            ui.output_plot(f"{namespace}-out_landmark_plot"),
+            ui.output_plot(f"{namespace}_out_landmark_plot"),
             ui.card_header("📄 Log-Rank Test"),
-            ui.output_data_frame(f"{namespace}-out_landmark_table")
+            ui.output_data_frame(f"{namespace}_out_landmark_table")
         )
     
     @render.plot
@@ -439,11 +439,11 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         
         return ui.card(
             ui.card_header("📄 Cox Model Results"),
-            ui.output_data_frame(f"{namespace}-out_cox_table"),
+            ui.output_data_frame(f"{namespace}_out_cox_table"),
             ui.card_header("🌳 Forest Plot (Hazard Ratios)"),
-            ui.output_plot(f"{namespace}-out_cox_forest"),
+            ui.output_plot(f"{namespace}_out_cox_forest"),
             ui.card_header("🔍 PH Assumption Check"),
-            ui.output_ui(f"{namespace}-out_cox_assumptions")
+            ui.output_ui(f"{namespace}_out_cox_assumptions")
         )
     
     @render.data_frame
@@ -482,7 +482,7 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         if result.get('assumptions_plots'):
             ui_elements.append(ui.markdown("**Schoenfeld Residuals Plots:**"))
             for fig in result['assumptions_plots']:
-                ui_elements.append(ui.output_plot(f"{namespace}-out_assumption_plot_{id(fig)}"))
+                ui_elements.append(ui.output_plot(f"{namespace}_out_assumption_plot_{id(fig)}"))
         
         return ui.card(*ui_elements) if ui_elements else None
     
