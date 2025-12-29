@@ -14,6 +14,7 @@ Usage:
 """
 
 from shiny import ui, reactive, render
+from shiny.session import get_current_session  # เพิ่ม import นี้
 from config import CONFIG
 from logger import get_logger
 
@@ -30,6 +31,7 @@ def settings_ui(id: str) -> ui.TagChild:
     Returns:
         ui.TagChild: Settings UI layout with tabs and controls
     """
+    # ใช้ _ แทน - ใน ID ทั้งหมดเพื่อป้องกัน ValueError
     return ui.navset_tab(
         # ==========================================
         # 1. ANALYSIS SETTINGS TAB
@@ -547,7 +549,9 @@ def settings_server(id: str, config) -> None:
     Returns:
         None
     """
-    from shiny import input as shiny_input
+    # แก้ไข: ดึง input จาก session แทนการ import
+    session = get_current_session()
+    input = session.input
     
     @render.text
     @reactive.output(id=f"{id}_txt_logging_status")
@@ -562,24 +566,24 @@ def settings_server(id: str, config) -> None:
     # ANALYSIS SETTINGS SAVE
     # ==========================================
     @reactive.Effect
-    @reactive.event(shiny_input[f"{id}_btn_save_analysis"])
+    @reactive.event(input[f"{id}_btn_save_analysis"])
     def _save_analysis_settings() -> None:
         """Save analysis settings when button clicked."""
         try:
-            config.update('analysis.logit_method', shiny_input[f"{id}_logit_method"]())
-            config.update('analysis.logit_screening_p', float(shiny_input[f"{id}_logit_screening_p"]()))
-            config.update('analysis.logit_max_iter', int(shiny_input[f"{id}_logit_max_iter"]()))
-            config.update('analysis.logit_min_cases', int(shiny_input[f"{id}_logit_min_cases"]()))
-            config.update('analysis.survival_method', shiny_input[f"{id}_survival_method"]())
-            config.update('analysis.cox_method', shiny_input[f"{id}_cox_method"]())
-            config.update('analysis.var_detect_threshold', int(shiny_input[f"{id}_var_detect_threshold"]()))
-            config.update('analysis.var_detect_decimal_pct', float(shiny_input[f"{id}_var_detect_decimal_pct"]()))
-            config.update('analysis.pvalue_bounds_lower', float(shiny_input[f"{id}_pvalue_bounds_lower"]()))
-            config.update('analysis.pvalue_bounds_upper', float(shiny_input[f"{id}_pvalue_bounds_upper"]()))
-            config.update('analysis.pvalue_format_small', shiny_input[f"{id}_pvalue_format_small"]())
-            config.update('analysis.pvalue_format_large', shiny_input[f"{id}_pvalue_format_large"]())
-            config.update('analysis.missing_strategy', shiny_input[f"{id}_missing_strategy"]())
-            config.update('analysis.missing_threshold_pct', int(shiny_input[f"{id}_missing_threshold_pct"]()))
+            config.update('analysis.logit_method', input[f"{id}_logit_method"]())
+            config.update('analysis.logit_screening_p', float(input[f"{id}_logit_screening_p"]()))
+            config.update('analysis.logit_max_iter', int(input[f"{id}_logit_max_iter"]()))
+            config.update('analysis.logit_min_cases', int(input[f"{id}_logit_min_cases"]()))
+            config.update('analysis.survival_method', input[f"{id}_survival_method"]())
+            config.update('analysis.cox_method', input[f"{id}_cox_method"]())
+            config.update('analysis.var_detect_threshold', int(input[f"{id}_var_detect_threshold"]()))
+            config.update('analysis.var_detect_decimal_pct', float(input[f"{id}_var_detect_decimal_pct"]()))
+            config.update('analysis.pvalue_bounds_lower', float(input[f"{id}_pvalue_bounds_lower"]()))
+            config.update('analysis.pvalue_bounds_upper', float(input[f"{id}_pvalue_bounds_upper"]()))
+            config.update('analysis.pvalue_format_small', input[f"{id}_pvalue_format_small"]())
+            config.update('analysis.pvalue_format_large', input[f"{id}_pvalue_format_large"]())
+            config.update('analysis.missing_strategy', input[f"{id}_missing_strategy"]())
+            config.update('analysis.missing_threshold_pct', int(input[f"{id}_missing_threshold_pct"]()))
             
             logger.info("✅ Analysis settings saved")
             ui.notification_show("✅ Analysis settings saved", type="message")
@@ -591,20 +595,20 @@ def settings_server(id: str, config) -> None:
     # UI SETTINGS SAVE
     # ==========================================
     @reactive.Effect
-    @reactive.event(shiny_input[f"{id}_btn_save_ui"])
+    @reactive.event(input[f"{id}_btn_save_ui"])
     def _save_ui_settings() -> None:
         """Save UI settings when button clicked."""
         try:
-            config.update('ui.page_title', shiny_input[f"{id}_page_title"]())
-            config.update('ui.theme', shiny_input[f"{id}_theme"]())
-            config.update('ui.layout', shiny_input[f"{id}_layout"]())
-            config.update('ui.table_max_rows', int(shiny_input[f"{id}_table_max_rows"]()))
-            config.update('ui.table_pagination', bool(shiny_input[f"{id}_table_pagination"]()))
-            config.update('ui.table_decimal_places', int(shiny_input[f"{id}_table_decimal_places"]()))
-            config.update('ui.plot_width', int(shiny_input[f"{id}_plot_width"]()))
-            config.update('ui.plot_height', int(shiny_input[f"{id}_plot_height"]()))
-            config.update('ui.plot_dpi', int(shiny_input[f"{id}_plot_dpi"]()))
-            config.update('ui.plot_style', shiny_input[f"{id}_plot_style"]())
+            config.update('ui.page_title', input[f"{id}_page_title"]())
+            config.update('ui.theme', input[f"{id}_theme"]())
+            config.update('ui.layout', input[f"{id}_layout"]())
+            config.update('ui.table_max_rows', int(input[f"{id}_table_max_rows"]()))
+            config.update('ui.table_pagination', bool(input[f"{id}_table_pagination"]()))
+            config.update('ui.table_decimal_places', int(input[f"{id}_table_decimal_places"]()))
+            config.update('ui.plot_width', int(input[f"{id}_plot_width"]()))
+            config.update('ui.plot_height', int(input[f"{id}_plot_height"]()))
+            config.update('ui.plot_dpi', int(input[f"{id}_plot_dpi"]()))
+            config.update('ui.plot_style', input[f"{id}_plot_style"]())
             
             logger.info("✅ UI settings saved")
             ui.notification_show("✅ UI settings saved", type="message")
@@ -616,21 +620,21 @@ def settings_server(id: str, config) -> None:
     # LOGGING SETTINGS SAVE
     # ==========================================
     @reactive.Effect
-    @reactive.event(shiny_input[f"{id}_btn_save_logging"])
+    @reactive.event(input[f"{id}_btn_save_logging"])
     def _save_logging_settings() -> None:
         """Save logging settings when button clicked."""
         try:
-            config.update('logging.enabled', bool(shiny_input[f"{id}_logging_enabled"]()))
-            config.update('logging.level', shiny_input[f"{id}_logging_level"]())
-            config.update('logging.file_enabled', bool(shiny_input[f"{id}_file_enabled"]()))
-            config.update('logging.log_dir', shiny_input[f"{id}_log_dir"]())
-            config.update('logging.log_file', shiny_input[f"{id}_log_file"]())
-            config.update('logging.console_enabled', bool(shiny_input[f"{id}_console_enabled"]()))
-            config.update('logging.console_level', shiny_input[f"{id}_console_level"]())
-            config.update('logging.log_file_operations', bool(shiny_input[f"{id}_log_file_ops"]()))
-            config.update('logging.log_data_operations', bool(shiny_input[f"{id}_log_data_ops"]()))
-            config.update('logging.log_analysis_operations', bool(shiny_input[f"{id}_log_analysis_ops"]()))
-            config.update('logging.log_performance', bool(shiny_input[f"{id}_log_performance"]()))
+            config.update('logging.enabled', bool(input[f"{id}_logging_enabled"]()))
+            config.update('logging.level', input[f"{id}_logging_level"]())
+            config.update('logging.file_enabled', bool(input[f"{id}_file_enabled"]()))
+            config.update('logging.log_dir', input[f"{id}_log_dir"]())
+            config.update('logging.log_file', input[f"{id}_log_file"]())
+            config.update('logging.console_enabled', bool(input[f"{id}_console_enabled"]()))
+            config.update('logging.console_level', input[f"{id}_console_level"]())
+            config.update('logging.log_file_operations', bool(input[f"{id}_log_file_ops"]()))
+            config.update('logging.log_data_operations', bool(input[f"{id}_log_data_ops"]()))
+            config.update('logging.log_analysis_operations', bool(input[f"{id}_log_analysis_ops"]()))
+            config.update('logging.log_performance', bool(input[f"{id}_log_performance"]()))
             
             logger.info("✅ Logging settings saved")
             ui.notification_show("✅ Logging settings saved", type="message")
@@ -642,14 +646,14 @@ def settings_server(id: str, config) -> None:
     # PERFORMANCE SETTINGS SAVE
     # ==========================================
     @reactive.Effect
-    @reactive.event(shiny_input[f"{id}_btn_save_perf"])
+    @reactive.event(input[f"{id}_btn_save_perf"])
     def _save_perf_settings() -> None:
         """Save performance settings when button clicked."""
         try:
-            config.update('performance.enable_caching', bool(shiny_input[f"{id}_caching_enabled"]()))
-            config.update('performance.cache_ttl', int(shiny_input[f"{id}_cache_ttl"]()))
-            config.update('performance.enable_compression', bool(shiny_input[f"{id}_compression_enabled"]()))
-            config.update('performance.num_threads', int(shiny_input[f"{id}_num_threads"]()))
+            config.update('performance.enable_caching', bool(input[f"{id}_caching_enabled"]()))
+            config.update('performance.cache_ttl', int(input[f"{id}_cache_ttl"]()))
+            config.update('performance.enable_compression', bool(input[f"{id}_compression_enabled"]()))
+            config.update('performance.num_threads', int(input[f"{id}_num_threads"]()))
             
             logger.info("✅ Performance settings saved")
             ui.notification_show("✅ Performance settings saved", type="message")
@@ -661,18 +665,18 @@ def settings_server(id: str, config) -> None:
     # ADVANCED SETTINGS SAVE
     # ==========================================
     @reactive.Effect
-    @reactive.event(shiny_input[f"{id}_btn_save_advanced"])
+    @reactive.event(input[f"{id}_btn_save_advanced"])
     def _save_advanced_settings() -> None:
         """Save advanced settings when button clicked."""
         try:
-            config.update('validation.strict_mode', bool(shiny_input[f"{id}_strict_mode"]()))
-            config.update('validation.validate_inputs', bool(shiny_input[f"{id}_validate_inputs"]()))
-            config.update('validation.validate_outputs', bool(shiny_input[f"{id}_validate_outputs"]()))
-            config.update('validation.auto_fix_errors', bool(shiny_input[f"{id}_auto_fix_errors"]()))
-            config.update('debug.enabled', bool(shiny_input[f"{id}_debug_enabled"]()))
-            config.update('debug.verbose', bool(shiny_input[f"{id}_debug_verbose"]()))
-            config.update('debug.profile_performance', bool(shiny_input[f"{id}_profile_performance"]()))
-            config.update('debug.show_timings', bool(shiny_input[f"{id}_show_timings"]()))
+            config.update('validation.strict_mode', bool(input[f"{id}_strict_mode"]()))
+            config.update('validation.validate_inputs', bool(input[f"{id}_validate_inputs"]()))
+            config.update('validation.validate_outputs', bool(input[f"{id}_validate_outputs"]()))
+            config.update('validation.auto_fix_errors', bool(input[f"{id}_auto_fix_errors"]()))
+            config.update('debug.enabled', bool(input[f"{id}_debug_enabled"]()))
+            config.update('debug.verbose', bool(input[f"{id}_debug_verbose"]()))
+            config.update('debug.profile_performance', bool(input[f"{id}_profile_performance"]()))
+            config.update('debug.show_timings', bool(input[f"{id}_show_timings"]()))
             
             logger.info("✅ Advanced settings saved")
             ui.notification_show("✅ Advanced settings saved", type="message")
