@@ -1,8 +1,7 @@
-# ใช้ Python 3.11-slim Image เป็นฐาน
-# ✅ Security support until Oct 2027 (2+ years)
-# ✅ 15% faster than Python 3.9
-# ✅ 6x smaller container (150 MB vs 900 MB)
-# ✅ All dependencies fully compatible
+# ใช้ Python 3.10-slim Image เป็นฐาน
+# ✅ Security support until Oct 2026 (Python 3.10 EOL)
+# ✅ Compatible with firthlogist (requires Python <3.11)
+# ✅ Smaller container vs full Python image
 FROM python:3.10-slim
 
 # ตั้งค่า Working Directory
