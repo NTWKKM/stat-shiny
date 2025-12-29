@@ -2,13 +2,14 @@ from shiny import App, ui, reactive, render, Session
 from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
-import hashlib
 import io
 
 # Import Config/Logger
-# หมายเหตุ: ตรวจสอบว่าไฟล์ config.py และ logger.py ไม่มีการเรียก import streamlit
 from config import CONFIG
 from logger import get_logger, LoggerFactory
+
+# Import Tabs Modules
+from tabs import tab_baseline_matching  # <--- Import Module ใหม่ที่นี่
 
 # Initialize Logger
 LoggerFactory.configure()
@@ -63,13 +64,13 @@ app_ui = ui.page_navbar(
         )
     ),
     
-    # --- Placeholders for other tabs (To be implemented) ---
+    # --- 1. Table 1 & Matching Module ---
     ui.nav_panel("📋 Table 1 & Matching", 
-        ui.card(
-            ui.card_header("Work in Progress"),
-            ui.p("🚧 Please convert 'tabs/tab_baseline_matching.py' to Shiny module.")
-        )
+        # เรียกใช้ UI ของ Module โดยตั้งชื่อ id="bm" (Baseline Matching)
+        tab_baseline_matching.baseline_matching_ui("bm")
     ),
+
+    # --- Placeholders for other tabs (To be implemented) ---
     ui.nav_panel("🧪 Diagnostic Tests", 
         ui.card(ui.p("🚧 Please convert 'tabs/tab_diag.py' to Shiny module."))
     ),
@@ -97,14 +98,16 @@ app_ui = ui.page_navbar(
 def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
 
-    # --- Reactive State (แทน st.session_state) ---
+    # --- Reactive State (Global) ---
     df = reactive.Value(None)
     var_meta = reactive.Value({})
     uploaded_file_info = reactive.Value(None)
     
-    # Matched data state
+    # Matched data state (Shared across tabs)
     df_matched = reactive.Value(None)
     is_matched = reactive.Value(False)
+    matched_treatment_col = reactive.Value(None) # เพิ่ม state นี้
+    matched_covariates = reactive.Value([])      # เพิ่ม state นี้
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps():
@@ -130,24 +133,21 @@ def server(input, output, session: Session):
         """Logic for generating example data"""
         logger.info("Generating example data...")
         
-        # แสดง Notification แทน Spinner
         id_notify = ui.notification_show("Generating simulation...", duration=None)
             
         try:
             np.random.seed(42)
             n = 600
             
-            # --- 1. Demographics (Baseline) ---
+            # --- Simulation Logic (Same as before) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
             
-            # --- 2. Create Confounding for PSM (Selection Bias) ---
             logit_treat = -4.5 + (0.05 * age) + (0.08 * bmi) + (0.2 * sex)
             p_treat = 1 / (1 + np.exp(-logit_treat))
             group = np.random.binomial(1, p_treat, n)
             
-            # --- 3. Comorbidities ---
             logit_dm = -5 + (0.04 * age) + (0.1 * bmi)
             p_dm = 1 / (1 + np.exp(-logit_dm))
             diabetes = np.random.binomial(1, p_dm, n)
@@ -156,7 +156,6 @@ def server(input, output, session: Session):
             p_ht = 1 / (1 + np.exp(-logit_ht))
             hypertension = np.random.binomial(1, p_ht, n)
 
-            # --- 4. Survival Outcome ---
             lambda_base = 0.002 
             linear_predictor = 0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
             hazard = lambda_base * np.exp(linear_predictor)
@@ -166,12 +165,10 @@ def server(input, output, session: Session):
             time_obs = np.maximum(time_obs, 0.5)
             status_death = (surv_time <= censor_time).astype(int)
             
-            # --- 5. Binary Outcome ---
             logit_cure = 0.5 + 1.2 * group - 0.04 * age - 0.5 * diabetes
             p_cure = 1 / (1 + np.exp(-logit_cure))
             outcome_cured = np.random.binomial(1, p_cure, n)
 
-            # --- 6. Diagnostic Test Data ---
             gold_std = np.random.binomial(1, 0.3, n)
             rapid_score = np.where(gold_std==0, 
                                    np.random.normal(20, 10, n), 
@@ -187,17 +184,14 @@ def server(input, output, session: Session):
                                rater_a, 
                                1 - rater_a)
 
-            # --- 7. Correlation Data ---
             hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
             glucose = (hba1c * 15) + np.random.normal(0, 15, n)
             glucose = glucose.round(0)
 
-            # --- 8. ICC Data ---
             icc_rater1 = np.random.normal(120, 15, n).round(1)
             icc_rater2 = icc_rater1 + 5 + np.random.normal(0, 4, n)
             icc_rater2 = icc_rater2.round(1)
 
-            # Create DataFrame
             data = {
                 'ID': range(1, n+1),
                 'Treatment_Group': group,  
@@ -221,7 +215,6 @@ def server(input, output, session: Session):
             
             new_df = pd.DataFrame(data)
             
-            # Set Metadata
             meta = {
                 'Treatment_Group': {'type':'Categorical', 'map':{0:'Standard Care', 1:'New Drug'}, 'label': 'Treatment Group'},
                 'Sex_Male': {'type':'Categorical', 'map':{0:'Female', 1:'Male'}, 'label': 'Sex'},
@@ -243,7 +236,6 @@ def server(input, output, session: Session):
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            # Update States
             df.set(new_df)
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
@@ -267,13 +259,11 @@ def server(input, output, session: Session):
         logger.info(f"File uploaded: {f['name']}")
         
         try:
-            # Check file extension
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
             else:
                 new_df = pd.read_excel(f['datapath'])
             
-            # Update States
             df.set(new_df)
             uploaded_file_info.set({"name": f['name']})
             
@@ -281,7 +271,6 @@ def server(input, output, session: Session):
             current_meta = var_meta.get().copy()
             for col in new_df.columns:
                 if col not in current_meta:
-                    # Simple auto-detect logic
                     unique_vals = new_df[col].dropna().unique()
                     unique_count = len(unique_vals)
                     is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
@@ -306,6 +295,8 @@ def server(input, output, session: Session):
         var_meta.set({})
         df_matched.set(None)
         is_matched.set(False)
+        matched_treatment_col.set(None)
+        matched_covariates.set([])
         ui.notification_show("All data reset", type="warning")
 
     # --- 2. Sidebar Metadata Logic ---
@@ -341,13 +332,11 @@ def server(input, output, session: Session):
             return
             
         new_map = {}
-        # Parse map string
         for line in input.txt_var_map().split('\n'):
             if '=' in line:
                 k, v = line.split('=', 1)
                 try:
                     k = k.strip()
-                    # Try converting key to float/int
                     try:
                         k_num = float(k)
                         k = int(k_num) if k_num.is_integer() else k_num
@@ -357,7 +346,6 @@ def server(input, output, session: Session):
                 except Exception:
                     pass
 
-        # Update State
         current_meta = var_meta.get().copy()
         current_meta[var_name] = {
             'type': input.radio_var_type(),
@@ -389,8 +377,21 @@ def server(input, output, session: Session):
     def _():
         df_matched.set(None)
         is_matched.set(False)
+        matched_treatment_col.set(None)
+        matched_covariates.set([])
+
+    # ==========================================
+    # 3. CALL MODULES
+    # ==========================================
+    
+    # Call Table 1 & Matching Module
+    # ส่ง state ทั้งหมดเข้าไป เพื่อให้ module จัดการ logic ภายใน
+    tab_baseline_matching.baseline_matching_server("bm", 
+        df, var_meta, df_matched, is_matched, 
+        matched_treatment_col, matched_covariates
+    )
 
 # ==========================================
-# 3. APP LAUNCHER
+# 4. APP LAUNCHER
 # ==========================================
 app = App(app_ui, server)
