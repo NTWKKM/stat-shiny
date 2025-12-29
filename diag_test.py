@@ -17,6 +17,7 @@ import numpy as np
 import scipy.stats as stats
 from sklearn.metrics import roc_curve, roc_auc_score, cohen_kappa_score
 import plotly.graph_objects as go
+import plotly.io as pio
 import html as _html
 import warnings
 from logger import get_logger
@@ -591,3 +592,131 @@ def calculate_icc(df, cols):
     
     logger.debug(f"ICC calculated: ICC(2,1)={icc2_1:.4f}, ICC(3,1)={icc3_1:.4f}")
     return res_df, None, anova_df
+
+
+def generate_report(title, report_items):
+    """
+    Generate HTML report from report items (tables, plots, etc).
+    
+    Args:
+        title (str): Report title
+        report_items (list): List of dicts with 'type' and 'data' keys
+                            Types: 'table', 'plot', 'text', 'contingency_table', 'html'
+    
+    Returns:
+        str: HTML report string
+    """
+    html_parts = []
+    
+    # Header
+    html_parts.append(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{_html.escape(title)}</title>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 20px;
+                background-color: #f5f5f5;
+                color: #333;
+            }}
+            .container {{
+                max-width: 900px;
+                margin: 0 auto;
+                background-color: white;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }}
+            h1 {{
+                color: #0056b3;
+                border-bottom: 2px solid #0056b3;
+                padding-bottom: 10px;
+                margin-bottom: 30px;
+            }}
+            h2 {{
+                color: #004085;
+                margin-top: 25px;
+                margin-bottom: 15px;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 15px 0;
+                font-size: 0.95em;
+            }}
+            th {{
+                background-color: #004085;
+                color: white;
+                padding: 12px;
+                text-align: left;
+                font-weight: 600;
+            }}
+            td {{
+                border: 1px solid #ddd;
+                padding: 10px;
+                text-align: left;
+            }}
+            tr:nth-child(even) {{
+                background-color: #f9f9f9;
+            }}
+            tr:hover {{
+                background-color: #f0f0f0;
+            }}
+            .plot-container {{
+                margin: 20px 0;
+                text-align: center;
+            }}
+            .text-section {{
+                margin: 15px 0;
+                padding: 15px;
+                background-color: #f9f9f9;
+                border-left: 4px solid #0056b3;
+                border-radius: 4px;
+            }}
+        </style>
+    </head>
+    <body>
+    <div class="container">
+        <h1>{_html.escape(title)}</h1>
+    """)
+    
+    # Process items
+    for item in report_items:
+        item_type = item.get('type', 'table')
+        
+        if item_type == 'text':
+            data = item.get('data', '')
+            html_parts.append(f'<div class="text-section">{_html.escape(str(data))}</div>')
+        
+        elif item_type == 'table' or item_type == 'contingency_table':
+            data = item.get('data')
+            header = item.get('header', 'Data')
+            
+            if isinstance(data, pd.DataFrame):
+                html_parts.append(f'<h2>{_html.escape(str(header))}</h2>')
+                html_parts.append(data.to_html(border=0, classes='table', index=True))
+            else:
+                html_parts.append(f'<p>No data available for {_html.escape(str(header))}</p>')
+        
+        elif item_type == 'plot':
+            fig = item.get('data')
+            if fig is not None:
+                # Convert Plotly figure to HTML
+                plot_html = pio.to_html(fig, include_plotlyjs='cdn', div_id=None)
+                html_parts.append(f'<div class="plot-container">{plot_html}</div>')
+        
+        elif item_type == 'html':
+            html_parts.append(item.get('data', ''))
+    
+    # Footer
+    html_parts.append("""
+    </div>
+    </body>
+    </html>
+    """)
+    
+    return ''.join(html_parts)
