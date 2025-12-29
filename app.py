@@ -1,114 +1,141 @@
-import streamlit as st
+from shiny import App, ui, reactive, render, Session
+from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
-import io
 import hashlib
-import streamlit.components.v1 as components
+import io
 
-# ✅ FIX #7-8: IMPORT CONFIG AND LOGGER (MINIMAL WIRING)
+# Import Config/Logger
+# หมายเหตุ: ตรวจสอบว่าไฟล์ config.py และ logger.py ไม่มีการเรียก import streamlit
 from config import CONFIG
 from logger import get_logger, LoggerFactory
 
-# ==========================================
-# 1. CONFIG & LOADING SCREEN KILLER (Must be First)
-# ==========================================
-st.set_page_config(
-    page_title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),  # ✅ USE CONFIG
-    layout=CONFIG.get('ui.layout', 'wide'),  # ✅ USE CONFIG
-    menu_items={
-        'Get Help': 'https://ntwkkm.github.io/pl/infos/stat_manual.html',
-        'Report a bug': "https://github.com/NTWKKM/stat-netilfy/issues", 
-    }
-)
-
-# Initialize logging system (once at app start)
-@st.cache_resource(show_spinner=False)
-def _init_logging() -> bool:
-    """
-    Configure the application's global logging and record that the app has started.
-    """
-    LoggerFactory.configure()
-    get_logger(__name__).info("📱 Streamlit app started")
-    return True
-
-_init_logging()
-
-# Get logger instance (after configuration)
+# Initialize Logger
+LoggerFactory.configure()
 logger = get_logger(__name__)
 
 # ==========================================
-# 1a. CHECK OPTIONAL DEPENDENCIES (FIX #1)
+# 1. UI DEFINITION
 # ==========================================
-@st.cache_resource(show_spinner=False)
-def check_optional_deps():
-    """
-    Report presence of optional third-party dependencies used by the app.
-    """
-    deps_status = {}
+app_ui = ui.page_navbar(
+    # --- Global Sidebar (Data Management) ---
+    ui.nav_panel("📁 Data Management",
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h4("MENU"),
+                ui.h5("1. Data Management"),
+                
+                # Example Data Button
+                ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
+                ui.br(), ui.br(),
+                
+                # File Uploader
+                ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
+                
+                ui.hr(),
+                
+                # Reset Buttons
+                ui.output_ui("ui_btn_clear_match"), # Conditional button
+                ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
+                
+                ui.hr(),
+                
+                # Metadata Editor
+                ui.h5("2. Variable Metadata"),
+                ui.input_select("sel_var_edit", "Edit Var:", choices=["Select..."]),
+                ui.panel_conditional(
+                    "input.sel_var_edit != 'Select...'",
+                    ui.input_radio_buttons("radio_var_type", "Type:", 
+                                         choices={"Categorical": "Categorical", "Continuous": "Continuous"}),
+                    ui.input_text_area("txt_var_map", "Labels (Format: 0=No)", height="80px"),
+                    ui.input_action_button("btn_save_meta", "💾 Save")
+                ),
+                width=350,
+                bg="#f8f9fa"
+            ),
+            
+            # --- Tab 0 Content: Data Preview ---
+            ui.card(
+                ui.card_header("📁 Raw Data Preview"),
+                ui.output_data_frame("out_df_preview"),
+                full_screen=True
+            )
+        )
+    ),
     
-    try:
-        import firthlogist
-        deps_status['firth'] = {'installed': True, 'msg': '✅ Firth regression enabled'}
-    except ImportError:
-        deps_status['firth'] = {'installed': False, 'msg': '⚠️ Firth regression unavailable - using Standard Logistic Regression (BFGS)'}
+    # --- Placeholders for other tabs (To be implemented) ---
+    ui.nav_panel("📋 Table 1 & Matching", 
+        ui.card(
+            ui.card_header("Work in Progress"),
+            ui.p("🚧 Please convert 'tabs/tab_baseline_matching.py' to Shiny module.")
+        )
+    ),
+    ui.nav_panel("🧪 Diagnostic Tests", 
+        ui.card(ui.p("🚧 Please convert 'tabs/tab_diag.py' to Shiny module."))
+    ),
+    ui.nav_panel("📈 Correlation & ICC", 
+        ui.card(ui.p("🚧 Please convert 'tabs/tab_corr.py' to Shiny module."))
+    ),
+    ui.nav_panel("📊 Risk Factors", 
+        ui.card(ui.p("🚧 Please convert 'tabs/tab_logit.py' to Shiny module."))
+    ),
+    ui.nav_panel("⏳ Survival Analysis", 
+        ui.card(ui.p("🚧 Please convert 'tabs/tab_survival.py' to Shiny module."))
+    ),
+    ui.nav_panel("⚙️ Settings", 
+        ui.card(ui.p("🚧 Settings UI"))
+    ),
 
-    get_logger(__name__).info("Optional dependencies: firth=%s", deps_status['firth']['installed'])
-    return deps_status
-
-if 'checked_deps' not in st.session_state:
-    deps = check_optional_deps()
-    st.session_state.checked_deps = True
-    if not deps['firth']['installed']:
-        st.info(deps['firth']['msg'])
+    title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
+    id="main_navbar",
+    window_title="Medical Stat Tool"
+)
 
 # ==========================================
-# 2. IMPORT MODULES
+# 2. SERVER LOGIC
 # ==========================================
-try:
-    from tabs import tab_data
-    from tabs import tab_baseline_matching
-    from tabs import tab_diag
-    from tabs import tab_corr
-    from tabs import tab_logit
-    from tabs import tab_survival
-    from tabs import tab_settings  # 🟢 NEW: Import Settings Tab
-except (KeyboardInterrupt, SystemExit):
-    raise
-except Exception as e:
-    logger.exception("Failed to import tabs")  # ✅ LOG ERROR
-    st.exception(e)
-    st.stop()
+def server(input, output, session: Session):
+    logger.info("📱 Shiny app session started")
 
-# --- INITIALIZE STATE ---
-if 'df' not in st.session_state:
-    st.session_state.df = None
-if 'var_meta' not in st.session_state:
-    st.session_state.var_meta = {}
-if 'uploaded_file_name' not in st.session_state:
-    st.session_state.uploaded_file_name = None
+    # --- Reactive State (แทน st.session_state) ---
+    df = reactive.Value(None)
+    var_meta = reactive.Value({})
+    uploaded_file_info = reactive.Value(None)
     
-# 🟢 NEW: Initialize matched data session state
-if 'df_matched' not in st.session_state:
-    st.session_state.df_matched = None
-if 'is_matched' not in st.session_state:
-    st.session_state.is_matched = False
-if 'matched_treatment_col' not in st.session_state:
-    st.session_state.matched_treatment_col = None
-if 'matched_covariates' not in st.session_state:
-    st.session_state.matched_covariates = []
-    
-# --- SIDEBAR ---
-st.sidebar.title("MENU")
-st.sidebar.header("1. Data Management")
+    # Matched data state
+    df_matched = reactive.Value(None)
+    is_matched = reactive.Value(False)
 
-# Example Data Generator
-if st.sidebar.button("📄 Load Example Data"):
-    logger.log_operation("example_data", "started", n_rows=600)  
+    # --- Helper: Check Dependencies ---
+    def check_optional_deps():
+        deps_status = {}
+        try:
+            import firthlogist
+            deps_status['firth'] = {'installed': True, 'msg': '✅ Firth regression enabled'}
+        except ImportError:
+            deps_status['firth'] = {'installed': False, 'msg': '⚠️ Firth regression unavailable'}
+        
+        logger.info("Optional dependencies: firth=%s", deps_status['firth']['installed'])
+        if not deps_status['firth']['installed']:
+            ui.notification_show(deps_status['firth']['msg'], type="warning")
+            
+    # Run check on start
+    check_optional_deps()
+
+    # --- 1. Data Loading Logic ---
     
-    try:
-        with logger.track_time("generate_example_data", log_level="debug"): 
-            np.random.seed(42) # Fixed seed for reproducibility
-            n = 600 
+    @reactive.Effect
+    @reactive.event(input.btn_load_example)
+    def _():
+        """Logic for generating example data"""
+        logger.info("Generating example data...")
+        
+        # แสดง Notification แทน Spinner
+        id_notify = ui.notification_show("Generating simulation...", duration=None)
+            
+        try:
+            np.random.seed(42)
+            n = 600
             
             # --- 1. Demographics (Baseline) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
@@ -192,291 +219,178 @@ if st.sidebar.button("📄 Load Example Data"):
                 'ICC_SysBP_Rater2': icc_rater2,
             }
             
-            st.session_state.df = pd.DataFrame(data)
-        
-        # Set Metadata
-        st.session_state.var_meta = {
-            'Treatment_Group': {'type':'Categorical', 'map':{0:'Standard Care', 1:'New Drug'}, 'label': 'Treatment Group'},
-            'Sex_Male': {'type':'Categorical', 'map':{0:'Female', 1:'Male'}, 'label': 'Sex'},
-            'Comorb_Diabetes': {'type':'Categorical', 'map':{0:'No', 1:'Yes'}, 'label': 'Diabetes'},
-            'Comorb_Hypertension': {'type':'Categorical', 'map':{0:'No', 1:'Yes'}, 'label': 'Hypertension'},
-            'Outcome_Cured': {'type':'Categorical', 'map':{0:'Not Cured', 1:'Cured'}, 'label': 'Outcome (Cured)'},
-            'Status_Death': {'type':'Categorical', 'map':{0:'Censored/Alive', 1:'Dead'}, 'label': 'Status (Death)'},
-            'Gold_Standard_Disease': {'type':'Categorical', 'map':{0:'Healthy', 1:'Disease'}, 'label': 'Gold Standard'},
-            'Diagnosis_Dr_A': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. A)'},
-            'Diagnosis_Dr_B': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. B)'},
+            new_df = pd.DataFrame(data)
             
-            'Age_Years': {'type': 'Continuous', 'label': 'Age (Years)', 'map': {}},
-            'BMI_kgm2': {'type': 'Continuous', 'label': 'BMI (kg/m²)', 'map': {}},
-            'Time_Months': {'type': 'Continuous', 'label': 'Time (Months)', 'map': {}},
-            'Test_Score_Rapid': {'type': 'Continuous', 'label': 'Rapid Test Score (0-100)', 'map': {}},
-            'Lab_HbA1c': {'type': 'Continuous', 'label': 'HbA1c (%)', 'map': {}},
-            'Lab_Glucose': {'type': 'Continuous', 'label': 'Fasting Glucose (mg/dL)', 'map': {}},
-            'ICC_SysBP_Rater1': {'type': 'Continuous', 'label': 'Sys BP (Rater 1)', 'map': {}},
-            'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
-        }
-        st.session_state.uploaded_file_name = "Example Clinical Data"
-        
-        logger.log_operation("example_data", "completed", 
-                            rows=len(st.session_state.df),
-                            columns=len(st.session_state.df.columns))
-        st.sidebar.success(f"✅ Loaded {n} Clinical Records (Simulated)")
-        st.rerun()
-        
-    except Exception as e:
-        logger.log_operation("example_data", "failed", error=str(e)) 
-        st.sidebar.error(f"Error loading example data: {e}")
-    
-# File Uploader
-upl = st.sidebar.file_uploader("Upload CSV/Excel", type=['csv', 'xlsx'])
-if upl:
-    data_bytes = upl.getvalue()
-    file_size_mb = len(data_bytes) / 1e6
-    logger.log_operation("file_upload", "started",   # ✅ LOG START
-                        filename=upl.name, 
-                        size=f"{file_size_mb:.1f}MB")
-    
-    try:
-        file_sig = (upl.name, hashlib.sha256(data_bytes).hexdigest())
-        
-        if st.session_state.get('uploaded_file_sig') != file_sig:
-            with logger.track_time("file_parse", log_level="debug"):  # ✅ TRACK TIMING
-                if upl.name.lower().endswith('.csv'):
-                    new_df = pd.read_csv(io.BytesIO(data_bytes))
-                else:
-                    new_df = pd.read_excel(io.BytesIO(data_bytes))
+            # Set Metadata
+            meta = {
+                'Treatment_Group': {'type':'Categorical', 'map':{0:'Standard Care', 1:'New Drug'}, 'label': 'Treatment Group'},
+                'Sex_Male': {'type':'Categorical', 'map':{0:'Female', 1:'Male'}, 'label': 'Sex'},
+                'Comorb_Diabetes': {'type':'Categorical', 'map':{0:'No', 1:'Yes'}, 'label': 'Diabetes'},
+                'Comorb_Hypertension': {'type':'Categorical', 'map':{0:'No', 1:'Yes'}, 'label': 'Hypertension'},
+                'Outcome_Cured': {'type':'Categorical', 'map':{0:'Not Cured', 1:'Cured'}, 'label': 'Outcome (Cured)'},
+                'Status_Death': {'type':'Categorical', 'map':{0:'Censored/Alive', 1:'Dead'}, 'label': 'Status (Death)'},
+                'Gold_Standard_Disease': {'type':'Categorical', 'map':{0:'Healthy', 1:'Disease'}, 'label': 'Gold Standard'},
+                'Diagnosis_Dr_A': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. A)'},
+                'Diagnosis_Dr_B': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. B)'},
+                
+                'Age_Years': {'type': 'Continuous', 'label': 'Age (Years)', 'map': {}},
+                'BMI_kgm2': {'type': 'Continuous', 'label': 'BMI (kg/m²)', 'map': {}},
+                'Time_Months': {'type': 'Continuous', 'label': 'Time (Months)', 'map': {}},
+                'Test_Score_Rapid': {'type': 'Continuous', 'label': 'Rapid Test Score (0-100)', 'map': {}},
+                'Lab_HbA1c': {'type': 'Continuous', 'label': 'HbA1c (%)', 'map': {}},
+                'Lab_Glucose': {'type': 'Continuous', 'label': 'Fasting Glucose (mg/dL)', 'map': {}},
+                'ICC_SysBP_Rater1': {'type': 'Continuous', 'label': 'Sys BP (Rater 1)', 'map': {}},
+                'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
+            }
             
-            st.session_state.df = new_df
-            st.session_state.uploaded_file_name = upl.name
-            st.session_state.uploaded_file_sig = file_sig
+            # Update States
+            df.set(new_df)
+            var_meta.set(meta)
+            uploaded_file_info.set({"name": "Example Clinical Data"})
             
-            # FIX #6: PRESERVE METADATA ON UPLOAD
-            current_meta = {}
+            ui.notification_remove(id_notify)
+            ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
+
+        except Exception as e:
+            ui.notification_remove(id_notify)
+            ui.notification_show(f"Error: {e}", type="error")
+
+    @reactive.Effect
+    @reactive.event(input.file_upload)
+    def _():
+        """Logic for File Upload"""
+        file_infos: list[FileInfo] = input.file_upload()
+        if not file_infos:
+            return
+            
+        f = file_infos[0]
+        logger.info(f"File uploaded: {f['name']}")
+        
+        try:
+            # Check file extension
+            if f['name'].lower().endswith('.csv'):
+                new_df = pd.read_csv(f['datapath'])
+            else:
+                new_df = pd.read_excel(f['datapath'])
+            
+            # Update States
+            df.set(new_df)
+            uploaded_file_info.set({"name": f['name']})
+            
+            # Preserve/Init Metadata
+            current_meta = var_meta.get().copy()
             for col in new_df.columns:
-                if col in st.session_state.var_meta:
-                    current_meta[col] = st.session_state.var_meta[col]
-                else:
-                    if pd.api.types.is_numeric_dtype(new_df[col]):
-                        unique_vals = new_df[col].dropna().unique()
-                        unique_count = len(unique_vals)
-                        
-                        if unique_count < 10:
-                            try:
-                                decimals_count = sum(1 for v in unique_vals if not float(v).is_integer())
-                            except (ValueError, TypeError):
-                                decimals_count = 0
-                            decimals_pct = decimals_count / len(unique_vals) if len(unique_vals) > 0 else 0
-                            
-                            if decimals_pct < 0.3:
-                                current_meta[col] = {'type': 'Categorical', 'label': col, 'map': {}, 'confidence': 'auto'}
-                            else:
-                                current_meta[col] = {'type': 'Continuous', 'label': col, 'map': {}, 'confidence': 'auto'}
-                        else:
-                            current_meta[col] = {'type': 'Continuous', 'label': col, 'map': {}, 'confidence': 'auto'}
+                if col not in current_meta:
+                    # Simple auto-detect logic
+                    unique_vals = new_df[col].dropna().unique()
+                    unique_count = len(unique_vals)
+                    is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
+                    
+                    if is_numeric and unique_count > 10:
+                         current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
                     else:
-                        current_meta[col] = {'type': 'Categorical', 'label': col, 'map': {}, 'confidence': 'auto'}
-
-            st.session_state.var_meta = current_meta
+                         current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
-            logger.log_operation("file_upload", "completed",  # ✅ LOG COMPLETION
-                               rows=len(new_df), columns=len(new_df.columns))
-            st.sidebar.success("File Uploaded and Metadata Initialized!")
-            st.rerun()
-        
-        else:
-            st.sidebar.info("File already loaded.")
+            var_meta.set(current_meta)
+            ui.notification_show("File Uploaded Successfully!", type="message")
             
-    except (ValueError, UnicodeDecodeError, pd.errors.ParserError, ImportError, Exception) as e:
-        logger.log_operation("file_upload", "failed", error=str(e))  # ✅ LOG ERROR
-        st.sidebar.error(f"Error: {e}")
-        st.session_state.df = None
-        st.session_state.uploaded_file_name = None
-        st.session_state.uploaded_file_sig = None
+        except Exception as e:
+            logger.error(f"Error reading file: {e}")
+            ui.notification_show(f"Error: {str(e)}", type="error")
 
-# 🟢 NEW: Reset/Clear Matched Data Button
-if st.session_state.is_matched:
-    if st.sidebar.button("🔄 Clear Matched Data", type="secondary"):
-        logger.info("🔄 User cleared matched data")
-        st.session_state.df_matched = None
-        st.session_state.is_matched = False
-        st.session_state.matched_treatment_col = None
-        st.session_state.matched_covariates = []
-        st.rerun()
+    @reactive.Effect
+    @reactive.event(input.btn_reset_all)
+    def _():
+        """Reset Logic"""
+        df.set(None)
+        var_meta.set({})
+        df_matched.set(None)
+        is_matched.set(False)
+        ui.notification_show("All data reset", type="warning")
 
-if st.sidebar.button("⚠️ Reset All Data", type="primary"):
-    logger.info("🔄 User reset all data")  # ✅ LOG RESET
-    st.session_state.clear()
-    st.rerun()
-
-# Variable Settings (Metadata)
-if st.session_state.df is not None:
-    st.sidebar.header("2. Variable Metadata") # 🟢 Renamed to avoid confusion with new Settings Tab
-    cols = st.session_state.df.columns.tolist()
+    # --- 2. Sidebar Metadata Logic ---
     
-    # Auto detect for select box labeling
-    auto_detect_meta = {c: st.session_state.var_meta.get(c, {'type': 'Auto-detect', 'map': {}}).get('type', 'Auto-detect') for c in cols}
-    
-    s_var = st.sidebar.selectbox("Edit Var:", ["Select...", *cols])
-    if s_var != "Select...":
-        if s_var not in st.session_state.var_meta:
-            is_numeric = pd.api.types.is_numeric_dtype(st.session_state.df[s_var]) if s_var in st.session_state.df.columns else False
-            initial_type = 'Continuous' if is_numeric else 'Categorical'
-            st.session_state.var_meta[s_var] = {'type': initial_type, 'label': s_var, 'map': {}}
+    @reactive.Effect
+    def _update_var_select():
+        """Update dropdown choices when df changes"""
+        data = df.get()
+        if data is not None:
+            cols = ["Select..."] + data.columns.tolist()
+            ui.update_select("sel_var_edit", choices=cols)
 
-        meta = st.session_state.var_meta.get(s_var, {})
+    @reactive.Effect
+    @reactive.event(input.sel_var_edit)
+    def _load_meta_to_ui():
+        """Load metadata into inputs when variable is selected"""
+        var_name = input.sel_var_edit()
+        meta = var_meta.get()
         
-        current_type = meta.get('type', 'Auto-detect')
-        if current_type == 'Auto-detect':
-            is_numeric = pd.api.types.is_numeric_dtype(st.session_state.df[s_var]) if s_var in st.session_state.df.columns else False
-            current_type = 'Continuous' if is_numeric else 'Categorical'
+        if var_name != "Select..." and var_name in meta:
+            m = meta[var_name]
+            ui.update_radio_buttons("radio_var_type", selected=m.get('type', 'Categorical'))
+            
+            map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
+            ui.update_text_area("txt_var_map", value=map_str)
 
-        allowed_types = ['Categorical', 'Continuous']
-        if current_type not in allowed_types:
-            current_type = 'Categorical'
-
-        n_type = st.sidebar.radio(
-            "Type:",
-            allowed_types,
-            index=allowed_types.index(current_type),
-        )
-                                    
-        st.sidebar.markdown("Labels (0=No):")
-        map_txt = st.sidebar.text_area("Map", value="\n".join([f"{k}={v}" for k,v in meta.get('map',{}).items()]), height=80)
-        
-        if st.sidebar.button("💾 Save"):
-            new_map = {}
-            for line in map_txt.split('\n'):
-                if '=' in line:
-                    k, v = line.split('=', 1)
+    @reactive.Effect
+    @reactive.event(input.btn_save_meta)
+    def _save_metadata():
+        """Save logic for metadata editor"""
+        var_name = input.sel_var_edit()
+        if var_name == "Select...":
+            return
+            
+        new_map = {}
+        # Parse map string
+        for line in input.txt_var_map().split('\n'):
+            if '=' in line:
+                k, v = line.split('=', 1)
+                try:
+                    k = k.strip()
+                    # Try converting key to float/int
                     try:
-                        k = k.strip()
-                        try:
-                            k_num = float(k)
-                            k = int(k_num) if k_num.is_integer() else k_num
-                        except ValueError:
-                            pass
-                        new_map[k] = v.strip()
-                    except (TypeError, ValueError) as e:
-                        st.sidebar.warning(f"Skipping invalid map line '{line}': {e}")
-            
-            if s_var not in st.session_state.var_meta: 
-                st.session_state.var_meta[s_var] = {}
-            
-            st.session_state.var_meta[s_var]['type'] = n_type
-            st.session_state.var_meta[s_var]['map'] = new_map
-            st.session_state.var_meta[s_var].setdefault('label', s_var)
-            
-            logger.info("✅ Variable '%s' configured as %s", s_var, n_type)  # ✅ LOG CONFIG
-            st.sidebar.success("Saved!")
-            st.rerun()
+                        k_num = float(k)
+                        k = int(k_num) if k_num.is_integer() else k_num
+                    except ValueError:
+                        pass
+                    new_map[k] = v.strip()
+                except Exception:
+                    pass
 
-# ==========================================
-# MAIN AREA - TABS (7 TOTAL)
-# ==========================================
-if st.session_state.df is not None:
-    df = st.session_state.df 
+        # Update State
+        current_meta = var_meta.get().copy()
+        current_meta[var_name] = {
+            'type': input.radio_var_type(),
+            'map': new_map,
+            'label': var_name
+        }
+        var_meta.set(current_meta)
+        ui.notification_show(f"Saved metadata for {var_name}", type="message")
+
+    # --- 3. Render Outputs ---
+
+    @render.data_frame
+    def out_df_preview():
+        """Render the Data Grid"""
+        d = df.get()
+        if d is not None:
+            return render.DataGrid(d, filters=True, height="500px")
+        return None
+
+    @render.ui
+    def ui_btn_clear_match():
+        """Show clear match button only if matched data exists"""
+        if is_matched.get():
+             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
+        return None
     
-    cols_to_verify = [c for c in st.session_state.var_meta if st.session_state.var_meta[c].get('confidence') == 'auto']
-    if cols_to_verify:
-        with st.expander("⚠️ Auto-Detected Variable Types (Please Verify)", expanded=False):
-            st.info(f"The following {len(cols_to_verify)} column(s) were auto-detected. Please verify they are correct in the sidebar Settings:")
-            for col in cols_to_verify[:10]:
-                detected_type = st.session_state.var_meta[col]['type']
-                st.caption(f"  • **{col}**: {detected_type}")
-            if len(cols_to_verify) > 10:
-                st.caption(f"  ... and {len(cols_to_verify) - 10} more")
+    @reactive.Effect
+    @reactive.event(input.btn_clear_match)
+    def _():
+        df_matched.set(None)
+        is_matched.set(False)
 
-    # 🟢 Display Matched Data Status
-    if st.session_state.is_matched and st.session_state.df_matched is not None:
-        st.info(f"""
-        ✅ **Matched Dataset Active**
-        - Original data: {len(df)} rows
-        - Matched data: {len(st.session_state.df_matched)} rows ({len(df) - len(st.session_state.df_matched)} rows excluded)
-        - Treatment: {st.session_state.matched_treatment_col}
-        - Use dropdown in each tab to select **"✅ Matched Data"** for analysis
-        """)
-        
-    # 🟢 FINAL TAB LAYOUT (Now 7 Tabs)
-    t0, t1, t2, t3, t4, t5, t6 = st.tabs([
-        "📁 Data Management", 
-        "📋 Table 1 & Matching", 
-        "🧪 Diagnostic Tests (ROC)",
-        "📈 Correlation & ICC",
-        "📊 Risk Factors (Logistic)",
-        "⏳ Survival Analysis (KM & Cox)",
-        "⚙️ Settings" # 🟢 NEW TAB
-    ])
-
-    # ---------------------------------------------------------
-    # TAB 0: Data Management & Cleaning (MASTER LOGIC)
-    # ---------------------------------------------------------
-    with t0:
-        # 1. User views/edits raw data (still has symbols like >100)
-        st.session_state.df = tab_data.render(df) 
-        
-        # 2. Prepare Clean Data for Analysis Tabs
-        custom_na = st.session_state.get('custom_na_list', [])
-        # This converts >100 to 100.0, etc.
-        df_clean = tab_data.get_clean_data(st.session_state.df, custom_na)
-
-    # ---------------------------------------------------------
-    # TAB 1-5: Use Cleaned Data (df_clean)
-    # ---------------------------------------------------------
-    with t1:
-        tab_baseline_matching.render(df_clean, st.session_state.var_meta)
-        
-    with t2:
-        tab_diag.render(df_clean, st.session_state.var_meta)
-        
-    with t3:
-        # ✅ Fixed: Added st.session_state.var_meta argument
-        tab_corr.render(df_clean, st.session_state.var_meta)
-        
-    with t4:
-        tab_logit.render(df_clean, st.session_state.var_meta)
-        
-    with t5:
-        tab_survival.render(df_clean, st.session_state.var_meta)
-
-    # ---------------------------------------------------------
-    # TAB 6: Settings (Global Config)
-    # ---------------------------------------------------------
-    with t6:
-        tab_settings.render()
-        
-else:
-    st.info("👈 Please load example data or upload a file to start.")
-    st.markdown("""
-### ✨ 7-Tab Analysis Pipeline:
-
-1. **📁 Data Management** - Upload, clean, set variable types
-2. **📋 Table 1 & Matching** - Baseline characteristics + Propensity Score Matching
-3. **🧪 Diagnostic Tests (ROC)** - Chi-Square, ROC, Kappa, RR/OR/NNT
-4. **📈 Correlation & ICC** - Pearson, Spearman, ICC reliability
-5. **📊 Risk Factors (Logistic)** - Binary logistic regression
-6. **⏳ Survival Analysis** - Kaplan-Meier & Cox regression
-7. **⚙️ Settings** - Configure system parameters, UI, and analysis defaults
-    """)
-    
 # ==========================================
-# GLOBAL CSS
+# 3. APP LAUNCHER
 # ==========================================
-
-st.markdown("""
-<style>
-footer {
-    visibility: hidden;
-    height: 0px;
-}
-footer:after {
-    content: none;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<hr style="margin-top: 20px; margin-bottom: 10px; border-color: var(--border-color); opacity: 0.5;">
-<div style='text-align: center; font-size: 0.8em; color: var(--text-color); opacity: 0.8;'>
-    &copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold;">NTWKKM n Donate</a>. All Rights Reserved. | Powered by GitHub, Gemini, Streamlit
-</div>
-""", unsafe_allow_html=True)
+app = App(app_ui, server)
