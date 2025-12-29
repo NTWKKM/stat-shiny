@@ -51,7 +51,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
     """
     return ui.navset_tab(
         # TAB 1: Survival Curves (KM & Nelson-Aalen)
-        ui.nav(
+        ui.nav_panel(
             "📈 Survival Curves",
             ui.card(
                 ui.card_header("Kaplan-Meier & Nelson-Aalen Curves"),
@@ -109,7 +109,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
         ),
         
         # TAB 2: Landmark Analysis
-        ui.nav(
+        ui.nav_panel(
             "📊 Landmark Analysis",
             ui.card(
                 ui.card_header("Landmark Analysis for Late Endpoints"),
@@ -151,7 +151,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
         ),
         
         # TAB 3: Cox Regression
-        ui.nav(
+        ui.nav_panel(
             "📈 Cox Regression",
             ui.card(
                 ui.card_header("Cox Proportional Hazards Regression"),
@@ -186,7 +186,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
         ),
         
         # TAB 4: Subgroup Analysis
-        ui.nav(
+        ui.nav_panel(
             "📛 Subgroup Analysis",
             ui.card(
                 ui.card_header("Cox Subgroup Analysis - Treatment Heterogeneity"),
@@ -252,7 +252,7 @@ def surv_ui(namespace: str) -> ui.TagChild:
         ),
         
         # TAB 5: Reference & Interpretation
-        ui.nav(
+        ui.nav_panel(
             "ℹ️ Reference",
             ui.card(
                 ui.card_header("📚 Quick Reference: Survival Analysis"),
