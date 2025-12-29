@@ -4,7 +4,21 @@ from scipy import stats
 import statsmodels.api as sm
 import html as _html
 import warnings
-from tabs._common import get_color_palette
+
+# Try importing common palette, fallback if not found
+try:
+    from tabs._common import get_color_palette
+except ImportError:
+    def get_color_palette():
+        return {
+            'primary': '#007bff',
+            'primary_dark': '#0056b3',
+            'secondary': '#6c757d',
+            'background': '#f8f9fa',
+            'text': '#212529',
+            'text_secondary': '#6c757d',
+            'danger': '#dc3545'
+        }
 
 def clean_numeric(val):
     if pd.isna(val): 
@@ -125,6 +139,7 @@ def safe_group_compare(series, val):
             
     # Fallback to string comparison for non-numeric series
     return series.astype(str) == str(val)
+
 # --- 🟢 UPDATED: Calculate OR & 95% CI (One-vs-Rest) for Categorical [Legacy/Fallback] ---
 def compute_or_for_row(row_series, cat_val, group_series, g1_val):
     try:
@@ -610,7 +625,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
     html += "</div>"
     
     html += """<div class='report-footer'>
-    &copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank" style="text-decoration:none; color:inherit;">NTWKKM n Donate</a>. All Rights Reserved. | Powered by GitHub, Gemini, Streamlit
+    &copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank" style="text-decoration:none; color:inherit;">NTWKKM n Donate</a>. All Rights Reserved. | Powered by GitHub, Gemini, Shiny
     </div></body></html>"""
 
     return html
