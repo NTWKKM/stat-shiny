@@ -246,7 +246,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def _run_kappa():
         d = current_df()
         # FIX: Check 'd is not None' explicitly
-        req(d is not None)
+        req(d is not None, input.sel_kappa_v1(), input.sel_kappa_v2())
         res, err, conf = diag_test.calculate_kappa(d, input.sel_kappa_v1(), input.sel_kappa_v2())
         if err: kappa_html.set(err)
         else:
