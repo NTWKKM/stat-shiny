@@ -1,3 +1,4 @@
+"""
 📈 Correlation & ICC Analysis Module (Shiny)
 
 Provides UI and server logic for:
@@ -18,7 +19,7 @@ logger = get_logger(__name__)
 
 
 def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> Tuple[pd.DataFrame, str]:
-    """
+    
     Choose between original and matched datasets for correlation analysis.
     
     Args:
@@ -28,7 +29,7 @@ def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, i
         
     Returns:
         Tuple of (selected_dataframe, label_string)
-    """
+    
     if is_matched.get() and df_matched.get() is not None:
         return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
     else:
