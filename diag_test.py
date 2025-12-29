@@ -467,7 +467,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         y=[0, 1],
         mode='lines',
         name='Chance (AUC=0.5)',
-        line={'color': COLORS['neutral'], 'width': 1, 'dash': 'dash'},
+        line={'color': COLORS.get('neutral', '#999'), 'width': 1, 'dash': 'dash'},
         hoverinfo='skip'
     ))
     
