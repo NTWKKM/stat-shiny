@@ -432,7 +432,7 @@ def settings_ui(id: str) -> ui.TagChild:
                 ),
                 
                 ui.card(
-                    ui.card_header("ℹ️ Performance Guide"),
+                    ui.card_header("Info: Performance Guide"),
                     ui.markdown("""
                     ### Caching
                     - **TTL**: How long to keep cached results (seconds)
