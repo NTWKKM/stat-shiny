@@ -215,11 +215,12 @@ class ForestPlot:
 
         # 2. Format P-value
         if self.pval_col:
-            def fmt_p(p):
+            def fmt_p(p) -> str:
                 try:
                     p_str = str(p).replace('<', '').replace('>', '').strip()
                     p_float = float(p_str)
-                    if p_float < 0.001: return "<0.001"
+                    if p_float < 0.001:
+                        return "<0.001"
                     return f"{p_float:.3f}"
                 except (ValueError, TypeError): 
                     return str(p)
@@ -318,8 +319,8 @@ class ForestPlot:
 
         fig.add_trace(go.Scatter(
             x=self.data[self.estimate_col], y=y_pos,
-            error_x=dict(type='data', symmetric=False, array=self.data[self.ci_high_col] - self.data[self.estimate_col], arrayminus=self.data[self.estimate_col] - self.data[self.ci_low_col], color='rgba(100,100,100,0.5)', thickness=2, width=4),
-            mode='markers', marker=dict(size=10, color=marker_colors, symbol='square', line=dict(width=1.5, color='white')),
+            error_x={'type': 'data', 'symmetric': False, 'array': self.data[self.ci_high_col] - self.data[self.estimate_col], 'arrayminus': self.data[self.estimate_col] - self.data[self.ci_low_col], 'color': 'rgba(100,100,100,0.5)', 'thickness': 2, 'width': 4},
+            mode='markers', marker={'size': 10, 'color': marker_colors, 'symbol': 'square', 'line': {'width': 1.5, 'color': 'white'}},
             text=self.data['__display_label'], customdata=customdata, hovertemplate=hovertemplate, showlegend=False
         ), row=1, col=plot_col)
 
@@ -366,7 +367,7 @@ def create_forest_plot(
         fp = ForestPlot(data, estimate_col, ci_low_col, ci_high_col, label_col, pval_col)
         return fp.create(title=title, x_label=x_label, ref_line=ref_line, height=height, **kwargs)
     except ValueError as e:
-        logger.error(f"Forest plot creation failed: {e}")
+        logger.exception("Forest plot creation failed")
         return go.Figure()
 
 
