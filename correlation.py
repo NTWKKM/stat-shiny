@@ -1,57 +1,53 @@
+"""
+📊 Correlation & Statistical Association Module (Shiny Compatible)
+
+Provides functions for:
+- Pearson/Spearman correlation analysis
+- Chi-square and Fisher's exact tests for categorical data
+- Interactive Plotly visualizations
+- HTML report generation
+
+Note: Removed Streamlit dependencies, now Shiny-compatible
+"""
+
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import plotly.graph_objects as go
-import plotly.express as px
-import io, base64
-import streamlit as st
 import html as _html
+import io
+import base64
 from tabs._common import get_color_palette
 
 # Get unified color palette
 COLORS = get_color_palette()
 
-# 🔧 FIX: Line 314 now uses COLORS['text'] instead of COLORS['text_primary']
 
-# 🌟 1. IMPORT STREAMLIT
-
-@st.cache_data(show_spinner=False)
 def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_pos=None):
-    """ 
-    Compute a contingency table and perform a Chi-square or Fisher's Exact test between two categorical dataframe columns.
-    Constructs crosstabs (counts, totals, and row percentages), optionally reorders rows/columns based on v1_pos/v2_pos, 
-    and runs the selected statistical test. For 2x2 tables the function also computes common risk metrics 
-    (risk, risk ratio, risk difference, NNT, and odds ratio) when possible.
+    """
+    Compute chi-square or Fisher's exact test between two categorical variables.
     
-    Parameters:
-        df (pandas.DataFrame): Source dataframe containing the columns.
-        col1 (str): Row (exposure) column name to analyze.
-        col2 (str): Column (outcome) column name to analyze.
-        method (str, optional): Test selection string. If it contains "Fisher" the function runs Fisher's Exact Test 
-            (requires a 2x2 table). If it contains "Yates" a Yates-corrected chi-square is used; 
-            otherwise Pearson chi-square is used. Defaults to 'Pearson (Standard)'.
-        v1_pos (str | int, optional): If provided, that row label is moved to the first position in the displayed table 
-            (useful for ordering exposure groups).
-        v2_pos (str | int, optional): If provided, that column label is moved to the first position in the displayed table 
-            (useful for ordering outcome categories).
-    
+    Args:
+        df (pd.DataFrame): Source dataframe
+        col1 (str): Row (exposure) column name
+        col2 (str): Column (outcome) column name
+        method (str): Test method ('Fisher', 'Yates', or 'Pearson')
+        v1_pos: Position for row reordering
+        v2_pos: Position for column reordering
+        
     Returns:
-        tuple: (display_tab, stats_res, msg, risk_df)
-            display_tab (pandas.DataFrame): Formatted contingency table for display where each cell is "count (percentage%)", 
-                including totals.
-            stats_res (dict | None): Test results and metadata (e.g., {"Test": ..., "Statistic": ..., "P-value": ..., 
-                "Degrees of Freedom": ..., "N": ...}) or Fisher-specific keys; None on error.
-            msg (str): Human-readable summary of the test result and any warnings (e.g., expected count warnings 
-                or Fisher requirement errors).
-            risk_df (pandas.DataFrame | None): For 2x2 tables, a table of risk metrics (Risk in exposed/unexposed, RR, RD, NNT, OR); 
-                None when not applicable or on failure.
+        tuple: (display_tab, stats_df, msg, risk_df)
+            - display_tab: Formatted contingency table
+            - stats_df: Test results as DataFrame
+            - msg: Human-readable summary
+            - risk_df: Risk metrics for 2x2 tables
     """
     if col1 not in df.columns or col2 not in df.columns:
         return None, None, "Columns not found", None
     
     data = df[[col1, col2]].dropna()
     
-    # 1. Crosstabs
+    # 1. Create crosstabs
     tab_chi2 = pd.crosstab(data[col1], data[col2])
     tab_raw = pd.crosstab(data[col1], data[col2], margins=True, margins_name="Total")
     tab_row_pct = pd.crosstab(data[col1], data[col2], normalize='index', margins=True, margins_name="Total") * 100
@@ -62,27 +58,21 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     base_col_labels = [col for col in all_col_labels if col != 'Total']
     base_row_labels = [row for row in all_row_labels if row != 'Total']
     
-    # 🌟 Helper Functions (ประกาศครั้งเดียว)
     def get_original_label(label_str, df_labels):
-        """ 
-        Find the original label from a collection that matches a given string representation.
-        """
+        """Find the original label from a collection."""
         for lbl in df_labels:
             if str(lbl) == label_str:
                 return lbl
         return label_str
     
     def custom_sort(label):
-        """ 
-        Produce a sort key for a label by converting numeric-like labels to floats and leaving others as strings.
-        Using tuple (priority, value) to handle mixed types safely.
-        """
+        """Sort key for mixed numeric/string labels."""
         try:
-            return (0, float(label))  # ให้ตัวเลขมาก่อนเสมอ
+            return (0, float(label))
         except (ValueError, TypeError):
-            return (1, str(label))  # ตามด้วยตัวหนังสือ
+            return (1, str(label))
     
-    # --- Reorder Cols ---
+    # Reorder columns
     final_col_order_base = base_col_labels[:]
     if v2_pos is not None:
         v2_pos_original = get_original_label(v2_pos, base_col_labels)
@@ -90,12 +80,11 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             final_col_order_base.remove(v2_pos_original)
             final_col_order_base.insert(0, v2_pos_original)
     else:
-        # Intentional: Sort ascending (smallest to largest) for deterministic order.
         final_col_order_base.sort(key=custom_sort)
     
     final_col_order = final_col_order_base + ['Total']
     
-    # --- Reorder Rows ---
+    # Reorder rows
     final_row_order_base = base_row_labels[:]
     if v1_pos is not None:
         v1_pos_original = get_original_label(v1_pos, base_row_labels)
@@ -103,7 +92,6 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             final_row_order_base.remove(v1_pos_original)
             final_row_order_base.insert(0, v1_pos_original)
     else:
-        # Intentional: Sort ascending (smallest to largest) for deterministic order.
         final_row_order_base.sort(key=custom_sort)
     
     final_row_order = final_row_order_base + ['Total']
@@ -113,13 +101,11 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     tab_row_pct = tab_row_pct.reindex(index=final_row_order, columns=final_col_order)
     tab_chi2 = tab_chi2.reindex(index=final_row_order_base, columns=final_col_order_base)
     
-    col_names = final_col_order
-    index_names = final_row_order
-    
+    # Format display table
     display_data = []
-    for row_name in index_names:
+    for row_name in final_row_order:
         row_data = []
-        for col_name in col_names:
+        for col_name in final_col_order:
             count = tab_raw.loc[row_name, col_name]
             if col_name == 'Total':
                 pct = 100.0
@@ -129,11 +115,11 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             row_data.append(cell_content)
         display_data.append(row_data)
     
-    display_tab = pd.DataFrame(display_data, columns=col_names, index=index_names)
+    display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
     display_tab.index.name = col1
     
-    # 3. Stats
-    msg = "" # 🌟 NEW: Initialize msg for warnings only
+    # 3. Statistical tests
+    msg = ""
     try:
         is_2x2 = (tab_chi2.shape == (2, 2))
         
@@ -141,19 +127,18 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             if not is_2x2:
                 return display_tab, None, "Error: Fisher's Exact Test requires a 2x2 table.", None
             
-            # Fisher's Exact Test
             odds_ratio, p_value = stats.fisher_exact(tab_chi2)
             method_name = "Fisher's Exact Test"
             
             stats_res = {
                 "Test": method_name,
-                "Statistic (OR)": f"{odds_ratio:.4f}", # Format Value here
-                "P-value": f"{p_value:.4f}",          # Format Value here
+                "Statistic (OR)": f"{odds_ratio:.4f}",
+                "P-value": f"{p_value:.4f}",
                 "Degrees of Freedom": "-",
                 "N": len(data)
             }
         else:
-            # Chi-Square Test
+            # Chi-Square test
             use_correction = True if "Yates" in method else False
             chi2, p, dof, ex = stats.chi2_contingency(tab_chi2, correction=use_correction)
             method_name = "Chi-Square"
@@ -162,56 +147,53 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             
             stats_res = {
                 "Test": method_name,
-                "Statistic": f"{chi2:.4f}",           # Format Value here
-                "P-value": f"{p:.4f}",                # Format Value here
+                "Statistic": f"{chi2:.4f}",
+                "P-value": f"{p:.4f}",
                 "Degrees of Freedom": f"{dof}",
                 "N": len(data)
             }
             
             # Warning check
             if (ex < 5).any() and is_2x2 and not use_correction:
-                msg += " ⚠️ Warning: Expected count < 5. Consider using Fisher's Exact Test."
+                msg += " ⚠️ Warning: Expected count < 5. Consider Fisher's Exact Test."
         
-        # 🌟 FIX: res is dict, convert to DataFrame for table display
-        stats_df_for_report = pd.DataFrame(stats_res, index=[0]).T.reset_index()
-        stats_df_for_report.columns = ['Statistic', 'Value']
-
-        return display_tab, stats_df_for_report, msg, None # 🌟 RETURN DF
+        stats_df = pd.DataFrame(stats_res, index=[0]).T.reset_index()
+        stats_df.columns = ['Statistic', 'Value']
+        
+        return display_tab, stats_df, msg, None
     
     except Exception as e:
         return display_tab, None, str(e), None
 
 
-@st.cache_data(show_spinner=False)
 def calculate_correlation(df, col1, col2, method='pearson'):
-    """ 
-    Compute a correlation between two dataframe columns and produce an interactive scatter plot with optional linear fit using Plotly.
+    """
+    Compute correlation between two numeric variables.
     
-    Parameters:
-        df (pandas.DataFrame): Source dataframe containing the two columns.
-        col1 (str): Column name to use for the x-axis.
-        col2 (str): Column name to use for the y-axis.
-        method (str): Correlation method: 'pearson' for Pearson (linear) or any other value for Spearman (monotonic).
-    
+    Args:
+        df (pd.DataFrame): Source dataframe
+        col1 (str): X-axis column name
+        col2 (str): Y-axis column name
+        method (str): 'pearson' or 'spearman'
+        
     Returns:
-        result (dict or None): If successful, a dictionary with keys "Method" (name), "Coefficient" (correlation value), 
-            "P-value" (two-sided p-value), and "N" (number of paired observations); otherwise None.
-        error (str or None): An error message when columns are missing or non-numeric; otherwise None.
-        fig (plotly.graph_objects.Figure or None): Interactive scatter plot figure with regression line for Pearson; None on error.
+        tuple: (result_dict, error_msg, plotly_figure)
+            - result_dict: Dict with Method, Coefficient, P-value, N
+            - error_msg: Error message or None
+            - plotly_figure: Interactive scatter plot or None
     """
     if col1 not in df.columns or col2 not in df.columns:
         return None, "Columns not found", None
     
-    # 1. Coerce to numeric, turning non-numeric into NaN (handles mixed types gracefully)
+    # Coerce to numeric
     v1_coerced = pd.to_numeric(df[col1], errors='coerce')
     v2_coerced = pd.to_numeric(df[col2], errors='coerce')
     
-    # 2. Combine and drop all rows where either column is NaN (original NaN or coerced non-numeric)
+    # Drop NaN
     data_numeric = pd.DataFrame({col1: v1_coerced, col2: v2_coerced}).dropna()
     
-    # Check if enough numeric data remains (need at least 2 points for correlation)
     if len(data_numeric) < 2:
-        return None, "Error: Cannot compute correlation. Columns must contain at least two numeric values.", None
+        return None, "Error: Need at least 2 numeric values.", None
     
     v1 = data_numeric[col1]
     v2 = data_numeric[col2]
@@ -219,16 +201,14 @@ def calculate_correlation(df, col1, col2, method='pearson'):
     if method == 'pearson':
         corr, p = stats.pearsonr(v1, v2)
         name = "Pearson"
-        desc = "Linear"
     else:
         corr, p = stats.spearmanr(v1, v2)
         name = "Spearman"
-        desc = "Monotonic"
     
-    # 🌟 UPDATED: ใช้ Plotly แทน Matplotlib และ unified colors
+    # Create Plotly figure
     fig = go.Figure()
     
-    # เพิ่ม scatter plot
+    # Add scatter plot
     fig.add_trace(go.Scatter(
         x=v1,
         y=v2,
@@ -243,7 +223,7 @@ def calculate_correlation(df, col1, col2, method='pearson'):
         hovertemplate=f'{col1}: %{{x:.2f}}<br>{col2}: %{{y:.2f}}<extra></extra>'
     ))
     
-    # เพิ่มเส้น regression (เฉพาะ Pearson)
+    # Add regression line for Pearson
     if method == 'pearson':
         try:
             m, b = np.polyfit(v1, v2, 1)
@@ -258,14 +238,10 @@ def calculate_correlation(df, col1, col2, method='pearson'):
                 line={'color': COLORS['danger'], 'width': 2, 'dash': 'dash'},
                 hovertemplate='Fitted line<extra></extra>'
             ))
-        except Exception as e:
-            fig.add_annotation(
-                text=f"Fit line unavailable: {e}",
-                xref="paper", yref="paper", x=0.5, y=1.08, showarrow=False,
-                font={'color': COLORS['danger'], 'size': 11},
-            )
+        except Exception:
+            pass
     
-    # ปรับแต่งเค้าโครงหลาย
+    # Update layout
     fig.update_layout(
         title={
             'text': f'{col1} vs {col2}<br><sub>{name} correlation (r={corr:.3f}, p={p:.4f})</sub>',
@@ -282,7 +258,6 @@ def calculate_correlation(df, col1, col2, method='pearson'):
         showlegend=True
     )
     
-    # เพิ่มกริด
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     
@@ -290,35 +265,27 @@ def calculate_correlation(df, col1, col2, method='pearson'):
 
 
 def generate_report(title, elements):
-    """ 
-    Generate a complete HTML report containing a title and a sequence of report elements.
-    Enhanced with unified navy color palette from _common.py.
-    
-    Parameters:
-        title (str): Report title displayed at the top of the page.
-        elements (list[dict]): Ordered list of report elements. Each element must include:
-            - type (str): One of 'text', 'table', 'contingency_table', 'interpretation', or 'plot'.
-            - data: Content for the element:
-                - 'text': a string paragraph.
-                - 'table': a pandas DataFrame rendered as an HTML table.
-                - 'contingency_table': a pandas DataFrame used to build a custom two-row header contingency table.
-                - 'interpretation': interpretation text with styling.
-                - 'plot': a Plotly Figure to be embedded as interactive HTML.
-            - header (str, optional): Section header placed above the element.
-    
-    Returns:
-        str: Complete HTML document as a string, styled and containing the rendered elements.
     """
+    Generate HTML report from elements.
     
-    # 🔧 FIX: Use COLORS['text'] instead of COLORS['text_primary']
+    Args:
+        title (str): Report title
+        elements (list[dict]): List of report elements
+            - type: 'text', 'table', 'interpretation', 'plot'
+            - data: Content
+            - header: Optional section header
+            
+    Returns:
+        str: Complete HTML document
+    """
     primary_color = COLORS['primary']
     primary_dark = COLORS['primary_dark']
-    text_color = COLORS['text']  # 🔧 FIXED: was COLORS['text_primary']
+    text_color = COLORS['text']
     
-    css_style = f""" 
+    css_style = f"""
     <style>
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
             margin: 20px;
             background-color: #f8f9fa;
             color: {text_color};
@@ -339,7 +306,6 @@ def generate_report(title, elements):
             padding-left: 12px;
             margin-bottom: 15px;
         }}
-        /* Professional Tables */
         table {{
             border-collapse: collapse;
             width: 100%;
@@ -358,18 +324,12 @@ def generate_report(title, elements):
             background-color: {primary_color};
             color: white;
             font-weight: 600;
-            letter-spacing: 0.5px;
         }}
         table tr:hover {{
             background-color: #f8f9fa;
         }}
         table tr:nth-child(even) {{
             background-color: #fcfcfc;
-        }}
-        /* Text formatting */
-        p {{
-            margin: 12px 0;
-            color: {text_color};
         }}
         .metric-text {{
             font-size: 1.02em;
@@ -390,9 +350,7 @@ def generate_report(title, elements):
             background-color: #ecf0f1;
             padding: 4px 8px;
             border-radius: 4px;
-            letter-spacing: 0.3px;
         }}
-        /* Interpretation boxes */
         .interpretation {{
             background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
             border-left: 4px solid {primary_color};
@@ -402,24 +360,6 @@ def generate_report(title, elements):
             line-height: 1.7;
             color: {text_color};
         }}
-        .interpretation::before {{
-            content: "ℹ️ ";
-            margin-right: 8px;
-        }}
-        /* Warning boxes */
-        .warning {{
-            background: linear-gradient(135deg, #fef5e7 0%, #f9f6f0 100%);
-            border-left: 4px solid {COLORS['warning']};
-            padding: 14px 15px;
-            margin: 16px 0;
-            border-radius: 5px;
-            color: #7d6608;
-            line-height: 1.7;
-        }}
-        /* Report footer */
-        .report-table {{
-            border: 1px solid #ecf0f1;
-        }}
         .report-footer {{
             text-align: center;
             font-size: 0.85em;
@@ -427,15 +367,6 @@ def generate_report(title, elements):
             margin-top: 40px;
             border-top: 1px solid #ecf0f1;
             padding-top: 20px;
-        }}
-        .report-footer a {{
-            color: {primary_color};
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }}
-        .report-footer a:hover {{
-            color: {primary_dark};
-            text-decoration: underline;
         }}
     </style>
     """
@@ -453,8 +384,7 @@ def generate_report(title, elements):
         
         if element_type == 'text':
             text_str = str(data)
-            # Check if it's a metric (has : separator)
-            if ':' in text_str and len(text_str) < 150:  # Likely a metric, not a full sentence
+            if ':' in text_str and len(text_str) < 150:
                 parts = text_str.split(':', 1)
                 label = _html.escape(parts[0].strip())
                 value = _html.escape(parts[1].strip())
@@ -465,68 +395,13 @@ def generate_report(title, elements):
         elif element_type == 'interpretation':
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
         
-        elif element_type == 'warning':
-            html += f"<div class='warning'>{_html.escape(str(data))}</div>"
-        
         elif element_type == 'table':
-            # Check if it's a statistics table
-            is_stats_table = ('Statistic' in data.columns and 'Value' in data.columns 
-                              and data.index.name is None)
-            
-            html += data.to_html(index=not is_stats_table, classes='report-table', escape=True)
-        
-        elif element_type == 'contingency_table':
-            col_labels = data.columns.tolist()
-            row_labels = data.index.tolist()
-            exp_name = data.index.name or "Exposure"
-            out_name = element.get('outcome_col', 'Outcome')
-            
-            html += "<table class='report-table'>"
-            html += "<thead>"
-            
-            # First Header Row: Spanning Outcome Column
-            html += f"<tr><th></th><th colspan='{len(col_labels)}'>{_html.escape(str(out_name))}</th></tr>"
-            
-            # Second Header Row: Exposure and all Column Labels
-            html += "<tr>"
-            html += f"<th>{_html.escape(str(exp_name))}</th>"
-            for col_label in col_labels:
-                html += f"<th>{_html.escape(str(col_label))}</th>"
-            html += "</tr>"
-            html += "</thead>"
-            
-            # Table Body
-            html += "<tbody>"
-            for idx_label in row_labels:
-                html += "<tr>"
-                # Row Header (Index name)
-                html += f"<td>{_html.escape(str(idx_label))}</td>"
-                # Data Cells
-                for col_label in col_labels:
-                    val = data.loc[idx_label, col_label]
-                    html += f"<td>{_html.escape(str(val))}</td>" 
-                html += "</tr>"
-            html += "</tbody>"
-            
-            html += "</table>"
+            html += data.to_html(index=True, classes='', escape=True)
         
         elif element_type == 'plot':
-            # Check if it's a Plotly Figure
-            plot_obj = data
-            
-            if hasattr(plot_obj, 'to_html'):
-                # Plotly Figure
-                html += plot_obj.to_html(full_html=False, include_plotlyjs='cdn', div_id=f"plot_{id(plot_obj)}") 
-            else:
-                # Matplotlib Figure - convert to PNG and embed
-                buf = io.BytesIO()
-                plot_obj.savefig(buf, format='png', bbox_inches='tight')
-                b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                html += f'<img src="data:image/png;base64,{b64}" style="max-width:100%; margin: 20px 0;" />'
-
-    html += """<div class='report-footer'>
-    &copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by GitHub, Gemini, Streamlit
-    </div>"""
+            if hasattr(data, 'to_html'):
+                html += data.to_html(full_html=False, include_plotlyjs='cdn')
     
+    html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
     html += "</body>\n</html>"
     return html
