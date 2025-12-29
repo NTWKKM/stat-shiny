@@ -34,7 +34,7 @@ def data_ui(id):
             # --- ส่วน Variable Settings (Accordion Style) ---
             ui.accordion(
                 ui.accordion_panel(
-                    "🛠️ 1. Variable Settings & Value Labels",
+                    "🛠️ 1. Variable Settings & Labels",
                     ui.layout_columns(
                         ui.div(
                             ui.input_select(ns("sel_var_edit"), "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
@@ -61,10 +61,10 @@ def data_ui(id):
 
             ui.br(),
             
-            # --- ส่วน Raw Data Preview (รองรับการแบ่งหน้าอัตโนมัติ) ---
+            # --- ส่วน Raw Data Preview ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
-                # ✅ ตรวจสอบ ID ให้ตรงกับฟังก์ชันใน Server (out_df_preview)
+                # ✅ ตรวจสอบ ID ให้ตรงกับฟังก์ชันใน Server
                 ui.output_data_frame(ns("out_df_preview")),
                 height="600px",
                 full_screen=True
@@ -80,7 +80,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
     input = session.input
     ns = lambda x: f"{id}_{x}"
 
-    # --- 1. Data Loading Logic (คง Logic เดิมทั้งหมดและปรับ n=1500) ---
+    # --- 1. Data Loading Logic (1500 Rows) ---
     @reactive.Effect
     @reactive.event(lambda: input[ns("btn_load_example")]())
     def _():
@@ -88,7 +88,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
         id_notify = ui.notification_show("Generating simulation...", duration=None)
         try:
             np.random.seed(42)
-            n = 1500 # ✅ ปรับเป็น 1500 แถวตามต้องการ
+            n = 1500 # ✅ 1500 แถว
             
             # --- Simulation Logic (คงเดิมทุกประการ) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
@@ -288,9 +288,13 @@ def data_server(id, df, var_meta, uploaded_file_info,
     def out_df_preview():
         d = df.get()
         if d is not None:
-            # DataGrid จะจัดการ Virtualization ให้รองรับ 1500 แถวได้ลื่นไหล
-            # และ summary=True จะแสดงรายละเอียดจำนวนแถวด้านล่าง
-            return render.DataGrid(d, filters=False, summary=True)
+            # ใช้ DataGrid พร้อมตั้งค่าการแบ่งหน้า (Pagination) ให้อัตโนมัติ
+            return render.DataGrid(
+                d, 
+                filters=False, 
+                summary=True,
+                width="100%"
+            )
         return None
 
     @render.ui
