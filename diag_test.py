@@ -370,5 +370,5 @@ def generate_report(title, elements):
                 # Use CDN to ensure plot renders in standalone HTML
                 html += d.to_html(full_html=False, include_plotlyjs='cdn')
     
-    html += "<div class='report-footer'>&copy; 2025 NTWKKM n donate | Powered by Shiny</div></body></html>"
+    html += "<div class='report-footer'>&copy; 2025 NTWKKM n donate | Powered by GitHub, Gemini, Shiny</div></body></html>"
     return html
