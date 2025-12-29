@@ -1,5 +1,5 @@
 ---
-title: Medstat
+title: shinystat
 emoji: 📊
 colorFrom: blue
 colorTo: green
