@@ -22,8 +22,10 @@ def check_perfect_separation(df, target_col):
     risky_vars = []
     try:
         y = pd.to_numeric(df[target_col], errors='coerce').dropna()
-        if y.nunique() < 2: return []
-    except: return []
+        if y.nunique() < 2: 
+            return []
+    except (KeyError, TypeError, ValueError): 
+        return []
 
     for col in df.columns:
         if col == target_col: continue
@@ -32,7 +34,8 @@ def check_perfect_separation(df, target_col):
                 tab = pd.crosstab(df[col], y)
                 if (tab == 0).any().any():
                     risky_vars.append(col)
-            except: pass
+            except (ValueError, TypeError): 
+                pass
     return risky_vars
 
 # ==============================================================================
@@ -187,11 +190,17 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @render.ui
     def ui_dataset_selector():
         if is_matched.get():
+            original = df.get()
+            matched = df_matched.get()
+            original_len = len(original) if original is not None else 0
+            matched_len = len(matched) if matched is not None else 0
             return ui.input_radio_buttons("radio_dataset_source", "Select Dataset:",
-                                        {"original": f"📊 Original ({len(df.get())})", 
-                                         "matched": f"✅ Matched ({len(df_matched.get())})"},
+                                        {"original": f"📊 Original ({original_len})", 
+                                         "matched": f"✅ Matched ({matched_len})"},
                                         selected="matched")
-        return ui.p(f"📊 Using Original Data ({len(df.get())} rows)", class_="text-muted")
+            d = df.get()
+            row_count = len(d) if d is not None else 0
+            return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
 
     # --- 2. Dynamic Input Updates ---
     @reactive.Effect
@@ -254,7 +263,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             
             # Run Logic from logic.py
             html_rep, or_res, aor_res = process_data_and_generate_html(
-                final_df, target, var_meta=var_meta, method=method
+                final_df, target, var_meta=var_meta.get(), method=method
             )
             
             # Generate Forest Plots using library
@@ -352,26 +361,24 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 ui.notification_show("Subgroup Analysis Complete!", type="message")
                 
             except Exception as e:
-                ui.notification_show(f"Error: {str(e)}", type="error")
-                logger.error(f"Subgroup error: {e}")
+                ui.notification_show(f"Error: {e!s}", type="error")
+                logger.exception("Subgroup analysis error")
 
     # --- Render Subgroup Results ---
     @render_widget
     def out_sg_forest_plot():
         analyzer = subgroup_analyzer.get()
         if analyzer:
-            # Check if user updated title
-            title = input.sg_title() if input.sg_title() else None
+            # Use txt_edit_forest_title if provided, fallback to sg_title
+            title = input.txt_edit_forest_title() or input.sg_title() or None
             return analyzer.create_forest_plot(title=title)
         return None
 
     @reactive.Effect
     @reactive.event(input.btn_update_plot_title)
     def _update_sg_title():
-        # This just triggers re-render of widget via reactive dependency on input.txt_edit_forest_title implies
-        # But we need to update the analyzer's stored figure or call create again.
-        # The widget function above calls create_forest_plot dynamically, so just invalidating is enough.
-        pass
+        # Invalidate to trigger re-render of the forest plot widget
+        subgroup_analyzer.set(subgroup_analyzer.get())
 
     @render.text
     def val_overall_or():
