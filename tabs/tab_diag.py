@@ -181,7 +181,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.event(input.btn_analyze_roc)
     def _run_roc():
         d = current_df()
-        req(d, input.sel_roc_truth(), input.sel_roc_score())
+        # FIX: Check 'd is not None' explicitly to avoid ValueError with DataFrame
+        req(d is not None, input.sel_roc_truth(), input.sel_roc_score())
         
         res, err, fig, coords = diag_test.analyze_roc(
             d, input.sel_roc_truth(), input.sel_roc_score(),
@@ -215,7 +216,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.event(input.btn_analyze_chi)
     def _run_chi():
         d = current_df()
-        req(d, input.sel_chi_v1(), input.sel_chi_v2())
+        # FIX: Check 'd is not None' explicitly
+        req(d is not None, input.sel_chi_v1(), input.sel_chi_v2())
         
         tab, stats, msg, risk = diag_test.calculate_chi2(
             d, input.sel_chi_v1(), input.sel_chi_v2(),
@@ -243,7 +245,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.event(input.btn_analyze_kappa)
     def _run_kappa():
         d = current_df()
-        req(d)
+        # FIX: Check 'd is not None' explicitly
+        req(d is not None)
         res, err, conf = diag_test.calculate_kappa(d, input.sel_kappa_v1(), input.sel_kappa_v2())
         if err: kappa_html.set(err)
         else:
@@ -260,7 +263,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.event(input.btn_run_desc)
     def _run_desc():
         d = current_df()
-        req(d, input.sel_desc_var())
+        # FIX: Check 'd is not None' explicitly
+        req(d is not None, input.sel_desc_var())
         res = diag_test.calculate_descriptive(d, input.sel_desc_var())
         desc_html.set(diag_test.generate_report(f"Stats: {input.sel_desc_var()}", [{'type':'table', 'data':res}]))
 
