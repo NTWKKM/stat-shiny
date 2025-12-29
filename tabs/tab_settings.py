@@ -14,7 +14,7 @@ Usage:
 """
 
 from shiny import ui, reactive, render
-from shiny.session import get_current_session  # เพิ่ม import นี้
+from shiny.session import get_current_session
 from config import CONFIG
 from logger import get_logger
 
@@ -31,7 +31,6 @@ def settings_ui(id: str) -> ui.TagChild:
     Returns:
         ui.TagChild: Settings UI layout with tabs and controls
     """
-    # ใช้ _ แทน - ใน ID ทั้งหมดเพื่อป้องกัน ValueError
     return ui.navset_tab(
         # ==========================================
         # 1. ANALYSIS SETTINGS TAB
@@ -549,18 +548,21 @@ def settings_server(id: str, config) -> None:
     Returns:
         None
     """
-    # แก้ไข: ดึง input จาก session แทนการ import
     session = get_current_session()
     input = session.input
     
-    @render.text
-    @reactive.output(id=f"{id}_txt_logging_status")
-    def txt_logging_status() -> str:
+    # ---------------------------------------------------------
+    # Manual Output Registration for Dynamic IDs
+    # ---------------------------------------------------------
+    def txt_logging_status_impl() -> str:
         """Display current logging configuration status."""
         enabled = config.get('logging.enabled')
         level = config.get('logging.level')
         status = "✅ ENABLED" if enabled else "❌ DISABLED"
         return f"Logging Status: {status}\nLevel: {level}"
+    
+    # Register the output manually because the ID is dynamic
+    session.output[f"{id}_txt_logging_status"] = render.text(txt_logging_status_impl)
     
     # ==========================================
     # ANALYSIS SETTINGS SAVE
