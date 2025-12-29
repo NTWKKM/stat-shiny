@@ -6,9 +6,9 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-# 🟢 แก้ไข: ลบ @module.ui ออก เพื่อให้รับค่า id ได้ถูกต้อง
+# แก้ไขบรรทัดนี้
 def data_ui(id):
-    ns = ui.namespace(id)
+    ns = ui.NS(id)  # ✅ เปลี่ยนจาก ui.namespace(id) เป็น ui.NS(id)
     return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
             ui.sidebar(
@@ -27,12 +27,10 @@ def data_ui(id):
                 
                 ui.hr(),
                 
-                # ยังคงส่วนแก้ไข Label อย่างละเอียดไว้ใน Sidebar เผื่อ User ต้องการ Map ค่า (0=No)
                 ui.h5("2. Value Labels (Optional)"),
                 ui.input_select(ns("sel_var_edit"), "Select Var to Map:", choices=["Select..."]),
                 ui.panel_conditional(
                     f"input['{ns('sel_var_edit')}'] != 'Select...'",
-                    # ส่วน Type ย้ายไปแก้ในตารางหลักได้ แต่คงไว้ที่นี่เพื่อความครบถ้วน
                     ui.input_text_area(ns("txt_var_map"), "Labels (Format: 0=No)", height="80px"),
                     ui.input_action_button(ns("btn_save_meta"), "💾 Save Map")
                 ),
@@ -40,11 +38,9 @@ def data_ui(id):
                 bg="#f8f9fa"
             ),
             
-            # --- ส่วน Main Layout ปรับปรุงใหม่ ---
             ui.layout_columns(
                 ui.card(
                     ui.card_header("🛠️ 1. Variable Settings (แก้ไขประเภทตัวแปร)"),
-                    # ตารางสำหรับตั้งค่า Variable Type (Variable View)
                     ui.output_data_frame(ns("var_settings_table")),
                     height="350px"
                 ),
@@ -54,7 +50,6 @@ def data_ui(id):
             ui.layout_columns(
                 ui.card(
                     ui.card_header("📄 2. Raw Data Preview (ตัวอย่างข้อมูล)"),
-                    # ตารางแสดงข้อมูลดิบ (Data View)
                     ui.output_data_frame(ns("out_df_preview")),
                     height="400px"
                 ),
@@ -67,21 +62,20 @@ def data_ui(id):
 def data_server(input, output, session, 
                 df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
+    # ... (code ส่วน Server เหมือนเดิม ไม่ต้องแก้) ...
+    # แต่ผมใส่ code เต็มๆ ให้ข้างล่างเพื่อความชัวร์ครับ
     
     # --- 1. Data Loading Logic ---
     @reactive.Effect
     @reactive.event(input.btn_load_example)
     def _():
-        """Logic for generating example data"""
         logger.info("Generating example data...")
-        
         id_notify = ui.notification_show("Generating simulation...", duration=None)
-            
         try:
             np.random.seed(42)
             n = 600
             
-            # --- Simulation Logic (คงเดิม) ---
+            # --- Simulation Logic ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -167,7 +161,6 @@ def data_server(input, output, session,
                 'Gold_Standard_Disease': {'type':'Categorical', 'map':{0:'Healthy', 1:'Disease'}, 'label': 'Gold Standard'},
                 'Diagnosis_Dr_A': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. A)'},
                 'Diagnosis_Dr_B': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. B)'},
-                
                 'Age_Years': {'type': 'Continuous', 'label': 'Age (Years)', 'map': {}},
                 'BMI_kgm2': {'type': 'Continuous', 'label': 'BMI (kg/m²)', 'map': {}},
                 'Time_Months': {'type': 'Continuous', 'label': 'Time (Months)', 'map': {}},
@@ -181,7 +174,6 @@ def data_server(input, output, session,
             df.set(new_df)
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
-            
             ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
 
@@ -192,47 +184,33 @@ def data_server(input, output, session,
     @reactive.Effect
     @reactive.event(input.file_upload)
     def _():
-        """Logic for File Upload"""
         file_infos: list[FileInfo] = input.file_upload()
-        if not file_infos:
-            return
-            
+        if not file_infos: return
         f = file_infos[0]
-        logger.info(f"File uploaded: {f['name']}")
-        
         try:
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
             else:
                 new_df = pd.read_excel(f['datapath'])
-            
             df.set(new_df)
             uploaded_file_info.set({"name": f['name']})
-            
-            # Preserve/Init Metadata
             current_meta = var_meta.get().copy()
             for col in new_df.columns:
                 if col not in current_meta:
                     unique_vals = new_df[col].dropna().unique()
-                    unique_count = len(unique_vals)
                     is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
-                    
-                    if is_numeric and unique_count > 10:
+                    if is_numeric and len(unique_vals) > 10:
                          current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
                     else:
                          current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
-            
             var_meta.set(current_meta)
             ui.notification_show("File Uploaded Successfully!", type="message")
-            
         except Exception as e:
-            logger.error(f"Error reading file: {e}")
             ui.notification_show(f"Error: {str(e)}", type="error")
 
     @reactive.Effect
     @reactive.event(input.btn_reset_all)
     def _():
-        """Reset Logic"""
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -241,79 +219,44 @@ def data_server(input, output, session,
         matched_covariates.set([])
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Variable Settings Table Logic (New Feature) ---
-
     @render.data_frame
     def var_settings_table():
-        """Render the editable Variable Settings table"""
         d = df.get()
         m = var_meta.get()
-        if d is None:
-            return None
-        
-        # สร้าง Dataframe สำหรับการตั้งค่า โดยดึง Type จาก var_meta เป็นหลัก
-        # (ถ้าไม่มีใน meta ให้เดาจาก pandas types)
-        
+        if d is None: return None
         types = []
         for col in d.columns:
             if col in m and 'type' in m[col]:
                 types.append(m[col]['type'])
             else:
-                # Fallback logic
                 types.append("Continuous" if pd.api.types.is_numeric_dtype(d[col]) else "Categorical")
-
-        settings_df = pd.DataFrame({
-            "Variable Name": d.columns,
-            "Type": types
-        })
-        
-        # ใช้ DataGrid แบบ editable
-        return render.DataGrid(
-            settings_df, 
-            selection_mode="cell", 
-            editable=True  # เปิดให้แก้ไขได้
-        )
+        settings_df = pd.DataFrame({"Variable Name": d.columns, "Type": types})
+        return render.DataGrid(settings_df, selection_mode="cell", editable=True)
 
     @reactive.Effect
     @reactive.event(input.var_settings_table_cell_edit)
     def _on_settings_edit():
-        """Handle edits in the Variable Settings table"""
         edit_event = input.var_settings_table_cell_edit()
-        # edit_event structure: {'row': int, 'col': int, 'value': Any}
-        
         d = df.get()
         if d is None: return
-
-        # col 0 = Variable Name (ไม่ควรแก้), col 1 = Type (ที่เราอยากให้แก้)
         if edit_event['col'] == 1:
             row_idx = edit_event['row']
             new_type = edit_event['value']
-            
-            # Validate input (Basic)
             valid_types = ["Categorical", "Continuous"]
-            # พยายาม match case-insensitive
             matched_type = next((t for t in valid_types if t.lower() == str(new_type).lower()), None)
-            
             if matched_type:
                 var_name = d.columns[row_idx]
                 current_meta = var_meta.get().copy()
-                
-                # Update meta
                 if var_name in current_meta:
                     current_meta[var_name]['type'] = matched_type
                 else:
                     current_meta[var_name] = {'type': matched_type, 'map': {}, 'label': var_name}
-                
                 var_meta.set(current_meta)
-                # ui.notification_show(f"Updated {var_name} to {matched_type}", type="message") # Optional notify
             else:
                 ui.notification_show(f"Invalid type: {new_type}. Use 'Categorical' or 'Continuous'", type="warning")
 
-    # --- 3. Sidebar Metadata Logic (Labels Only) ---
-    
     @reactive.Effect
     def _update_var_select():
-        """Update dropdown choices when df changes"""
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
@@ -322,25 +265,18 @@ def data_server(input, output, session,
     @reactive.Effect
     @reactive.event(input.sel_var_edit)
     def _load_meta_to_ui():
-        """Load metadata into inputs when variable is selected"""
         var_name = input.sel_var_edit()
         meta = var_meta.get()
-        
         if var_name != "Select..." and var_name in meta:
             m = meta[var_name]
-            # ตัด Radio Buttons ออก เพราะใช้ตารางแก้ Type แล้ว
-            
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
             ui.update_text_area("txt_var_map", value=map_str)
 
     @reactive.Effect
     @reactive.event(input.btn_save_meta)
     def _save_metadata():
-        """Save logic for Label Mapping (Sidebar)"""
         var_name = input.sel_var_edit()
-        if var_name == "Select...":
-            return
-            
+        if var_name == "Select...": return
         new_map = {}
         for line in input.txt_var_map().split('\n'):
             if '=' in line:
@@ -350,39 +286,24 @@ def data_server(input, output, session,
                     try:
                         k_num = float(k)
                         k = int(k_num) if k_num.is_integer() else k_num
-                    except ValueError:
-                        pass
+                    except ValueError: pass
                     new_map[k] = v.strip()
-                except Exception:
-                    pass
-
+                except Exception: pass
         current_meta = var_meta.get().copy()
-        
-        # ต้องระวังไม่ให้เขียนทับ Type ที่ตั้งค่าจากตาราง
         existing_type = current_meta.get(var_name, {}).get('type', 'Categorical')
-        
-        current_meta[var_name] = {
-            'type': existing_type, # Preserve type
-            'map': new_map,
-            'label': var_name
-        }
+        current_meta[var_name] = {'type': existing_type, 'map': new_map, 'label': var_name}
         var_meta.set(current_meta)
         ui.notification_show(f"Saved labels for {var_name}", type="message")
 
-    # --- 4. Render Outputs ---
-
     @render.data_frame
     def out_df_preview():
-        """Render the Data Grid (Read-only view)"""
         d = df.get()
         if d is not None:
-            # ปิด Filter ตามคำขอ เพื่อลดความสับสน
             return render.DataGrid(d, filters=False, height="500px")
         return None
 
     @render.ui
     def ui_btn_clear_match():
-        """Show clear match button only if matched data exists"""
         if is_matched.get():
              return ui.input_action_button(ns("btn_clear_match"), "🔄 Clear Matched Data")
         return None
