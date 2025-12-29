@@ -8,7 +8,9 @@ logger = get_logger(__name__)
 
 # แก้ไขบรรทัดนี้
 def data_ui(id):
-    ns = ui.NS(id)  # ✅ เปลี่ยนจาก ui.namespace(id) เป็น ui.NS(id)
+    # ✅ สร้างฟังก์ชัน namespace ด้วยตัวเอง (id + "-" + ชื่อ input)
+    ns = lambda x: f"{id}-{x}"
+    
     return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
             ui.sidebar(
@@ -62,8 +64,6 @@ def data_ui(id):
 def data_server(input, output, session, 
                 df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
-    # ... (code ส่วน Server เหมือนเดิม ไม่ต้องแก้) ...
-    # แต่ผมใส่ code เต็มๆ ให้ข้างล่างเพื่อความชัวร์ครับ
     
     # --- 1. Data Loading Logic ---
     @reactive.Effect
