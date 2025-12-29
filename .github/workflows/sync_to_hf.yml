@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  sync:
+  sync-to-hub:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,8 +14,22 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Push to HF
+      - name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # ระบุ Username ของ Hugging Face
+          HF_USERNAME: ntwkkm 
+          # ระบุชื่อ Space (ต้องตรงกับที่สร้างไว้ใน HF)
+          SPACE_NAME: stat-shiny
         run: |
-        
+          # 1. ตั้งค่า Git User (จำเป็นสำหรับการ commit/push)
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions"
+
+          # 2. เพิ่ม Remote URL ของ Hugging Face โดยแทรก Token เข้าไป
+          # รูปแบบ: https://USER:TOKEN@huggingface.co/spaces/USER/SPACE_NAME
+          git remote add space https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
+
+          # 3. สั่ง Push แบบ Force ไปยัง branch main ของ Hugging Face
+          # (การใช้ --force จะทำให้ปลายทางเหมือนต้นทางเสมอ)
+          git push --force space main
