@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 
 def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> Tuple[pd.DataFrame, str]:
-    
+    """
     Choose between original and matched datasets for correlation analysis.
     
     Args:
@@ -29,7 +29,7 @@ def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, i
         
     Returns:
         Tuple of (selected_dataframe, label_string)
-    
+    """
     if is_matched.get() and df_matched.get() is not None:
         return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
     else:
@@ -228,6 +228,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         """Update list of numeric columns when data changes."""
         data = df.get()
         if data is not None:
+            # Simple numeric check; in production, use safer dtype checks
             cols = data.select_dtypes(include=[np.number]).columns.tolist()
             numeric_cols_list.set(cols)
             
@@ -242,25 +243,24 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     # ==================== CORRELATION ANALYSIS ====================
     
     @reactive.Effect
+    @reactive.event(lambda: getattr(ui.input_action_button, f"{namespace}_btn_run_corr", None)) # Placeholder fix
     def _run_correlation():
         """Run correlation analysis when button clicked."""
-        from shiny.reactive import event
-        
-        # This will be triggered by button click
+        # TODO: Implement correlation logic connecting to correlation.py
         pass
     
-    @reactive.event(lambda: __import__('shiny').reactive.event)
+    @reactive.Effect
     def handle_corr_button():
-        """Handle correlation button click - need different approach."""
-        pass
+         # TODO: Implement button handling logic
+         pass
     
     # Using input directly in render function (better pattern)
     
     @render.ui
     def out_corr_result():
         """Display correlation analysis results."""
-        # Check if button was clicked
-        from shiny import input as shiny_input
+        # Check if button was clicked - simplified logic
+        # In a real app, you might check input[f"{namespace}_btn_run_corr"]
         
         result = corr_result.get()
         if result is None:
