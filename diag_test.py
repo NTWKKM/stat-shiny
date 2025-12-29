@@ -24,7 +24,7 @@ except ImportError:
 # ========================================
 
 def calculate_descriptive(df, col):
-    """คำนวณสถิติพื้นฐาน"""
+    """Calculate basic descriptive statistics"""
     if col not in df.columns:
         return None
     
