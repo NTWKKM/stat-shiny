@@ -5,7 +5,7 @@ const core = require('@actions/core');
 
 // 1. กำหนดค่าคงที่ (Marker ที่คุณกำหนดเอง)
 const REPO_OWNER = process.env.GITHUB_REPOSITORY_OWNER || 'ntwkkm';
-const REPO_NAME = process.env.GITHUB_REPOSITORY?.split('/')[1] || 'stat-netilfy';
+const REPO_NAME = process.env.GITHUB_REPOSITORY?.split('/')[1] || 'stat-shiny';
 const README_PATH = 'README.md';
 
 // Marker ที่คุณเลือก
