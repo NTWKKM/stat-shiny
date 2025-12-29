@@ -27,23 +27,38 @@ def data_ui(id):
                 
                 ui.hr(),
                 
-                ui.h5("2. Variable Metadata"),
-                ui.input_select(ns("sel_var_edit"), "Edit Var:", choices=["Select..."]),
+                # ยังคงส่วนแก้ไข Label อย่างละเอียดไว้ใน Sidebar เผื่อ User ต้องการ Map ค่า (0=No)
+                ui.h5("2. Value Labels (Optional)"),
+                ui.input_select(ns("sel_var_edit"), "Select Var to Map:", choices=["Select..."]),
                 ui.panel_conditional(
                     f"input['{ns('sel_var_edit')}'] != 'Select...'",
-                    ui.input_radio_buttons(ns("radio_var_type"), "Type:", 
-                                         choices={"Categorical": "Categorical", "Continuous": "Continuous"}),
+                    # ส่วน Type ย้ายไปแก้ในตารางหลักได้ แต่คงไว้ที่นี่เพื่อความครบถ้วน
                     ui.input_text_area(ns("txt_var_map"), "Labels (Format: 0=No)", height="80px"),
-                    ui.input_action_button(ns("btn_save_meta"), "💾 Save")
+                    ui.input_action_button(ns("btn_save_meta"), "💾 Save Map")
                 ),
-                width=350,
+                width=300,
                 bg="#f8f9fa"
             ),
             
-            ui.card(
-                ui.card_header("📁 Raw Data Preview"),
-                ui.output_data_frame(ns("out_df_preview")),
-                full_screen=True
+            # --- ส่วน Main Layout ปรับปรุงใหม่ ---
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("🛠️ 1. Variable Settings (แก้ไขประเภทตัวแปร)"),
+                    # ตารางสำหรับตั้งค่า Variable Type (Variable View)
+                    ui.output_data_frame(ns("var_settings_table")),
+                    height="350px"
+                ),
+                col_widths=12
+            ),
+            ui.br(),
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("📄 2. Raw Data Preview (ตัวอย่างข้อมูล)"),
+                    # ตารางแสดงข้อมูลดิบ (Data View)
+                    ui.output_data_frame(ns("out_df_preview")),
+                    height="400px"
+                ),
+                col_widths=12
             )
         )
     )
@@ -66,7 +81,7 @@ def data_server(input, output, session,
             np.random.seed(42)
             n = 600
             
-            # --- Simulation Logic ---
+            # --- Simulation Logic (คงเดิม) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -226,7 +241,75 @@ def data_server(input, output, session,
         matched_covariates.set([])
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Sidebar Metadata Logic ---
+    # --- 2. Variable Settings Table Logic (New Feature) ---
+
+    @render.data_frame
+    def var_settings_table():
+        """Render the editable Variable Settings table"""
+        d = df.get()
+        m = var_meta.get()
+        if d is None:
+            return None
+        
+        # สร้าง Dataframe สำหรับการตั้งค่า โดยดึง Type จาก var_meta เป็นหลัก
+        # (ถ้าไม่มีใน meta ให้เดาจาก pandas types)
+        
+        types = []
+        for col in d.columns:
+            if col in m and 'type' in m[col]:
+                types.append(m[col]['type'])
+            else:
+                # Fallback logic
+                types.append("Continuous" if pd.api.types.is_numeric_dtype(d[col]) else "Categorical")
+
+        settings_df = pd.DataFrame({
+            "Variable Name": d.columns,
+            "Type": types
+        })
+        
+        # ใช้ DataGrid แบบ editable
+        return render.DataGrid(
+            settings_df, 
+            selection_mode="cell", 
+            editable=True  # เปิดให้แก้ไขได้
+        )
+
+    @reactive.Effect
+    @reactive.event(input.var_settings_table_cell_edit)
+    def _on_settings_edit():
+        """Handle edits in the Variable Settings table"""
+        edit_event = input.var_settings_table_cell_edit()
+        # edit_event structure: {'row': int, 'col': int, 'value': Any}
+        
+        d = df.get()
+        if d is None: return
+
+        # col 0 = Variable Name (ไม่ควรแก้), col 1 = Type (ที่เราอยากให้แก้)
+        if edit_event['col'] == 1:
+            row_idx = edit_event['row']
+            new_type = edit_event['value']
+            
+            # Validate input (Basic)
+            valid_types = ["Categorical", "Continuous"]
+            # พยายาม match case-insensitive
+            matched_type = next((t for t in valid_types if t.lower() == str(new_type).lower()), None)
+            
+            if matched_type:
+                var_name = d.columns[row_idx]
+                current_meta = var_meta.get().copy()
+                
+                # Update meta
+                if var_name in current_meta:
+                    current_meta[var_name]['type'] = matched_type
+                else:
+                    current_meta[var_name] = {'type': matched_type, 'map': {}, 'label': var_name}
+                
+                var_meta.set(current_meta)
+                # ui.notification_show(f"Updated {var_name} to {matched_type}", type="message") # Optional notify
+            else:
+                ui.notification_show(f"Invalid type: {new_type}. Use 'Categorical' or 'Continuous'", type="warning")
+
+    # --- 3. Sidebar Metadata Logic (Labels Only) ---
     
     @reactive.Effect
     def _update_var_select():
@@ -245,7 +328,7 @@ def data_server(input, output, session,
         
         if var_name != "Select..." and var_name in meta:
             m = meta[var_name]
-            ui.update_radio_buttons("radio_var_type", selected=m.get('type', 'Categorical'))
+            # ตัด Radio Buttons ออก เพราะใช้ตารางแก้ Type แล้ว
             
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
             ui.update_text_area("txt_var_map", value=map_str)
@@ -253,7 +336,7 @@ def data_server(input, output, session,
     @reactive.Effect
     @reactive.event(input.btn_save_meta)
     def _save_metadata():
-        """Save logic for metadata editor"""
+        """Save logic for Label Mapping (Sidebar)"""
         var_name = input.sel_var_edit()
         if var_name == "Select...":
             return
@@ -274,23 +357,27 @@ def data_server(input, output, session,
                     pass
 
         current_meta = var_meta.get().copy()
+        
+        # ต้องระวังไม่ให้เขียนทับ Type ที่ตั้งค่าจากตาราง
+        existing_type = current_meta.get(var_name, {}).get('type', 'Categorical')
+        
         current_meta[var_name] = {
-            'type': input.radio_var_type(),
+            'type': existing_type, # Preserve type
             'map': new_map,
             'label': var_name
         }
         var_meta.set(current_meta)
-        ui.notification_show(f"Saved metadata for {var_name}", type="message")
+        ui.notification_show(f"Saved labels for {var_name}", type="message")
 
-    # --- 3. Render Outputs ---
+    # --- 4. Render Outputs ---
 
     @render.data_frame
     def out_df_preview():
-        """Render the Data Grid"""
+        """Render the Data Grid (Read-only view)"""
         d = df.get()
         if d is not None:
-            # Note: filters=True can be changed to False if you implement a separate variable view
-            return render.DataGrid(d, filters=True, height="500px")
+            # ปิด Filter ตามคำขอ เพื่อลดความสับสน
+            return render.DataGrid(d, filters=False, height="500px")
         return None
 
     @render.ui
