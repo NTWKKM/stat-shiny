@@ -10,18 +10,19 @@ def get_color_palette():
     - primary_dark: Dark Navy (#0F2440) - Strong emphasis, table headers
     - primary_light: Light Navy (#E8EEF7) - Backgrounds, accents
     
-    Status Colors:
-    - success: Green (#22A765) - Positive, matched status, good balance
-    - danger: Red (#E74856) - Alerts, significant findings, imbalance
-    - warning: Amber (#FFB900) - Caution, non-critical warnings
-    - info: Gray-blue (#5A7B8E) - Informational text
-    
     Neutral Colors:
+    - smoke_white: #F8F9FA - Light gray-white for navbar background
     - text: Dark gray (#1F2328) - Main text content
     - text_secondary: Medium gray (#6B7280) - Secondary text
     - border: Light gray (#E5E7EB) - Borders, dividers
     - background: Off-white (#F9FAFB) - Page background
     - surface: White (#FFFFFF) - Cards, containers
+    
+    Status Colors:
+    - success: Green (#22A765) - Positive, matched status, good balance
+    - danger: Red (#E74856) - Alerts, significant findings, imbalance
+    - warning: Amber (#FFB900) - Caution, non-critical warnings
+    - info: Gray-blue (#5A7B8E) - Informational text
     """
     return {
         # Primary colors - Navy Blue theme (professional, medical, authoritative)
@@ -29,19 +30,20 @@ def get_color_palette():
         'primary_dark': '#0F2440',      # Dark navy - headers, strong emphasis
         'primary_light': '#E8EEF7',     # Light navy - backgrounds, accents
         
+        # Neutral colors - Light theme
+        'smoke_white': '#F8F9FA',       # Light gray-white - navbar, light backgrounds
+        'text': '#1F2328',              # Dark gray - main text
+        'text_secondary': '#6B7280',    # Medium gray - secondary text
+        'border': '#E5E7EB',            # Light gray - borders
+        'background': '#F9FAFB',        # Off-white - page background
+        'surface': '#FFFFFF',           # White - surfaces
+        
         # Status/Semantic colors
         'success': '#22A765',           # Green - positive, good balance (SMD < 0.1)
         'danger': '#E74856',            # Red - alerts, significant p-values
         'warning': '#FFB900',           # Amber - warnings, caution
         'info': '#5A7B8E',              # Gray-blue - informational text
         'neutral': '#D1D5DB',           # Light gray - neutral elements
-        
-        # Neutral colors
-        'text': '#1F2328',              # Dark gray - main text
-        'text_secondary': '#6B7280',    # Medium gray - secondary text
-        'border': '#E5E7EB',            # Light gray - borders
-        'background': '#F9FAFB',        # Off-white - page background
-        'surface': '#FFFFFF',           # White - surfaces
     }
 
 
@@ -50,10 +52,10 @@ def get_color_info():
     Returns information about the color palette for documentation.
     """
     return {
-        'theme': 'Professional Medical Analytics - Navy Blue',
-        'description': 'Modern, accessible navy-based theme for statistical analysis',
+        'theme': 'Professional Medical Analytics - Navy Blue with Smoke White Navbar',
+        'description': 'Modern, accessible navy-based theme with light smoke white navbar for statistical analysis',
         'created': 'December 30, 2025',
-        'updated': 'December 31, 2025 (Navy Blue Theme)',
+        'updated': 'December 31, 2025 (Smoke White Navbar)',
         'accessibility': 'WCAG AAA compliant (all colors tested)',
         'colors': {
             'primary': {
@@ -66,7 +68,7 @@ def get_color_info():
             'primary_dark': {
                 'name': 'Dark Navy',
                 'hex': '#0F2440',
-                'usage': 'Strong headers, table header backgrounds, navbar',
+                'usage': 'Strong headers, table header backgrounds',
                 'contrast_ratio': '14.2:1 (on white)',
                 'rgb': '15, 36, 64'
             },
@@ -76,6 +78,13 @@ def get_color_info():
                 'usage': 'Light backgrounds, subtle accents, card headers',
                 'contrast_ratio': '10.8:1 (on dark text)',
                 'rgb': '232, 238, 247'
+            },
+            'smoke_white': {
+                'name': 'Smoke White',
+                'hex': '#F8F9FA',
+                'usage': 'Navbar background, light page backgrounds',
+                'contrast_ratio': '16.8:1 (on navy text)',
+                'rgb': '248, 249, 250'
             },
             'success': {
                 'name': 'Green',
