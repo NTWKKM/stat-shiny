@@ -392,22 +392,50 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         d = current_df()
         req(d is not None, input.sel_roc_truth(), input.sel_roc_score())
         
+        truth_col = input.sel_roc_truth()
+        score_col = input.sel_roc_score()
+        method = input.radio_roc_method()
+        pos_label = input.sel_roc_pos_label()
+        
         res, err, fig, coords = diag_test.analyze_roc(
-            d, input.sel_roc_truth(), input.sel_roc_score(),
-            method=input.radio_roc_method(),
-            pos_label_user=input.sel_roc_pos_label()
+            d, truth_col, score_col,
+            method=method,
+            pos_label_user=pos_label
         )
         
+        # Debug logging
+        print(f"[ROC Debug] Method: {method}")
+        print(f"[ROC Debug] Error: {err}")
+        print(f"[ROC Debug] Figure type: {type(fig)}")
+        print(f"[ROC Debug] Figure is None: {fig is None}")
+        print(f"[ROC Debug] Coords shape: {coords.shape if coords is not None else 'None'}")
+        
         if err:
-            roc_html.set(f"<div class='alert alert-danger'>{err}</div>")
+            roc_html.set(f"<div class='alert alert-danger'>📄 Error: {err}</div>")
         else:
             rep = [
-                {'type':'text', 'data': f"Analysis: {input.sel_roc_score()} vs {input.sel_roc_truth()}"},
-                {'type':'plot', 'data': fig},
-                {'type':'table', 'header':'Key Statistics', 'data': pd.DataFrame([res]).T},
-                {'type':'table', 'header':'Diagnostic Performance', 'data': coords}
+                {'type':'text', 'data': f"📊 Analysis: {score_col} vs {truth_col}"},
             ]
-            roc_html.set(diag_test.generate_report("ROC Analysis Report", rep))
+            
+            # Add plot if available
+            if fig is not None:
+                rep.append({'type':'plot', 'data': fig})
+                print("[ROC Debug] Added figure to report")
+            else:
+                rep.append({'type':'text', 'data': '⚠️ Warning: ROC plot could not be generated'})
+                print("[ROC Debug] Figure is None - plot not added")
+            
+            # Add statistics table
+            if res is not None:
+                rep.append({'type':'table', 'header':'ROC Statistics', 'data': pd.DataFrame([res]).T})
+            
+            # Add performance coordinates table
+            if coords is not None:
+                rep.append({'type':'table', 'header':'Performance at Different Thresholds', 'data': coords})
+            
+            html_report = diag_test.generate_report(f"ROC Analysis Report ({method})", rep)
+            roc_html.set(html_report)
+            print("[ROC Debug] HTML report generated successfully")
 
     @render.ui
     def out_roc_results():
