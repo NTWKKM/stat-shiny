@@ -150,7 +150,13 @@ def calculate_ci_nnt(rd, rd_se, ci=0.95):
 
 def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_pos=None):
     """
-    Comprehensive 2x2 contingency table analysis.
+    Comprehensive 2x2+ contingency table analysis with:
+    - Chi-Square / Fisher's Exact Test
+    - Expected Counts & Standardized Residuals
+    - Effect Size (Cramér's V)
+    - Risk metrics (OR, RR, NNT) with 95% CI
+    - Diagnostic metrics (Sensitivity, Specificity, PPV, NPV, LR+, LR-)
+    - Post-hoc cell contribution analysis
     
     Returns:
         tuple: (display_tab, stats_df, msg, risk_df)
@@ -259,15 +265,33 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             chi2, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
             method_name = "Chi-Square"
             if is_2x2:
-                method_name += " (with Yates')" if use_correction else " (Pearson)"
+                method_name += " (Yates)" if use_correction else " (Pearson)"
             
             stats_res = {
                 "Test": method_name,
-                "Statistic": f"{chi2:.4f}",
+                "Statistic (χ²)": f"{chi2:.4f}",
                 "P-value": f"{p:.4f}",
                 "Degrees of Freedom": f"{dof}",
                 "N": len(data)
             }
+            
+            # Effect Size: Cramér's V
+            min_dim = min(tab.shape)
+            phi2 = chi2 / len(data)
+            cramer_v = np.sqrt(phi2 / (min_dim - 1)) if min_dim > 1 else 0
+            stats_res["Effect Size (Cramér's V)"] = f"{cramer_v:.4f}"
+            
+            # Interpretation of effect size
+            if cramer_v < 0.1:
+                effect_interp = "Negligible association"
+            elif cramer_v < 0.3:
+                effect_interp = "Small association"
+            elif cramer_v < 0.5:
+                effect_interp = "Medium association"
+            else:
+                effect_interp = "Large association"
+            
+            stats_res["Effect Interpretation"] = effect_interp
             
             if (ex < 5).any() and is_2x2 and not use_correction:
                 msg = "⚠️ Warning: Expected count < 5. Consider Fisher's Exact Test."
@@ -275,7 +299,141 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         stats_df = pd.DataFrame(stats_res, index=[0]).T.reset_index()
         stats_df.columns = ['Statistic', 'Value']
         
-        return display_tab, stats_df, msg, None
+        # ===== EXTRA TABLES for Chi-Square (non-Fisher) =====
+        extra_report_items = []
+        
+        if "Fisher" not in method:
+            # Build report items with extra details
+            chi2, p, dof, ex = stats.chi2_contingency(tab)
+            
+            # Expected Counts Table
+            ex_df = pd.DataFrame(
+                np.round(ex, 2),
+                index=final_row_order_base,
+                columns=final_col_order_base
+            )
+            extra_report_items.append({
+                'type': 'table',
+                'header': 'Expected Counts (for Chi-Square validation)',
+                'data': ex_df
+            })
+            
+            # Standardized Residuals: (Observed - Expected) / sqrt(Expected)
+            std_residuals = (tab.values - ex) / np.sqrt(ex + 1e-10)
+            std_res_df = pd.DataFrame(
+                np.round(std_residuals, 2),
+                index=final_row_order_base,
+                columns=final_col_order_base
+            )
+            extra_report_items.append({
+                'type': 'table',
+                'header': 'Standardized Residuals (|value| > 2 indicates cell deviation)',
+                'data': std_res_df
+            })
+            
+            # Chi-square contribution by cell
+            chi2_contrib = ((tab.values - ex)**2) / (ex + 1e-10)
+            chi2_contrib_df = pd.DataFrame(
+                np.round(chi2_contrib, 4),
+                index=final_row_order_base,
+                columns=final_col_order_base
+            )
+            chi2_contrib_df['% of χ²'] = (chi2_contrib_df.sum(axis=1) / chi2 * 100).round(1)
+            extra_report_items.append({
+                'type': 'table',
+                'header': f'Cell Contributions to χ² = {chi2:.4f}',
+                'data': chi2_contrib_df
+            })
+        
+        # ===== Risk & Diagnostic Metrics (only for 2x2) =====
+        risk_df = None
+        if is_2x2:
+            try:
+                vals = tab.values
+                a, b = vals[0, 0], vals[0, 1]  # Exposed Event, No Event
+                c, d = vals[1, 0], vals[1, 1]  # Unexposed Event, No Event
+                
+                row_labels = [str(x) for x in tab.index.tolist()]
+                col_labels = [str(x) for x in tab.columns.tolist()]
+                
+                label_exp = str(row_labels[0])
+                label_unexp = str(row_labels[1])
+                label_event = str(col_labels[0])
+                label_no_event = str(col_labels[1])
+                
+                # Risk metrics
+                risk_exp = a / (a + b) if (a + b) > 0 else 0
+                risk_unexp = c / (c + d) if (c + d) > 0 else 0
+                rr = risk_exp / risk_unexp if risk_unexp != 0 else np.nan
+                rd = risk_exp - risk_unexp
+                nnt_abs = abs(1 / rd) if abs(rd) > 0.001 else np.inf
+                
+                # Odds Ratio
+                or_value = (a * d) / (b * c) if (b * c) != 0 else np.nan
+                se_logor = np.sqrt(1/a + 1/b + 1/c + 1/d) if (a > 0 and b > 0 and c > 0 and d > 0) else np.nan
+                or_ci_lower, or_ci_upper = calculate_ci_log_odds(or_value, se_logor)
+                
+                # Risk Ratio CI
+                if (a+b) > 0 and (c+d) > 0 and risk_exp > 0 and risk_unexp > 0:
+                    rr_ci_lower, rr_ci_upper = calculate_ci_rr(risk_exp, a+b, risk_unexp, c+d)
+                else:
+                    rr_ci_lower, rr_ci_upper = np.nan, np.nan
+                
+                # NNT CI
+                rd_se = np.sqrt((risk_exp * (1 - risk_exp)) / (a + b) + (risk_unexp * (1 - risk_unexp)) / (c + d)) if (a+b) > 0 and (c+d) > 0 else np.nan
+                nnt_ci_lower, nnt_ci_upper = calculate_ci_nnt(rd, rd_se)
+                
+                # Diagnostic metrics
+                sensitivity = a / (a + c) if (a + c) > 0 else 0
+                se_ci_lower, se_ci_upper = calculate_ci_wilson_score(a, a + c)
+                
+                specificity = d / (b + d) if (b + d) > 0 else 0
+                sp_ci_lower, sp_ci_upper = calculate_ci_wilson_score(d, b + d)
+                
+                ppv = a / (a + b) if (a + b) > 0 else 0
+                ppv_ci_lower, ppv_ci_upper = calculate_ci_wilson_score(a, a + b)
+                
+                npv = d / (c + d) if (c + d) > 0 else 0
+                npv_ci_lower, npv_ci_upper = calculate_ci_wilson_score(d, c + d)
+                
+                lr_plus = sensitivity / (1 - specificity) if (1 - specificity) != 0 else np.nan
+                lr_minus = (1 - sensitivity) / specificity if specificity != 0 else np.nan
+                
+                # NNT/NNH label
+                if rd > 0:
+                    nnt_label = "Number Needed to Treat (NNT)"
+                elif rd < 0:
+                    nnt_label = "Number Needed to Harm (NNH)"
+                else:
+                    nnt_label = "NNT/NNH"
+                
+                # Build comprehensive risk data table
+                risk_data = [
+                    {"Metric": "═══════════ RISK METRICS ═══════════", "Value": "", "95% CI": "", "Interpretation": "Assumes: Rows=Exposure Status, Cols=Outcome Status"},
+                    {"Metric": "Risk in Exposed (R1)", "Value": f"{risk_exp:.4f}", "95% CI": "-", "Interpretation": f"Risk of {label_event} in {label_exp}"},
+                    {"Metric": "Risk in Unexposed (R0)", "Value": f"{risk_unexp:.4f}", "95% CI": "-", "Interpretation": f"Baseline risk of {label_event} in {label_unexp}"},
+                    {"Metric": "Risk Ratio (RR)", "Value": f"{rr:.4f}", "95% CI": f"{rr_ci_lower:.4f}–{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA", "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}"},
+                    {"Metric": "Risk Difference (RD)", "Value": f"{rd:.4f}", "95% CI": "-", "Interpretation": "Absolute risk difference (R1 - R0)"},
+                    {"Metric": nnt_label, "Value": f"{nnt_abs:.1f}", "95% CI": f"{nnt_ci_lower:.1f}–{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA", "Interpretation": "Patients to treat to prevent/cause 1 outcome"},
+                    {"Metric": "Odds Ratio (OR)", "Value": f"{or_value:.4f}", "95% CI": f"{or_ci_lower:.4f}–{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA", "Interpretation": f"Odds of {label_event} ({label_exp} vs {label_unexp})"},
+                    {"Metric": "", "Value": "", "95% CI": "", "Interpretation": ""},
+                    {"Metric": "═════════ DIAGNOSTIC METRICS ═════════", "Value": "", "95% CI": "", "Interpretation": "Assumes: Rows=Test Result, Cols=Disease Status"},
+                    {"Metric": "Sensitivity (True Positive Rate)", "Value": f"{sensitivity:.4f}", "95% CI": f"{se_ci_lower:.4f}–{se_ci_upper:.4f}", "Interpretation": "P(Test+ | Disease+) - Recall"},
+                    {"Metric": "Specificity (True Negative Rate)", "Value": f"{specificity:.4f}", "95% CI": f"{sp_ci_lower:.4f}–{sp_ci_upper:.4f}", "Interpretation": "P(Test- | Disease-) - True Negative Rate"},
+                    {"Metric": "PPV (Positive Predictive Value)", "Value": f"{ppv:.4f}", "95% CI": f"{ppv_ci_lower:.4f}–{ppv_ci_upper:.4f}", "Interpretation": "P(Disease+ | Test+) - Precision"},
+                    {"Metric": "NPV (Negative Predictive Value)", "Value": f"{npv:.4f}", "95% CI": f"{npv_ci_lower:.4f}–{npv_ci_upper:.4f}", "Interpretation": "P(Disease- | Test-) - Negative Precision"},
+                    {"Metric": "LR+ (Likelihood Ratio +)", "Value": f"{lr_plus:.4f}", "95% CI": "-", "Interpretation": "Sensitivity / (1 - Specificity) - How much test+ increases odds"},
+                    {"Metric": "LR- (Likelihood Ratio -)", "Value": f"{lr_minus:.4f}", "95% CI": "-", "Interpretation": "(1 - Sensitivity) / Specificity - How much test- decreases odds"},
+                ]
+                
+                risk_df = pd.DataFrame(risk_data)
+            
+            except (ZeroDivisionError, ValueError, KeyError) as e:
+                logger.error(f"Risk metrics calculation error: {e}")
+                risk_df = None
+        
+        # Return with comprehensive data
+        return display_tab, stats_df, msg, risk_df
     
     except Exception as e:
         logger.error(f"Chi-square calculation error: {e}")
@@ -350,7 +508,7 @@ def auc_ci_delong(y_true, y_scores):
     Speedup: 106x faster!
     
     Uses NumPy broadcasting instead of nested loops:
-    - pos[:, np.newaxis] > neg broadcasts to (n_pos, n_ned) in single operation
+    - pos[:, np.newaxis] > neg broadcasts to (n_pos, n_neg) in single operation
     - Replaces: for p in pos: sum(p > neg) with vectorized comparison
     """
     try:
@@ -660,7 +818,7 @@ def generate_report(title, report_items):
                 color: #333;
             }}
             .container {{
-                max-width: 1000px;
+                max-width: 1200px;
                 margin: 0 auto;
                 background-color: white;
                 padding: 30px;
