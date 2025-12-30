@@ -625,8 +625,8 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
             html += f"                    <th class='numeric-cell'>{_html.escape(str(g['label']))} (n={n_g})</th>\n"
     
     if show_or:
-        html += f"                    <th>OR (95% CI)</th>\n"
-        html += f"                    <th>SMD</th>\n"
+        html += "                    <th>OR (95% CI)</th>\n"
+        html += "                    <th>SMD</th>\n"
     
     html += """                    <th>P-value</th>
                     <th>Test</th>
