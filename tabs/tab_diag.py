@@ -197,7 +197,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 {'type':'text', 'data': f"Analysis: {input.sel_roc_score()} vs {input.sel_roc_truth()}"},
                 {'type':'plot', 'data': fig},
                 {'type':'table', 'header':'Key Statistics', 'data': pd.DataFrame([res]).T},
-                {'type':'table', 'header':'Performance Table', 'data': coords.head(20)}
+                {'type':'table', 'header':'Performance Table (All Thresholds)', 'data': coords}
             ]
             roc_html.set(diag_test.generate_report("ROC Analysis Report", rep))
 
