@@ -60,8 +60,8 @@ app_ui = ui.page_navbar(
     id="main_navbar",
     window_title="Medical Stat Tool",
     
-    # ✅ ปรับปรุง: เพิ่ม inverse=True เพื่อให้ Text และปุ่มเมนูเป็นสีขาวสำหรับพื้นหลังเข้ม
-    inverse=True,  
+    # ✅ Enhancement: Set inverse=True to make text and menu buttons white for dark background
+    inverse=True,
 
     # ⬇⬇⬇ inject teal theme CSS
     header=ui.tags.head(
