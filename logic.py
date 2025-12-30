@@ -1,5 +1,5 @@
 """
-🦧 Logistic Regression Core Logic (Shiny Compatible)
+🧮 Logistic Regression Core Logic (Shiny Compatible)
 
 No Streamlit dependencies - pure statistical functions.
 """
@@ -483,7 +483,8 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                                 aor = np.exp(coef)
                                 ci_low, ci_high = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
                                 pv = pvals[d_name]
-                                aor_entries.append({'lvl': lvl, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv})
+                                # 🔧 FIX: Add coef to aor_entries dict
+                                aor_entries.append({'lvl': lvl, 'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv})
                                 aor_results[f"{var}: {lvl}"] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
                         results_db[var]['multi_res'] = aor_entries
                     else:
@@ -492,7 +493,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                             aor = np.exp(coef)
                             ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(conf.loc[var][1])
                             pv = pvals[var]
-                            results_db[var]['multi_res'] = {'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
+                            results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
                             aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
     
     # Build HTML
@@ -534,12 +535,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                 aor_lines, acoef_lines, ap_lines = ["Ref."], ["-"], ["-"]
                 for item in multi_res:
                     p_txt = fmt_p_with_styling(item['p'])
-                    acoef_lines.append(f"{item['coef']:.3f}" if 'coef' in item else "-")
+                    acoef_lines.append(f"{item['coef']:.3f}")
                     aor_lines.append(f"{item['aor']:.2f} ({item['l']:.2f}-{item['h']:.2f})")
                     ap_lines.append(p_txt)
                 aor_s, acoef_s, ap_s = "<br>".join(aor_lines), "<br>".join(acoef_lines), "<br>".join(ap_lines)
             else:
-                acoef_s = "-"
+                acoef_s = f"{multi_res['coef']:.3f}"
                 aor_s = f"{multi_res['aor']:.2f} ({multi_res['l']:.2f}-{multi_res['h']:.2f})"
                 ap_s = fmt_p_with_styling(multi_res['p'])
         
