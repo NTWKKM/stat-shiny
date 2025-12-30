@@ -303,14 +303,14 @@ class ConfigManager:
         try:
             json_str = json.dumps(self._config, indent=2 if pretty else None)
         except (TypeError, ValueError) as e:
-            logger.error(f"Failed to serialize config to JSON: {e}")
+            logger.exception("Failed to serialize config to JSON")
             json_str = "{}"
         
         if filepath:
             try:
                 Path(filepath).write_text(json_str)
-            except IOError as e:
-                logger.error(f"Failed to write config to {filepath}: {e}")
+            except OSError:
+                logger.exception("Failed to write config to %s", filepath)
         
         return json_str
     
