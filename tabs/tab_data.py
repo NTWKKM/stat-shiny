@@ -95,7 +95,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
         
         try:
             np.random.seed(42)
-            n = 500  # ✅ OPTIMAL: 300 (safe) vs 500 (best balance) vs 1500 (was broken)
+            n = 600  # ✅ OPTIMAL: 300 (safe) vs 500 (best balance) vs 1500 (was broken)
                      # 500 rows = ~1 MB payload (safe for HuggingFace WebSocket)
             
             # --- Simulation Logic (คงเดิมทุกประการ) ---
