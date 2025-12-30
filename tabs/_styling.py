@@ -576,7 +576,7 @@ def style_alert(alert_type: str, message: str, title: str = "") -> str:
     
     return f"""
     <div style="
-        background-color: rgba({color[1:]}, 0.1);
+        background-color: rgba({_hex_to_rgb(color)}, 0.1);
         border: 1px solid {color};
         border-radius: 6px;
         padding: 12px 16px;
