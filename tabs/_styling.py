@@ -497,6 +497,12 @@ def style_card_header(title: str, icon: str = "") -> str:
     </div>
     """
 
+def _hex_to_rgb(hex_color: str) -> str:
+    """Convert hex color to RGB values for rgba()."""
+    hex_color = hex_color.lstrip('#')
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    return f"{r}, {g}, {b}"
+
 
 def style_status_badge(status: str, text: str) -> str:
     """
@@ -527,7 +533,7 @@ def style_status_badge(status: str, text: str) -> str:
         gap: 6px;
         padding: 6px 12px;
         border-radius: 6px;
-        background-color: rgba({color[1:].upper()}, {opacity});
+        background-color: rgba({_hex_to_rgb(color)}, {opacity});
         color: {text_color};
         border: 1px solid {color};
         font-weight: 600;
