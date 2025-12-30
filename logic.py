@@ -1,5 +1,5 @@
 """
-🧮 Logistic Regression Core Logic (Shiny Compatible)
+🦧 Logistic Regression Core Logic (Shiny Compatible)
 
 No Streamlit dependencies - pure statistical functions.
 """
@@ -156,6 +156,33 @@ def get_label(col_name, var_meta):
         return f"<b>{safe_name}</b>"
 
 
+def fmt_p_with_styling(val):
+    """
+    Format p-value with red highlighting if significant (p < 0.05).
+    
+    OPTIMIZATION: Format p-values with conditional styling for significance.
+    """
+    if pd.isna(val):
+        return "-"
+    try:
+        val = float(val)
+        val = max(0, min(1, val))
+        if val < 0.001:
+            p_str = "<0.001"
+        elif val > 0.999:
+            p_str = ">0.999"
+        else:
+            p_str = f"{val:.3f}"
+        
+        # Add red styling if p < 0.05
+        if val < 0.05:
+            return f"<span class='sig-p'>{p_str}</span>"
+        else:
+            return p_str
+    except (ValueError, TypeError):
+        return "-"
+
+
 def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
     """
     Perform logistic regression analysis for binary outcome.
@@ -217,6 +244,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         preferred_method = 'default'
     
     def fmt_p(val):
+        """Format p-value without styling for internal use."""
         if pd.isna(val):
             return "-"
         try:
@@ -331,7 +359,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                                 
                                 coef_lines.append(f"{coef:.3f}")
                                 or_lines.append(f"{odd:.2f} ({ci_l:.2f}-{ci_h:.2f})")
-                                p_lines.append(fmt_p(pv))
+                                p_lines.append(fmt_p_with_styling(pv))
                                 or_results[f"{col}: {lvl}"] = {'or': odd, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
                             else:
                                 or_lines.append("-")
@@ -491,7 +519,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         
         or_s = res.get('or', '-')
         coef_s = res.get('coef', '-')
-        p_col_display = res.get('p_or', '-') if mode == 'categorical' else fmt_p(res.get('p_comp', np.nan))
+        
+        # OPTIMIZATION: Use styled p-value formatting
+        if mode == 'categorical':
+            p_col_display = res.get('p_or', '-')
+        else:
+            p_col_display = fmt_p_with_styling(res.get('p_comp', np.nan))
         
         aor_s, acoef_s, ap_s = "-", "-", "-"
         multi_res = res.get('multi_res')
@@ -500,7 +533,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             if isinstance(multi_res, list):
                 aor_lines, acoef_lines, ap_lines = ["Ref."], ["-"], ["-"]
                 for item in multi_res:
-                    p_txt = fmt_p(item['p'])
+                    p_txt = fmt_p_with_styling(item['p'])
                     acoef_lines.append(f"{item['coef']:.3f}" if 'coef' in item else "-")
                     aor_lines.append(f"{item['aor']:.2f} ({item['l']:.2f}-{item['h']:.2f})")
                     ap_lines.append(p_txt)
@@ -508,7 +541,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             else:
                 acoef_s = "-"
                 aor_s = f"{multi_res['aor']:.2f} ({multi_res['l']:.2f}-{multi_res['h']:.2f})"
-                ap_s = fmt_p(multi_res['p'])
+                ap_s = fmt_p_with_styling(multi_res['p'])
         
         html_rows.append(f"""<tr>
             <td>{lbl}</td>
@@ -604,7 +637,7 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
         td {{ padding: 12px; border-bottom: 1px solid #eee; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
         .outcome-title {{ background-color: {COLORS['primary_dark']}; color: white; padding: 15px; }}
-        .sig-p {{ color: {COLORS['danger']}; font-weight: bold; background-color: #ffebee; padding: 2px 4px; border-radius: 4px; }}
+        .sig-p {{ color: #fff; background-color: {COLORS['danger']}; font-weight: bold; padding: 2px 6px; border-radius: 3px; }}
         .sheet-header td {{ background-color: #e8f4f8; color: {COLORS['primary']}; font-weight: bold; }}
     </style>"""
     
