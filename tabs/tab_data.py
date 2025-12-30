@@ -83,7 +83,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
     # ✅ NEW: Add loading state to fix infinite loading issue
     is_loading_data = reactive.Value(False)
 
-    # --- 1. Data Loading Logic (REDUCED TO 300 ROWS FOR HUGGINGFACE) ---
+    # --- 1. Data Loading Logic (500 ROWS - OPTIMAL BALANCE) ---
     @reactive.Effect
     @reactive.event(lambda: input[ns("btn_load_example")]()
 )
@@ -95,7 +95,8 @@ def data_server(id, df, var_meta, uploaded_file_info,
         
         try:
             np.random.seed(42)
-            n = 300  # ✅ REDUCED from 1500 to 300 (prevent WebSocket timeout on HuggingFace)
+            n = 500  # ✅ OPTIMAL: 300 (safe) vs 500 (best balance) vs 1500 (was broken)
+                     # 500 rows = ~1 MB payload (safe for HuggingFace WebSocket)
             
             # --- Simulation Logic (คงเดิมทุกประการ) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
@@ -334,16 +335,16 @@ def data_server(id, df, var_meta, uploaded_file_info,
 
     # --- 3. Render Outputs ---
     
-    # ✅ FIXED: DataGrid renderer with proper state handling + pagination
+    # ✅ FIXED: DataGrid renderer with proper state handling
     @render.data_frame
     def out_df_preview():
-        """Render data grid with proper state management + pagination for HuggingFace stability"""
+        """Render data grid with proper state management for HuggingFace stability"""
         
         # Check if loading
         if is_loading_data.get():
             loading_df = pd.DataFrame({
                 'Status': ['🔄 Loading data...'],
-                'Progress': ['Generating 300 example records...']
+                'Progress': ['Generating 500 example records...']
             })
             return render.DataGrid(
                 loading_df,
@@ -373,8 +374,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
         else:
             display_df = d
         
-        # ✅ NEW: Add pagination for better WebSocket stability
-        # Render with pagination (show 20 rows at a time)
+        # Render with optimized settings for HuggingFace
         return render.DataGrid(
             display_df,
             filters=False,
