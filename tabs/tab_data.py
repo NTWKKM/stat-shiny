@@ -9,8 +9,8 @@ logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
 def data_ui(id):
-    # ✅ FIX: ใช้ ui.namespace มาตรฐาน (จะใช้ - คั่นอัตโนมัติ)
-    ns = ui.namespace(id)
+    # ✅ FIX: สร้างฟังก์ชัน ns เอง (Standard Manual Way)
+    ns = lambda x: f"{id}-{x}"
     
     return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
@@ -43,7 +43,7 @@ def data_ui(id):
                         ),
                         ui.div(
                             ui.panel_conditional(
-                                # Note: ใน JS condition ต้องใช้ full ID (ns แล้ว)
+                                # Note: ใน JS condition ต้องใช้ full ID
                                 f"input['{ns('sel_var_edit')}'] != 'Select...'",
                                 ui.input_radio_buttons(
                                     ns("radio_var_type"), 
@@ -76,23 +76,18 @@ def data_ui(id):
     )
 
 # --- 2. Server Logic ---
-# ✅ FIX: ใส่ @module.server และเพิ่ม input, output, session เข้ามาใน argument แรก
 @module.server
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # ✅ FIX: ใช้ session.ns สำหรับสร้าง ID ในส่วนที่ render UI ย้อนกลับไป
+    # ใช้ session.ns สำหรับ UI ที่ generate ฝั่ง Server
     ns = session.ns
     
-    # Get color palette for consistency
     COLORS = get_color_palette()
-
-    # ✅ Add loading state
     is_loading_data = reactive.Value(False)
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
-    # ✅ FIX: ใน Module server ไม่ต้องครอบ ns() ที่ input key
     @reactive.event(lambda: input.btn_load_example()) 
     def _():
         logger.info("Generating example data...")
@@ -217,11 +212,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             logger.info("Loading state cleared")
 
     @reactive.Effect
-    @reactive.event(lambda: input.file_upload()) # ✅ FIX: ไม่ต้องมี ns()
+    @reactive.event(lambda: input.file_upload()) 
     def _():
         """Load uploaded file"""
         is_loading_data.set(True)
-        file_infos: list[FileInfo] = input.file_upload() # ✅ FIX
+        file_infos: list[FileInfo] = input.file_upload()
         
         if not file_infos:
             is_loading_data.set(False)
@@ -268,7 +263,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_reset_all()) # ✅ FIX
+    @reactive.event(lambda: input.btn_reset_all())
     def _():
         df.set(None)
         var_meta.set({})
@@ -285,27 +280,27 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
-            ui.update_select("sel_var_edit", choices=cols) # ✅ FIX: ไม่ต้องมี ns()
+            ui.update_select("sel_var_edit", choices=cols)
 
     @reactive.Effect
-    @reactive.event(lambda: input.sel_var_edit()) # ✅ FIX
+    @reactive.event(lambda: input.sel_var_edit())
     def _load_meta_to_ui():
-        var_name = input.sel_var_edit() # ✅ FIX
+        var_name = input.sel_var_edit()
         meta = var_meta.get()
         if var_name != "Select..." and meta and var_name in meta:
             m = meta[var_name]
-            ui.update_radio_buttons("radio_var_type", selected=m.get('type', 'Continuous')) # ✅ FIX
+            ui.update_radio_buttons("radio_var_type", selected=m.get('type', 'Continuous'))
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
-            ui.update_text_area("txt_var_map", value=map_str) # ✅ FIX
+            ui.update_text_area("txt_var_map", value=map_str)
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_save_meta()) # ✅ FIX
+    @reactive.event(lambda: input.btn_save_meta())
     def _save_metadata():
-        var_name = input.sel_var_edit() # ✅ FIX
+        var_name = input.sel_var_edit()
         if var_name == "Select...": return
         
         new_map = {}
-        map_input = input.txt_var_map() # ✅ FIX
+        map_input = input.txt_var_map()
         if map_input:
             for line in map_input.split('\n'):
                 if '=' in line:
@@ -321,7 +316,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
         current_meta = var_meta.get() or {}
         current_meta[var_name] = {
-            'type': input.radio_var_type(), # ✅ FIX 
+            'type': input.radio_var_type(), 
             'map': new_map, 
             'label': var_name
         }
@@ -358,12 +353,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
-             # ✅ FIX: ตรงนี้ต้องใช้ ns() เพราะเป็นการสร้าง UI ใหม่จาก Server
              return ui.input_action_button(ns("btn_clear_match"), "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input.btn_clear_match()) # ✅ FIX
+    @reactive.event(lambda: input.btn_clear_match())
     def _():
         df_matched.set(None)
         is_matched.set(False)
