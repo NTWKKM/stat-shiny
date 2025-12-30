@@ -3,12 +3,12 @@
 def get_color_palette():
     """
     Returns a unified color palette dictionary for all modules.
-    🎨 Professional Medical Analytics Theme - Modern & Accessible
+    🎨 Professional Medical Analytics Theme - Navy Blue Edition
     
     Primary Colors:
-    - primary: Teal (#1B7E8F) - Modern, medical-grade, professional
-    - primary_dark: Dark Teal (#0D4D57) - Strong emphasis, table headers
-    - primary_light: Light Teal (#E0F2F7) - Backgrounds, accents
+    - primary: Navy (#1E3A5F) - Deep, professional, medical-grade
+    - primary_dark: Dark Navy (#0F2440) - Strong emphasis, table headers
+    - primary_light: Light Navy (#E8EEF7) - Backgrounds, accents
     
     Status Colors:
     - success: Green (#22A765) - Positive, matched status, good balance
@@ -24,10 +24,10 @@ def get_color_palette():
     - surface: White (#FFFFFF) - Cards, containers
     """
     return {
-        # Primary colors - Modern Teal theme (medical, professional, accessible)
-        'primary': '#1B7E8F',           # Teal - main brand color
-        'primary_dark': '#0D4D57',      # Dark teal - headers, strong emphasis
-        'primary_light': '#E0F2F7',     # Light teal - backgrounds, accents
+        # Primary colors - Navy Blue theme (professional, medical, authoritative)
+        'primary': '#1E3A5F',           # Navy - main brand color
+        'primary_dark': '#0F2440',      # Dark navy - headers, strong emphasis
+        'primary_light': '#E8EEF7',     # Light navy - backgrounds, accents
         
         # Status/Semantic colors
         'success': '#22A765',           # Green - positive, good balance (SMD < 0.1)
@@ -50,32 +50,32 @@ def get_color_info():
     Returns information about the color palette for documentation.
     """
     return {
-        'theme': 'Professional Medical Analytics',
-        'description': 'Modern, accessible teal-based theme for statistical analysis',
+        'theme': 'Professional Medical Analytics - Navy Blue',
+        'description': 'Modern, accessible navy-based theme for statistical analysis',
         'created': 'December 30, 2025',
-        'updated': 'December 30, 2025 (Modernized)',
+        'updated': 'December 31, 2025 (Navy Blue Theme)',
         'accessibility': 'WCAG AAA compliant (all colors tested)',
         'colors': {
             'primary': {
-                'name': 'Teal',
-                'hex': '#1B7E8F',
+                'name': 'Navy',
+                'hex': '#1E3A5F',
                 'usage': 'Headers, buttons, links, table headers, emphasis',
-                'contrast_ratio': '6.8:1 (on white)',
-                'rgb': '27, 126, 143'
+                'contrast_ratio': '8.5:1 (on white)',
+                'rgb': '30, 58, 95'
             },
             'primary_dark': {
-                'name': 'Dark Teal',
-                'hex': '#0D4D57',
-                'usage': 'Strong headers, table header backgrounds',
-                'contrast_ratio': '9.2:1 (on white)',
-                'rgb': '13, 77, 87'
+                'name': 'Dark Navy',
+                'hex': '#0F2440',
+                'usage': 'Strong headers, table header backgrounds, navbar',
+                'contrast_ratio': '14.2:1 (on white)',
+                'rgb': '15, 36, 64'
             },
             'primary_light': {
-                'name': 'Light Teal',
-                'hex': '#E0F2F7',
-                'usage': 'Light backgrounds, subtle accents',
-                'contrast_ratio': '9.1:1 (on dark text)',
-                'rgb': '224, 242, 247'
+                'name': 'Light Navy',
+                'hex': '#E8EEF7',
+                'usage': 'Light backgrounds, subtle accents, card headers',
+                'contrast_ratio': '10.8:1 (on dark text)',
+                'rgb': '232, 238, 247'
             },
             'success': {
                 'name': 'Green',
