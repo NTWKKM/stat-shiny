@@ -211,6 +211,10 @@ def get_shiny_css():
             border-radius: 4px;
         }}
         
+        /* ===========================
+           MAIN TABS (Top Navigation)
+           =========================== */
+        
         .nav-tabs {{
             border-bottom: 2px solid {COLORS['border']};
         }}
@@ -230,6 +234,31 @@ def get_shiny_css():
         .nav-tabs .nav-link.active {{
             color: {COLORS['primary']};
             background-color: transparent;
+            border-bottom-color: {COLORS['primary']};
+        }}
+        
+        /* ===========================
+           SUBTABS (Inside Tabs)
+           TEXT COLOR FIX - Ensure visibility on both light and dark themes
+           =========================== */
+        
+        /* Default state: inactive subtabs */
+        .nav-item .nav-link[role="tab"]:not(.active) {{
+            /* Light theme: medium gray, Dark theme: lighter gray */
+            color: {COLORS['text_secondary']} !important;
+        }}
+        
+        /* Hover state: inactive subtabs */
+        .nav-item .nav-link[role="tab"]:not(.active):hover {{
+            /* Light theme: teal tint, Dark theme: lighter teal */
+            color: {COLORS['primary']} !important;
+            border-bottom-color: {COLORS['primary_light']};
+        }}
+        
+        /* Active state: always visible */
+        .nav-item .nav-link[role="tab"].active {{
+            /* Light theme: dark teal, Dark theme: light teal */
+            color: {COLORS['primary']} !important;
             border-bottom-color: {COLORS['primary']};
         }}
         
