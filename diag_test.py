@@ -1,5 +1,4 @@
-"""
-🧪 Diagnostic Test Analysis Module (Shiny Compatible)
+"""🦧 Diagnostic Test Analysis Module (Shiny Compatible)
 
 Functions for:
 - Descriptive statistics
@@ -654,7 +653,7 @@ def generate_report(title, report_items):
                 color: #333;
             }}
             .container {{
-                max-width: 900px;
+                max-width: 1000px;
                 margin: 0 auto;
                 background-color: white;
                 padding: 30px;
@@ -696,6 +695,12 @@ def generate_report(title, report_items):
             tr:hover {{
                 background-color: #f0f0f0;
             }}
+            .table-wrapper {{
+                overflow-x: auto;
+                margin: 20px 0;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+            }}
             .plot-container {{
                 margin: 20px 0;
                 text-align: center;
@@ -728,7 +733,9 @@ def generate_report(title, report_items):
             
             if isinstance(data, pd.DataFrame):
                 html_parts.append(f'<h2>{_html.escape(str(header))}</h2>')
+                html_parts.append('<div class="table-wrapper">')
                 html_parts.append(data.to_html(border=0, classes='table', index=True))
+                html_parts.append('</div>')
             else:
                 html_parts.append(f'<p>No data available for {_html.escape(str(header))}</p>')
         
