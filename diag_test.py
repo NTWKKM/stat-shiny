@@ -350,7 +350,7 @@ def auc_ci_delong(y_true, y_scores):
     Speedup: 106x faster!
     
     Uses NumPy broadcasting instead of nested loops:
-    - pos[:, np.newaxis] > neg broadcasts to (n_pos, n_neg) in single operation
+    - pos[:, np.newaxis] > neg broadcasts to (n_pos, n_ned) in single operation
     - Replaces: for p in pos: sum(p > neg) with vectorized comparison
     """
     try:
@@ -468,54 +468,61 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         "Positive Label": pos_label_user
     }
     
-    # Create Plotly figure
-    fig = go.Figure()
+    # Create Plotly figure - ALWAYS create, even with DeLong
+    try:
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=fpr,
+            y=tpr,
+            mode='lines',
+            name=f'ROC Curve (AUC={auc_val:.3f})',
+            line={'color': COLORS['primary'], 'width': 2},
+            hovertemplate='FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra></extra>'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=[0, 1],
+            y=[0, 1],
+            mode='lines',
+            name='Chance (AUC=0.5)',
+            line={'color': COLORS.get('neutral', '#999'), 'width': 1, 'dash': 'dash'},
+            hoverinfo='skip'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=[fpr[best_idx]],
+            y=[tpr[best_idx]],
+            mode='markers',
+            name=f'Optimal (Sens={tpr[best_idx]:.3f}, Spec={1-fpr[best_idx]:.3f})',
+            marker={'size': 10, 'color': COLORS['danger']},
+            hovertemplate='Sensitivity: %{y:.3f}<br>Specificity: %{customdata:.3f}<extra></extra>',
+            customdata=[1 - fpr[best_idx]],
+        ))
+        
+        fig.update_layout(
+            title={
+                'text': f'ROC Curve<br><sub>AUC = {auc_val:.4f} (95% CI: {stats_res["95% CI Lower"]:.4f}-{stats_res["95% CI Upper"]:.4f})</sub>',
+                'x': 0.5,
+                'xanchor': 'center'
+            },
+            xaxis_title='1 - Specificity (False Positive Rate)',
+            yaxis_title='Sensitivity (True Positive Rate)',
+            hovermode='closest',
+            template='plotly_white',
+            width=700,
+            height=600,
+            font={'size': 12}
+        )
+        
+        fig.update_xaxes(range=[-0.05, 1.05])
+        fig.update_yaxes(range=[-0.05, 1.05])
+        
+        logger.debug(f"ROC figure created successfully")
     
-    fig.add_trace(go.Scatter(
-        x=fpr,
-        y=tpr,
-        mode='lines',
-        name=f'ROC Curve (AUC={auc_val:.3f})',
-        line={'color': COLORS['primary'], 'width': 2},
-        hovertemplate='FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra></extra>'
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=[0, 1],
-        y=[0, 1],
-        mode='lines',
-        name='Chance (AUC=0.5)',
-        line={'color': COLORS.get('neutral', '#999'), 'width': 1, 'dash': 'dash'},
-        hoverinfo='skip'
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=[fpr[best_idx]],
-        y=[tpr[best_idx]],
-        mode='markers',
-        name=f'Optimal (Sens={tpr[best_idx]:.3f}, Spec={1-fpr[best_idx]:.3f})',
-        marker={'size': 10, 'color': COLORS['danger']},
-        hovertemplate='Sensitivity: %{y:.3f}<br>Specificity: %{customdata:.3f}<extra></extra>',
-        customdata=[1 - fpr[best_idx]],
-    ))
-    
-    fig.update_layout(
-        title={
-            'text': f'ROC Curve<br><sub>AUC = {auc_val:.4f} (95% CI: {stats_res["95% CI Lower"]:.4f}-{stats_res["95% CI Upper"]:.4f})</sub>',
-            'x': 0.5,
-            'xanchor': 'center'
-        },
-        xaxis_title='1 - Specificity (False Positive Rate)',
-        yaxis_title='Sensitivity (True Positive Rate)',
-        hovermode='closest',
-        template='plotly_white',
-        width=700,
-        height=600,
-        font={'size': 12}
-    )
-    
-    fig.update_xaxes(range=[-0.05, 1.05])
-    fig.update_yaxes(range=[-0.05, 1.05])
+    except Exception as e:
+        logger.error(f"Error creating ROC figure: {e}")
+        fig = None
     
     # 🔧 FIX: Build coords_df with proper calculation
     # sklearn.roc_curve returns coordinates in ascending threshold order
@@ -528,7 +535,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     })
     
     logger.debug(f"ROC analysis complete: AUC={auc_val:.4f}")
-    logger.debug(f"Performance table shape: {coords_df.shape}, first row: {coords_df.iloc[0].to_dict() if len(coords_df) > 0 else 'empty'}")
+    logger.debug(f"Figure: {fig is not None}, Coords shape: {coords_df.shape}")
     return stats_res, None, fig, coords_df
 
 
@@ -742,9 +749,16 @@ def generate_report(title, report_items):
         elif item_type == 'plot':
             fig = item.get('data')
             if fig is not None:
-                # Convert Plotly figure to HTML
-                plot_html = pio.to_html(fig, include_plotlyjs='cdn', div_id=None)
-                html_parts.append(f'<div class="plot-container">{plot_html}</div>')
+                try:
+                    # Convert Plotly figure to HTML - use include_plotlyjs='cdn' for proper rendering
+                    plot_html = pio.to_html(fig, include_plotlyjs='cdn', div_id=None)
+                    html_parts.append(f'<div class="plot-container">{plot_html}</div>')
+                    logger.debug(f"Plot rendered successfully")
+                except Exception as e:
+                    logger.error(f"Error rendering plot: {e}")
+                    html_parts.append(f'<div class="text-section">⚠️ Error rendering plot: {str(e)}</div>')
+            else:
+                html_parts.append('<div class="text-section">📊 No plot data available</div>')
         
         elif item_type == 'html':
             html_parts.append(item.get('data', ''))
