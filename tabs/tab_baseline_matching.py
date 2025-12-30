@@ -8,7 +8,10 @@ import psm_lib  # Import from root
 from logger import get_logger
 import io
 
+from tabs._common import get_color_palette
+
 logger = get_logger(__name__)
+COLORS = get_color_palette()
 
 # ==============================================================================
 # Helper Function (Pure Python)
@@ -161,7 +164,7 @@ def baseline_matching_ui():
                             "🏥 Full Medical: Age, Sex, BMI, Comorbidities, Lab values",
                             ui.br(),
                             "🔧 Custom: You choose all variables",
-                            style="font-size: 0.85em; color: #666;"
+                            style=f"font-size: 0.85em; color: {COLORS['text_secondary']};"
                         ),
                     ),
                     
@@ -199,7 +202,7 @@ def baseline_matching_ui():
                         ),
                         ui.p(
                             "📌 Caliper = max distance to match treated with control. Wider = more matches, less balance.",
-                            style="font-size: 0.8em; color: #666;"
+                            style=f"font-size: 0.8em; color: {COLORS['text_secondary']};"
                         ),
                     ),
                     open=False
@@ -458,7 +461,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             f"**Using:** {label}",
             ui.br(),
             f"**Rows:** {len(data)} | **Columns:** {len(data.columns)}",
-            style="font-size: 0.9em; color: #666;"
+            style=f"font-size: 0.9em; color: {COLORS['text_secondary']};"
         )
 
     @render.ui
@@ -468,9 +471,13 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                 ui.p(
                     ui.strong("✅ Matched Dataset Available"),
                     " - You can select it above for analysis",
-                    style="color: green; margin-bottom: 5px;"
+                    style=f"color: {COLORS['success']}; margin-bottom: 5px;"
                 ),
-                style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 15px;"
+                style=(
+                    "padding: 10px; border-radius: 6px; margin-bottom: 15px; "
+                    "background-color: rgba(34,167,101,0.08); "
+                    f"border: 1px solid {COLORS['success']};"
+                )
             )
         return None
 
@@ -583,7 +590,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         
         summary_text = "**✅ Configuration Summary:**\n" + "\n".join(summary_items)
         
-        return ui.info_message(summary_text)
+        return ui.info_message(summary_text, class_="bg-primary-light")
 
     @render.ui
     def ui_psm_run_status():
@@ -703,10 +710,10 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                 
                 ui.h5("Step 3️⃣: Match Quality Summary"),
                 ui.layout_columns(
-                    ui.value_box("Pairs Matched", ui.output_ui("val_pairs"), theme="primary"),
-                    ui.value_box("Sample Retained", ui.output_ui("val_retained"), theme="primary"),
-                    ui.value_box("Good Balance", ui.output_ui("val_balance"), theme="teal"),
-                    ui.value_box("SMD Improvement", ui.output_ui("val_smd_imp"), theme="teal"),
+                    ui.value_box("Pairs Matched", ui.output_ui("val_pairs"), theme="bg-teal"),
+                    ui.value_box("Sample Retained", ui.output_ui("val_retained"), theme="bg-teal"),
+                    ui.value_box("Good Balance", ui.output_ui("val_balance"), theme="bg-green"),
+                    ui.value_box("SMD Improvement", ui.output_ui("val_smd_imp"), theme="bg-green"),
                     col_widths=[3, 3, 3, 3]
                 ),
                 
@@ -719,12 +726,12 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                     ui.nav_panel(
                         "📉 Love Plot",
                         output_widget("out_love_plot"),
-                        ui.p("Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)", style="font-size: 0.85em; color: #666; margin-top: 10px;")
+                        ui.p("Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)", style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;")
                     ),
                     ui.nav_panel(
                         "📋 SMD Table",
                         ui.output_data_frame("out_smd_table"),
-                        ui.p("✅ Good balance: SMD < 0.1 after matching", style="font-size: 0.85em; color: #666; margin-top: 10px;")
+                        ui.p("✅ Good balance: SMD < 0.1 after matching", style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;")
                     ),
                     ui.nav_panel(
                         "📊 Group Comparison",
@@ -797,7 +804,8 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     @render.ui
     def ui_balance_alert():
         res = psm_results.get()
-        if not res: return None
+        if not res:
+            return None
         
         good = (res['smd_post']['SMD'] < 0.1).sum()
         total = len(res['smd_post'])
@@ -806,14 +814,24 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             return ui.div(
                 ui.strong("✅ Excellent balance achieved!"),
                 " All variables have SMD < 0.1",
-                style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0;"
+                style=(
+                    "padding: 10px; border-radius: 6px; "
+                    "background-color: rgba(34,167,101,0.08); "
+                    f"border: 1px solid {COLORS['success']}; "
+                    f"color: {COLORS['success']};"
+                )
             )
         else:
             bad_count = total - good
             return ui.div(
                 ui.strong("⚠️ Imbalance remains"),
                 f" on {bad_count} variable(s). Try increasing caliper width or checking for outliers.",
-                style="background-color: #fffbeb; padding: 10px; border-radius: 5px; border: 1px solid #fcd34d;"
+                style=(
+                    "padding: 10px; border-radius: 6px; "
+                    "background-color: rgba(255,185,0,0.08); "
+                    f"border: 1px solid {COLORS['warning']}; "
+                    "color: #000;"
+                )
             )
 
     @render_widget
@@ -880,7 +898,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             treat_col = matched_treatment_col.get()
             return ui.div(
                 ui.h5(
-                    ui.span("✅ Matched Dataset Ready", style="color: green;"),
+                    ui.span("✅ Matched Dataset Ready", style=f"color: {COLORS['success']};"),
                     style="margin-bottom: 10px;"
                 ),
                 ui.p(
@@ -889,7 +907,8 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                     f"• Treatment variable: **{treat_col}**",
                     style="font-size: 0.95em;"
                 ),
-                style="background-color: #f0fdf4; padding: 15px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 20px;"
+                style=(f"background-color: rgba(34,167,101,0.08); padding: 15px; border-radius: 5px; "
+                       f"border: 1px solid {COLORS['success']}; margin-bottom: 20px;")
             )
         else:
             return ui.info_message(
@@ -914,7 +933,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                 ui.strong(f"Group Sizes ({treat_col}):"),
                 ui.br(),
                 ", ".join([f"{idx}: {count}" for idx, count in grp_counts.items()]),
-                style="font-size: 0.9em; color: #666;"
+                style=f"font-size: 0.9em; color: {COLORS['text_secondary']};"
             )
         return None
 
