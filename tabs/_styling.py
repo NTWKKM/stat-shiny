@@ -2,7 +2,7 @@
 🎨 Shiny UI Styling Module
 
 Provides CSS utilities, styled components, and helper functions for consistent
-UI styling across all Shiny modules using the professional teal theme.
+UI styling across all Shiny modules using the professional Navy Blue theme.
 
 Usage:
     from tabs._styling import get_shiny_css, style_card, style_button
@@ -15,7 +15,7 @@ from tabs._common import get_color_palette
 
 def get_shiny_css():
     """
-    Returns global CSS for Shiny app styling with professional teal theme.
+    Returns global CSS for Shiny app styling with professional Navy Blue theme.
     
     Usage:
         In your Shiny app UI:
@@ -101,7 +101,7 @@ def get_shiny_css():
         .btn-primary:hover {{
             background-color: {COLORS['primary_dark']};
             border-color: {COLORS['primary_dark']};
-            box-shadow: 0 4px 8px rgba(27, 126, 143, 0.3);
+            box-shadow: 0 4px 8px rgba(30, 58, 95, 0.3);
         }}
         
         .btn-primary:focus,
@@ -159,7 +159,7 @@ def get_shiny_css():
         
         .form-control:focus {{
             border-color: {COLORS['primary']};
-            box-shadow: 0 0 0 3px rgba(27, 126, 143, 0.15);
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15);
             outline: none;
         }}
         
@@ -172,7 +172,7 @@ def get_shiny_css():
         
         .form-select:focus {{
             border-color: {COLORS['primary']};
-            box-shadow: 0 0 0 3px rgba(27, 126, 143, 0.15);
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15);
             outline: none;
         }}
         
@@ -198,8 +198,9 @@ def get_shiny_css():
             font-size: 18px;
         }}
         
+        /* NAVBAR NAV-LINKS: White text (not faded) */
         .nav-link {{
-            color: rgba(255, 255, 255, 0.8) !important;
+            color: white !important;
             font-weight: 500;
             transition: color 0.2s ease;
         }}
@@ -250,14 +251,14 @@ def get_shiny_css():
         
         /* Hover state: inactive subtabs */
         .nav-item .nav-link[role="tab"]:not(.active):hover {{
-            /* Light theme: teal tint, Dark theme: lighter teal */
+            /* Light theme: navy tint, Dark theme: lighter navy */
             color: {COLORS['primary']} !important;
             border-bottom-color: {COLORS['primary_light']};
         }}
         
         /* Active state: always visible */
         .nav-item .nav-link[role="tab"].active {{
-            /* Light theme: dark teal, Dark theme: light teal */
+            /* Light theme: dark navy, Dark theme: light navy */
             color: {COLORS['primary']} !important;
             border-bottom-color: {COLORS['primary']};
         }}
@@ -291,7 +292,7 @@ def get_shiny_css():
         }}
         
         .alert-info {{
-            background-color: rgba(27, 126, 143, 0.1);
+            background-color: rgba(30, 58, 95, 0.1);
             border-color: {COLORS['primary']};
             color: {COLORS['primary_dark']};
         }}
@@ -566,4 +567,4 @@ def get_color_code(color_name: str) -> str:
         Hex color code
     """
     colors = get_color_palette()
-    return colors.get(color_name, '#1B7E8F')
+    return colors.get(color_name, '#1E3A5F')
