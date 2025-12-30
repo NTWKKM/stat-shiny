@@ -1,4 +1,4 @@
-from shiny import ui, module, reactive, render, session as shiny_session
+from shiny import ui, module, reactive, render, session as shiny_session, req
 from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
@@ -64,7 +64,7 @@ def data_ui(id):
             # --- ส่วน Raw Data Preview ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
-                # ✅ ตรวจสอบ ID ให้ตรงกับฟังก์ชันใน Server
+                # ✅ ใช้ Data Frame Output ปกติ
                 ui.output_data_frame(ns("out_df_preview")),
                 height="600px",
                 full_screen=True
@@ -80,25 +80,22 @@ def data_server(id, df, var_meta, uploaded_file_info,
     input = session.input
     ns = lambda x: f"{id}_{x}"
 
-    # ✅ NEW: Add loading state to fix infinite loading issue
+    # ✅ Add loading state to fix infinite loading issue
     is_loading_data = reactive.Value(False)
 
-    # --- 1. Data Loading Logic (500 ROWS - OPTIMAL BALANCE) ---
+    # --- 1. Data Loading Logic ---
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_load_example")]()
-)
+    @reactive.event(lambda: input[ns("btn_load_example")]())
     def _():
         logger.info("Generating example data...")
-        # ✅ Set loading state BEFORE processing
         is_loading_data.set(True)
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
         
         try:
             np.random.seed(42)
-            n = 600  # ✅ OPTIMAL: 300 (safe) vs 500 (best balance) vs 1500 (was broken)
-                     # 500 rows = ~1 MB payload (safe for HuggingFace WebSocket)
+            n = 500  # ✅ 500 records is safe for HF
             
-            # --- Simulation Logic (คงเดิมทุกประการ) ---
+            # --- Simulation Logic (คงเดิม) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -194,7 +191,6 @@ def data_server(id, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            # ✅ Update state atomically
             df.set(new_df)
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
@@ -209,16 +205,11 @@ def data_server(id, df, var_meta, uploaded_file_info,
             ui.notification_show(f"❌ Error: {e}", type="error")
         
         finally:
-            # ✅ ALWAYS clear loading state
             is_loading_data.set(False)
-            logger.info("Loading state cleared")
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("file_upload")]()
-)
+    @reactive.event(lambda: input[ns("file_upload")]())
     def _():
-        """Load uploaded file with optimizations for HuggingFace"""
-        # ✅ Set loading state
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input[ns("file_upload")]()
         
@@ -227,28 +218,19 @@ def data_server(id, df, var_meta, uploaded_file_info,
             return
         
         f = file_infos[0]
-        logger.info(f"File uploaded: {f['name']}")
-        
         try:
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
             else:
                 new_df = pd.read_excel(f['datapath'])
             
-            # ✅ Optimization: Limit rows for HuggingFace performance
-            if len(new_df) > 10000:
-                logger.warning(f"Large dataset detected ({len(new_df)} rows), limiting to 10000 rows for performance")
-                new_df = new_df.head(10000)
-                ui.notification_show(
-                    "⚠️ Large dataset: showing first 10,000 rows for performance",
-                    type="warning",
-                    duration=5
-                )
+            if len(new_df) > 5000:
+                new_df = new_df.head(5000)
+                ui.notification_show("⚠️ Showing first 5,000 rows for performance", type="warning")
             
             df.set(new_df)
             uploaded_file_info.set({"name": f['name']})
             
-            # Preserve/Init Metadata
             current_meta = var_meta.get().copy()
             for col in new_df.columns:
                 if col not in current_meta:
@@ -260,31 +242,24 @@ def data_server(id, df, var_meta, uploaded_file_info,
                          current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
             var_meta.set(current_meta)
-            logger.info(f"✅ File loaded: {f['name']} ({len(new_df)} rows)")
-            ui.notification_show(f"✅ Loaded {len(new_df)} rows from {f['name']}", type="message")
+            ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
             
         except Exception as e:
-            logger.error(f"Error reading file: {e}")
             ui.notification_show(f"❌ Error: {str(e)}", type="error")
-        
         finally:
-            # ✅ ALWAYS clear loading state
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_reset_all")]()
-)
+    @reactive.event(lambda: input[ns("btn_reset_all")]())
     def _():
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
         is_matched.set(False)
-        matched_treatment_col.set(None)
-        matched_covariates.set([])
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Metadata & Settings Logic (Dropdown + Radio) ---
+    # --- 2. Metadata Logic ---
     @reactive.Effect
     def _update_var_select():
         data = df.get()
@@ -293,8 +268,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
             ui.update_select(ns("sel_var_edit"), choices=cols)
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("sel_var_edit")]()
-)
+    @reactive.event(lambda: input[ns("sel_var_edit")]())
     def _load_meta_to_ui():
         var_name = input[ns("sel_var_edit")]()
         meta = var_meta.get()
@@ -305,8 +279,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
             ui.update_text_area(ns("txt_var_map"), value=map_str)
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_save_meta")]()
-)
+    @reactive.event(lambda: input[ns("btn_save_meta")]())
     def _save_metadata():
         var_name = input[ns("sel_var_edit")]()
         if var_name == "Select...": return
@@ -333,53 +306,27 @@ def data_server(id, df, var_meta, uploaded_file_info,
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
-    # --- 3. Render Outputs ---
+    # --- 3. Render Outputs (แก้ไขจุดที่เป็นปัญหา) ---
     
-    # ✅ FIXED: DataGrid renderer with proper state handling
     @render.data_frame
     def out_df_preview():
-        """Render data grid with proper state management for HuggingFace stability"""
-        
-        # Check if loading
+        # ✅ ใช้ req(not is_loading_data.get()) เพื่อไม่ให้ Render ขณะกำลังโหลด
         if is_loading_data.get():
-            loading_df = pd.DataFrame({
-                'Status': ['🔄 Loading data...'],
-                'Progress': ['Generating 500 example records...']
-            })
-            return render.DataGrid(
-                loading_df,
-                filters=False,
-                width="100%"
-            )
-        
-        # Get data
+            return render.DataTable(pd.DataFrame({"Status": ["🔄 Loading..."]}))
+
         d = df.get()
         
-        # No data case
-        if d is None or len(d) == 0:
-            info_df = pd.DataFrame({
-                'Info': ['No data loaded'],
-                'Action': ['Click "Load Example Data" or upload a CSV/Excel file']
-            })
-            return render.DataGrid(
-                info_df,
-                filters=False,
-                width="100%"
-            )
-        
-        # ✅ Optimization: Limit columns for display (HuggingFace performance)
-        if len(d.columns) > 20:
-            display_df = d.iloc[:, :20]
-            logger.warning(f"Limiting display to 20 columns (total: {len(d.columns)})")
-        else:
-            display_df = d
-        
-        # Render with optimized settings for HuggingFace
+        # กรณีไม่มีข้อมูล
+        if d is None:
+            return render.DataTable(pd.DataFrame({"Info": ["No data loaded. Please upload or load example data."]}))
+
+        # ✅ ใช้ render.DataGrid แต่ปิด Filter และ Selection เพื่อความเร็วบน HF
         return render.DataGrid(
-            display_df,
-            filters=False,
-            summary=False,
-            width="100%"
+            d,
+            row_selection_mode="none", # สำคัญ: ลด overhead ของ browser
+            width="100%",
+            filters=False,             # สำคัญ: ปิด filter เพื่อไม่ให้ script ค้าง
+            summary=True
         )
 
     @render.ui
@@ -389,8 +336,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_clear_match")]()
-)
+    @reactive.event(lambda: input[ns("btn_clear_match")]())
     def _():
         df_matched.set(None)
         is_matched.set(False)
