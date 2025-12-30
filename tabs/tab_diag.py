@@ -42,9 +42,11 @@ def diag_ui():
                     ui.column(3, ui.output_ui("ui_roc_pos_label"))
                 ),
                 ui.row(
-                    ui.column(6, ui.input_action_button("btn_analyze_roc", "🚀 Analyze ROC", class_="btn-primary btn-block")),
-                    ui.column(6, ui.download_button("btn_dl_roc_report", "📥 Download Report", class_="btn-secondary btn-block"))
+                    ui.column(6, ui.input_action_button("btn_analyze_roc", "🚀 Analyze ROC", class_="btn-primary btn-block", width="100%")),
+                    ui.column(6, ui.download_button("btn_dl_roc_report", "📥 Download Report", class_="btn-secondary btn-block", width="100%"))
                 ),
+                ui.br(),
+                ui.output_ui("ui_roc_status"),  # Status message area
                 ui.br(),
                 ui.output_ui("out_roc_results")
             ),
@@ -65,9 +67,11 @@ def diag_ui():
                     ui.column(3, ui.output_ui("ui_chi_empty"))
                 ),
                 ui.row(
-                    ui.column(6, ui.input_action_button("btn_analyze_chi", "🚀 Analyze Chi-Square", class_="btn-primary btn-block")),
-                    ui.column(6, ui.download_button("btn_dl_chi_report", "📥 Download Report", class_="btn-secondary btn-block"))
+                    ui.column(6, ui.input_action_button("btn_analyze_chi", "🚀 Analyze Chi-Square", class_="btn-primary btn-block", width="100%")),
+                    ui.column(6, ui.download_button("btn_dl_chi_report", "📥 Download Report", class_="btn-secondary btn-block", width="100%"))
                 ),
+                ui.br(),
+                ui.output_ui("ui_chi_status"),  # Status message area
                 ui.br(),
                 ui.output_ui("out_chi_results")
             ),
@@ -81,9 +85,11 @@ def diag_ui():
                 ),
                 ui.output_ui("ui_kappa_warning"),
                 ui.row(
-                    ui.column(6, ui.input_action_button("btn_analyze_kappa", "🚀 Calculate Kappa", class_="btn-primary btn-block")),
-                    ui.column(6, ui.download_button("btn_dl_kappa_report", "📥 Download Report", class_="btn-secondary btn-block"))
+                    ui.column(6, ui.input_action_button("btn_analyze_kappa", "🚀 Calculate Kappa", class_="btn-primary btn-block", width="100%")),
+                    ui.column(6, ui.download_button("btn_dl_kappa_report", "📥 Download Report", class_="btn-secondary btn-block", width="100%"))
                 ),
+                ui.br(),
+                ui.output_ui("ui_kappa_status"),  # Status message area
                 ui.br(),
                 ui.output_ui("out_kappa_results")
             ),
@@ -95,9 +101,11 @@ def diag_ui():
                     ui.column(12, ui.output_ui("ui_desc_var"))
                 ),
                 ui.row(
-                    ui.column(6, ui.input_action_button("btn_run_desc", "Show Stats", class_="btn-primary btn-block")),
-                    ui.column(6, ui.download_button("btn_dl_desc_report", "📥 Download Report", class_="btn-secondary btn-block"))
+                    ui.column(6, ui.input_action_button("btn_run_desc", "Show Stats", class_="btn-primary btn-block", width="100%")),
+                    ui.column(6, ui.download_button("btn_dl_desc_report", "📥 Download Report", class_="btn-secondary btn-block", width="100%"))
                 ),
+                ui.br(),
+                ui.output_ui("ui_desc_status"),  # Status message area
                 ui.br(),
                 ui.output_ui("out_desc_results")
             ),
@@ -164,6 +172,12 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     chi_html = reactive.Value(None)
     kappa_html = reactive.Value(None)
     desc_html = reactive.Value(None)
+    
+    # --- Processing Status Indicators ---
+    roc_processing = reactive.Value(False)
+    chi_processing = reactive.Value(False)
+    kappa_processing = reactive.Value(False)
+    desc_processing = reactive.Value(False)
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
@@ -385,6 +399,55 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         cols = all_cols()
         return ui.input_select("sel_desc_var", "Select Variable:", choices=cols)
 
+    # --- ROC Status & Results ---
+    @render.ui
+    def ui_roc_status():
+        if roc_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Generating ROC curve and statistics... Please wait",
+                    class_="alert alert-info"
+                )
+            )
+        return None
+
+    @render.ui
+    def ui_chi_status():
+        if chi_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Calculating Chi-Square statistics... Please wait",
+                    class_="alert alert-info"
+                )
+            )
+        return None
+
+    @render.ui
+    def ui_kappa_status():
+        if kappa_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Calculating Kappa statistics... Please wait",
+                    class_="alert alert-info"
+                )
+            )
+        return None
+
+    @render.ui
+    def ui_desc_status():
+        if desc_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Calculating descriptive statistics... Please wait",
+                    class_="alert alert-info"
+                )
+            )
+        return None
+
     # --- ROC Analysis Logic ---
     @reactive.Effect
     @reactive.event(input.btn_analyze_roc)
@@ -392,50 +455,48 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         d = current_df()
         req(d is not None, input.sel_roc_truth(), input.sel_roc_score())
         
-        truth_col = input.sel_roc_truth()
-        score_col = input.sel_roc_score()
-        method = input.radio_roc_method()
-        pos_label = input.sel_roc_pos_label()
+        # Set processing flag
+        roc_processing.set(True)
         
-        res, err, fig, coords = diag_test.analyze_roc(
-            d, truth_col, score_col,
-            method=method,
-            pos_label_user=pos_label
-        )
-        
-        # Debug logging
-        print(f"[ROC Debug] Method: {method}")
-        print(f"[ROC Debug] Error: {err}")
-        print(f"[ROC Debug] Figure type: {type(fig)}")
-        print(f"[ROC Debug] Figure is None: {fig is None}")
-        print(f"[ROC Debug] Coords shape: {coords.shape if coords is not None else 'None'}")
-        
-        if err:
-            roc_html.set(f"<div class='alert alert-danger'>📄 Error: {err}</div>")
-        else:
-            rep = [
-                {'type':'text', 'data': f"📊 Analysis: {score_col} vs {truth_col}"},
-            ]
+        try:
+            truth_col = input.sel_roc_truth()
+            score_col = input.sel_roc_score()
+            method = input.radio_roc_method()
+            pos_label = input.sel_roc_pos_label()
             
-            # Add plot if available
-            if fig is not None:
-                rep.append({'type':'plot', 'data': fig})
-                print("[ROC Debug] Added figure to report")
+            res, err, fig, coords = diag_test.analyze_roc(
+                d, truth_col, score_col,
+                method=method,
+                pos_label_user=pos_label
+            )
+            
+            if err:
+                roc_html.set(f"<div class='alert alert-danger'>📄 Error: {err}</div>")
             else:
-                rep.append({'type':'text', 'data': '⚠️ Warning: ROC plot could not be generated'})
-                print("[ROC Debug] Figure is None - plot not added")
-            
-            # Add statistics table
-            if res is not None:
-                rep.append({'type':'table', 'header':'ROC Statistics', 'data': pd.DataFrame([res]).T})
-            
-            # Add performance coordinates table
-            if coords is not None:
-                rep.append({'type':'table', 'header':'Performance at Different Thresholds', 'data': coords})
-            
-            html_report = diag_test.generate_report(f"ROC Analysis Report ({method})", rep)
-            roc_html.set(html_report)
-            print("[ROC Debug] HTML report generated successfully")
+                rep = [
+                    {'type':'text', 'data': f"📊 Analysis: {score_col} vs {truth_col}"},
+                ]
+                
+                # Add plot if available
+                if fig is not None:
+                    rep.append({'type':'plot', 'data': fig})
+                else:
+                    rep.append({'type':'text', 'data': '⚠️ Warning: ROC plot could not be generated'})
+                
+                # Add statistics table
+                if res is not None:
+                    rep.append({'type':'table', 'header':'ROC Statistics', 'data': pd.DataFrame([res]).T})
+                
+                # Add performance coordinates table
+                if coords is not None:
+                    rep.append({'type':'table', 'header':'Performance at Different Thresholds', 'data': coords})
+                
+                html_report = diag_test.generate_report(f"ROC Analysis Report ({method})", rep)
+                roc_html.set(html_report)
+        
+        finally:
+            # Clear processing flag
+            roc_processing.set(False)
 
     @render.ui
     def out_roc_results():
@@ -454,29 +515,37 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         d = current_df()
         req(d is not None, input.sel_chi_v1(), input.sel_chi_v2())
         
-        tab, stats, msg, risk = diag_test.calculate_chi2(
-            d, input.sel_chi_v1(), input.sel_chi_v2(),
-            method=input.radio_chi_method(),
-            v1_pos=input.sel_chi_v1_pos(),
-            v2_pos=input.sel_chi_v2_pos()
-        )
+        # Set processing flag
+        chi_processing.set(True)
         
-        if tab is not None:
-            status_text = f"Note: {msg.strip()}" if msg.strip() else "Analysis Status: Completed successfully."
-            rep = [
-                {'type': 'text', 'data': "Analysis: Diagnostic Test / Chi-Square"},
-                {'type': 'text', 'data': f"Variables: {input.sel_chi_v1()} vs {input.sel_chi_v2()}"},
-                {'type': 'text', 'data': status_text},
-                {'type': 'contingency_table', 'header': 'Contingency Table', 'data': tab}
-            ]
-            if stats is not None:
-                rep.append({'type': 'table', 'header': 'Statistics', 'data': stats})
-            if risk is not None:
-                rep.append({'type': 'table', 'header': 'Risk & Effect Measures', 'data': risk})
+        try:
+            tab, stats, msg, risk = diag_test.calculate_chi2(
+                d, input.sel_chi_v1(), input.sel_chi_v2(),
+                method=input.radio_chi_method(),
+                v1_pos=input.sel_chi_v1_pos(),
+                v2_pos=input.sel_chi_v2_pos()
+            )
             
-            chi_html.set(diag_test.generate_report(f"Chi2: {input.sel_chi_v1()} vs {input.sel_chi_v2()}", rep))
-        else:
-            chi_html.set(f"<div class='alert alert-danger'>Analysis failed: {msg}</div>")
+            if tab is not None:
+                status_text = f"Note: {msg.strip()}" if msg.strip() else "Analysis Status: Completed successfully."
+                rep = [
+                    {'type': 'text', 'data': "Analysis: Diagnostic Test / Chi-Square"},
+                    {'type': 'text', 'data': f"Variables: {input.sel_chi_v1()} vs {input.sel_chi_v2()}"},
+                    {'type': 'text', 'data': status_text},
+                    {'type': 'contingency_table', 'header': 'Contingency Table', 'data': tab}
+                ]
+                if stats is not None:
+                    rep.append({'type': 'table', 'header': 'Statistics', 'data': stats})
+                if risk is not None:
+                    rep.append({'type': 'table', 'header': 'Risk & Effect Measures', 'data': risk})
+                
+                chi_html.set(diag_test.generate_report(f"Chi2: {input.sel_chi_v1()} vs {input.sel_chi_v2()}", rep))
+            else:
+                chi_html.set(f"<div class='alert alert-danger'>Analysis failed: {msg}</div>")
+        
+        finally:
+            # Clear processing flag
+            chi_processing.set(False)
 
     @render.ui
     def out_chi_results():
@@ -495,16 +564,24 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         d = current_df()
         req(d is not None, input.sel_kappa_v1(), input.sel_kappa_v2())
         
-        res, err, conf = diag_test.calculate_kappa(d, input.sel_kappa_v1(), input.sel_kappa_v2())
-        if err:
-            kappa_html.set(f"<div class='alert alert-danger'>{err}</div>")
-        else:
-            rep = [
-                {'type': 'text', 'data': f"Agreement Analysis: {input.sel_kappa_v1()} vs {input.sel_kappa_v2()}"},
-                {'type': 'table', 'header': 'Kappa Statistics', 'data': res},
-                {'type': 'contingency_table', 'header': 'Confusion Matrix (Crosstab)', 'data': conf}
-            ]
-            kappa_html.set(diag_test.generate_report(f"Kappa: {input.sel_kappa_v1()} vs {input.sel_kappa_v2()}", rep))
+        # Set processing flag
+        kappa_processing.set(True)
+        
+        try:
+            res, err, conf = diag_test.calculate_kappa(d, input.sel_kappa_v1(), input.sel_kappa_v2())
+            if err:
+                kappa_html.set(f"<div class='alert alert-danger'>{err}</div>")
+            else:
+                rep = [
+                    {'type': 'text', 'data': f"Agreement Analysis: {input.sel_kappa_v1()} vs {input.sel_kappa_v2()}"},
+                    {'type': 'table', 'header': 'Kappa Statistics', 'data': res},
+                    {'type': 'contingency_table', 'header': 'Confusion Matrix (Crosstab)', 'data': conf}
+                ]
+                kappa_html.set(diag_test.generate_report(f"Kappa: {input.sel_kappa_v1()} vs {input.sel_kappa_v2()}", rep))
+        
+        finally:
+            # Clear processing flag
+            kappa_processing.set(False)
 
     @render.ui
     def out_kappa_results():
@@ -523,11 +600,19 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         d = current_df()
         req(d is not None, input.sel_desc_var())
         
-        res = diag_test.calculate_descriptive(d, input.sel_desc_var())
-        if res is not None:
-            desc_html.set(diag_test.generate_report(f"Descriptive: {input.sel_desc_var()}", [{'type':'table', 'data':res}]))
-        else:
-            desc_html.set(f"<div class='alert alert-danger'>No data available for {input.sel_desc_var()}</div>")
+        # Set processing flag
+        desc_processing.set(True)
+        
+        try:
+            res = diag_test.calculate_descriptive(d, input.sel_desc_var())
+            if res is not None:
+                desc_html.set(diag_test.generate_report(f"Descriptive: {input.sel_desc_var()}", [{'type':'table', 'data':res}]))
+            else:
+                desc_html.set(f"<div class='alert alert-danger'>No data available for {input.sel_desc_var()}</div>")
+        
+        finally:
+            # Clear processing flag
+            desc_processing.set(False)
 
     @render.ui
     def out_desc_results():
