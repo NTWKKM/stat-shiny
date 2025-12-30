@@ -5,7 +5,7 @@ from config import CONFIG
 from logger import get_logger, LoggerFactory
 
 # Import Tabs Modules
-from tabs import tab_data          # 🟢 Data Module (NEW)
+from tabs import tab_data           # 🟢 Data Module (NEW)
 from tabs import tab_baseline_matching
 from tabs import tab_diag
 from tabs import tab_logit
@@ -59,6 +59,9 @@ app_ui = ui.page_navbar(
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
     window_title="Medical Stat Tool",
+    
+    # ✅ ปรับปรุง: เพิ่ม inverse=True เพื่อให้ Text และปุ่มเมนูเป็นสีขาวสำหรับพื้นหลังเข้ม
+    inverse=True,  
 
     # ⬇⬇⬇ inject teal theme CSS
     header=ui.tags.head(
