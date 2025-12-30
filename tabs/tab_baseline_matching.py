@@ -423,6 +423,9 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         ui.update_select("sel_treat_col", choices=cols)
         ui.update_select("sel_outcome_col", choices=["⊘ None / Skip"] + cols, selected="⊘ None / Skip")
         
+        # FIX: Update covariates dropdown with all columns
+        ui.update_selectize("sel_covariates", choices=cols, selected=[])
+        
         # Matched View
         numeric_cols = d.select_dtypes(include=[np.number]).columns.tolist()
         ui.update_select("sel_stat_var_tab3", choices=numeric_cols)
@@ -534,19 +537,32 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         treat = input.sel_treat_col()
         outcome = input.sel_outcome_col()
         
-        excluded = [treat]
-        if outcome != "⊘ None / Skip": excluded.append(outcome)
+        # Build list of excluded columns
+        excluded = []
+        if treat:
+            excluded.append(treat)
+        if outcome and outcome != "⊘ None / Skip":
+            excluded.append(outcome)
         
-        candidates = [c for c in d.columns if c not in excluded]
+        # Get candidate columns (exclude treatment, outcome, and ID-like columns)
+        candidates = [c for c in d.columns if c not in excluded and c.lower() not in ['id', 'index']]
         selected = []
         
         if preset == "demographics":
-            selected = [c for c in candidates if any(x in c.lower() for x in ['age', 'sex', 'bmi'])]
+            # Match columns containing age, sex, bmi
+            selected = [c for c in candidates if any(
+                x in c.lower() for x in ['age', 'sex', 'male', 'bmi']
+            )]
         elif preset == "full_medical":
-            selected = [c for c in candidates if any(x in c.lower() for x in ['age', 'sex', 'bmi', 'comorb', 'hyper', 'diab', 'lab'])]
+            # Match columns for demographics + comorbidities + lab values
+            selected = [c for c in candidates if any(
+                x in c.lower() for x in ['age', 'sex', 'male', 'bmi', 'comorb', 'hyper', 'diab', 'lab', 'glucose', 'hba1c']
+            )]
         
+        # Only update if preset is not custom
         if preset != "custom":
             ui.update_selectize("sel_covariates", selected=selected)
+            logger.info(f"Preset '{preset}' applied: selected {len(selected)} variables")
 
     @render.ui
     def ui_psm_config_summary():
@@ -557,7 +573,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         config_valid = len(covs) > 0
         
         summary_items = [
-            f"💊 **Treatment:** `{treat}`",
+            f"💊 **Treatment:** `{treat if treat else '(not selected)'}`",
             f"🎯 **Outcome:** `{outcome if outcome != '⊘ None / Skip' else 'Skip'}`",
             f"📊 **Confounders:** {len(covs)} selected"
         ]
@@ -591,6 +607,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         caliper = float(input.sel_caliper_preset())
         
         if d is None or not treat_col or not cov_cols:
+            ui.notification_show("Please configure all required fields", type="warning")
             return
 
         ui.notification_show("Running Propensity Score Matching...", duration=None, id="psm_running")
@@ -658,12 +675,12 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             matched_covariates.set(cov_cols)
             
             ui.notification_remove("psm_running")
-            ui.notification_show("Matching Successful!", type="message")
+            ui.notification_show("✅ Matching Successful!", type="message")
             logger.info(f"💾 Matched data stored. Rows: {len(df_m)}")
 
         except Exception as e:
             ui.notification_remove("psm_running")
-            ui.notification_show(f"Matching Failed: {e}", type="error")
+            ui.notification_show(f"❌ Matching Failed: {e}", type="error")
             logger.error(f"PSM Error: {e}")
 
     # --- PSM Main Content Output ---
