@@ -33,6 +33,7 @@ def get_shiny_css():
             --color-primary: {COLORS['primary']};
             --color-primary-dark: {COLORS['primary_dark']};
             --color-primary-light: {COLORS['primary_light']};
+            --color-smoke-white: {COLORS['smoke_white']};
             --color-success: {COLORS['success']};
             --color-danger: {COLORS['danger']};
             --color-warning: {COLORS['warning']};
@@ -188,27 +189,28 @@ def get_shiny_css():
            =========================== */
         
         .navbar {{
-            background-color: {COLORS['primary_dark']} !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: {COLORS['smoke_white']} !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            border-bottom: 1px solid {COLORS['border']};
         }}
         
         .navbar-brand {{
-            color: white !important;
+            color: {COLORS['primary_dark']} !important;
             font-weight: 600;
             font-size: 18px;
         }}
         
-        /* NAVBAR NAV-LINKS: White text (not faded) */
+        /* NAVBAR NAV-LINKS: Navy text on smoke white */
         .nav-link {{
-            color: white !important;
+            color: {COLORS['primary']} !important;
             font-weight: 500;
-            transition: color 0.2s ease;
+            transition: all 0.2s ease;
         }}
         
         .nav-link:hover,
         .nav-link.active {{
-            color: white !important;
-            background-color: rgba(255, 255, 255, 0.15) !important;
+            color: {COLORS['primary_dark']} !important;
+            background-color: rgba(30, 58, 95, 0.08) !important;
             border-radius: 4px;
         }}
         
