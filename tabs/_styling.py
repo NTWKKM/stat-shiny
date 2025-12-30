@@ -199,15 +199,39 @@ def get_shiny_css():
             font-size: 18px;
         }}
         
-        /* NAVBAR NAV-LINKS: Smoke white text on navy background */
-        .nav-link {{
+        /* SIDEBAR NAVIGATION SPECIFIC FIXES */
+        /* Force text to be white in sidebar context */
+        .sidebar .nav-link, 
+        .bslib-sidebar-layout .sidebar-content .nav-link {{
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }}
+        
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active,
+        .sidebar .nav-link:focus,
+        .bslib-sidebar-layout .sidebar-content .nav-link:hover,
+        .bslib-sidebar-layout .sidebar-content .nav-link.active {{
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            border-radius: 4px;
+        }}
+
+        .sidebar .nav-link i,
+        .bslib-sidebar-layout .sidebar-content .nav-link i {{
+             color: rgba(255, 255, 255, 0.85) !important;
+        }}
+
+        /* GENERAL NAVBAR LINKS (Fallback) */
+        .navbar .nav-link {{
             color: {COLORS['smoke_white']} !important;
             font-weight: 500;
             transition: all 0.2s ease;
         }}
         
-        .nav-link:hover,
-        .nav-link.active {{
+        .navbar .nav-link:hover,
+        .navbar .nav-link.active {{
             color: {COLORS['smoke_white']} !important;
             background-color: rgba(248, 249, 250, 0.15) !important;
             border-radius: 4px;
