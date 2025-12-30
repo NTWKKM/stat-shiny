@@ -40,132 +40,209 @@ def check_perfect_separation(df, target_col):
     return risky_vars
 
 # ==============================================================================
-# UI Definition
+# UI Definition - Stacked Layout (Controls Top + Content Bottom)
 # ==============================================================================
 @module.ui
 def logit_ui():
     return ui.navset_card_tab(
-        # ---------------------------------------------------------------------
+        # =====================================================================
         # TAB 1: Binary Logistic Regression
-        # ---------------------------------------------------------------------
-        ui.nav_panel("📈 Binary Logistic Regression",
-            ui.layout_sidebar(
-                ui.sidebar(
-                    ui.h5("Analysis Options"),
+        # =====================================================================
+        ui.nav_panel(
+            "📈 Binary Logistic Regression",
+            
+            # Control section (top)
+            ui.card(
+                ui.card_header("📈 Analysis Options"),
+                
+                ui.output_ui("ui_dataset_selector"),
+                ui.hr(),
+                
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Variable Selection:"),
+                        ui.input_select("sel_outcome", "Select Outcome (Y):", choices=[]),
+                        ui.output_ui("ui_separation_warning"),
+                    ),
                     
-                    # Dataset Source Selection (Dynamic)
-                    ui.output_ui("ui_dataset_selector"),
-                    ui.hr(),
-
-                    # Variable Selection
-                    ui.input_select("sel_outcome", "Select Outcome (Y):", choices=[]),
-                    ui.output_ui("ui_separation_warning"), # Warning box
-                    ui.input_selectize("sel_exclude", "Exclude Variables:", choices=[], multiple=True),
+                    ui.card(
+                        ui.card_header("Method & Settings:"),
+                        ui.input_radio_buttons(
+                            "radio_method",
+                            "Regression Method:",
+                            {
+                                "auto": "Auto (Recommended)",
+                                "bfgs": "Standard (MLE)",
+                                "firth": "Firth's (Penalized)"
+                            }
+                        ),
+                    ),
                     
-                    # Method Selection
-                    ui.input_radio_buttons("radio_method", "Regression Method:", 
-                        {"auto": "Auto (Recommended)", "bfgs": "Standard (MLE)", "firth": "Firth's (Penalized)"}),
-                    
-                    ui.hr(),
-                    ui.input_action_button("btn_run_logit", "🚀 Run Regression", class_="btn-primary"),
-                    ui.br(), ui.br(),
-                    ui.download_button("btn_dl_report", "📥 Download Report", class_="btn-secondary"),
-                    width=350
+                    col_widths=[6, 6]
                 ),
                 
-                # Main Content Area
-                ui.output_ui("out_logit_status"),
-                ui.navset_card_underline(
-                    ui.nav_panel("🌳 Forest Plots",
-                        ui.output_ui("ui_forest_tabs") # Dynamic tabs for Crude/Adjusted
+                ui.h6("Exclude Variables (Optional):"),
+                ui.input_selectize("sel_exclude", label=None, choices=[], multiple=True),
+                
+                ui.hr(),
+                
+                ui.layout_columns(
+                    ui.input_action_button(
+                        "btn_run_logit",
+                        "🚀 Run Regression",
+                        class_="btn-primary btn-sm w-100"
                     ),
-                    ui.nav_panel("📋 Detailed Report",
-                        ui.output_ui("out_html_report")
-                    )
+                    ui.download_button(
+                        "btn_dl_report",
+                        "📥 Download Report",
+                        class_="btn-secondary btn-sm w-100"
+                    ),
+                    col_widths=[6, 6]
+                ),
+            ),
+            
+            # Content section (bottom)
+            ui.output_ui("out_logit_status"),
+            ui.navset_card_underline(
+                ui.nav_panel(
+                    "🌳 Forest Plots",
+                    ui.output_ui("ui_forest_tabs")
+                ),
+                ui.nav_panel(
+                    "📋 Detailed Report",
+                    ui.output_ui("out_html_report")
                 )
             )
         ),
 
-        # ---------------------------------------------------------------------
+        # =====================================================================
         # TAB 2: Subgroup Analysis
-        # ---------------------------------------------------------------------
-        ui.nav_panel("🗒️ Subgroup Analysis",
-            ui.layout_sidebar(
-                ui.sidebar(
-                    ui.h5("Subgroup Settings"),
-                    ui.input_select("sg_outcome", "Outcome (Binary):", choices=[]),
-                    ui.input_select("sg_treatment", "Treatment/Exposure:", choices=[]),
-                    ui.input_select("sg_subgroup", "Stratify By:", choices=[]),
-                    ui.input_selectize("sg_adjust", "Adjustment Covariates:", choices=[], multiple=True),
-                    
-                    ui.accordion(
-                        ui.accordion_panel("⚙️ Advanced",
-                            ui.input_numeric("sg_min_n", "Min N per subgroup:", value=5, min=2),
-                            ui.input_text("sg_title", "Custom Title:", placeholder="Subgroup Analysis...")
-                        ),
-                        open=False
+        # =====================================================================
+        ui.nav_panel(
+            "🗒️ Subgroup Analysis",
+            
+            # Control section (top)
+            ui.card(
+                ui.card_header("🗒️ Subgroup Settings"),
+                
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Core Variables:"),
+                        ui.input_select("sg_outcome", "Outcome (Binary):", choices=[]),
+                        ui.input_select("sg_treatment", "Treatment/Exposure:", choices=[]),
+                        ui.input_select("sg_subgroup", "Stratify By:", choices=[]),
                     ),
                     
-                    ui.hr(),
-                    ui.input_action_button("btn_run_subgroup", "🚀 Run Subgroup", class_="btn-primary"),
-                    width=350
+                    ui.card(
+                        ui.card_header("Adjustment & Advanced:"),
+                        ui.input_selectize("sg_adjust", "Adjustment Covariates:", choices=[], multiple=True),
+                        ui.input_numeric("sg_min_n", "Min N per subgroup:", value=5, min=2),
+                    ),
+                    
+                    col_widths=[6, 6]
                 ),
                 
-                # Subgroup Results Area
-                ui.output_ui("out_subgroup_status"),
-                ui.navset_card_underline(
-                    ui.nav_panel("🌳 Forest Plot",
-                        output_widget("out_sg_forest_plot"),
-                        ui.input_text("txt_edit_forest_title", "Edit Plot Title:", placeholder="Enter new title..."),
-                        ui.input_action_button("btn_update_plot_title", "Update Title", class_="btn-sm")
+                ui.accordion(
+                    ui.accordion_panel(
+                        "✏️ Custom Settings",
+                        ui.input_text("sg_title", "Custom Title:", placeholder="Subgroup Analysis..."),
                     ),
-                    ui.nav_panel("📊 Summary & Interpretation",
-                        ui.layout_columns(
-                            ui.value_box("Overall OR", ui.output_text("val_overall_or")),
-                            ui.value_box("Overall P-value", ui.output_text("val_overall_p")),
-                            ui.value_box("Interaction P-value", ui.output_text("val_interaction_p"))
-                        ),
-                        ui.hr(),
-                        ui.output_ui("out_interpretation_box"),
-                        ui.h5("Detailed Results"),
-                        ui.output_data_frame("out_sg_table")
+                    open=False
+                ),
+                
+                ui.hr(),
+                
+                ui.input_action_button(
+                    "btn_run_subgroup",
+                    "🚀 Run Subgroup Analysis",
+                    class_="btn-primary btn-sm w-100"
+                ),
+            ),
+            
+            # Content section (bottom)
+            ui.output_ui("out_subgroup_status"),
+            ui.navset_card_underline(
+                ui.nav_panel(
+                    "🌳 Forest Plot",
+                    output_widget("out_sg_forest_plot"),
+                    ui.hr(),
+                    ui.input_text("txt_edit_forest_title", "Edit Plot Title:", placeholder="Enter new title..."),
+                    ui.input_action_button("btn_update_plot_title", "Update Title", class_="btn-sm"),
+                ),
+                ui.nav_panel(
+                    "📊 Summary & Interpretation",
+                    ui.layout_columns(
+                        ui.value_box("Overall OR", ui.output_text("val_overall_or")),
+                        ui.value_box("Overall P-value", ui.output_text("val_overall_p")),
+                        ui.value_box("Interaction P-value", ui.output_text("val_interaction_p")),
+                        col_widths=[4, 4, 4]
                     ),
-                    ui.nav_panel("💾 Exports",
-                        ui.h5("Download Results"),
-                        ui.layout_columns(
-                            ui.download_button("dl_sg_html", "💿 HTML Plot"),
-                            ui.download_button("dl_sg_csv", "📋 CSV Results"),
-                            ui.download_button("dl_sg_json", "📝 JSON Data")
-                        )
+                    ui.hr(),
+                    ui.output_ui("out_interpretation_box"),
+                    ui.h5("Detailed Results"),
+                    ui.output_data_frame("out_sg_table")
+                ),
+                ui.nav_panel(
+                    "💾 Exports",
+                    ui.h5("Download Results"),
+                    ui.layout_columns(
+                        ui.download_button("dl_sg_html", "💿 HTML Plot", class_="btn-sm w-100"),
+                        ui.download_button("dl_sg_csv", "📋 CSV Results", class_="btn-sm w-100"),
+                        ui.download_button("dl_sg_json", "📝 JSON Data", class_="btn-sm w-100"),
+                        col_widths=[4, 4, 4]
                     )
                 )
             )
         ),
 
-        # ---------------------------------------------------------------------
+        # =====================================================================
         # TAB 3: Reference
-        # ---------------------------------------------------------------------
-        ui.nav_panel("ℹ️ Reference",
+        # =====================================================================
+        ui.nav_panel(
+            "ℹ️ Reference",
             ui.markdown("""
-            ### 📚 Logistic Regression Reference
-            
-            **When to Use:**
-            * Predicting binary outcomes (Disease/No Disease)
-            * Understanding risk/protective factors (Odds Ratios)
-            
-            **Interpretation:**
-            * **OR > 1**: Risk Factor (Increased odds) 🔴
-            * **OR < 1**: Protective Factor (Decreased odds) 🟢
-            * **OR = 1**: No Effect
-            * **CI crosses 1**: Not statistically significant
-            
-            **Perfect Separation:**
-            * Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
-            * **Solution:** Use **Auto** or **Firth's** method, or exclude the variable.
-            
-            **Subgroup Analysis:**
-            * Tests if treatment effect varies by group (Interaction).
-            * **P-interaction < 0.05**: Significant heterogeneity (Report subgroups separately).
+## 📚 Logistic Regression Reference
+
+### When to Use:
+* Predicting binary outcomes (Disease/No Disease)
+* Understanding risk/protective factors (Odds Ratios)
+* Adjustment for confounders in observational studies
+
+### Interpretation:
+
+**Odds Ratios (OR):**
+* **OR > 1**: Risk Factor (Increased odds) 🔴
+* **OR < 1**: Protective Factor (Decreased odds) 🟢
+* **OR = 1**: No Effect
+* **CI crosses 1**: Not statistically significant
+
+**Example:**
+* OR = 2.5 (CI 1.2-5.0): Exposure increases odds of outcome by 2.5× (Range: 1.2× to 5×)
+
+### Regression Methods:
+
+**Standard (MLE)** - Most common
+* Uses Maximum Likelihood Estimation
+* Fast and reliable for most datasets
+* Issues: Perfect separation causes failure
+
+**Firth's (Penalized)** - For separation issues
+* Reduces bias using penalized likelihood
+* Better for rare outcomes or small samples
+* Handles perfect separation well
+
+**Auto** - Recommended
+* Automatically detects separation
+* Uses Firth if needed, Standard otherwise
+
+### Perfect Separation:
+Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
+* **Solution:** Use **Auto** or **Firth's** method, or exclude the variable.
+
+### Subgroup Analysis:
+* Tests if treatment effect varies by group (Interaction test)
+* **P-interaction < 0.05**: Significant heterogeneity → Report subgroups separately
+* **P-interaction ≥ 0.05**: Homogeneous effect → Report overall effect
             """)
         )
     )
@@ -208,10 +285,16 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             matched = df_matched.get()
             original_len = len(original) if original is not None else 0
             matched_len = len(matched) if matched is not None else 0
-            return ui.input_radio_buttons("radio_dataset_source", "Select Dataset:",
-                                        {"original": f"📊 Original ({original_len})", 
-                                         "matched": f"✅ Matched ({matched_len})"},
-                                        selected="matched")
+            return ui.input_radio_buttons(
+                "radio_dataset_source",
+                "📊 Select Dataset:",
+                {
+                    "original": f"📊 Original ({original_len})",
+                    "matched": f"✅ Matched ({matched_len})"
+                },
+                selected="matched",
+                inline=True
+            )
         # Fallback for non-matched data
         d = df.get()
         row_count = len(d) if d is not None else 0
@@ -319,27 +402,52 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 "fig_crude": fig_crude
             })
             
-            ui.notification_show("Analysis Complete!", type="message")
+            ui.notification_show("✅ Analysis Complete!", type="message")
 
     # --- Render Main Results ---
     @render.ui
+    def out_logit_status():
+        res = logit_res.get()
+        if res:
+            return ui.div(
+                ui.h5("✅ Regression Complete"),
+                style="background-color: #f0fdf4; padding: 15px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 15px;"
+            )
+        return None
+
+    @render.ui
     def out_html_report():
         res = logit_res.get()
-        if res: return ui.HTML(res['html'])
-        return ui.div("Run analysis to see detailed report.", class_="text-muted p-3")
+        if res:
+            return ui.card(
+                ui.card_header("📋 Detailed Report"),
+                ui.HTML(res['html'])
+            )
+        return ui.card(
+            ui.card_header("📋 Detailed Report"),
+            ui.div(
+                "Run analysis to see detailed report.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+            )
+        )
 
     @render.ui
     def ui_forest_tabs():
         res = logit_res.get()
-        if not res: return None
+        if not res: 
+            return ui.div(
+                "Run analysis to see forest plots.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+            )
         
         tabs = []
-        if res['fig_adj']:
-            tabs.append(ui.nav_panel("Adjusted OR", output_widget("out_forest_adj")))
         if res['fig_crude']:
             tabs.append(ui.nav_panel("Crude OR", output_widget("out_forest_crude")))
+        if res['fig_adj']:
+            tabs.append(ui.nav_panel("Adjusted OR", output_widget("out_forest_adj")))
             
-        if not tabs: return ui.div("No forest plots available.", class_="text-muted")
+        if not tabs: 
+            return ui.div("No forest plots available.", class_="text-muted")
         return ui.navset_card_tab(*tabs)
 
     @render_widget
@@ -391,13 +499,23 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 
                 subgroup_res.set(results)
                 subgroup_analyzer.set(analyzer)
-                ui.notification_show("Subgroup Analysis Complete!", type="message")
+                ui.notification_show("✅ Subgroup Analysis Complete!", type="message")
                 
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
                 logger.exception("Subgroup analysis error")
 
     # --- Render Subgroup Results ---
+    @render.ui
+    def out_subgroup_status():
+        res = subgroup_res.get()
+        if res:
+            return ui.div(
+                ui.h5("✅ Subgroup Analysis Complete"),
+                style="background-color: #f0fdf4; padding: 15px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 15px;"
+            )
+        return None
+
     @render_widget
     def out_sg_forest_plot():
         analyzer = subgroup_analyzer.get()
