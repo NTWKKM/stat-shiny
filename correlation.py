@@ -196,7 +196,7 @@ def calculate_correlation(df, col1, col2, method='pearson'):
     
     # OPTIMIZATION: Batch numeric conversion (2x faster)
     data_raw = df[[col1, col2]].dropna()
-    data_numeric = pd.to_numeric(data_raw, errors='coerce').dropna()
+    data_numeric = data_raw.apply(pd.to_numeric, errors='coerce').dropna()
     
     if len(data_numeric) < 2:
         return None, "Error: Need at least 2 numeric values.", None
