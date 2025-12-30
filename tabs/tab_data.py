@@ -1,4 +1,4 @@
-from shiny import ui, module, reactive, render, session as shiny_session, req
+from shiny import ui, module, reactive, render, session as shiny_session
 from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
 def data_ui(id):
-    # ✅ใช้ Underscore (_) เพื่อความปลอดภัยของ ID
+    # ✅ ใช้ Underscore (_) เพื่อความปลอดภัยของ ID
     ns = lambda x: f"{id}_{x}"
     
     return ui.nav_panel("📁 Data Management",
@@ -237,7 +237,12 @@ def data_server(id, df, var_meta, uploaded_file_info,
             df.set(new_df)
             uploaded_file_info.set({"name": f['name']})
             
-            current_meta = var_meta.get().copy()
+            current_meta = var_meta.get()
+            if current_meta is None:
+                current_meta = {}
+            else:
+                current_meta = current_meta.copy()
+            
             for col in new_df.columns:
                 if col not in current_meta:
                     unique_vals = new_df[col].dropna().unique()
@@ -284,7 +289,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
     def _load_meta_to_ui():
         var_name = input[ns("sel_var_edit")]()
         meta = var_meta.get()
-        if var_name != "Select..." and var_name in meta:
+        if var_name != "Select..." and meta and var_name in meta:
             m = meta[var_name]
             ui.update_radio_buttons(ns("radio_var_type"), selected=m.get('type', 'Continuous'))
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
@@ -298,19 +303,21 @@ def data_server(id, df, var_meta, uploaded_file_info,
         if var_name == "Select...": return
         
         new_map = {}
-        for line in input[ns("txt_var_map")]().split('\n'):
-            if '=' in line:
-                k, v = line.split('=', 1)
-                try:
-                    k_clean = k.strip()
+        map_input = input[ns("txt_var_map")]()
+        if map_input:
+            for line in map_input.split('\n'):
+                if '=' in line:
+                    k, v = line.split('=', 1)
                     try:
-                        k_num = float(k_clean)
-                        k_val = int(k_num) if k_num.is_integer() else k_num
-                    except: k_val = k_clean
-                    new_map[k_val] = v.strip()
-                except: pass
+                        k_clean = k.strip()
+                        try:
+                            k_num = float(k_clean)
+                            k_val = int(k_num) if k_num.is_integer() else k_num
+                        except: k_val = k_clean
+                        new_map[k_val] = v.strip()
+                    except: pass
 
-        current_meta = var_meta.get().copy()
+        current_meta = var_meta.get() or {}
         current_meta[var_name] = {
             'type': input[ns("radio_var_type")](), 
             'map': new_map, 
