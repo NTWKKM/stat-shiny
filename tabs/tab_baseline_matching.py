@@ -60,7 +60,7 @@ def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: l
     return pd.DataFrame(smd_data)
 
 # ==============================================================================
-# UI Definition - 4 SUBTABS MATCHING STREAMLIT VERSION
+# UI Definition - Streamlit Style Layout (Sidebar Navigation + Tabs)
 # ==============================================================================
 @module.ui
 def baseline_matching_ui():
@@ -71,20 +71,24 @@ def baseline_matching_ui():
             "📊 Baseline Characteristics (Table 1)",
             ui.layout_sidebar(
                 ui.sidebar(
-                    ui.h5("Table 1 Configuration"),
+                    ui.h5("📊 Table 1 Options"),
                     
                     # Dataset selector
                     ui.output_ui("ui_dataset_selector_t1"),
                     ui.output_ui("ui_data_info_t1"),
                     ui.hr(),
                     
-                    # Configuration section
-                    ui.h6("Configuration"),
-                    ui.input_select("sel_group_col", "Group By (Column):", choices=[]),
+                    # Group By
+                    ui.h6("Group By (Column):"),
+                    ui.input_select("sel_group_col", label=None, choices=[]),
                     
+                    ui.hr(),
+                    
+                    # OR Style
+                    ui.h6("Choose OR Style:"),
                     ui.input_radio_buttons(
                         "radio_or_style",
-                        "Choose OR Style:",
+                        label=None,
                         choices={
                             "all_levels": "All Levels (Every Level vs Ref)",
                             "simple": "Simple (Single Line/Risk vs Ref)"
@@ -93,8 +97,9 @@ def baseline_matching_ui():
                     
                     ui.hr(),
                     
-                    ui.h6("Variables"),
-                    ui.input_selectize("sel_t1_vars", "Include Variables:", choices=[], multiple=True),
+                    # Variables to include
+                    ui.h6("Include Variables:"),
+                    ui.input_selectize("sel_t1_vars", label=None, choices=[], multiple=True),
                     
                     ui.br(),
                     
@@ -128,12 +133,15 @@ def baseline_matching_ui():
             "⚖️ Propensity Score Matching",
             ui.layout_sidebar(
                 ui.sidebar(
-                    ui.h5("Step 1️⃣: Configure Variables"),
+                    ui.h5("⚖️ PSM Configuration"),
+                    
+                    # Step 1: Presets
+                    ui.h6("Step 1️⃣: Configure Variables"),
                     
                     ui.h6("Quick Presets:"),
                     ui.input_radio_buttons(
                         "radio_preset",
-                        "Start with template:",
+                        label=None,
                         choices={
                             "custom": "🔧 Custom (Manual)",
                             "demographics": "👥 Demographics",
@@ -173,7 +181,7 @@ def baseline_matching_ui():
                             ui.p(ui.strong("Caliper Width (Matching Tolerance)")),
                             ui.input_select(
                                 "sel_caliper_preset",
-                                "Select matching strictness:",
+                                label=None,
                                 choices={
                                     "1.0": "🔓 Very Loose (1.0×SD) - Most matches, weaker balance",
                                     "0.5": "📊 Loose (0.5×SD) - Balanced approach",
@@ -192,7 +200,7 @@ def baseline_matching_ui():
                     
                     ui.hr(),
                     
-                    ui.h5("Step 2️⃣: Run Matching"),
+                    ui.h6("Step 2️⃣: Run Matching"),
                     ui.input_action_button(
                         "btn_run_psm",
                         "🚀 Run Propensity Score Matching",
@@ -203,68 +211,8 @@ def baseline_matching_ui():
                     width=350
                 ),
                 
-                # Main result area with tabs
-                ui.navset_card_underline(
-                    # Balance Metrics Dashboard
-                    ui.nav_panel(
-                        "📊 Match Quality",
-                        
-                        ui.h5("Step 3️⃣: Match Quality Summary"),
-                        ui.layout_columns(
-                            ui.value_box("Pairs Matched", ui.output_ui("val_pairs"), theme="primary"),
-                            ui.value_box("Sample Retained", ui.output_ui("val_retained"), theme="primary"),
-                            ui.value_box("Good Balance", ui.output_ui("val_balance"), theme="teal"),
-                            ui.value_box("SMD Improvement", ui.output_ui("val_smd_imp"), theme="teal"),
-                            col_widths=[3, 3, 3, 3]
-                        ),
-                        
-                        ui.output_ui("ui_balance_alert"),
-                        
-                        ui.hr(),
-                        
-                        ui.h5("Step 4️⃣: Balance Assessment"),
-                        ui.navset_card_underline(
-                            ui.nav_panel(
-                                "📉 Love Plot",
-                                output_widget("out_love_plot"),
-                                ui.p("Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)", style="font-size: 0.85em; color: #666; margin-top: 10px;")
-                            ),
-                            ui.nav_panel(
-                                "📋 SMD Table",
-                                ui.output_data_frame("out_smd_table"),
-                                ui.p("✅ Good balance: SMD < 0.1 after matching", style="font-size: 0.85em; color: #666; margin-top: 10px;")
-                            ),
-                            ui.nav_panel(
-                                "📊 Group Comparison",
-                                ui.output_data_frame("out_group_comparison_table")
-                            ),
-                        ),
-                        
-                        ui.hr(),
-                        
-                        ui.h5("Step 5️⃣: Export & Next Steps"),
-                        ui.layout_columns(
-                            ui.download_button(
-                                "btn_dl_psm_csv",
-                                "📥 Download CSV",
-                                class_="w-100 btn-sm"
-                            ),
-                            ui.download_button(
-                                "btn_dl_psm_report",
-                                "📥 Report HTML",
-                                class_="w-100 btn-sm"
-                            ),
-                            col_widths=[6, 6]
-                        ),
-                        
-                        ui.p(
-                            "✅ Full matched data available in Tab 3 (Matched Data View)",
-                            style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0; margin-top: 10px;"
-                        ),
-                    ),
-                    
-                    id="psm_results_tabs"
-                )
+                # Main content area - with nested tabs for results
+                ui.output_ui("ui_psm_main_content")
             )
         ),
         
@@ -273,7 +221,7 @@ def baseline_matching_ui():
             "✅ Matched Data View",
             ui.layout_sidebar(
                 ui.sidebar(
-                    ui.h5("Actions"),
+                    ui.h5("✅ Matched Data Actions"),
                     
                     ui.h6("Export Options:"),
                     ui.download_button(
@@ -304,8 +252,8 @@ def baseline_matching_ui():
                     
                     ui.hr(),
                     
-                    ui.h6("Statistics by Group:"),
-                    ui.input_select("sel_stat_var_tab3", "Compare Variable:", choices=[]),
+                    ui.h6("Compare Variable:"),
+                    ui.input_select("sel_stat_var_tab3", label=None, choices=[]),
                     
                     ui.hr(),
                     
@@ -324,15 +272,11 @@ def baseline_matching_ui():
                 
                 ui.card(
                     ui.card_header("📊 Summary Statistics"),
-                    ui.layout_columns(
-                        ui.input_switch("switch_show_dtypes", "Show Data Types", value=False),
-                        col_widths=[4]
-                    ),
                     ui.output_ui("ui_matched_summary_stats"),
                 ),
                 
                 ui.card(
-                    ui.card_header("🔍 Filter & Preview"),
+                    ui.card_header("🔍 Data Preview"),
                     ui.output_data_frame("out_matched_df_preview")
                 ),
                 
@@ -365,14 +309,13 @@ def baseline_matching_ui():
 
 | **Question** | **Recommended Action** | **Goal** |
 | :--- | :--- | :--- |
-| Do my groups differ at baseline? | **Generate Table 1** (Tab 1) | Check for significant p-values (< 0.05). |
-| My groups are imbalanced. Can I fix? | **Run PSM** (Tab 2) | Create a "synthetic" RCT where groups are balanced. |
-| Did the matching work? | **Check SMD** (Tab 2 - Results) | Look for **SMD < 0.1** in the Love Plot. |
-| What do I do with matched data? | **Export / Use Matched Data** | Go to **Tab 3** to export, or select "✅ Matched Data" in other analysis tabs. |
+| Do my groups differ at baseline? | **Generate Table 1** (Subtab 1) | Check for significant p-values (< 0.05). |
+| My groups are imbalanced. Can I fix? | **Run PSM** (Subtab 2) | Create a "synthetic" RCT where groups are balanced. |
+| Did the matching work? | **Check SMD** (Subtab 2 - Results) | Look for **SMD < 0.1** in the Love Plot. |
+| What do I do with matched data? | **Export / Use Matched Data** | Go to **Subtab 3** to export, or select "✅ Matched Data" in other analysis tabs. |
 
 ---
-
-"""),
+            """),
             
             ui.layout_columns(
                 ui.card(
@@ -422,9 +365,9 @@ def baseline_matching_ui():
 ### 📝 Common Workflow
 
 1. **Check Original Data:** Run Table 1 on the "Original Data". Note any variables with p < 0.05.
-2. **Match:** Go to PSM, select Treatment, Outcome, and **all confounding variables** (especially those with p < 0.05).
+2. **Match:** Go to Subtab 2, select Treatment, Outcome, and **all confounding variables** (especially those with p < 0.05).
 3. **Verify:** After matching, check the **Love Plot**. Ensure all dots (Matched) are within the < 0.1 zone.
-4. **Re-check Table 1:** Go back to Tab 1, switch the dataset selector to **"✅ Matched Data"**, and generate Table 1 again. P-values should now be non-significant (or SMDs low).
+4. **Re-check Table 1:** Go back to Subtab 1, switch the dataset selector to **"✅ Matched Data"**, and generate Table 1 again. P-values should now be non-significant (or SMDs low).
             """)
         ),
         
@@ -706,7 +649,84 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             ui.notification_show(f"Matching Failed: {e}", type="error")
             logger.error(f"PSM Error: {e}")
 
-    # --- PSM Outputs ---
+    # --- PSM Main Content Output ---
+    
+    @render.ui
+    def ui_psm_main_content():
+        res = psm_results.get()
+        
+        if res is None:
+            return ui.div(
+                ui.p("Click '🚀 Run Propensity Score Matching' to view results.", style="color: gray; font-style: italic; padding: 20px; text-align: center;")
+            )
+        
+        # Display results with nested tabs
+        return ui.navset_card_underline(
+            # Tab 1: Match Quality
+            ui.nav_panel(
+                "📊 Match Quality",
+                
+                ui.h5("Step 3️⃣: Match Quality Summary"),
+                ui.layout_columns(
+                    ui.value_box("Pairs Matched", ui.output_ui("val_pairs"), theme="primary"),
+                    ui.value_box("Sample Retained", ui.output_ui("val_retained"), theme="primary"),
+                    ui.value_box("Good Balance", ui.output_ui("val_balance"), theme="teal"),
+                    ui.value_box("SMD Improvement", ui.output_ui("val_smd_imp"), theme="teal"),
+                    col_widths=[3, 3, 3, 3]
+                ),
+                
+                ui.output_ui("ui_balance_alert"),
+                
+                ui.hr(),
+                
+                ui.h5("Step 4️⃣: Balance Assessment"),
+                ui.navset_card_underline(
+                    ui.nav_panel(
+                        "📉 Love Plot",
+                        output_widget("out_love_plot"),
+                        ui.p("Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)", style="font-size: 0.85em; color: #666; margin-top: 10px;")
+                    ),
+                    ui.nav_panel(
+                        "📋 SMD Table",
+                        ui.output_data_frame("out_smd_table"),
+                        ui.p("✅ Good balance: SMD < 0.1 after matching", style="font-size: 0.85em; color: #666; margin-top: 10px;")
+                    ),
+                    ui.nav_panel(
+                        "📊 Group Comparison",
+                        ui.output_data_frame("out_group_comparison_table")
+                    ),
+                ),
+            ),
+            
+            # Tab 2: Export
+            ui.nav_panel(
+                "📥 Export & Next Steps",
+                
+                ui.h5("Step 5️⃣: Export & Next Steps"),
+                ui.layout_columns(
+                    ui.download_button(
+                        "btn_dl_psm_csv",
+                        "📥 Download CSV",
+                        class_="w-100 btn-sm"
+                    ),
+                    ui.download_button(
+                        "btn_dl_psm_report",
+                        "📥 Report HTML",
+                        class_="w-100 btn-sm"
+                    ),
+                    col_widths=[6, 6]
+                ),
+                
+                ui.p(
+                    "✅ Full matched data available in **Subtab 3 (Matched Data View)**",
+                    style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0; margin-top: 10px;"
+                ),
+            ),
+            
+            id="psm_results_tabs"
+        )
+
+    # --- PSM Output Components ---
     
     @render.ui
     def val_pairs():
@@ -839,7 +859,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         else:
             return ui.info_message(
                 "ℹ️ **No matched data available yet.**\n\n"
-                "1. Go to **Tab 2 (Propensity Score Matching)**\n\n"
+                "1. Go to **Subtab 2 (Propensity Score Matching)**\n\n"
                 "2. Configure variables and run PSM matching\n\n"
                 "3. Return here to view and export matched data"
             )
@@ -852,23 +872,15 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         df_m = df_matched.get()
         treat_col = matched_treatment_col.get()
         
-        if input.switch_show_dtypes():
-            dtype_counts = df_m.dtypes.astype(str).value_counts()
+        # Show group sizes
+        if treat_col and treat_col in df_m.columns:
+            grp_counts = df_m[treat_col].value_counts().sort_index()
             return ui.p(
-                ui.strong("Data Types:"),
+                ui.strong(f"Group Sizes ({treat_col}):"),
                 ui.br(),
-                ", ".join([f"{dt}: {count}" for dt, count in dtype_counts.items()]),
+                ", ".join([f"{idx}: {count}" for idx, count in grp_counts.items()]),
                 style="font-size: 0.9em; color: #666;"
             )
-        else:
-            if treat_col and treat_col in df_m.columns:
-                grp_counts = df_m[treat_col].value_counts().sort_index()
-                return ui.p(
-                    ui.strong(f"Group Sizes ({treat_col}):"),
-                    ui.br(),
-                    ", ".join([f"{idx}: {count}" for idx, count in grp_counts.items()]),
-                    style="font-size: 0.9em; color: #666;"
-                )
         return None
 
     @render.data_frame
