@@ -11,23 +11,15 @@ from typing import List, Tuple
 @module.ui
 def diag_ui():
     return ui.div(
-        # Title
-        ui.h3("🧪 Diagnostic Tests (ROC)"),
+        # Title + Data Summary inline
+        ui.output_ui("ui_title_with_summary"),
         
         # Dataset Info Box
         ui.output_ui("ui_matched_info"),
         ui.br(),
         
-        # Dataset Selector + Info (Improved Layout)
-        ui.row(
-            ui.column(6,
-                ui.output_ui("ui_dataset_selector")
-            ),
-            ui.column(6,
-                ui.output_ui("ui_data_summary")
-            )
-        ),
-        
+        # Dataset Selector
+        ui.output_ui("ui_dataset_selector"),
         ui.br(),
         
         # Tabs for different analyses
@@ -187,6 +179,19 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         return df.get()
 
     @render.ui
+    def ui_title_with_summary():
+        d = current_df()
+        if d is not None:
+            return ui.div(
+                ui.h3("🧪 Diagnostic Tests (ROC)"),
+                ui.p(
+                    f"{len(d):,} rows | {len(d.columns)} columns",
+                    class_="text-muted mb-3"
+                )
+            )
+        return ui.h3("🧪 Diagnostic Tests (ROC)")
+
+    @render.ui
     def ui_matched_info():
         if is_matched.get():
             return ui.div(
@@ -206,32 +211,6 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 {"original": "📊 Original Data", "matched": "✅ Matched Data (from PSM)"},
                 selected="matched",
                 inline=True
-            )
-        return None
-
-    @render.ui
-    def ui_data_summary():
-        d = current_df()
-        if d is not None:
-            return ui.div(
-                ui.tags.div(
-                    ui.tags.div(
-                        ui.tags.div(
-                            ui.tags.span("\ud83d\udcc4", style="font-size: 1.2em; margin-right: 8px;"),
-                            ui.tags.strong(f"{len(d):,}"),
-                            " rows",
-                            style="display: flex; align-items: center; margin-bottom: 6px;"
-                        ),
-                        ui.tags.div(
-                            ui.tags.span("\ud83d\udcc3", style="font-size: 1.2em; margin-right: 8px;"),
-                            ui.tags.strong(f"{len(d.columns)}"),
-                            " columns",
-                            style="display: flex; align-items: center;"
-                        ),
-                        style="padding: 12px 16px; background-color: #f8f9fa; border-radius: 6px; border-left: 4px solid #0056b3;"
-                    ),
-                    class_="mt-2"
-                )
             )
         return None
 
