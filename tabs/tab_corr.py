@@ -36,6 +36,30 @@ def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, i
         return df, f"📊 Original Data ({len(df)} rows)"
 
 
+def _auto_detect_icc_vars(cols: list) -> list:
+    """
+    Auto-detect ICC/Rater variables based on column name patterns.
+    Looks for patterns like 'ICC_', 'Rater', 'Rater1', 'Rater2', etc.
+    
+    Args:
+        cols: List of column names
+        
+    Returns:
+        List of auto-detected ICC/Rater variable names
+    """
+    icc_patterns = ['icc', 'rater', 'method', 'observer', 'judge']
+    detected = []
+    
+    for col in cols:
+        col_lower = col.lower()
+        for pattern in icc_patterns:
+            if pattern in col_lower:
+                detected.append(col)
+                break
+    
+    return detected
+
+
 def corr_ui(namespace: str) -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
@@ -49,9 +73,9 @@ def corr_ui(namespace: str) -> ui.TagChild:
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
         ui.nav_panel(
-            "📉 Pearson/Spearman",
+            "📈 Pearson/Spearman",
             ui.card(
-                ui.card_header("Continuous Correlation Analysis"),
+                ui.card_header("📈 Continuous Correlation Analysis"),
                 
                 ui.layout_columns(
                     ui.input_select(
@@ -76,7 +100,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                 ui.layout_columns(
                     ui.input_action_button(
                         f"{namespace}_btn_run_corr",
-                        "📉 Analyze Correlation",
+                        "📈 Analyze Correlation",
                         class_="btn-primary",
                         width="100%"
                     ),
@@ -97,21 +121,24 @@ def corr_ui(namespace: str) -> ui.TagChild:
         
         # TAB 2: ICC (Reliability)
         ui.nav_panel(
-            "📏 Reliability (ICC)",
+            "📍 Reliability (ICC)",
             ui.card(
-                ui.card_header("Intraclass Correlation Coefficient"),
+                ui.card_header("📍 Intraclass Correlation Coefficient"),
                 
-                ui.input_checkbox_group(
+                ui.output_ui(f"{namespace}_ui_icc_note"),
+                
+                ui.input_selectize(
                     f"{namespace}_icc_vars",
                     "Select Variables (Raters/Methods) - Select 2+:",
                     choices=["Select..."],
+                    multiple=True,
                     selected=[]
                 ),
                 
                 ui.layout_columns(
                     ui.input_action_button(
                         f"{namespace}_btn_run_icc",
-                        "📏 Calculate ICC",
+                        "📍 Calculate ICC",
                         class_="btn-primary",
                         width="100%"
                     ),
@@ -138,46 +165,46 @@ def corr_ui(namespace: str) -> ui.TagChild:
                 
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("📉 Correlation (Relationship)"),
+                        ui.card_header("📈 Correlation (Relationship)"),
                         ui.markdown("""
-                        **Concept:** Measures the strength and direction of the relationship between 
-                        **two continuous variables**.
-                        
-                        **1. Pearson (r):**
-                        * **Best for:** Linear relationships (straight line), normally distributed data.
-                        * **Sensitive to:** Outliers.
-                        
-                        **2. Spearman (rho):**
-                        * **Best for:** Monotonic relationships, non-normal data, or ranks.
-                        * **Robust to:** Outliers.
-                        
-                        **Interpretation of Coefficient (r or rho):**
-                        * **+1.0:** Perfect Positive (As X goes up, Y goes up).
-                        * **-1.0:** Perfect Negative (As X goes up, Y goes down).
-                        * **0.0:** No relationship.
-                        
-                        **Strength Guidelines:**
-                        * **0.7 - 1.0:** Strong
-                        * **0.4 - 0.7:** Moderate
-                        * **0.2 - 0.4:** Weak
-                        * **< 0.2:** Negligible
+**Concept:** Measures the strength and direction of the relationship between 
+**two continuous variables**.
+
+**1. Pearson (r):**
+* **Best for:** Linear relationships (straight line), normally distributed data.
+* **Sensitive to:** Outliers.
+
+**2. Spearman (rho):**
+* **Best for:** Monotonic relationships, non-normal data, or ranks.
+* **Robust to:** Outliers.
+
+**Interpretation of Coefficient (r or rho):**
+* **+1.0:** Perfect Positive (As X goes up, Y goes up).
+* **-1.0:** Perfect Negative (As X goes up, Y goes down).
+* **0.0:** No relationship.
+
+**Strength Guidelines:**
+* **0.7 - 1.0:** Strong 📈
+* **0.4 - 0.7:** Moderate 📉
+* **0.2 - 0.4:** Weak 📊
+* **< 0.2:** Negligible
                         """)
                     ),
                     ui.card(
-                        ui.card_header("📏 ICC (Reliability)"),
+                        ui.card_header("📍 ICC (Reliability)"),
                         ui.markdown("""
-                        **Concept:** Measures the reliability or agreement between **two or more 
-                        raters/methods** measuring the same thing.
-                        
-                        **Common Types:**
-                        * **ICC(2,1) Absolute Agreement:** Use when exact scores must match.
-                        * **ICC(3,1) Consistency:** Use when ranking consistency matters.
-                        
-                        **Interpretation of ICC Value:**
-                        * **> 0.90:** Excellent Reliability ✅
-                        * **0.75 - 0.90:** Good Reliability
-                        * **0.50 - 0.75:** Moderate Reliability ⚠️
-                        * **< 0.50:** Poor Reliability ❌
+**Concept:** Measures the reliability or agreement between **two or more 
+raters/methods** measuring the same thing.
+
+**Common Types:**
+* **ICC(2,1) Absolute Agreement:** Use when exact scores must match.
+* **ICC(3,1) Consistency:** Use when ranking consistency matters.
+
+**Interpretation of ICC Value:**
+* **> 0.90:** Excellent Reliability ✅
+* **0.75 - 0.90:** Good Reliability
+* **0.50 - 0.75:** Moderate Reliability ⚠️
+* **< 0.50:** Poor Reliability ❌
                         """)
                     ),
                     col_widths=[6, 6]
@@ -186,13 +213,16 @@ def corr_ui(namespace: str) -> ui.TagChild:
                 ui.card(
                     ui.card_header("📝 Common Questions"),
                     ui.markdown("""
-                    **Q: Why use ICC instead of Pearson for reliability?**
-                    * **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
-                    higher than Rater B, Pearson = 1.0 but they don't agree! ICC accounts for this.
-                    
-                    **Q: What if p-value is significant but r is low (0.1)?**
-                    * **A:** P-value means it's likely not zero. With large samples, tiny correlations 
-                    can be "significant". **Focus on r-value magnitude** for clinical relevance.
+**Q: Why use ICC instead of Pearson for reliability?**
+* **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
+higher than Rater B, Pearson = 1.0 but they don't agree! ICC accounts for this.
+
+**Q: What if p-value is significant but r is low (0.1)?**
+* **A:** P-value means it's likely not zero. With large samples, tiny correlations 
+can be "significant". **Focus on r-value magnitude** for clinical relevance.
+
+**Q: How many variables do I need for ICC?**
+* **A:** At least 2 (to compare two raters/methods). More raters = more reliable ICC.
                     """)
                 ),
                 
@@ -238,7 +268,39 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
                 ui.update_select(f"{namespace}_cv2", 
                                choices=cols, 
                                selected=cols[1] if len(cols) > 1 else cols[0])
-                ui.update_checkbox_group(f"{namespace}_icc_vars", choices=cols)
+                
+                # Auto-detect ICC variables
+                icc_vars = _auto_detect_icc_vars(cols)
+                
+                # Update selectize with all numeric cols
+                ui.update_selectize(
+                    f"{namespace}_icc_vars",
+                    choices=cols,
+                    selected=icc_vars  # Pre-select auto-detected ones
+                )
+                
+                logger.info(f"Auto-detected ICC/Rater variables: {icc_vars}")
+    
+    # ==================== ICC SELECTION INFO ====================
+    
+    @render.ui
+    def out_icc_note():
+        """Display info about auto-detected ICC variables."""
+        data = df.get()
+        if data is None:
+            return None
+        
+        cols = data.select_dtypes(include=[np.number]).columns.tolist()
+        icc_vars = _auto_detect_icc_vars(cols)
+        
+        if icc_vars:
+            return ui.div(
+                ui.p(
+                    f"👋 Auto-detected variables: {', '.join(icc_vars)}",
+                    style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 15px; font-size: 0.9em;"
+                )
+            )
+        return None
     
     # ==================== CORRELATION ANALYSIS ====================
     
@@ -264,7 +326,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         
         result = corr_result.get()
         if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Analyze Correlation'*")
+            return ui.markdown("*Results will appear here after clicking '📈 Analyze Correlation'*")
         
         return ui.card(
             ui.card_header("Results"),
@@ -302,7 +364,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         """Display ICC analysis results."""
         result = icc_result.get()
         if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Calculate ICC'*")
+            return ui.markdown("*Results will appear here after clicking '📍 Calculate ICC'*")
         
         return ui.card(
             ui.card_header("ICC Results"),
