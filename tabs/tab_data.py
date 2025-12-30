@@ -1,4 +1,4 @@
-from shiny import ui, module, reactive, render, session as shiny_session
+from shiny import ui, module, reactive, render
 from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
@@ -8,57 +8,46 @@ from tabs._common import get_color_palette
 logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
-def data_ui(id):
-    # ✅ FIX: สร้างฟังก์ชัน ns เอง (Standard Manual Way)
-    ns = lambda x: f"{id}-{x}"
-    
+@module.ui
+def data_ui():
+    # ไม่ต้องสร้าง ns() เองแล้ว ใช้ ID ชื่อตรงๆ ได้เลย
     return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("MENU"),
                 ui.h5("1. Data Management"),
                 
-                # ns(...) จะสร้าง ID เช่น "data-btn_load_example"
-                ui.input_action_button(ns("btn_load_example"), "📄 Load Example Data", class_="btn-secondary"),
+                # ใช้ ID ตรงๆ (Shiny จะแปลงเป็น "data-btn_load_example" ให้เอง)
+                ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
                 ui.br(), ui.br(),
                 
-                ui.input_file(ns("file_upload"), "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
+                ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
                 
                 ui.hr(),
                 
-                ui.output_ui(ns("ui_btn_clear_match")),
-                ui.input_action_button(ns("btn_reset_all"), "⚠️ Reset All Data", class_="btn-danger"),
+                ui.output_ui("ui_btn_clear_match"),
+                ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
                 
                 width=300,
                 bg="#f8f9fa"
             ),
             
-            # --- ส่วน Variable Settings (Accordion Style) ---
+            # --- ส่วน Variable Settings ---
             ui.accordion(
                 ui.accordion_panel(
                     "🛠️ 1. Variable Settings & Labels",
                     ui.layout_columns(
                         ui.div(
-                            ui.input_select(ns("sel_var_edit"), "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
+                            ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
                         ),
                         ui.div(
-                            ui.panel_conditional(
-                                # Note: ใน JS condition ต้องใช้ full ID
-                                f"input['{ns('sel_var_edit')}'] != 'Select...'",
-                                ui.input_radio_buttons(
-                                    ns("radio_var_type"), 
-                                    "ประเภทตัวแปร:", 
-                                    choices={"Continuous": "Continuous", "Categorical": "Categorical"},
-                                    inline=True
-                                ),
-                                ui.input_text_area(ns("txt_var_map"), "Value Labels (Format: 0=No, 1=Yes)", height="100px"),
-                                ui.input_action_button(ns("btn_save_meta"), "💾 Save Settings", class_="btn-primary")
-                            )
+                            # ใช้ Server-side rendering แทน ui.panel_conditional เพื่อเลี่ยงปัญหา ID ใน JS
+                            ui.output_ui("ui_var_settings")
                         ),
                         col_widths=(4, 8)
                     ),
                 ),
-                id=ns("acc_settings"),
+                id="acc_settings",
                 open=True
             ),
 
@@ -67,8 +56,7 @@ def data_ui(id):
             # --- ส่วน Raw Data Preview ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
-                # ID ตรงนี้คือ "data-out_df_preview"
-                ui.output_data_frame(ns("out_df_preview")),
+                ui.output_data_frame("out_df_preview"),
                 height="600px",
                 full_screen=True
             )
@@ -80,8 +68,8 @@ def data_ui(id):
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # ใช้ session.ns สำหรับ UI ที่ generate ฝั่ง Server
-    ns = session.ns
+    # ไม่ต้องประกาศ ns = session.ns
+    # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
     
     COLORS = get_color_palette()
     is_loading_data = reactive.Value(False)
@@ -98,7 +86,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             np.random.seed(42)
             n = 1500  
             
-            # --- Simulation Logic (คงเดิม) ---
+            # --- Simulation Logic ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -209,12 +197,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         
         finally:
             is_loading_data.set(False)
-            logger.info("Loading state cleared")
 
     @reactive.Effect
     @reactive.event(lambda: input.file_upload()) 
     def _():
-        """Load uploaded file"""
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
         
@@ -230,18 +216,13 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 new_df = pd.read_excel(f['datapath'])
             
             if len(new_df) > 100000:
-                logger.warning(f"Large dataset: {len(new_df)} rows, limiting to 100000")
                 new_df = new_df.head(100000)
                 ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
             df.set(new_df)
             uploaded_file_info.set({"name": f['name']})
             
-            current_meta = var_meta.get()
-            if current_meta is None:
-                current_meta = {}
-            else:
-                current_meta = current_meta.copy()
+            current_meta = var_meta.get() or {}
             
             for col in new_df.columns:
                 if col not in current_meta:
@@ -253,7 +234,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                          current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
             var_meta.set(current_meta)
-            logger.info(f"✅ File loaded: {f['name']} ({len(new_df)} rows)")
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
             
         except Exception as e:
@@ -274,7 +254,9 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Metadata Logic ---
+    # --- 2. Metadata Logic (Simplified with Dynamic UI) ---
+    
+    # Update Dropdown list
     @reactive.Effect
     def _update_var_select():
         data = df.get()
@@ -282,16 +264,40 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
 
-    @reactive.Effect
-    @reactive.event(lambda: input.sel_var_edit())
-    def _load_meta_to_ui():
+    # Render Settings UI dynamically when a variable is selected
+    @render.ui
+    def ui_var_settings():
         var_name = input.sel_var_edit()
+        
+        if not var_name or var_name == "Select...":
+            return None
+            
+        # Retrieve current meta
         meta = var_meta.get()
-        if var_name != "Select..." and meta and var_name in meta:
+        current_type = 'Continuous'
+        map_str = ""
+        
+        if meta and var_name in meta:
             m = meta[var_name]
-            ui.update_radio_buttons("radio_var_type", selected=m.get('type', 'Continuous'))
+            current_type = m.get('type', 'Continuous')
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
-            ui.update_text_area("txt_var_map", value=map_str)
+            
+        return ui.TagList(
+            ui.input_radio_buttons(
+                "radio_var_type", 
+                "ประเภทตัวแปร:", 
+                choices={"Continuous": "Continuous", "Categorical": "Categorical"},
+                selected=current_type, # Set initial value directly
+                inline=True
+            ),
+            ui.input_text_area(
+                "txt_var_map", 
+                "Value Labels (Format: 0=No, 1=Yes)", 
+                value=map_str, # Set initial value directly
+                height="100px"
+            ),
+            ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
+        )
 
     @reactive.Effect
     @reactive.event(lambda: input.btn_save_meta())
@@ -326,34 +332,17 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
-        """
-        DataTable with server-side pagination
-        """
         d = df.get()
-        
         if d is None:
-            empty_df = pd.DataFrame({'Status': ['🔄 No data loaded yet. Click "Load Example Data" above.']})
-            return render.DataTable(
-                empty_df,
-                filters=False,
-                search=False,
-                selection_mode="none",
-                width="100%"
-            )
+            return render.DataTable(pd.DataFrame({'Status': ['🔄 No data loaded yet.']}), width="100%")
         
-        return render.DataTable(
-            d,
-            filters=False,              
-            search=False,               
-            selection_mode="none",      
-            page_size=25,               
-            width="100%"
-        )
+        return render.DataTable(d, width="100%", filters=False)
 
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
-             return ui.input_action_button(ns("btn_clear_match"), "🔄 Clear Matched Data")
+             # ใน Module Context ไม่ต้องใส่ ns() เอง
+             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
