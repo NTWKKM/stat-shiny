@@ -13,12 +13,12 @@ import numpy as np
 import correlation  # Import from root
 import diag_test  # Import for ICC calculation
 from logger import get_logger
-from typing import Tuple
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 
 
-def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> Tuple[pd.DataFrame, str]:
+def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> tuple:
     """
     Choose between original and matched datasets for correlation analysis.
     
@@ -245,6 +245,8 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         is_matched: Reactive value indicating if matching completed
     """
     
+    COLORS = get_color_palette()
+    
     # ==================== REACTIVE STATES ====================
     
     corr_result = reactive.Value(None)  # Stores result from correlation analysis
@@ -297,7 +299,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             return ui.div(
                 ui.p(
                     f"👋 Auto-detected variables: {', '.join(icc_vars)}",
-                    style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 15px; font-size: 0.9em;"
+                    style=f"background-color: {COLORS['primary_light']}; padding: 10px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px; font-size: 0.9em;"
                 )
             )
         return None
