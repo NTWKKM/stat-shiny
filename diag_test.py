@@ -518,14 +518,18 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     fig.update_xaxes(range=[-0.05, 1.05])
     fig.update_yaxes(range=[-0.05, 1.05])
     
+    # 🔧 FIX: Build coords_df with proper calculation
+    # sklearn.roc_curve returns coordinates in ascending threshold order
+    # Specificity = 1 - FPR (correct formula)
     coords_df = pd.DataFrame({
         'Threshold': thresholds,
-        'Sensitivity': tpr,
-        'Specificity': 1-fpr,
-        'Youden J': tpr - fpr
-    }).round(4)
+        'Sensitivity': (tpr * 100).round(1),  # Convert to percentage
+        'Specificity': ((1 - fpr) * 100).round(1),  # Convert to percentage
+        'Youden J': (j_scores * 100).round(2)  # Youden index
+    })
     
     logger.debug(f"ROC analysis complete: AUC={auc_val:.4f}")
+    logger.debug(f"Performance table shape: {coords_df.shape}, first row: {coords_df.iloc[0].to_dict() if len(coords_df) > 0 else 'empty'}")
     return stats_res, None, fig, coords_df
 
 
