@@ -89,7 +89,7 @@ def get_stats_continuous(series):
     clean = pd.Series(series.values).apply(clean_numeric).dropna()
     if len(clean) == 0: 
         return "-"
-    return f"{clean.mean():.1f} \u00b1 {clean.std():.1f}"
+    return f"{clean.mean():.1f} ± {clean.std():.1f}"
 
 
 def get_stats_categorical_data(series, var_meta=None, col_name=None):
@@ -117,7 +117,13 @@ def get_stats_categorical_data(series, var_meta=None, col_name=None):
 def get_stats_categorical_str(counts, total):
     """
     OPTIMIZED: Format categorical counts as HTML string with vectorization.
+    
+    FIX: Handle both Series and dict inputs - convert dict to Series if needed.
     """
+    # Convert dict to Series if needed
+    if isinstance(counts, dict):
+        counts = pd.Series(counts)
+    
     pcts = (counts / total * 100) if total > 0 else pd.Series([0] * len(counts))
     res = [f"{_html.escape(str(cat))}: {int(count)} ({pct:.1f}%)" 
            for cat, (count, pct) in zip(counts.index, zip(counts.values, pcts.values))]
@@ -477,8 +483,8 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
                 
                 if is_cat:
                     counts_g, n_g, _ = get_stats_categorical_data(sub_df[col], var_meta, col)
-                    aligned_counts = {cat: counts_g.get(cat, 0) for cat in counts_total.index}
-                    val_g = get_stats_categorical_str(aligned_counts, n_g)
+                    # FIX: counts_g is a Series, pass directly
+                    val_g = get_stats_categorical_str(counts_g, n_g)
                     row_html += f"<td style='text-align: center;'>{val_g}</td>"
                 else:
                     val_g = get_stats_continuous(sub_df[col])
