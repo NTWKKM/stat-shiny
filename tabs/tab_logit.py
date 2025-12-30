@@ -12,8 +12,10 @@ from logic import process_data_and_generate_html
 from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit
 from logger import get_logger
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()
 
 # ==============================================================================
 # Helper Functions (Pure Logic)
@@ -119,11 +121,11 @@ def logit_ui():
         # TAB 2: Subgroup Analysis
         # =====================================================================
         ui.nav_panel(
-            "🗒️ Subgroup Analysis",
+            "🗣️ Subgroup Analysis",
             
             # Control section (top)
             ui.card(
-                ui.card_header("🗒️ Subgroup Settings"),
+                ui.card_header("🗣️ Subgroup Settings"),
                 
                 ui.layout_columns(
                     ui.card(
@@ -170,7 +172,7 @@ def logit_ui():
                     ui.input_action_button("btn_update_plot_title", "Update Title", class_="btn-sm"),
                 ),
                 ui.nav_panel(
-                    "📊 Summary & Interpretation",
+                    "📂 Summary & Interpretation",
                     ui.layout_columns(
                         ui.value_box("Overall OR", ui.output_text("val_overall_or")),
                         ui.value_box("Overall P-value", ui.output_text("val_overall_p")),
@@ -411,7 +413,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         if res:
             return ui.div(
                 ui.h5("✅ Regression Complete"),
-                style="background-color: #f0fdf4; padding: 15px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 15px;"
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;"
             )
         return None
 
@@ -512,7 +514,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         if res:
             return ui.div(
                 ui.h5("✅ Subgroup Analysis Complete"),
-                style="background-color: #f0fdf4; padding: 15px; border-radius: 5px; border: 1px solid #bbf7d0; margin-bottom: 15px;"
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;"
             )
         return None
 
