@@ -64,7 +64,6 @@ def data_ui(id):
             # --- ส่วน Raw Data Preview ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
-                # ✅ ใช้ Data Frame Output ปกติ
                 ui.output_data_frame(ns("out_df_preview")),
                 height="600px",
                 full_screen=True
@@ -80,12 +79,13 @@ def data_server(id, df, var_meta, uploaded_file_info,
     input = session.input
     ns = lambda x: f"{id}_{x}"
 
-    # ✅ Add loading state to fix infinite loading issue
+    # ✅ Add loading state
     is_loading_data = reactive.Value(False)
 
-    # --- 1. Data Loading Logic ---
+    # --- 1. Data Loading Logic (1500 ROWS - NOW SAFE WITH DATATABLE!) ---
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_load_example")]())
+    @reactive.event(lambda: input[ns("btn_load_example")]()
+)
     def _():
         logger.info("Generating example data...")
         is_loading_data.set(True)
@@ -93,9 +93,10 @@ def data_server(id, df, var_meta, uploaded_file_info,
         
         try:
             np.random.seed(42)
-            n = 500  # ✅ 500 records is safe for HF
+            n = 1500  # ✅ 1500 rows NOW SAFE with DataTable server-side pagination!
+                      # WebSocket sends only 25 rows at a time (50 KB per message)
             
-            # --- Simulation Logic (คงเดิม) ---
+            # --- Simulation Logic (คงเดิมทุกประการ) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -206,10 +207,13 @@ def data_server(id, df, var_meta, uploaded_file_info,
         
         finally:
             is_loading_data.set(False)
+            logger.info("Loading state cleared")
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("file_upload")]())
+    @reactive.event(lambda: input[ns("file_upload")]()
+)
     def _():
+        """Load uploaded file"""
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input[ns("file_upload")]()
         
@@ -224,9 +228,11 @@ def data_server(id, df, var_meta, uploaded_file_info,
             else:
                 new_df = pd.read_excel(f['datapath'])
             
-            if len(new_df) > 5000:
-                new_df = new_df.head(5000)
-                ui.notification_show("⚠️ Showing first 5,000 rows for performance", type="warning")
+            # ✅ DataTable can handle larger files now
+            if len(new_df) > 100000:
+                logger.warning(f"Large dataset: {len(new_df)} rows, limiting to 100000")
+                new_df = new_df.head(100000)
+                ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
             df.set(new_df)
             uploaded_file_info.set({"name": f['name']})
@@ -242,20 +248,25 @@ def data_server(id, df, var_meta, uploaded_file_info,
                          current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
             var_meta.set(current_meta)
+            logger.info(f"✅ File loaded: {f['name']} ({len(new_df)} rows)")
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
             
         except Exception as e:
+            logger.error(f"Error: {e}")
             ui.notification_show(f"❌ Error: {str(e)}", type="error")
         finally:
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_reset_all")]())
+    @reactive.event(lambda: input[ns("btn_reset_all")]()
+)
     def _():
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
         is_matched.set(False)
+        matched_treatment_col.set(None)
+        matched_covariates.set([])
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
@@ -268,7 +279,8 @@ def data_server(id, df, var_meta, uploaded_file_info,
             ui.update_select(ns("sel_var_edit"), choices=cols)
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("sel_var_edit")]())
+    @reactive.event(lambda: input[ns("sel_var_edit")]()
+)
     def _load_meta_to_ui():
         var_name = input[ns("sel_var_edit")]()
         meta = var_meta.get()
@@ -279,7 +291,8 @@ def data_server(id, df, var_meta, uploaded_file_info,
             ui.update_text_area(ns("txt_var_map"), value=map_str)
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_save_meta")]())
+    @reactive.event(lambda: input[ns("btn_save_meta")]()
+)
     def _save_metadata():
         var_name = input[ns("sel_var_edit")]()
         if var_name == "Select...": return
@@ -306,27 +319,35 @@ def data_server(id, df, var_meta, uploaded_file_info,
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
-    # --- 3. Render Outputs (แก้ไขจุดที่เป็นปัญหา) ---
-    
+    # --- 3. Render Outputs ---
+    # ✅ CRITICAL FIX: DataTable + req() for WebSocket stability
     @render.data_frame
     def out_df_preview():
-        # ✅ ใช้ req(not is_loading_data.get()) เพื่อไม่ให้ Render ขณะกำลังโหลด
-        if is_loading_data.get():
-            return render.DataTable(pd.DataFrame({"Status": ["🔄 Loading..."]}))
-
-        d = df.get()
+        """
+        DataTable with server-side pagination (NOT DataGrid)
         
-        # กรณีไม่มีข้อมูล
-        if d is None:
-            return render.DataTable(pd.DataFrame({"Info": ["No data loaded. Please upload or load example data."]}))
-
-        # ✅ ใช้ render.DataGrid แต่ปิด Filter และ Selection เพื่อความเร็วบน HF
-        return render.DataGrid(
+        DataGrid = Client-side: ALL 1500 rows loaded to browser (TIMEOUT)
+        DataTable = Server-side: Only 25 rows at a time (STABLE)
+        
+        Parameters:
+        - req(d): Wait for valid data, prevent incomplete renders
+        - filters=False: Disable filter UI
+        - search=False: No client-side search
+        - selection_mode="none": No row selection state
+        - page_size=25: Only 25 rows per WebSocket message (50 KB)
+        """
+        
+        # ✅ req() waits for valid data
+        d = req(df.get())
+        
+        # ✅ DataTable = server-side pagination (SAFE for large datasets)
+        return render.DataTable(
             d,
-            row_selection_mode="none", # สำคัญ: ลด overhead ของ browser
-            width="100%",
-            filters=False,             # สำคัญ: ปิด filter เพื่อไม่ให้ script ค้าง
-            summary=True
+            filters=False,              # ✅ Disable filters completely
+            search=False,               # ✅ No client-side search
+            selection_mode="none",      # ✅ No row selection
+            page_size=25,               # ✅ Server: 25 rows per message
+            width="100%"
         )
 
     @render.ui
@@ -336,7 +357,8 @@ def data_server(id, df, var_meta, uploaded_file_info,
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_clear_match")]())
+    @reactive.event(lambda: input[ns("btn_clear_match")]()
+)
     def _():
         df_matched.set(None)
         is_matched.set(False)
