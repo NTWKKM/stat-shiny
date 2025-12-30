@@ -13,6 +13,8 @@ from tabs import tab_corr
 from tabs import tab_survival
 from tabs import tab_settings
 
+from tabs._styling import get_shiny_css
+
 # Initialize Logger
 LoggerFactory.configure()
 logger = get_logger(__name__)
@@ -56,7 +58,12 @@ app_ui = ui.page_navbar(
 
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
-    window_title="Medical Stat Tool"
+    window_title="Medical Stat Tool",
+
+    # ⬇⬇⬇ inject teal theme CSS
+    header=ui.tags.head(
+        ui.HTML(get_shiny_css())
+    ),
 )
 
 # ==========================================
