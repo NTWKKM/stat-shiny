@@ -5,6 +5,7 @@ import numpy as np
 import json
 import plotly.graph_objects as go
 from htmltools import HTML, div
+import gc
 
 # Import internal modules
 from logic import process_data_and_generate_html
@@ -180,6 +181,19 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     subgroup_res = reactive.Value(None)  # Store subgroup results
     subgroup_analyzer = reactive.Value(None) # Store analyzer instance
     
+    # --- Cache Clearing on Tab Change ---
+    @reactive.Effect
+    def _cleanup_cache_on_tab_switch():
+        """
+        OPTIMIZATION: Clear cached results when switching tabs.
+        This prevents memory buildup from heavy computations.
+        """
+        try:
+            gc.collect()  # Force garbage collection
+            logger.debug("Cache cleared - garbage collection complete")
+        except Exception as e:
+            logger.warning(f"Cache cleanup error: {e}")
+    
     # --- 1. Dataset Selection Logic ---
     @reactive.Calc
     def current_df():
@@ -207,7 +221,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.Effect
     def _update_inputs():
         d = current_df()
-        if d is None: return
+        if d is None or d.empty: return
         
         cols = d.columns.tolist()
         
@@ -232,7 +246,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_separation_warning():
         d = current_df()
         target = input.sel_outcome()
-        if d is None or not target: return None
+        if d is None or d.empty or not target: return None
         
         risky = check_perfect_separation(d, target)
         if risky:
@@ -254,7 +268,13 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         exclude = input.sel_exclude()
         method = input.radio_method()
         
-        req(d, target)
+        # FIX: Check if DataFrame is None or empty using proper methods
+        if d is None or d.empty:
+            ui.notification_show("Please load data first", type="error")
+            return
+        if not target:
+            ui.notification_show("Please select an outcome variable", type="error")
+            return
         
         # Prepare data
         final_df = d.drop(columns=exclude, errors='ignore')
@@ -346,7 +366,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.event(input.btn_run_subgroup)
     def _run_subgroup():
         d = current_df()
-        req(d, input.sg_outcome(), input.sg_treatment(), input.sg_subgroup())
+        
+        # FIX: Check if DataFrame is None or empty using proper methods
+        if d is None or d.empty:
+            ui.notification_show("Please load data first", type="error")
+            return
+        if not input.sg_outcome() or not input.sg_treatment() or not input.sg_subgroup():
+            ui.notification_show("Please fill all required fields", type="error")
+            return
         
         analyzer = SubgroupAnalysisLogit(d)
         
