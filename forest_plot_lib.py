@@ -51,7 +51,9 @@ class ForestPlot:
 
         missing = required_cols - set(data.columns)
         if missing:
-            raise ValueError(f"Missing required columns: {missing}\")\n        \n        self.data = data.copy()
+            raise ValueError(f"Missing required columns: {missing}")
+        
+        self.data = data.copy()
 
         numeric_cols = [estimate_col, ci_low_col, ci_high_col]
         for col in numeric_cols:
