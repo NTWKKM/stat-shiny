@@ -3,6 +3,7 @@ from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
 from logger import get_logger
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 
@@ -78,14 +79,16 @@ def data_server(id, df, var_meta, uploaded_file_info,
     session = shiny_session.get_current_session()
     input = session.input
     ns = lambda x: f"{id}_{x}"
+    
+    # Get color palette for consistency (even if not used in this file currently)
+    COLORS = get_color_palette()
 
     # ✅ Add loading state
     is_loading_data = reactive.Value(False)
 
     # --- 1. Data Loading Logic (1500 ROWS - NOW SAFE WITH DATATABLE!) ---
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_load_example")]()
-)
+    @reactive.event(lambda: input[ns("btn_load_example")]())
     def _():
         logger.info("Generating example data...")
         is_loading_data.set(True)
