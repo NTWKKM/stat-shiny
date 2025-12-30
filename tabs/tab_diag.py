@@ -18,12 +18,12 @@ def diag_ui():
         ui.output_ui("ui_matched_info"),
         ui.br(),
         
-        # Dataset Selector + Info
+        # Dataset Selector + Info (Improved Layout)
         ui.row(
-            ui.column(8,
+            ui.column(6,
                 ui.output_ui("ui_dataset_selector")
             ),
-            ui.column(4,
+            ui.column(6,
                 ui.output_ui("ui_data_summary")
             )
         ),
@@ -214,8 +214,24 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         d = current_df()
         if d is not None:
             return ui.div(
-                ui.markdown(f"**Rows:** {len(d)} | **Columns:** {len(d.columns)}"),
-                class_="text-muted small"
+                ui.tags.div(
+                    ui.tags.div(
+                        ui.tags.div(
+                            ui.tags.span("\ud83d\udcc4", style="font-size: 1.2em; margin-right: 8px;"),
+                            ui.tags.strong(f"{len(d):,}"),
+                            " rows",
+                            style="display: flex; align-items: center; margin-bottom: 6px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.span("\ud83d\udcc3", style="font-size: 1.2em; margin-right: 8px;"),
+                            ui.tags.strong(f"{len(d.columns)}"),
+                            " columns",
+                            style="display: flex; align-items: center;"
+                        ),
+                        style="padding: 12px 16px; background-color: #f8f9fa; border-radius: 6px; border-left: 4px solid #0056b3;"
+                    ),
+                    class_="mt-2"
+                )
             )
         return None
 
