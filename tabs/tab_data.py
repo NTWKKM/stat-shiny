@@ -9,8 +9,8 @@ logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
 def data_ui(id):
-    # ✅ ใช้ Underscore (_) เพื่อความปลอดภัยของ ID
-    ns = lambda x: f"{id}_{x}"
+    # ✅ FIX: ใช้ ui.namespace มาตรฐาน (จะใช้ - คั่นอัตโนมัติ)
+    ns = ui.namespace(id)
     
     return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
@@ -18,6 +18,7 @@ def data_ui(id):
                 ui.h4("MENU"),
                 ui.h5("1. Data Management"),
                 
+                # ns(...) จะสร้าง ID เช่น "data-btn_load_example"
                 ui.input_action_button(ns("btn_load_example"), "📄 Load Example Data", class_="btn-secondary"),
                 ui.br(), ui.br(),
                 
@@ -42,6 +43,7 @@ def data_ui(id):
                         ),
                         ui.div(
                             ui.panel_conditional(
+                                # Note: ใน JS condition ต้องใช้ full ID (ns แล้ว)
                                 f"input['{ns('sel_var_edit')}'] != 'Select...'",
                                 ui.input_radio_buttons(
                                     ns("radio_var_type"), 
@@ -65,6 +67,7 @@ def data_ui(id):
             # --- ส่วน Raw Data Preview ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
+                # ID ตรงนี้คือ "data-out_df_preview"
                 ui.output_data_frame(ns("out_df_preview")),
                 height="600px",
                 full_screen=True
@@ -73,22 +76,24 @@ def data_ui(id):
     )
 
 # --- 2. Server Logic ---
-def data_server(id, df, var_meta, uploaded_file_info, 
+# ✅ FIX: ใส่ @module.server และเพิ่ม input, output, session เข้ามาใน argument แรก
+@module.server
+def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    session = shiny_session.get_current_session()
-    input = session.input
-    ns = lambda x: f"{id}_{x}"
+    # ✅ FIX: ใช้ session.ns สำหรับสร้าง ID ในส่วนที่ render UI ย้อนกลับไป
+    ns = session.ns
     
-    # Get color palette for consistency (even if not used in this file currently)
+    # Get color palette for consistency
     COLORS = get_color_palette()
 
     # ✅ Add loading state
     is_loading_data = reactive.Value(False)
 
-    # --- 1. Data Loading Logic (1500 ROWS - NOW SAFE WITH DATATABLE!) ---
+    # --- 1. Data Loading Logic ---
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_load_example")]())
+    # ✅ FIX: ใน Module server ไม่ต้องครอบ ns() ที่ input key
+    @reactive.event(lambda: input.btn_load_example()) 
     def _():
         logger.info("Generating example data...")
         is_loading_data.set(True)
@@ -96,10 +101,9 @@ def data_server(id, df, var_meta, uploaded_file_info,
         
         try:
             np.random.seed(42)
-            n = 1500  # ✅ 1500 rows NOW SAFE with DataTable server-side pagination!
-                      # WebSocket sends only 25 rows at a time (50 KB per message)
+            n = 1500  
             
-            # --- Simulation Logic (คงเดิมทุกประการ) ---
+            # --- Simulation Logic (คงเดิม) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -213,12 +217,11 @@ def data_server(id, df, var_meta, uploaded_file_info,
             logger.info("Loading state cleared")
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("file_upload")]()
-)
+    @reactive.event(lambda: input.file_upload()) # ✅ FIX: ไม่ต้องมี ns()
     def _():
         """Load uploaded file"""
         is_loading_data.set(True)
-        file_infos: list[FileInfo] = input[ns("file_upload")]()
+        file_infos: list[FileInfo] = input.file_upload() # ✅ FIX
         
         if not file_infos:
             is_loading_data.set(False)
@@ -231,7 +234,6 @@ def data_server(id, df, var_meta, uploaded_file_info,
             else:
                 new_df = pd.read_excel(f['datapath'])
             
-            # ✅ DataTable can handle larger files now
             if len(new_df) > 100000:
                 logger.warning(f"Large dataset: {len(new_df)} rows, limiting to 100000")
                 new_df = new_df.head(100000)
@@ -266,8 +268,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_reset_all")]()
-)
+    @reactive.event(lambda: input.btn_reset_all()) # ✅ FIX
     def _():
         df.set(None)
         var_meta.set({})
@@ -284,29 +285,27 @@ def data_server(id, df, var_meta, uploaded_file_info,
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
-            ui.update_select(ns("sel_var_edit"), choices=cols)
+            ui.update_select("sel_var_edit", choices=cols) # ✅ FIX: ไม่ต้องมี ns()
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("sel_var_edit")]()
-)
+    @reactive.event(lambda: input.sel_var_edit()) # ✅ FIX
     def _load_meta_to_ui():
-        var_name = input[ns("sel_var_edit")]()
+        var_name = input.sel_var_edit() # ✅ FIX
         meta = var_meta.get()
         if var_name != "Select..." and meta and var_name in meta:
             m = meta[var_name]
-            ui.update_radio_buttons(ns("radio_var_type"), selected=m.get('type', 'Continuous'))
+            ui.update_radio_buttons("radio_var_type", selected=m.get('type', 'Continuous')) # ✅ FIX
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
-            ui.update_text_area(ns("txt_var_map"), value=map_str)
+            ui.update_text_area("txt_var_map", value=map_str) # ✅ FIX
 
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_save_meta")]()
-)
+    @reactive.event(lambda: input.btn_save_meta()) # ✅ FIX
     def _save_metadata():
-        var_name = input[ns("sel_var_edit")]()
+        var_name = input.sel_var_edit() # ✅ FIX
         if var_name == "Select...": return
         
         new_map = {}
-        map_input = input[ns("txt_var_map")]()
+        map_input = input.txt_var_map() # ✅ FIX
         if map_input:
             for line in map_input.split('\n'):
                 if '=' in line:
@@ -322,7 +321,7 @@ def data_server(id, df, var_meta, uploaded_file_info,
 
         current_meta = var_meta.get() or {}
         current_meta[var_name] = {
-            'type': input[ns("radio_var_type")](), 
+            'type': input.radio_var_type(), # ✅ FIX 
             'map': new_map, 
             'label': var_name
         }
@@ -330,21 +329,13 @@ def data_server(id, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    # ✅ CRITICAL FIX: Add explicit df dependency to trigger re-render
     @render.data_frame
     def out_df_preview():
         """
-        DataTable with server-side pagination (NOT DataGrid)
-        
-        ✅ CRITICAL: Call df.get() to create explicit dependency
-        When df changes, this function automatically re-executes
+        DataTable with server-side pagination
         """
-        
-        # ✅ MUST call df.get() to establish reactive dependency
-        # Without this, Shiny doesn't know to re-run when df.set() is called
         d = df.get()
         
-        # ✅ If no data yet, show placeholder
         if d is None:
             empty_df = pd.DataFrame({'Status': ['🔄 No data loaded yet. Click "Load Example Data" above.']})
             return render.DataTable(
@@ -355,25 +346,24 @@ def data_server(id, df, var_meta, uploaded_file_info,
                 width="100%"
             )
         
-        # ✅ Data exists - render it with DataTable (server-side pagination)
         return render.DataTable(
             d,
-            filters=False,              # ✅ Disable filters completely
-            search=False,               # ✅ No client-side search
-            selection_mode="none",      # ✅ No row selection
-            page_size=25,               # ✅ Server: 25 rows per message
+            filters=False,              
+            search=False,               
+            selection_mode="none",      
+            page_size=25,               
             width="100%"
         )
 
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
+             # ✅ FIX: ตรงนี้ต้องใช้ ns() เพราะเป็นการสร้าง UI ใหม่จาก Server
              return ui.input_action_button(ns("btn_clear_match"), "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input[ns("btn_clear_match")]()
-)
+    @reactive.event(lambda: input.btn_clear_match()) # ✅ FIX
     def _():
         df_matched.set(None)
         is_matched.set(False)
