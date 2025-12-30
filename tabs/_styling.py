@@ -189,28 +189,27 @@ def get_shiny_css():
            =========================== */
         
         .navbar {{
-            background-color: {COLORS['smoke_white']} !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-            border-bottom: 1px solid {COLORS['border']};
+            background-color: {COLORS['primary']} !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }}
         
         .navbar-brand {{
-            color: {COLORS['primary_dark']} !important;
+            color: {COLORS['smoke_white']} !important;
             font-weight: 600;
             font-size: 18px;
         }}
         
-        /* NAVBAR NAV-LINKS: Navy text on smoke white */
+        /* NAVBAR NAV-LINKS: Smoke white text on navy background */
         .nav-link {{
-            color: {COLORS['primary']} !important;
+            color: {COLORS['smoke_white']} !important;
             font-weight: 500;
             transition: all 0.2s ease;
         }}
         
         .nav-link:hover,
         .nav-link.active {{
-            color: {COLORS['primary_dark']} !important;
-            background-color: rgba(30, 58, 95, 0.08) !important;
+            color: {COLORS['smoke_white']} !important;
+            background-color: rgba(248, 249, 250, 0.15) !important;
             border-radius: 4px;
         }}
         
