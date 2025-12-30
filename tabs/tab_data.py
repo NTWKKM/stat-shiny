@@ -327,17 +327,18 @@ def data_server(id, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    # ✅ FIX: Use DataTable with proper None handling (no req() blocking)
+    # ✅ CRITICAL FIX: Add explicit df dependency to trigger re-render
     @render.data_frame
     def out_df_preview():
         """
         DataTable with server-side pagination (NOT DataGrid)
         
-        FIX: Removed req() which was blocking render even after data loaded
-        Use explicit None check instead
+        ✅ CRITICAL: Call df.get() to create explicit dependency
+        When df changes, this function automatically re-executes
         """
         
-        # ✅ Get data - will be None initially, then gets populated
+        # ✅ MUST call df.get() to establish reactive dependency
+        # Without this, Shiny doesn't know to re-run when df.set() is called
         d = df.get()
         
         # ✅ If no data yet, show placeholder
