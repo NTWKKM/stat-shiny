@@ -23,13 +23,18 @@ try:
 except ImportError:
     def get_color_palette():
         return {
-            'primary': '#007bff',
-            'primary_dark': '#0056b3',
-            'secondary': '#6c757d',
-            'background': '#f8f9fa',
-            'text': '#212529',
-            'text_secondary': '#6c757d',
-            'danger': '#dc3545'
+            'primary': '#1B7E8F',
+            'primary_dark': '#0D4D57',
+            'primary_light': '#E0F2F7',
+            'success': '#22A765',
+            'danger': '#E74856',
+            'warning': '#FFB900',
+            'info': '#5A7B8E',
+            'text': '#1F2328',
+            'text_secondary': '#6B7280',
+            'border': '#E5E7EB',
+            'background': '#F9FAFB',
+            'surface': '#FFFFFF'
         }
 
 logger = get_logger(__name__)
@@ -358,7 +363,7 @@ def calculate_p_categorical(df, col, group_col):
 
 def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'):
     """
-    OPTIMIZED: Generate baseline characteristics table as HTML.
+    OPTIMIZED: Generate baseline characteristics table as HTML with modern styling.
     
     Optimizations:
     - Pre-compute all group masks (8x faster)
@@ -418,33 +423,217 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
 
     css_style = f"""
     <style>
-        body {{ font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f6f8; margin: 0; color: {COLORS['text']}; }}
-        .table-container {{ background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 20px; width: 100%; overflow-x: auto; border: 1px solid #ddd; }}
-        table {{ width: 100%; border-collapse: collapse; font-size: 0.95em; }}
-        th {{ background-color: {COLORS['primary_dark']}; color: white; padding: 12px 15px; text-align: center; border: 1px solid {COLORS['primary']}; }}
-        th:first-child {{ text-align: left; }}
-        td {{ padding: 10px 15px; border: 1px solid #e0e0e0; vertical-align: top; color: {COLORS['text']}; }}
-        tr:nth-child(even) td {{ background-color: #f9f9f9; }}
-        tr:hover td {{ background-color: #f1f7ff; }}
-        .footer-note {{ margin-top: 15px; font-size: 0.85em; color: {COLORS['text_secondary']}; }}
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            padding: 0;
+            margin: 0;
+            background-color: {COLORS['background']};
+            color: {COLORS['text']};
+            line-height: 1.6;
+        }}
+        
+        .page-container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }}
+        
+        .header {{
+            margin-bottom: 30px;
+        }}
+        
+        .header h1 {{
+            font-size: 28px;
+            font-weight: 600;
+            color: {COLORS['primary_dark']};
+            margin-bottom: 10px;
+        }}
+        
+        .header p {{
+            font-size: 14px;
+            color: {COLORS['text_secondary']};
+        }}
+        
+        .table-wrapper {{
+            background: {COLORS['surface']};
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid {COLORS['border']};
+            overflow-x: auto;
+        }}
+        
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }}
+        
+        thead {{
+            background-color: {COLORS['primary_dark']};
+        }}
+        
+        th {{
+            color: white;
+            padding: 14px 12px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid {COLORS['primary']};
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: {COLORS['primary_dark']};
+            white-space: nowrap;
+        }}
+        
+        th:first-child {{
+            text-align: left;
+            border-right: 1px solid {COLORS['primary']};
+        }}
+        
+        th:last-child {{
+            border-right: none;
+        }}
+        
+        tbody tr {{
+            border-bottom: 1px solid {COLORS['border']};
+            transition: background-color 0.2s ease;
+        }}
+        
+        tbody tr:last-child {{
+            border-bottom: none;
+        }}
+        
+        tbody tr:nth-child(even) {{
+            background-color: {COLORS['primary_light']};
+        }}
+        
+        tbody tr:hover {{
+            background-color: {COLORS['primary_light']};
+        }}
+        
+        td {{
+            padding: 12px;
+            border: 1px solid {COLORS['border']};
+            border-right: 1px solid {COLORS['border']};
+            color: {COLORS['text']};
+        }}
+        
+        td:first-child {{
+            font-weight: 500;
+            color: {COLORS['primary_dark']};
+            max-width: 250px;
+        }}
+        
+        td:not(:first-child) {{
+            text-align: center;
+        }}
+        
+        /* P-value coloring */
+        .p-significant {{
+            color: {COLORS['danger']};
+            font-weight: 600;
+        }}
+        
+        .p-not-significant {{
+            color: {COLORS['success']};
+        }}
+        
+        /* Data cell styling */
+        .numeric-cell {{
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }}
+        
+        /* Footer section */
+        .footer-section {{
+            margin-top: 30px;
+            padding: 20px;
+            background-color: {COLORS['primary_light']};
+            border-radius: 6px;
+            border-left: 4px solid {COLORS['primary']};
+        }}
+        
+        .footer-note {{
+            font-size: 12px;
+            color: {COLORS['text_secondary']};
+            line-height: 1.8;
+        }}
+        
+        .footer-note strong {{
+            color: {COLORS['primary_dark']};
+        }}
+        
+        .footer-note ul {{
+            margin: 10px 0 0 20px;
+        }}
+        
+        .footer-note li {{
+            margin: 4px 0;
+        }}
+        
+        /* Responsive table */
+        @media (max-width: 768px) {{
+            .page-container {{
+                padding: 20px 10px;
+            }}
+            
+            .header h1 {{
+                font-size: 22px;
+            }}
+            
+            table {{
+                font-size: 12px;
+            }}
+            
+            th, td {{
+                padding: 8px;
+            }}
+        }}
     </style>
     """
     
-    html = f"<!DOCTYPE html><html><head>{css_style}</head><body><div class='table-container'>"
-    html += "<h2>Baseline Characteristics</h2>"
-    html += "<table><thead><tr><th>Characteristic</th>"
-    html += f"<th>Total (N={len(df)})</th>"
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baseline Characteristics Table</title>
+    {css_style}
+</head>
+<body>
+<div class="page-container">
+    <div class="header">
+        <h1>📊 Baseline Characteristics Table</h1>
+        <p>Descriptive statistics and comparison of baseline characteristics by group</p>
+    </div>
+    
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Characteristic</th>
+                    <th class="numeric-cell">Total (N={len(df)})</th>
+"""
     
     if has_group:
         for g in groups:
             n_g = group_masks[g['val']].sum()
-            html += f"<th>{_html.escape(str(g['label']))} (n={n_g})</th>"
+            html += f"                    <th class='numeric-cell'>{_html.escape(str(g['label']))} (n={n_g})</th>\n"
     
     if show_or:
-        html += "<th>OR (95% CI)</th>"
-        html += "<th>SMD</th>"
+        html += f"                    <th>OR (95% CI)</th>\n"
+        html += f"                    <th>SMD</th>\n"
     
-    html += "<th>P-value</th><th>Test</th></tr></thead><tbody>"
+    html += """                    <th>P-value</th>
+                    <th>Test</th>
+                </tr>
+            </thead>
+            <tbody>
+"""
     
     for col in selected_vars:
         if col == group_col: 
@@ -463,7 +652,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
         if not is_cat and (df[col].nunique() < 10 or df[col].dtype == object): 
             is_cat = True 
         
-        row_html = f"<tr><td><b>{_html.escape(str(label))}</b></td>"
+        row_html = f"                <tr>\n                    <td><strong>{_html.escape(str(label))}</strong></td>\n"
         
         if is_cat:
             counts_total, n_total, mapped_full_series = get_stats_categorical_data(df[col], var_meta, col) 
@@ -472,7 +661,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
             val_total = get_stats_continuous(df[col])
             mapped_full_series = None
             
-        row_html += f"<td style='text-align: center;'>{val_total}</td>"
+        row_html += f"                    <td class='numeric-cell'>{val_total}</td>\n"
         
         group_vals_list = []
         
@@ -485,10 +674,10 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
                     counts_g, n_g, _ = get_stats_categorical_data(sub_df[col], var_meta, col)
                     # FIX: counts_g is a Series, pass directly
                     val_g = get_stats_categorical_str(counts_g, n_g)
-                    row_html += f"<td style='text-align: center;'>{val_g}</td>"
+                    row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
                 else:
                     val_g = get_stats_continuous(sub_df[col])
-                    row_html += f"<td style='text-align: center;'>{val_g}</td>"
+                    row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
                     group_vals_list.append(sub_df[col])
             
             if show_or:
@@ -503,11 +692,11 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
                 else:
                     or_cell_content = calculate_or_continuous_logit(df, col, group_col, group_1_val)
                 
-                row_html += f"<td style='text-align: center;'>{or_cell_content}</td>"
+                row_html += f"                    <td class='numeric-cell'>{or_cell_content}</td>\n"
                 
                 smd_cats = counts_total.index.tolist() if is_cat else None
                 smd_val = calculate_smd(df, col, group_col, group_1_val, group_2_val, is_cat, mapped_full_series, smd_cats)
-                row_html += f"<td style='text-align: center;'>{smd_val}</td>"
+                row_html += f"                    <td class='numeric-cell'>{smd_val}</td>\n"
             
             if is_cat: 
                 p_val, test_name = calculate_p_categorical(df, col, group_col)
@@ -516,16 +705,35 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
             
             p_str = format_p(p_val)
             if isinstance(p_val, float) and p_val < 0.05:
-                p_str = f"<span style='color:{COLORS['danger']}; font-weight:bold;'>{p_str}*</span>"
+                p_str = f"<span class='p-significant'>{p_str}*</span>"
+            else:
+                p_str = f"<span class='p-not-significant'>{p_str}</span>"
                 
-            row_html += f"<td style='text-align: center;'>{p_str}</td>"
-            row_html += f"<td style='text-align: center; font-size: 0.8em;'>{test_name}</td>"
+            row_html += f"                    <td class='numeric-cell'>{p_str}</td>\n"
+            row_html += f"                    <td class='numeric-cell'>{test_name}</td>\n"
         
-        row_html += "</tr>"
+        row_html += "                </tr>\n"
         html += row_html
     
-    html += "</tbody></table>"
-    html += "<div class='footer-note'>Mean ± SD for continuous; n (%) for categorical. * p < 0.05</div>"
-    html += "</div></body></html>"
+    html += f"""            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer-section">
+        <div class="footer-note">
+            <strong>Legend:</strong>
+            <ul>
+                <li><strong>Mean ± SD</strong> for continuous variables (normal distribution)</li>
+                <li><strong>n (%)</strong> for categorical variables</li>
+                <li><strong>OR (95% CI)</strong>: Odds Ratio with 95% Confidence Interval</li>
+                <li><strong>SMD</strong>: Standardized Mean Difference (balance metric after matching; &lt;0.1 indicates good balance)</li>
+                <li><strong>*</strong>: Significant at p &lt; 0.05 (indicates imbalance between groups)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+"""
 
     return html
