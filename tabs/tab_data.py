@@ -320,27 +320,31 @@ def data_server(id, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    # ✅ CRITICAL FIX: DataTable + req() for WebSocket stability
+    # ✅ FIX: Use DataTable with proper None handling (no req() blocking)
     @render.data_frame
     def out_df_preview():
         """
         DataTable with server-side pagination (NOT DataGrid)
         
-        DataGrid = Client-side: ALL 1500 rows loaded to browser (TIMEOUT)
-        DataTable = Server-side: Only 25 rows at a time (STABLE)
-        
-        Parameters:
-        - req(d): Wait for valid data, prevent incomplete renders
-        - filters=False: Disable filter UI
-        - search=False: No client-side search
-        - selection_mode="none": No row selection state
-        - page_size=25: Only 25 rows per WebSocket message (50 KB)
+        FIX: Removed req() which was blocking render even after data loaded
+        Use explicit None check instead
         """
         
-        # ✅ req() waits for valid data
-        d = req(df.get())
+        # ✅ Get data - will be None initially, then gets populated
+        d = df.get()
         
-        # ✅ DataTable = server-side pagination (SAFE for large datasets)
+        # ✅ If no data yet, show placeholder
+        if d is None:
+            empty_df = pd.DataFrame({'Status': ['🔄 No data loaded yet. Click "Load Example Data" above.']})
+            return render.DataTable(
+                empty_df,
+                filters=False,
+                search=False,
+                selection_mode="none",
+                width="100%"
+            )
+        
+        # ✅ Data exists - render it with DataTable (server-side pagination)
         return render.DataTable(
             d,
             filters=False,              # ✅ Disable filters completely
