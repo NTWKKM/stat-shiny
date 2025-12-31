@@ -23,37 +23,42 @@ logger = get_logger(__name__)
 # 1. UI DEFINITION
 # ==========================================
 app_ui = ui.page_navbar(
-    # --- 1. Data Management Module ---
-    tab_data.data_ui("data"),
-    
-    # --- 2. Table 1 & Matching Module ---
-    ui.nav_panel("📋 Table 1 & Matching", 
-        tab_baseline_matching.baseline_matching_ui("bm")
-    ),
+    # Wrap all content in app-container for max-width and center alignment
+    ui.div(
+        # --- 1. Data Management Module ---
+        tab_data.data_ui("data"),
+        
+        # --- 2. Table 1 & Matching Module ---
+        ui.nav_panel("📋 Table 1 & Matching", 
+            tab_baseline_matching.baseline_matching_ui("bm")
+        ),
 
-    # --- 3. Diagnostic Tests Module ---
-    ui.nav_panel("🧪 Diagnostic Tests", 
-        tab_diag.diag_ui("diag")
-    ),
+        # --- 3. Diagnostic Tests Module ---
+        ui.nav_panel("🧪 Diagnostic Tests", 
+            tab_diag.diag_ui("diag")
+        ),
 
-    # --- 4. Logistic Regression Module ---
-    ui.nav_panel("📊 Risk Factors", 
-        tab_logit.logit_ui("logit")
-    ),
+        # --- 4. Logistic Regression Module ---
+        ui.nav_panel("📊 Risk Factors", 
+            tab_logit.logit_ui("logit")
+        ),
 
-    # --- 5. Correlation & ICC Module ---
-    ui.nav_panel("📈 Correlation & ICC", 
-        tab_corr.corr_ui("corr")
-    ),
+        # --- 5. Correlation & ICC Module ---
+        ui.nav_panel("📈 Correlation & ICC", 
+            tab_corr.corr_ui("corr")
+        ),
 
-    # --- 6. Survival Analysis Module ---
-    ui.nav_panel("⏳ Survival Analysis", 
-        tab_survival.survival_ui("survival")
-    ),
+        # --- 6. Survival Analysis Module ---
+        ui.nav_panel("⏳ Survival Analysis", 
+            tab_survival.survival_ui("survival")
+        ),
 
-    # --- 7. Settings Module ---
-    ui.nav_panel("⚙️ Settings", 
-        tab_settings.settings_ui("settings")
+        # --- 7. Settings Module ---
+        ui.nav_panel("⚙️ Settings", 
+            tab_settings.settings_ui("settings")
+        ),
+        
+        class_="app-container",  # Apply max-width and center alignment
     ),
 
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
