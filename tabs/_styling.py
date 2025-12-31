@@ -101,6 +101,29 @@ def get_shiny_css():
         }}
         
         /* ===========================
+           LAYOUT & CONTAINER
+           =========================== */
+        
+        /* Main app container - centered and max-width on larger screens */
+        .app-container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px 24px 32px;
+        }}
+        
+        /* Add top margin to app-container when it follows navbar */
+        .navbar ~ .app-container {{
+            margin-top: 8px;
+        }}
+        
+        /* Responsive padding on mobile */
+        @media (max-width: 768px) {{
+            .app-container {{
+                padding: 12px 16px 24px;
+            }}
+        }}
+        
+        /* ===========================
            GLOBAL STYLES
            =========================== */
         
@@ -196,6 +219,7 @@ def get_shiny_css():
             transition: all var(--transition-normal);
             background-color: {COLORS['surface']};
             overflow: hidden;
+            margin-bottom: 12px;  /* Reduced vertical spacing between cards */
         }}
         
         .bslib-card:hover {{
@@ -215,7 +239,7 @@ def get_shiny_css():
         }}
         
         .bslib-card-body {{
-            padding: var(--spacing-lg);
+            padding: 14px 16px;  /* Slightly tighter padding */
             line-height: 1.6;
         }}
         
@@ -849,7 +873,7 @@ def get_shiny_css():
             }}
             
             .bslib-card-body {{
-                padding: var(--spacing-md);
+                padding: 12px 14px;
             }}
             
             .btn {{
