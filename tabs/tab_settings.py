@@ -7,7 +7,7 @@ Usage:
     from tabs import tab_settings
     
     # In app.py
-    ui.nav_panel("⚙️ Settings", tab_settings.settings_ui("settings"))
+    ui.nav_panel("⚡ Settings", tab_settings.settings_ui("settings"))
     
     # In server function
     tab_settings.settings_server("settings", CONFIG)
@@ -19,7 +19,6 @@ from config import CONFIG
 from logger import get_logger
 
 logger = get_logger(__name__)
-
 
 def settings_ui(id: str) -> ui.TagChild:
     """
@@ -172,8 +171,8 @@ def settings_ui(id: str) -> ui.TagChild:
                     - **Efron**: Better for tied event times
                     
                     ### P-value Format (NEJM Standard)
-                    - Lower: 0.001 (display as \"<0.001\")
-                    - Upper: 0.999 (display as \">0.999\")
+                    - Lower: 0.001 (display as "<0.001")
+                    - Upper: 0.999 (display as ">0.999")
                     """),
                     full_screen=True
                 )
@@ -184,7 +183,7 @@ def settings_ui(id: str) -> ui.TagChild:
         # 2. UI & DISPLAY TAB
         # ==========================================
         ui.nav_panel(
-            "🎨 UI & Display",
+            "🎎 UI & Display",
             ui.layout_sidebar(
                 ui.sidebar(
                     ui.h5("Display Settings"),
@@ -271,7 +270,7 @@ def settings_ui(id: str) -> ui.TagChild:
                 ),
                 
                 ui.card(
-                    ui.card_header("🎯 UI Settings Guide"),
+                    ui.card_header("🎏 UI Settings Guide"),
                     ui.markdown("""
                     ### Recommended Settings
                     - **Plot Width**: 10-14 inches
