@@ -839,9 +839,9 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 )
             else:
                 desc_html.set(
-                    "<div class='alert alert-danger'>No data available for {}</div>".format(
-                        input.sel_desc_var()
-                    )
+                desc_html.set(
+                    f"<div class='alert alert-danger'>No data available for {input.sel_desc_var()}</div>"
+                )
                 )
 
         finally:
