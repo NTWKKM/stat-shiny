@@ -315,9 +315,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                         try:
                             k_num = float(k_clean)
                             k_val = int(k_num) if k_num.is_integer() else k_num
-                        except: k_val = k_clean
+                        except (ValueError, TypeError):
+                            k_val = k_clean
                         new_map[k_val] = v.strip()
-                    except: pass
+                    except (ValueError, AttributeError) as e:
+                        logger.debug(f"Skipping malformed mapping line: {line} - {e}")
 
         current_meta = var_meta.get() or {}
         current_meta[var_name] = {
