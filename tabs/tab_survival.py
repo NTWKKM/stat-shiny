@@ -15,13 +15,12 @@ import numpy as np
 import survival_lib
 from subgroup_analysis_module import SubgroupAnalysisCox
 from logger import get_logger
-from typing import Tuple
 import json
 
 logger = get_logger(__name__)
 
 
-def _get_dataset_for_survival(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> Tuple[pd.DataFrame, str]:
+def _get_dataset_for_survival(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> tuple[pd.DataFrame, str]:
     """
     Choose between original and matched datasets for survival analysis.
     

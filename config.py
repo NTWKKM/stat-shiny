@@ -22,6 +22,9 @@ import os
 from pathlib import Path
 from typing import Any, Optional, Dict
 import warnings
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ConfigManager:
@@ -112,13 +115,13 @@ class ConfigManager:
             
             # ========== LOGGING SETTINGS ==========
             "logging": {
-                "enabled": True, # ลองเปลี่ยนเป็น False เพื่อทดสอบ
+                "enabled": True,
                 "level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
                 "format": "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
                 "date_format": "%Y-%m-%d %H:%M:%S",
                 
                 # File Logging
-                "file_enabled": True,  # 🔴 เปลี่ยนเป็น False
+                "file_enabled": False,  # Set to True to enable file logging
                 "log_dir": "logs",
                 "log_file": "app.log",
                 "max_log_size": 10485760,  # 10MB in bytes
@@ -297,10 +300,17 @@ class ConfigManager:
         Returns:
             str: The configuration serialized as a JSON-formatted string.
         """
-        json_str = json.dumps(self._config, indent=2 if pretty else None)
+        try:
+            json_str = json.dumps(self._config, indent=2 if pretty else None)
+        except (TypeError, ValueError) as e:
+            logger.exception("Failed to serialize config to JSON")
+            json_str = "{}"
         
         if filepath:
-            Path(filepath).write_text(json_str)
+            try:
+                Path(filepath).write_text(json_str)
+            except OSError:
+                logger.exception("Failed to write config to %s", filepath)
         
         return json_str
     
