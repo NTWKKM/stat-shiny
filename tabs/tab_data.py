@@ -71,7 +71,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # ไม่ต้องประกาศ ns = session.ns
     # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
     
-    COLORS = get_color_palette()
     is_loading_data = reactive.Value(False)
 
     # --- 1. Data Loading Logic ---
