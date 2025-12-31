@@ -11,56 +11,59 @@ logger = get_logger(__name__)
 @module.ui
 def data_ui():
     # ไม่ต้องสร้าง ns() เองแล้ว ใช้ ID ชื่อตรงๆ ได้เลย
-    return ui.nav_panel("📁 Data Management",
-        ui.layout_sidebar(
-            ui.sidebar(
-                ui.h4("MENU"),
-                ui.h5("1. Data Management"),
-                
-                # ใช้ ID ตรงๆ (Shiny จะแปลงเป็น "data-btn_load_example" ให้เอง)
-                ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
-                ui.br(), ui.br(),
-                
-                ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
-                
-                ui.hr(),
-                
-                ui.output_ui("ui_btn_clear_match"),
-                ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
-                
-                width=300,
-                bg="#f8f9fa"
-            ),
-            
-            # --- ส่วน Variable Settings ---
-            ui.accordion(
-                ui.accordion_panel(
-                    "🛠️ 1. Variable Settings & Labels",
-                    ui.layout_columns(
-                        ui.div(
-                            ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
-                        ),
-                        ui.div(
-                            # ใช้ Server-side rendering แทน ui.panel_conditional เพื่อเลี่ยงปัญหา ID ใน JS
-                            ui.output_ui("ui_var_settings")
-                        ),
-                        col_widths=(4, 8)
-                    ),
+    return ui.div(
+        ui.nav_panel("📁 Data Management",
+            ui.layout_sidebar(
+                ui.sidebar(
+                    ui.h4("MENU"),
+                    ui.h5("1. Data Management"),
+                    
+                    # ใช้ ID ตรงๆ (Shiny จะแปลงเป็น "data-btn_load_example" ให้เอง)
+                    ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
+                    ui.br(), ui.br(),
+                    
+                    ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
+                    
+                    ui.hr(),
+                    
+                    ui.output_ui("ui_btn_clear_match"),
+                    ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
+                    
+                    width=300,
+                    bg="#f8f9fa"
                 ),
-                id="acc_settings",
-                open=True
-            ),
+                
+                # --- ส่วน Variable Settings ---
+                ui.accordion(
+                    ui.accordion_panel(
+                        "🛠️ 1. Variable Settings & Labels",
+                        ui.layout_columns(
+                            ui.div(
+                                ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
+                            ),
+                            ui.div(
+                                # ใช้ Server-side rendering แทน ui.panel_conditional เพื่อเลี่ยงปัญหา ID ใน JS
+                                ui.output_ui("ui_var_settings")
+                            ),
+                            col_widths=(4, 8)
+                        ),
+                    ),
+                    id="acc_settings",
+                    open=True
+                ),
 
-            ui.br(),
-            
-            # --- ส่วน Raw Data Preview ---
-            ui.card(
-                ui.card_header("📄 2. Raw Data Preview"),
-                ui.output_data_frame("out_df_preview"),
-                height="600px",
-                full_screen=True
+                ui.br(),
+                
+                # --- ส่วน Raw Data Preview ---
+                ui.card(
+                    ui.card_header("📄 2. Raw Data Preview"),
+                    ui.output_data_frame("out_df_preview"),
+                    height="600px",
+                    full_screen=True
+                )
             )
-        )
+        ),
+        class_="app-container",
     )
 
 # --- 2. Server Logic ---
