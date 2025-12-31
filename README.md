@@ -23,6 +23,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 ```text
 |-- Dockerfile
 |-- PROJECT_SUMMARY.md
+|-- UI_STYLING_GUIDE.md
 |-- app.py
 |-- config.py
 |-- correlation.py
@@ -30,6 +31,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- forest_plot_lib.py
 |-- logger.py
 |-- logic.py
+|-- logic_optimized.py
 |-- psm_lib.py
 |-- requirements.txt
 |-- subgroup_analysis_module.py
@@ -38,8 +40,10 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- tabs /
 |   |-- __init__.py
 |   |-- _common.py
+|   |-- _styling.py
 |   |-- tab_baseline_matching.py
 |   |-- tab_corr.py
+|   |-- tab_data.py
 |   |-- tab_diag.py
 |   |-- tab_logit.py
 |   |-- tab_settings.py
