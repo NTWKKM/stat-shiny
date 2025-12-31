@@ -125,7 +125,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
             ui.card(
                 ui.card_header("📍 Intraclass Correlation Coefficient"),
                 
-                ui.output_ui(f"{namespace}_ui_icc_note"),
+                ui.output_ui(f"{namespace}_out_icc_note"),
                 
                 ui.input_selectize(
                     f"{namespace}_icc_vars",
@@ -286,7 +286,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     # ==================== ICC SELECTION INFO ====================
     
     @render.ui
-    def out_icc_note():
+    def ui_icc_note():
         """Display info about auto-detected ICC variables."""
         data = df.get()
         if data is None:
