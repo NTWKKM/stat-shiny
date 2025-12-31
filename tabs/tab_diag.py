@@ -3,7 +3,6 @@ from shinywidgets import output_widget, render_widget
 import pandas as pd
 import numpy as np
 import diag_test
-from typing import List, Tuple
 
 from tabs._common import get_color_palette
 
