@@ -262,14 +262,15 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     
     # --- Cache Clearing on Tab Change ---
     @reactive.Effect
-    def _cleanup_cache_on_tab_switch():
+    @reactive.event(input.btn_run_logit, input.btn_run_subgroup)
+    def _cleanup_after_analysis():
         """
-        OPTIMIZATION: Clear cached results when switching tabs.
+        OPTIMIZATION: Clear cache after completing analysis.
         This prevents memory buildup from heavy computations.
         """
         try:
             gc.collect()  # Force garbage collection
-            logger.debug("Cache cleared - garbage collection complete")
+            logger.debug("Post-analysis cache cleared")
         except Exception as e:
             logger.warning(f"Cache cleanup error: {e}")
     
