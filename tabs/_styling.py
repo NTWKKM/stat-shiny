@@ -106,7 +106,7 @@ def get_shiny_css():
         
         /* Main app container - centered and max-width on larger screens */
         .app-container {{
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 16px 24px 32px;
         }}
