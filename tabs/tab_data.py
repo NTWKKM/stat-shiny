@@ -227,7 +227,7 @@ def diag_ui():
 # Server Logic
 # ==============================================================================
 @module.server
-def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
+def diag_server(input, output, session, df, df_matched, is_matched):
 
     # --- Reactive Results Storage ---
     roc_html = reactive.Value(None)
@@ -774,7 +774,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
             )
             if err:
                 kappa_html.set(
-                    "<div class='alert alert-danger'>{}</div>".format(err)
+                    f"<div class='alert alert-danger'>{err}</div>"
                 )
             else:
                 rep = [
