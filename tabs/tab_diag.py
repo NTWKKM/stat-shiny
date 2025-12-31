@@ -609,10 +609,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
             )
 
             if err:
-                roc_html.set(
-                    "<div class='alert alert-danger'>📄 Error: {}</div>".format(
-                        err
-                    )
+               roc_html.set(
+                    f"<div class='alert alert-danger'>📄 Error: {err}</div>"
                 )
             else:
                 rep = [
@@ -742,10 +740,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 )
             else:
                 chi_html.set(
-                    "<div class='alert alert-danger'>Analysis failed: {}</div>".format(
-                        msg
-                    )
-                )
+                f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
+            )
 
         finally:
             # Clear processing flag
