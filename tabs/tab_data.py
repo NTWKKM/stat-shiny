@@ -4,7 +4,6 @@ import diag_test
 
 from tabs._common import get_color_palette
 
-COLORS = get_color_palette()
 
 # ==============================================================================
 # UI Definition
