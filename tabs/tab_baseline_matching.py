@@ -424,7 +424,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         
         # PSM
         ui.update_select("sel_treat_col", choices=cols)
-        ui.update_select("sel_outcome_col", choices=["⊘ None / Skip"] + cols, selected="⊘ None / Skip")
+        ui.update_select("sel_outcome_col", choices=["⊘ None / Skip", *cols], selected="⊘ None / Skip")
         
         # FIX: Update covariates dropdown with all columns
         ui.update_selectize("sel_covariates", choices=cols, selected=[])
