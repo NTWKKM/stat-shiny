@@ -17,11 +17,8 @@ from shiny import ui, reactive, render
 from shiny.session import get_current_session
 from config import CONFIG
 from logger import get_logger
-from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
-COLORS = get_color_palette()
-
 
 def settings_ui(id: str) -> ui.TagChild:
     """
