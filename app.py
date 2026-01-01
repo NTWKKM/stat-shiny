@@ -37,58 +37,53 @@ colors = get_color_palette()
 # ==========================================
 # 1. UI DEFINITION
 # ==========================================
+# ใน Shiny เวอร์ชั่นใหม่ เราใช้ page_navbar ที่รองรับการทำเนมสเปซและคลาสผ่าน wrapper
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
     ui.nav_panel(
         "📁 Data Management",
-        tab_data.data_ui("data"),
-        class_="app-container"
+        # ✅ แก้ไข: ใช้ ui.div หุ้มแทนการส่ง class_ เข้าไปใน nav_panel โดยตรงเพื่อรองรับเวอร์ชั่นใหม่
+        ui.div(tab_data.data_ui("data"), class_="app-container")
     ),
     
     # --- 2. Table 1 & Matching Module ---
     ui.nav_panel(
         "📋 Table 1 & Matching", 
-        tab_baseline_matching.baseline_matching_ui("bm"),
-        class_="app-container"
+        ui.div(tab_baseline_matching.baseline_matching_ui("bm"), class_="app-container")
     ),
 
     # --- 3. Diagnostic Tests Module ---
     ui.nav_panel(
         "🧪 Diagnostic Tests", 
-        tab_diag.diag_ui("diag"),
-        class_="app-container"
+        ui.div(tab_diag.diag_ui("diag"), class_="app-container")
     ),
 
     # --- 4. Logistic Regression Module ---
     ui.nav_panel(
         "📊 Risk Factors", 
-        tab_logit.logit_ui("logit"),
-        class_="app-container"
+        ui.div(tab_logit.logit_ui("logit"), class_="app-container")
     ),
 
     # --- 5. Correlation & ICC Module ---
     ui.nav_panel(
         "📈 Correlation & ICC", 
-        tab_corr.corr_ui("corr"),
-        class_="app-container"
+        ui.div(tab_corr.corr_ui("corr"), class_="app-container")
     ),
 
     # --- 6. Survival Analysis Module ---
     ui.nav_panel(
         "⏳ Survival Analysis", 
-        tab_survival.survival_ui("survival"),
-        class_="app-container"
+        ui.div(tab_survival.survival_ui("survival"), class_="app-container")
     ),
 
     # --- 7. Settings Module ---
     ui.nav_panel(
         "⚙️ Settings", 
-        tab_settings.settings_ui("settings"),
-        class_="app-container"
+        ui.div(tab_settings.settings_ui("settings"), class_="app-container")
     ),
 
     # === LAYER 2 & 3: Add optimization status badge to footer ===
-    ui.tags.footer(
+    footer=ui.div( # ✅ ปรับใช้ argument footer ของ page_navbar โดยตรง
         ui.HTML("""
         <div style='text-align: right; font-size: 0.75em; color: #999; padding: 10px; border-top: 1px solid #eee; margin-top: 20px;'>
             <span title='Cache enabled'>🟢 L1 Cache</span> | 
@@ -102,9 +97,6 @@ app_ui = ui.page_navbar(
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
     window_title="Medical Stat Tool",
-
-    # ✅ FIX: Remove deprecated navbar_options with inverse parameter
-    # Modern Shiny v2 handles theming through CSS variables in _styling.py
 
     # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
@@ -177,8 +169,6 @@ def server(input, output, session: Session):
     )
 
     # --- 6. Survival Analysis Module ---
-    # ✅ แก้ไขตรงนี้: ไม่ต้องส่ง input, output, session เข้าไปเองแล้ว
-    # เพราะ @module.server จะดึงค่าเหล่านั้นจาก ID "survival" ให้โดยอัตโนมัติ
     tab_survival.survival_server("survival",
         df, var_meta, df_matched, is_matched
     )
