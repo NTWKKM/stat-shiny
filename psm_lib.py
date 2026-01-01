@@ -24,6 +24,8 @@ from logger import get_logger
 
 # === LAYER 1: Import Cache Manager ===
 from utils.cache_manager import COMPUTATION_CACHE
+# === INTEGRATION: Import Cache Wrappers ===
+from utils.psm_cache_integration import get_cached_propensity_scores, get_cached_matched_data
 
 logger = get_logger(__name__)
 
@@ -40,51 +42,51 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
         pd.DataFrame: Original DF with added 'ps_score' and 'logit_ps' columns
     """
     try:
-        # === CACHE CHECK ===
+        # === CACHE KEY PREPARATION ===
+        # Create robust cache key parameters
         cache_key_params = {
             'treatment_col': treatment_col,
             'covariate_cols': tuple(sorted(covariate_cols)),
             'df_shape': df.shape,
             'df_hash': hash(tuple(df[treatment_col].values.tobytes()) + tuple(df[covariate_cols[0]].values.tobytes()))
         }
-        
-        cached_result = COMPUTATION_CACHE.get('psm_propensity_score', **cache_key_params)
-        if cached_result is not None:
-            logger.info("✅ Cache HIT: Propensity scores retrieved from cache")
-            return cached_result
-        
-        logger.info("🔄 Cache MISS: Computing propensity scores...")
-        
-        # Prepare Data: Drop NAs in relevant columns to ensure consistent length
-        cols_needed = [treatment_col] + covariate_cols
-        data = df.dropna(subset=cols_needed).copy()
-        
-        X = data[covariate_cols]
-        # Auto-handle categorical variables (dummy encoding) if any remaining object types
-        X = pd.get_dummies(X, drop_first=True)
-        
-        y = data[treatment_col].astype(int)
-        
-        # Logistic Regression
-        model = LogisticRegression(solver='liblinear', max_iter=1000)
-        model.fit(X, y)
-        
-        # Predict Propensity Scores
-        ps = model.predict_proba(X)[:, 1]
-        
-        data['ps_score'] = ps
-        # Logit transformation: ln(p / (1-p)) - better for matching linearity
-        # Clip to avoid inf
-        ps_clipped = np.clip(ps, 1e-6, 1 - 1e-6)
-        data['logit_ps'] = np.log(ps_clipped / (1 - ps_clipped))
-        
-        logger.info(f"Propensity scores calculated: mean={ps.mean():.3f}, std={ps.std():.3f}")
-        
-        # === CACHE STORE ===
-        COMPUTATION_CACHE.set('psm_propensity_score', data, **cache_key_params)
-        logger.info("💾 Propensity scores stored in cache")
-        
-        return data
+
+        # Define the computation logic as an inner function
+        def _compute_propensity_score():
+            logger.info("🔄 Computing propensity scores (Logic Execution)...")
+            
+            # Prepare Data: Drop NAs in relevant columns to ensure consistent length
+            cols_needed = [treatment_col] + covariate_cols
+            data = df.dropna(subset=cols_needed).copy()
+            
+            X = data[covariate_cols]
+            # Auto-handle categorical variables (dummy encoding) if any remaining object types
+            X = pd.get_dummies(X, drop_first=True)
+            
+            y = data[treatment_col].astype(int)
+            
+            # Logistic Regression
+            model = LogisticRegression(solver='liblinear', max_iter=1000)
+            model.fit(X, y)
+            
+            # Predict Propensity Scores
+            ps = model.predict_proba(X)[:, 1]
+            
+            data['ps_score'] = ps
+            # Logit transformation: ln(p / (1-p)) - better for matching linearity
+            # Clip to avoid inf
+            ps_clipped = np.clip(ps, 1e-6, 1 - 1e-6)
+            data['logit_ps'] = np.log(ps_clipped / (1 - ps_clipped))
+            
+            logger.info(f"Propensity scores calculated: mean={ps.mean():.3f}, std={ps.std():.3f}")
+            return data
+
+        # === USE CACHE INTEGRATION WRAPPER ===
+        # This handles cache checking, logging hit/miss, and storing result
+        return get_cached_propensity_scores(
+            calculate_func=_compute_propensity_score,
+            cache_key_params=cache_key_params
+        )
 
     except Exception as e:
         logger.error(f"PSM calculation error: {e}")
@@ -112,7 +114,7 @@ def perform_matching(df, treatment_col, caliper=0.2):
         if 'logit_ps' not in df.columns:
             raise ValueError("Column 'logit_ps' not found. Please run calculate_propensity_score first.")
 
-        # === CACHE CHECK ===
+        # === CACHE KEY PREPARATION ===
         cache_key_params = {
             'treatment_col': treatment_col,
             'caliper': caliper,
@@ -120,80 +122,74 @@ def perform_matching(df, treatment_col, caliper=0.2):
             'logit_ps_hash': hash(df['logit_ps'].values.tobytes())
         }
         
-        cached_result = COMPUTATION_CACHE.get('psm_matching', **cache_key_params)
-        if cached_result is not None:
-            logger.info("✅ Cache HIT: Matching results retrieved from cache")
-            return cached_result
-        
-        logger.info("🔄 Cache MISS: Performing matching...")
-
-        treated = df[df[treatment_col] == 1].copy()
-        control = df[df[treatment_col] == 0].copy()
-        
-        if treated.empty or control.empty:
-            logger.warning("One of the groups is empty. Cannot perform matching.")
-            return pd.DataFrame()
-
-        # Define Caliper Width
-        # Austin (2011) recommends 0.2 * SD of logit propensity score
-        std_logit = df['logit_ps'].std()
-        caliper_width = caliper * std_logit
-        
-        logger.info(f"Matching parameters: SD_logit={std_logit:.3f}, Caliper Width={caliper_width:.3f} (coef={caliper})")
-
-        # Nearest Neighbors Matching
-        # We fit NN on Control group
-        nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(control[['logit_ps']])
-        
-        # Find closest control for each treated unit
-        distances, indices = nbrs.kneighbors(treated[['logit_ps']])
-        
-        matched_indices_control = []
-        matched_indices_treated = []
-        
-        used_control_indices = set()
-        
-        # Iterate and greedily match (Simple Greedy Matching without Replacement)
-        # To improve quality, one might sort treated units by PS first, but random order is standard for simple greedy.
-        
-        # Zip treated index, distance, and control neighbor index
-        # indices contains index relative to 'control' DataFrame (0 to len(control)-1)
-        
-        potential_matches = []
-        for i in range(len(treated)):
-            dist = distances[i][0]
-            control_idx_rel = indices[i][0] # Relative index in control df
+        # Define the matching logic as an inner function
+        def _perform_matching_logic():
+            logger.info("🔄 Performing matching logic...")
             
-            potential_matches.append({
-                'treated_idx': treated.index[i],
-                'control_idx': control.index[control_idx_rel],
-                'dist': dist
-            })
+            treated = df[df[treatment_col] == 1].copy()
+            control = df[df[treatment_col] == 0].copy()
             
-        # Sort by distance (best matches first) to minimize caliper exclusions in greedy match
-        potential_matches.sort(key=lambda x: x['dist'])
-        
-        count_matched = 0
-        
-        for m in potential_matches:
-            if m['dist'] <= caliper_width:
-                if m['control_idx'] not in used_control_indices:
-                    matched_indices_treated.append(m['treated_idx'])
-                    matched_indices_control.append(m['control_idx'])
-                    used_control_indices.add(m['control_idx'])
-                    count_matched += 1
-        
-        # Combine indices
-        all_matched_indices = matched_indices_treated + matched_indices_control
-        matched_df = df.loc[all_matched_indices].copy()
-        
-        logger.info(f"Matched {count_matched} pairs out of {len(treated)} treated units.")
-        
-        # === CACHE STORE ===
-        COMPUTATION_CACHE.set('psm_matching', matched_df, **cache_key_params)
-        logger.info("💾 Matching results stored in cache")
-        
-        return matched_df
+            if treated.empty or control.empty:
+                logger.warning("One of the groups is empty. Cannot perform matching.")
+                return pd.DataFrame()
+
+            # Define Caliper Width
+            # Austin (2011) recommends 0.2 * SD of logit propensity score
+            std_logit = df['logit_ps'].std()
+            caliper_width = caliper * std_logit
+            
+            logger.info(f"Matching parameters: SD_logit={std_logit:.3f}, Caliper Width={caliper_width:.3f} (coef={caliper})")
+
+            # Nearest Neighbors Matching
+            # We fit NN on Control group
+            nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(control[['logit_ps']])
+            
+            # Find closest control for each treated unit
+            distances, indices = nbrs.kneighbors(treated[['logit_ps']])
+            
+            matched_indices_control = []
+            matched_indices_treated = []
+            
+            used_control_indices = set()
+            
+            # Iterate and greedily match (Simple Greedy Matching without Replacement)
+            
+            potential_matches = []
+            for i in range(len(treated)):
+                dist = distances[i][0]
+                control_idx_rel = indices[i][0] # Relative index in control df
+                
+                potential_matches.append({
+                    'treated_idx': treated.index[i],
+                    'control_idx': control.index[control_idx_rel],
+                    'dist': dist
+                })
+            
+            # Sort by distance (best matches first) to minimize caliper exclusions in greedy match
+            potential_matches.sort(key=lambda x: x['dist'])
+            
+            count_matched = 0
+            
+            for m in potential_matches:
+                if m['dist'] <= caliper_width:
+                    if m['control_idx'] not in used_control_indices:
+                        matched_indices_treated.append(m['treated_idx'])
+                        matched_indices_control.append(m['control_idx'])
+                        used_control_indices.add(m['control_idx'])
+                        count_matched += 1
+            
+            # Combine indices
+            all_matched_indices = matched_indices_treated + matched_indices_control
+            matched_df = df.loc[all_matched_indices].copy()
+            
+            logger.info(f"Matched {count_matched} pairs out of {len(treated)} treated units.")
+            return matched_df
+
+        # === USE CACHE INTEGRATION WRAPPER ===
+        return get_cached_matched_data(
+            matching_func=_perform_matching_logic,
+            cache_key_params=cache_key_params
+        )
 
     except Exception as e:
         logger.error(f"Matching error: {e}")
@@ -212,6 +208,8 @@ def calculate_smd(df, treatment_col, covariate_cols):
     """
     try:
         # === CACHE CHECK ===
+        # Note: Keeping direct COMPUTATION_CACHE here as psm_cache_integration.py 
+        # does not currently have a get_cached_smd wrapper.
         cache_key_params = {
             'treatment_col': treatment_col,
             'covariate_cols': tuple(sorted(covariate_cols)),
