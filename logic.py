@@ -6,6 +6,7 @@ Features:
 - Automatic Mode Detection (Categorical/Linear)
 - Variance Inflation Factor (VIF) Check for Multicollinearity
 - Optimized Data Processing
+- LAYER 1 CACHING: Computation results cached for 30 minutes
 """
 
 import pandas as pd
@@ -17,6 +18,9 @@ import warnings
 import html
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
+from utils.cache_manager import COMPUTATION_CACHE
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
 
 logger = get_logger(__name__)
 COLORS = {
@@ -223,17 +227,41 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
     """
     Perform logistic regression analysis for binary outcome.
     Includes VIF check for multivariate analysis.
+    
+    🟢 LAYER 1 OPTIMIZATION: Results cached for 30 minutes
     """
-    logger.info(f"Starting logistic analysis for outcome: {outcome_name}")
+    # === LAYER 1: TRY CACHE FIRST ===
+    # Check if memory is OK before proceeding
+    if not MEMORY_MANAGER.check_and_cleanup():
+        logger.warning("Memory critical - proceeding with caution")
+    
+    # Generate cache key from input parameters
+    cache_key_params = {
+        'outcome': outcome_name,
+        'df_shape': df.shape,
+        'df_hash': hash(pd.util.hash_pandas_object(df, index=True).values.tobytes()),
+        'var_meta': str(var_meta),
+        'method': method
+    }
+    
+    # Try to get from cache
+    cached_result = COMPUTATION_CACHE.get('analyze_outcome', **cache_key_params)
+    if cached_result is not None:
+        logger.info(f"✅ Cache HIT for {outcome_name} - returning cached result (saves ~40s)")
+        return cached_result
+    
+    logger.info(f"📊 Starting logistic analysis for outcome: {outcome_name} (CACHE MISS)")
     
     if outcome_name not in df.columns:
-        return f"<div class='alert'>Outcome '{outcome_name}' not found</div>", {}, {}
+        result = (f"<div class='alert'>Outcome '{outcome_name}' not found</div>", {}, {})
+        return result
     
     y_raw = df[outcome_name].dropna()
     unique_outcomes = set(y_raw.unique())
     
     if len(unique_outcomes) != 2:
-        return f"<div class='alert'>Invalid outcome: expected 2 values, found {len(unique_outcomes)}</div>", {}, {}
+        result = (f"<div class='alert'>Invalid outcome: expected 2 values, found {len(unique_outcomes)}</div>", {}, {})
+        return result
     
     if not unique_outcomes.issubset({0, 1}):
         sorted_outcomes = sorted(unique_outcomes, key=str)
@@ -642,7 +670,13 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
     </div>
     </div><br>"""
     
-    return html_table, or_results, aor_results
+    result = (html_table, or_results, aor_results)
+    
+    # === LAYER 1: CACHE THE RESULT ===
+    COMPUTATION_CACHE.set('analyze_outcome', result, **cache_key_params)
+    logger.info(f"💾 Cached result for {outcome_name} (expires in 30 min)")
+    
+    return result
 
 
 def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots: Odds Ratios"):
