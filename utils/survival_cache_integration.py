@@ -6,6 +6,7 @@ Survival analysis is computationally expensive and often requested with same par
 
 Features:
 - Cache Kaplan-Meier curves for 30 minutes
+- Cache Nelson-Aalen curves for 30 minutes
 - Cache Cox regression models for 30 minutes
 - LRU eviction when cache full
 - Automatic hash-based invalidation
@@ -41,6 +42,32 @@ def get_cached_km_curves(calculate_func, cache_key_params: dict):
     result = calculate_func()
     COMPUTATION_CACHE.set('survival_km', result, **cache_key_params)
     logger.info(f"💾 Survival KM curves cached for 30 minutes")
+    
+    return result
+
+def get_cached_na_curves(calculate_func, cache_key_params: dict):
+    """
+    Get Nelson-Aalen curves from cache or calculate if not cached.
+    
+    Args:
+        calculate_func: Function that calculates NA curves
+        cache_key_params: Dict with parameters for cache key
+    
+    Returns:
+        NA curve data (from cache or fresh calculation)
+    """
+    # Try cache first
+    cached = COMPUTATION_CACHE.get('survival_na', **cache_key_params)
+    if cached is not None:
+        logger.info(f"✅ Survival NA Cache HIT - using cached curves")
+        return cached
+    
+    logger.info(f"⏳ Survival NA Cache MISS - calculating Nelson-Aalen curves")
+    
+    # Calculate and cache
+    result = calculate_func()
+    COMPUTATION_CACHE.set('survival_na', result, **cache_key_params)
+    logger.info(f"💾 Survival NA curves cached for 30 minutes")
     
     return result
 
@@ -124,44 +151,3 @@ def get_cached_risk_table(calculate_func, cache_key_params: dict):
     logger.info(f"💾 Survival risk table cached for 30 minutes")
     
     return result
-
-
-# Example usage in survival_lib.py:
-# ==================================
-# from utils.survival_cache_integration import (
-#     get_cached_km_curves,
-#     get_cached_cox_model,
-#     get_cached_survival_estimates
-# )
-#
-# # Cache Kaplan-Meier curves:
-# km_curves = get_cached_km_curves(
-#     calculate_func=lambda: fit_kaplan_meier(...),
-#     cache_key_params={
-#         'time_col': time_col,
-#         'event_col': event_col,
-#         'group_col': group_col,
-#         'data_hash': hash(pd.util.hash_pandas_object(df).values.tobytes())
-#     }
-# )
-#
-# # Cache Cox model:
-# cox_model = get_cached_cox_model(
-#     calculate_func=lambda: fit_cox_model(...),
-#     cache_key_params={
-#         'formula': formula,
-#         'time_col': time_col,
-#         'event_col': event_col,
-#         'data_hash': hash(...)
-#     }
-# )
-#
-# # Cache survival estimates:
-# estimates = get_cached_survival_estimates(
-#     calculate_func=lambda: predict_survival(...),
-#     cache_key_params={
-#         'model_type': 'cox',
-#         'horizon': horizon,
-#         'data_hash': hash(...)
-#     }
-# )
