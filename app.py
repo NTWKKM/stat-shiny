@@ -154,7 +154,8 @@ def server(input, output, session: Session):
     )
 
     # --- 6. Survival Analysis Module ---
-    tab_survival.survival_server("survival",
+    # ✅ FIX: Passing input, output, session
+    tab_survival.survival_server(input, output, session, "survival",
         df, var_meta, df_matched, is_matched
     )
 
