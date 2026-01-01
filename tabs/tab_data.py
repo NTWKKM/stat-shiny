@@ -3,7 +3,7 @@ from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
 from logger import get_logger
-from tabs._common import get_color_palette
+from tabs._common import get_color_palette, wrap_with_container
 
 logger = get_logger(__name__)
 
@@ -11,8 +11,7 @@ logger = get_logger(__name__)
 @module.ui
 def data_ui():
     # ไม่ต้องสร้าง ns() เองแล้ว ใช้ ID ชื่อตรงๆ ได้เลย
-    return ui.nav_panel(
-        "📁 Data Management",
+    return wrap_with_container(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("MENU"),
