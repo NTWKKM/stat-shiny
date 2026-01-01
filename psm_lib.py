@@ -5,12 +5,15 @@ Features:
 - Logistic Regression for Propensity Score Estimation
 - Nearest Neighbor Matching with Caliper (Standardized to logit scale)
 - SMD (Standardized Mean Difference) Calculation for Balance Check
+- Love Plot Visualization (Plotly)
+- HTML Report Generation
 """
 
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import NearestNeighbors
+import plotly.graph_objects as go
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -176,8 +179,6 @@ def calculate_smd(df, treatment_col, covariate_cols):
                 })
             else:
                 # For categorical (dummy coded 0/1), SMD is difference in proportions / pooled SD
-                # Or just difference in proportions for simple reading, but we stick to formula
-                # Assuming data is pre-processed or we skip non-numeric here
                 pass
                 
         return pd.DataFrame(smd_data)
@@ -185,3 +186,84 @@ def calculate_smd(df, treatment_col, covariate_cols):
     except Exception as e:
         logger.error(f"SMD calculation error: {e}")
         return pd.DataFrame()
+
+# ==========================================
+# Visualization & Reporting Logic (ADDED)
+# ==========================================
+
+def plot_love_plot(smd_pre, smd_post):
+    """
+    Generate a Love Plot (Dot plot) comparing SMD before and after matching.
+    """
+    try:
+        # Merge Data
+        df_plot = smd_pre.merge(smd_post, on='Variable', suffixes=('_Unmatched', '_Matched'))
+        df_plot = df_plot.sort_values(by='SMD_Unmatched', ascending=True)
+
+        fig = go.Figure()
+
+        # Unmatched Dots (Red)
+        fig.add_trace(go.Scatter(
+            x=df_plot['SMD_Unmatched'],
+            y=df_plot['Variable'],
+            mode='markers',
+            name='Unmatched',
+            marker=dict(color='#ef553b', size=10, symbol='circle')
+        ))
+
+        # Matched Dots (Green)
+        fig.add_trace(go.Scatter(
+            x=df_plot['SMD_Matched'],
+            y=df_plot['Variable'],
+            mode='markers',
+            name='Matched',
+            marker=dict(color='#00cc96', size=10, symbol='diamond')
+        ))
+
+        # Add Threshold Lines (0.1)
+        fig.add_shape(type="line", x0=0.1, y0=0, x1=0.1, y1=1, xref='x', yref='paper',
+                      line=dict(color="Gray", width=1, dash="dash"))
+        fig.add_annotation(x=0.1, y=1, yref='paper', text="0.1 threshold", showarrow=False, yshift=10)
+
+        fig.update_layout(
+            title="Love Plot: Standardized Mean Difference (SMD)",
+            xaxis_title="Absolute Standardized Mean Difference",
+            yaxis_title="Variables",
+            legend_title="Status",
+            margin=dict(l=0, r=0, t=40, b=0),
+            height=max(400, len(df_plot) * 30), # Auto-height based on number of vars
+            template="plotly_white"
+        )
+        return fig
+
+    except Exception as e:
+        logger.error(f"Love Plot Error: {e}")
+        # Return empty figure with error message
+        fig = go.Figure()
+        fig.add_annotation(text=f"Error plotting Love Plot: {e}", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)
+        return fig
+
+def generate_psm_report(title, elements):
+    """
+    Simple HTML Report generator for PSM results.
+    elements: list of dicts {'type': 'text'|'table'|'plot', 'data': ...}
+    """
+    html = f"<html><head><title>{title}</title></head><body style='font-family: Arial, sans-serif; padding: 20px;'>"
+    html += f"<h1 style='color: #2c3e50;'>{title}</h1><hr>"
+    
+    for el in elements:
+        if el['type'] == 'text':
+            html += f"<p style='font-size: 1.1em; color: #34495e;'>{el['data']}</p>"
+        elif el['type'] == 'table':
+            if isinstance(el['data'], pd.DataFrame):
+                # Clean table style
+                table_html = el['data'].to_html(classes='table table-striped table-bordered', index=False, float_format="{:.4f}".format)
+                html += f"<div style='margin: 20px 0;'>{table_html}</div>"
+        elif el['type'] == 'plot':
+            # Convert Plotly fig to HTML div
+            if hasattr(el['data'], 'to_html'):
+                plot_html = el['data'].to_html(full_html=False, include_plotlyjs='cdn')
+                html += f"<div style='margin: 20px 0;'>{plot_html}</div>"
+                
+    html += "</body></html>"
+    return html
