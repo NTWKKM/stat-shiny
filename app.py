@@ -44,43 +44,48 @@ app_ui = ui.page_navbar(
     ),
     
     # --- 2. Table 1 & Matching Module ---
-    ui.nav_panel("📋 Table 1 & Matching", 
+    ui.nav_panel(
+        "📋 Table 1 & Matching", 
         wrap_with_container(
             tab_baseline_matching.baseline_matching_ui("bm")
         )
     ),
 
     # --- 3. Diagnostic Tests Module ---
-    ui.nav_panel("🧪 Diagnostic Tests", 
+    ui.nav_panel(
+        "🧪 Diagnostic Tests", 
         wrap_with_container(
             tab_diag.diag_ui("diag")
         )
     ),
 
     # --- 4. Logistic Regression Module ---
-    ui.nav_panel("📊 Risk Factors", 
+    ui.nav_panel(
+        "📊 Risk Factors", 
         wrap_with_container(
             tab_logit.logit_ui("logit")
         )
     ),
 
     # --- 5. Correlation & ICC Module ---
-    ui.nav_panel("📈 Correlation & ICC", 
+    ui.nav_panel(
+        "📈 Correlation & ICC", 
         wrap_with_container(
             tab_corr.corr_ui("corr")
         )
     ),
 
     # --- 6. Survival Analysis Module ---
-    ui.nav_panel("⏳ Survival Analysis", 
+    ui.nav_panel(
+        "⏳ Survival Analysis", 
         wrap_with_container(
-            # ✅ เรียกใช้ survival_ui โดยระบุแค่ ID (Namespace) เท่านั้น
             tab_survival.survival_ui("survival")
         )
     ),
 
     # --- 7. Settings Module ---
-    ui.nav_panel("⚙️ Settings", 
+    ui.nav_panel(
+        "⚙️ Settings", 
         wrap_with_container(
             tab_settings.settings_ui("settings")
         )
@@ -101,9 +106,6 @@ app_ui = ui.page_navbar(
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
     window_title="Medical Stat Tool",
-    
-    # 🟢 ย้าย inverse=True ไปไว้ใน navbar_options
-    navbar_options=ui.navbar_options(inverse=True),
 
     # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
