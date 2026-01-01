@@ -1,7 +1,7 @@
 from shiny import ui
 from shiny.ui import TagChild
 
-def wrap_with_container(content) -> TagChild:
+def wrap_with_container(content: TagChild) -> TagChild:
     """
     Wraps UI content with the .app-container CSS class.
     This applies the padding and max-width styling from _styling.py
