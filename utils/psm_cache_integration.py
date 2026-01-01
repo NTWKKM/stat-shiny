@@ -71,26 +71,28 @@ def get_cached_matched_data(matching_func, cache_key_params: dict):
     return result
 
 
-# Example usage in psm_lib.py:
-# ============================
-# from utils.psm_cache_integration import get_cached_propensity_scores, get_cached_matched_data
-#
-# # In your PSM calculation function:
-# pscores = get_cached_propensity_scores(
-#     calculate_func=lambda: calculate_propensity_scores(...),
-#     cache_key_params={
-#         'outcome': outcome_col,
-#         'method': 'logit',
-#         'data_hash': hash(pd.util.hash_pandas_object(df).values.tobytes())
-#     }
-# )
-#
-# # In your matching function:
-# matched_df = get_cached_matched_data(
-#     matching_func=lambda: perform_matching(...),
-#     cache_key_params={
-#         'method': 'nearest',
-#         'caliper': caliper,
-#         'data_hash': hash(...)
-#     }
-# )
+def get_cached_smd(smd_func, cache_key_params: dict):
+    """
+    Get SMD calculations from cache or perform calculation if not cached.
+    
+    Args:
+        smd_func: Function that calculates SMD
+        cache_key_params: Dict with parameters for cache key
+    
+    Returns:
+        SMD dataframe (from cache or fresh calculation)
+    """
+    # Try cache first
+    cached = COMPUTATION_CACHE.get('psm_smd', **cache_key_params)
+    if cached is not None:
+        logger.info(f"✅ PSM SMD Cache HIT - using cached SMD results")
+        return cached
+    
+    logger.info(f"📊 PSM SMD Cache MISS - calculating SMD")
+    
+    # Calculate and cache
+    result = smd_func()
+    COMPUTATION_CACHE.set('psm_smd', result, **cache_key_params)
+    logger.info(f"💾 PSM SMD result cached for 30 minutes")
+    
+    return result
