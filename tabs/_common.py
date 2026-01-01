@@ -1,4 +1,3 @@
-# No imports needed - this module provides pure data functions
 from shiny import ui
 
 def wrap_with_container(content):
