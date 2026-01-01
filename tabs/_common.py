@@ -1,4 +1,34 @@
 # No imports needed - this module provides pure data functions
+from shiny import ui
+
+def wrap_with_container(content):
+    """
+    Wraps UI content with the .app-container CSS class.
+    This applies the padding and max-width styling from _styling.py
+    
+    The .app-container class provides:
+    - max-width: 1400px (centers content on wide screens)
+    - margin: 0 auto (centers container)
+    - padding: 16px 24px 32px (nice whitespace around content)
+    - Responsive: padding adjusts on mobile devices
+    
+    Args:
+        content: Shiny UI element(s) to wrap
+        
+    Returns:
+        div with app-container class applied
+        
+    Usage:
+        @module.ui
+        def my_ui():
+            content = ui.card(...)
+            return wrap_with_container(content)
+    """
+    return ui.div(
+        content,
+        class_="app-container"
+    )
+
 
 def get_color_palette():
     """
