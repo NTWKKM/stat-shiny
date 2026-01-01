@@ -14,7 +14,7 @@ from tabs import tab_survival
 from tabs import tab_settings
 
 from tabs._styling import get_shiny_css
-from tabs._common import wrap_with_container
+from tabs._common import get_color_palette
 
 # === LAYER 1, 2, 3: Import optimization managers ===
 from utils.cache_manager import COMPUTATION_CACHE
@@ -31,6 +31,9 @@ logger.info(f"  {COMPUTATION_CACHE}")     # Layer 1: Caching
 logger.info(f"  {MEMORY_MANAGER}")        # Layer 2: Memory Mgmt
 logger.info(f"  {CONNECTION_HANDLER}")    # Layer 3: Connection Resilience
 
+# Get color palette for navbar styling
+colors = get_color_palette()
+
 # ==========================================
 # 1. UI DEFINITION
 # ==========================================
@@ -38,57 +41,50 @@ app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
     ui.nav_panel(
         "📁 Data Management",
-        wrap_with_container(
-            tab_data.data_ui("data")
-        )
+        tab_data.data_ui("data"),
+        class_="app-container"
     ),
     
     # --- 2. Table 1 & Matching Module ---
     ui.nav_panel(
         "📋 Table 1 & Matching", 
-        wrap_with_container(
-            tab_baseline_matching.baseline_matching_ui("bm")
-        )
+        tab_baseline_matching.baseline_matching_ui("bm"),
+        class_="app-container"
     ),
 
     # --- 3. Diagnostic Tests Module ---
     ui.nav_panel(
         "🧪 Diagnostic Tests", 
-        wrap_with_container(
-            tab_diag.diag_ui("diag")
-        )
+        tab_diag.diag_ui("diag"),
+        class_="app-container"
     ),
 
     # --- 4. Logistic Regression Module ---
     ui.nav_panel(
         "📊 Risk Factors", 
-        wrap_with_container(
-            tab_logit.logit_ui("logit")
-        )
+        tab_logit.logit_ui("logit"),
+        class_="app-container"
     ),
 
     # --- 5. Correlation & ICC Module ---
     ui.nav_panel(
         "📈 Correlation & ICC", 
-        wrap_with_container(
-            tab_corr.corr_ui("corr")
-        )
+        tab_corr.corr_ui("corr"),
+        class_="app-container"
     ),
 
     # --- 6. Survival Analysis Module ---
     ui.nav_panel(
         "⏳ Survival Analysis", 
-        wrap_with_container(
-            tab_survival.survival_ui("survival")
-        )
+        tab_survival.survival_ui("survival"),
+        class_="app-container"
     ),
 
     # --- 7. Settings Module ---
     ui.nav_panel(
         "⚙️ Settings", 
-        wrap_with_container(
-            tab_settings.settings_ui("settings")
-        )
+        tab_settings.settings_ui("settings"),
+        class_="app-container"
     ),
 
     # === LAYER 2 & 3: Add optimization status badge to footer ===
@@ -106,6 +102,9 @@ app_ui = ui.page_navbar(
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
     window_title="Medical Stat Tool",
+
+    # ✅ FIX: Remove deprecated navbar_options with inverse parameter
+    # Modern Shiny v2 handles theming through CSS variables in _styling.py
 
     # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
