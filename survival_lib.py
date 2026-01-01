@@ -7,7 +7,7 @@ Functions for:
 - Cox proportional hazards regression
 - Landmark analysis
 - Forest plots
-- Assumption checking
+- Assumption checking (Schoenfeld Residuals)
 
 OPTIMIZATIONS:
 - Vectorized median calculations (15x faster)
@@ -468,14 +468,41 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
 def check_cph_assumptions(cph, data):
     """
     OPTIMIZED: Generate proportional hazards test report and Schoenfeld residual plots.
+    Includes automated violation checks (p < 0.05).
     
     Returns:
         tuple: (report_text, list_of_figures)
     """
     try:
+        # 1. Run Test
         results = proportional_hazard_test(cph, data, time_transform='rank')
-        text_report = "Proportional Hazards Test Results:\n" + results.summary.to_string()
         
+        # 2. Check for violations
+        # The summary has a 'p' column. If any p < 0.05, assumption is violated.
+        summary = results.summary
+        failed_vars = summary[summary['p'] < 0.05].index.tolist()
+        
+        # 3. Construct Report
+        report_lines = ["### 🚦 Proportional Hazards Assumption Check"]
+        
+        if failed_vars:
+            report_lines.append(f"❌ **VIOLATION DETECTED** in: {', '.join(failed_vars)}")
+            report_lines.append("\n**Implication:**")
+            report_lines.append("The Hazard Ratio (HR) for these variables may change over time, making the standard Cox model estimates potentially misleading.")
+            report_lines.append("\n💡 **Suggestion:**")
+            report_lines.append("1. **Stratify** the analysis by these variables (if categorical).")
+            report_lines.append("2. Use **Time-Dependent Covariates**.")
+            report_lines.append("3. Interpret results with caution.")
+        else:
+            report_lines.append("✅ **PASSED**: No significant violation detected (all p > 0.05).")
+            report_lines.append("The Proportional Hazards assumption appears to hold.")
+            
+        report_lines.append("\n**Detailed Test Results:**")
+        report_lines.append(results.summary.to_string())
+        
+        text_report = "\n".join(report_lines)
+        
+        # 4. Generate Plots
         figs_list = []
         # OPTIMIZATION: Batch residual computations
         scaled_schoenfeld = cph.compute_residuals(data, 'scaled_schoenfeld')
@@ -485,6 +512,7 @@ def check_cph_assumptions(cph, data):
             fig = go.Figure()
             residuals = scaled_schoenfeld[col].values
             
+            # Scatter Plot
             fig.add_trace(go.Scatter(
                 x=times, 
                 y=residuals,
@@ -494,7 +522,7 @@ def check_cph_assumptions(cph, data):
             ))
             
             try:
-                # Vectorized trend calculation
+                # Vectorized trend calculation (Linear)
                 z = np.polyfit(times, residuals, 1)
                 p = np.poly1d(z)
                 sorted_times = np.sort(times)
@@ -512,8 +540,11 @@ def check_cph_assumptions(cph, data):
             
             fig.add_hline(y=0, line_dash="solid", line_color="black", opacity=0.3, line_width=1)
             
+            # Check if this specific variable failed
+            title_prefix = "⚠️ " if col in failed_vars else "✅ "
+            
             fig.update_layout(
-                title=f"Schoenfeld Residuals: {col}",
+                title=f"{title_prefix}Schoenfeld Residuals: {col}",
                 xaxis_title="Time",
                 yaxis_title="Scaled Residuals",
                 template='plotly_white',
