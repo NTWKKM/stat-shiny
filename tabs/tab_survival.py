@@ -239,7 +239,8 @@ def surv_ui(namespace: str) -> ui.TagChild:
 # ==============================================================================
 # Server Logic
 # ==============================================================================
-def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
+# ✅ FIX: เพิ่ม input, output, session เพื่อรับค่าจาก Shiny App
+def surv_server(input, output, session, namespace: str, df: reactive.Value, var_meta: reactive.Value,
                 df_matched: reactive.Value, is_matched: reactive.Value):
     
     # ==================== REACTIVE VALUES ====================
@@ -554,6 +555,7 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
 def survival_ui(namespace: str) -> ui.TagChild:
     return surv_ui(namespace)
 
-def survival_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
+# ✅ FIX: wrapper ก็ต้องรับ input, output, session ด้วย
+def survival_server(input, output, session, namespace: str, df: reactive.Value, var_meta: reactive.Value,
                     df_matched: reactive.Value, is_matched: reactive.Value):
-    return surv_server(namespace, df, var_meta, df_matched, is_matched)
+    return surv_server(input, output, session, namespace, df, var_meta, df_matched, is_matched)
