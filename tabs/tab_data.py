@@ -10,52 +10,52 @@ logger = get_logger(__name__)
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    return ui.nav_panel(
-        "📁 Data Management",
-        ui.layout_sidebar(
-            ui.sidebar(
-                ui.h4("MENU"),
-                ui.h5("1. Data Management"),
-                
-                ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
-                ui.br(), ui.br(),
-                
-                ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
-                
-                ui.hr(),
-                
-                ui.output_ui("ui_btn_clear_match"),
-                ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
-                
-                width=300,
-                bg="#f8f9fa"
-            ),
+    # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
+    # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
+    return ui.layout_sidebar(
+        ui.sidebar(
+            ui.h4("MENU"),
+            ui.h5("1. Data Management"),
             
-            ui.accordion(
-                ui.accordion_panel(
-                    "🛠️ 1. Variable Settings & Labels",
-                    ui.layout_columns(
-                        ui.div(
-                            ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
-                        ),
-                        ui.div(
-                            ui.output_ui("ui_var_settings")
-                        ),
-                        col_widths=(4, 8)
+            ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
+            ui.br(), ui.br(),
+            
+            ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
+            
+            ui.hr(),
+            
+            ui.output_ui("ui_btn_clear_match"),
+            ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
+            
+            width=300,
+            bg="#f8f9fa"
+        ),
+        
+        # ส่วน Main Content
+        ui.accordion(
+            ui.accordion_panel(
+                "🛠️ 1. Variable Settings & Labels",
+                ui.layout_columns(
+                    ui.div(
+                        ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
                     ),
+                    ui.div(
+                        ui.output_ui("ui_var_settings")
+                    ),
+                    col_widths=(4, 8)
                 ),
-                id="acc_settings",
-                open=True
             ),
+            id="acc_settings",
+            open=True
+        ),
 
-            ui.br(),
-            
-            ui.card(
-                ui.card_header("📄 2. Raw Data Preview"),
-                ui.output_data_frame("out_df_preview"),
-                height="600px",
-                full_screen=True
-            )
+        ui.br(),
+        
+        ui.card(
+            ui.card_header("📄 2. Raw Data Preview"),
+            ui.output_data_frame("out_df_preview"),
+            height="600px",
+            full_screen=True
         )
     )
 
