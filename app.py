@@ -14,6 +14,7 @@ from tabs import tab_survival
 from tabs import tab_settings
 
 from tabs._styling import get_shiny_css
+from tabs._common import wrap_with_container
 
 # Initialize Logger
 LoggerFactory.configure()
@@ -24,36 +25,53 @@ logger = get_logger(__name__)
 # ==========================================
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
-    tab_data.data_ui("data"),
+    ui.nav_panel(
+        "📁 Data Management",
+        wrap_with_container(
+            tab_data.data_ui("data")
+        )
+    ),
     
     # --- 2. Table 1 & Matching Module ---
     ui.nav_panel("📋 Table 1 & Matching", 
-        tab_baseline_matching.baseline_matching_ui("bm")
+        wrap_with_container(
+            tab_baseline_matching.baseline_matching_ui("bm")
+        )
     ),
 
     # --- 3. Diagnostic Tests Module ---
     ui.nav_panel("🧪 Diagnostic Tests", 
-        tab_diag.diag_ui("diag")
+        wrap_with_container(
+            tab_diag.diag_ui("diag")
+        )
     ),
 
     # --- 4. Logistic Regression Module ---
     ui.nav_panel("📊 Risk Factors", 
-        tab_logit.logit_ui("logit")
+        wrap_with_container(
+            tab_logit.logit_ui("logit")
+        )
     ),
 
     # --- 5. Correlation & ICC Module ---
     ui.nav_panel("📈 Correlation & ICC", 
-        tab_corr.corr_ui("corr")
+        wrap_with_container(
+            tab_corr.corr_ui("corr")
+        )
     ),
 
     # --- 6. Survival Analysis Module ---
     ui.nav_panel("⏳ Survival Analysis", 
-        tab_survival.survival_ui("survival")
+        wrap_with_container(
+            tab_survival.survival_ui("survival")
+        )
     ),
 
     # --- 7. Settings Module ---
     ui.nav_panel("⚙️ Settings", 
-        tab_settings.settings_ui("settings")
+        wrap_with_container(
+            tab_settings.settings_ui("settings")
+        )
     ),
 
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
