@@ -32,6 +32,14 @@ from logger import get_logger
 from tabs._common import get_color_palette
 from forest_plot_lib import create_forest_plot
 
+# === INTEGRATION: Import Cache Wrappers ===
+from utils.survival_cache_integration import (
+    get_cached_km_curves,
+    get_cached_na_curves,
+    get_cached_cox_model,
+    get_cached_survival_estimates
+)
+
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
@@ -85,6 +93,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
     Optimizations:
     - Vectorized median calculations
     - Batch CI computations
+    - Cached results
     
     Returns:
         pd.DataFrame: Table with 'Group', 'N', 'Events', and 'Median (95% CI)'
@@ -100,73 +109,90 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
         error_msg = f"Missing required columns: {missing}"
         logger.error(error_msg)
         raise ValueError(error_msg)
-    
-    data = df.dropna(subset=[duration_col, event_col])
-    
-    if not pd.api.types.is_numeric_dtype(data[duration_col]):
-        raise ValueError(f"Duration column '{duration_col}' must contain numeric values")
-    if not pd.api.types.is_numeric_dtype(data[event_col]):
-        raise ValueError(f"Event column '{event_col}' must contain numeric values")
-    
-    unique_events = data[event_col].dropna().unique()
-    if not all(v in [0, 1, True, False] for v in unique_events):
-        raise ValueError(f"Event column '{event_col}' must contain only 0/1 or boolean values")
-    
-    if group_col:
-        data = data.dropna(subset=[group_col])
-        groups = _sort_groups_vectorized(data[group_col].unique())
-    else:
-        groups = ['Overall']
-        
-    results = []
-    
-    for g in groups:
-        if group_col:
-            df_g = data[data[group_col] == g]
-            label = f"{g}"
-        else:
-            df_g = data
-            label = "Overall"
-            
-        n = len(df_g)
-        events = df_g[event_col].sum()
-        
-        if n > 0:
-            kmf = KaplanMeierFitter()
-            kmf.fit(df_g[duration_col], df_g[event_col], label=label)
-            
-            median_val = kmf.median_survival_time_
-            
-            # OPTIMIZATION: Vectorized CI extraction
-            try:
-                ci_df = median_survival_times(kmf.confidence_interval_)
-                if ci_df.shape[0] > 0 and ci_df.shape[1] >= 2:
-                    lower, upper = ci_df.iloc[0, 0], ci_df.iloc[0, 1]
-                else:
-                    lower, upper = np.nan, np.nan
-            except Exception as e:
-                logger.debug(f"Could not compute CI for group {label}: {e}")
-                lower, upper = np.nan, np.nan
-            
-            # Vectorized formatting
-            def fmt(v) -> str:
-                if pd.isna(v) or np.isinf(v):
-                    return "NR"
-                return f"{v:.1f}"
-            
-            med_str, low_str, up_str = fmt(median_val), fmt(lower), fmt(upper)
-            display_str = f"{med_str} ({low_str}-{up_str})" if med_str != "NR" else "Not Reached"
-        else:
-            display_str = "-"
 
-        results.append({
-            "Group": label,
-            "N": n,
-            "Events": events,
-            "Median Time (95% CI)": display_str
-        })
+    # === CACHE KEY ===
+    cache_key_params = {
+        'func': 'median_survival',
+        'duration_col': duration_col,
+        'event_col': event_col,
+        'group_col': group_col,
+        'df_shape': df.shape,
+        'df_hash': hash(tuple(df[duration_col].values.tobytes()) + tuple(df[event_col].values.tobytes()))
+    }
+
+    def _compute_median():
+        data = df.dropna(subset=[duration_col, event_col])
         
-    return pd.DataFrame(results)
+        if not pd.api.types.is_numeric_dtype(data[duration_col]):
+            raise ValueError(f"Duration column '{duration_col}' must contain numeric values")
+        if not pd.api.types.is_numeric_dtype(data[event_col]):
+            raise ValueError(f"Event column '{event_col}' must contain numeric values")
+        
+        unique_events = data[event_col].dropna().unique()
+        if not all(v in [0, 1, True, False] for v in unique_events):
+            raise ValueError(f"Event column '{event_col}' must contain only 0/1 or boolean values")
+        
+        if group_col:
+            data = data.dropna(subset=[group_col])
+            groups = _sort_groups_vectorized(data[group_col].unique())
+        else:
+            groups = ['Overall']
+            
+        results = []
+        
+        for g in groups:
+            if group_col:
+                df_g = data[data[group_col] == g]
+                label = f"{g}"
+            else:
+                df_g = data
+                label = "Overall"
+                
+            n = len(df_g)
+            events = df_g[event_col].sum()
+            
+            if n > 0:
+                kmf = KaplanMeierFitter()
+                kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+                
+                median_val = kmf.median_survival_time_
+                
+                # OPTIMIZATION: Vectorized CI extraction
+                try:
+                    ci_df = median_survival_times(kmf.confidence_interval_)
+                    if ci_df.shape[0] > 0 and ci_df.shape[1] >= 2:
+                        lower, upper = ci_df.iloc[0, 0], ci_df.iloc[0, 1]
+                    else:
+                        lower, upper = np.nan, np.nan
+                except Exception as e:
+                    logger.debug(f"Could not compute CI for group {label}: {e}")
+                    lower, upper = np.nan, np.nan
+                
+                # Vectorized formatting
+                def fmt(v) -> str:
+                    if pd.isna(v) or np.isinf(v):
+                        return "NR"
+                    return f"{v:.1f}"
+                
+                med_str, low_str, up_str = fmt(median_val), fmt(lower), fmt(upper)
+                display_str = f"{med_str} ({low_str}-{up_str})" if med_str != "NR" else "Not Reached"
+            else:
+                display_str = "-"
+
+            results.append({
+                'Group': label,
+                'N': n,
+                'Events': events,
+                'Median Time (95% CI)': display_str
+            })
+            
+        return pd.DataFrame(results)
+
+    # === USE CACHE ===
+    return get_cached_survival_estimates(
+        calculate_func=_compute_median,
+        cache_key_params=cache_key_params
+    )
 
 
 def fit_km_logrank(df, duration_col, event_col, group_col):
@@ -176,63 +202,140 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
     Returns:
         tuple: (plotly_fig, stats_df)
     """
-    data = df.dropna(subset=[duration_col, event_col])
-    if group_col:
-        if group_col not in df.columns:
-            raise ValueError(f"Missing group column: {group_col}")
-        data = data.dropna(subset=[group_col])
-        groups = _sort_groups_vectorized(data[group_col].unique())
-    else:
-        groups = ['Overall']
+    # === CACHE KEY ===
+    # We cache the calculated plotting data and stats, not the Figure object itself
+    cache_key_params = {
+        'func': 'km_logrank',
+        'duration_col': duration_col,
+        'event_col': event_col,
+        'group_col': group_col,
+        'df_shape': df.shape,
+        'df_hash': hash(tuple(df[duration_col].values.tobytes()) + tuple(df[event_col].values.tobytes()))
+    }
 
-    if len(data) == 0:
-        raise ValueError("No valid data.")
+    def _compute_km_data():
+        data = df.dropna(subset=[duration_col, event_col])
+        if group_col:
+            if group_col not in df.columns:
+                raise ValueError(f"Missing group column: {group_col}")
+            data = data.dropna(subset=[group_col])
+            groups = _sort_groups_vectorized(data[group_col].unique())
+        else:
+            groups = ['Overall']
 
+        if len(data) == 0:
+            raise ValueError("No valid data.")
+
+        plot_data = []
+
+        for g in groups:
+            if group_col:
+                df_g = data[data[group_col] == g]
+                label = f"{group_col}={g}"
+            else:
+                df_g = data
+                label = "Overall"
+            
+            if len(df_g) > 0:
+                kmf = KaplanMeierFitter()
+                kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+
+                # Extract data for plotting
+                trace_data = {
+                    'label': label,
+                    'times': kmf.survival_function_.index.tolist(),
+                    'probs': kmf.survival_function_.iloc[:, 0].tolist(),
+                    'ci_times': [],
+                    'ci_lower': [],
+                    'ci_upper': []
+                }
+
+                # OPTIMIZATION: Vectorized CI extraction
+                ci_exists = hasattr(kmf, 'confidence_interval_') and not kmf.confidence_interval_.empty
+                
+                if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
+                    trace_data['ci_lower'] = kmf.confidence_interval_.iloc[:, 0].tolist()
+                    trace_data['ci_upper'] = kmf.confidence_interval_.iloc[:, 1].tolist()
+                    trace_data['ci_times'] = kmf.confidence_interval_.index.tolist()
+                
+                plot_data.append(trace_data)
+
+        # Stats
+        stats_data = {}
+        try:
+            if len(groups) == 2 and group_col:
+                g1, g2 = groups
+                res = logrank_test(
+                    data[data[group_col] == g1][duration_col],
+                    data[data[group_col] == g2][duration_col],
+                    event_observed_A=data[data[group_col] == g1][event_col],
+                    event_observed_B=data[data[group_col] == g2][event_col]
+                )
+                stats_data = {
+                    'Test': 'Log-Rank (Pairwise)',
+                    'Statistic': res.test_statistic,
+                    'P-value': res.p_value,
+                    'Comparison': f'{g1} vs {g2}'
+                }
+            elif len(groups) > 2 and group_col:
+                res = multivariate_logrank_test(data[duration_col], data[group_col], data[event_col])
+                stats_data = {
+                    'Test': 'Log-Rank (Multivariate)',
+                    'Statistic': res.test_statistic,
+                    'P-value': res.p_value,
+                    'Comparison': 'All groups'
+                }
+            else:
+                stats_data = {'Test': 'None', 'Note': 'Single group or no group selected'}
+        except Exception as e:
+            logger.error(f"Log-rank test error: {e}")
+            stats_data = {'Test': 'Error', 'Note': str(e)}
+        
+        return plot_data, pd.DataFrame([stats_data])
+
+    # === USE CACHE ===
+    # Retrieve pre-calculated data (not the figure)
+    plot_data, stats_df = get_cached_km_curves(
+        calculate_func=_compute_km_data,
+        cache_key_params=cache_key_params
+    )
+
+    # === RECONSTRUCT PLOT ===
+    # Plotting is fast enough to do on-the-fly with cached data
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
 
-    for i, g in enumerate(groups):
-        if group_col:
-            df_g = data[data[group_col] == g]
-            label = f"{group_col}={g}"
-        else:
-            df_g = data
-            label = "Overall"
+    for i, trace in enumerate(plot_data):
+        label = trace['label']
+        color_hex = colors[i % len(colors)]
         
-        if len(df_g) > 0:
-            kmf = KaplanMeierFitter()
-            kmf.fit(df_g[duration_col], df_g[event_col], label=label)
-
-            # OPTIMIZATION: Vectorized CI extraction
-            ci_exists = hasattr(kmf, 'confidence_interval_') and not kmf.confidence_interval_.empty
-            
-            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
-                ci_lower = kmf.confidence_interval_.iloc[:, 0].values
-                ci_upper = kmf.confidence_interval_.iloc[:, 1].values
-                ci_times = kmf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
-
-                # Vectorized CI trace
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]),
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]),
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'),
-                    hoverinfo="skip", 
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+        # Add CI if available
+        if trace['ci_times']:
+            rgba_color = _hex_to_rgba(color_hex, 0.2)
+            ci_times = np.array(trace['ci_times'])
+            ci_lower = np.array(trace['ci_lower'])
+            ci_upper = np.array(trace['ci_upper'])
             
             fig.add_trace(go.Scatter(
-                x=kmf.survival_function_.index,
-                y=kmf.survival_function_.iloc[:, 0],
-                mode='lines',
-                name=label,
-                line=dict(color=colors[i % len(colors)], width=2),
-                hovertemplate=f'{label}<br>Time: %{{x:.1f}}<br>Surv: %{{y:.3f}}<extra></extra>'
+                x=np.concatenate([ci_times, ci_times[::-1]]),
+                y=np.concatenate([ci_lower, ci_upper[::-1]]),
+                fill='toself',
+                fillcolor=rgba_color,
+                line=dict(color='rgba(255,255,255,0)'),
+                hoverinfo="skip", 
+                name=f'{label} 95% CI',
+                showlegend=False
             ))
+        
+        # Add Line
+        fig.add_trace(go.Scatter(
+            x=trace['times'],
+            y=trace['probs'],
+            mode='lines',
+            name=label,
+            line=dict(color=color_hex, width=2),
+            hovertemplate=f'{label}<br>Time: %{{x:.1f}}<br>Surv: %{{y:.3f}}<extra></extra>'
+        ))
 
     fig.update_layout(
         title='Kaplan-Meier Survival Curves (with 95% CI)',
@@ -244,37 +347,7 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
     )
     fig.update_yaxes(range=[0, 1.05])
 
-    stats_data = {}
-    try:
-        if len(groups) == 2 and group_col:
-            g1, g2 = groups
-            res = logrank_test(
-                data[data[group_col] == g1][duration_col],
-                data[data[group_col] == g2][duration_col],
-                event_observed_A=data[data[group_col] == g1][event_col],
-                event_observed_B=data[data[group_col] == g2][event_col]
-            )
-            stats_data = {
-                'Test': 'Log-Rank (Pairwise)',
-                'Statistic': res.test_statistic,
-                'P-value': res.p_value,
-                'Comparison': f'{g1} vs {g2}'
-            }
-        elif len(groups) > 2 and group_col:
-            res = multivariate_logrank_test(data[duration_col], data[group_col], data[event_col])
-            stats_data = {
-                'Test': 'Log-Rank (Multivariate)',
-                'Statistic': res.test_statistic,
-                'P-value': res.p_value,
-                'Comparison': 'All groups'
-            }
-        else:
-            stats_data = {'Test': 'None', 'Note': 'Single group or no group selected'}
-    except Exception as e:
-        logger.error(f"Log-rank test error: {e}")
-        stats_data = {'Test': 'Error', 'Note': str(e)}
-
-    return fig, pd.DataFrame([stats_data])
+    return fig, stats_df
 
 
 def fit_nelson_aalen(df, duration_col, event_col, group_col):
@@ -284,67 +357,110 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
     Returns:
         tuple: (plotly_fig, stats_df)
     """
-    data = df.dropna(subset=[duration_col, event_col])
-    if len(data) == 0:
-        raise ValueError("No valid data.")
-    if group_col:
-        if group_col not in df.columns:
-            raise ValueError(f"Missing group column: {group_col}")
-        data = data.dropna(subset=[group_col])
-        groups = _sort_groups_vectorized(data[group_col].unique())
-    else:
-        groups = ['Overall']
+    # === CACHE KEY ===
+    cache_key_params = {
+        'func': 'nelson_aalen',
+        'duration_col': duration_col,
+        'event_col': event_col,
+        'group_col': group_col,
+        'df_shape': df.shape,
+        'df_hash': hash(tuple(df[duration_col].values.tobytes()) + tuple(df[event_col].values.tobytes()))
+    }
 
+    def _compute_na_data():
+        data = df.dropna(subset=[duration_col, event_col])
+        if len(data) == 0:
+            raise ValueError("No valid data.")
+        if group_col:
+            if group_col not in df.columns:
+                raise ValueError(f"Missing group column: {group_col}")
+            data = data.dropna(subset=[group_col])
+            groups = _sort_groups_vectorized(data[group_col].unique())
+        else:
+            groups = ['Overall']
+
+        plot_data = []
+        stats_list = []
+
+        for g in groups:
+            if group_col:
+                df_g = data[data[group_col] == g]
+                label = f"{group_col}={g}"
+            else:
+                df_g = data
+                label = "Overall"
+
+            if len(df_g) > 0:
+                naf = NelsonAalenFitter()
+                naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
+                
+                trace_data = {
+                    'label': label,
+                    'times': naf.cumulative_hazard_.index.tolist(),
+                    'hazard': naf.cumulative_hazard_.iloc[:, 0].tolist(),
+                    'ci_times': [],
+                    'ci_lower': [],
+                    'ci_upper': []
+                }
+
+                # OPTIMIZATION: Vectorized CI extraction
+                ci_exists = hasattr(naf, 'confidence_interval_') and not naf.confidence_interval_.empty
+
+                if ci_exists and naf.confidence_interval_.shape[1] >= 2:
+                    trace_data['ci_lower'] = naf.confidence_interval_.iloc[:, 0].tolist()
+                    trace_data['ci_upper'] = naf.confidence_interval_.iloc[:, 1].tolist()
+                    trace_data['ci_times'] = naf.confidence_interval_.index.tolist()
+                
+                plot_data.append(trace_data)
+                
+                stats_list.append({
+                    'Group': label,
+                    'N': len(df_g),
+                    'Events': df_g[event_col].sum()
+                })
+        
+        return plot_data, pd.DataFrame(stats_list)
+
+    # === USE CACHE ===
+    plot_data, stats_df = get_cached_na_curves(
+        calculate_func=_compute_na_data,
+        cache_key_params=cache_key_params
+    )
+
+    # === RECONSTRUCT PLOT ===
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
-    stats_list = []
 
-    for i, g in enumerate(groups):
-        if group_col:
-            df_g = data[data[group_col] == g]
-            label = f"{group_col}={g}"
-        else:
-            df_g = data
-            label = "Overall"
-
-        if len(df_g) > 0:
-            naf = NelsonAalenFitter()
-            naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
-            
-            # OPTIMIZATION: Vectorized CI extraction
-            ci_exists = hasattr(naf, 'confidence_interval_') and not naf.confidence_interval_.empty
-
-            if ci_exists and naf.confidence_interval_.shape[1] >= 2:
-                ci_lower = naf.confidence_interval_.iloc[:, 0].values
-                ci_upper = naf.confidence_interval_.iloc[:, 1].values
-                ci_times = naf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
-
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]), 
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]), 
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'), 
-                    hoverinfo="skip", 
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+    for i, trace in enumerate(plot_data):
+        label = trace['label']
+        color_hex = colors[i % len(colors)]
+        
+        # Add CI
+        if trace['ci_times']:
+            rgba_color = _hex_to_rgba(color_hex, 0.2)
+            ci_times = np.array(trace['ci_times'])
+            ci_lower = np.array(trace['ci_lower'])
+            ci_upper = np.array(trace['ci_upper'])
 
             fig.add_trace(go.Scatter(
-                x=naf.cumulative_hazard_.index,
-                y=naf.cumulative_hazard_.iloc[:, 0],
-                mode='lines',
-                name=label,
-                line=dict(color=colors[i % len(colors)], width=2)
+                x=np.concatenate([ci_times, ci_times[::-1]]), 
+                y=np.concatenate([ci_lower, ci_upper[::-1]]), 
+                fill='toself',
+                fillcolor=rgba_color,
+                line=dict(color='rgba(255,255,255,0)'), 
+                hoverinfo="skip", 
+                name=f'{label} 95% CI',
+                showlegend=False
             ))
-            
-            stats_list.append({
-                'Group': label,
-                'N': len(df_g),
-                'Events': df_g[event_col].sum()
-            })
+
+        # Add Line
+        fig.add_trace(go.Scatter(
+            x=trace['times'],
+            y=trace['hazard'],
+            mode='lines',
+            name=label,
+            line=dict(color=color_hex, width=2)
+        ))
 
     fig.update_layout(
         title='Nelson-Aalen Cumulative Hazard (with 95% CI)',
@@ -354,7 +470,7 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
         height=500
     )
 
-    return fig, pd.DataFrame(stats_list)
+    return fig, stats_df
 
 
 def fit_cox_ph(df, duration_col, event_col, covariate_cols):
@@ -364,105 +480,127 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     Returns:
         tuple: (cph, res_df, data, error_msg)
     """
-    missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
-    if missing:
-        logger.error(f"Missing columns: {missing}")
-        return None, None, df, f"Missing columns: {missing}"
+    # === CACHE KEY ===
+    # Include covariates in key
+    cache_key_params = {
+        'func': 'cox_ph',
+        'duration_col': duration_col,
+        'event_col': event_col,
+        'covariate_cols': tuple(sorted(covariate_cols)),
+        'df_shape': df.shape,
+        'df_hash': hash(tuple(df[duration_col].values.tobytes()) + tuple(df[event_col].values.tobytes()))
+    }
 
-    data = df[[duration_col, event_col, *covariate_cols]].dropna().copy()
-    
-    if len(data) == 0:
-        return None, None, data, "No valid data after dropping missing values."
+    def _fit_cox_model():
+        missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
+        if missing:
+            logger.error(f"Missing columns: {missing}")
+            return None, None, df, f"Missing columns: {missing}"
 
-    if data[event_col].sum() == 0:
-        logger.error("No events observed")
-        return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
-
-    original_covariate_cols = list(covariate_cols)
-    try:
-        covars_only = data[covariate_cols]
-        cat_cols = [c for c in covariate_cols if not pd.api.types.is_numeric_dtype(data[c])]
+        data = df[[duration_col, event_col, *covariate_cols]].dropna().copy()
         
-        if cat_cols:
-            covars_encoded = pd.get_dummies(covars_only, columns=cat_cols, drop_first=True)
-            data = pd.concat([data[[duration_col, event_col]], covars_encoded], axis=1)
-            covariate_cols = covars_encoded.columns.tolist()
-    except Exception as e:
-        logger.error(f"Encoding error: {e}")
-        return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}"
-    
-    validation_errors = []
-    
-    for col in covariate_cols:
-        if pd.api.types.is_numeric_dtype(data[col]):
-            if np.isinf(data[col]).any():
-                n_inf = np.isinf(data[col]).sum()
-                validation_errors.append(f"Covariate '{col}': Contains {n_inf} infinite values")
-            
-            if (data[col].abs() > 1e10).any():
-                max_val = data[col].abs().max()
-                validation_errors.append(f"Covariate '{col}': Contains extreme values (max={max_val:.2e})")
-            
-            std = data[col].std()
-            if pd.isna(std) or std == 0:
-                validation_errors.append(f"Covariate '{col}': Has zero variance")
-    
-    if validation_errors:
-        error_msg = "[DATA QUALITY ISSUES]\n\n" + "\n\n".join(f"[ERROR] {e}" for e in validation_errors)
-        logger.error(error_msg)
-        return None, None, data, error_msg
-    
-    _standardize_numeric_cols(data, covariate_cols)
-    
-    penalizers = [
-        {"p": 0.0, "name": "Standard CoxPH (Maximum Partial Likelihood)"},
-        {"p": 0.1, "name": "L2 Penalized CoxPH (p=0.1) - Ridge Regression"},
-        {"p": 1.0, "name": "L2 Penalized CoxPH (p=1.0) - Strong Regularization"}
-    ]
-    
-    cph = None
-    last_error = None
-    method_used = None
-    methods_tried = []
+        if len(data) == 0:
+            return None, None, data, "No valid data after dropping missing values."
 
-    for conf in penalizers:
-        p = conf['p']
-        current_method = conf['name']
-        
-        methods_tried.append(current_method)
-        
+        if data[event_col].sum() == 0:
+            logger.error("No events observed")
+            return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
+
+        original_covariate_cols = list(covariate_cols)
         try:
-            temp_cph = CoxPHFitter(penalizer=p) 
-            temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
-            cph = temp_cph
-            method_used = current_method
-            break
+            covars_only = data[covariate_cols]
+            cat_cols = [c for c in covariate_cols if not pd.api.types.is_numeric_dtype(data[c])]
+            
+            if cat_cols:
+                covars_encoded = pd.get_dummies(covars_only, columns=cat_cols, drop_first=True)
+                # Re-assign covariate cols
+                processed_covariate_cols = covars_encoded.columns.tolist()
+                data = pd.concat([data[[duration_col, event_col]], covars_encoded], axis=1)
+            else:
+                processed_covariate_cols = covariate_cols
         except Exception as e:
-            last_error = e
-            continue
+            logger.error(f"Encoding error: {e}")
+            return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}"
+        
+        validation_errors = []
+        
+        for col in processed_covariate_cols:
+            if pd.api.types.is_numeric_dtype(data[col]):
+                if np.isinf(data[col]).any():
+                    n_inf = np.isinf(data[col]).sum()
+                    validation_errors.append(f"Covariate '{col}': Contains {n_inf} infinite values")
+                
+                if (data[col].abs() > 1e10).any():
+                    max_val = data[col].abs().max()
+                    validation_errors.append(f"Covariate '{col}': Contains extreme values (max={max_val:.2e})")
+                
+                std = data[col].std()
+                if pd.isna(std) or std == 0:
+                    validation_errors.append(f"Covariate '{col}': Has zero variance")
+        
+        if validation_errors:
+            error_msg = "[DATA QUALITY ISSUES]\n\n" + "\n\n".join(f"[ERROR] {e}" for e in validation_errors)
+            logger.error(error_msg)
+            return None, None, data, error_msg
+        
+        _standardize_numeric_cols(data, processed_covariate_cols)
+        
+        penalizers = [
+            {"p": 0.0, "name": "Standard CoxPH (Maximum Partial Likelihood)"},
+            {"p": 0.1, "name": "L2 Penalized CoxPH (p=0.1) - Ridge Regression"},
+            {"p": 1.0, "name": "L2 Penalized CoxPH (p=1.0) - Strong Regularization"}
+        ]
+        
+        cph = None
+        last_error = None
+        method_used = None
+        methods_tried = []
 
-    if cph is None:
-        methods_str = "\n".join(f"  [ERROR] {m}" for m in methods_tried)
-        error_msg = (
-            f"Cox Model Convergence Failed\n\n"
-            f"Fitting Methods Attempted:\n{methods_str}\n\n"
-            f"Last Error: {last_error!s}"
-        )
-        logger.error(error_msg)
-        return None, None, data, error_msg
+        for conf in penalizers:
+            p = conf['p']
+            current_method = conf['name']
+            
+            methods_tried.append(current_method)
+            
+            try:
+                temp_cph = CoxPHFitter(penalizer=p) 
+                temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
+                cph = temp_cph
+                method_used = current_method
+                break
+            except Exception as e:
+                last_error = e
+                continue
 
-    summary = cph.summary.copy()
-    summary['HR'] = np.exp(summary['coef'])
-    ci = cph.confidence_intervals_
-    summary['95% CI Lower'] = np.exp(ci.iloc[:, 0])
-    summary['95% CI Upper'] = np.exp(ci.iloc[:, 1])
-    summary['Method'] = method_used
-    summary.index.name = "Covariate"
+        if cph is None:
+            methods_str = "\n".join(f"  [ERROR] {m}" for m in methods_tried)
+            error_msg = (
+                f"Cox Model Convergence Failed\n\n"
+                f"Fitting Methods Attempted:\n{methods_str}\n\n"
+                f"Last Error: {last_error!s}"
+            )
+            logger.error(error_msg)
+            return None, None, data, error_msg
 
-    res_df = summary[['HR', '95% CI Lower', '95% CI Upper', 'p', 'Method']].rename(columns={'p': 'P-value'})
-    
-    logger.debug(f"Cox model fitted successfully: {method_used}")
-    return cph, res_df, data, None
+        summary = cph.summary.copy()
+        summary['HR'] = np.exp(summary['coef'])
+        ci = cph.confidence_intervals_
+        summary['95% CI Lower'] = np.exp(ci.iloc[:, 0])
+        summary['95% CI Upper'] = np.exp(ci.iloc[:, 1])
+        summary['Method'] = method_used
+        summary.index.name = "Covariate"
+
+        res_df = summary[['HR', '95% CI Lower', '95% CI Upper', 'p', 'Method']].rename(columns={'p': 'P-value'})
+        
+        logger.debug(f"Cox model fitted successfully: {method_used}")
+        return cph, res_df, data, None
+
+    # === USE CACHE ===
+    # Caching the tuple (cph object, results df, processed data, error string)
+    return get_cached_cox_model(
+        calculate_func=_fit_cox_model,
+        cache_key_params=cache_key_params
+    )
 
 
 def check_cph_assumptions(cph, data):
@@ -644,6 +782,10 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     
     _adj_duration = '_landmark_adjusted_duration'
     landmark_data[_adj_duration] = landmark_data[duration_col] - landmark_time
+    
+    # Reuse the cached KM logic by calling the inner logic of fit_km_logrank conceptually
+    # But since we have adjusted columns, we call it fresh. 
+    # Caching here is optional but good. For now, we perform direct fit to avoid complexity with column names in cache keys
     
     groups = _sort_groups_vectorized(landmark_data[group_col].unique())
     fig = go.Figure()
