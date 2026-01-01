@@ -3,21 +3,20 @@ from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
 from logger import get_logger
-from tabs._common import get_color_palette, wrap_with_container
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    # ไม่ต้องสร้าง ns() เองแล้ว ใช้ ID ชื่อตรงๆ ได้เลย
-    return wrap_with_container(
+    return ui.nav_panel(
+        "📁 Data Management",
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("MENU"),
                 ui.h5("1. Data Management"),
                 
-                # ใช้ ID ตรงๆ (Shiny จะแปลงเป็น "data-btn_load_example" ให้เอง)
                 ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
                 ui.br(), ui.br(),
                 
@@ -32,7 +31,6 @@ def data_ui():
                 bg="#f8f9fa"
             ),
             
-            # --- ส่วน Variable Settings ---
             ui.accordion(
                 ui.accordion_panel(
                     "🛠️ 1. Variable Settings & Labels",
@@ -41,7 +39,6 @@ def data_ui():
                             ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
                         ),
                         ui.div(
-                            # ใช้ Server-side rendering แทน ui.panel_conditional เพื่อเลี่ยงปัญหา ID ใน JS
                             ui.output_ui("ui_var_settings")
                         ),
                         col_widths=(4, 8)
@@ -53,7 +50,6 @@ def data_ui():
 
             ui.br(),
             
-            # --- ส่วน Raw Data Preview ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
                 ui.output_data_frame("out_df_preview"),
