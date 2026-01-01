@@ -23,9 +23,15 @@ import plotly.graph_objects as go
 from logger import get_logger
 
 # === LAYER 1: Import Cache Manager ===
-from utils.cache_manager import COMPUTATION_CACHE
+# ไม่จำเป็นต้อง import COMPUTATION_CACHE โดยตรงแล้ว เพราะเราใช้ผ่าน Wrapper ทั้งหมด
+# from utils.cache_manager import COMPUTATION_CACHE 
+
 # === INTEGRATION: Import Cache Wrappers ===
-from utils.psm_cache_integration import get_cached_propensity_scores, get_cached_matched_data
+from utils.psm_cache_integration import (
+    get_cached_propensity_scores, 
+    get_cached_matched_data,
+    get_cached_smd
+)
 
 logger = get_logger(__name__)
 
@@ -207,9 +213,7 @@ def calculate_smd(df, treatment_col, covariate_cols):
     SMD < 0.2 is acceptable.
     """
     try:
-        # === CACHE CHECK ===
-        # Note: Keeping direct COMPUTATION_CACHE here as psm_cache_integration.py 
-        # does not currently have a get_cached_smd wrapper.
+        # === CACHE KEY PREPARATION ===
         cache_key_params = {
             'treatment_col': treatment_col,
             'covariate_cols': tuple(sorted(covariate_cols)),
@@ -217,51 +221,48 @@ def calculate_smd(df, treatment_col, covariate_cols):
             'treatment_hash': hash(df[treatment_col].values.tobytes())
         }
         
-        cached_result = COMPUTATION_CACHE.get('psm_smd', **cache_key_params)
-        if cached_result is not None:
-            logger.info("✅ Cache HIT: SMD calculations retrieved from cache")
-            return cached_result
-        
-        logger.info("🔄 Cache MISS: Computing SMD...")
-        
-        treated = df[df[treatment_col] == 1]
-        control = df[df[treatment_col] == 0]
-        
-        smd_data = []
-        
-        for col in covariate_cols:
-            # Check if numeric
-            if pd.api.types.is_numeric_dtype(df[col]):
-                m1 = treated[col].mean()
-                m2 = control[col].mean()
-                v1 = treated[col].var()
-                v2 = control[col].var()
-                
-                # Pooled SD for Cohen's d
-                pooled_sd = np.sqrt((v1 + v2) / 2)
-                
-                if pooled_sd == 0:
-                    smd = 0
-                else:
-                    smd = (m1 - m2) / pooled_sd
+        # Define the SMD logic as an inner function
+        def _compute_smd_logic():
+            logger.info("🔄 Computing SMD (Logic Execution)...")
+            
+            treated = df[df[treatment_col] == 1]
+            control = df[df[treatment_col] == 0]
+            
+            smd_data = []
+            
+            for col in covariate_cols:
+                # Check if numeric
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    m1 = treated[col].mean()
+                    m2 = control[col].mean()
+                    v1 = treated[col].var()
+                    v2 = control[col].var()
                     
-                smd_data.append({
-                    'Variable': col,
-                    'SMD': abs(smd), # Absolute SMD is standard for balance plots
-                    'Mean_Treated': m1,
-                    'Mean_Control': m2
-                })
-            else:
-                # For categorical (dummy coded 0/1), SMD is difference in proportions / pooled SD
-                pass
-        
-        result_df = pd.DataFrame(smd_data)
-        
-        # === CACHE STORE ===
-        COMPUTATION_CACHE.set('psm_smd', result_df, **cache_key_params)
-        logger.info("💾 SMD calculations stored in cache")
-        
-        return result_df
+                    # Pooled SD for Cohen's d
+                    pooled_sd = np.sqrt((v1 + v2) / 2)
+                    
+                    if pooled_sd == 0:
+                        smd = 0
+                    else:
+                        smd = (m1 - m2) / pooled_sd
+                        
+                    smd_data.append({
+                        'Variable': col,
+                        'SMD': abs(smd), # Absolute SMD is standard for balance plots
+                        'Mean_Treated': m1,
+                        'Mean_Control': m2
+                    })
+                else:
+                    # For categorical (dummy coded 0/1), SMD is difference in proportions / pooled SD
+                    pass
+            
+            return pd.DataFrame(smd_data)
+
+        # === USE CACHE INTEGRATION WRAPPER ===
+        return get_cached_smd(
+            smd_func=_compute_smd_logic,
+            cache_key_params=cache_key_params
+        )
         
     except Exception as e:
         logger.error(f"SMD calculation error: {e}")
