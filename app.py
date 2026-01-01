@@ -5,7 +5,7 @@ from config import CONFIG
 from logger import get_logger, LoggerFactory
 
 # Import Tabs Modules
-from tabs import tab_data           # 🟢 Data Module (NEW)
+from tabs import tab_data           # 🟢 Data Module
 from tabs import tab_baseline_matching
 from tabs import tab_diag
 from tabs import tab_logit
@@ -63,6 +63,7 @@ app_ui = ui.page_navbar(
     # --- 6. Survival Analysis Module ---
     ui.nav_panel("⏳ Survival Analysis", 
         wrap_with_container(
+            # ✅ เรียกใช้ survival_ui โดยระบุแค่ ID (Namespace) เท่านั้น
             tab_survival.survival_ui("survival")
         )
     ),
@@ -78,10 +79,10 @@ app_ui = ui.page_navbar(
     id="main_navbar",
     window_title="Medical Stat Tool",
     
-    # 🟢 แก้ไขตรงนี้: ย้าย inverse=True ไปไว้ใน navbar_options
+    # 🟢 ย้าย inverse=True ไปไว้ใน navbar_options
     navbar_options=ui.navbar_options(inverse=True),
 
-    # ⬇⬇⬇ inject teal theme CSS
+    # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
         ui.HTML(get_shiny_css())
     ),
@@ -94,7 +95,6 @@ def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
 
     # --- Reactive State (Global) ---
-    # These values are shared across all tabs
     df = reactive.Value(None)
     var_meta = reactive.Value({})
     uploaded_file_info = reactive.Value(None)
@@ -114,48 +114,46 @@ def server(input, output, session: Session):
         except ImportError:
             deps_status['firth'] = {'installed': False, 'msg': '⚠️ Firth regression unavailable'}
         
-        logger.info("Optional dependencies: firth=%s", deps_status['firth']['installed'])
         if not deps_status['firth']['installed']:
             ui.notification_show(deps_status['firth']['msg'], type="warning")
             
-    # Run check on start
     check_optional_deps()
 
     # ==========================================
     # 3. CALL MODULES SERVER
     # ==========================================
     
-    # --- 1. Data Management Module ---
-    # ส่ง Global Reactive Values เข้าไปจัดการข้างใน
+    # --- 1. Data Management ---
     tab_data.data_server("data",
         df, var_meta, uploaded_file_info,
         df_matched, is_matched, matched_treatment_col, matched_covariates
     )
 
-    # --- 2. Table 1 & Matching Module ---
+    # --- 2. Table 1 & Matching ---
     tab_baseline_matching.baseline_matching_server("bm", 
         df, var_meta, df_matched, is_matched, 
         matched_treatment_col, matched_covariates
     )
 
-    # --- 3. Diagnostic Tests Module ---
+    # --- 3. Diagnostic Tests ---
     tab_diag.diag_server("diag", 
         df, var_meta, df_matched, is_matched
     )
 
-    # --- 4. Logistic Regression Module ---
+    # --- 4. Logistic Regression ---
     tab_logit.logit_server("logit",
         df, var_meta, df_matched, is_matched
     )
 
-    # --- 5. Correlation & ICC Module ---
+    # --- 5. Correlation & ICC ---
     tab_corr.corr_server("corr",
         df, var_meta, df_matched, is_matched
     )
 
     # --- 6. Survival Analysis Module ---
-    # ✅ FIX: Passing input, output, session
-    tab_survival.survival_server(input, output, session, "survival",
+    # ✅ แก้ไขตรงนี้: ไม่ต้องส่ง input, output, session เข้าไปเองแล้ว
+    # เพราะ @module.server จะดึงค่าเหล่านั้นจาก ID "survival" ให้โดยอัตโนมัติ
+    tab_survival.survival_server("survival",
         df, var_meta, df_matched, is_matched
     )
 
