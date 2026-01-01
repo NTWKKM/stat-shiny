@@ -25,7 +25,12 @@ logger = get_logger(__name__)
 # ==========================================
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
-    tab_data.data_ui("data"),
+    ui.nav_panel(
+        "📁 Data Management",
+        wrap_with_container(
+            tab_data.data_ui("data")
+        )
+    ),
     
     # --- 2. Table 1 & Matching Module ---
     ui.nav_panel("📋 Table 1 & Matching", 
