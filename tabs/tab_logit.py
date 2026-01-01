@@ -18,27 +18,45 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 # ==============================================================================
-# Helper Functions (Pure Logic)
+# Helper Functions (Pure Logic) - OPTIMIZED
 # ==============================================================================
 def check_perfect_separation(df, target_col):
-    """Identify columns causing perfect separation."""
+    """
+    Identify columns causing perfect separation.
+    Optimized to match logic.py's robust handling.
+    """
     risky_vars = []
-    try:
-        y = pd.to_numeric(df[target_col], errors='coerce').dropna()
-        if y.nunique() < 2: 
-            return []
-    except (KeyError, TypeError, ValueError): 
+    
+    # Check Target
+    if target_col not in df.columns:
+        return []
+        
+    y = pd.to_numeric(df[target_col], errors='coerce').dropna()
+    if y.nunique() < 2: 
         return []
 
+    # Check Predictors
     for col in df.columns:
         if col == target_col: continue
-        if df[col].nunique() < 10: 
+        
+        # Optimize: Vectorized numeric conversion like in logic.py
+        X_num = pd.to_numeric(df[col], errors='coerce')
+        
+        # Check separation only if variable has variance
+        if X_num.nunique() > 1: 
             try:
-                tab = pd.crosstab(df[col], y)
+                # Align X and y indices
+                valid_idx = X_num.index.intersection(y.index)
+                if len(valid_idx) == 0: continue
+                
+                tab = pd.crosstab(X_num.loc[valid_idx], y.loc[valid_idx])
+                
+                # If any cell is 0, it suggests potential separation
                 if (tab == 0).any().any():
                     risky_vars.append(col)
-            except (ValueError, TypeError): 
+            except Exception: 
                 pass
+                
     return risky_vars
 
 # ==============================================================================
@@ -237,9 +255,11 @@ def logit_ui():
 * Automatically detects separation
 * Uses Firth if needed, Standard otherwise
 
-### Perfect Separation:
-Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
-* **Solution:** Use **Auto** or **Firth's** method, or exclude the variable.
+### VIF (Multicollinearity):
+The report now automatically checks for Variance Inflation Factor.
+* **VIF > 10**: Indicates high multicollinearity (variables are too similar).
+* **Impact**: Coefficients become unstable and standard errors inflate.
+* **Solution**: Remove one of the correlated variables.
 
 ### Subgroup Analysis:
 * Tests if treatment effect varies by group (Interaction test)
