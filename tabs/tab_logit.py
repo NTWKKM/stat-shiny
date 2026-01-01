@@ -280,20 +280,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     subgroup_res = reactive.Value(None)  # Store subgroup results
     subgroup_analyzer = reactive.Value(None) # Store analyzer instance
     
-    # --- Cache Clearing on Tab Change ---
-    @reactive.Effect
-    @reactive.event(input.btn_run_logit, input.btn_run_subgroup)
-    def _cleanup_after_analysis():
-        """
-        OPTIMIZATION: Clear cache after completing analysis.
-        This prevents memory buildup from heavy computations.
-        """
-        try:
-            gc.collect()  # Force garbage collection
-            logger.debug("Post-analysis cache cleared")
-        except Exception as e:
-            logger.warning(f"Cache cleanup error: {e}")
-    
     # --- 1. Dataset Selection Logic ---
     @reactive.Calc
     def current_df():
@@ -364,8 +350,17 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         return None
 
     # ==========================================================================
-    # LOGIC: Main Logistic Regression
+    # OPTIMIZED: Cache Logistic Regression Results & Forest Plots
     # ==========================================================================
+    @reactive.Calc
+    def logit_cached_res():
+        """
+        OPTIMIZATION: Cache the logistic regression results.
+        This prevents multiple calls to logit_res.get() from triggering re-renders.
+        Only triggers when button is clicked.
+        """
+        return logit_res.get()
+
     @reactive.Effect
     @reactive.event(input.btn_run_logit)
     def _run_logit():
@@ -402,35 +397,50 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             fig_adj = None
             fig_crude = None
             
-            if aor_res:
-                df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_res.items()])
-                if not df_adj.empty:
-                    fig_adj = create_forest_plot(
-                        df_adj, 'aor', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                        title="<b>Multivariable: Adjusted OR</b>", x_label="Adjusted OR"
-                    )
+            try:
+                if aor_res:
+                    df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_res.items()])
+                    if not df_adj.empty:
+                        fig_adj = create_forest_plot(
+                            df_adj, 'aor', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
+                            title="<b>Multivariable: Adjusted OR</b>", x_label="Adjusted OR"
+                        )
+                        # Immediate cleanup after creating figure
+                        del df_adj
+                        gc.collect()
+                
+                if or_res:
+                    df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()])
+                    if not df_crude.empty:
+                        fig_crude = create_forest_plot(
+                            df_crude, 'or', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
+                            title="<b>Univariable: Crude OR</b>", x_label="Crude OR"
+                        )
+                        # Immediate cleanup after creating figure
+                        del df_crude
+                        gc.collect()
             
-            if or_res:
-                df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()])
-                if not df_crude.empty:
-                    fig_crude = create_forest_plot(
-                        df_crude, 'or', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                        title="<b>Univariable: Crude OR</b>", x_label="Crude OR"
-                    )
+            except Exception as e:
+                logger.exception(f"Forest plot generation error: {e}")
+                ui.notification_show(f"Forest plot error: {e!s}", type="warning")
 
-            # Store Results
+            # Store Results ONCE
             logit_res.set({
                 "html": html_rep,
                 "fig_adj": fig_adj,
                 "fig_crude": fig_crude
             })
             
+            # Cleanup after successful analysis
+            del html_rep, or_res, aor_res, fig_adj, fig_crude
+            gc.collect()
+            
             ui.notification_show("✅ Analysis Complete!", type="message")
 
-    # --- Render Main Results ---
+    # --- Render Main Results (Use Cached Results) ---
     @render.ui
     def out_logit_status():
-        res = logit_res.get()
+        res = logit_cached_res()
         if res:
             return ui.div(
                 ui.h5("✅ Regression Complete"),
@@ -440,7 +450,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def out_html_report():
-        res = logit_res.get()
+        res = logit_cached_res()
         if res:
             return ui.card(
                 ui.card_header("📋 Detailed Report"),
@@ -456,7 +466,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def ui_forest_tabs():
-        res = logit_res.get()
+        res = logit_cached_res()
         if not res: 
             return ui.div(
                 "Run analysis to see forest plots.",
@@ -475,24 +485,39 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render_widget
     def out_forest_adj():
-        res = logit_res.get()
+        res = logit_cached_res()
         if res and res['fig_adj']: return res['fig_adj']
         return None
 
     @render_widget
     def out_forest_crude():
-        res = logit_res.get()
+        res = logit_cached_res()
         if res and res['fig_crude']: return res['fig_crude']
         return None
 
     @render.download(filename="logit_report.html")
     def btn_dl_report():
-        res = logit_res.get()
+        res = logit_cached_res()
         if res: yield res['html']
 
     # ==========================================================================
-    # LOGIC: Subgroup Analysis
+    # OPTIMIZED: Cache Subgroup Analysis Results
     # ==========================================================================
+    @reactive.Calc
+    def subgroup_cached_res():
+        """
+        OPTIMIZATION: Cache the subgroup analysis results.
+        Prevents redundant rendering calls.
+        """
+        return subgroup_res.get()
+
+    @reactive.Calc
+    def subgroup_cached_analyzer():
+        """
+        OPTIMIZATION: Cache the analyzer instance.
+        """
+        return subgroup_analyzer.get()
+
     @reactive.Effect
     @reactive.event(input.btn_run_subgroup)
     def _run_subgroup():
@@ -524,14 +549,17 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 subgroup_analyzer.set(analyzer)
                 ui.notification_show("✅ Subgroup Analysis Complete!", type="message")
                 
+                # Cleanup after successful analysis
+                gc.collect()
+                
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
                 logger.exception("Subgroup analysis error")
 
-    # --- Render Subgroup Results ---
+    # --- Render Subgroup Results (Use Cached Results) ---
     @render.ui
     def out_subgroup_status():
-        res = subgroup_res.get()
+        res = subgroup_cached_res()
         if res:
             return ui.div(
                 ui.h5("✅ Subgroup Analysis Complete"),
@@ -541,7 +569,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render_widget
     def out_sg_forest_plot():
-        analyzer = subgroup_analyzer.get()
+        analyzer = subgroup_cached_analyzer()
         if analyzer:
             # Use txt_edit_forest_title if provided, fallback to sg_title
             title = input.txt_edit_forest_title() or input.sg_title() or None
@@ -556,7 +584,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.text
     def val_overall_or():
-        res = subgroup_res.get()
+        res = subgroup_cached_res()
         if res:
             overall = res.get('overall', {})
             or_val = overall.get('or')
@@ -565,13 +593,13 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.text
     def val_overall_p():
-        res = subgroup_res.get()
+        res = subgroup_cached_res()
         if res: return f"{res['overall']['p_value']:.4f}"
         return "-"
     
     @render.text
     def val_interaction_p():
-        res = subgroup_res.get()
+        res = subgroup_cached_res()
         if res:
              p_int = res['interaction']['p_value']
              return f"{p_int:.4f}" if p_int is not None else "N/A"
@@ -579,8 +607,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def out_interpretation_box():
-        res = subgroup_res.get()
-        analyzer = subgroup_analyzer.get()
+        res = subgroup_cached_res()
+        analyzer = subgroup_cached_analyzer()
         if res and analyzer:
             interp = analyzer.get_interpretation()
             is_het = res['interaction']['significant']
@@ -591,7 +619,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.data_frame
     def out_sg_table():
-        res = subgroup_res.get()
+        res = subgroup_cached_res()
         if res:
             df_res = res['results_df'].copy()
             # Simple formatting for display
@@ -603,19 +631,19 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     # --- Subgroup Downloads ---
     @render.download(filename=lambda: f"subgroup_plot_{input.sg_subgroup()}.html")
     def dl_sg_html():
-        analyzer = subgroup_analyzer.get()
+        analyzer = subgroup_cached_analyzer()
         if analyzer and analyzer.figure:
             yield analyzer.figure.to_html(include_plotlyjs='cdn')
 
     @render.download(filename=lambda: f"subgroup_res_{input.sg_subgroup()}.csv")
     def dl_sg_csv():
-        res = subgroup_res.get()
+        res = subgroup_cached_res()
         if res:
             yield res['results_df'].to_csv(index=False)
 
     @render.download(filename=lambda: f"subgroup_data_{input.sg_subgroup()}.json")
     def dl_sg_json():
-        res = subgroup_res.get()
+        res = subgroup_cached_res()
         if res:
             # Need to handle numpy types for JSON serialization
             yield json.dumps(res, indent=2, default=str)
