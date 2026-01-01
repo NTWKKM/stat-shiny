@@ -16,9 +16,20 @@ from tabs import tab_settings
 from tabs._styling import get_shiny_css
 from tabs._common import wrap_with_container
 
+# === LAYER 1, 2, 3: Import optimization managers ===
+from utils.cache_manager import COMPUTATION_CACHE
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
+
 # Initialize Logger
 LoggerFactory.configure()
 logger = get_logger(__name__)
+
+# === LAYER 2 & 3: Initialize optimization systems ===
+logger.info(f"🚀 Initializing HF optimization layers...")
+logger.info(f"  {COMPUTATION_CACHE}")     # Layer 1: Caching
+logger.info(f"  {MEMORY_MANAGER}")        # Layer 2: Memory Mgmt
+logger.info(f"  {CONNECTION_HANDLER}")    # Layer 3: Connection Resilience
 
 # ==========================================
 # 1. UI DEFINITION
@@ -75,6 +86,18 @@ app_ui = ui.page_navbar(
         )
     ),
 
+    # === LAYER 2 & 3: Add optimization status badge to footer ===
+    ui.tags.footer(
+        ui.HTML("""
+        <div style='text-align: right; font-size: 0.75em; color: #999; padding: 10px; border-top: 1px solid #eee; margin-top: 20px;'>
+            <span title='Cache enabled'>🟢 L1 Cache</span> | 
+            <span title='Memory monitoring'>💗 L2 Memory</span> | 
+            <span title='Connection resilience'>🟠 L3 Resilience</span> |
+            &copy; 2025 Medical Stat Tool
+        </div>
+        """)
+    ),
+
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
     window_title="Medical Stat Tool",
@@ -93,6 +116,8 @@ app_ui = ui.page_navbar(
 # ==========================================
 def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
+    logger.info(f"💾 Cache stats: {COMPUTATION_CACHE.get_stats()}")
+    logger.info(f"🧠 Memory status: {MEMORY_MANAGER.get_memory_status()}")
 
     # --- Reactive State (Global) ---
     df = reactive.Value(None)
