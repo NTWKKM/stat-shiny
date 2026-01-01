@@ -13,3 +13,4 @@ seaborn
 shimmy
 shinywidgets
 requests
+psutil
