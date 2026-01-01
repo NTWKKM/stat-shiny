@@ -1,12 +1,16 @@
 """
-🧪 Propensity Score Matching (PSM) Library (Shiny Compatible)
+🧪 Propensity Score Matching (PSM) Library (Shiny Compatible) - Improved
 
-Propensity score calculation and matching without Streamlit dependencies.
+Features:
+- Logistic Regression for Propensity Score Estimation
+- Nearest Neighbor Matching with Caliper (Standardized to logit scale)
+- SMD (Standardized Mean Difference) Calculation for Balance Check
 """
 
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import NearestNeighbors
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -17,52 +21,167 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
     Calculate propensity scores using logistic regression.
     
     Returns:
-        pd.Series: Propensity scores (probability of treatment=1)
+        pd.DataFrame: Original DF with added 'ps_score' and 'logit_ps' columns
     """
     try:
-        X = df[covariate_cols].fillna(df[covariate_cols].mean())
-        y = df[treatment_col].astype(int)
+        # Prepare Data: Drop NAs in relevant columns to ensure consistent length
+        cols_needed = [treatment_col] + covariate_cols
+        data = df.dropna(subset=cols_needed).copy()
         
-        model = LogisticRegression(max_iter=1000)
+        X = data[covariate_cols]
+        # Auto-handle categorical variables (dummy encoding) if any remaining object types
+        X = pd.get_dummies(X, drop_first=True)
+        
+        y = data[treatment_col].astype(int)
+        
+        # Logistic Regression
+        model = LogisticRegression(solver='liblinear', max_iter=1000)
         model.fit(X, y)
         
+        # Predict Propensity Scores
         ps = model.predict_proba(X)[:, 1]
+        
+        data['ps_score'] = ps
+        # Logit transformation: ln(p / (1-p)) - better for matching linearity
+        # Clip to avoid inf
+        ps_clipped = np.clip(ps, 1e-6, 1 - 1e-6)
+        data['logit_ps'] = np.log(ps_clipped / (1 - ps_clipped))
+        
         logger.info(f"Propensity scores calculated: mean={ps.mean():.3f}, std={ps.std():.3f}")
-        return pd.Series(ps, index=df.index)
+        return data
+
     except Exception as e:
         logger.error(f"PSM calculation error: {e}")
         raise
 
 
-def perform_matching(df, treatment_col, ps_col, caliper=0.1):
+def perform_matching(df, treatment_col, caliper=0.2):
     """
-    Perform 1:1 nearest neighbor matching on propensity scores.
+    Perform 1:1 nearest neighbor matching on propensity scores using Caliper.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing 'logit_ps' and treatment column
+        treatment_col (str): Name of treatment column
+        caliper (float): Caliper width as a fraction of the standard deviation of the logit of the propensity score. 
+                         (Standard recommendation is 0.2)
     
     Returns:
         pd.DataFrame: Matched dataset
     """
     try:
+        if 'logit_ps' not in df.columns:
+            raise ValueError("Column 'logit_ps' not found. Please run calculate_propensity_score first.")
+
         treated = df[df[treatment_col] == 1].copy()
         control = df[df[treatment_col] == 0].copy()
         
-        matched_pairs = []
-        used_controls = set()
+        if treated.empty or control.empty:
+            logger.warning("One of the groups is empty. Cannot perform matching.")
+            return pd.DataFrame()
+
+        # Define Caliper Width
+        # Austin (2011) recommends 0.2 * SD of logit propensity score
+        std_logit = df['logit_ps'].std()
+        caliper_width = caliper * std_logit
         
-        for idx, treated_row in treated.iterrows():
-            ps_treated = treated_row[ps_col]
-            
-            distances = (control[ps_col] - ps_treated).abs()
-            min_dist_idx = distances.idxmin()
-            min_dist = distances[min_dist_idx]
-            
-            if min_dist <= caliper and min_dist_idx not in used_controls:
-                matched_pairs.append(idx)
-                matched_pairs.append(min_dist_idx)
-                used_controls.add(min_dist_idx)
+        logger.info(f"Matching parameters: SD_logit={std_logit:.3f}, Caliper Width={caliper_width:.3f} (coef={caliper})")
+
+        # Nearest Neighbors Matching
+        # We fit NN on Control group
+        nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(control[['logit_ps']])
         
-        matched_df = df.loc[matched_pairs].copy()
-        logger.info(f"Matched {len(matched_pairs)//2} pairs (caliper={caliper})")
+        # Find closest control for each treated unit
+        distances, indices = nbrs.kneighbors(treated[['logit_ps']])
+        
+        matched_indices_control = []
+        matched_indices_treated = []
+        
+        used_control_indices = set()
+        
+        # Iterate and greedily match (Simple Greedy Matching without Replacement)
+        # To improve quality, one might sort treated units by PS first, but random order is standard for simple greedy.
+        
+        # Zip treated index, distance, and control neighbor index
+        # indices contains index relative to 'control' DataFrame (0 to len(control)-1)
+        
+        potential_matches = []
+        for i in range(len(treated)):
+            dist = distances[i][0]
+            control_idx_rel = indices[i][0] # Relative index in control df
+            
+            potential_matches.append({
+                'treated_idx': treated.index[i],
+                'control_idx': control.index[control_idx_rel],
+                'dist': dist
+            })
+            
+        # Sort by distance (best matches first) to minimize caliper exclusions in greedy match
+        potential_matches.sort(key=lambda x: x['dist'])
+        
+        count_matched = 0
+        
+        for m in potential_matches:
+            if m['dist'] <= caliper_width:
+                if m['control_idx'] not in used_control_indices:
+                    matched_indices_treated.append(m['treated_idx'])
+                    matched_indices_control.append(m['control_idx'])
+                    used_control_indices.add(m['control_idx'])
+                    count_matched += 1
+        
+        # Combine indices
+        all_matched_indices = matched_indices_treated + matched_indices_control
+        matched_df = df.loc[all_matched_indices].copy()
+        
+        logger.info(f"Matched {count_matched} pairs out of {len(treated)} treated units.")
         return matched_df
+
     except Exception as e:
         logger.error(f"Matching error: {e}")
         raise
+
+def calculate_smd(df, treatment_col, covariate_cols):
+    """
+    Calculate Standardized Mean Difference (SMD) for balance checking.
+    
+    SMD < 0.1 indicates good balance.
+    SMD < 0.2 is acceptable.
+    """
+    try:
+        treated = df[df[treatment_col] == 1]
+        control = df[df[treatment_col] == 0]
+        
+        smd_data = []
+        
+        for col in covariate_cols:
+            # Check if numeric
+            if pd.api.types.is_numeric_dtype(df[col]):
+                m1 = treated[col].mean()
+                m2 = control[col].mean()
+                v1 = treated[col].var()
+                v2 = control[col].var()
+                
+                # Pooled SD for Cohen's d
+                pooled_sd = np.sqrt((v1 + v2) / 2)
+                
+                if pooled_sd == 0:
+                    smd = 0
+                else:
+                    smd = (m1 - m2) / pooled_sd
+                    
+                smd_data.append({
+                    'Variable': col,
+                    'SMD': abs(smd), # Absolute SMD is standard for balance plots
+                    'Mean_Treated': m1,
+                    'Mean_Control': m2
+                })
+            else:
+                # For categorical (dummy coded 0/1), SMD is difference in proportions / pooled SD
+                # Or just difference in proportions for simple reading, but we stick to formula
+                # Assuming data is pre-processed or we skip non-numeric here
+                pass
+                
+        return pd.DataFrame(smd_data)
+        
+    except Exception as e:
+        logger.error(f"SMD calculation error: {e}")
+        return pd.DataFrame()
