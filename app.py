@@ -1,4 +1,4 @@
-from shiny import App, ui, reactive, Session
+from shiny import App, ui, reactive, Session, render
 
 # Import Config/Logger
 from config import CONFIG
@@ -37,12 +37,10 @@ colors = get_color_palette()
 # ==========================================
 # 1. UI DEFINITION
 # ==========================================
-# ใน Shiny เวอร์ชั่นใหม่ เราใช้ page_navbar ที่รองรับการทำเนมสเปซและคลาสผ่าน wrapper
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
     ui.nav_panel(
         "📁 Data Management",
-        # ✅ แก้ไข: ใช้ ui.div หุ้มแทนการส่ง class_ เข้าไปใน nav_panel โดยตรงเพื่อรองรับเวอร์ชั่นใหม่
         ui.div(tab_data.data_ui("data"), class_="app-container")
     ),
     
@@ -82,16 +80,10 @@ app_ui = ui.page_navbar(
         ui.div(tab_settings.settings_ui("settings"), class_="app-container")
     ),
 
-    # === LAYER 2 & 3: Add optimization status badge to footer ===
-    footer=ui.div( # ✅ ปรับใช้ argument footer ของ page_navbar โดยตรง
-        ui.HTML("""
-        <div style='text-align: right; font-size: 0.75em; color: #999; padding: 10px; border-top: 1px solid #eee; margin-top: 20px;'>
-            <span title='Cache enabled'>🟢 L1 Cache</span> | 
-            <span title='Memory monitoring'>💗 L2 Memory</span> | 
-            <span title='Connection resilience'>🟠 L3 Resilience</span> |
-            &copy; 2025 Medical Stat Tool
-        </div>
-        """)
+    # === LAYER 2 & 3: ปรับเป็น Dynamic Status Badge ===
+    footer=ui.div(
+        ui.output_ui("optimization_status"), # ✅ แสดงสถานะแบบ Real-time
+        style="padding: 10px; border-top: 1px solid #eee; margin-top: 20px;"
     ),
 
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
@@ -122,6 +114,42 @@ def server(input, output, session: Session):
     is_matched = reactive.Value(False)
     matched_treatment_col = reactive.Value(None)
     matched_covariates = reactive.Value([])
+
+    # === 🚀 DYNAMIC STATUS BADGE LOGIC ===
+    @output
+    @render.ui
+    def optimization_status():
+        # ตั้งค่าให้ Refresh ตัวเองทุก 5 วินาที
+        reactive.invalidate_later(5)
+
+        # 1. เช็คสถานะ Cache (L1)
+        cache_stats = COMPUTATION_CACHE.get_stats()
+        # ถ้ามีของใน Cache ให้เป็นเขียว 🟢 ถ้าว่างให้เป็นเทา ⚪
+        cache_icon = "🟢" if cache_stats['cached_items'] > 0 else "⚪"
+        cache_title = f"Cache: {cache_stats['cached_items']}/{cache_stats['max_size']} items (Hit rate: {cache_stats['hit_rate']})"
+
+        # 2. เช็คสถานะ Memory (L2)
+        mem_status = MEMORY_MANAGER.get_memory_status()
+        mem_icon = "💗" # ปกติ
+        if mem_status['status'] == 'WARNING': mem_icon = "💛" # เริ่มเยอะ
+        if mem_status['status'] == 'CRITICAL': mem_icon = "🔴" # อันตราย
+        mem_title = f"Memory: {mem_status['usage_pct']} ({mem_status['current_mb']}MB / {mem_status['max_mb']}MB)"
+
+        # 3. เช็คสถานะ Connection (L3)
+        conn_stats = CONNECTION_HANDLER.get_stats()
+        # ถ้า Success Rate ต่ำกว่า 90% ให้แสดงสีแดงเตือน
+        success_val = float(conn_stats['success_rate'].replace('%',''))
+        conn_icon = "🟠" if success_val > 90 else "🔴"
+        conn_title = f"Resilience: {conn_stats['success_rate']} success rate ({conn_stats['failed_attempts']} failures)"
+
+        return ui.HTML(f"""
+        <div style='text-align: right; font-size: 0.75em; color: #999;'>
+            <span title='{cache_title}' style='cursor: help;'>{cache_icon} L1 Cache</span> | 
+            <span title='{mem_title}' style='cursor: help;'>{mem_icon} L2 Memory</span> | 
+            <span title='{conn_title}' style='cursor: help;'>{conn_icon} L3 Resilience</span> |
+            &copy; 2025 Medical Stat Tool
+        </div>
+        """)
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps():
