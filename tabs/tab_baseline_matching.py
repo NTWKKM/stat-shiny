@@ -643,12 +643,18 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             else:
                 final_cov_cols = cov_cols
 
+            # --- 🟢 FIXED: Updated to match new psm_lib API ---
             # Calculation
-            df_ps, _ = psm_lib.calculate_ps(df_analysis, final_treat_col, final_cov_cols)
-            df_m, msg = psm_lib.perform_matching(df_ps, final_treat_col, 'ps_logit', caliper)
+            # 1. Calculate Propensity Score (Returns DF, not Tuple)
+            df_ps = psm_lib.calculate_propensity_score(df_analysis, final_treat_col, final_cov_cols)
             
-            if df_m is None:
-                raise ValueError(msg)
+            # 2. Perform Matching (Signature: df, treatment, caliper)
+            df_m = psm_lib.perform_matching(df_ps, final_treat_col, caliper=caliper)
+            
+            msg = "Matching successful" # Default success message
+            
+            if df_m is None or df_m.empty:
+                raise ValueError("No matches found within the specified caliper.")
 
             # SMD
             smd_pre = psm_lib.calculate_smd(df_ps, final_treat_col, final_cov_cols)
@@ -872,7 +878,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         res = psm_results.get()
         if res:
             yield res['df_matched'].to_csv(index=False)
-             
+              
     @render.download(filename="psm_report.html")
     def btn_dl_psm_report():
         res = psm_results.get()
@@ -981,7 +987,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     def btn_dl_matched_csv_view():
         if df_matched.get() is not None:
             yield df_matched.get().to_csv(index=False)
-             
+              
     @render.download(filename="matched_data.xlsx")
     def btn_dl_matched_xlsx_view():
         if df_matched.get() is not None:
