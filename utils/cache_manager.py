@@ -103,28 +103,29 @@ class ComputationCache:
         """
         key = self._make_key(func_name, kwargs)
         
-        # Implement simple LRU eviction
-        if len(self.cache) >= self.max_cache_size:
-            if not self.access_count:
-                # Fallback: remove arbitrary item if access_count is empty
-                evict_key = next(iter(self.cache.keys()))
-            else:
-                # Remove least recently used item
-                evict_key = min(self.access_count.keys(), 
-                              key=lambda k: self.access_count.get(k, 0))
-            
-            del self.cache[evict_key]
-            if evict_key in self.access_count:
-                del self.access_count[evict_key]
-            logger.debug(f"♻️  Cache evicted LRU item (key={evict_key[:8]}...)")
-            
-        self.cache[key] = {
-            'result': result,
-            'expires_at': datetime.now() + timedelta(seconds=self.ttl),
-            'created_at': datetime.now()
-        }
-        self.access_count[key] = 1
-        logger.debug(f"💾 Cache SET for {func_name} (key={key[:8]}...)")
+        with self._lock:
+            # Implement simple LRU eviction
+            if len(self.cache) >= self.max_cache_size:
+                if not self.access_count:
+                    # Fallback: remove arbitrary item if access_count is empty
+                    evict_key = next(iter(self.cache.keys()))
+                else:
+                    # Remove least recently used item
+                    evict_key = min(self.access_count.keys(), 
+                                  key=lambda k: self.access_count.get(k, 0))
+                
+                del self.cache[evict_key]
+                if evict_key in self.access_count:
+                    del self.access_count[evict_key]
+                logger.debug(f"♻️  Cache evicted LRU item (key={evict_key[:8]}...)")
+                
+            self.cache[key] = {
+                'result': result,
+                'expires_at': datetime.now() + timedelta(seconds=self.ttl),
+                'created_at': datetime.now()
+            }
+            self.access_count[key] = 1
+            logger.debug(f"💾 Cache SET for {func_name} (key={key[:8]}...)")
     
     def clear(self) -> None:
         """Clear all cached items."""
@@ -164,18 +165,19 @@ class ComputationCache:
         Returns:
             Dict with cache metrics
         """
-        total_requests = self.hits + self.misses
-        hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0
-        
-        return {
-            'cached_items': len(self.cache),
-            'max_size': self.max_cache_size,
-            'hits': self.hits,
-            'misses': self.misses,
-            'hit_rate': f"{hit_rate:.1f}%",
-            'ttl_seconds': self.ttl,
-            'total_requests': total_requests
-        }
+        with self._lock:
+            total_requests = self.hits + self.misses
+            hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0
+            
+            return {
+                'cached_items': len(self.cache),
+                'max_size': self.max_cache_size,
+                'hits': self.hits,
+                'misses': self.misses,
+                'hit_rate': f"{hit_rate:.1f}%",
+                'ttl_seconds': self.ttl,
+                'total_requests': total_requests
+            }
     
     def __repr__(self) -> str:
         stats = self.get_stats()
