@@ -28,6 +28,10 @@ from utils.cache_manager import COMPUTATION_CACHE
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
+# --- HELPER FUNCTION (Moved outside class to prevent Scope Issues) ---
+def _stable_hash(data: bytes) -> str:
+    """Helper to create stable hash for caching"""
+    return hashlib.md5(data).hexdigest()
 
 class ForestPlot:
     """
@@ -143,22 +147,18 @@ class ForestPlot:
         
         return colors.tolist()
 
-    @staticmethod
-    def _stable_hash(data: bytes) -> str:
-        """Helper to create stable hash for caching"""
-        return hashlib.md5(data).hexdigest()
+    # NOTE: _stable_hash removed from here and moved to global scope
         
     def _get_ci_width_colors(self, base_color: str) -> list:
         """
         OPTIMIZED: Pre-compute CI widths in single operation (5x faster).
-        
-        Old: multiple separate operations
-        New: vectorized single pass
         """
         # === INTEGRATION: Cache ===
         # Use cache manager to store color calculations if repetitive
-        # FIX: Added self._stable_hash access (Added 'self.')
-        cache_key = f"ci_colors_{self._stable_hash(self.data[self.ci_high_col].values.tobytes())}_{self._stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
+        
+        # FIX: Calling global _stable_hash (no self. needed)
+        cache_key = f"ci_colors_{_stable_hash(self.data[self.ci_high_col].values.tobytes())}_{_stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
+        
         cached_res = COMPUTATION_CACHE.get(cache_key)
         if cached_res:
             return cached_res
