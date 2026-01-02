@@ -7,6 +7,7 @@ Features:
 - Interaction Terms Support (New)
 - Automatic Mode Detection (Categorical/Linear)
 - Variance Inflation Factor (VIF) Check for Multicollinearity
+- Data Leakage Prevention & Validation
 - LAYER 1 CACHING: Computation results cached for 30 minutes (via Integration Layer)
 """
 
@@ -34,7 +35,8 @@ COLORS = {
     'danger': '#d32f2f',
     'warning': '#f57c00',
     'text_secondary': '#666',
-    'border': '#e0e0e0'
+    'border': '#e0e0e0',
+    'bg_light': '#f8f9fa'
 }
 
 # Try to import Firth regression (Kept original logic)
@@ -239,7 +241,7 @@ def fmt_p_with_styling(val):
 def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='logistic', interaction_terms=None):
     """
     Perform regression analysis (Logistic or Poisson).
-    Includes VIF check and Interaction Terms.
+    Includes VIF check, Data Leakage Protection, and Interaction Terms.
     
     🟢 LAYER 1 OPTIMIZATION: Results cached for 30 minutes (via Wrapper)
     """
@@ -248,12 +250,10 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         logger.warning("Memory critical - proceeding with caution")
     
     # === CACHE KEY PREPARATION ===
-    # Add interaction_terms and model_type to cache key
     cache_key_params = {
         'outcome': outcome_name,
         'df_shape': df.shape,
         'df_hash': hash(pd.util.hash_pandas_object(df, index=True).values.tobytes()),
-        # FIX: Convert dict items to string before hashing to handle nested dicts
         'var_meta_hash': hash(str(sorted(var_meta.items()))) if var_meta else None,
         'method': method,
         'model_type': model_type,
@@ -297,10 +297,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         mode_map = {}
         cat_levels_map = {}
         
-        # --- Handle Interaction Terms Pre-processing ---
+        # --- Handle Interaction Terms Pre-processing & VALIDATION ---
         interaction_cols_created = []
+        leakage_alerts = [] # Store leakage warnings
+        
         if interaction_terms:
-            for term in interaction_terms: # term is like "Age:Treatment" or tuple ("Age", "Treatment")
+            for term in interaction_terms:
                 if isinstance(term, str) and ":" in term:
                     v1, v2 = term.split(":")
                 elif isinstance(term, (list, tuple)) and len(term) == 2:
@@ -308,9 +310,14 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
                 else:
                     continue
                 
+                # --- 🛡️ DATA LEAKAGE CHECK ---
+                # If outcome variable is used inside interaction term
+                if outcome_name == v1 or outcome_name == v2:
+                    leakage_alerts.append(f"Excluded interaction '<b>{v1} : {v2}</b>' because it contains the outcome variable '<b>{outcome_name}</b>' (Data Leakage Risk).")
+                    logger.warning(f"Prevented data leakage: {term} contains outcome {outcome_name}")
+                    continue
+                
                 if v1 in df_aligned.columns and v2 in df_aligned.columns:
-                    # Simple numeric interaction for demonstration
-                    # For categorical, it's more complex, assuming numeric/dummy here for simplicity
                     new_col = f"{v1}*{v2}"
                     try:
                         # Convert to numeric safely
@@ -349,37 +356,27 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
 
         or_results = {}
         
-        # 1. Univariate Analysis (Existing Logic preserved)
+        # 1. Univariate Analysis
         logger.info(f"Starting univariate analysis")
-        
-        # Combine original cols + interaction cols
         all_cols_to_test = sorted_cols + interaction_cols_created
 
         for col in all_cols_to_test:
             if col == outcome_name or col not in df_aligned.columns or df_aligned[col].isnull().all():
                 continue
             
-            # Skip if interaction column and we are in univariate loop? 
-            # Ideally interactions are only tested in multivariate or specifically requested.
-            # But let's keep it simply: Everything gets a univariate test.
-            
             res = {'var': col}
             X_raw = df_aligned[col]
             X_num = clean_numeric_series(X_raw)
             
-            # Helper for description
             if model_type == 'logistic':
                 X_neg = X_raw[y == 0]
                 X_pos = X_raw[y == 1]
             else:
-                # For Poisson, "pos/neg" doesn't make sense the same way. 
-                # We just use total stats or split by median outcome?
-                # Let's just keep total stats for Poisson to avoid complex UI code
                 pass
 
             unique_vals = X_num.dropna().unique()
             
-            # Determine Mode if not already set (interactions are pre-set)
+            # Determine Mode if not already set
             if col not in mode_map:
                 mode = 'linear'
                 if set(unique_vals).issubset({0, 1}):
@@ -409,7 +406,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
                 n_used = len(X_raw.dropna())
                 
                 if model_type == 'logistic':
-                    # ... (Existing Logistic Description Code) ...
                     desc_tot, desc_neg, desc_pos = [f"n={n_used}"], [f"n={len(X_neg.dropna())}"], [f"n={len(X_pos.dropna())}"]
                     for lvl in levels:
                         mask_all = (X_raw == lvl)
@@ -437,7 +433,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
                     desc_tot = [f"n={n_used}"]
                     for lvl in levels:
                          c_all = (X_raw == lvl).sum()
-                         # Mean outcome for this level
                          mean_y = y.loc[X_raw == lvl].mean()
                          lbl_txt = str(int(float(lvl))) if str(lvl).endswith('.0') else str(lvl)
                          desc_tot.append(f"{lbl_txt}: n={c_all}, Mean Y={mean_y:.2f}")
@@ -493,7 +488,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
                 else:
                     res['desc_neg'] = "-"
                     res['desc_pos'] = "-"
-                    # Correlation for Poisson?
                     try:
                         c, p = stats.spearmanr(X_num.dropna(), y.loc[X_num.dropna().index])
                         res.update({'p_comp': p, 'test_name': f"Spearman r={c:.2f}"})
@@ -515,22 +509,16 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
             
             results_db[col] = res
             
-            # Screening for Multivariate:
-            # If Interaction: Always include if created
+            # Screening for Multivariate
             if col in interaction_cols_created:
                 candidates.append(col)
             else:
                 p_screen = res.get('p_comp', np.nan)
-                # If Poisson, check p_or (from univariate regression) instead of p_comp (test) as Mann-Whitney N/A
                 if model_type == 'poisson' and 'p_or' in res:
                     p_screen = res.get('p_or')
-                    # Extract numeric if formatted
                     if isinstance(p_screen, str): 
-                        # This is tricky because p_or is formatted HTML. 
-                        # Simpler to just include if p_comp is N/A or rely on user
-                        candidates.append(col) # Include all linear for poisson auto? Or keep simple logic
+                        candidates.append(col) 
                 
-                # Default screening
                 if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
                     candidates.append(col)
         
@@ -546,7 +534,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
             return series.notna().sum() > 5 if mode == "categorical" else clean_numeric_series(series).notna().sum() > 5
         
         cand_valid = [c for c in candidates if _is_candidate_valid(c)]
-        # FORCE include interaction columns if they are valid
         for icol in interaction_cols_created:
             if icol not in cand_valid and _is_candidate_valid(icol):
                 cand_valid.append(icol)
@@ -613,7 +600,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         current_sheet = ""
         valid_cols = [c for c in sorted_cols + interaction_cols_created if c in results_db]
         
-        # Put Interactions at the end
         normal_cols = [c for c in valid_cols if c not in interaction_cols_created]
         inter_cols = [c for c in valid_cols if c in interaction_cols_created]
         grouped_cols = sorted(normal_cols, key=lambda x: (x.split('_')[0] if '_' in x else "Variables", x)) + inter_cols
@@ -662,7 +648,17 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         
         logger.info(f"Analysis complete. Multivariate n={final_n_multi}")
         model_fit_html = f"<div style='margin-top:8px;padding-top:8px;border-top:1px dashed #ccc;'><b>Model Fit:</b> {mv_metrics_text}</div>" if mv_metrics_text else ""
-        if vif_warning_text: model_fit_html = vif_warning_text + model_fit_html
+        
+        # Combine Alerts
+        alert_html = ""
+        if leakage_alerts:
+            alert_html += f"<div class='alert-box'>⚠️ <b>Model Configuration Warning:</b><br>{'<br>'.join(leakage_alerts)}</div>"
+        
+        if vif_warning_text:
+            alert_html += vif_warning_text
+            
+        if alert_html:
+            model_fit_html = alert_html + model_fit_html
 
         title_prefix = "Poisson" if model_type == 'poisson' else "Logistic"
 
@@ -694,8 +690,19 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
     )
 
 def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots", x_label="Odds Ratio"):
-    """Generate forest plots from results."""
-    html_parts = [f"<h2 style='margin-top:30px; color:{COLORS['primary']};'>{plot_title}</h2>"]
+    """Generate forest plots from results with interpretation."""
+    
+    # Interpretation for the plot (Moved to TOP as requested)
+    interp_div = f"""<div style='margin: 10px 0; padding: 15px; background-color: {COLORS['bg_light']}; border-left: 4px solid {COLORS['primary']}; font-size: 0.9em; border-radius: 4px;'>
+        <h4 style='margin-top:0; color: {COLORS['primary']};'>💡 Interpretation:</h4>
+        <ul style='margin: 5px 0 0 20px; padding: 0;'>
+            <li><b>{x_label} > 1:</b> Positive association (Higher odds/risk).</li>
+            <li><b>{x_label} < 1:</b> Negative association (Lower odds/risk).</li>
+            <li><b>CI crosses 1:</b> Not statistically significant (P >= 0.05).</li>
+        </ul>
+    </div>"""
+
+    html_parts = [f"<h2 style='margin-top:30px; color:{COLORS['primary']};'>{plot_title}</h2>", interp_div]
     has_plot = False
     
     if or_results:
@@ -716,10 +723,6 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots"
     
     if not has_plot:
         html_parts.append("<p style='color:#999'>No results available.</p>")
-    else:
-        html_parts.append(f"""<div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS['primary']};'>
-            <b>Interpretation:</b> {x_label} > 1 (Positive Effect), {x_label} < 1 (Negative Effect), CI crosses 1 (Not Significant)
-        </div>""")
     
     return "".join(html_parts)
 
@@ -747,7 +750,21 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
     
     plot_html = generate_forest_plot_html(or_res, aor_res, plot_title=f"Forest Plots: {label}", x_label=label)
     
-    full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>{title}</h1>{html_table}{plot_html}"
+    # NEW: Table Interpretation Section (English)
+    table_interp_html = f"""
+    <div style='margin-bottom: 20px; padding: 15px; background-color: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 4px solid {COLORS['primary_dark']};'>
+        <h4 style='margin-top:0; color: {COLORS['primary_dark']};'>📊 How to read this table:</h4>
+        <ul style='margin-bottom:0; color: #555; line-height: 1.6;'>
+            <li><b>Crude {label}:</b> Unadjusted effect size from univariate analysis (one variable at a time).</li>
+            <li><b>Adj. {label}:</b> Adjusted effect size controlling for other variables (multivariate).</li>
+            <li><b>P-value:</b> Statistical significance (Highlighted in <span class='sig-p'>Red</span> if P < 0.05).</li>
+            <li><b>Conf. Interval (95% CI):</b> Range of likely values. If it includes 1, the result is likely not significant.</li>
+        </ul>
+    </div>
+    """
+
+    # Structure: Header -> Table Interp -> Table -> Plot (which has its own interp at top)
+    full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>{title}</h1>{table_interp_html}{html_table}{plot_html}"
     full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 Medical Stat Tool</div>"
     
     return full_html, or_res, aor_res
