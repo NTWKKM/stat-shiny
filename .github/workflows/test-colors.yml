@@ -31,7 +31,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # เพิ่ม shiny เข้าไปเพื่อให้ import tabs/_common.py ได้
-          pip install pytest pandas numpy streamlit shiny
+          pip install pytest pandas numpy shiny
       
       - name: Verify Styling System integrity
         run: |
@@ -64,7 +64,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # เพิ่ม shiny ในทุก version เพื่อความแม่นยำในการทดสอบ
-          pip install pytest pandas numpy streamlit shiny
+          pip install pytest pandas numpy shiny
       - name: Run tests
         run: pytest tests/test_color_palette.py
 
