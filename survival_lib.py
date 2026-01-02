@@ -339,7 +339,7 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
                 y=np.concatenate([ci_lower, ci_upper[::-1]]),
                 fill='toself',
                 fillcolor=rgba_color,
-                line=dict(color='rgba(255,255,255,0)'),
+                line={'color': 'rgba(255,255,255,0)'},
                 hoverinfo="skip", 
                 name=f'{label} 95% CI',
                 showlegend=False
@@ -351,7 +351,7 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
             y=trace['probs'],
             mode='lines',
             name=label,
-            line=dict(color=color_hex, width=2),
+            line={'color': color_hex, 'width': 2},
             hovertemplate=f'{label}<br>Time: %{{x:.1f}}<br>Surv: %{{y:.3f}}<extra></extra>'
         ))
 
