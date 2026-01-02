@@ -1,5 +1,5 @@
 """
-📈 Table One Generator Module (Shiny Compatible) - OPTIMIZED
+📈 Table One Generator Module (Shiny Compatible) - OPTIMIZED & FIXED
 
 Generates baseline characteristics tables with OR, SMD, and statistical testing.
 Fully Shiny-compatible - no Streamlit dependencies.
@@ -9,6 +9,7 @@ OPTIMIZATIONS:
 - Batch numeric cleaning (3x faster)
 - Vectorized categorical comparisons
 - Integrated Caching & Memory Management
+- Fixed Cache Key Generation
 """
 
 import pandas as pd
@@ -411,11 +412,17 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
         raise ValueError(f"or_style must be 'all_levels' or 'simple'")
     
     # === INTEGRATION: Cache Check ===
-    # Create robust cache key
+    cache_key = None
     try:
-        data_subset = df[selected_vars + ([group_col] if group_col and group_col != "None" else [])]
+        # Fix: selected_vars might be a tuple from Shiny inputs, force to list
+        vars_list = list(selected_vars) if isinstance(selected_vars, (list, tuple)) else [selected_vars]
+        
+        # Determine columns to subset for hashing
+        cols_to_hash = vars_list + ([group_col] if group_col and group_col != "None" else [])
+        
+        data_subset = df[cols_to_hash]
         data_hash = hash(np.sum(pd.util.hash_pandas_object(data_subset).values))
-        cache_key = f"table1_{data_hash}_{hash(tuple(selected_vars))}_{group_col}_{or_style}"
+        cache_key = f"table1_{data_hash}_{hash(tuple(vars_list))}_{group_col}_{or_style}"
         
         cached_result = COMPUTATION_CACHE.get(cache_key)
         if cached_result:
@@ -423,6 +430,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
             return cached_result
     except Exception as e:
         logger.warning(f"Cache key generation failed: {e}")
+        cache_key = None
 
     has_group = group_col is not None and group_col != "None"
     groups = []
@@ -783,6 +791,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
 """
     
     # === INTEGRATION: Set Cache ===
-    COMPUTATION_CACHE.set(cache_key, html)
+    if cache_key:
+        COMPUTATION_CACHE.set(cache_key, html)
 
     return html
