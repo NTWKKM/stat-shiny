@@ -227,6 +227,15 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     # Shiny decorators use function name as ID. Since we use dynamic namespace,
     # we need to manually set the function name before decorating.
     def render_with_id(renderer, output_suffix):
+        """
+        Workaround for dynamic namespacing in Shiny.
+    
+        Shiny uses function __name__ as output ID. Since we use dynamic
+        namespace prefixes, we manually set __name__ to match UI element IDs.
+    
+        Warning: This relies on Shiny implementation details and may break
+        in future versions.
+        """
         def decorator(func):
             # Force function name to match the UI ID pattern
             func.__name__ = f"{namespace}_{output_suffix}"
