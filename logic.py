@@ -89,10 +89,13 @@ def calculate_vif(X):
         else:
             X_vif = X.copy()
             
-        X_vif = X_vif.loc[:, (X_vif != X_vif.iloc[0]).any()]
+        # Remove constant columns (zero variance)
+        non_const_cols = X_vif.columns[(X_vif != X_vif.iloc[0]).any()]
+        X_vif = X_vif[non_const_cols]
         
         vif_data = {}
-        for i, col in enumerate(X_vif.columns):
+        col_list = list(X_vif.columns)
+        for i, col in enumerate(col_list):
             if col == 'const':
                 continue
             try:
@@ -228,7 +231,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         'outcome': outcome_name,
         'df_shape': df.shape,
         'df_hash': hash(pd.util.hash_pandas_object(df, index=True).values.tobytes()),
-        'var_meta': str(var_meta),
+        'var_meta_hash': hash(tuple(sorted(var_meta.items()))) if var_meta else None,
         'method': method
     }
     
@@ -315,8 +318,10 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             mode_map[col] = mode
             
             if mode == 'categorical':
-                try: levels = sorted(X_raw.dropna().unique(), key=_robust_sort_key)
-                except: levels = sorted(X_raw.astype(str).unique())
+                try: 
+                    levels = sorted(X_raw.dropna().unique(), key=_robust_sort_key)
+                except: 
+                    levels = sorted(X_raw.astype(str).unique())
                 cat_levels_map[col] = levels
                 
                 n_used = len(X_raw.dropna())
@@ -341,7 +346,8 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                     ct = pd.crosstab(X_raw, y)
                     _, p, _, _ = stats.chi2_contingency(ct) if ct.size > 0 else (0, np.nan, 0, 0)
                     res.update({'p_comp': p, 'test_name': "Chi-square"})
-                except: res.update({'p_comp': np.nan, 'test_name': "-"})
+                except (ValueError, ZeroDivisionError):
+                    res.update({'p_comp': np.nan, 'test_name': "-"})
                 
                 if len(levels) > 1:
                     temp_df = pd.DataFrame({'y': y, 'raw': X_raw}).dropna()
