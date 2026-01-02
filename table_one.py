@@ -76,10 +76,10 @@ def check_normality(series):
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            # Wrap statistical test for robustness
-            _stat, p_sw = CONNECTION_HANDLER.retry_with_backoff(
-                lambda: stats.shapiro(clean)
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                _stat, p_sw = stats.shapiro(clean)
+            return p_sw > 0.05
         return p_sw > 0.05
     except Exception:
         return False
