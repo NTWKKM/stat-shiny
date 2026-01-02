@@ -1,3 +1,4 @@
+tabs/tab_corr.py
 """
 📈 Correlation & ICC Analysis Module (Shiny) - FIXED
 
@@ -7,7 +8,8 @@ Provides UI and server logic for:
 - Interactive reporting and HTML export
 """
 
-from shiny import ui, reactive, render, req, Session
+from shiny import ui, reactive, render, req
+from shiny.session import get_current_session  # Import เพื่อดึง session ปัจจุบัน
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
@@ -212,11 +214,14 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
 
 
 def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value, 
-                df_matched: reactive.Value, is_matched: reactive.Value, input, output, session: Session):
+                df_matched: reactive.Value, is_matched: reactive.Value):
     """
     Server logic for correlation analysis module.
     """
-    
+    # === FIX: Get session and input manually ===
+    session = get_current_session()
+    input = session.input
+
     COLORS = get_color_palette()
     
     # ==================== REACTIVE STATES ====================
@@ -450,6 +455,6 @@ def correlation_ui(namespace: str) -> ui.TagChild:
 
 
 def correlation_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
-                       df_matched: reactive.Value, is_matched: reactive.Value, input, output, session):
+                       df_matched: reactive.Value, is_matched: reactive.Value):
     """Wrapper for compatibility."""
-    return corr_server(namespace, df, var_meta, df_matched, is_matched, input, output, session)
+    return corr_server(namespace, df, var_meta, df_matched, is_matched)
