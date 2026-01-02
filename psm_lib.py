@@ -338,7 +338,7 @@ def plot_love_plot(smd_pre, smd_post):
         return fig
 
     except Exception as e:
-        logger.error(f"Love Plot Error: {e}")
+        logger.exception("Love Plot Error")
         # Return empty figure with error message
         fig = go.Figure()
         fig.add_annotation(text=f"Error plotting Love Plot: {e}", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)
