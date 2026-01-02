@@ -327,31 +327,18 @@ def calculate_p_continuous(data_groups):
         # Wrap statistical tests
         if all_normal:
             if num_groups == 2:
-                _s, p = CONNECTION_HANDLER.retry_with_backoff(
-                    lambda: stats.ttest_ind(clean_groups[0], clean_groups[1], nan_policy='omit')
-                )
+                _s, p = stats.ttest_ind(clean_groups[0], clean_groups[1], nan_policy='omit')
                 test_name = "t-test"
             else:
-                _s, p = CONNECTION_HANDLER.retry_with_backoff(
-                    lambda: stats.f_oneway(*clean_groups)
-                )
+                _s, p = stats.f_oneway(*clean_groups)
                 test_name = "ANOVA"
         else:
             if num_groups == 2:
-                _s, p = CONNECTION_HANDLER.retry_with_backoff(
-                    lambda: stats.mannwhitneyu(clean_groups[0], clean_groups[1], alternative='two-sided')
-                )
+                _s, p = stats.mannwhitneyu(clean_groups[0], clean_groups[1], alternative='two-sided')
                 test_name = "Mann-Whitney U"
             else:
-                _s, p = CONNECTION_HANDLER.retry_with_backoff(
-                    lambda: stats.kruskal(*clean_groups)
-                )
+                _s, p = stats.kruskal(*clean_groups)
                 test_name = "Kruskal-Wallis"
-        return p, test_name
-    except Exception as e:
-        logger.error(f"P-value calculation error: {e}")
-        return np.nan, f"Error"
-
 
 def calculate_p_categorical(df, col, group_col):
     """
