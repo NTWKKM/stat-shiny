@@ -206,7 +206,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     
     except Exception as e:
         logger.error(f"Error in Chi2 calculation: {e}")
-        return display_tab, None, f"Calculation Error: {str(e)}", None
+        return None, None, f"Calculation Error: {str(e)}", None
 
 
 def calculate_correlation(df, col1, col2, method='pearson'):
