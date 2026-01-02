@@ -282,7 +282,7 @@ def calculate_smd(df, treatment_col, covariate_cols):
             cache_key_params=cache_key_params
         )
         
-    except Exception as e:
+    except Exception:
         logger.exception("SMD calculation error")
         raise
 
@@ -331,7 +331,7 @@ def plot_love_plot(smd_pre, smd_post):
             xaxis_title="Absolute Standardized Mean Difference",
             yaxis_title="Variables",
             legend_title="Status",
-            margin=dict(l=0, r=0, t=40, b=0),
+            margin={'l': 0, 'r': 0, 't': 40, 'b': 0},
             height=max(400, len(df_plot) * 30), # Auto-height based on number of vars
             template="plotly_white"
         )
