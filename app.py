@@ -137,9 +137,8 @@ def server(input, output, session: Session):
 
         # 3. เช็คสถานะ Connection (L3)
         conn_stats = CONNECTION_HANDLER.get_stats()
-        # ถ้า Success Rate ต่ำกว่า 90% ให้แสดงสีแดงเตือน
         success_val = float(conn_stats['success_rate'].replace('%',''))
-        conn_icon = "🟠" if success_val > 90 else "🔴"
+        conn_icon = "🟢" if success_val >= 90 else "🟠" if success_val >= 70 else "🔴"
         conn_title = f"Resilience: {conn_stats['success_rate']} success rate ({conn_stats['failed_attempts']} failures)"
 
         return ui.HTML(f"""
