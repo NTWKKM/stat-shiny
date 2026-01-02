@@ -327,8 +327,8 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
                         interaction_cols_created.append(new_col)
                         # Mark as linear for simplicity in display
                         mode_map[new_col] = 'linear' 
-                    except Exception:
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug(f"Could not create interaction {new_col}: {e}")
 
         
         # Check for perfect separation (Logistic Only)
@@ -765,6 +765,6 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
 
     # Structure: Header -> Table Interp -> Table -> Plot (which has its own interp at top)
     full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>{title}</h1>{table_interp_html}{html_table}{plot_html}"
-    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 Medical Stat Tool</div>"
+    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025-2026 Medical Stat Tool</div>"
     
     return full_html, or_res, aor_res
