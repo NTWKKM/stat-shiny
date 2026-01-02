@@ -52,38 +52,50 @@ class MemoryManager:
             return None
     
     def check_and_cleanup(self) -> bool:
-        """
-        Check memory usage and trigger cleanup if needed.
+    """
+    Check memory usage and trigger cleanup if needed.
+    
+    Returns:
+        True if memory OK, False if critical
+    """
+    from utils.cache_manager import COMPUTATION_CACHE
+    
+    current_mem = self.get_memory_usage()
+    
+    # Handle invalid memory readings
+    if current_mem <= 0.0:
+        logger.warning("⚠️ Unable to get accurate memory reading, skipping cleanup check")
+        return True  # Assume OK if we can't measure
+    
+    # Check if approaching threshold
+    if current_mem > self.cleanup_threshold_mb:
+        logger.warning(f"🚨 Memory usage high ({current_mem:.0f}MB / {self.cleanup_threshold_mb:.0f}MB threshold)")
         
-        Returns:
-            True if memory OK, False if critical
-        """
-        from utils.cache_manager import COMPUTATION_CACHE
+        # Clear expired cache entries
+        expired_count = COMPUTATION_CACHE.clear_expired()
         
-        current_mem = self.get_memory_usage()
+        # Force garbage collection
+        gc.collect()
         
-        # Check if approaching threshold
-        if current_mem > self.cleanup_threshold_mb:
-            logger.warning(f"🚨 Memory usage high ({current_mem:.0f}MB / {self.cleanup_threshold_mb:.0f}MB threshold)")
-            
-            # Clear expired cache entries
-            expired_count = COMPUTATION_CACHE.clear_expired()
-            
-            # Force garbage collection
-            gc.collect()
-            
-            new_mem = self.get_memory_usage()
-            freed = current_mem - new_mem
-            
-            logger.info(f"🔄 Memory after cleanup: {new_mem:.0f}MB (freed {freed:.0f}MB, {expired_count} cache items removed)")
-            
-            # Check if still critical
-            if new_mem > self.max_memory_mb:
-                logger.error(f"💣 CRITICAL: Memory {new_mem:.0f}MB > {self.max_memory_mb}MB limit!")
-                self.alerts_sent += 1
-                return False
+        new_mem = self.get_memory_usage()
         
-        return True
+        # Handle case where memory reading fails after cleanup or memory increased
+        if new_mem <= 0.0:
+            logger.warning("⚠️ Unable to get memory reading after cleanup")
+            return True  # Can't verify, assume cleanup helped
+        
+        # Clamp freed to non-negative (memory can increase during cleanup)
+        freed = max(0, current_mem - new_mem)
+        
+        logger.info(f"🔄 Memory after cleanup: {new_mem:.0f}MB (freed {freed:.0f}MB, {expired_count} cache items removed)")
+        
+        # Check if still critical
+        if new_mem > self.max_memory_mb:
+            logger.error(f"💣 CRITICAL: Memory {new_mem:.0f}MB > {self.max_memory_mb}MB limit!")
+            self.alerts_sent += 1
+            return False
+    
+    return True
     
     def get_memory_status(self) -> dict:
         """
