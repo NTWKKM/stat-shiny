@@ -878,7 +878,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         res = psm_results.get()
         if res:
             yield res['df_matched'].to_csv(index=False)
-              
+            
     @render.download(filename="psm_report.html")
     def btn_dl_psm_report():
         res = psm_results.get()
