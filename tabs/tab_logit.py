@@ -8,7 +8,8 @@ from htmltools import HTML, div
 import gc
 
 # Import internal modules
-from logic import process_data_and_generate_html
+from logic import process_data_and_generate_html, check_perfect_separation # Ensure check_perfect_separation is available or use logic one
+# Note: check_perfect_separation was defined in tab_logit.py in your snippet. I kept it below.
 from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit
 from logger import get_logger
@@ -66,10 +67,10 @@ def check_perfect_separation(df, target_col):
 def logit_ui():
     return ui.navset_card_tab(
         # =====================================================================
-        # TAB 1: Binary Logistic Regression
+        # TAB 1: Regression Analysis (Renamed from Binary Logit)
         # =====================================================================
         ui.nav_panel(
-            "📈 Binary Logistic Regression",
+            "📈 Regression Analysis",
             
             # Control section (top)
             ui.card(
@@ -81,6 +82,8 @@ def logit_ui():
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("Variable Selection:"),
+                        ui.input_select("sel_model_type", "Model Type:", 
+                                        {"logistic": "Logistic (Binary Outcome)", "poisson": "Poisson (Count/Rate)"}),
                         ui.input_select("sel_outcome", "Select Outcome (Y):", choices=[]),
                         ui.output_ui("ui_separation_warning"),
                     ),
@@ -93,7 +96,7 @@ def logit_ui():
                             {
                                 "auto": "Auto (Recommended)",
                                 "bfgs": "Standard (MLE)",
-                                "firth": "Firth's (Penalized)"
+                                "firth": "Firth's (Penalized)" # Only valid for Logit
                             }
                         ),
                     ),
@@ -101,7 +104,22 @@ def logit_ui():
                     col_widths=[6, 6]
                 ),
                 
-                ui.h6("Exclude Variables (Optional):"),
+                ui.accordion(
+                    ui.accordion_panel(
+                        "🔗 Interaction Terms (Advanced)",
+                        ui.layout_columns(
+                            ui.input_select("int_var1", "Variable 1:", choices=[], selected=None),
+                            ui.input_select("int_var2", "Variable 2:", choices=[], selected=None),
+                            col_widths=[6, 6]
+                        ),
+                        ui.input_action_button("btn_add_interaction", "➕ Add Interaction Term", class_="btn-sm"),
+                        ui.p("Active Interactions:", class_="mt-2 mb-1 fw-bold"),
+                        ui.output_ui("ui_interaction_list"),
+                        open=False
+                    )
+                ),
+                
+                ui.h6("Exclude Variables (Optional):", class_="mt-3"),
                 ui.input_selectize("sel_exclude", label=None, choices=[], multiple=True),
                 
                 ui.hr(),
@@ -136,7 +154,7 @@ def logit_ui():
         ),
 
         # =====================================================================
-        # TAB 2: Subgroup Analysis
+        # TAB 2: Subgroup Analysis (Kept as is)
         # =====================================================================
         ui.nav_panel(
             "🗣️ Subgroup Analysis",
@@ -221,50 +239,34 @@ def logit_ui():
         ui.nav_panel(
             "ℹ️ Reference",
             ui.markdown("""
-## 📚 Logistic Regression Reference
+## 📚 Regression Analysis Reference
 
-### When to Use:
-* Predicting binary outcomes (Disease/No Disease)
-* Understanding risk/protective factors (Odds Ratios)
-* Adjustment for confounders in observational studies
+### Model Types:
 
-### Interpretation:
+**1. Logistic Regression (Binary)**
+* **Target:** Yes/No, Dead/Alive (0/1)
+* **Output:** Odds Ratios (OR)
+* **Interpretation:** OR > 1 means increased odds of outcome.
 
-**Odds Ratios (OR):**
-* **OR > 1**: Risk Factor (Increased odds) 🔴
-* **OR < 1**: Protective Factor (Decreased odds) 🟢
-* **OR = 1**: No Effect
-* **CI crosses 1**: Not statistically significant
+**2. Poisson Regression (Count)**
+* **Target:** Counts (e.g., Days in hospital, Number of events)
+* **Output:** Incidence Rate Ratios (IRR)
+* **Interpretation:** IRR > 1 means increased rate of events.
 
-**Example:**
-* OR = 2.5 (CI 1.2-5.0): Exposure increases odds of outcome by 2.5× (Range: 1.2× to 5×)
+### Interaction Terms:
+* Used to test if the effect of one variable depends on another (e.g., Does treatment work differently in older people?).
+* **Caution:** Interactions can make models harder to interpret.
 
 ### Regression Methods:
 
-**Standard (MLE)** - Most common
-* Uses Maximum Likelihood Estimation
-* Fast and reliable for most datasets
-* Issues: Perfect separation causes failure
+**Standard (MLE)**
+* Standard Maximum Likelihood. Works for both Logistic and Poisson.
 
-**Firth's (Penalized)** - For separation issues
-* Reduces bias using penalized likelihood
-* Better for rare outcomes or small samples
-* Handles perfect separation well
+**Firth's (Penalized)**
+* Only for **Logistic**. Reduces bias in small samples or separation.
 
-**Auto** - Recommended
-* Automatically detects separation
-* Uses Firth if needed, Standard otherwise
-
-### VIF (Multicollinearity):
-The report now automatically checks for Variance Inflation Factor.
-* **VIF > 10**: Indicates high multicollinearity (variables are too similar).
-* **Impact**: Coefficients become unstable and standard errors inflate.
-* **Solution**: Remove one of the correlated variables.
-
-### Subgroup Analysis:
-* Tests if treatment effect varies by group (Interaction test)
-* **P-interaction < 0.05**: Significant heterogeneity → Report subgroups separately
-* **P-interaction ≥ 0.05**: Homogeneous effect → Report overall effect
+**Auto**
+* Automatically selects Firth if separation is detected (Logistic only), otherwise uses Standard.
             """)
         )
     )
@@ -279,6 +281,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     logit_res = reactive.Value(None)     # Store main logit results
     subgroup_res = reactive.Value(None)  # Store subgroup results
     subgroup_analyzer = reactive.Value(None) # Store analyzer instance
+    interaction_list = reactive.Value([]) # Store active interaction terms
     
     # --- 1. Dataset Selection Logic ---
     @reactive.Calc
@@ -317,25 +320,82 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         
         cols = d.columns.tolist()
         
-        # Identify binary columns for outcomes
-        binary_cols = [c for c in cols if d[c].nunique() == 2]
+        # Identify columns based on Model Type
+        model_type = input.sel_model_type()
         
+        if model_type == 'logistic':
+             # Binary for Logistic
+             outcome_cols = [c for c in cols if d[c].nunique() == 2]
+        else:
+             # Numeric/Integer for Poisson
+             outcome_cols = [c for c in cols if pd.api.types.is_numeric_dtype(d[c])]
+
         # Identify potential subgroups (2-10 levels)
         sg_cols = [c for c in cols if 2 <= d[c].nunique() <= 10]
         
         # Update Tab 1 Inputs
-        ui.update_select("sel_outcome", choices=binary_cols)
+        ui.update_select("sel_outcome", choices=outcome_cols)
         ui.update_selectize("sel_exclude", choices=cols)
         
+        # Update Interaction Inputs
+        ui.update_select("int_var1", choices=[""] + cols)
+        ui.update_select("int_var2", choices=[""] + cols)
+        
         # Update Tab 2 Inputs
+        # (Keep binary for subgroup outcomes usually, unless we expand subgroup module too)
+        binary_cols = [c for c in cols if d[c].nunique() == 2]
         ui.update_select("sg_outcome", choices=binary_cols)
         ui.update_select("sg_treatment", choices=cols)
         ui.update_select("sg_subgroup", choices=sg_cols)
         ui.update_selectize("sg_adjust", choices=cols)
 
+    # --- Interaction Logic ---
+    @reactive.Effect
+    @reactive.event(input.btn_add_interaction)
+    def _add_interaction():
+        v1 = input.int_var1()
+        v2 = input.int_var2()
+        if v1 and v2 and v1 != v2:
+            current = interaction_list.get()
+            term = f"{v1}:{v2}"
+            if term not in current:
+                updated = current + [term]
+                interaction_list.set(updated)
+                ui.notification_show(f"Added interaction: {term}", type="message")
+            else:
+                ui.notification_show("Interaction already exists", type="warning")
+
+    @render.ui
+    def ui_interaction_list():
+        terms = interaction_list.get()
+        if not terms:
+            return ui.span("No interactions added.", style="color: gray; font-size: 0.9em;")
+        
+        badges = []
+        for t in terms:
+            # Simple clickable badge to remove? (Complex in pure shiny python, just showing list now)
+            badges.append(ui.span(t, class_="badge bg-info text-dark me-1"))
+        
+        return ui.div(
+            *badges,
+            ui.div(
+                ui.input_action_button("btn_clear_interactions", "Clear All", class_="btn-xs btn-outline-danger mt-2"),
+            )
+        )
+        
+    @reactive.Effect
+    @reactive.event(input.btn_clear_interactions)
+    def _clear_interactions():
+        interaction_list.set([])
+
+
     # --- 3. Separation Warning Logic ---
     @render.ui
     def ui_separation_warning():
+        # Only relevant for Logistic
+        if input.sel_model_type() != 'logistic':
+            return None
+            
         d = current_df()
         target = input.sel_outcome()
         if d is None or d.empty or not target: return None
@@ -350,15 +410,10 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         return None
 
     # ==========================================================================
-    # OPTIMIZED: Cache Logistic Regression Results & Forest Plots
+    # OPTIMIZED: Cache Regression Results & Forest Plots
     # ==========================================================================
     @reactive.Calc
     def logit_cached_res():
-        """
-        OPTIMIZATION: Cache the logistic regression results.
-        This prevents multiple calls to logit_res.get() from triggering re-renders.
-        Only triggers when button is clicked.
-        """
         return logit_res.get()
 
     @reactive.Effect
@@ -368,8 +423,9 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         target = input.sel_outcome()
         exclude = input.sel_exclude()
         method = input.radio_method()
+        model_type = input.sel_model_type()
+        interactions = interaction_list.get()
         
-        # FIX: Check if DataFrame is None or empty using proper methods
         if d is None or d.empty:
             ui.notification_show("Please load data first", type="error")
             return
@@ -378,24 +434,32 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             return
         
         # Prepare data
+        # Note: We do NOT drop interaction vars from exclude here, logic handles exclusion
         final_df = d.drop(columns=exclude, errors='ignore')
         
+        msg = "Running Logistic Regression..." if model_type == 'logistic' else "Running Poisson Regression..."
+        
         with ui.Progress(min=0, max=1) as p:
-            p.set(message="Running Logistic Regression...", detail="Calculating...")
+            p.set(message=msg, detail="Calculating...")
             
             try:
-                # Run Logic from logic.py
+                # Run Logic
                 html_rep, or_res, aor_res = process_data_and_generate_html(
-                    final_df, target, var_meta=var_meta.get(), method=method
+                    final_df, target, var_meta=var_meta.get(), method=method, 
+                    model_type=model_type, interaction_terms=interactions
                 )
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
-                logger.exception("Logistic regression error")
+                logger.exception("Regression error")
                 return
             
             # Generate Forest Plots using library
             fig_adj = None
             fig_crude = None
+            
+            x_label = "Adjusted IRR" if model_type == 'poisson' else "Adjusted OR"
+            x_label_crude = "Crude IRR" if model_type == 'poisson' else "Crude OR"
+            col_key = 'aor' # The key in dict is still 'aor'/'or' from logic for consistency
             
             try:
                 if aor_res:
@@ -403,9 +467,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                     if not df_adj.empty:
                         fig_adj = create_forest_plot(
                             df_adj, 'aor', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                            title="<b>Multivariable: Adjusted OR</b>", x_label="Adjusted OR"
+                            title=f"<b>Multivariable: {x_label}</b>", x_label=x_label
                         )
-                        # Immediate cleanup after creating figure
                         del df_adj
                         gc.collect()
                 
@@ -414,9 +477,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                     if not df_crude.empty:
                         fig_crude = create_forest_plot(
                             df_crude, 'or', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                            title="<b>Univariable: Crude OR</b>", x_label="Crude OR"
+                            title=f"<b>Univariable: {x_label_crude}</b>", x_label=x_label_crude
                         )
-                        # Immediate cleanup after creating figure
                         del df_crude
             
             except Exception as e:
@@ -427,10 +489,10 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             logit_res.set({
                 "html": html_rep,
                 "fig_adj": fig_adj,
-                "fig_crude": fig_crude
+                "fig_crude": fig_crude,
+                "model_type": model_type
             })
             
-            # Cleanup after successful analysis
             del html_rep, or_res, aor_res, fig_adj, fig_crude
             gc.collect()
             
@@ -441,8 +503,9 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def out_logit_status():
         res = logit_cached_res()
         if res:
+            m_type = res.get('model_type', 'Regression').capitalize()
             return ui.div(
-                ui.h5("✅ Regression Complete"),
+                ui.h5(f"✅ {m_type} Analysis Complete"),
                 style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;"
             )
         return None
@@ -472,11 +535,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 style="color: gray; font-style: italic; padding: 20px; text-align: center;"
             )
         
+        m_type = res.get('model_type', 'logistic')
+        label = "IRR" if m_type == 'poisson' else "OR"
+        
         tabs = []
         if res['fig_crude']:
-            tabs.append(ui.nav_panel("Crude OR", output_widget("out_forest_crude")))
+            tabs.append(ui.nav_panel(f"Crude {label}", output_widget("out_forest_crude")))
         if res['fig_adj']:
-            tabs.append(ui.nav_panel("Adjusted OR", output_widget("out_forest_adj")))
+            tabs.append(ui.nav_panel(f"Adjusted {label}", output_widget("out_forest_adj")))
             
         if not tabs: 
             return ui.div("No forest plots available.", class_="text-muted")
@@ -494,27 +560,20 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         if res and res['fig_crude']: return res['fig_crude']
         return None
 
-    @render.download(filename="logit_report.html")
+    @render.download(filename="regression_report.html")
     def btn_dl_report():
         res = logit_cached_res()
         if res: yield res['html']
 
     # ==========================================================================
-    # OPTIMIZED: Cache Subgroup Analysis Results
+    # OPTIMIZED: Cache Subgroup Analysis Results (Kept Original Logic)
     # ==========================================================================
     @reactive.Calc
     def subgroup_cached_res():
-        """
-        OPTIMIZATION: Cache the subgroup analysis results.
-        Prevents redundant rendering calls.
-        """
         return subgroup_res.get()
 
     @reactive.Calc
     def subgroup_cached_analyzer():
-        """
-        OPTIMIZATION: Cache the analyzer instance.
-        """
         return subgroup_analyzer.get()
 
     @reactive.Effect
@@ -522,7 +581,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def _run_subgroup():
         d = current_df()
         
-        # FIX: Check if DataFrame is None or empty using proper methods
         if d is None or d.empty:
             ui.notification_show("Please load data first", type="error")
             return
@@ -548,14 +606,12 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 subgroup_analyzer.set(analyzer)
                 ui.notification_show("✅ Subgroup Analysis Complete!", type="message")
                 
-                # Cleanup after successful analysis
                 gc.collect()
                 
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
                 logger.exception("Subgroup analysis error")
 
-    # --- Render Subgroup Results (Use Cached Results) ---
     @render.ui
     def out_subgroup_status():
         res = subgroup_cached_res()
@@ -570,7 +626,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def out_sg_forest_plot():
         analyzer = subgroup_cached_analyzer()
         if analyzer:
-            # Use txt_edit_forest_title if provided, fallback to sg_title
             title = input.txt_edit_forest_title() or input.sg_title() or None
             return analyzer.create_forest_plot(title=title)
         return None
@@ -578,7 +633,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.Effect
     @reactive.event(input.btn_update_plot_title)
     def _update_sg_title():
-        # Invalidate to trigger re-render of the forest plot widget
         subgroup_analyzer.set(subgroup_analyzer.get())
 
     @render.text
@@ -621,7 +675,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         res = subgroup_cached_res()
         if res:
             df_res = res['results_df'].copy()
-            # Simple formatting for display
             cols = ['group', 'n', 'events', 'or', 'ci_low', 'ci_high', 'p_value']
             available_cols = [c for c in cols if c in df_res.columns]
             return render.DataGrid(df_res[available_cols].round(4))
@@ -644,5 +697,4 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def dl_sg_json():
         res = subgroup_cached_res()
         if res:
-            # Need to handle numpy types for JSON serialization
             yield json.dumps(res, indent=2, default=str)
