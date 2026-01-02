@@ -1,3 +1,4 @@
+survival_lib.py
 """
 ⚠️ Survival Analysis Module (Shiny Compatible) - OPTIMIZED
 
@@ -14,6 +15,7 @@ OPTIMIZATIONS:
 - Cached KM/NA fits (20x faster reuse)
 - Batch residual computations (8x faster)
 - Vectorized CI extraction (10x faster)
+- Integrated Memory Management & Resilience
 """
 
 import pandas as pd
@@ -39,6 +41,10 @@ from utils.survival_cache_integration import (
     get_cached_cox_model,
     get_cached_survival_estimates
 )
+
+# === INTEGRATION: System Stability & Memory ===
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -94,6 +100,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
     - Vectorized median calculations
     - Batch CI computations
     - Cached results
+    - Memory managed execution
     
     Returns:
         pd.DataFrame: Table with 'Group', 'N', 'Events', and 'Median (95% CI)'
@@ -121,6 +128,9 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
     }
 
     def _compute_median():
+        # === INTEGRATION: Memory Check ===
+        MEMORY_MANAGER.check_and_cleanup()
+
         data = df.dropna(subset=[duration_col, event_col])
         
         if not pd.api.types.is_numeric_dtype(data[duration_col]):
@@ -152,8 +162,14 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
             events = df_g[event_col].sum()
             
             if n > 0:
+                # Use connection handler for resilience on fitting if needed, 
+                # though KMF is local, wrapping ensures consistency
                 kmf = KaplanMeierFitter()
-                kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+                
+                # Wrap fit in retry logic just in case of transient memory issues during allocation
+                CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+                )
                 
                 median_val = kmf.median_survival_time_
                 
@@ -214,6 +230,9 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
     }
 
     def _compute_km_data():
+        # === INTEGRATION: Memory Check ===
+        MEMORY_MANAGER.check_and_cleanup()
+
         data = df.dropna(subset=[duration_col, event_col])
         if group_col:
             if group_col not in df.columns:
@@ -238,7 +257,11 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
             
             if len(df_g) > 0:
                 kmf = KaplanMeierFitter()
-                kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+                
+                # Robust fit
+                CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+                )
 
                 # Extract data for plotting
                 trace_data = {
@@ -265,11 +288,14 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
         try:
             if len(groups) == 2 and group_col:
                 g1, g2 = groups
-                res = logrank_test(
-                    data[data[group_col] == g1][duration_col],
-                    data[data[group_col] == g2][duration_col],
-                    event_observed_A=data[data[group_col] == g1][event_col],
-                    event_observed_B=data[data[group_col] == g2][event_col]
+                # Robust Log-rank test
+                res = CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: logrank_test(
+                        data[data[group_col] == g1][duration_col],
+                        data[data[group_col] == g2][duration_col],
+                        event_observed_A=data[data[group_col] == g1][event_col],
+                        event_observed_B=data[data[group_col] == g2][event_col]
+                    )
                 )
                 stats_data = {
                     'Test': 'Log-Rank (Pairwise)',
@@ -278,7 +304,10 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
                     'Comparison': f'{g1} vs {g2}'
                 }
             elif len(groups) > 2 and group_col:
-                res = multivariate_logrank_test(data[duration_col], data[group_col], data[event_col])
+                # Robust Multivariate Log-rank
+                res = CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: multivariate_logrank_test(data[duration_col], data[group_col], data[event_col])
+                )
                 stats_data = {
                     'Test': 'Log-Rank (Multivariate)',
                     'Statistic': res.test_statistic,
@@ -368,6 +397,9 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
     }
 
     def _compute_na_data():
+        # === INTEGRATION: Memory Check ===
+        MEMORY_MANAGER.check_and_cleanup()
+
         data = df.dropna(subset=[duration_col, event_col])
         if len(data) == 0:
             raise ValueError("No valid data.")
@@ -392,7 +424,11 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
 
             if len(df_g) > 0:
                 naf = NelsonAalenFitter()
-                naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
+                
+                # Robust fit
+                CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
+                )
                 
                 trace_data = {
                     'label': label,
@@ -492,6 +528,10 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     }
 
     def _fit_cox_model():
+        # === INTEGRATION: Memory Check ===
+        # CoxPH is memory intensive, critical to check here
+        MEMORY_MANAGER.check_and_cleanup()
+
         missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
         if missing:
             logger.error(f"Missing columns: {missing}")
@@ -564,7 +604,11 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
             
             try:
                 temp_cph = CoxPHFitter(penalizer=p) 
-                temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
+                # We use retry_with_backoff for the fit call as well, 
+                # although loop handles logic, retry handles transient stability
+                CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
+                )
                 cph = temp_cph
                 method_used = current_method
                 break
@@ -611,9 +655,14 @@ def check_cph_assumptions(cph, data):
     Returns:
         tuple: (report_text, list_of_figures)
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     try:
-        # 1. Run Test
-        results = proportional_hazard_test(cph, data, time_transform='rank')
+        # 1. Run Test - Robust
+        results = CONNECTION_HANDLER.retry_with_backoff(
+            lambda: proportional_hazard_test(cph, data, time_transform='rank')
+        )
         
         # 2. Check for violations
         # The summary has a 'p' column. If any p < 0.05, assumption is violated.
@@ -766,6 +815,9 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     Returns:
         tuple: (fig, stats_df, n_pre, n_post, error)
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     missing = [c for c in [duration_col, event_col, group_col] if c not in df.columns]
     if missing:
         return None, None, len(df), 0, f"Missing columns: {missing}"
@@ -783,10 +835,6 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     _adj_duration = '_landmark_adjusted_duration'
     landmark_data[_adj_duration] = landmark_data[duration_col] - landmark_time
     
-    # Reuse the cached KM logic by calling the inner logic of fit_km_logrank conceptually
-    # But since we have adjusted columns, we call it fresh. 
-    # Caching here is optional but good. For now, we perform direct fit to avoid complexity with column names in cache keys
-    
     groups = _sort_groups_vectorized(landmark_data[group_col].unique())
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
@@ -797,7 +845,11 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
         
         if len(df_g) > 0:
             kmf = KaplanMeierFitter()
-            kmf.fit(df_g[_adj_duration], df_g[event_col], label=label)
+            
+            # Robust fit
+            CONNECTION_HANDLER.retry_with_backoff(
+                lambda: kmf.fit(df_g[_adj_duration], df_g[event_col], label=label)
+            )
 
             # OPTIMIZATION: Vectorized CI extraction
             ci_exists = hasattr(kmf, 'confidence_interval_') and not kmf.confidence_interval_.empty
@@ -843,11 +895,14 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     try:
         if len(groups) == 2:
             g1, g2 = groups
-            res = logrank_test(
-                landmark_data[landmark_data[group_col] == g1][_adj_duration],
-                landmark_data[landmark_data[group_col] == g2][_adj_duration],
-                event_observed_A=landmark_data[landmark_data[group_col] == g1][event_col],
-                event_observed_B=landmark_data[landmark_data[group_col] == g2][event_col]
+            # Robust Test
+            res = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: logrank_test(
+                    landmark_data[landmark_data[group_col] == g1][_adj_duration],
+                    landmark_data[landmark_data[group_col] == g2][_adj_duration],
+                    event_observed_A=landmark_data[landmark_data[group_col] == g1][event_col],
+                    event_observed_B=landmark_data[landmark_data[group_col] == g2][event_col]
+                )
             )
             stats_data = {
                 'Test': 'Log-Rank (Pairwise)',
@@ -857,7 +912,10 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
                 'Method': f'Landmark at {landmark_time}'
             }
         elif len(groups) > 2:
-            res = multivariate_logrank_test(landmark_data[_adj_duration], landmark_data[group_col], landmark_data[event_col])
+            # Robust Test
+            res = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: multivariate_logrank_test(landmark_data[_adj_duration], landmark_data[group_col], landmark_data[event_col])
+            )
             stats_data = {
                 'Test': 'Log-Rank (Multivariate)',
                 'Statistic': res.test_statistic,
