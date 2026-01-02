@@ -23,8 +23,12 @@ except ImportError:
     SubgroupAnalysisCox = None
     
 from logger import get_logger
+# --- นำเข้าสีจาก _common.py ---
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+# --- กำหนดค่า COLORS สำหรับใช้งานในโมดูลนี้ ---
+COLORS = get_color_palette()
 
 # ==============================================================================
 # Helper Function
@@ -332,7 +336,10 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         """Render curves results."""
         res = curves_result.get()
         if res is None:
-            return ui.markdown("*Results will appear here...*")
+            return ui.div(
+                ui.markdown("*Results will appear here...*"),
+                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;"
+            )
         
         return ui.card(
             ui.card_header("📈 Plot"),
@@ -404,7 +411,10 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             return None
         return ui.card(
             ui.card_header("📈 Landmark Plot"),
-            ui.markdown(f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"),
+            ui.div(
+                ui.markdown(f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"),
+                style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};"
+            ),
             output_widget("out_landmark_plot"),
             ui.output_data_frame("out_landmark_table")
         )
@@ -517,7 +527,12 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             return None
         
         # Display Text Report
-        elements = [ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}")]
+        elements = [
+            ui.div(
+                ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}"),
+                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};"
+            )
+        ]
         
         # Display Plots
         if res['assumptions_plots']:
@@ -601,9 +616,11 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         
         elements = []
         if 'forest_plot' in res:
+            elements.append(ui.card_header("🌳 Subgroup Forest Plot"))
             elements.append(output_widget("out_sg_forest"))
             
         if 'interaction_table' in res:
+            elements.append(ui.card_header("📄 Interaction Analysis"))
             elements.append(ui.output_data_frame("out_sg_table"))
             
         return ui.card(*elements)
