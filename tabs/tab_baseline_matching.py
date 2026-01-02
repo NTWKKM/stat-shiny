@@ -590,7 +590,12 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         
         summary_text = "**✅ Configuration Summary:**\n" + "\n".join(summary_items)
         
-        return ui.info_message(summary_text, class_="bg-primary-light")
+        # FIX: Changed from ui.info_message to ui.div to fix AttributeError
+        return ui.div(
+            ui.markdown(summary_text),
+            class_="p-3 mb-3 border rounded bg-light",
+            style=f"border-left: 5px solid {COLORS['primary']};"
+        )
 
     @render.ui
     def ui_psm_run_status():
@@ -852,7 +857,14 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         if not res: return None
         merged = res['smd_pre'].merge(res['smd_post'], on='Variable', suffixes=('_before', '_after'))
         merged['Improvement %'] = ((merged['SMD_before'] - merged['SMD_after']) / merged['SMD_before'].replace(0, np.nan) * 100).round(1).fillna(0)
-        return render.DataGrid(merged.style.format({'SMD_before': '{:.4f}', 'SMD_after': '{:.4f}', 'Improvement %': '{:.1f}%'}))
+        
+        # FIX: Format numbers manually to avoid pandas .style (which requires jinja2)
+        display_df = merged.copy()
+        display_df['SMD_before'] = display_df['SMD_before'].map('{:.4f}'.format)
+        display_df['SMD_after'] = display_df['SMD_after'].map('{:.4f}'.format)
+        display_df['Improvement %'] = display_df['Improvement %'].map('{:.1f}%'.format)
+        
+        return render.DataGrid(display_df)
 
     @render.data_frame
     def out_group_comparison_table():
@@ -917,11 +929,16 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                        f"border: 1px solid {COLORS['success']}; margin-bottom: 20px;")
             )
         else:
-            return ui.info_message(
-                "ℹ️ **No matched data available yet.**\n\n"
-                "1. Go to **Subtab 2 (Propensity Score Matching)**\n\n"
-                "2. Configure variables and run PSM matching\n\n"
-                "3. Return here to view and export matched data"
+            # FIX: Changed from ui.info_message to ui.div to fix AttributeError
+            return ui.div(
+                ui.markdown(
+                    "ℹ️ **No matched data available yet.**\n\n"
+                    "1. Go to **Subtab 2 (Propensity Score Matching)**\n\n"
+                    "2. Configure variables and run PSM matching\n\n"
+                    "3. Return here to view and export matched data"
+                ),
+                class_="p-3 mb-3 border rounded bg-info-light",
+                style="border-left: 5px solid #0dcaf0;"
             )
 
     @render.ui
