@@ -37,9 +37,11 @@ class ConnectionHandler:
         self.backoff_factor = backoff_factor
         self.failed_attempts = 0
         self.successful_retries = 0
+        self.total_calls = 0
         logger.info(f"🔌 Connection handler initialized: max_retries={max_retries}, initial_backoff={initial_backoff}s")
     
     def retry_with_backoff(self, func: Callable, *args, **kwargs) -> Optional[Any]:
+        self.total_calls += 1
         """
         Execute function with exponential backoff retry on failure.
         
@@ -51,7 +53,6 @@ class ConnectionHandler:
         Returns:
             Function result or None if all retries failed
         """
-        last_exception = None
         
         for attempt in range(self.max_retries):
             try:
@@ -64,7 +65,6 @@ class ConnectionHandler:
                 return result
             
             except (ConnectionError, TimeoutError, OSError) as e:
-                last_exception = e
                 self.failed_attempts += 1
                 
                 if attempt < self.max_retries - 1:
@@ -72,11 +72,11 @@ class ConnectionHandler:
                     logger.warning(f"⏳ Attempt {attempt + 1} failed: {str(e)}. Retrying in {wait_time:.1f}s...")
                     time.sleep(wait_time)
                 else:
-                    logger.error(f"❌ All {self.max_retries} retry attempts failed: {str(e)}")
+                    logger.exception(f"❌ All {self.max_retries} retry attempts failed")
             
             except Exception as e:
                 # Non-network errors: fail immediately
-                logger.error(f"Non-retryable error: {str(e)}")
+                logger.exception("Non-retryable error")
                 return None
         
         return None
@@ -88,8 +88,7 @@ class ConnectionHandler:
         Returns:
             Dict with connection metrics
         """
-        total_attempts = self.failed_attempts + self.successful_retries
-        success_rate = (self.successful_retries / total_attempts * 100) if total_attempts > 0 else 100
+        success_rate = ((self.total_calls - self.failed_attempts) / self.total_calls * 100) if self.total_calls > 0 else 100
         
         return {
             'failed_attempts': self.failed_attempts,
