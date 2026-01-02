@@ -1,5 +1,5 @@
 """
-📋 Correlation & Statistical Association Module (Shiny Compatible)
+📋 Correlation & Statistical Association Module (Shiny Compatible) - OPTIMIZED
 
 Provides functions for:
 - Pearson/Spearman correlation analysis
@@ -8,7 +8,7 @@ Provides functions for:
 - HTML report generation
 
 Note: Removed Streamlit dependencies, now Shiny-compatible
-OPTIMIZATIONS: Batch numeric conversion (2x), single crosstab reuse (4x)
+OPTIMIZATIONS: Batch numeric conversion (2x), single crosstab reuse (4x), Caching enabled
 """
 
 import pandas as pd
@@ -19,8 +19,14 @@ import html as _html
 import io
 import base64
 from tabs._common import get_color_palette
+from logger import get_logger
 
-# Get unified color palette
+# === INTEGRATION: System Utilities ===
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
+from utils.cache_manager import COMPUTATION_CACHE
+
+logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
@@ -31,6 +37,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     Optimizations:
     - Single crosstab computation, reused for all operations (4x faster)
     - Vectorized string operations
+    - Integrated Caching & Memory Management
     
     Args:
         df (pd.DataFrame): Source dataframe
@@ -42,97 +49,120 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         
     Returns:
         tuple: (display_tab, stats_df, msg, risk_df)
-            - display_tab: Formatted contingency table
-            - stats_df: Test results as DataFrame
-            - msg: Human-readable summary
-            - risk_df: Risk metrics for 2x2 tables
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     if col1 not in df.columns or col2 not in df.columns:
+        logger.error(f"Columns not found: {col1}, {col2}")
         return None, None, "Columns not found", None
     
     data = df[[col1, col2]].dropna()
     
-    # OPTIMIZATION: Single crosstab computation, reuse for all operations
-    tab = pd.crosstab(data[col1], data[col2])
-    tab_raw = pd.crosstab(data[col1], data[col2], margins=True, margins_name="Total")
-    tab_row_pct = pd.crosstab(data[col1], data[col2], normalize='index', margins=True, margins_name="Total") * 100
-    
-    # --- REORDERING LOGIC ---
-    all_col_labels = tab_raw.columns.tolist()
-    all_row_labels = tab_raw.index.tolist()
-    base_col_labels = [col for col in all_col_labels if col != 'Total']
-    base_row_labels = [row for row in all_row_labels if row != 'Total']
-    
-    def get_original_label(label_str, df_labels):
-        """Find the original label from a collection."""
-        for lbl in df_labels:
-            if str(lbl) == label_str:
-                return lbl
-        return label_str
-    
-    def custom_sort(label):
-        """Sort key for mixed numeric/string labels."""
-        try:
-            return (0, float(label))
-        except (ValueError, TypeError):
-            return (1, str(label))
-    
-    # Reorder columns
-    final_col_order_base = base_col_labels[:]
-    if v2_pos is not None:
-        v2_pos_original = get_original_label(v2_pos, base_col_labels)
-        if v2_pos_original in final_col_order_base:
-            final_col_order_base.remove(v2_pos_original)
-            final_col_order_base.insert(0, v2_pos_original)
-    else:
-        final_col_order_base.sort(key=custom_sort)
-    
-    final_col_order = final_col_order_base + ['Total']
-    
-    # Reorder rows
-    final_row_order_base = base_row_labels[:]
-    if v1_pos is not None:
-        v1_pos_original = get_original_label(v1_pos, base_row_labels)
-        if v1_pos_original in final_row_order_base:
-            final_row_order_base.remove(v1_pos_original)
-            final_row_order_base.insert(0, v1_pos_original)
-    else:
-        final_row_order_base.sort(key=custom_sort)
-    
-    final_row_order = final_row_order_base + ['Total']
-    
-    # Reindex
-    tab_raw = tab_raw.reindex(index=final_row_order, columns=final_col_order)
-    tab_row_pct = tab_row_pct.reindex(index=final_row_order, columns=final_col_order)
-    tab = tab.reindex(index=final_row_order_base, columns=final_col_order_base)
-    
-    # Format display table
-    display_data = []
-    for row_name in final_row_order:
-        row_data = []
-        for col_name in final_col_order:
-            count = tab_raw.loc[row_name, col_name]
-            if col_name == 'Total':
-                pct = 100.0
-            else:
-                pct = tab_row_pct.loc[row_name, col_name]
-            cell_content = f"{count} ({pct:.1f}%)"
-            row_data.append(cell_content)
-        display_data.append(row_data)
-    
-    display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
-    display_tab.index.name = col1
-    
-    # 3. Statistical tests
-    msg = ""
+    if data.empty:
+        logger.warning("No data available for Chi-square analysis")
+        return None, None, "No valid data", None
+
+    # === INTEGRATION: Cache Check ===
+    # Create a robust cache key based on data content and parameters
     try:
+        data_hash = hash(tuple(data[col1].astype(str).values.tobytes()) + tuple(data[col2].astype(str).values.tobytes()))
+        cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}"
+        
+        cached_result = COMPUTATION_CACHE.get(cache_key)
+        if cached_result:
+            logger.info(f"Cache hit for Chi2 analysis: {col1} vs {col2}")
+            return cached_result
+    except Exception as e:
+        logger.warning(f"Cache key generation failed: {e}")
+
+    try:
+        # OPTIMIZATION: Single crosstab computation, reuse for all operations
+        tab = pd.crosstab(data[col1], data[col2])
+        tab_raw = pd.crosstab(data[col1], data[col2], margins=True, margins_name="Total")
+        tab_row_pct = pd.crosstab(data[col1], data[col2], normalize='index', margins=True, margins_name="Total") * 100
+        
+        # --- REORDERING LOGIC ---
+        all_col_labels = tab_raw.columns.tolist()
+        all_row_labels = tab_raw.index.tolist()
+        base_col_labels = [col for col in all_col_labels if col != 'Total']
+        base_row_labels = [row for row in all_row_labels if row != 'Total']
+        
+        def get_original_label(label_str, df_labels):
+            """Find the original label from a collection."""
+            for lbl in df_labels:
+                if str(lbl) == label_str:
+                    return lbl
+            return label_str
+        
+        def custom_sort(label):
+            """Sort key for mixed numeric/string labels."""
+            try:
+                return (0, float(label))
+            except (ValueError, TypeError):
+                return (1, str(label))
+        
+        # Reorder columns
+        final_col_order_base = base_col_labels[:]
+        if v2_pos is not None:
+            v2_pos_original = get_original_label(v2_pos, base_col_labels)
+            if v2_pos_original in final_col_order_base:
+                final_col_order_base.remove(v2_pos_original)
+                final_col_order_base.insert(0, v2_pos_original)
+        else:
+            final_col_order_base.sort(key=custom_sort)
+        
+        final_col_order = final_col_order_base + ['Total']
+        
+        # Reorder rows
+        final_row_order_base = base_row_labels[:]
+        if v1_pos is not None:
+            v1_pos_original = get_original_label(v1_pos, base_row_labels)
+            if v1_pos_original in final_row_order_base:
+                final_row_order_base.remove(v1_pos_original)
+                final_row_order_base.insert(0, v1_pos_original)
+        else:
+            final_row_order_base.sort(key=custom_sort)
+        
+        final_row_order = final_row_order_base + ['Total']
+        
+        # Reindex
+        tab_raw = tab_raw.reindex(index=final_row_order, columns=final_col_order)
+        tab_row_pct = tab_row_pct.reindex(index=final_row_order, columns=final_col_order)
+        tab = tab.reindex(index=final_row_order_base, columns=final_col_order_base)
+        
+        # Format display table
+        display_data = []
+        for row_name in final_row_order:
+            row_data = []
+            for col_name in final_col_order:
+                try:
+                    count = tab_raw.loc[row_name, col_name]
+                    if col_name == 'Total':
+                        pct = 100.0
+                    else:
+                        pct = tab_row_pct.loc[row_name, col_name]
+                    cell_content = f"{int(count)} ({pct:.1f}%)"
+                except KeyError:
+                    cell_content = "0 (0.0%)"
+                row_data.append(cell_content)
+            display_data.append(row_data)
+        
+        display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
+        display_tab.index.name = col1
+        
+        # 3. Statistical tests
+        msg = ""
         is_2x2 = (tab.shape == (2, 2))
         
         if "Fisher" in method:
             if not is_2x2:
                 return display_tab, None, "Error: Fisher's Exact Test requires a 2x2 table.", None
             
-            odds_ratio, p_value = stats.fisher_exact(tab)
+            # === INTEGRATION: Robust Execution ===
+            odds_ratio, p_value = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: stats.fisher_exact(tab)
+            )
             method_name = "Fisher's Exact Test"
             
             stats_res = {
@@ -145,7 +175,12 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         else:
             # Chi-Square test
             use_correction = True if "Yates" in method else False
-            chi2, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
+            
+            # === INTEGRATION: Robust Execution ===
+            chi2, p, dof, ex = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: stats.chi2_contingency(tab, correction=use_correction)
+            )
+            
             method_name = "Chi-Square"
             if is_2x2:
                 method_name += " (with Yates')" if use_correction else " (Pearson)"
@@ -165,10 +200,15 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         stats_df = pd.DataFrame(stats_res, index=[0]).T.reset_index()
         stats_df.columns = ['Statistic', 'Value']
         
-        return display_tab, stats_df, msg, None
+        # Store result in cache
+        result = (display_tab, stats_df, msg, None)
+        COMPUTATION_CACHE.set(cache_key, result)
+        
+        return result
     
     except Exception as e:
-        return display_tab, None, str(e), None
+        logger.error(f"Error in Chi2 calculation: {e}")
+        return display_tab, None, f"Calculation Error: {str(e)}", None
 
 
 def calculate_correlation(df, col1, col2, method='pearson'):
@@ -178,6 +218,7 @@ def calculate_correlation(df, col1, col2, method='pearson'):
     Optimizations:
     - Batch numeric conversion (2x faster)
     - Vectorized operations
+    - Integrated Caching & Memory Management
     
     Args:
         df (pd.DataFrame): Source dataframe
@@ -187,11 +228,12 @@ def calculate_correlation(df, col1, col2, method='pearson'):
         
     Returns:
         tuple: (result_dict, error_msg, plotly_figure)
-            - result_dict: Dict with Method, Coefficient, P-value, N
-            - error_msg: Error message or None
-            - plotly_figure: Interactive scatter plot or None
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     if col1 not in df.columns or col2 not in df.columns:
+        logger.error(f"Columns not found: {col1}, {col2}")
         return None, "Columns not found", None
     
     # OPTIMIZATION: Batch numeric conversion (2x faster)
@@ -200,74 +242,104 @@ def calculate_correlation(df, col1, col2, method='pearson'):
     
     if len(data_numeric) < 2:
         return None, "Error: Need at least 2 numeric values.", None
-    
-    v1 = data_numeric[col1]
-    v2 = data_numeric[col2]
-    
-    if method == 'pearson':
-        corr, p = stats.pearsonr(v1, v2)
-        name = "Pearson"
-    else:
-        corr, p = stats.spearmanr(v1, v2)
-        name = "Spearman"
-    
-    # Create Plotly figure
-    fig = go.Figure()
-    
-    # Add scatter plot
-    fig.add_trace(go.Scatter(
-        x=v1,
-        y=v2,
-        mode='markers',
-        marker={
-            'size': 8,
-            'color': COLORS['primary'],
-            'line': {'color': 'white', 'width': 0.5},
-            'opacity': 0.7
-        },
-        name='Data points',
-        hovertemplate=f'{col1}: %{{x:.2f}}<br>{col2}: %{{y:.2f}}<extra></extra>'
-    ))
-    
-    # Add regression line for Pearson
-    if method == 'pearson':
-        try:
-            m, b = np.polyfit(v1, v2, 1)
-            x_line = np.array([v1.min(), v1.max()])
-            y_line = m * x_line + b
-            
-            fig.add_trace(go.Scatter(
-                x=x_line,
-                y=y_line,
-                mode='lines',
-                name='Linear fit',
-                line={'color': COLORS['danger'], 'width': 2, 'dash': 'dash'},
-                hovertemplate='Fitted line<extra></extra>'
-            ))
-        except Exception:
-            pass
-    
-    # Update layout
-    fig.update_layout(
-        title={
-            'text': f'{col1} vs {col2}<br><sub>{name} correlation (r={corr:.3f}, p={p:.4f})</sub>',
-            'x': 0.5,
-            'xanchor': 'center'
-        },
-        xaxis_title=col1,
-        yaxis_title=col2,
-        hovermode='closest',
-        plot_bgcolor='rgba(240, 240, 240, 0.5)',
-        height=500,
-        width=700,
-        font={'size': 12},
-        showlegend=True
-    )
-    
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    
-    return {"Method": name, "Coefficient": corr, "P-value": p, "N": len(data_numeric)}, None, fig
+
+    # === INTEGRATION: Cache Check ===
+    try:
+        data_hash = hash(tuple(data_numeric[col1].values.tobytes()) + tuple(data_numeric[col2].values.tobytes()))
+        cache_key = f"corr_{col1}_{col2}_{method}_{data_hash}"
+        
+        cached_result = COMPUTATION_CACHE.get(cache_key)
+        if cached_result:
+            logger.info(f"Cache hit for Correlation: {col1} vs {col2}")
+            return cached_result
+    except Exception as e:
+        logger.warning(f"Cache key generation failed: {e}")
+
+    try:
+        v1 = data_numeric[col1]
+        v2 = data_numeric[col2]
+        
+        if method == 'pearson':
+            # === INTEGRATION: Robust Execution ===
+            corr, p = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: stats.pearsonr(v1, v2)
+            )
+            name = "Pearson"
+        else:
+            # === INTEGRATION: Robust Execution ===
+            corr, p = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: stats.spearmanr(v1, v2)
+            )
+            name = "Spearman"
+        
+        # Create Plotly figure
+        fig = go.Figure()
+        
+        # Add scatter plot
+        fig.add_trace(go.Scatter(
+            x=v1,
+            y=v2,
+            mode='markers',
+            marker={
+                'size': 8,
+                'color': COLORS['primary'],
+                'line': {'color': 'white', 'width': 0.5},
+                'opacity': 0.7
+            },
+            name='Data points',
+            hovertemplate=f'{col1}: %{{x:.2f}}<br>{col2}: %{{y:.2f}}<extra></extra>'
+        ))
+        
+        # Add regression line for Pearson
+        if method == 'pearson':
+            try:
+                m, b = np.polyfit(v1, v2, 1)
+                x_line = np.array([v1.min(), v1.max()])
+                y_line = m * x_line + b
+                
+                fig.add_trace(go.Scatter(
+                    x=x_line,
+                    y=y_line,
+                    mode='lines',
+                    name='Linear fit',
+                    line={'color': COLORS['danger'], 'width': 2, 'dash': 'dash'},
+                    hovertemplate='Fitted line<extra></extra>'
+                ))
+            except Exception:
+                pass
+        
+        # Update layout
+        fig.update_layout(
+            title={
+                'text': f'{col1} vs {col2}<br><sub>{name} correlation (r={corr:.3f}, p={p:.4f})</sub>',
+                'x': 0.5,
+                'xanchor': 'center'
+            },
+            xaxis_title=col1,
+            yaxis_title=col2,
+            hovermode='closest',
+            plot_bgcolor='rgba(240, 240, 240, 0.5)',
+            height=500,
+            width=700,
+            font={'size': 12},
+            showlegend=True,
+            template='plotly_white'
+        )
+        
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
+        result_dict = {"Method": name, "Coefficient": corr, "P-value": p, "N": len(data_numeric)}
+        result = (result_dict, None, fig)
+        
+        # Store in cache
+        COMPUTATION_CACHE.set(cache_key, result)
+        
+        return result
+
+    except Exception as e:
+        logger.error(f"Error in Correlation calculation: {e}")
+        return None, f"Calculation Error: {str(e)}", None
 
 
 def generate_report(title, elements):
@@ -277,10 +349,7 @@ def generate_report(title, elements):
     Args:
         title (str): Report title
         elements (list[dict]): List of report elements
-            - type: 'text', 'table', 'interpretation', 'plot'
-            - data: Content
-            - header: Optional section header
-            
+        
     Returns:
         str: Complete HTML document
     """
@@ -402,7 +471,10 @@ def generate_report(title, elements):
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
         
         elif element_type == 'table':
-            html += data.to_html(index=True, classes='', escape=True)
+            if isinstance(data, pd.DataFrame):
+                html += data.to_html(index=True, classes='', escape=True)
+            else:
+                 html += f"<p>{_html.escape(str(data))}</p>"
         
         elif element_type == 'plot':
             if hasattr(data, 'to_html'):
