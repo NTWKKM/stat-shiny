@@ -14,3 +14,4 @@ shimmy
 shinywidgets
 requests
 psutil
+Jinja2
