@@ -8,6 +8,7 @@ OPTIMIZATIONS:
 - Pre-compute group masks (8x faster)
 - Batch numeric cleaning (3x faster)
 - Vectorized categorical comparisons
+- Integrated Caching & Memory Management
 """
 
 import pandas as pd
@@ -17,6 +18,11 @@ import statsmodels.api as sm
 import html as _html
 import warnings
 from logger import get_logger
+
+# === INTEGRATION: System Utilities ===
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
+from utils.cache_manager import COMPUTATION_CACHE
 
 try:
     from tabs._common import get_color_palette
@@ -69,7 +75,10 @@ def check_normality(series):
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            _stat, p_sw = stats.shapiro(clean)
+            # Wrap statistical test for robustness
+            _stat, p_sw = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: stats.shapiro(clean)
+            )
         return p_sw > 0.05
     except Exception:
         return False
@@ -219,9 +228,12 @@ def calculate_or_continuous_logit(df, feature_col, group_col, group1_val):
         
         try:
             model = sm.Logit(y, X_const)
-            result = model.fit(disp=0)
+            # === INTEGRATION: Connection Handler ===
+            # Retry model fitting if it fails transiently
+            result = CONNECTION_HANDLER.retry_with_backoff(lambda: model.fit(disp=0))
         except (np.linalg.LinAlgError, ValueError, RuntimeError):
             try:
+                # Fallback method
                 result = model.fit(method='bfgs', disp=0)
             except:
                 return "-"
@@ -313,19 +325,29 @@ def calculate_p_continuous(data_groups):
     
     all_normal = all(check_normality(g) for g in clean_groups)
     try:
+        # === INTEGRATION: Connection Handler ===
+        # Wrap statistical tests
         if all_normal:
             if num_groups == 2:
-                _s, p = stats.ttest_ind(clean_groups[0], clean_groups[1], nan_policy='omit')
+                _s, p = CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: stats.ttest_ind(clean_groups[0], clean_groups[1], nan_policy='omit')
+                )
                 test_name = "t-test"
             else:
-                _s, p = stats.f_oneway(*clean_groups)
+                _s, p = CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: stats.f_oneway(*clean_groups)
+                )
                 test_name = "ANOVA"
         else:
             if num_groups == 2:
-                _s, p = stats.mannwhitneyu(clean_groups[0], clean_groups[1], alternative='two-sided')
+                _s, p = CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: stats.mannwhitneyu(clean_groups[0], clean_groups[1], alternative='two-sided')
+                )
                 test_name = "Mann-Whitney U"
             else:
-                _s, p = stats.kruskal(*clean_groups)
+                _s, p = CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: stats.kruskal(*clean_groups)
+                )
                 test_name = "Kruskal-Wallis"
         return p, test_name
     except Exception as e:
@@ -343,11 +365,17 @@ def calculate_p_categorical(df, col, group_col):
             return np.nan, "-"
         
         is_2x2 = tab.shape == (2, 2)
-        _chi2, p_chi2, _dof, ex = stats.chi2_contingency(tab)
+        
+        # === INTEGRATION: Connection Handler ===
+        _chi2, p_chi2, _dof, ex = CONNECTION_HANDLER.retry_with_backoff(
+            lambda: stats.chi2_contingency(tab)
+        )
         
         if is_2x2 and ex.min() < 5:
             try:
-                _oddsr, p = stats.fisher_exact(tab)
+                _oddsr, p = CONNECTION_HANDLER.retry_with_backoff(
+                    lambda: stats.fisher_exact(tab)
+                )
                 return p, "Fisher's Exact"
             except Exception:
                 pass
@@ -369,15 +397,33 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
     - Pre-compute all group masks (8x faster)
     - Batch operations on DataFrames
     - Single-pass HTML generation
+    - Integrated Caching & Memory Management
     
     Returns:
         html_string
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     COLORS = get_color_palette()
     
     if or_style not in ('all_levels', 'simple'):
         raise ValueError(f"or_style must be 'all_levels' or 'simple'")
     
+    # === INTEGRATION: Cache Check ===
+    # Create robust cache key
+    try:
+        data_subset = df[selected_vars + ([group_col] if group_col and group_col != "None" else [])]
+        data_hash = hash(np.sum(pd.util.hash_pandas_object(data_subset).values))
+        cache_key = f"table1_{data_hash}_{hash(tuple(selected_vars))}_{group_col}_{or_style}"
+        
+        cached_result = COMPUTATION_CACHE.get(cache_key)
+        if cached_result:
+            logger.info("Cache hit for Table One generation")
+            return cached_result
+    except Exception as e:
+        logger.warning(f"Cache key generation failed: {e}")
+
     has_group = group_col is not None and group_col != "None"
     groups = []
     group_masks = {}  # OPTIMIZATION: Pre-compute all masks
@@ -735,5 +781,8 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
 </body>
 </html>
 """
+    
+    # === INTEGRATION: Set Cache ===
+    COMPUTATION_CACHE.set(cache_key, html)
 
     return html
