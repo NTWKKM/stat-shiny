@@ -19,6 +19,7 @@ from plotly.subplots import make_subplots
 from logger import get_logger
 from tabs._common import get_color_palette
 import warnings
+import hashlib
 
 # === INTEGRATION: System Stability & Memory ===
 from utils.memory_manager import MEMORY_MANAGER
@@ -141,7 +142,9 @@ class ForestPlot:
         colors[p_numeric.isna()] = 'black'
         
         return colors.tolist()
-    
+    def _stable_hash(data: bytes) -> str:
+        return hashlib.md5(data).hexdigest()
+        
     def _get_ci_width_colors(self, base_color: str) -> list:
         """
         OPTIMIZED: Pre-compute CI widths in single operation (5x faster).
@@ -151,7 +154,7 @@ class ForestPlot:
         """
         # === INTEGRATION: Cache ===
         # Use cache manager to store color calculations if repetitive
-        cache_key = f"ci_colors_{hash(self.data[self.ci_high_col].values.tobytes())}_{hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
+        cache_key = f"ci_colors_{_stable_hash(self.data[self.ci_high_col].values.tobytes())}_{_stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
         cached_res = COMPUTATION_CACHE.get(cache_key)
         if cached_res:
             return cached_res
@@ -250,7 +253,8 @@ class ForestPlot:
         OPTIMIZED: Build interactive forest plot with vectorized operations.
         """
         # === INTEGRATION: Memory Check ===
-        MEMORY_MANAGER.check_and_cleanup()
+        if not MEMORY_MANAGER.check_and_cleanup():
+            logger.warning("Memory critical during forest plot creation")
 
         if color is None:
             color = COLORS['primary']
