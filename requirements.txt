@@ -13,5 +13,4 @@ seaborn
 shimmy
 shinywidgets
 requests
-psutil
-Jinja2
+psutil>=5.9.0
