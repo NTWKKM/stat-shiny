@@ -14,6 +14,7 @@ Features:
 
 import hashlib
 import json
+import threading
 from datetime import datetime, timedelta
 from typing import Any, Optional, Dict
 from logger import get_logger
@@ -38,6 +39,7 @@ class ComputationCache:
             max_cache_size: Maximum number of items (LRU eviction after)
         """
         self.cache: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
         self.ttl = ttl_seconds
         self.max_cache_size = max_cache_size
         self.access_count = {}  # Track access frequency for LRU
@@ -105,13 +107,19 @@ class ComputationCache:
         
         # Implement simple LRU eviction
         if len(self.cache) >= self.max_cache_size:
-            # Remove least recently used item
-            lru_key = min(self.access_count.keys(), 
-                         key=lambda k: self.access_count.get(k, 0))
-            del self.cache[lru_key]
-            del self.access_count[lru_key]
-            logger.debug(f"♻️  Cache evicted LRU item (key={lru_key[:8]}...)")
-        
+            if not self.access_count:
+                # Fallback: remove arbitrary item if access_count is empty
+                evict_key = next(iter(self.cache.keys()))
+            else:
+                # Remove least recently used item
+                evict_key = min(self.access_count.keys(), 
+                              key=lambda k: self.access_count.get(k, 0))
+            
+            del self.cache[evict_key]
+            if evict_key in self.access_count:
+                del self.access_count[evict_key]
+            logger.debug(f"♻️  Cache evicted LRU item (key={evict_key[:8]}...)")
+            
         self.cache[key] = {
             'result': result,
             'expires_at': datetime.now() + timedelta(seconds=self.ttl),
