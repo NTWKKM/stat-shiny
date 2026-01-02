@@ -26,22 +26,12 @@ from tabs._common import get_color_palette
 
 def get_shiny_css():
     """
-    Returns comprehensive CSS for Shiny app styling with professional Navy Blue theme.
+    Provide a complete CSS stylesheet implementing the Navy Blue Shiny UI theme.
     
-    Includes:
-    - Global styles and typography
-    - Card and container styling
-    - Button styles (primary, secondary, danger, success)
-    - Form input styling
-    - Navigation and tabs
-    - Tables and data displays
-    - Status indicators and badges
-    - Responsive design
-    - Accessibility features
+    The stylesheet defines CSS variables and rules for root/global styles, layout and containers, typography, cards, buttons (primary, secondary, success, danger, warning, outline), form controls and selects, navigation and tabs, alerts, tables, badges and status indicators, utility classes, custom components (stat boxes, info panels, data grid), and responsive adjustments for mobile breakpoints.
     
-    Usage:
-        In your Shiny app UI:
-        ui.tags.head(ui.HTML(get_shiny_css()))
+    Returns:
+        css (str): A string containing a complete CSS stylesheet wrapped in a `<style>` tag, ready for inclusion in a Shiny UI.
     """
     COLORS = get_color_palette()
     
@@ -927,14 +917,14 @@ def get_shiny_css():
 
 def style_card_header(title: str, icon: str = "") -> str:
     """
-    Generate styled card header HTML.
+    Create a styled card header with a Navy Blue gradient and white bold text.
     
-    Args:
-        title: Header text
-        icon: Optional emoji or icon
-        
+    Parameters:
+        title (str): Text to display in the header.
+        icon (str): Optional emoji or icon string to prepend to the title.
+    
     Returns:
-        HTML string for card header
+        str: HTML string containing a <div> element representing the styled card header.
     """
     COLORS = get_color_palette()
     return f"""
@@ -953,7 +943,15 @@ def style_card_header(title: str, icon: str = "") -> str:
 
 
 def _hex_to_rgb(hex_color: str) -> str:
-    """Convert hex color to RGB values for rgba()."""
+    """
+    Convert a 6-digit hexadecimal color string to an RGB component string suitable for use in `rgba()`.
+    
+    Parameters:
+        hex_color (str): Hex color string (with or without a leading '#') containing exactly six hexadecimal digits.
+    
+    Returns:
+        str: Comma-separated decimal RGB values in the form "R, G, B", each in the range 0–255.
+    """
     hex_color = hex_color.lstrip('#')
     r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
     return f"{r}, {g}, {b}"
@@ -961,14 +959,14 @@ def _hex_to_rgb(hex_color: str) -> str:
 
 def style_status_badge(status: str, text: str) -> str:
     """
-    Generate styled status badge.
+    Create an inline HTML status badge styled according to the given status.
     
-    Args:
-        status: 'success', 'danger', 'warning', 'info'
-        text: Badge text
-        
+    Parameters:
+        status (str): One of 'success', 'danger', 'warning', or 'info'. Unrecognized values default to 'info'.
+        text (str): Visible label text for the badge.
+    
     Returns:
-        HTML string for status badge
+        str: HTML string for a styled inline badge with colored border, translucent background, and bold label.
     """
     COLORS = get_color_palette()
     color_map = {
@@ -1000,15 +998,15 @@ def style_status_badge(status: str, text: str) -> str:
 
 def style_alert(alert_type: str, message: str, title: str = "") -> str:
     """
-    Generate styled alert/notification box.
+    Create an HTML alert box styled for the Navy Blue theme.
     
-    Args:
-        alert_type: 'success', 'danger', 'warning', 'info'
-        message: Alert message
-        title: Optional alert title
-        
+    Parameters:
+        alert_type (str): One of 'success', 'danger', 'warning', or 'info' determining color and icon; unrecognized values use the info style.
+        message (str): The alert message content displayed inside the box.
+        title (str): Optional bolded title shown above the message.
+    
     Returns:
-        HTML string for alert
+        str: HTML string for a styled alert block with themed background, border, icon, and text color.
     """
     COLORS = get_color_palette()
     color_map = {

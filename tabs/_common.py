@@ -3,26 +3,15 @@ from shiny.ui import TagChild
 
 def wrap_with_container(content: TagChild) -> TagChild:
     """
-    Wraps UI content with the .app-container CSS class.
-    This applies the padding and max-width styling from _styling.py
+    Wrap provided Shiny UI content in a div with the "app-container" CSS class.
     
-    The .app-container class provides:
-    - max-width: 1400px (centers content on wide screens)
-    - margin: 0 auto (centers container)
-    - padding: 16px 24px 32px (nice whitespace around content)
-    - Responsive: padding adjusts on mobile devices
+    Applies a standardized page container for consistent padding, max-width, and horizontal centering across the app.
     
-    Args:
-        content: Shiny UI element(s) to wrap
-        
+    Parameters:
+        content (TagChild): Shiny UI element or elements to wrap.
+    
     Returns:
-        div with app-container class applied
-        
-    Usage:
-        @module.ui
-        def my_ui():
-            content = ui.card(...)
-            return wrap_with_container(content)
+        TagChild: A div element containing the provided content with the class "app-container".
     """
     return ui.div(
         content,
@@ -32,27 +21,10 @@ def wrap_with_container(content: TagChild) -> TagChild:
 
 def get_color_palette():
     """
-    Returns a unified color palette dictionary for all modules.
-    🎨 Professional Medical Analytics Theme - Navy Blue Edition
+    Provide a unified semantic color palette for the application's Navy Blue theme.
     
-    Primary Colors:
-    - primary: Navy (#1E3A5F) - Deep, professional, medical-grade
-    - primary_dark: Dark Navy (#0F2440) - Strong emphasis, table headers
-    - primary_light: Light Navy (#E8EEF7) - Backgrounds, accents
-    
-    Neutral Colors:
-    - smoke_white: #F8F9FA - Light gray-white for navbar background
-    - text: Dark gray (#1F2328) - Main text content
-    - text_secondary: Medium gray (#6B7280) - Secondary text
-    - border: Light gray (#E5E7EB) - Borders, dividers
-    - background: Off-white (#F9FAFB) - Page background
-    - surface: White (#FFFFFF) - Cards, containers
-    
-    Status Colors:
-    - success: Green (#22A765) - Positive, matched status, good balance
-    - danger: Red (#E74856) - Alerts, significant findings, imbalance
-    - warning: Amber (#FFB900) - Caution, non-critical warnings
-    - info: Gray-blue (#5A7B8E) - Informational text
+    Returns:
+        dict: Mapping of semantic color token names (e.g., 'primary', 'text', 'success') to hex color strings (e.g., '#1E3A5F').
     """
     return {
         # Primary colors - Navy Blue theme (professional, medical, authoritative)

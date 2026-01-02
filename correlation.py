@@ -32,23 +32,30 @@ COLORS = get_color_palette()
 
 def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_pos=None):
     """
-    OPTIMIZED: Compute chi-square or Fisher's exact test between two categorical variables.
+    Perform a chi-square test or Fisher's exact test between two categorical columns and produce formatted display and statistics.
     
-    Optimizations:
-    - Single crosstab computation, reused for all operations (4x faster)
-    - Vectorized string operations
-    - Integrated Caching & Memory Management
+    This function:
+    - Uses non-missing rows from df[col1] and df[col2].
+    - Builds a contingency table and a display table showing counts with row-wise percentages.
+    - Reorders rows/columns if v1_pos/v2_pos are provided (or sorts mixed numeric/string labels by default).
+    - Runs Fisher's exact test for 2x2 tables when method contains "Fisher"; otherwise runs chi-square (optionally with Yates correction when method contains "Yates").
+    - Returns a message string that may contain warnings (e.g., low expected counts) or error descriptions.
+    - Employs memory checks and caching; cached results may be returned when available.
     
-    Args:
-        df (pd.DataFrame): Source dataframe
-        col1 (str): Row (exposure) column name
-        col2 (str): Column (outcome) column name
-        method (str): Test method ('Fisher', 'Yates', or 'Pearson')
-        v1_pos: Position for row reordering
-        v2_pos: Position for column reordering
-        
+    Parameters:
+        df (pd.DataFrame): Source dataframe containing the analysis columns.
+        col1 (str): Row (exposure) column name.
+        col2 (str): Column (outcome) column name.
+        method (str): Test selection; recognized values include 'Fisher', 'Yates', or variants containing 'Pearson' or 'Yates'.
+        v1_pos: Optional value from col1 to force to the first row in the display order.
+        v2_pos: Optional value from col2 to force to the first column in the display order.
+    
     Returns:
         tuple: (display_tab, stats_df, msg, risk_df)
+            display_tab (pd.DataFrame): Table of formatted cells "count (percent%)" with rows indexed by col1.
+            stats_df (pd.DataFrame or None): Two-column dataframe with statistic names and values, or None on error.
+            msg (str): Informational or error message; empty string on success.
+            risk_df: Reserved for compatibility (currently None).
     """
     # === INTEGRATION: Memory Check ===
     MEMORY_MANAGER.check_and_cleanup()
@@ -89,7 +96,16 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         base_row_labels = [row for row in all_row_labels if row != 'Total']
         
         def get_original_label(label_str, df_labels):
-            """Find the original label from a collection."""
+            """
+            Retrieve the original label object whose string form matches a given label string.
+            
+            Parameters:
+                label_str (str): The label string to match against candidates' string representations.
+                df_labels (iterable): Iterable of candidate label objects (e.g., values from a DataFrame index or column).
+            
+            Returns:
+                The matching original label object from `df_labels` if found; otherwise returns `label_str`.
+            """
             for lbl in df_labels:
                 if str(lbl) == label_str:
                     return lbl
@@ -211,21 +227,19 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
 
 def calculate_correlation(df, col1, col2, method='pearson'):
     """
-    OPTIMIZED: Compute correlation between two numeric variables.
+    Compute Pearson or Spearman correlation between two numeric columns and return summary statistics plus a Plotly scatter plot (with a linear fit for Pearson).
     
-    Optimizations:
-    - Batch numeric conversion (2x faster)
-    - Vectorized operations
-    - Integrated Caching & Memory Management
+    Parameters:
+        df (pd.DataFrame): Source dataframe containing the two columns.
+        col1 (str): Name of the first column (x-axis).
+        col2 (str): Name of the second column (y-axis).
+        method (str): Correlation method, either 'pearson' or 'spearman'.
     
-    Args:
-        df (pd.DataFrame): Source dataframe
-        col1 (str): X-axis column name
-        col2 (str): Y-axis column name
-        method (str): 'pearson' or 'spearman'
-        
     Returns:
         tuple: (result_dict, error_msg, plotly_figure)
+            - result_dict (dict or None): On success, dict with keys "Method", "Coefficient", "P-value", and "N".
+            - error_msg (str or None): None on success; on failure, a short error message (e.g., "Columns not found", "Error: Need at least 2 numeric values.", or a calculation error).
+            - plotly_figure (plotly.graph_objs.Figure or None): Scatter plot of the data; includes a fitted linear line for Pearson when available.
     """
     # === INTEGRATION: Memory Check ===
     MEMORY_MANAGER.check_and_cleanup()
@@ -342,14 +356,25 @@ def calculate_correlation(df, col1, col2, method='pearson'):
 
 def generate_report(title, elements):
     """
-    Generate HTML report from elements.
+    Build an HTML report from a title and a list of renderable elements.
     
-    Args:
-        title (str): Report title
-        elements (list[dict]): List of report elements
-        
+    Each element in `elements` should be a dict with keys:
+    - `type` (str): one of 'text', 'interpretation', 'table', or 'plot'.
+    - `data`: content for the element. For 'table' a pandas.DataFrame will be rendered as HTML; otherwise the value is escaped and inserted as text. For 'plot' an object with a `to_html` method (e.g., a Plotly figure) will be embedded.
+    - `header` (optional str): section header displayed above the element.
+    
+    Behavior details:
+    - 'text': short "label: value" strings (under 150 characters) are rendered as a metric row; longer or unlabeled text is rendered as a paragraph.
+    - 'interpretation': rendered inside a styled interpretation block.
+    - 'table': DataFrame objects are converted to HTML; non-DataFrame values are escaped and placed in a paragraph.
+    - 'plot': objects exposing `to_html` are embedded via their HTML representation.
+    
+    Parameters:
+        title (str): Report title displayed at the top of the document.
+        elements (list[dict]): Ordered list of elements to include in the report.
+    
     Returns:
-        str: Complete HTML document
+        str: Complete HTML document as a string.
     """
     primary_color = COLORS['primary']
     primary_dark = COLORS['primary_dark']

@@ -32,11 +32,11 @@ class ComputationCache:
     
     def __init__(self, ttl_seconds: int = 1800, max_cache_size: int = 50):
         """
-        Initialize cache.
+        Create a thread-safe in-memory computation cache configured with TTL and maximum size for LRU eviction.
         
-        Args:
-            ttl_seconds: Cache item TTL in seconds (default 30 min)
-            max_cache_size: Maximum number of items (LRU eviction after)
+        Parameters:
+            ttl_seconds (int): Time-to-live for each cache entry in seconds; entries expire after this duration.
+            max_cache_size (int): Maximum number of cached items before least-recently-used eviction occurs.
         """
         self.cache: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
@@ -49,14 +49,14 @@ class ComputationCache:
     
     def _make_key(self, func_name: str, kwargs: dict) -> str:
         """
-        Create unique, deterministic cache key from function name + parameters.
+        Create a deterministic cache key from a function name and its keyword arguments.
         
-        Args:
-            func_name: Function identifier
-            kwargs: Parameters dict
+        Parameters:
+            func_name (str): Identifier of the function to include in the key.
+            kwargs (dict): Keyword arguments to include; values are serialized before hashing.
         
         Returns:
-            MD5 hash string
+            key (str): MD5 hex digest of the JSON-serialized representation of {func_name: kwargs}.
         """
         key_str = json.dumps({func_name: kwargs}, sort_keys=True, default=str)
         return hashlib.md5(key_str.encode()).hexdigest()
@@ -94,12 +94,14 @@ class ComputationCache:
     
     def set(self, func_name: str, result: Any, **kwargs) -> None:
         """
-        Store computation result with TTL.
+        Store a computation result in the cache with a time-to-live and LRU eviction.
         
-        Args:
-            func_name: Function identifier
-            result: Result to cache
-            **kwargs: Parameters used to create cache key
+        Inserts `result` under a deterministic key derived from `func_name` and `kwargs`, sets the entry's expiration to now + ttl, and initializes its access count to 1. If the cache has reached `max_cache_size`, evicts the least-recently-used entry before inserting. This operation acquires the cache's internal lock.
+        
+        Parameters:
+            func_name (str): Identifier for the computation used when generating the cache key.
+            result (Any): Value to store in the cache.
+            **kwargs: Parameters that contribute to the cache key generation.
         """
         key = self._make_key(func_name, kwargs)
         
@@ -128,7 +130,11 @@ class ComputationCache:
             logger.debug(f"💾 Cache SET for {func_name} (key={key[:8]}...)")
     
     def clear(self) -> None:
-        """Clear all cached items."""
+        """
+        Remove all entries from the cache and reset cache statistics.
+        
+        Clears per-key access counts and resets hit and miss counters to zero.
+        """
         with self._lock:
             count = len(self.cache)
             self.cache.clear()
@@ -139,10 +145,10 @@ class ComputationCache:
     
     def clear_expired(self) -> int:
         """
-        Remove expired entries from cache.
+        Remove all expired entries from the cache.
         
         Returns:
-            Number of expired items removed
+            int: The number of expired cache items that were removed.
         """
         with self._lock:
             expired_keys = [k for k, v in self.cache.items() 
@@ -160,10 +166,17 @@ class ComputationCache:
     
     def get_stats(self) -> dict:
         """
-        Get cache statistics.
+        Return a snapshot of cache performance and configuration metrics.
         
         Returns:
-            Dict with cache metrics
+            dict: Mapping of metrics:
+                - cached_items (int): Number of entries currently stored in the cache.
+                - max_size (int): Configured maximum number of cache entries.
+                - hits (int): Number of cache hits.
+                - misses (int): Number of cache misses.
+                - hit_rate (str): Hit rate formatted as a percentage string (e.g. "75.0%").
+                - ttl_seconds (int): Time-to-live for cache entries in seconds.
+                - total_requests (int): Sum of hits and misses.
         """
         with self._lock:
             total_requests = self.hits + self.misses
@@ -180,6 +193,12 @@ class ComputationCache:
             }
     
     def __repr__(self) -> str:
+        """
+        Provide a compact string describing the cache's current item count and hit rate.
+        
+        Returns:
+            str: A string in the form "ComputationCache(cached=X/Y, hit_rate=Z)" where X is the current number of cached items, Y is the maximum cache size, and Z is the hit rate percentage.
+        """
         stats = self.get_stats()
         return f"ComputationCache(cached={stats['cached_items']}/{stats['max_size']}, hit_rate={stats['hit_rate']})"
 

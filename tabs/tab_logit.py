@@ -22,8 +22,17 @@ COLORS = get_color_palette()
 # ==============================================================================
 def check_perfect_separation(df, target_col):
     """
-    Identify columns causing perfect separation.
-    Optimized to match logic.py's robust handling.
+    Identify predictor columns that may cause perfect separation with respect to the specified target.
+    
+    Parameters:
+        df (pandas.DataFrame): Input dataset containing predictors and the target column.
+        target_col (str): Name of the target/outcome column to test against.
+    
+    Returns:
+        list: Names of predictor columns that show potential perfect separation. Returns an empty list if the target column is missing or has fewer than two unique (non-NaN) values.
+    
+    Notes:
+        Detection is performed by converting predictors to numeric, aligning rows with the target, constructing a contingency table between each predictor and the target, and flagging predictors where any contingency cell equals zero.
     """
     risky_vars = []
     
@@ -60,7 +69,15 @@ def check_perfect_separation(df, target_col):
     return risky_vars
 
 def _find_smart_outcome(outcome_cols):
-    """Find best outcome column using priorities: Example names > Keywords > First available."""
+    """
+    Select the most appropriate outcome column name from a list using prioritized heuristics.
+    
+    Parameters:
+        outcome_cols (list[str]): Candidate column names to evaluate.
+    
+    Returns:
+        str | None: The chosen column name — prefers exact matches from a small set of example target names, then the first column containing common outcome-related keywords (case-insensitive), and otherwise the first item in the list; returns `None` if the input list is empty.
+    """
     if not outcome_cols:
         return None
         
@@ -80,7 +97,17 @@ def _find_smart_outcome(outcome_cols):
     return outcome_cols[0]
 
 def _find_smart_treatment(binary_cols):
-    """Find best treatment column using priorities: Example names > Keywords."""
+    """
+    Selects the best binary treatment/exposure column from candidate column names.
+    
+    Chooses "Treatment_Group" if present; otherwise returns the first candidate whose name contains any treatment-related keyword (`treat`, `group`, `drug`, `arm`, `interv`, `exposure`). If no suitable column is found, returns `None`.
+    
+    Parameters:
+        binary_cols (iterable[str]): Candidate binary column names to choose from.
+    
+    Returns:
+        str or None: The chosen column name, or `None` if no treatment-like column is found.
+    """
     if not binary_cols:
         return None
         
@@ -98,7 +125,19 @@ def _find_smart_treatment(binary_cols):
     return None
 
 def _find_smart_subgroup(sg_cols, selected_outcome, selected_treatment):
-    """Find best subgroup column, avoiding outcome/treatment vars."""
+    """
+    Select the most appropriate subgroup column while excluding the chosen outcome and treatment.
+    
+    Prefers the first candidate whose name contains common subgroup keywords ('sex', 'gender', 'age_group', 'bmi_group', 'stage', 'grade'); if none match, returns the first remaining candidate.
+    
+    Parameters:
+        sg_cols (Iterable[str]): Candidate subgroup column names.
+        selected_outcome (str | None): Column name chosen as outcome; will be excluded from candidates.
+        selected_treatment (str | None): Column name chosen as treatment; will be excluded from candidates.
+    
+    Returns:
+        str | None: The selected subgroup column name, or `None` if no suitable candidate exists.
+    """
     if not sg_cols:
         return None
         
@@ -121,6 +160,17 @@ def _find_smart_subgroup(sg_cols, selected_outcome, selected_treatment):
 # ==============================================================================
 @module.ui
 def logit_ui():
+    """
+    Builds the main navigation UI for the logit module with tabs for regression, subgroup analysis, and reference.
+    
+    Assembles a navset card containing:
+    - Regression Analysis: controls for model type, outcome selection, method settings, interaction management, exclusion list, run/download actions, and result panels for forest plots and a detailed HTML report.
+    - Subgroup Analysis: core variable selectors, adjustment controls, custom title, run action, forest plot with editable title, summary/interpretation panels, detailed results table, and export buttons.
+    - Reference: static markdown documenting model types, interaction guidance, and available regression methods.
+    
+    Returns:
+        ui_component: A Shiny UI navset card object containing the three assembled tabs and their child controls.
+    """
     return ui.navset_card_tab(
         # =====================================================================
         # TAB 1: Regression Analysis (Renamed from Binary Logit)
@@ -334,6 +384,19 @@ def logit_ui():
 def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     
     # --- State Management ---
+    """
+    Initialize and register server-side reactive handlers and UI renderers for the logistic/poisson regression Shiny module.
+    
+    Sets up application state and reactive computations to:
+    - manage current dataset selection (original vs matched),
+    - perform smart input discovery and updates based on dataset and selected model type,
+    - add, list, and remove interaction terms,
+    - detect predictors at risk of perfect separation (logistic only) and render a warning,
+    - run and cache regression analyses (logistic or Poisson), generate HTML reports and forest plots, and expose a download for the report,
+    - run and cache subgroup analyses, render subgroup forest plots, summary metrics, interpretation, result tables, and provide CSV/JSON/HTML downloads.
+    
+    Parameters are the standard Shiny server bindings and reactive data containers used by the module (input, output, session, df, var_meta, df_matched, is_matched).
+    """
     logit_res = reactive.Value(None)     # Store main logit results
     subgroup_res = reactive.Value(None)  # Store subgroup results
     subgroup_analyzer = reactive.Value(None) # Store analyzer instance
@@ -345,12 +408,26 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     # --- 1. Dataset Selection Logic ---
     @reactive.Calc
     def current_df():
+        """
+        Return the dataset currently active in the UI.
+        
+        Returns:
+            pandas.DataFrame: The matched dataset if matching is enabled and the dataset source selection equals "matched"; otherwise the original dataset.
+        """
         if is_matched.get() and input.radio_dataset_source() == "matched":
             return df_matched.get()
         return df.get()
 
     @render.ui
     def ui_dataset_selector():
+        """
+        Render a dataset source selector that lets the user choose between the original and matched datasets when matching is enabled, otherwise show a read-only label with the original row count.
+        
+        When matching is enabled, displays radio buttons labeled "Original (N)" and "Matched (M)" with "matched" selected by default. When matching is disabled, displays a muted paragraph "Using Original Data (N rows)".
+        
+        Returns:
+            A UI component: either a radio-buttons input widget (with keys "original" and "matched") or a paragraph element showing the original dataset row count.
+        """
         if is_matched.get():
             original = df.get()
             matched = df_matched.get()
@@ -377,6 +454,9 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.Effect
     @reactive.event(input.sel_model_type, ignore_init=True)
     def _notify_on_model_type_change():
+        """
+        Display a warning notification informing the user that the model type changed and prompting verification of the selected outcome.
+        """
         m_type = input.sel_model_type()
         ui.notification_show(
             f"Model type changed to {m_type.capitalize()}. Please verify outcome selection.",
@@ -386,6 +466,11 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @reactive.Effect
     def _update_inputs():
+        """
+        Refreshes UI input choices based on the currently selected dataset and model type.
+        
+        Inspects the active dataset and model type to compute candidate outcome, treatment, interaction, and subgroup variables, chooses sensible default selections for outcome, treatment, and subgroup, and updates the corresponding UI controls (sel_outcome, sel_exclude, int_var1, int_var2, sg_outcome, sg_treatment, sg_subgroup, sg_adjust).
+        """
         d = current_df()
         if d is None or d.empty: return
         
@@ -438,6 +523,11 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.Effect
     @reactive.event(input.btn_add_interaction)
     def _add_interaction():
+        """
+        Add a new interaction term from the currently selected interaction variables.
+        
+        Reads the selected interaction variables from the inputs and, if both selections are present and different, appends the interaction term "var1:var2" to the shared interaction_list; shows a confirmation notification on successful add or a warning if the term already exists.
+        """
         v1 = input.int_var1()
         v2 = input.int_var2()
         if v1 and v2 and v1 != v2:
@@ -452,6 +542,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def ui_interaction_list():
+        """
+        Render the current list of interaction terms with per-term removal buttons and a "Clear All" control.
+        
+        When there are no interaction terms, returns a muted span indicating none have been added. Otherwise returns a container with each term displayed as a badge alongside a removal action button and a separate "Clear All" button.
+         
+        Returns:
+            ui.Tag: A Shiny UI fragment containing either a muted message or a set of term badges with removal buttons and a "Clear All" action.
+        """
         terms = interaction_list.get()
         if not terms:
             return ui.span("No interactions added.", style="color: gray; font-size: 0.9em;")
@@ -482,8 +580,9 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.Effect
     def _handle_interaction_removal():
         """
-        Dynamically handle removal of interaction terms.
-        This polls the buttons associated with current interactions.
+        Detects clicks on interaction-term removal buttons and removes the corresponding term.
+        
+        Scans the current interaction removal button inputs to find which button's click count increased, removes the associated term from the shared interaction_list, updates last_remove_clicks to the latest click counts, and shows a UI notification naming the removed interaction.
         """
         terms = interaction_list.get()
         # Create dependency on potential buttons
@@ -527,6 +626,11 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.Effect
     @reactive.event(input.btn_clear_interactions)
     def _clear_interactions():
+        """
+        Clear all configured interaction terms from the current interaction list.
+        
+        This resets the stored interactions to an empty list.
+        """
         interaction_list.set([])
 
 
@@ -534,6 +638,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @render.ui
     def ui_separation_warning():
         # Only relevant for Logistic
+        """
+        Render a perfect-separation warning block when the selected model is logistic and predictors that cause perfect separation with the chosen outcome are found.
+        
+        Checks the current dataset and selected outcome; if any risky predictors are detected by check_perfect_separation, returns a UI div containing a warning title, a list of the risky variable names, and a brief recommendation. If the selected model is not logistic, there is no dataset or outcome, or no risky predictors are found, returns None.
+        
+        Returns:
+            ui.Element: Warning UI block listing risky variables, or `None` if no warning should be displayed.
+        """
         if input.sel_model_type() != 'logistic':
             return None
             
@@ -555,11 +667,22 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     # ==========================================================================
     @reactive.Calc
     def logit_cached_res():
+        """
+        Retrieve the current cached regression results for the logit/subgroup module.
+        
+        Returns:
+            dict or None: Cached results dictionary with keys such as 'html', 'fig_adj', 'fig_crude', and 'model_type', or `None` if no results are cached.
+        """
         return logit_res.get()
 
     @reactive.Effect
     @reactive.event(input.btn_run_logit)
     def _run_logit():
+        """
+        Run the configured regression (logistic or Poisson), produce an HTML report and forest plots, and cache the results for the UI.
+        
+        This function reads the current dataset and UI inputs (selected outcome, excluded variables, regression method, model type, and interaction terms), validates presence of data and outcome, executes the model-processing pipeline, and generates adjusted and crude forest plot figures when available. On success it stores a result dictionary in `logit_res` with keys `html`, `fig_adj`, `fig_crude`, and `model_type`, shows a completion notification, and performs targeted garbage collection. On errors it shows an error/warning notification and logs the exception.
+        """
         d = current_df()
         target = input.sel_outcome()
         exclude = input.sel_exclude()
@@ -642,6 +765,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     # --- Render Main Results (Use Cached Results) ---
     @render.ui
     def out_logit_status():
+        """
+        Render a status banner indicating completion of the most recent regression analysis.
+        
+        When cached regression results exist, the banner displays the analysis type (derived from the stored `model_type`) and a completion message; otherwise no UI element is produced.
+        
+        Returns:
+            ui.Element | None: A styled UI div element containing the completion banner if results are available, or `None` when no results are cached.
+        """
         res = logit_cached_res()
         if res:
             m_type = res.get('model_type', 'Regression').capitalize()
@@ -653,6 +784,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def out_html_report():
+        """
+        Render the Detailed Report card showing the generated HTML report or a placeholder message.
+        
+        Displays the cached regression HTML report inside a UI card when available; otherwise returns a card with a centered gray italic placeholder prompting the user to run the analysis.
+        
+        Returns:
+            ui_component: A Shiny UI card containing the HTML report if present, or a placeholder card otherwise.
+        """
         res = logit_cached_res()
         if res:
             return ui.card(
@@ -669,6 +808,12 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def ui_forest_tabs():
+        """
+        Builds the forest-plot tab set for the regression results UI.
+        
+        Returns:
+        	A UI component containing one or two tabs for available forest plots ("Crude OR/IRR" and/or "Adjusted OR/IRR") when cached results exist; otherwise returns a centered informational placeholder indicating no available plots or that analysis must be run.
+        """
         res = logit_cached_res()
         if not res: 
             return ui.div(
@@ -691,18 +836,36 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render_widget
     def out_forest_adj():
+        """
+        Return the cached adjusted forest plot figure for the most recent regression results.
+        
+        Returns:
+            plotly.graph_objs.Figure or None: The adjusted forest plot figure if available, otherwise None.
+        """
         res = logit_cached_res()
         if res and res['fig_adj']: return res['fig_adj']
         return None
 
     @render_widget
     def out_forest_crude():
+        """
+        Provide the cached crude forest plot figure for the most recent regression results when available.
+        
+        Returns:
+            plotly.graph_objects.Figure or None: The crude forest plot figure from the cached results, or `None` if no cached crude figure exists.
+        """
         res = logit_cached_res()
         if res and res['fig_crude']: return res['fig_crude']
         return None
 
     @render.download(filename="regression_report.html")
     def btn_dl_report():
+        """
+        Yield the cached regression HTML report when available.
+        
+        Yields:
+            The cached HTML report as a string if present; yields nothing if no cached result exists.
+        """
         res = logit_cached_res()
         if res: yield res['html']
 
@@ -711,15 +874,38 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     # ==========================================================================
     @reactive.Calc
     def subgroup_cached_res():
+        """
+        Retrieve the current cached subgroup analysis results.
+        
+        Returns:
+            The subgroup results object (typically a dict or a SubgroupAnalysis result structure), or `None` if no results are cached.
+        """
         return subgroup_res.get()
 
     @reactive.Calc
     def subgroup_cached_analyzer():
+        """
+        Get the current subgroup analyzer instance from the reactive cache.
+        
+        Returns:
+            SubgroupAnalysisLogit | None: The stored subgroup analyzer if present, otherwise `None`.
+        """
         return subgroup_analyzer.get()
 
     @reactive.Effect
     @reactive.event(input.btn_run_subgroup)
     def _run_subgroup():
+        """
+        Run subgroup analysis using selected UI inputs and cache the results.
+        
+        Validates that a dataset is loaded and required subgroup inputs (outcome, treatment, subgroup)
+        are provided. Constructs a SubgroupAnalysisLogit for the current dataset, runs its
+        analyze(...) method with chosen outcome, treatment, subgroup, adjustment covariates, and
+        minimum subgroup size, then stores the resulting analysis and analyzer instance in
+        the module-level caches `subgroup_res` and `subgroup_analyzer`. On success shows a
+        completion notification and triggers garbage collection. On failure shows an error
+        notification and logs the exception.
+        """
         d = current_df()
         
         if d is None or d.empty:
@@ -755,6 +941,12 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def out_subgroup_status():
+        """
+        Render a compact completion banner when subgroup analysis results are available.
+        
+        Returns:
+            ui_tag (shiny.ui.Tag or None): A styled div containing a "Subgroup Analysis Complete" message when subgroup results exist, `None` otherwise.
+        """
         res = subgroup_cached_res()
         if res:
             return ui.div(
@@ -765,6 +957,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render_widget
     def out_sg_forest_plot():
+        """
+        Render the subgroup forest plot using the current subgroup analyzer and title inputs.
+        
+        Chooses the plot title from the edited forest title input if provided, otherwise from the subgroup title input, and returns the analyzer's forest plot configured with that title.
+        
+        Returns:
+            plot (object or None): The subgroup forest plot (typically a Plotly Figure) created by the analyzer, or `None` if no subgroup analyzer is available.
+        """
         analyzer = subgroup_cached_analyzer()
         if analyzer:
             title = input.txt_edit_forest_title() or input.sg_title() or None
@@ -774,10 +974,22 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @reactive.Effect
     @reactive.event(input.btn_update_plot_title)
     def _update_sg_title():
+        """
+        Force a refresh of the cached subgroup analyzer so dependent UI components and renderers pick up updated title or metadata.
+        
+        This reassigns the stored analyzer to its current value to trigger observers; it does not return a value.
+        """
         subgroup_analyzer.set(subgroup_analyzer.get())
 
     @render.text
     def val_overall_or():
+        """
+        Format and return the overall odds ratio from cached subgroup results.
+        
+        Returns:
+            str: The overall odds ratio formatted to three decimal places if available (e.g., "1.234");
+                 "N/A" if subgroup results exist but the overall OR is missing; "-" if no subgroup results are cached.
+        """
         res = subgroup_cached_res()
         if res:
             overall = res.get('overall', {})
@@ -787,12 +999,26 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.text
     def val_overall_p():
+        """
+        Get the overall p-value from cached subgroup results formatted to four decimal places.
+        
+        Returns:
+            str: Overall p-value as a string with four decimal places (e.g., "0.0123"), or "-" if no subgroup results are available.
+        """
         res = subgroup_cached_res()
         if res: return f"{res['overall']['p_value']:.4f}"
         return "-"
     
     @render.text
     def val_interaction_p():
+        """
+        Format the interaction p-value from cached subgroup results for display.
+        
+        If subgroup results are present, returns the interaction p-value formatted to four decimal places; if the p-value is missing (`None`), returns "N/A". If no subgroup results are cached, returns "-".
+        
+        Returns:
+            str: Formatted p-value (e.g. "0.0123"), "N/A" when p-value is missing, or "-" when no results are available.
+        """
         res = subgroup_cached_res()
         if res:
              p_int = res['interaction']['p_value']
@@ -801,6 +1027,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.ui
     def out_interpretation_box():
+        """
+        Render an interpretation alert for the current subgroup analysis results.
+        
+        When subgroup results and analyzer are available, returns a UI div containing an icon and the analyzer's interpretation text; the alert style reflects whether the interaction is significant (`alert-warning` if significant, `alert-success` otherwise). Returns None when no subgroup results or analyzer are available.
+        
+        Returns:
+            ui.div or None: A Shiny UI div with the interpretation and corresponding alert CSS class, or `None` if no data is present.
+        """
         res = subgroup_cached_res()
         analyzer = subgroup_cached_analyzer()
         if res and analyzer:
@@ -813,6 +1047,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     @render.data_frame
     def out_sg_table():
+        """
+        Render a data grid showing available subgroup result columns (group, sample sizes, events, effect estimates, confidence bounds, and p-values) rounded to 4 decimal places.
+        
+        If subgroup results exist, selects the subset of columns present from ['group', 'n', 'events', 'or', 'ci_low', 'ci_high', 'p_value'], rounds numeric values to 4 decimal places, and returns a DataGrid widget for display; if no results are available, returns None.
+        
+        Returns:
+            DataGrid or None: A render.DataGrid containing the filtered and rounded subgroup results, or `None` when no subgroup results are cached.
+        """
         res = subgroup_cached_res()
         if res:
             df_res = res['results_df'].copy()
@@ -824,18 +1066,35 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     # --- Subgroup Downloads ---
     @render.download(filename=lambda: f"subgroup_plot_{input.sg_subgroup()}.html")
     def dl_sg_html():
+        """
+        Produce HTML markup for the subgroup analysis figure when one is available.
+        
+        Returns:
+            html (str): HTML string for the subgroup figure (Plotly-generated) if the analyzer and its figure exist; otherwise nothing is yielded.
+        """
         analyzer = subgroup_cached_analyzer()
         if analyzer and analyzer.figure:
             yield analyzer.figure.to_html(include_plotlyjs='cdn')
 
     @render.download(filename=lambda: f"subgroup_res_{input.sg_subgroup()}.csv")
     def dl_sg_csv():
+        """
+        Generate CSV text for the cached subgroup analysis results.
+        
+        If subgroup results are available, yields a single CSV-formatted string representing the results dataframe without an index column; yields no items if no cached results exist.
+        """
         res = subgroup_cached_res()
         if res:
             yield res['results_df'].to_csv(index=False)
 
     @render.download(filename=lambda: f"subgroup_data_{input.sg_subgroup()}.json")
     def dl_sg_json():
+        """
+        Yield a JSON-formatted string representing cached subgroup analysis results.
+        
+        Yields:
+            A JSON string of the cached subgroup results formatted with 2-space indentation; values that are not JSON-serializable are converted to strings. If no cached results exist, nothing is yielded.
+        """
         res = subgroup_cached_res()
         if res:
             yield json.dumps(res, indent=2, default=str)

@@ -93,16 +93,21 @@ def _sort_groups_vectorized(groups):
 
 def calculate_median_survival(df, duration_col, event_col, group_col):
     """
-    OPTIMIZED: Calculate Median Survival Time and 95% CI for each group.
+    Compute median survival times and 95% confidence intervals per group (or overall).
     
-    Optimizations:
-    - Vectorized median calculations
-    - Batch CI computations
-    - Cached results
-    - Memory managed execution
+    Parameters:
+        df (pd.DataFrame): Input dataset containing durations, event indicators, and optional group labels.
+        duration_col (str): Column name with follow-up times.
+        event_col (str): Column name with event indicators (expected values: 0/1 or boolean).
+        group_col (str or None): Optional column name for grouping; when None computes overall median.
     
     Returns:
-        pd.DataFrame: Table with 'Group', 'N', 'Events', and 'Median (95% CI)'
+        pd.DataFrame: Table with columns 'Group', 'N', 'Events', and 'Median Time (95% CI)' where
+        'Median Time (95% CI)' is a formatted string like "12.3 (8.0-15.6)" or "Not Reached" / "-" for empty groups.
+    
+    Raises:
+        ValueError: If required columns are missing, if duration/event columns are not numeric, or if event_col
+        contains values other than 0/1 or boolean.
     """
     missing = []
     if duration_col not in df.columns:
@@ -128,6 +133,18 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
 
     def _compute_median():
         # === INTEGRATION: Memory Check ===
+        """
+        Compute median survival times and 95% confidence intervals for each group (or overall) and return a summary table.
+        
+        Processes the outer-scope DataFrame `df`, using `duration_col` and `event_col`; if `group_col` is provided, computes results per group, otherwise computes an overall estimate. Rows with missing duration or event (and group when grouping) are excluded. Validates that duration is numeric and event contains only 0/1 or boolean values. For each group the function reports sample size, number of events, and a formatted median with its 95% CI; when the median is not estimable the function returns "Not Reached", and groups with no observations show "-" for the median field.
+        
+        Returns:
+            pandas.DataFrame: A table with columns:
+                - "Group": group label or "Overall"
+                - "N": number of observations used for the estimate
+                - "Events": number of observed events
+                - "Median Time (95% CI)": formatted median and CI string (e.g., "12.3 (8.0-16.5)"), "Not Reached" if median not estimable, or "-" for groups with no data
+        """
         MEMORY_MANAGER.check_and_cleanup()
 
         data = df.dropna(subset=[duration_col, event_col])
@@ -181,6 +198,15 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
                 
                 # Vectorized formatting
                 def fmt(v) -> str:
+                    """
+                    Format a numeric-like value as a one-decimal string, using "NR" for missing or infinite values.
+                    
+                    Parameters:
+                        v: A numeric or numeric-like value that may be NaN or infinite.
+                    
+                    Returns:
+                        A string containing `v` formatted with one decimal place, or `"NR"` if `v` is NaN or infinite.
+                    """
                     if pd.isna(v) or np.isinf(v):
                         return "NR"
                     return f"{v:.1f}"
@@ -208,10 +234,21 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
 
 def fit_km_logrank(df, duration_col, event_col, group_col):
     """
-    OPTIMIZED: Fit KM curves and perform Log-rank test.
+    Fit Kaplan–Meier survival curves for each group (or overall) and perform log-rank tests, returning a Plotly figure and a small statistics table.
+    
+    Parameters:
+        df (pandas.DataFrame): Input dataset containing duration, event, and optional group columns.
+        duration_col (str): Name of the column with time-to-event or censoring durations.
+        event_col (str): Name of the binary event indicator column (1=event, 0=censored).
+        group_col (str or None): Name of the grouping column to stratify KM curves; if None, a single overall curve is produced.
     
     Returns:
-        tuple: (plotly_fig, stats_df)
+        tuple: (fig, stats_df)
+            fig (plotly.graph_objs.Figure): Kaplan–Meier plot with survival lines and optional 95% CI ribbons per group.
+            stats_df (pandas.DataFrame): One-row DataFrame summarizing the log-rank test result or a note when no test was performed.
+    
+    Raises:
+        ValueError: If required columns are missing or there is no valid data after filtering.
     """
     # === CACHE KEY ===
     # We cache the calculated plotting data and stats, not the Figure object itself
@@ -226,6 +263,29 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
 
     def _compute_km_data():
         # === INTEGRATION: Memory Check ===
+        """
+        Generate Kaplan–Meier plot data for each group and compute log-rank test statistics.
+        
+        Builds per-group KM traces suitable for plotting and a one-row pandas DataFrame summarizing log-rank test results. Each trace dict contains:
+        - 'label': display label for the trace
+        - 'times': list of time points for the survival function
+        - 'probs': list of survival probabilities corresponding to `times`
+        - 'ci_times': list of time points for the confidence interval (may be empty)
+        - 'ci_lower': list of lower CI values aligned with `ci_times` (may be empty)
+        - 'ci_upper': list of upper CI values aligned with `ci_times` (may be empty)
+        
+        Raises:
+            ValueError: if the specified group column is missing from the DataFrame or if no valid rows remain after dropping NA in `duration_col`/`event_col`.
+        
+        Returns:
+            tuple: (plot_data, stats_df)
+            - plot_data (list[dict]): list of per-group trace dictionaries described above.
+            - stats_df (pandas.DataFrame): single-row DataFrame summarizing the log-rank test:
+                * For two groups: Test='Log-Rank (Pairwise)', Statistic, P-value, Comparison.
+                * For >2 groups: Test='Log-Rank (Multivariate)', Statistic, P-value, Comparison='All groups'.
+                * For single/no group: Test='None' with a Note.
+                * If the log-rank computation raises an exception, Test='Error' and Note contains the error message.
+        """
         MEMORY_MANAGER.check_and_cleanup()
 
         data = df.dropna(subset=[duration_col, event_col])
@@ -370,10 +430,21 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
 
 def fit_nelson_aalen(df, duration_col, event_col, group_col):
     """
-    OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
+    Fit Nelson–Aalen cumulative hazard curves for each group (or overall) and return a Plotly figure plus a summary statistics DataFrame.
+    
+    Parameters:
+        df (pd.DataFrame): Input dataset containing duration, event, and optional group columns.
+        duration_col (str): Name of the column with follow-up times.
+        event_col (str): Name of the column with event indicator (0/1 or boolean).
+        group_col (str or None): Name of the column defining groups. If None or falsy, analysis is performed overall.
     
     Returns:
-        tuple: (plotly_fig, stats_df)
+        tuple:
+            fig (plotly.graph_objs.Figure): Plotly figure with cumulative hazard lines per group and optional 95% CI ribbons.
+            stats_df (pd.DataFrame): Summary table with columns ['Group', 'N', 'Events'] describing sample size and event counts per group.
+    
+    Raises:
+        ValueError: If no valid rows remain after dropping NaNs in duration/event, or if a specified group_col is missing from df.
     """
     # === CACHE KEY ===
     cache_key_params = {
@@ -387,6 +458,22 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
 
     def _compute_na_data():
         # === INTEGRATION: Memory Check ===
+        """
+        Prepare per-group Nelson–Aalen cumulative hazard trace data and a summary statistics table.
+        
+        This inner helper fits a NelsonAalenFitter for each group (or overall when no group column is provided), extracts times, cumulative hazard and optional confidence-interval vectors in a cache-friendly structure, and collects per-group sample sizes and event counts.
+        
+        Returns:
+            tuple: (plot_data, stats_df)
+                - plot_data (list): List of dicts per group with keys:
+                    'label' (str), 'times' (list[float]), 'hazard' (list[float]),
+                    'ci_times' (list[float]), 'ci_lower' (list[float]), 'ci_upper' (list[float]).
+                    CI lists are empty when no confidence interval is available.
+                - stats_df (pandas.DataFrame): DataFrame with columns ['Group', 'N', 'Events'] summarizing each group.
+        
+        Raises:
+            ValueError: If there are no valid rows after dropping NA from duration/event, or if a specified group column is missing.
+        """
         MEMORY_MANAGER.check_and_cleanup()
 
         data = df.dropna(subset=[duration_col, event_col])
@@ -498,10 +585,22 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
 
 def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     """
-    Fit Cox proportional hazards model.
+    Fit a Cox proportional hazards model on the provided dataset and return the fitted model, summarized results, processed data, and any error message.
+    
+    Performs input validation, one-hot encodes categorical covariates (drop-first), standardizes numeric covariates, checks data quality (infinite/extreme/zero-variance values), and attempts fitting with progressively stronger L2 penalization if needed.
+    
+    Parameters:
+        df (pd.DataFrame): Source dataframe containing duration, event, and covariate columns.
+        duration_col (str): Column name for follow-up time.
+        event_col (str): Column name for event indicator (0/1 or boolean).
+        covariate_cols (Iterable[str]): List of covariate column names to include in the model.
     
     Returns:
         tuple: (cph, res_df, data, error_msg)
+            cph: Fitted lifelines.CoxPHFitter instance if fitting succeeded, otherwise None.
+            res_df (pd.DataFrame or None): Result table with columns `HR`, `95% CI Lower`, `95% CI Upper`, `P-value`, and `Method` for each covariate; None if fitting failed.
+            data (pd.DataFrame): Processed dataframe used for fitting (after dropping missing rows and encoding); returned even on errors to aid debugging.
+            error_msg (str or None): Error message describing why fitting failed (missing columns, data quality issues, convergence failure, etc.), or None on success.
     """
     # === CACHE KEY ===
     # Include covariates in key
@@ -521,6 +620,24 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     def _fit_cox_model():
         # === INTEGRATION: Memory Check ===
         # CoxPH is memory intensive, critical to check here
+        """
+        Attempt to fit a Cox proportional hazards model on the prepared dataset and return the fitted model, results, and any error.
+        
+        Performs data presence and quality checks, encodes categorical covariates, standardizes numeric covariates, and tries multiple penalization strategies until a convergent fit is found.
+        
+        Returns:
+            tuple:
+                cph (CoxPHFitter or None): The fitted CoxPHFitter instance on success, `None` on failure.
+                res_df (pandas.DataFrame or None): Result summary with columns:
+                    - `HR`: hazard ratio (exp(coef))
+                    - `95% CI Lower`: lower bound of the 95% CI for the HR
+                    - `95% CI Upper`: upper bound of the 95% CI for the HR
+                    - `P-value`: p-value for the coefficient
+                    - `Method`: the fitting method/penalizer used.
+                  `None` if fitting failed.
+                data (pandas.DataFrame): The processed dataset used for fitting (after dropping missing values and any one-hot encoding).
+                error_msg (str or None): `None` on successful fit; otherwise a descriptive error message explaining why fitting did not proceed or failed (e.g., missing columns, no events, data quality issues, or convergence failures).
+        """
         MEMORY_MANAGER.check_and_cleanup()
 
         missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
@@ -637,11 +754,16 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
 
 def check_cph_assumptions(cph, data):
     """
-    OPTIMIZED: Generate proportional hazards test report and Schoenfeld residual plots.
-    Includes automated violation checks (p < 0.05).
+    Evaluate the Cox proportional hazards assumption and produce a textual interpretation plus Schoenfeld residual plots.
+    
+    Parameters:
+        cph (lifelines.CoxPHFitter): Fitted Cox model whose assumptions will be tested.
+        data (pandas.DataFrame): Dataset used to compute test statistics and residuals; must contain the model's duration and event columns.
     
     Returns:
-        tuple: (report_text, list_of_figures)
+        tuple:
+            text_report (str): Human-readable report summarizing the proportional hazards test results, identified violations (if any), and suggested actions.
+            figs_list (list): List of Plotly Figure objects, one per model covariate, showing scaled Schoenfeld residuals versus time with an optional trend line; titles indicate whether the variable passed or failed the test.
     """
     # === INTEGRATION: Memory Check ===
     MEMORY_MANAGER.check_and_cleanup()
@@ -796,10 +918,22 @@ def generate_forest_plot_cox_html(res_df):
 
 def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     """
-    OPTIMIZED: Perform landmark-time Kaplan-Meier analysis.
+    Perform landmark-time Kaplan–Meier survival analysis and return the landmark-adjusted KM plot, test statistics, and filtering counts.
+    
+    Parameters:
+        df (pd.DataFrame): Input dataset containing duration, event, and grouping columns.
+        duration_col (str): Name of the column with follow-up times.
+        event_col (str): Name of the column with event indicators (0/1 or boolean).
+        group_col (str): Name of the column with group labels to compare.
+        landmark_time (float): Time threshold defining the landmark; only observations with duration >= landmark_time are kept and their times are adjusted by subtracting the landmark.
     
     Returns:
-        tuple: (fig, stats_df, n_pre, n_post, error)
+        tuple: (fig, stats_df, n_pre_filter, n_post_filter, error)
+            fig (plotly.graph_objs.Figure or None): Kaplan–Meier plot of survival since the landmark with optional 95% CI ribbons; None on input error.
+            stats_df (pd.DataFrame or None): One-row DataFrame summarizing the log-rank test or a note when not applicable; None on input error.
+            n_pre_filter (int): Number of observations remaining after dropping rows with missing duration, event, or group before applying the landmark filter.
+            n_post_filter (int): Number of observations that survived until the landmark (duration >= landmark_time).
+            error (str or None): Error message if an input/processing error occurred (e.g., missing columns or insufficient patients at landmark), otherwise None.
     """
     # === INTEGRATION: Memory Check ===
     MEMORY_MANAGER.check_and_cleanup()

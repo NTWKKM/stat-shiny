@@ -40,15 +40,20 @@ logger = get_logger(__name__)
 
 def calculate_propensity_score(df, treatment_col, covariate_cols):
     """
-    Calculate propensity scores using logistic regression.
+    Estimate propensity scores using logistic regression and attach them to the input DataFrame.
     
-    ✅ OPTIMIZED: Results cached for 30 minutes
-    - First call: Normal computation (~10-30s depending on data size)
-    - Repeat calls: 2-3s (from cache)
-    - Memory managed execution
+    Parameters:
+        df (pd.DataFrame): Input dataset containing treatment and covariates.
+        treatment_col (str): Column name of the binary treatment indicator (0/1).
+        covariate_cols (list[str]): List of column names to use as covariates in the propensity model.
+    
+    Notes:
+        Rows with missing values in the treatment or any specified covariates are dropped before estimation.
     
     Returns:
-        pd.DataFrame: Original DF with added 'ps_score' and 'logit_ps' columns
+        pd.DataFrame: A copy of the input DataFrame augmented with:
+            - `ps_score`: estimated probability of receiving the treatment.
+            - `logit_ps`: logit transform of `ps_score` (ln(p / (1 - p))), clipped to avoid infinities.
     """
     try:
         # === CACHE KEY PREPARATION ===
@@ -66,6 +71,14 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
         # Define the computation logic as an inner function
         def _compute_propensity_score():
             # === INTEGRATION: Memory Check ===
+            """
+            Compute propensity scores via logistic regression and return the input data augmented with score columns.
+            
+            The function drops rows with missing values in the treatment or covariate columns, one-hot encodes categorical covariates, fits a logistic regression model predicting treatment, and appends two columns: `ps_score` (predicted propensity probability) and `logit_ps` (logit of the propensity score, log(p / (1 - p))).
+            
+            Returns:
+                pandas.DataFrame: A copy of the input data with rows containing NA in the treatment/covariates removed and the added columns `ps_score` and `logit_ps`.
+            """
             MEMORY_MANAGER.check_and_cleanup()
 
             logger.info("🔄 Computing propensity scores (Logic Execution)...")
@@ -111,20 +124,17 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
 
 def perform_matching(df, treatment_col, caliper=0.2):
     """
-    Perform 1:1 nearest neighbor matching on propensity scores using Caliper.
+    Perform 1:1 nearest-neighbor matching on the logit of propensity scores using a caliper.
     
-    ✅ OPTIMIZED: Results cached for 30 minutes
-    - First call: Normal computation (~5-15s depending on data size)
-    - Repeat calls: 2-3s (from cache)
-    
-    Args:
-        df (pd.DataFrame): DataFrame containing 'logit_ps' and treatment column
-        treatment_col (str): Name of treatment column
-        caliper (float): Caliper width as a fraction of the standard deviation of the logit of the propensity score. 
-                         (Standard recommendation is 0.2)
+    Parameters:
+        df (pd.DataFrame): DataFrame containing a binary treatment column and a 'logit_ps' column.
+        treatment_col (str): Name of the binary treatment column (expected values 0 and 1).
+        caliper (float): Multiplier of the standard deviation of 'logit_ps' to define the allowable distance 
+                         (caliper width = caliper * SD(logit_ps)); common recommendation is 0.2.
     
     Returns:
-        pd.DataFrame: Matched dataset
+        pd.DataFrame: DataFrame with the matched treated and control rows (two rows per matched pair). 
+                      Returns an empty DataFrame if no matches can be made.
     """
     try:
         if 'logit_ps' not in df.columns:
@@ -141,6 +151,14 @@ def perform_matching(df, treatment_col, caliper=0.2):
         # Define the matching logic as an inner function
         def _perform_matching_logic():
             # === INTEGRATION: Memory Check ===
+            """
+            Perform 1:1 nearest-neighbor matching on the logit of propensity scores using a caliper.
+            
+            Matches treated units (treatment == 1) to control units (treatment == 0) by nearest neighbor on the 'logit_ps' column using a greedy, without-replacement algorithm. The caliper is interpreted as (caliper * SD of 'logit_ps') and any pair with distance greater than the caliper is excluded. If either treatment or control group is empty, returns an empty DataFrame.
+            
+            Returns:
+                pd.DataFrame: DataFrame containing the matched treated and control rows from the input data. If no matches are found or a group is empty, returns an empty DataFrame.
+            """
             MEMORY_MANAGER.check_and_cleanup()
 
             logger.info("🔄 Performing matching logic...")
@@ -218,14 +236,23 @@ def perform_matching(df, treatment_col, caliper=0.2):
 
 def calculate_smd(df, treatment_col, covariate_cols):
     """
-    Calculate Standardized Mean Difference (SMD) for balance checking.
+    Compute standardized mean differences (SMDs) for numeric covariates to assess covariate balance between treated and control groups.
     
-    ✅ OPTIMIZED: Results cached for 30 minutes
-    - First call: Normal computation (~1-5s depending on covariates)
-    - Repeat calls: <1s (from cache)
+    Parameters:
+        df (pandas.DataFrame): Dataset containing treatment indicator and covariates.
+        treatment_col (str): Column name of the binary treatment indicator (1 = treated, 0 = control).
+        covariate_cols (Iterable[str]): List of covariate column names to evaluate; only numeric columns are used.
     
-    SMD < 0.1 indicates good balance.
-    SMD < 0.2 is acceptable.
+    Returns:
+        pandas.DataFrame: DataFrame with columns:
+            - `Variable`: covariate name
+            - `SMD`: absolute standardized mean difference ((mean_treated - mean_control) / pooled_sd)
+            - `Mean_Treated`: mean of the covariate in the treated group
+            - `Mean_Control`: mean of the covariate in the control group
+    
+    Notes:
+        - Non-numeric covariates are skipped (they should be dummy-coded beforehand if proportions are desired).
+        - An SMD < 0.1 is commonly considered good balance; SMD < 0.2 is often considered acceptable.
     """
     try:
         # === CACHE KEY PREPARATION ===
@@ -239,6 +266,14 @@ def calculate_smd(df, treatment_col, covariate_cols):
         # Define the SMD logic as an inner function
         def _compute_smd_logic():
             # === INTEGRATION: Memory Check ===
+            """
+            Compute standardized mean differences (SMD) for numeric covariates between treated and control groups.
+            
+            Calculates per-variable SMD as the absolute value of (mean_treated - mean_control) divided by the pooled standard deviation, where pooled SD = sqrt((var_treated + var_control) / 2). If the pooled SD is zero the SMD is set to 0. Non-numeric covariates are skipped.
+            
+            Returns:
+                pd.DataFrame: A DataFrame with columns 'Variable', 'SMD', 'Mean_Treated', and 'Mean_Control' for each numeric covariate.
+            """
             MEMORY_MANAGER.check_and_cleanup()
 
             logger.info("🔄 Computing SMD (Logic Execution)...")
@@ -292,9 +327,15 @@ def calculate_smd(df, treatment_col, covariate_cols):
 
 def plot_love_plot(smd_pre, smd_post):
     """
-    Generate a Love Plot (Dot plot) comparing SMD before and after matching.
+    Create a Love Plot comparing standardized mean differences (SMD) before and after matching.
     
-    Note: Visualization not cached (small overhead, different every time)
+    Parameters:
+        smd_pre (pandas.DataFrame): DataFrame containing columns 'Variable' and 'SMD' for the unmatched (pre-match) sample.
+        smd_post (pandas.DataFrame): DataFrame containing columns 'Variable' and 'SMD' for the matched (post-match) sample.
+    
+    Returns:
+        plotly.graph_objs._figure.Figure: Plotly figure with two scatter traces (unmatched in red, matched in green),
+        a vertical dashed threshold line at SMD = 0.1, and variables listed on the y-axis.
     """
     try:
         # Merge Data
@@ -346,10 +387,17 @@ def plot_love_plot(smd_pre, smd_post):
 
 def generate_psm_report(title, elements):
     """
-    Simple HTML Report generator for PSM results.
-    elements: list of dicts {'type': 'text'|'table'|'plot', 'data': ...}
+    Generate an HTML report summarizing propensity score matching results.
     
-    Note: Report generation not cached (always dynamic)
+    Parameters:
+        title (str): Report title; will be HTML-escaped.
+        elements (list of dict): List of report elements. Each element must have a 'type' key with value 'text', 'table', or 'plot', and a 'data' key:
+            - 'text': data is a string rendered as a paragraph.
+            - 'table': data is a pandas.DataFrame rendered as an HTML table.
+            - 'plot': data is a Plotly figure (object with to_html) embedded as an interactive div.
+    
+    Returns:
+        html_report (str): Complete HTML document as a string.
     """
     safe_title = _html.escape(str(title))
     html = f"<html><head><title>{safe_title}</title></head><body style='font-family: Arial, sans-serif; padding: 20px;'>"

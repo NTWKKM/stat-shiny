@@ -12,6 +12,15 @@ logger = get_logger(__name__)
 def data_ui():
     # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
     # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
+    """
+    Builds the Data Management UI layout containing sidebar controls, a Variable Settings accordion, and a Raw Data Preview card.
+    
+    Returns:
+        ui.obj: A Shiny UI component (layout_sidebar) composed of:
+            - Sidebar with example-data button, file upload, clear/reset controls.
+            - Accordion panel for variable configuration with a variable selector and dynamic settings UI.
+            - Card displaying a data frame preview.
+    """
     return ui.layout_sidebar(
         ui.sidebar(
             ui.h4("MENU"),
@@ -68,7 +77,27 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # ไม่ต้องประกาศ ns = session.ns
     # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
     
-    is_loading_data = reactive.Value(False)
+    """
+                Initialize the data-management server module: wire reactive effects, file/example data loading, metadata editing, and UI/render outputs for preview and matched-data controls.
+                
+                Parameters:
+                    input: Shiny input object for this module (provides reactive input values and events).
+                    output: Shiny output object used to register rendered UI and data outputs.
+                    session: Shiny session object for this module.
+                    df: reactive.Value storing the main pandas.DataFrame (or None).
+                    var_meta: reactive.Value storing variable metadata dictionary (per-column type, label, and mapping).
+                    uploaded_file_info: reactive.Value storing info about the currently uploaded file (e.g., {"name": ...}).
+                    df_matched: reactive.Value storing a matched/processed DataFrame (or None).
+                    is_matched: reactive.Value boolean indicating whether matched data is present.
+                    matched_treatment_col: reactive.Value storing the name of the treatment column used for matching (or None).
+                    matched_covariates: reactive.Value storing the list of covariate column names used for matching.
+                
+                Behavior:
+                    - Registers effects to generate simulated example data, load CSV/Excel uploads, reset all data, save variable metadata, and clear matched data.
+                    - Exposes dynamic UI renderers for variable settings and a data-frame preview, and a conditional button to clear matched data.
+                    - Updates `df`, `var_meta`, `uploaded_file_info`, and matching-related reactive values in response to user actions and file inputs.
+                """
+                is_loading_data = reactive.Value(False)
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
@@ -197,6 +226,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @reactive.Effect
     @reactive.event(lambda: input.file_upload()) 
     def _():
+        """
+        Handle a file upload by reading the first uploaded CSV or Excel file into the app state, updating df and uploaded_file_info, and inferring per-column metadata.
+        
+        If the file has more than 100,000 rows it is truncated to the first 100,000 rows and a warning notification is shown. Column metadata is set to `'Continuous'` when the column is numeric and has more than 10 unique values, otherwise `'Categorical'`. Success and error notifications are displayed as appropriate and `is_loading_data` is always cleared when processing finishes.
+        """
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
         
@@ -263,6 +297,18 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # Render Settings UI dynamically when a variable is selected
     @render.ui
     def ui_var_settings():
+        """
+        Render the settings UI for the currently selected variable or return None if no variable is selected.
+        
+        When a variable is selected, returns a TagList containing:
+        - a radio button group labeled "Variable Type:" with choices "Continuous" and "Categorical",
+        - a text area labeled "Value Labels (Format: 0=No, 1=Yes)" where each line should be `key=value` to define value labels,
+        - a primary action button labeled "💾 Save Settings" to persist changes.
+        
+        Returns:
+            ui.TagList: The settings UI for the selected variable.
+            None: If no variable is selected or selection is "Select...".
+        """
         var_name = input.sel_var_edit()
         
         if not var_name or var_name == "Select...":

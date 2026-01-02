@@ -21,7 +21,14 @@ logger = get_logger(__name__)
 
 def _get_cached_result(cache_type: str, label: str, calculate_func, cache_key_params: dict):
     """
-    Generic cache wrapper for survival computations to reduce duplication.
+    Retrieve a previously cached survival computation or compute and cache the result if absent.
+    
+    Parameters:
+        calculate_func (callable): Zero-argument callable that computes and returns the desired result when a cache miss occurs.
+        cache_key_params (dict): Parameters used to build the cache key for lookup and storage.
+    
+    Returns:
+        The cached value if present for the given cache key, otherwise the value returned by `calculate_func` after it has been cached.
     """
     # Try cache first
     cached = COMPUTATION_CACHE.get(cache_type, **cache_key_params)
@@ -41,69 +48,69 @@ def _get_cached_result(cache_type: str, label: str, calculate_func, cache_key_pa
 
 def get_cached_km_curves(calculate_func, cache_key_params: dict):
     """
-    Get Kaplan-Meier curves from cache or calculate if not cached.
+    Retrieve Kaplan–Meier curves from the layer-1 cache, computing and caching them if absent.
     
-    Args:
-        calculate_func: Function that calculates KM curves
-        cache_key_params: Dict with parameters for cache key
+    Parameters:
+        calculate_func (callable): Function that computes the KM curves when a cache miss occurs.
+        cache_key_params (dict): Parameters used to form the cache key identifying the computation.
     
     Returns:
-        KM curve data (from cache or fresh calculation)
+        The Kaplan–Meier curve result (the cached value if available, otherwise the newly computed result).
     """
     return _get_cached_result('survival_km', 'KM', calculate_func, cache_key_params)
 
 
 def get_cached_na_curves(calculate_func, cache_key_params: dict):
     """
-    Get Nelson-Aalen curves from cache or calculate if not cached.
+    Retrieve Nelson–Aalen cumulative hazard curves from the layer-1 cache or compute and cache them if not present.
     
-    Args:
-        calculate_func: Function that calculates NA curves
-        cache_key_params: Dict with parameters for cache key
+    Parameters:
+        calculate_func (callable): A callable that computes and returns Nelson–Aalen curve data when invoked.
+        cache_key_params (dict): Parameters used to construct the cache key for lookup and invalidation.
     
     Returns:
-        NA curve data (from cache or fresh calculation)
+        The Nelson–Aalen curve data produced by `calculate_func` or retrieved from cache.
     """
     return _get_cached_result('survival_na', 'NA', calculate_func, cache_key_params)
 
 
 def get_cached_cox_model(calculate_func, cache_key_params: dict):
     """
-    Get Cox regression model from cache or fit if not cached.
+    Retrieve a cached Cox proportional hazards model or compute and cache it if absent.
     
-    Args:
-        calculate_func: Function that fits Cox model
-        cache_key_params: Dict with parameters for cache key
+    Parameters:
+        calculate_func (callable): Function that fits and returns a Cox model when called.
+        cache_key_params (dict): Parameters used to build the cache key identifying the model.
     
     Returns:
-        Cox model object (from cache or fresh fit)
+        Cox model object from cache or a newly fitted Cox model.
     """
     return _get_cached_result('survival_cox', 'Cox', calculate_func, cache_key_params)
 
 
 def get_cached_survival_estimates(calculate_func, cache_key_params: dict):
     """
-    Get survival estimates from cache or calculate if not cached.
+    Retrieve cached survival estimates for the given cache key or compute and cache them if absent.
     
-    Args:
-        calculate_func: Function that calculates survival estimates
-        cache_key_params: Dict with parameters for cache key
+    Parameters:
+        calculate_func (callable): Function invoked to compute survival estimates on a cache miss.
+        cache_key_params (dict): Parameters used to construct the cache key for lookup and storage.
     
     Returns:
-        Survival estimates (from cache or fresh calculation)
+        The survival estimates object returned by `calculate_func` or retrieved from the cache.
     """
     return _get_cached_result('survival_estimates', 'Estimates', calculate_func, cache_key_params)
 
 
 def get_cached_risk_table(calculate_func, cache_key_params: dict):
     """
-    Get risk table from cache or generate if not cached.
+    Retrieve a risk table from the layer-1 cache or compute and cache it if absent.
     
-    Args:
-        calculate_func: Function that generates risk table
-        cache_key_params: Dict with parameters for cache key
+    Parameters:
+        calculate_func: Callable that produces the risk table when a cached value is missing.
+        cache_key_params (dict): Parameters used to form the cache key for lookup and invalidation.
     
     Returns:
-        Risk table data (from cache or fresh generation)
+        The risk table object or data structure returned by `calculate_func`, sourced from cache when available.
     """
     return _get_cached_result('survival_risk_table', 'Risk Table', calculate_func, cache_key_params)

@@ -21,7 +21,15 @@ logger = get_logger(__name__)
 
 def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> tuple:
     """
-    Choose between original and matched datasets for correlation analysis.
+    Select the dataset to use for correlation calculations.
+    
+    Parameters:
+        df (pd.DataFrame): The original dataset.
+        df_matched (reactive.Value): Reactive value that may contain a matched DataFrame or None.
+        is_matched (reactive.Value): Reactive boolean indicating whether to prefer the matched dataset.
+    
+    Returns:
+        tuple: (selected_df, label) where `selected_df` is the DataFrame to use (a copy of the matched DataFrame when selected, otherwise the original `df`), and `label` is a short string describing the data source and row count (e.g. "✅ Matched Data (N rows)" or "📊 Original Data (N rows)").
     """
     if is_matched.get() and df_matched.get() is not None:
         return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
@@ -31,7 +39,13 @@ def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, i
 
 def _auto_detect_icc_vars(cols: list) -> list:
     """
-    Auto-detect ICC/Rater variables based on column name patterns.
+    Detect potential ICC/rater variable names from a list of column names by matching common patterns.
+    
+    Parameters:
+        cols (list[str]): Column names to scan for ICC/rater-related patterns.
+    
+    Returns:
+        list[str]: Column names from `cols` that contain any of the patterns: 'icc', 'rater', 'method', 'observer', or 'judge' (case-insensitive).
     """
     icc_patterns = ['icc', 'rater', 'method', 'observer', 'judge']
     detected = []
@@ -48,7 +62,13 @@ def _auto_detect_icc_vars(cols: list) -> list:
 
 def corr_ui(namespace: str) -> ui.TagChild:
     """
-    Create the UI for correlation analysis tab.
+    Builds the three-tab UI for correlation and ICC reliability analysis, including controls, outputs, and a reference panel.
+    
+    Parameters:
+        namespace (str): Prefix used for input/output element IDs to scope the UI components.
+    
+    Returns:
+        ui.TagChild: A Shiny UI tag containing the correlation and ICC tabs (Pearson/Spearman, Reliability (ICC), and Reference).
     """
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
@@ -228,16 +248,30 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     # we need to manually set the function name before decorating.
     def render_with_id(renderer, output_suffix):
         """
-        Workaround for dynamic namespacing in Shiny.
-    
-        Shiny uses function __name__ as output ID. Since we use dynamic
-        namespace prefixes, we manually set __name__ to match UI element IDs.
-    
-        Warning: This relies on Shiny implementation details and may break
-        in future versions.
+        Attach a dynamic, namespaced output ID to a Shiny renderer by setting the wrapped function's __name__.
+        
+        Returns a decorator that sets the wrapped function's __name__ to f"{namespace}_{output_suffix}" and then passes that function to the provided renderer so Shiny uses the namespaced ID for the output.
+        
+        Parameters:
+            renderer: Callable[[Callable], Any]
+                A renderer function (e.g., a Shiny render function) that accepts a function and registers it as an output.
+            output_suffix (str):
+                Suffix to append to the external `namespace` to form the final output ID.
+        
+        Notes:
+            This relies on Shiny's use of a function's __name__ as the output identifier and may break if Shiny's implementation changes.
         """
         def decorator(func):
             # Force function name to match the UI ID pattern
+            """
+            Force the wrapped function's __name__ to match the dynamic UI output ID and register it with the provided renderer.
+            
+            Parameters:
+            	func (callable): The function to be renamed and passed to the renderer.
+            
+            Returns:
+            	callable: The result of calling `renderer` with `func` (typically a renderer-wrapped function) where `func.__name__` has been set to "{namespace}_{output_suffix}".
+            """
             func.__name__ = f"{namespace}_{output_suffix}"
             return renderer(func)
         return decorator
@@ -283,7 +317,12 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     
     @render_with_id(render.ui, "out_icc_note") # ID: {namespace}_out_icc_note
     def ui_icc_note():
-        """Display info about auto-detected ICC variables."""
+        """
+        Render a brief note listing variables auto-detected as potential ICC/rater columns.
+        
+        Returns:
+            ui component or None: A UI div containing the auto-detected variable names styled as a highlighted note, or `None` if no data is available or no variables were detected.
+        """
         data = df.get()
         if data is None:
             return None
@@ -305,7 +344,11 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     @reactive.Effect
     @reactive.event(lambda: input[f"{namespace}_btn_run_corr"]())
     def _run_correlation():
-        """Run correlation analysis when button clicked."""
+        """
+        Execute the correlation analysis flow using the current UI selections and store the results.
+        
+        Selects the matched dataset if enabled (otherwise uses the original), validates that two distinct variables are chosen, and invokes correlation.calculate_correlation with the selected method. While computing, displays a progress indicator; on success stores a dict with keys `stats`, `figure`, `method`, `var1`, `var2`, and `data_label` in `corr_result`; on error clears `corr_result` and shows an error notification. Also shows notifications for missing data or invalid input selections.
+        """
         # 1. Get Data (Matched or Original)
         data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
         
@@ -353,7 +396,12 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     
     @render_with_id(render.ui, "out_corr_result") # ID: {namespace}_out_corr_result
     def out_corr_result():
-        """Display correlation analysis results."""
+        """
+        Render the correlation analysis results card or a placeholder when no results are available.
+        
+        Returns:
+            ui element: A card containing the data source, correlation method, a results table output, and a scatter-plot output; if no result exists, a markdown placeholder indicating results will appear.
+        """
         result = corr_result.get()
         if result is None:
             return ui.markdown("*Results will appear here after clicking '📈 Analyze Correlation'*")
@@ -372,7 +420,12 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     
     @render_with_id(render.data_frame, "out_corr_table") # ID: {namespace}_out_corr_table
     def out_corr_table():
-        """Render correlation results table."""
+        """
+        Render the correlation statistics as a DataGrid widget.
+        
+        Returns:
+            DataGrid or None: A DataGrid containing the correlation statistics when results are available, or `None` if no correlation result is present.
+        """
         result = corr_result.get()
         if result is None:
             return None
@@ -382,7 +435,12 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     
     @render_with_id(render.ui, "out_corr_plot_html") # ID: {namespace}_out_corr_plot_html
     def out_corr_plot_html():
-        """Render scatter plot as HTML."""
+        """
+        Render the stored Plotly scatter plot into an HTML widget.
+        
+        Returns:
+            ui.HTML: HTML widget containing the Plotly figure, or `None` if no result or figure is available.
+        """
         result = corr_result.get()
         if result is None or result['figure'] is None:
             return None
@@ -397,7 +455,13 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     @reactive.Effect
     @reactive.event(lambda: input[f"{namespace}_btn_run_icc"]())
     def _run_icc():
-        """Run ICC analysis."""
+        """
+        Execute ICC reliability analysis for the currently selected variables and store the results.
+        
+        Validates that a dataset is available and that at least two variables are selected; shows a warning or error notification and returns early if validation fails. Displays a progress indicator while computing, calls diag_test.calculate_icc to perform the calculation, and then:
+        - on success: stores a dict in `icc_result` with keys `results_df`, `anova_df`, and `data_label`, and shows a completion notification;
+        - on error: clears `icc_result` and shows an error notification.
+        """
         # 1. Get Data
         data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
         
@@ -451,7 +515,12 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     
     @render_with_id(render.data_frame, "out_icc_table") # ID: {namespace}_out_icc_table
     def out_icc_table():
-        """Render ICC results table."""
+        """
+        Render the ICC results as a DataGrid.
+        
+        Returns:
+            DataGrid: A data grid widget showing the ICC `results_df`, or `None` if no ICC result is available.
+        """
         result = icc_result.get()
         if result is None:
             return None
@@ -459,7 +528,12 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     
     @render_with_id(render.data_frame, "out_icc_anova_table") # ID: {namespace}_out_icc_anova_table
     def out_icc_anova_table():
-        """Render ANOVA table."""
+        """
+        Render the ICC ANOVA results as a DataGrid if ICC results are available.
+        
+        Returns:
+            DataGrid or None: A DataGrid containing the ICC ANOVA table when results exist, or None if no ICC result is present.
+        """
         result = icc_result.get()
         if result is None:
             return None

@@ -26,12 +26,15 @@ class ConnectionHandler:
     
     def __init__(self, max_retries: int = 3, initial_backoff: float = 0.5, backoff_factor: float = 2.0):
         """
-        Initialize connection handler.
+        Create a ConnectionHandler configured for exponential-backoff retry behavior.
         
-        Args:
-            max_retries: Maximum retry attempts
-            initial_backoff: Initial wait time in seconds
-            backoff_factor: Multiplier for exponential backoff
+        Parameters:
+            max_retries (int): Total number of attempts (initial call + retries) to make before giving up.
+            initial_backoff (float): Base wait time in seconds used before the first retry.
+            backoff_factor (float): Multiplier applied to the backoff between successive retries.
+        
+        Initializes internal counters:
+            failed_attempts, successful_retries, total_calls
         """
         self.max_retries = max_retries
         self.initial_backoff = initial_backoff
@@ -43,15 +46,17 @@ class ConnectionHandler:
     
     def retry_with_backoff(self, func: Callable, *args, **kwargs) -> Optional[Any]:
         """
-        Execute function with exponential backoff retry on failure.
+        Execute a callable and retry on network-related failures using exponential backoff with jitter.
         
-        Args:
-            func: Function to execute
-            *args: Positional arguments for func
-            **kwargs: Keyword arguments for func
+        Retries on ConnectionError, TimeoutError, and OSError up to `max_retries`. Increments `total_calls` on entry, increments `failed_attempts` for each retryable failure, and increments `successful_retries` when a call succeeds after one or more retries. Non-retryable exceptions cause an immediate return of `None`.
+        
+        Parameters:
+            func (Callable): The callable to invoke.
+            *args: Positional arguments forwarded to `func`.
+            **kwargs: Keyword arguments forwarded to `func`.
         
         Returns:
-            Function result or None if all retries failed
+            The value returned by `func` if it succeeds; `None` if all retry attempts fail or a non-retryable error occurs.
         """
         self.total_calls += 1
         
@@ -86,10 +91,15 @@ class ConnectionHandler:
     
     def get_stats(self) -> dict:
         """
-        Get connection statistics.
+        Provide connection retry and call statistics.
         
         Returns:
-            Dict with connection metrics
+            dict: Mapping of statistics:
+                - 'failed_attempts': number of failed retry attempts.
+                - 'successful_retries': number of calls that succeeded after one or more retries.
+                - 'total_calls': total number of calls attempted through the handler.
+                - 'success_rate': success rate as a percentage string with one decimal (e.g., "92.3%"); when `total_calls` is 0 this is "100.0%".
+                - 'max_retries': configured maximum retry attempts.
         """
         success_rate = ((self.total_calls - self.failed_attempts) / self.total_calls * 100) if self.total_calls > 0 else 100
         
@@ -102,6 +112,12 @@ class ConnectionHandler:
         }
     
     def __repr__(self) -> str:
+        """
+        Return a short string summarizing the handler's current retry statistics.
+        
+        Returns:
+            str: A representation in the form "ConnectionHandler(failed=<failed>, retried=<retried>, success_rate=<percent>)".
+        """
         stats = self.get_stats()
         return f"ConnectionHandler(failed={stats['failed_attempts']}, retried={stats['successful_retries']}, success_rate={stats['success_rate']})"
 

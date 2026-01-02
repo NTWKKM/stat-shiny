@@ -34,7 +34,19 @@ COLORS = get_color_palette()
 # Helper Function
 # ==============================================================================
 def _get_dataset_for_survival(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> tuple[pd.DataFrame, str]:
-    """Select between original and matched dataset based on user preference."""
+    """
+    Choose the active dataset for survival analyses based on the matching flag.
+    
+    Parameters:
+        df (pd.DataFrame): Original dataset.
+        df_matched (reactive.Value): Reactive container holding the matched dataset or None.
+        is_matched (reactive.Value): Reactive boolean indicating whether to use the matched dataset.
+    
+    Returns:
+        tuple[pd.DataFrame, str]: (selected_df, status_label) where `selected_df` is the DataFrame chosen for analysis
+        (a copy of the matched DataFrame when matched is selected), and `status_label` is a human-readable string
+        indicating whether matched or original data was selected along with row count (e.g., "✅ Matched Data (N rows)").
+    """
     if is_matched.get() and df_matched.get() is not None:
         return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
     else:
@@ -45,7 +57,19 @@ def _get_dataset_for_survival(df: pd.DataFrame, df_matched: reactive.Value, is_m
 # ==============================================================================
 @module.ui
 def survival_ui():
-    """Modern Shiny UI module - no namespace argument needed."""
+    """
+    Create the survival analysis module UI containing tabs for survival curves, landmark analysis, Cox regression, subgroup analysis, and a reference panel.
+    
+    The UI provides inputs and outputs for:
+    - Kaplan–Meier and Nelson–Aalen curve generation (time, event, optional group, plot type, run/download).
+    - Landmark analysis (landmark time, group selection, run/download).
+    - Cox proportional hazards regression (covariate selection, run/download, results/assumptions).
+    - Subgroup Cox analysis (time, event, treatment, subgroup, adjustments, advanced thresholds, run/download).
+    - A reference tab summarizing methods and typical outputs.
+    
+    Returns:
+        ui_element: A Shiny `navset_tab` UI element representing the survival analysis module.
+    """
     return ui.navset_tab(
         # TAB 1: Survival Curves (KM & Nelson-Aalen)
         ui.nav_panel(
@@ -251,7 +275,18 @@ def survival_ui():
 @module.server
 def survival_server(input, output, session, df: reactive.Value, var_meta: reactive.Value,
                     df_matched: reactive.Value, is_matched: reactive.Value):
-    """Modern Shiny server module - automatic namespace scoping via decorator."""
+    """
+                    Register server-side reactive logic and outputs for the Survival Analysis module, including Kaplan–Meier / Nelson–Aalen curves, landmark analysis, Cox regression, and subgroup analysis.
+                    
+                    Parameters:
+                        input: Shiny input bindings for module controls.
+                        output: Shiny output bindings for module results.
+                        session: Shiny session object scoped to the module.
+                        df (reactive.Value): Reactive holding the primary DataFrame used for analyses.
+                        var_meta (reactive.Value): Reactive metadata about variables (used to populate and validate inputs).
+                        df_matched (reactive.Value): Reactive holding an alternative (matched) DataFrame; selected when matching is enabled.
+                        is_matched (reactive.Value): Reactive boolean that indicates whether to use `df_matched` instead of `df`.
+                    """
     
     # ==================== REACTIVE VALUES ====================
     surv_df_current = reactive.Value(None)
@@ -263,7 +298,14 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
     # ==================== DATASET UPDATES ====================
     @reactive.Effect
     def _update_current_dataset():
-        """Update current dataset and refresh all input choices."""
+        """
+        Selects the active survival dataset and refreshes related UI input choices.
+        
+        Chooses between the original and matched DataFrame, sets the selected DataFrame into
+        surv_df_current, and updates UI selectors and checkbox groups for survival curves,
+        landmark analysis, Cox regression, and subgroup analysis. Time selectors use numeric
+        columns; other selectors use all columns from the active DataFrame.
+        """
         data = df.get()
         if data is not None:
             selected_df, _ = _get_dataset_for_survival(data, df_matched, is_matched)
@@ -350,19 +392,34 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render_widget
     def out_curves_plot():
-        """Render Kaplan-Meier or Nelson-Aalen plot."""
+        """
+        Return the current survival curve figure for Kaplan–Meier or Nelson–Aalen plotting.
+        
+        Returns:
+            Figure or None: The plot figure to render (survival curve) or `None` if no result is available.
+        """
         res = curves_result.get()
         return res['fig'] if res else None
 
     @render.data_frame
     def out_curves_table():
-        """Render curves statistics table."""
+        """
+        Render the statistics table for survival curves.
+        
+        Returns:
+            DataGrid or None: A DataGrid widget containing the curves statistics when results are available; otherwise None.
+        """
         res = curves_result.get()
         return render.DataGrid(res['stats']) if res else None
     
     @render.download(filename="survival_report.html")
     def btn_dl_curves():
-        """Download survival curves report."""
+        """
+        Generate a downloadable survival curves report.
+        
+        Returns:
+            str: HTML content of the generated survival analysis report when curve results are available.
+        """
         res = curves_result.get()
         if res:
             elements = [
@@ -377,7 +434,11 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
     @reactive.Effect
     @reactive.event(input.btn_run_landmark)
     def _run_landmark():
-        """Run landmark analysis."""
+        """
+        Perform a landmark survival analysis using the currently selected dataset and input controls.
+        
+        Validates that a dataset is available and a landmark group is selected; shows a running notification while processing. On success stores a dictionary in `landmark_result` with keys `fig`, `stats`, `n_pre`, `n_post`, and `t`. On validation failure or analysis error, displays a warning or error notification and logs exceptions as appropriate.
+        """
         data = surv_df_current.get()
         time_col = input.surv_time()
         event_col = input.surv_event()
@@ -405,7 +466,12 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render.ui
     def out_landmark_result():
-        """Render landmark analysis results."""
+        """
+        Create a UI card that displays the landmark analysis plot, a brief summary of included/excluded counts, and the landmark statistics table.
+        
+        Returns:
+            ui component or None: A Shiny UI card containing the landmark plot, summary counts, and statistics table when landmark results are present; `None` if no results are available.
+        """
         res = landmark_result.get()
         if res is None: 
             return None
@@ -421,19 +487,33 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render_widget
     def out_landmark_plot():
-        """Render landmark analysis plot."""
+        """
+        Provide the landmark analysis figure for rendering.
+        
+        Returns:
+            fig: The landmark analysis plotting object, or `None` if no results are available.
+        """
         res = landmark_result.get()
         return res['fig'] if res else None
 
     @render.data_frame
     def out_landmark_table():
-        """Render landmark analysis table."""
+        """
+        Render the landmark analysis statistics table for the UI.
+        
+        Returns:
+            DataGrid or None: A DataGrid widget containing the landmark analysis `stats` table when results are available, or `None` if no results exist.
+        """
         res = landmark_result.get()
         return render.DataGrid(res['stats']) if res else None
 
     @render.download(filename="landmark_report.html")
     def btn_dl_landmark():
-        """Download landmark analysis report."""
+        """
+        Generate the landmark analysis report for download.
+        
+        @returns Yields the generated report content (HTML) for download.
+        """
         res = landmark_result.get()
         if res:
             elements = [
@@ -448,7 +528,17 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
     @reactive.Effect
     @reactive.event(input.btn_run_cox)
     def _run_cox():
-        """Run Cox proportional hazards regression."""
+        """
+        Fit a Cox proportional hazards model on the currently selected dataset and store results.
+        
+        Validates that at least one covariate is selected; shows user notifications while fitting. On success, stores a dictionary in the module's `cox_result` reactive with keys:
+        - `results_df`: model results table,
+        - `forest_fig`: forest plot figure,
+        - `assumptions_text`: interpretation of proportional hazards checks,
+        - `assumptions_plots`: any diagnostic plots.
+        
+        On failure, removes the running notification, shows an error notification, and logs the exception.
+        """
         data = surv_df_current.get()
         time_col = input.surv_time()
         event_col = input.surv_event()
@@ -491,7 +581,12 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render.ui
     def out_cox_result():
-        """Render Cox regression results."""
+        """
+        Render the Cox regression results card for the UI.
+        
+        Returns:
+            ui_component (Optional[UI]): A card containing the Cox results table, forest plot, and PH-assumptions UI, or `None` if no results are available.
+        """
         res = cox_result.get()
         if res is None: 
             return None
@@ -509,19 +604,36 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render.data_frame
     def out_cox_table():
-        """Render Cox results table."""
+        """
+        Render the Cox regression results as a data grid.
+        
+        Returns:
+            DataGrid: A data grid widget containing the Cox results table (`results_df`) if results are available, `None` otherwise.
+        """
         res = cox_result.get()
         return render.DataGrid(res['results_df']) if res else None
 
     @render_widget
     def out_cox_forest():
-        """Render Cox forest plot."""
+        """
+        Return the forest plot figure for the fitted Cox regression model.
+        
+        Returns:
+            Figure: The forest plot figure object, or None if Cox results are not available.
+        """
         res = cox_result.get()
         return res['forest_fig'] if res else None
 
     @render.ui
     def out_cox_assumptions_ui():
-        """Render Cox assumptions diagnostics."""
+        """
+        Render UI showing the Cox proportional hazards assumptions interpretation and any diagnostic plots.
+        
+        Displays an interpretation text block and, if present, embeds HTML versions of diagnostic plots produced by the Cox assumptions check.
+        
+        Returns:
+            ui_element (shiny.ui.tag|None): A container with the interpretation and plots, or `None` when no Cox results are available.
+        """
         res = cox_result.get()
         if not res: 
             return None
@@ -546,7 +658,12 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render.download(filename="cox_report.html")
     def btn_dl_cox():
-        """Download Cox regression report."""
+        """
+        Generate the Cox regression report for download.
+        
+        Yields:
+            The generated HTML report content as a string when Cox results are available.
+        """
         res = cox_result.get()
         if res:
             elements = [
@@ -562,7 +679,11 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
     @reactive.Effect
     @reactive.event(input.btn_run_sg)
     def _run_sg():
-        """Run subgroup analysis."""
+        """
+        Execute a subgroup Cox analysis on the currently selected dataset and store the results in `sg_result`.
+        
+        Validates that required variables (follow-up time, event indicator, treatment, and subgroup) are selected; shows a persistent "Running Subgroup Analysis..." notification while processing. On success, attaches a `forest_plot` and `interaction_table` to the result and sets `sg_result`. On validation failure or analysis error, shows an appropriate notification and logs the exception.
+        """
         if SubgroupAnalysisCox is None:
             ui.notification_show("Subgroup module not found", type="error")
             return
@@ -609,7 +730,12 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render.ui
     def out_sg_result():
-        """Render subgroup analysis results."""
+        """
+        Render the subgroup analysis result card containing available forest plot and interaction table.
+        
+        Returns:
+            ui.card: Card UI that includes the subgroup forest plot and/or interaction analysis table when present, or `None` if no subgroup results are available.
+        """
         res = sg_result.get()
         if res is None: 
             return None
@@ -627,19 +753,34 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
     @render_widget
     def out_sg_forest():
-        """Render subgroup forest plot."""
+        """
+        Provide the subgroup analysis forest plot for display.
+        
+        Returns:
+            The forest plot figure/widget if available, otherwise None.
+        """
         res = sg_result.get()
         return res.get('forest_plot') if res else None
         
     @render.data_frame
     def out_sg_table():
-        """Render subgroup interaction table."""
+        """
+        Render the subgroup interaction results as a data grid.
+        
+        Returns:
+            DataGrid: A data grid constructed from the stored subgroup `interaction_table`, or `None` if no results are available.
+        """
         res = sg_result.get()
         return render.DataGrid(res.get('interaction_table')) if res else None
 
     @render.download(filename="subgroup_report.html")
     def btn_dl_sg():
-        """Download subgroup analysis report."""
+        """
+        Produce a downloadable subgroup analysis report using the latest subgroup results.
+        
+        Returns:
+            generator: Yields the generated report as an HTML string when subgroup results are available.
+        """
         res = sg_result.get()
         if res:
             elements = [

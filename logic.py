@@ -47,6 +47,24 @@ try:
         from sklearn.utils.validation import check_X_y, check_array
         
         def _validate_data_patch(self, X, y=None, reset=True, validate_separately=False, **check_params):
+            """
+            Validate the feature matrix X and optionally the target y, returning validated array(s).
+            
+            When y is provided, both X and y are validated and the validated (X, y) pair is returned.
+            When y is None, only X is validated and the validated X is returned.
+            
+            Parameters:
+                X: array-like
+                    Feature matrix to validate.
+                y: array-like, optional
+                    Target vector to validate alongside X. If omitted, only X is validated.
+                **check_params:
+                    Additional keyword arguments forwarded to the underlying validation routine (e.g., dtype, force_all_finite).
+            
+            Returns:
+                array or (array, array):
+                    The validated X array, or a tuple (X_validated, y_validated) when y is provided.
+            """
             if y is None:
                 return check_array(X, **check_params)
             else:
@@ -64,12 +82,30 @@ warnings.filterwarnings("ignore", message=".*convergence.*")
 
 
 def clean_numeric_series(series):
-    """Vectorized cleanup of numeric series."""
+    """
+    Convert a sequence/Series to numeric values, coercing any non‑numeric or unparsable entries to NaN.
+    
+    Parameters:
+        series (pd.Series or array-like): Input values to convert to numeric.
+    
+    Returns:
+        pd.Series: A numeric Series where invalid or non-convertible entries are replaced with `NaN`.
+    """
     return pd.to_numeric(series, errors='coerce')
 
 
 def _robust_sort_key(x):
-    """Sort key placing numeric values first."""
+    """
+    Create a sort key that orders numeric values before non-numeric values and places missing values last.
+    
+    Parameters:
+        x: The value to produce a sort key for; may be numeric, string-like, or NaN.
+    
+    Returns:
+        tuple: A 2-tuple (group, value) where:
+            - group (int): 0 for numeric values, 1 for non-numeric values, 2 for missing/NaN.
+            - value: For numeric values, the numeric value converted to float; for non-numeric values, the string representation; for missing values, an empty string.
+    """
     try:
         if pd.isna(x):
             return (2, "")
@@ -80,7 +116,15 @@ def _robust_sort_key(x):
 
 
 def calculate_vif(X):
-    """Calculate Variance Inflation Factor (VIF)."""
+    """
+    Compute the Variance Inflation Factor (VIF) for each predictor column in X.
+    
+    Parameters:
+        X (pandas.DataFrame): Design matrix of predictors (columns as variables). A constant/intercept column named 'const' will be added if missing.
+    
+    Returns:
+        dict: Mapping from predictor column name to its VIF (float). Columns that cause internal errors will be assigned numpy.inf. Returns an empty dict if VIF calculation fails entirely (a warning is logged).
+    """
     try:
         if 'const' not in X.columns:
             X_vif = sm.add_constant(X)
@@ -108,7 +152,20 @@ def calculate_vif(X):
 
 def run_regression_model(y, X, model_type='logistic', method='default'):
     """
-    Unified function for Logistic and Poisson regression.
+    Run either logistic or Poisson regression and return fitted coefficients, confidence intervals, and test statistics.
+    
+    Parameters:
+        y (Series or array-like): Outcome vector. For logistic models expected to be binary-coded; for Poisson models expected to be count/non-negative numeric.
+        X (DataFrame or 2D array-like): Predictor matrix; a constant/intercept will be added automatically.
+        model_type (str): 'logistic' (default) to fit a binary logistic regression, or 'poisson' to fit a Poisson GLM.
+        method (str): Estimation method for logistic models. Supported values: 'default' (statsmodels Logit MLE), 'bfgs' (Logit with BFGS optimizer), or 'firth' (penalized likelihood Firth correction; requires optional dependency).
+    
+    Returns:
+        params (pd.Series or None): Estimated regression coefficients indexed by predictor names (including the intercept) or None on failure.
+        conf_int (pd.DataFrame or None): Two-column DataFrame of 95% confidence interval bounds indexed by predictor names, or None on failure.
+        pvalues (pd.Series or None): Two-sided p-values for coefficients indexed by predictor names, or None on failure.
+        status (str): Status message: "OK" on success or an error description on failure (e.g., dependency missing, singular matrix, fitting error).
+        stats_metrics (dict): Model fit metrics with keys "mcfadden" and "nagelkerke" (may contain NaN if not computable).
     """
     stats_metrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
     
@@ -190,11 +247,41 @@ def run_regression_model(y, X, model_type='logistic', method='default'):
 
 # Maintain backward compatibility alias
 def run_binary_logit(y, X, method='default'):
+    """
+    Fit a logistic regression model for outcome `y` using predictors `X`.
+    
+    Parameters:
+        y (array-like or pandas Series): Binary outcome coded as 0/1.
+        X (array-like or pandas DataFrame): Predictor matrix or DataFrame; an intercept will be added if missing.
+        method (str, optional): Fitting method to use. Common values are `'default'`, `'bfgs'`, or `'firth'`.
+    
+    Returns:
+        tuple: (
+            params (pandas.Series): Estimated coefficients (including intercept),
+            conf_int (pandas.DataFrame): 95% confidence intervals for coefficients (lower, upper),
+            pvalues (pandas.Series): Two-sided p-values for coefficients,
+            status (str): Status message describing fit outcome or error,
+            stats_metrics (dict): Model fit statistics (e.g., McFadden and Nagelkerke R-squared when available)
+        )
+    """
     return run_regression_model(y, X, model_type='logistic', method=method)
 
 
 def get_label(col_name, var_meta):
-    """Create formatted label for column."""
+    """
+    Build an HTML-safe display label for a dataset column, optionally including a secondary descriptive label.
+    
+    Parameters:
+        col_name (str): Column name to display.
+        var_meta (dict | None): Optional mapping of variable names to metadata; if a metadata entry for `col_name`
+            contains a 'label', that label is shown beneath the column name. If no direct match exists and the
+            column name contains an underscore, the substring after the first underscore is checked in `var_meta`
+            for a 'label'.
+    
+    Returns:
+        str: HTML string containing the escaped column name in bold and, if available, a secondary escaped label
+        on the next line with muted styling.
+    """
     display_name = col_name
     secondary_label = ""
     
@@ -217,7 +304,21 @@ def get_label(col_name, var_meta):
 
 
 def fmt_p_with_styling(val):
-    """Format p-value with red highlighting if significant (p < 0.05)."""
+    """
+    Format a p-value for display, applying threshold formatting and highlighting significant values.
+    
+    Parameters:
+        val: The p-value to format (numeric, NaN, or other). NaN or non-numeric inputs are treated as missing.
+    
+    Returns:
+        A string representing the formatted p-value:
+        - "-" for missing or invalid inputs.
+        - "<0.001" for values less than 0.001.
+        - ">0.999" for values greater than 0.999.
+        - A three-decimal string (e.g., "0.123") for other values.
+        If the numeric p-value is less than 0.05, the returned string is wrapped in
+        "<span class='sig-p'>...</span>" to indicate significance.
+    """
     if pd.isna(val):
         return "-"
     try:
@@ -240,10 +341,27 @@ def fmt_p_with_styling(val):
 
 def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='logistic', interaction_terms=None):
     """
-    Perform regression analysis (Logistic or Poisson).
-    Includes VIF check, Data Leakage Protection, and Interaction Terms.
+    Perform regression analysis for a specified outcome using logistic or Poisson models and produce an HTML report plus results for forest plots.
     
-    🟢 LAYER 1 OPTIMIZATION: Results cached for 30 minutes (via Wrapper)
+    Performs univariate screening, optional multivariate modeling with VIF checks, optional interaction-term creation (with data-leakage protection), and prepares both crude and adjusted effect estimates. Results produced by this function are cached via the integration layer (approximately 30 minutes).
+    
+    Parameters:
+        outcome_name (str): Column name of the outcome in `df`.
+        df (pandas.DataFrame): Source dataframe containing outcome and predictor columns.
+        var_meta (dict, optional): Optional metadata keyed by variable name to influence display and mode detection (e.g., hints that a variable is categorical or continuous).
+        method (str, optional): Fitting method selector: 'auto', 'firth', 'bfgs', or other method-specific indicators; 'auto' will choose an appropriate method based on data and availability.
+        model_type (str, optional): Model family to fit: 'logistic' or 'poisson'.
+        interaction_terms (iterable, optional): Iterable of interaction specifications (e.g., "var1:var2" or ("var1","var2")) to create interaction predictors; interactions that include the outcome are excluded to prevent leakage.
+    
+    Returns:
+        tuple:
+            html_table (str): Complete HTML string containing the results table, model summary, and any warnings/alerts suitable for embedding in a report.
+            or_results (dict): Mapping of variable (or "variable: level") to crude effect entries with keys `or`, `ci_low`, `ci_high`, and `p_value` for use in univariate forest plots (labelled 'OR' for logistic or 'IRR' for Poisson).
+            aor_results (dict): Mapping of variable (or "variable: level") to adjusted effect entries with keys `aor`, `ci_low`, `ci_high`, and `p_value` for use in multivariate forest plots.
+    
+    Notes:
+        - If the outcome is invalid for the chosen model (e.g., non-binary for logistic, negative or non-numeric for Poisson), the function returns an HTML alert in `html_table` and empty result dicts.
+        - Interaction-term columns are created as numeric products and marked as linear predictors.
     """
     # === MEMORY CHECK ===
     if not MEMORY_MANAGER.check_and_cleanup():
@@ -262,6 +380,25 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
     
     # === INNER COMPUTATION LOGIC ===
     def _perform_analysis():
+        """
+        Run the full analysis pipeline for the selected outcome and produce the HTML report plus result dictionaries for plotting.
+        
+        Performs validation of the outcome for the chosen model type (logistic or Poisson), constructs specified interaction terms (excluding any that would leak the outcome), runs univariate screening, selects candidates for multivariate modelling (with VIF checks), fits the multivariate model, and assembles an HTML table summarizing descriptive statistics, crude and adjusted effect estimates, tests, and model-fit information. Any configuration warnings (e.g., excluded interactions for leakage or high VIF) are included in the returned HTML.
+        
+        Returns:
+            tuple:
+                html_table (str): Complete HTML fragment containing the outcome title, results table, selection summary, model-fit metrics, and any alerts/warnings.
+                or_results (dict): Mapping of univariate result keys (e.g., "variable: level" or "variable") to effect dictionaries with keys:
+                    - 'or' (float): point estimate (OR or IRR) from univariate model,
+                    - 'ci_low' (float): lower 95% CI,
+                    - 'ci_high' (float): upper 95% CI,
+                    - 'p_value' (float): p-value for the estimate.
+                aor_results (dict): Mapping of multivariate result keys (same key format as or_results) to effect dictionaries with keys:
+                    - 'aor' (float): adjusted point estimate (AOR or adjusted IRR),
+                    - 'ci_low' (float): lower 95% CI,
+                    - 'ci_high' (float): upper 95% CI,
+                    - 'p_value' (float): p-value for the adjusted estimate.
+        """
         logger.info(f"📊 Starting analysis logic for outcome: {outcome_name}, Type: {model_type}")
         
         if outcome_name not in df.columns:
@@ -529,6 +666,15 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         vif_warning_text = ""
         
         def _is_candidate_valid(col):
+            """
+            Determine whether a column has sufficient non-missing values to be included as a candidate predictor.
+            
+            Parameters:
+                col (str): Column name in the aligned DataFrame to evaluate.
+            
+            Returns:
+                bool: `true` if the column has more than 5 non-missing entries for its detected mode; for categorical mode (from `mode_map`) counts non-missing values directly, otherwise converts to numeric and counts non-missing numeric values. `false` otherwise.
+            """
             mode = mode_map.get(col, "linear")
             series = df_aligned[col]
             return series.notna().sum() > 5 if mode == "categorical" else clean_numeric_series(series).notna().sum() > 5
@@ -690,7 +836,24 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
     )
 
 def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots", x_label="Odds Ratio"):
-    """Generate forest plots from results with interpretation."""
+    """
+    Render HTML containing forest plots and a brief interpretation for univariable and multivariable effect estimates.
+    
+    Produces an HTML fragment that includes:
+    - An interpretation block explaining how to read the plot relative to the reference value (1.0).
+    - An embedded forest plot for univariable (crude) results when `or_results` is provided and non-empty.
+    - An embedded forest plot for multivariable (adjusted) results when `aor_results` is provided and non-empty.
+    - A fallback message "No results available." when neither results set yields a plot.
+    
+    Parameters:
+        or_results (dict): Mapping of variable names to crude-result dictionaries. Each value should contain keys for the point estimate, CI bounds, and p-value (used for display).
+        aor_results (dict): Mapping of variable names to adjusted-result dictionaries. Each value should contain keys for the adjusted point estimate, CI bounds, and p-value (used for display).
+        plot_title (str): Title displayed above the plots.
+        x_label (str): Label for the x-axis and the interpretation block (e.g., "Odds Ratio" or "IRR").
+    
+    Returns:
+        str: HTML string containing the interpretation block and zero, one, or two embedded forest plots (univariable and/or multivariable) or a "No results available." message.
+    """
     
     # Interpretation for the plot (Moved to TOP as requested)
     interp_div = f"""<div style='margin: 10px 0; padding: 15px; background-color: {COLORS['bg_light']}; border-left: 4px solid {COLORS['primary']}; font-size: 0.9em; border-radius: 4px;'>
@@ -728,7 +891,23 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots"
 
 
 def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto', model_type='logistic', interaction_terms=None):
-    """Generate complete HTML report."""
+    """
+    Generate a complete HTML report (table, interpretation, and forest plots) for regression analysis of a specified outcome.
+    
+    Parameters:
+        df (pandas.DataFrame): Input dataset containing predictors and the outcome column.
+        target_outcome (str): Name of the outcome column to analyze.
+        var_meta (dict or None): Optional metadata for variables (labels, hints for mode detection); keys are column names.
+        method (str): Modeling method selector; 'auto' lets the analysis choose the fitting approach, other accepted values control specific fit methods.
+        model_type (str): Type of regression to run, either 'logistic' or 'poisson'.
+        interaction_terms (list[str] or list[tuple] or None): Optional interaction specifications (e.g., ["var1:var2"] or [("var1","var2")]); interactions involving the outcome are ignored.
+    
+    Returns:
+        tuple:
+            full_html (str): Complete HTML page as a string containing the report, interpretation block, results table, and embedded forest plots.
+            or_res (list or dict): Unadjusted (crude) effect results prepared for forest plotting.
+            aor_res (list or dict): Adjusted (multivariate) effect results prepared for forest plotting.
+    """
     css = f"""<style>
         body {{ font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f6f8; }}
         .table-container {{ background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }}

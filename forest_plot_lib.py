@@ -30,7 +30,15 @@ COLORS = get_color_palette()
 
 # --- HELPER FUNCTION (Moved outside class to prevent Scope Issues) ---
 def _stable_hash(data: bytes) -> str:
-    """Helper to create stable hash for caching"""
+    """
+    Produce a stable hexadecimal hash of the given bytes suitable for use as a cache key.
+    
+    Parameters:
+        data (bytes): Input data to hash.
+    
+    Returns:
+        str: Hexadecimal MD5 digest of the input bytes.
+    """
     return hashlib.md5(data).hexdigest()
 
 class ForestPlot:
@@ -132,9 +140,13 @@ class ForestPlot:
     @staticmethod
     def _vectorized_pvalue_colors(p_series):
         """
-        OPTIMIZED: Vectorize p-value color assignment (10x faster).
+        Map p-values to marker text colors for batch application.
         
-        Batch operation instead of per-row logic.
+        Parameters:
+            p_series (pandas.Series): Series of p-values (may contain numeric values or strings like '<0.001' or '>0.05').
+        
+        Returns:
+            List[str]: List of color names for each input p-value: `'red'` when p < 0.05, `'black'` for missing or non-significant p-values.
         """
         p_numeric = pd.to_numeric(
             p_series.astype(str).str.replace('<', '').str.replace('>', '').str.strip(),
@@ -151,7 +163,18 @@ class ForestPlot:
         
     def _get_ci_width_colors(self, base_color: str) -> list:
         """
-        OPTIMIZED: Pre-compute CI widths in single operation (5x faster).
+        Compute per-row marker RGBA colors based on confidence-interval widths and return those colors with normalized CI widths.
+        
+        Parameters:
+            base_color (str): Hex color string used as the base RGB color for markers (e.g. "#1f77b4"). If invalid or not 6-digit hex, a sensible default RGB is used.
+        
+        Returns:
+            tuple: (marker_colors, ci_normalized)
+                - marker_colors (list[str]): List of "rgba(r, g, b, a)" strings, one per row, where alpha encodes CI width (larger CI => lower opacity).
+                - ci_normalized (numpy.ndarray): Array of normalized CI widths in the range [0, 1] aligned to the input rows.
+        
+        Notes:
+            - Results are cached using the module computation cache keyed by the CI bounds and base_color to avoid recomputation on identical inputs.
         """
         # === INTEGRATION: Cache ===
         # Use cache manager to store color calculations if repetitive
@@ -204,7 +227,24 @@ class ForestPlot:
     
     def get_summary_stats(self, ref_line: float = 1.0):
         """
-        OPTIMIZED: Vectorized summary statistics computation.
+        Compute summary statistics for the current dataset and counts of statistical significance.
+        
+        Parameters:
+            ref_line (float): Reference value used to evaluate whether a confidence interval (CI) is
+                considered significant. If `ref_line > 0`, a CI is counted as significant when its
+                lower bound is greater than `ref_line` or its upper bound is less than `ref_line`.
+                If `ref_line <= 0`, a CI is counted as significant when the product of its bounds
+                is greater than zero (both bounds have the same nonzero sign).
+        
+        Returns:
+            dict: A dictionary with the following keys:
+                - 'n_variables': number of rows in the dataset.
+                - 'median_est': median of the estimate column.
+                - 'min_est': minimum of the estimate column.
+                - 'max_est': maximum of the estimate column.
+                - 'n_significant': count of p-values < 0.05, or `None` if no p-value column is present.
+                - 'pct_significant': percentage (0–100) of p-values < 0.05, or `None` if no p-value column.
+                - 'n_ci_significant': count of confidence intervals considered significant according to `ref_line`.
         """
         # Vectorized p-value significance count
         n_sig = 0
@@ -254,7 +294,23 @@ class ForestPlot:
         color: str = None,
     ) -> go.Figure:
         """
-        OPTIMIZED: Build interactive forest plot with vectorized operations.
+        Create an interactive Plotly forest plot for the instance's data.
+        
+        The plot displays point estimates with 95% confidence intervals and optional columns for labels, formatted estimates, and p-values. Options control a vertical reference line, significance stars appended to labels, CI-width based marker shading, and a horizontal divider separating CI-significant rows; the plot title is augmented with basic summary statistics.
+        
+        Parameters:
+            title (str): Title text for the plot.
+            x_label (str): Label for the x-axis showing effect size.
+            ref_line (float): Vertical reference line value (e.g., 1.0 for no effect).
+            show_ref_line (bool): If True, draw the vertical reference line at `ref_line`.
+            show_sig_stars (bool): If True and p-values are present, append significance stars to labels.
+            show_ci_width_colors (bool): If True, shade marker opacity by CI width.
+            show_sig_divider (bool): If True, draw a horizontal divider between CI-significant and non-significant rows when both are present.
+            height (int | None): Figure height in pixels; if None, a height is chosen based on number of rows.
+            color (str | None): Base color (hex or named) for markers; if None, a default palette color is used.
+        
+        Returns:
+            go.Figure: A Plotly Figure object containing the composed forest plot.
         """
         # === INTEGRATION: Memory Check ===
         if not MEMORY_MANAGER.check_and_cleanup():

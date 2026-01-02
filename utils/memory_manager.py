@@ -27,11 +27,11 @@ class MemoryManager:
     
     def __init__(self, max_memory_mb: int = 14336, cleanup_threshold_pct: float = 0.8):
         """
-        Initialize memory manager.
+        Create a MemoryManager configured with limits that trigger automatic cleanup.
         
-        Args:
-            max_memory_mb: Maximum allowed memory in MB (Set to 14GB for HF Spaces 16GB tier)
-            cleanup_threshold_pct: Trigger cleanup at X% of max_memory
+        Parameters:
+            max_memory_mb (int): Maximum allowed memory in megabytes; defaults to 14336 (14 GB).
+            cleanup_threshold_pct (float): Fraction of `max_memory_mb` at which cleanup is triggered (0-1); defaults to 0.8.
         """
         self.max_memory_mb = max_memory_mb
         self.cleanup_threshold_pct = cleanup_threshold_pct
@@ -41,10 +41,10 @@ class MemoryManager:
     
     def get_memory_usage(self) -> Optional[float]:
         """
-        Get current process memory usage in MB.
+        Return the current process RSS memory usage in megabytes.
         
         Returns:
-            Memory usage in MB, or None if unavailable
+            Memory usage in megabytes as a float, or `None` if the usage could not be determined.
         """
         try:
             process = psutil.Process()
@@ -55,10 +55,10 @@ class MemoryManager:
     
     def check_and_cleanup(self) -> bool:
         """
-        Check memory usage and trigger cleanup if needed.
+        Monitor current process memory and, if usage exceeds the cleanup threshold, expire cache entries and run garbage collection.
         
         Returns:
-            True if memory OK, False if critical
+            `True` if memory is within acceptable limits or if memory readings are unavailable, `False` if memory remains above the configured maximum after cleanup.
         """
         from utils.cache_manager import COMPUTATION_CACHE
         
@@ -101,10 +101,20 @@ class MemoryManager:
     
     def get_memory_status(self) -> dict:
         """
-        Get detailed memory status.
+        Return current memory metrics and a derived status relative to configured limits.
         
         Returns:
-            Dict with memory metrics
+            dict: {
+                'current_mb': float | None - current process RSS memory in megabytes, or None if unreadable;
+                'max_mb': int - configured maximum memory in megabytes;
+                'usage_pct': float | None - current memory as a percentage of max_mb, or None if unreadable;
+                'threshold_mb': float - configured cleanup threshold in megabytes;
+                'status': str - one of:
+                    'UNKNOWN' if current memory is unreadable,
+                    'OK' if usage_pct is below the cleanup threshold percentage,
+                    'WARNING' if usage_pct is at or above the cleanup threshold but below 100%,
+                    'CRITICAL' if usage_pct is greater than or equal to 100%.
+            }
         """
         current_mem = self.get_memory_usage()
                 
@@ -129,6 +139,11 @@ class MemoryManager:
         }
     
     def __repr__(self) -> str:
+        """
+        Return a concise textual summary of the memory manager's current usage.
+        
+        @returns A string in the format "MemoryManager(current_mb/max_mbMB, usage_pct%)" showing current memory (MB), maximum memory (MB), and usage percentage.
+        """
         status = self.get_memory_status()
         return f"MemoryManager({status['current_mb']}/{status['max_mb']}MB, {status['usage_pct']}%)" 
 

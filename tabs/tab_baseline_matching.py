@@ -67,6 +67,20 @@ def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: l
 # ==============================================================================
 @module.ui
 def baseline_matching_ui():
+    """
+    Builds and returns the UI layout for the Baseline Characteristics and Propensity Score Matching toolkit.
+    
+    Constructs a multi-tabbed interface containing:
+    - Subtab 1: Baseline Characteristics (Table 1) with controls to select grouping, variables, OR style, and generate/download HTML output.
+    - Subtab 2: Propensity Score Matching with presets, manual covariate selection, caliper settings, run button, and a results area for match quality, Love plots, and exports.
+    - Subtab 3: Matched Data View with export options, display controls, summary statistics, data preview, and group-level visualizations.
+    - Subtab 4: Reference & Interpretation containing guidance, reporting standards, and a common workflow.
+    
+    The UI includes theme-aware CSS overrides for table header styling and light informational panel styles used throughout the tabs.
+    
+    Returns:
+        ui.Tag: A Shiny UI div containing the entire baseline matching module (tabbed layout and embedded controls).
+    """
     return ui.div(
         # --- 🟢 CSS สำหรับปรับแต่งหัวตารางให้เป็นสีเดียวกับธีมหลัก ---
         ui.tags.style(f"""
@@ -416,6 +430,23 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     # -------------------------------------------------------------------------
     # SHARED REACTIVE VALUES
     # -------------------------------------------------------------------------
+    """
+    Register server-side reactive handlers and UI renderers for the Baseline Matching tabset, orchestrating Table 1 generation, propensity score matching (PSM), matched-data views, and related exports.
+    
+    This function wires up reactive state, input validation, UI updaters, PSM execution (propensity score calculation, matching, SMD computation including categorical handling), result storage, and download endpoints used by the baseline matching UI.
+    
+    Parameters:
+        input: Reactive input bindings (UI controls) used to read user selections and trigger events.
+        output: Reactive output bindings used for registering UI renderers.
+        session: Reactive session object for the current user/session.
+        df (pandas.DataFrame reactive.Value): Primary dataset used for analysis (original data).
+        var_meta (reactive.Value): Variable metadata used when generating Table 1.
+        df_matched (reactive.Value): Reactive holder for matched dataset; updated after successful matching.
+        is_matched (reactive.Value): Reactive boolean flag indicating whether matched data is available.
+        matched_treatment_col (reactive.Value): Reactive holder for the treatment column name in the matched dataset.
+        matched_covariates (reactive.Value): Reactive holder for the list of covariates used for matching.
+    
+    """
     psm_results = reactive.Value(None)
     html_content = reactive.Value(None)
     
@@ -592,6 +623,14 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
 
     @render.ui
     def ui_psm_config_summary():
+        """
+        Render a compact propensity score matching configuration summary showing selected treatment, outcome, and number of confounders.
+        
+        The returned UI element contains markdown with the treatment column, outcome selection (or 'Skip'), and the count of selected covariates. If no covariates are selected an explicit error line is included.
+        
+        Returns:
+            ui.div: A styled div containing the configuration markdown and error indicator when applicable.
+        """
         covs = input.sel_covariates() or []
         treat = input.sel_treat_col()
         outcome = input.sel_outcome_col()
@@ -617,6 +656,12 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
 
     @render.ui
     def ui_psm_run_status():
+        """
+        Render a status indicator showing whether propensity score matching can be run given the selected covariates.
+        
+        Returns:
+            ui.span: A warning span with "⚠️ Select covariates" and danger styling when no covariates are selected; otherwise a success span with "✅ Ready to run" and success styling.
+        """
         covs = input.sel_covariates() or []
         if not covs:
             return ui.span(
@@ -631,6 +676,21 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     @reactive.Effect
     @reactive.event(input.btn_run_psm)
     def _run_psm():
+        """
+        Run propensity score matching using current UI selections and update application state.
+        
+        Reads the selected dataset, treatment column, covariates, and caliper from UI inputs; validates inputs and that the treatment has exactly two values. Encodes a non-numeric treatment into a binary column and one-hot encodes categorical covariates as needed. Calculates propensity scores, performs matching with the specified caliper, computes pre- and post-match standardized mean differences (including categorical SMDs), and saves results.
+        
+        Side effects:
+        - Stores results (matched DataFrame, pre/post SMDs, metadata) in `psm_results`.
+        - Updates global state: `df_matched`, `is_matched`, `matched_treatment_col`, and `matched_covariates`.
+        - Shows progress, success, and error notifications to the UI and logs outcomes.
+        
+        Failure modes:
+        - Shows a warning and returns early if dataset, treatment column, or covariates are not configured.
+        - Raises/handles an error if the treatment column does not have exactly two distinct values.
+        - Raises/handles an error if no matches are found within the specified caliper.
+        """
         d = df.get()
         treat_col = input.sel_treat_col()
         cov_cols = list(input.sel_covariates() or [])
@@ -874,6 +934,14 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
 
     @render.data_frame
     def out_smd_table():
+        """
+        Render a DataGrid showing pre- and post-matching standardized mean differences and percent improvement, or return None when no PSM results are available.
+        
+        The grid presents each variable's SMD before and after matching and the percent improvement, with SMDs formatted to four decimal places and improvement formatted as a percentage with one decimal place.
+        
+        Returns:
+            render.DataGrid or None: A DataGrid containing columns 'Variable', 'SMD_before', 'SMD_after', and 'Improvement %' (formatted as strings), or `None` if no propensity-score-matching results are present.
+        """
         res = psm_results.get()
         if not res: return None
         merged = res['smd_pre'].merge(res['smd_post'], on='Variable', suffixes=('_before', '_after'))
@@ -889,6 +957,12 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
 
     @render.data_frame
     def out_group_comparison_table():
+        """
+        Render a comparison table showing counts of treated and control units before and after matching.
+        
+        Returns:
+            A DataGrid widget containing a two-row DataFrame with columns 'Stage', 'Treated (1)', and 'Control (0)' that report counts for "Before" and "After" matching, or `None` if matching results are not available.
+        """
         res = psm_results.get()
         if not res: return None
         
@@ -908,12 +982,25 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
 
     @render.download(filename="matched_data.csv")
     def btn_dl_psm_csv():
+        """
+        Provide a CSV representation of the matched dataset for download.
+        
+        When PSM results exist, yields a CSV-formatted string of the matched DataFrame with the index omitted.
+        Returns:
+            csv (str): CSV string of the matched dataset (index excluded) if matching results are available.
+        """
         res = psm_results.get()
         if res:
             yield res['df_matched'].to_csv(index=False)
             
     @render.download(filename="psm_report.html")
     def btn_dl_psm_report():
+        """
+        Generate an HTML report summarizing propensity score matching results, including a Love plot and a table of standardized mean differences.
+        
+        Returns:
+            html (str): The generated HTML document containing the PSM report.
+        """
         res = psm_results.get()
         if res:
             fig = psm_lib.plot_love_plot(res['smd_pre'], res['smd_post'])
@@ -932,6 +1019,12 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     
     @render.ui
     def ui_matched_status_tab3():
+        """
+        Render a status panel that indicates whether matched data is available and, if so, displays basic matched-data details.
+        
+        Returns:
+            ui.div: If matched data exists, a success-styled banner showing total rows and the treatment variable name; otherwise an informational panel that guides the user to run propensity score matching.
+        """
         if df_matched.get() is not None:
             df_m = df_matched.get()
             treat_col = matched_treatment_col.get()
@@ -1021,11 +1114,25 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     # Exports for Tab 3
     @render.download(filename="matched_data.csv")
     def btn_dl_matched_csv_view():
+        """
+        Yield the matched dataset as a CSV string suitable for download.
+        
+        If no matched dataset is available, the generator yields nothing.
+        
+        Returns:
+            str: CSV representation of the matched DataFrame including header and excluding the index, or nothing if matched data is not present.
+        """
         if df_matched.get() is not None:
             yield df_matched.get().to_csv(index=False)
               
     @render.download(filename="matched_data.xlsx")
     def btn_dl_matched_xlsx_view():
+        """
+        Produce an in-memory Excel (.xlsx) file of the current matched dataset for download.
+        
+        Returns:
+            bytes: Excel (.xlsx) file content of the matched dataset; no value is yielded if matched data is unavailable.
+        """
         if df_matched.get() is not None:
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:

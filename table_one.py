@@ -311,7 +311,21 @@ def calculate_smd(df, col, group_col, g1_val, g2_val, is_cat, mapped_series=None
 
 def calculate_p_continuous(data_groups):
     """
-    Calculate p-value for continuous variables.
+    Determine the statistical test and p-value for a continuous variable across provided groups.
+    
+    Parameters:
+        data_groups (iterable of pandas.Series): Grouped observations for the same continuous variable. Each element is cleaned to numeric and NaNs are dropped before testing.
+    
+    Returns:
+        tuple: (p_value, test_name)
+            p_value (float): The p-value from the selected test, or `np.nan` if testing could not be performed.
+            test_name (str): One of "t-test", "ANOVA", "Mann-Whitney U", "Kruskal-Wallis", or "-" when no valid test was run.
+    
+    Behavior:
+        - Groups with fewer than two non-NaN numeric observations are ignored.
+        - If fewer than two valid groups remain, returns (np.nan, "-").
+        - Uses Shapiro-Wilk normality checks on each group: if all groups pass, uses t-test (two groups) or one-way ANOVA (>2 groups); otherwise uses Mann-Whitney U (two groups) or Kruskal-Wallis (>2 groups).
+        - On any error during testing, returns (np.nan, "-").
     """
     clean_groups = [g.apply(clean_numeric).dropna() for g in data_groups if len(g.apply(clean_numeric).dropna()) > 1]
     num_groups = len(clean_groups)
@@ -344,7 +358,17 @@ def calculate_p_continuous(data_groups):
 
 def calculate_p_categorical(df, col, group_col):
     """
-    Calculate p-value for categorical variables.
+    Compute the p-value for association between a categorical column and a grouping column.
+    
+    Parameters:
+        df (pandas.DataFrame): Dataframe containing the data.
+        col (str): Name of the categorical variable column.
+        group_col (str): Name of the grouping variable column.
+    
+    Returns:
+        tuple:
+            p_value (float or numpy.nan): The computed p-value, or numpy.nan if computation failed or the contingency table is empty.
+            test_name (str): Name of the test used: "Fisher's Exact", "Chi-square", "Chi-square (Low N)", "-" when the table is empty, or "Error" when an exception occurred.
     """
     try:
         tab = pd.crosstab(df[col], df[group_col])
@@ -373,16 +397,17 @@ def calculate_p_categorical(df, col, group_col):
 
 def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'):
     """
-    OPTIMIZED: Generate baseline characteristics table as HTML with modern styling.
+    Render a complete baseline characteristics HTML table for selected variables, optionally stratified by a grouping column.
     
-    Optimizations:
-    - Pre-compute all group masks (8x faster)
-    - Batch operations on DataFrames
-    - Single-pass HTML generation
-    - Integrated Caching & Memory Management
+    Parameters:
+        df (pandas.DataFrame): Source data frame containing the variables to display.
+        selected_vars (list[str] or tuple[str] or str): Column name(s) to include as characteristics; may be a single name or an iterable of names.
+        group_col (str or None): Column name used to stratify the table into groups; pass None or "None" to disable grouping.
+        var_meta (dict or None): Optional metadata mapping for variables (e.g., labels, type, value maps) used for labeling and categorical handling.
+        or_style (str): Odds-ratio rendering mode; must be 'all_levels' or 'simple'.
     
     Returns:
-        html_string
+        html_string (str): A complete HTML document (string) containing the styled baseline characteristics table.
     """
     # === INTEGRATION: Memory Check ===
     MEMORY_MANAGER.check_and_cleanup()

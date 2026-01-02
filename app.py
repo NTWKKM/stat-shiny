@@ -101,6 +101,11 @@ app_ui = ui.page_navbar(
 # 2. SERVER LOGIC
 # ==========================================
 def server(input, output, session: Session):
+    """
+    Initialize the Shiny server: create shared reactive state, register dynamic optimization-status UI, verify optional dependencies, and wire tab module servers.
+    
+    This function sets up global reactive values used across tabs (data, metadata, uploaded file info, and matching state), defines the `optimization_status` UI output which refreshes every 5 seconds to display cache, memory, and connection subsystem status, performs an optional-dependency check (notifying the user if Firth regression is unavailable), and attaches each tab's server logic to the app with the shared reactive state.
+    """
     logger.info("📱 Shiny app session started")
     logger.info("💾 Cache stats: %s", COMPUTATION_CACHE.get_stats())
     logger.info("🧠 Memory status: %s", MEMORY_MANAGER.get_memory_status())
@@ -121,6 +126,19 @@ def server(input, output, session: Session):
     @render.ui
     def optimization_status():
         # ตั้งค่าให้ Refresh ตัวเองทุก 5 วินาที
+        """
+        Render a compact HTML status badge summarizing cache, memory, and connection subsystem health.
+        
+        The badge displays an icon and tooltip for each subsystem:
+        - L1 Cache: number of cached items, max size, and hit rate.
+        - L2 Memory: usage percentage and current/max MB with severity coloring.
+        - L3 Resilience: connection success rate and failure count with severity coloring.
+        
+        This UI auto-refreshes every 5 seconds.
+        
+        Returns:
+            ui_element (shiny.ui): An HTML UI element containing the three status indicators and copyright.
+        """
         reactive.invalidate_later(5)
 
         # 1. เช็คสถานะ Cache (L1)
@@ -159,6 +177,11 @@ def server(input, output, session: Session):
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps():
+        """
+        Check for the optional firthlogist dependency and show a warning notification if it is not available.
+        
+        This function verifies whether the `firthlogist` package is installed and, when it is missing, displays a user-facing warning via the app notification system.
+        """
         deps_status = {}
         try:
             import firthlogist

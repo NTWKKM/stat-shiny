@@ -15,7 +15,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def get_styling_data():
-    """Get color palette data from the actual source function."""
+    """
+    Retrieve the project's color palette and a reference to the palette-fetching function.
+    
+    Attempts to import and call `get_color_palette` from tabs._common; if the import fails, the current pytest is skipped with an explanatory message.
+    
+    Returns:
+        dict: A dictionary with keys:
+            - "colors": the color palette mapping returned by `get_color_palette`.
+            - "fetcher": the `get_color_palette` callable.
+    """
     try:
         # ใน tabs/_common.py มีฟังก์ชัน get_color_palette
         from tabs._common import get_color_palette
@@ -34,7 +43,11 @@ def test_styling_files_exist():
 
 
 def test_essential_ui_colors():
-    """Test that all brand and status colors are defined in the palette."""
+    """
+    Verify the color palette contains required brand, status, and neutral UI colors.
+    
+    Asserts that styling data is available, that brand colors (primary, primary_light, primary_dark, smoke_white) exist and use HEX notation starting with "#", that status colors (success, danger, warning, info) exist, and that neutral/text colors (text, text_secondary, background, surface, border) exist.
+    """
     data = get_styling_data()
     assert data is not None, "Styling data not available (Import Error)"
 

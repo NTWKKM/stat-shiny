@@ -21,14 +21,17 @@ def get_cached_logistic_analysis(
     cache_key_params: dict
 ) -> Optional[Tuple[Any, Any, Any]]:
     """
-    Get logistic regression analysis results from cache or calculate if not cached.
+    Retrieve cached logistic regression analysis results or compute and cache them.
     
-    Args:
-        calculate_func: Function that performs the full analysis (analyze_outcome logic)
-        cache_key_params: Dict with parameters for cache key
+    Parameters:
+        calculate_func (Callable[[], Tuple[Any, Any, Any]]): Function that performs the analysis and returns (html_table, or_results, aor_results).
+        cache_key_params (dict): Parameters used to form the cache key for storing/retrieving the analysis result.
     
     Returns:
-        tuple: (html_table, or_results, aor_results)
+        Optional[Tuple[Any, Any, Any]]: The tuple (html_table, or_results, aor_results) returned from cache or from `calculate_func()`, or `None` if the calculation produced a falsy result.
+    
+    Notes:
+        Only a truthy 3-tuple is stored in the cache; invalid or falsy results are returned but not cached.
     """
     # Try cache first
     cached = COMPUTATION_CACHE.get('analyze_outcome', **cache_key_params)
