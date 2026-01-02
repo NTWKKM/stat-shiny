@@ -325,7 +325,7 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         except Exception as e:
             ui.notification_remove("run_curves")
             ui.notification_show(f"Error: {e}", type="error")
-            logger.error(f"Curve error: {e}")
+            logger.exception("Curve error")
 
     @render.ui
     def out_curves_result():
@@ -590,6 +590,7 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         except Exception as e:
             ui.notification_remove("run_sg")
             ui.notification_show(f"Error: {e}", type="error")
+            logger.exception("Subgroup analysis error")
 
     @render.ui
     def out_sg_result():
