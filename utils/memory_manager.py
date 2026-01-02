@@ -37,19 +37,19 @@ class MemoryManager:
         self.alerts_sent = 0
         logger.info(f"🚗 Memory manager initialized: Max={max_memory_mb}MB, Threshold={self.cleanup_threshold_mb:.0f}MB")
     
-    def get_memory_usage(self) -> float:
+    def get_memory_usage(self) -> Optional[float]:
         """
         Get current process memory usage in MB.
         
         Returns:
-            Memory usage in MB
+            Memory usage in MB, or None if unavailable
         """
         try:
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
         except Exception as e:
             logger.warning(f"Failed to get memory info: {e}")
-            return 0.0
+            return None
     
     def check_and_cleanup(self) -> bool:
         """
@@ -94,13 +94,14 @@ class MemoryManager:
         """
         current_mem = self.get_memory_usage()
         usage_pct = (current_mem / self.max_memory_mb * 100)
+        cleanup_threshold_pct = self.cleanup_threshold_pct * 100
         
         return {
-            'current_mb': f"{current_mem:.0f}",
+            'current_mb': current_mem,
             'max_mb': self.max_memory_mb,
-            'usage_pct': f"{usage_pct:.1f}%",
-            'threshold_mb': f"{self.cleanup_threshold_mb:.0f}",
-            'status': 'OK' if usage_pct < 80 else 'WARNING' if usage_pct < 100 else 'CRITICAL'
+            'usage_pct': usage_pct,
+            'threshold_mb': self.cleanup_threshold_mb,
+            'status': 'OK' if usage_pct < cleanup_threshold_pct else 'WARNING' if usage_pct < 100 else 'CRITICAL'
         }
     
     def __repr__(self) -> str:
