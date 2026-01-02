@@ -59,6 +59,63 @@ def check_perfect_separation(df, target_col):
                 
     return risky_vars
 
+def _find_smart_outcome(outcome_cols):
+    """Find best outcome column using priorities: Example names > Keywords > First available."""
+    if not outcome_cols:
+        return None
+        
+    # 1. Example Data specific names
+    example_targets = ["Outcome_Cured", "Status_Death", "Target", "Class"]
+    for target in example_targets:
+        if target in outcome_cols:
+            return target
+            
+    # 2. Fuzzy scan for common keywords
+    outcome_keywords = ['outcome', 'status', 'event', 'target', 'result', 'died', 'survived', 'death']
+    for col in outcome_cols:
+        if any(k in col.lower() for k in outcome_keywords):
+            return col
+            
+    # 3. Default
+    return outcome_cols[0]
+
+def _find_smart_treatment(binary_cols):
+    """Find best treatment column using priorities: Example names > Keywords."""
+    if not binary_cols:
+        return None
+        
+    treat_keywords = ['treat', 'group', 'drug', 'arm', 'interv', 'exposure']
+    
+    # 1. Example Data Priority
+    if "Treatment_Group" in binary_cols:
+        return "Treatment_Group"
+    
+    # 2. Keyword scan
+    for col in binary_cols:
+        if any(k in col.lower() for k in treat_keywords):
+            return col
+            
+    return None
+
+def _find_smart_subgroup(sg_cols, selected_outcome, selected_treatment):
+    """Find best subgroup column, avoiding outcome/treatment vars."""
+    if not sg_cols:
+        return None
+        
+    # 1. Filter candidates
+    candidates = [c for c in sg_cols if c != selected_outcome and c != selected_treatment]
+    if not candidates:
+        return None
+        
+    # 2. Prefer common subgroups
+    sg_keywords = ['sex', 'gender', 'age_group', 'bmi_group', 'stage', 'grade']
+    for col in candidates:
+        if any(k in col.lower() for k in sg_keywords):
+            return col
+            
+    # 3. Default
+    return candidates[0]
+
 # ==============================================================================
 # UI Definition - Stacked Layout (Controls Top + Content Bottom)
 # ==============================================================================
@@ -351,54 +408,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         # --- SMART SELECTION LOGIC ---
         
         # 1. Smart Outcome Selection
-        selected_outcome = None
-        if outcome_cols:
-            # A. Check for Example Data specific names first (Priority)
-            example_targets = ["Outcome_Cured", "Status_Death", "Target", "Class"]
-            for target in example_targets:
-                if target in outcome_cols:
-                    selected_outcome = target
-                    break
-            
-            # B. Fuzzy scan for common keywords in uploaded data
-            if not selected_outcome:
-                outcome_keywords = ['outcome', 'status', 'event', 'target', 'result', 'died', 'survived', 'death']
-                for col in outcome_cols:
-                    if any(k in col.lower() for k in outcome_keywords):
-                        selected_outcome = col
-                        break
-            
-            # C. Default to first if nothing found
-            if not selected_outcome:
-                selected_outcome = outcome_cols[0]
+        selected_outcome = _find_smart_outcome(outcome_cols)
 
         # 2. Smart Treatment Selection (For Subgroup)
         binary_cols = [c for c in cols if d[c].nunique() == 2]
-        selected_treatment = None
-        if binary_cols:
-            treat_keywords = ['treat', 'group', 'drug', 'arm', 'interv', 'exposure']
-            # Example Data Priority
-            if "Treatment_Group" in binary_cols:
-                selected_treatment = "Treatment_Group"
-            else:
-                for col in binary_cols:
-                    if any(k in col.lower() for k in treat_keywords):
-                        selected_treatment = col
-                        break
+        selected_treatment = _find_smart_treatment(binary_cols)
         
         # 3. Smart Subgroup Selection (For Subgroup)
-        selected_sg = None
-        if sg_cols:
-             # Try to find something that is NOT the outcome or treatment
-             candidates = [c for c in sg_cols if c != selected_outcome and c != selected_treatment]
-             if candidates:
-                 # Prefer common subgroups
-                 sg_keywords = ['sex', 'gender', 'age_group', 'bmi_group', 'stage', 'grade']
-                 for col in candidates:
-                     if any(k in col.lower() for k in sg_keywords):
-                         selected_sg = col
-                         break
-                 if not selected_sg: selected_sg = candidates[0]
+        selected_sg = _find_smart_subgroup(sg_cols, selected_outcome, selected_treatment)
 
 
         # --- UPDATE UI ---
@@ -594,7 +611,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                             title=f"<b>Multivariable: {x_label}</b>", x_label=x_label
                         )
                         del df_adj
-                        gc.collect()
+                        # Optimized: Removed intermediate gc.collect()
                 
                 if or_res:
                     df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()])
@@ -618,7 +635,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             })
             
             del html_rep, or_res, aor_res, fig_adj, fig_crude
-            gc.collect()
+            gc.collect() # Only run GC once at the end
             
             ui.notification_show("✅ Analysis Complete!", type="message")
 
