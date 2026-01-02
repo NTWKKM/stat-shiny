@@ -229,12 +229,9 @@ def calculate_or_continuous_logit(df, feature_col, group_col, group1_val):
         
         try:
             model = sm.Logit(y, X_const)
-            # === INTEGRATION: Connection Handler ===
-            # Retry model fitting if it fails transiently
-            result = CONNECTION_HANDLER.retry_with_backoff(lambda: model.fit(disp=0))
+            result = model.fit(disp=0)
         except (np.linalg.LinAlgError, ValueError, RuntimeError):
             try:
-                # Fallback method
                 result = model.fit(method='bfgs', disp=0)
             except:
                 return "-"
