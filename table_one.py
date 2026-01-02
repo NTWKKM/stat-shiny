@@ -76,10 +76,7 @@ def check_normality(series):
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                _stat, p_sw = stats.shapiro(clean)
-            return p_sw > 0.05
+            _stat, p_sw = stats.shapiro(clean)
         return p_sw > 0.05
     except Exception:
         return False
