@@ -157,7 +157,7 @@ class ForestPlot:
         """
         # === INTEGRATION: Cache ===
         # Use cache manager to store color calculations if repetitive
-        # FIX: Added self._stable_hash access
+        # FIX: Added self._stable_hash access (Added 'self.')
         cache_key = f"ci_colors_{self._stable_hash(self.data[self.ci_high_col].values.tobytes())}_{self._stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
         cached_res = COMPUTATION_CACHE.get(cache_key)
         if cached_res:
