@@ -34,7 +34,7 @@ def _get_dataset_for_survival(df: pd.DataFrame, df_matched: reactive.Value, is_m
     if is_matched.get() and df_matched.get() is not None:
         return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
     else:
-        return df, f"📊 Original Data ({len(df)} rows)"
+        return df.copy(), f"📊 Original Data ({len(df)} rows)"
 
 # ==============================================================================
 # UI Definition - Modern Module Pattern
@@ -311,8 +311,11 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             if plot_type == "km":
                 fig, stats = survival_lib.fit_km_logrank(data, time_col, event_col, group_col)
                 medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col)
-                stats = pd.concat([stats, medians], axis=1)
-                stats = stats.loc[:, ~stats.columns.duplicated()]
+                if 'Group' in stats.columns and 'Group' in medians.columns:
+                    stats = stats.merge(medians, on='Group', how='outer')
+                else:
+                    stats = pd.concat([stats, medians], axis=1)
+                    stats = stats.loc[:, ~stats.columns.duplicated()]
             else:
                 fig, stats = survival_lib.fit_nelson_aalen(data, time_col, event_col, group_col)
             
@@ -390,7 +393,8 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             ui.notification_remove("run_landmark")
         except Exception as e:
             ui.notification_remove("run_landmark")
-            logger.error(f"Landmark error: {e}")
+            logger.exception("Landmark error")
+            ui.notification_show(f"Landmark analysis error: {e}", type="error")
 
     @render.ui
     def out_landmark_result():
@@ -562,9 +566,25 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         try:
             ui.notification_show("Running Subgroup Analysis...", duration=None, id="run_sg")
             
-            analyzer = SubgroupAnalysisCox(data, time, event, treat, list(adjust))
-            res = analyzer.run_analysis(subgroup)
-            sg_result.set(res)
+            analyzer = SubgroupAnalysisCox(data)
+            result, _, error = analyzer.analyze(
+                duration_col=time,
+                event_col=event,
+                treatment_col=treat,
+                subgroup_col=subgroup,
+                adjustment_cols=list(adjust) if adjust else None,
+                min_subgroup_n=input.sg_min_n(),
+                min_events=input.sg_min_events()
+            )
+            if error:
+                ui.notification_show(error, type="error")
+                return
+            
+            # Generate forest plot
+            forest_fig = analyzer.create_forest_plot()
+            result['forest_plot'] = forest_fig
+            result['interaction_table'] = analyzer.results
+            sg_result.set(result)
             
             ui.notification_remove("run_sg")
         except Exception as e:
