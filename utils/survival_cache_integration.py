@@ -19,6 +19,26 @@ from logger import get_logger
 logger = get_logger(__name__)
 
 
+def _get_cached_result(cache_type: str, label: str, calculate_func, cache_key_params: dict):
+    """
+    Generic cache wrapper for survival computations to reduce duplication.
+    """
+    # Try cache first
+    cached = COMPUTATION_CACHE.get(cache_type, **cache_key_params)
+    if cached is not None:
+        logger.info(f"✅ Survival {label} Cache HIT - using cached results")
+        return cached
+    
+    logger.info(f"⏳ Survival {label} Cache MISS - computing")
+    
+    # Calculate and cache
+    result = calculate_func()
+    COMPUTATION_CACHE.set(cache_type, result, **cache_key_params)
+    logger.info(f"💾 Survival {label} cached for 30 minutes")
+    
+    return result
+
+
 def get_cached_km_curves(calculate_func, cache_key_params: dict):
     """
     Get Kaplan-Meier curves from cache or calculate if not cached.
@@ -30,20 +50,8 @@ def get_cached_km_curves(calculate_func, cache_key_params: dict):
     Returns:
         KM curve data (from cache or fresh calculation)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('survival_km', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ Survival KM Cache HIT - using cached curves")
-        return cached
-    
-    logger.info(f"⏳ Survival KM Cache MISS - calculating Kaplan-Meier curves")
-    
-    # Calculate and cache
-    result = calculate_func()
-    COMPUTATION_CACHE.set('survival_km', result, **cache_key_params)
-    logger.info(f"💾 Survival KM curves cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('survival_km', 'KM', calculate_func, cache_key_params)
+
 
 def get_cached_na_curves(calculate_func, cache_key_params: dict):
     """
@@ -56,20 +64,7 @@ def get_cached_na_curves(calculate_func, cache_key_params: dict):
     Returns:
         NA curve data (from cache or fresh calculation)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('survival_na', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ Survival NA Cache HIT - using cached curves")
-        return cached
-    
-    logger.info(f"⏳ Survival NA Cache MISS - calculating Nelson-Aalen curves")
-    
-    # Calculate and cache
-    result = calculate_func()
-    COMPUTATION_CACHE.set('survival_na', result, **cache_key_params)
-    logger.info(f"💾 Survival NA curves cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('survival_na', 'NA', calculate_func, cache_key_params)
 
 
 def get_cached_cox_model(calculate_func, cache_key_params: dict):
@@ -83,20 +78,7 @@ def get_cached_cox_model(calculate_func, cache_key_params: dict):
     Returns:
         Cox model object (from cache or fresh fit)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('survival_cox', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ Survival Cox Cache HIT - using cached model")
-        return cached
-    
-    logger.info(f"🔄 Survival Cox Cache MISS - fitting Cox model")
-    
-    # Fit and cache
-    result = calculate_func()
-    COMPUTATION_CACHE.set('survival_cox', result, **cache_key_params)
-    logger.info(f"💾 Survival Cox model cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('survival_cox', 'Cox', calculate_func, cache_key_params)
 
 
 def get_cached_survival_estimates(calculate_func, cache_key_params: dict):
@@ -110,20 +92,7 @@ def get_cached_survival_estimates(calculate_func, cache_key_params: dict):
     Returns:
         Survival estimates (from cache or fresh calculation)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('survival_estimates', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ Survival Estimates Cache HIT - using cached estimates")
-        return cached
-    
-    logger.info("⏳ Survival Estimates Cache MISS - calculating estimates")
-    
-    # Calculate and cache
-    result = calculate_func()
-    COMPUTATION_CACHE.set('survival_estimates', result, **cache_key_params)
-    logger.info(f"💾 Survival estimates cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('survival_estimates', 'Estimates', calculate_func, cache_key_params)
 
 
 def get_cached_risk_table(calculate_func, cache_key_params: dict):
@@ -137,17 +106,4 @@ def get_cached_risk_table(calculate_func, cache_key_params: dict):
     Returns:
         Risk table data (from cache or fresh generation)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('survival_risk_table', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ Survival Risk Table Cache HIT - using cached table")
-        return cached
-    
-    logger.info(f"📄 Survival Risk Table Cache MISS - generating table")
-    
-    # Generate and cache
-    result = calculate_func()
-    COMPUTATION_CACHE.set('survival_risk_table', result, **cache_key_params)
-    logger.info(f"💾 Survival risk table cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('survival_risk_table', 'Risk Table', calculate_func, cache_key_params)
