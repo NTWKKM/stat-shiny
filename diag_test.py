@@ -268,11 +268,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             if not is_2x2:
                 return display_tab, None, "Error: Fisher's Exact Test requires a 2x2 table.", None
             
-            # === INTEGRATION: Connection Handler (Robustness) ===
-            # Wrap Fisher test
-            odds_ratio, p_value = CONNECTION_HANDLER.retry_with_backoff(
-                lambda: stats.fisher_exact(tab)
-            )
+            odds_ratio, p_value = stats.fisher_exact(tab)
             method_name = "Fisher's Exact Test"
             
             stats_res = {
@@ -285,11 +281,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         else:
             use_correction = True if "Yates" in method else False
             
-            # === INTEGRATION: Connection Handler (Robustness) ===
-            # Wrap Chi2 test
-            chi2, p, dof, ex = CONNECTION_HANDLER.retry_with_backoff(
-                lambda: stats.chi2_contingency(tab, correction=use_correction)
-            )
+            chi2, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
             
             method_name = "Chi-Square"
             if is_2x2:
@@ -502,9 +494,6 @@ def calculate_kappa(df, col1, col2):
     
     try:
         kappa = cohen_kappa_score(y1, y2)
-    except Exception as e:
-        logger.error(f"Error calculating Cohen's kappa: {e}")
-        raise
         
         if kappa < 0:
             interp = "Poor agreement"
