@@ -282,6 +282,9 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     subgroup_analyzer = reactive.Value(None) # Store analyzer instance
     interaction_list = reactive.Value([]) # Store active interaction terms
     
+    # Track state for dynamic removal buttons
+    last_remove_clicks = reactive.Value({})
+
     # --- 1. Dataset Selection Logic ---
     @reactive.Calc
     def current_df():
@@ -312,6 +315,18 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
 
     # --- 2. Dynamic Input Updates (Optimized with Smart Selection) ---
+    
+    # Notify user when model type changes
+    @reactive.Effect
+    @reactive.event(input.sel_model_type, ignore_init=True)
+    def _notify_on_model_type_change():
+        m_type = input.sel_model_type()
+        ui.notification_show(
+            f"Model type changed to {m_type.capitalize()}. Please verify outcome selection.",
+            type="warning",
+            duration=5
+        )
+
     @reactive.Effect
     def _update_inputs():
         d = current_df()
@@ -424,18 +439,74 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         if not terms:
             return ui.span("No interactions added.", style="color: gray; font-size: 0.9em;")
         
-        badges = []
-        for t in terms:
-            # Simple clickable badge to remove? (Complex in pure shiny python, just showing list now)
-            badges.append(ui.span(t, class_="badge bg-info text-dark me-1"))
+        items = []
+        for i, term in enumerate(terms):
+            # Create a removal button for each term
+            btn_id = f"btn_remove_int_{i}"
+            items.append(
+                ui.div(
+                    ui.span(term, class_="badge bg-info text-dark me-2"),
+                    ui.input_action_button(
+                        btn_id, "✕", 
+                        class_="btn-link text-danger p-0", 
+                        style="text-decoration: none; font-weight: bold; font-size: 1.1em; line-height: 1;"
+                    ),
+                    class_="d-inline-flex align-items-center me-2 mb-2 px-2 py-1 border rounded bg-light"
+                )
+            )
         
         return ui.div(
-            *badges,
+            ui.div(*items, class_="d-flex flex-wrap"),
             ui.div(
                 ui.input_action_button("btn_clear_interactions", "Clear All", class_="btn-xs btn-outline-danger mt-2"),
             )
         )
         
+    @reactive.Effect
+    def _handle_interaction_removal():
+        """
+        Dynamically handle removal of interaction terms.
+        This polls the buttons associated with current interactions.
+        """
+        terms = interaction_list.get()
+        # Create dependency on potential buttons
+        current_clicks = {}
+        triggered_idx = None
+        
+        # Scan inputs for all potential buttons in the current list
+        for i in range(len(terms)):
+            btn_id = f"btn_remove_int_{i}"
+            try:
+                # Check if input exists and get its value
+                if hasattr(input, btn_id):
+                    val = getattr(input, btn_id)()
+                    current_clicks[btn_id] = val
+            except Exception:
+                pass
+        
+        # Compare with previous state to detect clicks
+        prev_clicks = last_remove_clicks.get()
+        for btn_id, val in current_clicks.items():
+            if val > prev_clicks.get(btn_id, 0):
+                try:
+                    # Extract index from button ID
+                    idx = int(btn_id.split('_')[-1])
+                    triggered_idx = idx
+                except ValueError:
+                    pass
+                break
+        
+        # Update state
+        last_remove_clicks.set(current_clicks)
+        
+        # Apply removal if triggered
+        if triggered_idx is not None and 0 <= triggered_idx < len(terms):
+            removed_term = terms[triggered_idx]
+            new_terms = list(terms)
+            new_terms.pop(triggered_idx)
+            interaction_list.set(new_terms)
+            ui.notification_show(f"Removed interaction: {removed_term}", type="message")
+
     @reactive.Effect
     @reactive.event(input.btn_clear_interactions)
     def _clear_interactions():
@@ -512,6 +583,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             
             x_label = "Adjusted IRR" if model_type == 'poisson' else "Adjusted OR"
             x_label_crude = "Crude IRR" if model_type == 'poisson' else "Crude OR"
+            col_key = 'aor' # The key in dict is still 'aor'/'or' from logic for consistency
             
             try:
                 if aor_res:
