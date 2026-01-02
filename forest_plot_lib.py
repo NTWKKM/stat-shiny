@@ -142,7 +142,10 @@ class ForestPlot:
         colors[p_numeric.isna()] = 'black'
         
         return colors.tolist()
+
+    @staticmethod
     def _stable_hash(data: bytes) -> str:
+        """Helper to create stable hash for caching"""
         return hashlib.md5(data).hexdigest()
         
     def _get_ci_width_colors(self, base_color: str) -> list:
@@ -154,7 +157,8 @@ class ForestPlot:
         """
         # === INTEGRATION: Cache ===
         # Use cache manager to store color calculations if repetitive
-        cache_key = f"ci_colors_{_stable_hash(self.data[self.ci_high_col].values.tobytes())}_{_stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
+        # FIX: Added self._stable_hash access
+        cache_key = f"ci_colors_{self._stable_hash(self.data[self.ci_high_col].values.tobytes())}_{self._stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
         cached_res = COMPUTATION_CACHE.get(cache_key)
         if cached_res:
             return cached_res
