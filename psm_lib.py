@@ -13,6 +13,7 @@ Features:
 - Caches matching results (30-min TTL)
 - Caches SMD calculations (30-min TTL)
 - Expected: 94% speedup on repeat analyses
+- Integrated Memory Management & Resilience
 """
 
 import pandas as pd
@@ -22,16 +23,16 @@ from sklearn.neighbors import NearestNeighbors
 import plotly.graph_objects as go
 from logger import get_logger
 
-# === LAYER 1: Import Cache Manager ===
-# ไม่จำเป็นต้อง import COMPUTATION_CACHE โดยตรงแล้ว เพราะเราใช้ผ่าน Wrapper ทั้งหมด
-# from utils.cache_manager import COMPUTATION_CACHE 
-
 # === INTEGRATION: Import Cache Wrappers ===
 from utils.psm_cache_integration import (
     get_cached_propensity_scores, 
     get_cached_matched_data,
     get_cached_smd
 )
+
+# === INTEGRATION: System Stability & Memory ===
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
 
 logger = get_logger(__name__)
 
@@ -43,6 +44,7 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
     ✅ OPTIMIZED: Results cached for 30 minutes
     - First call: Normal computation (~10-30s depending on data size)
     - Repeat calls: 2-3s (from cache)
+    - Memory managed execution
     
     Returns:
         pd.DataFrame: Original DF with added 'ps_score' and 'logit_ps' columns
@@ -59,6 +61,9 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
 
         # Define the computation logic as an inner function
         def _compute_propensity_score():
+            # === INTEGRATION: Memory Check ===
+            MEMORY_MANAGER.check_and_cleanup()
+
             logger.info("🔄 Computing propensity scores (Logic Execution)...")
             
             # Prepare Data: Drop NAs in relevant columns to ensure consistent length
@@ -73,7 +78,12 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
             
             # Logistic Regression
             model = LogisticRegression(solver='liblinear', max_iter=1000)
-            model.fit(X, y)
+            
+            # === INTEGRATION: Robust Fit ===
+            # Wrap model fitting in retry logic for stability
+            CONNECTION_HANDLER.retry_with_backoff(
+                lambda: model.fit(X, y)
+            )
             
             # Predict Propensity Scores
             ps = model.predict_proba(X)[:, 1]
@@ -130,6 +140,9 @@ def perform_matching(df, treatment_col, caliper=0.2):
         
         # Define the matching logic as an inner function
         def _perform_matching_logic():
+            # === INTEGRATION: Memory Check ===
+            MEMORY_MANAGER.check_and_cleanup()
+
             logger.info("🔄 Performing matching logic...")
             
             treated = df[df[treatment_col] == 1].copy()
@@ -148,7 +161,11 @@ def perform_matching(df, treatment_col, caliper=0.2):
 
             # Nearest Neighbors Matching
             # We fit NN on Control group
-            nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(control[['logit_ps']])
+            # === INTEGRATION: Robust Fit ===
+            nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree')
+            CONNECTION_HANDLER.retry_with_backoff(
+                lambda: nbrs.fit(control[['logit_ps']])
+            )
             
             # Find closest control for each treated unit
             distances, indices = nbrs.kneighbors(treated[['logit_ps']])
@@ -223,6 +240,9 @@ def calculate_smd(df, treatment_col, covariate_cols):
         
         # Define the SMD logic as an inner function
         def _compute_smd_logic():
+            # === INTEGRATION: Memory Check ===
+            MEMORY_MANAGER.check_and_cleanup()
+
             logger.info("🔄 Computing SMD (Logic Execution)...")
             
             treated = df[df[treatment_col] == 1]
