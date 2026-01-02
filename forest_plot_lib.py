@@ -7,8 +7,9 @@ Shiny-compatible - no Streamlit dependencies.
 
 OPTIMIZATIONS:
 - Vectorized p-value formatting (10x faster)
-- Batch color operations (10x faster)  
+- Batch color operations (10x faster)
 - Pre-computed CI widths (5x faster)
+- Integrated Memory Management & Caching
 """
 
 import pandas as pd
@@ -18,6 +19,11 @@ from plotly.subplots import make_subplots
 from logger import get_logger
 from tabs._common import get_color_palette
 import warnings
+
+# === INTEGRATION: System Stability & Memory ===
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
+from utils.cache_manager import COMPUTATION_CACHE
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -144,6 +150,13 @@ class ForestPlot:
         Old: multiple separate operations
         New: vectorized single pass
         """
+        # === INTEGRATION: Cache ===
+        # Use cache manager to store color calculations if repetitive
+        cache_key = f"ci_colors_{hash(self.data[self.ci_high_col].values.tobytes())}_{hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
+        cached_res = COMPUTATION_CACHE.get(cache_key)
+        if cached_res:
+            return cached_res
+
         ci_high = self.data[self.ci_high_col].values
         ci_low = self.data[self.ci_low_col].values
         
@@ -179,7 +192,9 @@ class ForestPlot:
             for op in opacity
         ]
         
-        return marker_colors, ci_normalized
+        result = (marker_colors, ci_normalized)
+        COMPUTATION_CACHE.set(cache_key, result)
+        return result
     
     def get_summary_stats(self, ref_line: float = 1.0):
         """
@@ -235,6 +250,9 @@ class ForestPlot:
         """
         OPTIMIZED: Build interactive forest plot with vectorized operations.
         """
+        # === INTEGRATION: Memory Check ===
+        MEMORY_MANAGER.check_and_cleanup()
+
         if color is None:
             color = COLORS['primary']
         
@@ -261,6 +279,7 @@ class ForestPlot:
         else:
             self.data['__display_label'] = self.data[self.label_col]
         
+        # Use Cached Color calculation
         marker_colors, _ = self._get_ci_width_colors(color) if show_ci_width_colors else ([color] * len(self.data), None)
 
         has_pval = self.pval_col is not None and not self.data[self.pval_col].isna().all()
@@ -278,11 +297,15 @@ class ForestPlot:
 
         y_pos = list(range(len(self.data)))
         
-        fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_label'], mode="text", textposition="middle right", textfont=dict(size=13, color="black"), hoverinfo="none", showlegend=False), row=1, col=1)
-        fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_est'], mode="text", textposition="middle center", textfont=dict(size=13, color="black"), hoverinfo="none", showlegend=False), row=1, col=2)
+        # Add traces with resilience (though unlikely to fail, good practice)
+        def _add_traces():
+            fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_label'], mode="text", textposition="middle right", textfont=dict(size=13, color="black"), hoverinfo="none", showlegend=False), row=1, col=1)
+            fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_est'], mode="text", textposition="middle center", textfont=dict(size=13, color="black"), hoverinfo="none", showlegend=False), row=1, col=2)
 
-        if has_pval:
-            fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_p'], mode="text", textposition="middle center", textfont=dict(size=13, color=p_text_colors), hoverinfo="none", showlegend=False), row=1, col=3)
+            if has_pval:
+                fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_p'], mode="text", textposition="middle center", textfont=dict(size=13, color=p_text_colors), hoverinfo="none", showlegend=False), row=1, col=3)
+
+        CONNECTION_HANDLER.retry_with_backoff(_add_traces)
 
         finite_data = self.data[np.isfinite(self.data[self.estimate_col])]
         if not finite_data.empty:
