@@ -17,6 +17,29 @@ from logger import get_logger
 logger = get_logger(__name__)
 
 
+def _get_cached_result(cache_namespace: str, calculate_func, cache_key_params: dict, operation_name: str):
+    """
+    Generic cache helper for PSM computations with error handling.
+    """
+    # Try cache first
+    cached = COMPUTATION_CACHE.get(cache_namespace, **cache_key_params)
+    if cached is not None:
+        logger.info(f"✅ {operation_name} Cache HIT - using cached results")
+        return cached
+    
+    logger.info(f"📊 {operation_name} Cache MISS - performing calculation")
+    
+    try:
+        # Calculate and cache
+        result = calculate_func()
+        COMPUTATION_CACHE.set(cache_namespace, result, **cache_key_params)
+        logger.info(f"💾 {operation_name} result cached for 30 minutes")
+        return result
+    except Exception as e:
+        logger.error(f"❌ {operation_name} calculation failed: {str(e)}")
+        raise
+
+
 def get_cached_propensity_scores(calculate_func, cache_key_params: dict):
     """
     Get propensity scores from cache or calculate if not cached.
@@ -28,20 +51,7 @@ def get_cached_propensity_scores(calculate_func, cache_key_params: dict):
     Returns:
         Propensity scores (from cache or fresh calculation)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('psm_calculate', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ PSM Cache HIT - using cached propensity scores")
-        return cached
-    
-    logger.info(f"📊 PSM Cache MISS - calculating propensity scores")
-    
-    # Calculate and cache
-    result = calculate_func()
-    COMPUTATION_CACHE.set('psm_calculate', result, **cache_key_params)
-    logger.info(f"💾 PSM result cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('psm_calculate', calculate_func, cache_key_params, 'PSM Score')
 
 
 def get_cached_matched_data(matching_func, cache_key_params: dict):
@@ -55,20 +65,7 @@ def get_cached_matched_data(matching_func, cache_key_params: dict):
     Returns:
         Matched dataframe (from cache or fresh matching)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('psm_matching', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ PSM Matching Cache HIT - using cached matched data")
-        return cached
-    
-    logger.info(f"🔄 PSM Matching Cache MISS - performing matching")
-    
-    # Perform matching and cache
-    result = matching_func()
-    COMPUTATION_CACHE.set('psm_matching', result, **cache_key_params)
-    logger.info(f"💾 PSM matching result cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('psm_matching', matching_func, cache_key_params, 'PSM Matching')
 
 
 def get_cached_smd(smd_func, cache_key_params: dict):
@@ -82,17 +79,4 @@ def get_cached_smd(smd_func, cache_key_params: dict):
     Returns:
         SMD dataframe (from cache or fresh calculation)
     """
-    # Try cache first
-    cached = COMPUTATION_CACHE.get('psm_smd', **cache_key_params)
-    if cached is not None:
-        logger.info(f"✅ PSM SMD Cache HIT - using cached SMD results")
-        return cached
-    
-    logger.info(f"📊 PSM SMD Cache MISS - calculating SMD")
-    
-    # Calculate and cache
-    result = smd_func()
-    COMPUTATION_CACHE.set('psm_smd', result, **cache_key_params)
-    logger.info(f"💾 PSM SMD result cached for 30 minutes")
-    
-    return result
+    return _get_cached_result('psm_smd', smd_func, cache_key_params, 'PSM SMD')
