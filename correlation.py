@@ -160,9 +160,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 return display_tab, None, "Error: Fisher's Exact Test requires a 2x2 table.", None
             
             # === INTEGRATION: Robust Execution ===
-            odds_ratio, p_value = CONNECTION_HANDLER.retry_with_backoff(
-                lambda: stats.fisher_exact(tab)
-            )
+            odds_ratio, p_value = stats.fisher_exact(tab)
             method_name = "Fisher's Exact Test"
             
             stats_res = {
