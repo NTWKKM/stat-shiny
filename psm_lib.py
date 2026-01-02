@@ -22,6 +22,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import NearestNeighbors
 import plotly.graph_objects as go
 from logger import get_logger
+import html as _html
 
 # === INTEGRATION: Import Cache Wrappers ===
 from utils.psm_cache_integration import (
@@ -56,7 +57,10 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
             'treatment_col': treatment_col,
             'covariate_cols': tuple(sorted(covariate_cols)),
             'df_shape': df.shape,
-            'df_hash': hash(tuple(df[treatment_col].values.tobytes()) + tuple(df[covariate_cols[0]].values.tobytes()))
+            'df_hash': hash(
+                df[treatment_col].values.tobytes() + 
+                b''.join(df[col].values.tobytes() for col in covariate_cols)
+            )
         }
 
         # Define the computation logic as an inner function
@@ -79,11 +83,7 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
             # Logistic Regression
             model = LogisticRegression(solver='liblinear', max_iter=1000)
             
-            # === INTEGRATION: Robust Fit ===
-            # Wrap model fitting in retry logic for stability
-            CONNECTION_HANDLER.retry_with_backoff(
-                lambda: model.fit(X, y)
-            )
+            model.fit(X, y)
             
             # Predict Propensity Scores
             ps = model.predict_proba(X)[:, 1]
@@ -163,9 +163,7 @@ def perform_matching(df, treatment_col, caliper=0.2):
             # We fit NN on Control group
             # === INTEGRATION: Robust Fit ===
             nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree')
-            CONNECTION_HANDLER.retry_with_backoff(
-                lambda: nbrs.fit(control[['logit_ps']])
-            )
+            nbrs.fit(control[['logit_ps']])
             
             # Find closest control for each treated unit
             distances, indices = nbrs.kneighbors(treated[['logit_ps']])
@@ -274,7 +272,7 @@ def calculate_smd(df, treatment_col, covariate_cols):
                     })
                 else:
                     # For categorical (dummy coded 0/1), SMD is difference in proportions / pooled SD
-                    pass
+                    logger.debug(f"Skipping categorical variable '{col}' in SMD calculation")
             
             return pd.DataFrame(smd_data)
 
@@ -285,8 +283,8 @@ def calculate_smd(df, treatment_col, covariate_cols):
         )
         
     except Exception as e:
-        logger.error(f"SMD calculation error: {e}")
-        return pd.DataFrame()
+        logger.exception("SMD calculation error")
+        raise
 
 # ==========================================
 # Visualization & Reporting Logic (ADDED)
@@ -353,12 +351,13 @@ def generate_psm_report(title, elements):
     
     Note: Report generation not cached (always dynamic)
     """
-    html = f"<html><head><title>{title}</title></head><body style='font-family: Arial, sans-serif; padding: 20px;'>"
-    html += f"<h1 style='color: #2c3e50;'>{title}</h1><hr>"
+    safe_title = _html.escape(str(title))
+    html = f"<html><head><title>{safe_title}</title></head><body style='font-family: Arial, sans-serif; padding: 20px;'>"
+    html += f"<h1 style='color: #2c3e50;'>{safe_title}</h1><hr>"
     
     for el in elements:
         if el['type'] == 'text':
-            html += f"<p style='font-size: 1.1em; color: #34495e;'>{el['data']}</p>"
+            html += f"<p style='font-size: 1.1em; color: #34495e;'>{_html.escape(str(el['data']))}</p>"
         elif el['type'] == 'table':
             if isinstance(el['data'], pd.DataFrame):
                 # Clean table style
