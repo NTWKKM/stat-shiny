@@ -94,13 +94,13 @@ def _sort_groups_vectorized(groups):
 def calculate_median_survival(df, duration_col, event_col, group_col):
     """
     OPTIMIZED: Calculate Median Survival Time and 95% CI for each group.
-    
+     
     Optimizations:
     - Vectorized median calculations
     - Batch CI computations
     - Cached results
     - Memory managed execution
-    
+     
     Returns:
         pd.DataFrame: Table with 'Group', 'N', 'Events', and 'Median (95% CI)'
     """
@@ -209,7 +209,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
 def fit_km_logrank(df, duration_col, event_col, group_col):
     """
     OPTIMIZED: Fit KM curves and perform Log-rank test.
-    
+     
     Returns:
         tuple: (plotly_fig, stats_df)
     """
@@ -371,7 +371,7 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
 def fit_nelson_aalen(df, duration_col, event_col, group_col):
     """
     OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
-    
+     
     Returns:
         tuple: (plotly_fig, stats_df)
     """
@@ -470,7 +470,7 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
                 y=np.concatenate([ci_lower, ci_upper[::-1]]), 
                 fill='toself',
                 fillcolor=rgba_color,
-                line={'color': 'rgba(255,255,255,0)'}
+                line={'color': 'rgba(255,255,255,0)'},  # Fix: Added comma here
                 hoverinfo="skip", 
                 name=f'{label} 95% CI',
                 showlegend=False
@@ -499,7 +499,7 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
 def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     """
     Fit Cox proportional hazards model.
-    
+     
     Returns:
         tuple: (cph, res_df, data, error_msg)
     """
@@ -639,7 +639,7 @@ def check_cph_assumptions(cph, data):
     """
     OPTIMIZED: Generate proportional hazards test report and Schoenfeld residual plots.
     Includes automated violation checks (p < 0.05).
-    
+     
     Returns:
         tuple: (report_text, list_of_figures)
     """
@@ -738,7 +738,7 @@ def check_cph_assumptions(cph, data):
 def create_forest_plot_cox(res_df):
     """
     Create publication-quality forest plot of hazard ratios.
-    
+     
     Returns:
         plotly_fig
     """
@@ -767,7 +767,7 @@ def create_forest_plot_cox(res_df):
 def generate_forest_plot_cox_html(res_df):
     """
     Generate HTML snippet with forest plot for Cox regression.
-    
+     
     Returns:
         html_string
     """
@@ -797,7 +797,7 @@ def generate_forest_plot_cox_html(res_df):
 def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     """
     OPTIMIZED: Perform landmark-time Kaplan-Meier analysis.
-    
+     
     Returns:
         tuple: (fig, stats_df, n_pre, n_post, error)
     """
@@ -920,7 +920,7 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
 def generate_report_survival(title, elements):
     """
     Generate complete HTML report with embedded plots and tables.
-    
+     
     Returns:
         html_string
     """
