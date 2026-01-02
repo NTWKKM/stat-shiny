@@ -339,6 +339,11 @@ def calculate_p_continuous(data_groups):
             else:
                 _s, p = stats.kruskal(*clean_groups)
                 test_name = "Kruskal-Wallis"
+                
+        return p, test_name
+    
+    except Exception:
+        return np.nan, "-"
 
 def calculate_p_categorical(df, col, group_col):
     """
