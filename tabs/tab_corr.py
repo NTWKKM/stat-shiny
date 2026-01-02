@@ -223,6 +223,17 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
 
     COLORS = get_color_palette()
     
+    # ==================== FIX: HELPER FOR NAMESPACE OUTPUTS ====================
+    # Shiny decorators use function name as ID. Since we use dynamic namespace,
+    # we need to manually set the function name before decorating.
+    def render_with_id(renderer, output_suffix):
+        def decorator(func):
+            # Force function name to match the UI ID pattern
+            func.__name__ = f"{namespace}_{output_suffix}"
+            return renderer(func)
+        return decorator
+    # ===========================================================================
+    
     # ==================== REACTIVE STATES ====================
     
     corr_result = reactive.Value(None)  # Stores result from correlation analysis
@@ -261,7 +272,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     
     # ==================== ICC SELECTION INFO ====================
     
-    @render.ui
+    @render_with_id(render.ui, "out_icc_note") # ID: {namespace}_out_icc_note
     def ui_icc_note():
         """Display info about auto-detected ICC variables."""
         data = df.get()
@@ -331,14 +342,14 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             })
             ui.notification_show("Correlation analysis complete", type="default")
     
-    @render.ui
+    @render_with_id(render.ui, "out_corr_result") # ID: {namespace}_out_corr_result
     def out_corr_result():
         """Display correlation analysis results."""
         result = corr_result.get()
         if result is None:
             return ui.markdown("*Results will appear here after clicking '📈 Analyze Correlation'*")
         
-        # Use output_ui to render the Plotly HTML, because @render.plot doesn't work for Plotly in Shiny without shinywidgets
+        # Use output_ui to render the Plotly HTML
         return ui.card(
             ui.card_header("Results"),
             ui.markdown(f"**Data Source:** {result['data_label']}"),
@@ -350,7 +361,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             ui.output_ui(f"{namespace}_out_corr_plot_html"), 
         )
     
-    @render.data_frame
+    @render_with_id(render.data_frame, "out_corr_table") # ID: {namespace}_out_corr_table
     def out_corr_table():
         """Render correlation results table."""
         result = corr_result.get()
@@ -360,7 +371,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         df_result = pd.DataFrame([result['stats']])
         return render.DataGrid(df_result)
     
-    @render.ui
+    @render_with_id(render.ui, "out_corr_plot_html") # ID: {namespace}_out_corr_plot_html
     def out_corr_plot_html():
         """Render scatter plot as HTML."""
         result = corr_result.get()
@@ -411,7 +422,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             })
             ui.notification_show("ICC analysis complete", type="default")
 
-    @render.ui
+    @render_with_id(render.ui, "out_icc_result") # ID: {namespace}_out_icc_result
     def out_icc_result():
         """Display ICC analysis results."""
         result = icc_result.get()
@@ -429,7 +440,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             ui.output_data_frame(f"{namespace}_out_icc_anova_table"),
         )
     
-    @render.data_frame
+    @render_with_id(render.data_frame, "out_icc_table") # ID: {namespace}_out_icc_table
     def out_icc_table():
         """Render ICC results table."""
         result = icc_result.get()
@@ -437,7 +448,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             return None
         return render.DataGrid(result['results_df'])
     
-    @render.data_frame
+    @render_with_id(render.data_frame, "out_icc_anova_table") # ID: {namespace}_out_icc_anova_table
     def out_icc_anova_table():
         """Render ANOVA table."""
         result = icc_result.get()
