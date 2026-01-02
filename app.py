@@ -27,9 +27,9 @@ logger = get_logger(__name__)
 
 # === LAYER 2 & 3: Initialize optimization systems ===
 logger.info("🚀 Initializing HF optimization layers...")
-logger.info(f"  {COMPUTATION_CACHE}")     # Layer 1: Caching
-logger.info(f"  {MEMORY_MANAGER}")        # Layer 2: Memory Mgmt
-logger.info(f"  {CONNECTION_HANDLER}")    # Layer 3: Connection Resilience
+logger.info("  %s", COMPUTATION_CACHE)     # Layer 1: Caching
+logger.info("  %s", MEMORY_MANAGER)        # Layer 2: Memory Mgmt
+logger.info("  %s", CONNECTION_HANDLER)    # Layer 3: Connection Resilience
 
 # Get color palette for navbar styling
 colors = get_color_palette()
