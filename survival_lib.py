@@ -306,7 +306,7 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
             else:
                 stats_data = {'Test': 'None', 'Note': 'Single group or no group selected'}
         except Exception as e:
-            logger.error(f"Log-rank test error: {e}")
+            logger.exception("Log-rank test error")
             stats_data = {'Test': 'Error', 'Note': str(e)}
         
         return plot_data, pd.DataFrame([stats_data])
@@ -511,7 +511,11 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
         'event_col': event_col,
         'covariate_cols': tuple(sorted(covariate_cols)),
         'df_shape': df.shape,
-        'df_hash': hash(tuple(df[duration_col].values.tobytes()) + tuple(df[event_col].values.tobytes()))
+        'df_hash': hash(
+            df[duration_col].values.tobytes() +
+            df[event_col].values.tobytes() +
+            b''.join(df[col].values.tobytes() for col in covariate_cols if col in df.columns)
+        )
     }
 
     def _fit_cox_model():
