@@ -309,7 +309,7 @@ def plot_love_plot(smd_pre, smd_post):
             y=df_plot['Variable'],
             mode='markers',
             name='Unmatched',
-            marker=dict(color='#ef553b', size=10, symbol='circle')
+            marker={'color': '#ef553b', 'size': 10, 'symbol': 'circle'}
         ))
 
         # Matched Dots (Green)
@@ -318,12 +318,12 @@ def plot_love_plot(smd_pre, smd_post):
             y=df_plot['Variable'],
             mode='markers',
             name='Matched',
-            marker=dict(color='#00cc96', size=10, symbol='diamond')
+            marker={'color': '#00cc96', 'size': 10, 'symbol': 'diamond'}
         ))
 
         # Add Threshold Lines (0.1)
         fig.add_shape(type="line", x0=0.1, y0=0, x1=0.1, y1=1, xref='x', yref='paper',
-                      line=dict(color="Gray", width=1, dash="dash"))
+                      line={'color': "Gray", 'width': 1, 'dash': "dash"})
         fig.add_annotation(x=0.1, y=1, yref='paper', text="0.1 threshold", showarrow=False, yshift=10)
 
         fig.update_layout(
