@@ -107,6 +107,16 @@ class MemoryManager:
             Dict with memory metrics
         """
         current_mem = self.get_memory_usage()
+                
+        if current_mem is None:
+            return {
+                'current_mb': None,
+                'max_mb': self.max_memory_mb,
+                'usage_pct': None,
+                'threshold_mb': self.cleanup_threshold_mb,
+                'status': 'UNKNOWN'
+            }
+        
         usage_pct = (current_mem / self.max_memory_mb * 100)
         cleanup_threshold_pct = self.cleanup_threshold_pct * 100
         
