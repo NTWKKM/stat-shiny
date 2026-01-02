@@ -67,254 +67,272 @@ def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: l
 # ==============================================================================
 @module.ui
 def baseline_matching_ui():
-    return ui.navset_card_tab(
+    return ui.div(
+        # --- 🟢 CSS สำหรับปรับแต่งหัวตารางให้เป็นสีเดียวกับธีมหลัก ---
+        ui.tags.style(f"""
+            .shiny-data-grid .table thead th {{
+                background-color: {COLORS['primary']} !important;
+                color: white !important;
+                font-weight: 600 !important;
+            }}
+            .bg-primary-light {{
+                background-color: {COLORS['primary']}15; /* 15% opacity */
+                border-left: 5px solid {COLORS['primary']};
+            }}
+            .bg-info-light {{
+                background-color: {COLORS['info']}15; /* 15% opacity */
+                border-left: 5px solid {COLORS['info']};
+            }}
+        """),
         
-        # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
-        ui.nav_panel(
-            "📊 Baseline Characteristics (Table 1)",
+        ui.navset_card_tab(
             
-            # Control section (top)
-            ui.card(
-                ui.card_header("📊 Table 1 Options"),
+            # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
+            ui.nav_panel(
+                "📊 Baseline Characteristics (Table 1)",
                 
-                ui.output_ui("ui_matched_status_banner_t1"),
-                ui.output_ui("ui_dataset_selector_t1"),
-                ui.output_ui("ui_data_info_t1"),
-                
-                ui.hr(),
-                
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Configuration"),
-                        ui.h6("Group By (Column):"),
-                        ui.input_select("sel_group_col", label=None, choices=[]),
-                        
-                        ui.h6("Choose OR Style:"),
-                        ui.input_radio_buttons(
-                            "radio_or_style",
-                            label=None,
-                            choices={
-                                "all_levels": "All Levels (Every Level vs Ref)",
-                                "simple": "Simple (Single Line/Risk vs Ref)"
-                            }
-                        ),
-                    ),
+                # Control section (top)
+                ui.card(
+                    ui.card_header("📊 Table 1 Options"),
                     
-                    ui.card(
-                        ui.card_header("Variables"),
-                        ui.h6("Include Variables:"),
-                        ui.input_selectize("sel_t1_vars", label=None, choices=[], multiple=True),
-                    ),
+                    ui.output_ui("ui_matched_status_banner_t1"),
+                    ui.output_ui("ui_dataset_selector_t1"),
+                    ui.output_ui("ui_data_info_t1"),
                     
-                    col_widths=[6, 6]
-                ),
-                
-                ui.hr(),
-                
-                ui.layout_columns(
-                    ui.input_action_button(
-                        "btn_gen_table1",
-                        "📊 Generate Table 1",
-                        class_="btn-primary btn-sm w-100",
-                    ),
+                    ui.hr(),
                     
-                    ui.download_button(
-                        "btn_dl_table1",
-                        "📥 Download HTML",
-                        class_="btn-success btn-sm w-100"
-                    ),
-                    
-                    col_widths=[6, 6]
-                ),
-            ),
-            
-            # Content section (bottom)
-            ui.output_ui("out_table1_html"),
-        ),
-        
-        # ===== SUBTAB 2: PROPENSITY SCORE MATCHING =====
-        ui.nav_panel(
-            "⚖️ Propensity Score Matching",
-            
-            # Control section (top)
-            ui.card(
-                ui.card_header("⚖️ PSM Configuration"),
-                
-                ui.h5("Step 1️⃣: Configure Variables"),
-                
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Quick Presets:"),
-                        ui.input_radio_buttons(
-                            "radio_preset",
-                            label=None,
-                            choices={
-                                "custom": "🔧 Custom (Manual)",
-                                "demographics": "👥 Demographics",
-                                "full_medical": "🏥 Full Medical"
-                            },
-                            selected="custom"
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Configuration"),
+                            ui.h6("Group By (Column):"),
+                            ui.input_select("sel_group_col", label=None, choices=[]),
+                            
+                            ui.h6("Choose OR Style:"),
+                            ui.input_radio_buttons(
+                                "radio_or_style",
+                                label=None,
+                                choices={
+                                    "all_levels": "All Levels (Every Level vs Ref)",
+                                    "simple": "Simple (Single Line/Risk vs Ref)"
+                                }
+                            ),
                         ),
                         
-                        ui.p(
-                            ui.strong("Presets include:"),
-                            ui.br(),
-                            "👥 Demographics: Age, Sex, BMI",
-                            ui.br(),
-                            "🏥 Full Medical: Age, Sex, BMI, Comorbidities, Lab values",
-                            ui.br(),
-                            "🔧 Custom: You choose all variables",
-                            style=f"font-size: 0.85em; color: {COLORS['text_secondary']};"
+                        ui.card(
+                            ui.card_header("Variables"),
+                            ui.h6("Include Variables:"),
+                            ui.input_selectize("sel_t1_vars", label=None, choices=[], multiple=True),
                         ),
+                        
+                        col_widths=[6, 6]
                     ),
                     
-                    ui.card(
-                        ui.card_header("Manual Selection:"),
-                        ui.input_select("sel_treat_col", "💊 Treatment Variable (Binary):", choices=[]),
-                        ui.input_select("sel_outcome_col", "🎯 Outcome Variable (Optional):", choices=[]),
-                        ui.input_selectize("sel_covariates", "📊 Confounding Variables:", choices=[], multiple=True),
-                    ),
+                    ui.hr(),
                     
-                    col_widths=[6, 6]
-                ),
-                
-                ui.hr(),
-                
-                ui.output_ui("ui_psm_config_summary"),
-                
-                ui.hr(),
-                
-                # Advanced Settings
-                ui.accordion(
-                    ui.accordion_panel(
-                        "⚙️ Advanced Settings",
-                        ui.p(ui.strong("Caliper Width (Matching Tolerance)")),
-                        ui.input_select(
-                            "sel_caliper_preset",
-                            label=None,
-                            choices={
-                                "1.0": "🔓 Very Loose (1.0×SD) - Most matches, weaker balance",
-                                "0.5": "📊 Loose (0.5×SD) - Balanced approach",
-                                "0.25": "⚖️ Standard (0.25×SD) - RECOMMENDED ← START HERE",
-                                "0.1": "🔒 Strict (0.1×SD) - Fewer matches, excellent balance"
-                            },
-                            selected="0.25"
-                        ),
-                        ui.p(
-                            "📌 Caliper = max distance to match treated with control. Wider = more matches, less balance.",
-                            style=f"font-size: 0.8em; color: {COLORS['text_secondary']};"
-                        ),
-                    ),
-                    open=False
-                ),
-                
-                ui.hr(),
-                
-                ui.h5("Step 2️⃣: Run Matching"),
-                
-                ui.layout_columns(
-                    ui.input_action_button(
-                        "btn_run_psm",
-                        "🚀 Run Propensity Score Matching",
-                        class_="btn-danger btn-sm w-100"
-                    ),
-                    ui.output_ui("ui_psm_run_status"),
-                    
-                    col_widths=[9, 3]
-                ),
-            ),
-            
-            # Content section (bottom) - with nested tabs for results
-            ui.output_ui("ui_psm_main_content")
-        ),
-        
-        # ===== SUBTAB 3: MATCHED DATA VIEW =====
-        ui.nav_panel(
-            "✅ Matched Data View",
-            
-            # Control section (top)
-            ui.card(
-                ui.card_header("✅ Matched Data Actions"),
-                
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Export Options:"),
-                        ui.download_button(
-                            "btn_dl_matched_csv_view",
-                            "📥 CSV Format",
-                            class_="w-100 btn-sm"
-                        ),
-                        ui.br(),
-                        ui.download_button(
-                            "btn_dl_matched_xlsx_view",
-                            "📥 Excel Format",
-                            class_="w-100 btn-sm"
-                        ),
-                    ),
-                    
-                    ui.card(
-                        ui.card_header("Filter & Display:"),
-                        ui.input_slider(
-                            "slider_matched_rows",
-                            "Rows to display:",
-                            min=1,
-                            max=100,
-                            value=50,
-                            step=10
-                        ),
-                    ),
-                    
-                    ui.card(
-                        ui.card_header("Compare Variable:"),
-                        ui.input_select("sel_stat_var_tab3", label=None, choices=[]),
-                    ),
-                    
-                    ui.card(
-                        ui.card_header("Reset:"),
+                    ui.layout_columns(
                         ui.input_action_button(
-                            "btn_clear_matched_tab3",
-                            "🔄 Clear Matched Data",
-                            class_="btn-warning btn-sm w-100"
+                            "btn_gen_table1",
+                            "📊 Generate Table 1",
+                            class_="btn-primary btn-sm w-100",
                         ),
+                        
+                        ui.download_button(
+                            "btn_dl_table1",
+                            "📥 Download HTML",
+                            class_="btn-success btn-sm w-100"
+                        ),
+                        
+                        col_widths=[6, 6]
+                    ),
+                ),
+                
+                # Content section (bottom)
+                ui.output_ui("out_table1_html"),
+            ),
+            
+            # ===== SUBTAB 2: PROPENSITY SCORE MATCHING =====
+            ui.nav_panel(
+                "⚖️ Propensity Score Matching",
+                
+                # Control section (top)
+                ui.card(
+                    ui.card_header("⚖️ PSM Configuration"),
+                    
+                    ui.h5("Step 1️⃣: Configure Variables"),
+                    
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Quick Presets:"),
+                            ui.input_radio_buttons(
+                                "radio_preset",
+                                label=None,
+                                choices={
+                                    "custom": "🔧 Custom (Manual)",
+                                    "demographics": "👥 Demographics",
+                                    "full_medical": "🏥 Full Medical"
+                                },
+                                selected="custom"
+                            ),
+                            
+                            ui.p(
+                                ui.strong("Presets include:"),
+                                ui.br(),
+                                "👥 Demographics: Age, Sex, BMI",
+                                ui.br(),
+                                "🏥 Full Medical: Age, Sex, BMI, Comorbidities, Lab values",
+                                ui.br(),
+                                "🔧 Custom: You choose all variables",
+                                style=f"font-size: 0.85em; color: {COLORS['text_secondary']};"
+                            ),
+                        ),
+                        
+                        ui.card(
+                            ui.card_header("Manual Selection:"),
+                            ui.input_select("sel_treat_col", "💊 Treatment Variable (Binary):", choices=[]),
+                            ui.input_select("sel_outcome_col", "🎯 Outcome Variable (Optional):", choices=[]),
+                            ui.input_selectize("sel_covariates", "📊 Confounding Variables:", choices=[], multiple=True),
+                        ),
+                        
+                        col_widths=[6, 6]
                     ),
                     
-                    col_widths=[3, 3, 3, 3]
+                    ui.hr(),
+                    
+                    ui.output_ui("ui_psm_config_summary"),
+                    
+                    ui.hr(),
+                    
+                    # Advanced Settings
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "⚙️ Advanced Settings",
+                            ui.p(ui.strong("Caliper Width (Matching Tolerance)")),
+                            ui.input_select(
+                                "sel_caliper_preset",
+                                label=None,
+                                choices={
+                                    "1.0": "🔓 Very Loose (1.0×SD) - Most matches, weaker balance",
+                                    "0.5": "📊 Loose (0.5×SD) - Balanced approach",
+                                    "0.25": "⚖️ Standard (0.25×SD) - RECOMMENDED ← START HERE",
+                                    "0.1": "🔒 Strict (0.1×SD) - Fewer matches, excellent balance"
+                                },
+                                selected="0.25"
+                            ),
+                            ui.p(
+                                "📌 Caliper = max distance to match treated with control. Wider = more matches, less balance.",
+                                style=f"font-size: 0.8em; color: {COLORS['text_secondary']};"
+                            ),
+                        ),
+                        open=False
+                    ),
+                    
+                    ui.hr(),
+                    
+                    ui.h5("Step 2️⃣: Run Matching"),
+                    
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_psm",
+                            "🚀 Run Propensity Score Matching",
+                            class_="btn-danger btn-sm w-100"
+                        ),
+                        ui.output_ui("ui_psm_run_status"),
+                        
+                        col_widths=[9, 3]
+                    ),
                 ),
+                
+                # Content section (bottom) - with nested tabs for results
+                ui.output_ui("ui_psm_main_content")
             ),
             
-            # Content section (bottom)
-            ui.output_ui("ui_matched_status_tab3"),
-            
-            ui.card(
-                ui.card_header("📊 Summary Statistics"),
-                ui.output_ui("ui_matched_summary_stats"),
-            ),
-            
-            ui.card(
-                ui.card_header("🔍 Data Preview"),
-                ui.output_data_frame("out_matched_df_preview")
-            ),
-            
-            ui.card(
-                ui.card_header("📈 Statistics by Group"),
-                ui.navset_card_underline(
-                    ui.nav_panel(
-                        "📊 Descriptive Stats",
-                        ui.output_data_frame("out_matched_stats")
+            # ===== SUBTAB 3: MATCHED DATA VIEW =====
+            ui.nav_panel(
+                "✅ Matched Data View",
+                
+                # Control section (top)
+                ui.card(
+                    ui.card_header("✅ Matched Data Actions"),
+                    
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Export Options:"),
+                            ui.download_button(
+                                "btn_dl_matched_csv_view",
+                                "📥 CSV Format",
+                                class_="w-100 btn-sm"
+                            ),
+                            ui.br(),
+                            ui.download_button(
+                                "btn_dl_matched_xlsx_view",
+                                "📥 Excel Format",
+                                class_="w-100 btn-sm"
+                            ),
+                        ),
+                        
+                        ui.card(
+                            ui.card_header("Filter & Display:"),
+                            ui.input_slider(
+                                "slider_matched_rows",
+                                "Rows to display:",
+                                min=1,
+                                max=100,
+                                value=50,
+                                step=10
+                            ),
+                        ),
+                        
+                        ui.card(
+                            ui.card_header("Compare Variable:"),
+                            ui.input_select("sel_stat_var_tab3", label=None, choices=[]),
+                        ),
+                        
+                        ui.card(
+                            ui.card_header("Reset:"),
+                            ui.input_action_button(
+                                "btn_clear_matched_tab3",
+                                "🔄 Clear Matched Data",
+                                class_="btn-warning btn-sm w-100"
+                            ),
+                        ),
+                        
+                        col_widths=[3, 3, 3, 3]
                     ),
-                    ui.nav_panel(
-                        "📉 Visualization",
-                        output_widget("out_matched_boxplot")
-                    ),
+                ),
+                
+                # Content section (bottom)
+                ui.output_ui("ui_matched_status_tab3"),
+                
+                ui.card(
+                    ui.card_header("📊 Summary Statistics"),
+                    ui.output_ui("ui_matched_summary_stats"),
+                ),
+                
+                ui.card(
+                    ui.card_header("🔍 Data Preview"),
+                    ui.output_data_frame("out_matched_df_preview")
+                ),
+                
+                ui.card(
+                    ui.card_header("📈 Statistics by Group"),
+                    ui.navset_card_underline(
+                        ui.nav_panel(
+                            "📊 Descriptive Stats",
+                            ui.output_data_frame("out_matched_stats")
+                        ),
+                        ui.nav_panel(
+                            "📉 Visualization",
+                            output_widget("out_matched_boxplot")
+                        ),
+                    )
                 )
-            )
-        ),
-        
-        # ===== SUBTAB 4: REFERENCE & INTERPRETATION =====
-        ui.nav_panel(
-            "ℹ️ Reference & Interpretation",
+            ),
             
-            ui.markdown("""
+            # ===== SUBTAB 4: REFERENCE & INTERPRETATION =====
+            ui.nav_panel(
+                "ℹ️ Reference & Interpretation",
+                
+                ui.markdown("""
 ## 📚 Reference & Interpretation Guide
 
 💡 **Tip:** This section provides detailed explanations and interpretation rules for Table 1 and Propensity Score Matching.
@@ -329,12 +347,12 @@ def baseline_matching_ui():
 | What do I do with matched data? | **Export / Use Matched Data** | Go to **Subtab 3** to export, or select "✅ Matched Data" in other analysis tabs. |
 
 ---
-            """),
-            
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("📊 Baseline Characteristics (Table 1)"),
-                    ui.markdown("""
+                """),
+                
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("📊 Baseline Characteristics (Table 1)"),
+                        ui.markdown("""
 **Concept:** A standard table in medical research that compares the demographic and clinical characteristics of two or more groups (e.g., Treatment vs Placebo).
 
 **Interpretation:**
@@ -348,12 +366,12 @@ def baseline_matching_ui():
 * **Numeric Data (Normal):** Report **Mean ± SD**. (e.g., Age: 45.2 ± 10.1)
 * **Numeric Data (Skewed):** Report **Median (IQR)**. (e.g., LOS: 5 (3-10))
 * **Categorical Data:** Report **Count (%)**. (e.g., Male: 50 (45%))
-                    """)
-                ),
-                
-                ui.card(
-                    ui.card_header("⚖️ Propensity Score Matching (PSM)"),
-                    ui.markdown("""
+                        """)
+                    ),
+                    
+                    ui.card(
+                        ui.card_header("⚖️ Propensity Score Matching (PSM)"),
+                        ui.markdown("""
 **Concept:** A statistical technique used in observational studies to reduce selection bias. It pairs patients in the treated group with patients in the control group who have similar "propensity scores" (probability of receiving treatment).
 
 **Key Metric: Standardized Mean Difference (SMD):**
@@ -368,24 +386,25 @@ def baseline_matching_ui():
 * Determines how "close" a match must be.
 * **Stricter (0.1×SD):** Better balance, but you might lose more patients (fewer matches).
 * **Looser (0.5×SD):** More matches, but balance might be worse.
-                    """)
+                        """)
+                    ),
+                    col_widths=[6, 6]
                 ),
-                col_widths=[6, 6]
-            ),
-            
-            ui.hr(),
-            
-            ui.markdown("""
+                
+                ui.hr(),
+                
+                ui.markdown("""
 ### 📝 Common Workflow
 
 1. **Check Original Data:** Run Table 1 on the "Original Data". Note any variables with p < 0.05.
 2. **Match:** Go to Subtab 2, select Treatment, Outcome, and **all confounding variables** (especially those with p < 0.05).
 3. **Verify:** After matching, check the **Love Plot**. Ensure all dots (Matched) are within the < 0.1 zone.
 4. **Re-check Table 1:** Go back to Subtab 1, switch the dataset selector to **"✅ Matched Data"**, and generate Table 1 again. P-values should now be non-significant (or SMDs low).
-            """)
-        ),
-        
-        id="baseline_matching_tabs"
+                """)
+            ),
+            
+            id="baseline_matching_tabs"
+        )
     )
 
 # ==============================================================================
@@ -590,11 +609,10 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         
         summary_text = "**✅ Configuration Summary:**\n" + "\n".join(summary_items)
         
-        # FIX: Changed from ui.info_message to ui.div to fix AttributeError
+        # ใช้ class bg-primary-light ที่นิยามไว้ด้านบน
         return ui.div(
             ui.markdown(summary_text),
-            class_="p-3 mb-3 border rounded bg-light",
-            style=f"border-left: 5px solid {COLORS['primary']};"
+            class_="p-3 mb-3 border rounded bg-primary-light"
         )
 
     @render.ui
@@ -858,7 +876,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         merged = res['smd_pre'].merge(res['smd_post'], on='Variable', suffixes=('_before', '_after'))
         merged['Improvement %'] = ((merged['SMD_before'] - merged['SMD_after']) / merged['SMD_before'].replace(0, np.nan) * 100).round(1).fillna(0)
         
-        # FIX: Format numbers manually to avoid pandas .style (which requires jinja2)
+        # ฟอร์แมตตัวเลข
         display_df = merged.copy()
         display_df['SMD_before'] = display_df['SMD_before'].map('{:.4f}'.format)
         display_df['SMD_after'] = display_df['SMD_after'].map('{:.4f}'.format)
@@ -929,7 +947,6 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                        f"border: 1px solid {COLORS['success']}; margin-bottom: 20px;")
             )
         else:
-            # FIX: Changed from ui.info_message to ui.div to fix AttributeError
             return ui.div(
                 ui.markdown(
                     "ℹ️ **No matched data available yet.**\n\n"
@@ -937,8 +954,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                     "2. Configure variables and run PSM matching\n\n"
                     "3. Return here to view and export matched data"
                 ),
-                class_="p-3 mb-3 border rounded bg-info-light",
-                style="border-left: 5px solid #0dcaf0;"
+                class_="p-3 mb-3 border rounded bg-info-light"
             )
 
     @render.ui
