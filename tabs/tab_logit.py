@@ -8,8 +8,7 @@ from htmltools import HTML, div
 import gc
 
 # Import internal modules
-from logic import process_data_and_generate_html, check_perfect_separation # Ensure check_perfect_separation is available or use logic one
-# Note: check_perfect_separation was defined in tab_logit.py in your snippet. I kept it below.
+from logic import process_data_and_generate_html
 from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit
 from logger import get_logger
