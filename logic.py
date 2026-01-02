@@ -253,7 +253,8 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         'outcome': outcome_name,
         'df_shape': df.shape,
         'df_hash': hash(pd.util.hash_pandas_object(df, index=True).values.tobytes()),
-        'var_meta_hash': hash(tuple(sorted(var_meta.items()))) if var_meta else None,
+        # FIX: Convert dict items to string before hashing to handle nested dicts
+        'var_meta_hash': hash(str(sorted(var_meta.items()))) if var_meta else None,
         'method': method,
         'model_type': model_type,
         'interaction_terms': str(interaction_terms) if interaction_terms else "None"
