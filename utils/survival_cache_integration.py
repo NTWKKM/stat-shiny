@@ -116,7 +116,7 @@ def get_cached_survival_estimates(calculate_func, cache_key_params: dict):
         logger.info(f"✅ Survival Estimates Cache HIT - using cached estimates")
         return cached
     
-    logger.info(f"💋 Survival Estimates Cache MISS - calculating estimates")
+    logger.info("⏳ Survival Estimates Cache MISS - calculating estimates")
     
     # Calculate and cache
     result = calculate_func()
