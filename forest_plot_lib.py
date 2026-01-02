@@ -22,7 +22,6 @@ import warnings
 
 # === INTEGRATION: System Stability & Memory ===
 from utils.memory_manager import MEMORY_MANAGER
-from utils.connection_handler import CONNECTION_HANDLER
 from utils.cache_manager import COMPUTATION_CACHE
 
 logger = get_logger(__name__)
