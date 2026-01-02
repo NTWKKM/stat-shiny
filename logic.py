@@ -320,7 +320,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             if mode == 'categorical':
                 try: 
                     levels = sorted(X_raw.dropna().unique(), key=_robust_sort_key)
-                except: 
+                except (TypeError, ValueError):
                     levels = sorted(X_raw.astype(str).unique())
                 cat_levels_map[col] = levels
                 
