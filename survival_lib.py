@@ -166,8 +166,11 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
                 kmf = KaplanMeierFitter()
                 
                 # Wrap fit in retry logic just in case of transient memory issues during allocation
+                # Bind loop variables via default arguments
                 CONNECTION_HANDLER.retry_with_backoff(
-                    lambda: kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+                    lambda _kmf=kmf, _df_g=df_g, _label=label: _kmf.fit(
+                        _df_g[duration_col], _df_g[event_col], label=_label
+                    )
                 )
                 
                 median_val = kmf.median_survival_time_
@@ -605,9 +608,8 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
                 temp_cph = CoxPHFitter(penalizer=p) 
                 # We use retry_with_backoff for the fit call as well, 
                 # although loop handles logic, retry handles transient stability
-                CONNECTION_HANDLER.retry_with_backoff(
-                    lambda: temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
-                )
+                # CoxPHFitter.fit() is a local operation - no retry needed
+                temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
                 cph = temp_cph
                 method_used = current_method
                 break
