@@ -7,7 +7,7 @@ Provides UI and server logic for:
 - Interactive reporting and HTML export
 """
 
-from shiny import ui, reactive, render, req
+from shiny import ui, reactive, render, req, Session
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
@@ -212,7 +212,7 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
 
 
 def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value, 
-                df_matched: reactive.Value, is_matched: reactive.Value, input: ui.input_core, output: ui.output_core, session: Session):
+                df_matched: reactive.Value, is_matched: reactive.Value, input, output, session: Session):
     """
     Server logic for correlation analysis module.
     """
