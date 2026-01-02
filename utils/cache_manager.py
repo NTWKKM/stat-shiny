@@ -62,18 +62,19 @@ class ComputationCache:
         return hashlib.md5(key_str.encode()).hexdigest()
     
     def get(self, func_name: str, **kwargs) -> Optional[Any]:
-        """
-        Retrieve cached result if exists and not expired.
-        
-        Args:
-            func_name: Function identifier
-            **kwargs: Parameters used to create cache key
-        
-        Returns:
-            Cached result or None if not found/expired
-        """
-        key = self._make_key(func_name, kwargs)
-        
+    """
+    Retrieve cached result if exists and not expired.
+    
+    Args:
+        func_name: Function identifier
+        **kwargs: Parameters used to create cache key
+    
+    Returns:
+        Cached result or None if not found/expired
+    """
+    key = self._make_key(func_name, kwargs)  # Can be outside if pure function
+    
+    with self._lock:  # Protect ALL shared state access
         if key in self.cache:
             entry = self.cache[key]
             
