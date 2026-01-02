@@ -353,16 +353,11 @@ def calculate_p_categorical(df, col, group_col):
         
         is_2x2 = tab.shape == (2, 2)
         
-        # === INTEGRATION: Connection Handler ===
-        _chi2, p_chi2, _dof, ex = CONNECTION_HANDLER.retry_with_backoff(
-            lambda: stats.chi2_contingency(tab)
-        )
+        _chi2, p_chi2, _dof, ex = stats.chi2_contingency(tab)
         
         if is_2x2 and ex.min() < 5:
             try:
-                _oddsr, p = CONNECTION_HANDLER.retry_with_backoff(
-                    lambda: stats.fisher_exact(tab)
-                )
+                _oddsr, p = stats.fisher_exact(tab)
                 return p, "Fisher's Exact"
             except Exception:
                 pass
