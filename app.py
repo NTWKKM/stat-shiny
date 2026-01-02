@@ -130,9 +130,11 @@ def server(input, output, session: Session):
 
         # 2. เช็คสถานะ Memory (L2)
         mem_status = MEMORY_MANAGER.get_memory_status()
-        mem_icon = "💗" # ปกติ
-        if mem_status['status'] == 'WARNING': mem_icon = "💛" # เริ่มเยอะ
-        if mem_status['status'] == 'CRITICAL': mem_icon = "🔴" # อันตราย
+        mem_icon = "💗"  # Normal
+        if mem_status['status'] == 'WARNING':
+            mem_icon = "💛"  # Approaching limit
+        elif mem_status['status'] == 'CRITICAL':
+            mem_icon = "🔴"  # Critical
         mem_title = f"Memory: {mem_status['usage_pct']} ({mem_status['current_mb']}MB / {mem_status['max_mb']}MB)"
 
         # 3. เช็คสถานะ Connection (L3)
