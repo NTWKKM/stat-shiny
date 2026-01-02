@@ -12,6 +12,7 @@ Features:
 """
 
 import time
+import random
 from typing import Callable, Any, Optional
 from logger import get_logger
 
@@ -68,7 +69,9 @@ class ConnectionHandler:
                 self.failed_attempts += 1
                 
                 if attempt < self.max_retries - 1:
-                    wait_time = self.initial_backoff * (self.backoff_factor ** attempt)
+                    base_wait = self.initial_backoff * (self.backoff_factor ** attempt)
+                    # Add jitter: ±25% randomization to prevent thundering herd
+                    wait_time = base_wait * (0.75 + random.random() * 0.5)
                     logger.warning(f"⏳ Attempt {attempt + 1} failed: {str(e)}. Retrying in {wait_time:.1f}s...")
                     time.sleep(wait_time)
                 else:
