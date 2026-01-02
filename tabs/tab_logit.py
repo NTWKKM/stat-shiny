@@ -420,7 +420,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                         del df_crude
             
             except Exception as e:
-                logger.exception(f"Forest plot generation error: {e}")
+                logger.exception("Forest plot generation error")
                 ui.notification_show(f"Forest plot error: {e!s}", type="warning")
 
             # Store Results ONCE
