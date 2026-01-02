@@ -127,7 +127,6 @@ def server(input, output, session: Session):
         cache_stats = COMPUTATION_CACHE.get_stats()
         # ถ้ามีของใน Cache ให้เป็นเขียว 🟢 ถ้าว่างให้เป็นเทา ⚪
         cache_icon = "🟢" if cache_stats['cached_items'] > 0 else "⚪"
-        cache_title = f"Cache: {cache_stats['cached_items']}/{cache_stats['max_size']} items (Hit rate: {cache_stats['hit_rate']})"
 
         # 2. เช็คสถานะ Memory (L2)
         mem_status = MEMORY_MANAGER.get_memory_status()
@@ -136,13 +135,11 @@ def server(input, output, session: Session):
             mem_icon = "💛"  # Approaching limit
         elif mem_status['status'] == 'CRITICAL':
             mem_icon = "🔴"  # Critical
-        mem_title = f"Memory: {mem_status['usage_pct']} ({mem_status['current_mb']}MB / {mem_status['max_mb']}MB)"
 
         # 3. เช็คสถานะ Connection (L3)
         conn_stats = CONNECTION_HANDLER.get_stats()
         success_val = float(conn_stats['success_rate'].replace('%',''))
         conn_icon = "🟢" if success_val >= 90 else "🟠" if success_val >= 70 else "🔴"
-        conn_title = f"Resilience: {conn_stats['success_rate']} success rate ({conn_stats['failed_attempts']} failures)"
 
         cache_title = html.escape(f"Cache: {cache_stats['cached_items']}/{cache_stats['max_size']} items (Hit rate: {cache_stats['hit_rate']})")
         mem_title = html.escape(f"Memory: {mem_status['usage_pct']} ({mem_status['current_mb']}MB / {mem_status['max_mb']}MB)")
