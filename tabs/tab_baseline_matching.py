@@ -677,7 +677,10 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             msg = "Matching successful" # Default success message
             
             if df_m is None or df_m.empty:
-                raise ValueError("No matches found within the specified caliper.")
+                raise ValueError(
+                    f"No matches found within the specified caliper ({caliper}×SD). "
+                    f"Try increasing caliper width in Advanced Settings."
+                )
 
             # SMD
             smd_pre = psm_lib.calculate_smd(df_ps, final_treat_col, final_cov_cols)
