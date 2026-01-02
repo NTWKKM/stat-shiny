@@ -20,6 +20,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import html as _html
 import warnings
+import hashlib
 from logger import get_logger
 from tabs._common import get_color_palette
 
@@ -183,7 +184,8 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
 
     # === INTEGRATION: Cache Check ===
     # Create a cache key based on inputs and data hash
-    cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{hash(data.values.tobytes())}"
+    data_hash = hashlib.md5(data.values.tobytes()).hexdigest()[:16]
+    cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}
     cached_result = COMPUTATION_CACHE.get(cache_key)
     if cached_result:
         logger.debug(f"Cache hit for calculate_chi2: {col1} vs {col2}")
