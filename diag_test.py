@@ -23,6 +23,11 @@ import warnings
 from logger import get_logger
 from tabs._common import get_color_palette
 
+# === INTEGRATION: System Utilities ===
+from utils.memory_manager import MEMORY_MANAGER
+from utils.connection_handler import CONNECTION_HANDLER
+from utils.cache_manager import COMPUTATION_CACHE
+
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
@@ -34,6 +39,8 @@ def calculate_descriptive(df, col):
     Returns:
         pd.DataFrame: Descriptive statistics table
     """
+    # Simple operation, typically doesn't need heavy memory management, 
+    # but good to ensure stability if DF is huge.
     if col not in df.columns:
         logger.error(f"Column '{col}' not found")
         return None
@@ -161,6 +168,9 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     Returns:
         tuple: (display_tab, stats_df, msg, risk_df)
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns '{col1}' or '{col2}' not found")
         return None, None, "Columns not found", None
@@ -170,6 +180,14 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     if data.empty:
         logger.warning("No data after dropping NAs")
         return None, None, "No data available after dropping missing values.", None
+
+    # === INTEGRATION: Cache Check ===
+    # Create a cache key based on inputs and data hash
+    cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{hash(data.values.tobytes())}"
+    cached_result = COMPUTATION_CACHE.get(cache_key)
+    if cached_result:
+        logger.debug(f"Cache hit for calculate_chi2: {col1} vs {col2}")
+        return cached_result
 
     data = data.copy()
     data[col1] = data[col1].astype(str)
@@ -250,7 +268,11 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             if not is_2x2:
                 return display_tab, None, "Error: Fisher's Exact Test requires a 2x2 table.", None
             
-            odds_ratio, p_value = stats.fisher_exact(tab)
+            # === INTEGRATION: Connection Handler (Robustness) ===
+            # Wrap Fisher test
+            odds_ratio, p_value = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: stats.fisher_exact(tab)
+            )
             method_name = "Fisher's Exact Test"
             
             stats_res = {
@@ -262,7 +284,13 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             }
         else:
             use_correction = True if "Yates" in method else False
-            chi2, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
+            
+            # === INTEGRATION: Connection Handler (Robustness) ===
+            # Wrap Chi2 test
+            chi2, p, dof, ex = CONNECTION_HANDLER.retry_with_backoff(
+                lambda: stats.chi2_contingency(tab, correction=use_correction)
+            )
+            
             method_name = "Chi-Square"
             if is_2x2:
                 method_name += " (Yates)" if use_correction else " (Pearson)"
@@ -303,7 +331,9 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         extra_report_items = []
         
         if "Fisher" not in method:
-            # Build report items with extra details
+            # Re-run for details (fast enough, or use cached values if structured differently)
+            # Since connection handler was used above, we can assume safe here, 
+            # or just reuse variables if scope allows. We'll re-run as it's cheap.
             chi2, p, dof, ex = stats.chi2_contingency(tab)
             
             # Expected Counts Table
@@ -318,7 +348,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 'data': ex_df
             })
             
-            # Standardized Residuals: (Observed - Expected) / sqrt(Expected)
+            # Standardized Residuals
             std_residuals = (tab.values - ex) / np.sqrt(ex + 1e-10)
             std_res_df = pd.DataFrame(
                 np.round(std_residuals, 2),
@@ -331,7 +361,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 'data': std_res_df
             })
             
-            # Chi-square contribution by cell
+            # Chi-square contribution
             chi2_contrib = ((tab.values - ex)**2) / (ex + 1e-10)
             chi2_contrib_df = pd.DataFrame(
                 np.round(chi2_contrib, 4),
@@ -431,8 +461,10 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 logger.error(f"Risk metrics calculation error: {e}")
                 risk_df = None
         
-        # Return with comprehensive data
-        return display_tab, stats_df, msg, risk_df
+        # === INTEGRATION: Set Cache ===
+        result = (display_tab, stats_df, msg, risk_df)
+        COMPUTATION_CACHE.set(cache_key, result)
+        return result
     
     except Exception as e:
         logger.error(f"Chi-square calculation error: {e}")
@@ -446,6 +478,9 @@ def calculate_kappa(df, col1, col2):
     Returns:
         tuple: (result_df, error_msg, conf_matrix)
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns not found: {col1}, {col2}")
         return None, "Columns not found", None
@@ -456,11 +491,20 @@ def calculate_kappa(df, col1, col2):
         logger.warning("No data after dropping NAs")
         return None, "No data after dropping NAs", None
     
+    # === INTEGRATION: Cache Check ===
+    cache_key = f"kappa_{col1}_{col2}_{hash(data.values.tobytes())}"
+    cached_result = COMPUTATION_CACHE.get(cache_key)
+    if cached_result:
+        return cached_result
+
     y1 = data[col1].astype(str)
     y2 = data[col2].astype(str)
     
     try:
-        kappa = cohen_kappa_score(y1, y2)
+        # === INTEGRATION: Robust Fit ===
+        kappa = CONNECTION_HANDLER.retry_with_backoff(
+            lambda: cohen_kappa_score(y1, y2)
+        )
         
         if kappa < 0:
             interp = "Poor agreement"
@@ -483,7 +527,10 @@ def calculate_kappa(df, col1, col2):
         conf_matrix = pd.crosstab(y1, y2, rownames=[f"{col1}"], colnames=[f"{col2}"])
         
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
-        return res_df, None, conf_matrix
+        
+        result = (res_df, None, conf_matrix)
+        COMPUTATION_CACHE.set(cache_key, result)
+        return result
     
     except Exception as e:
         logger.error(f"Kappa calculation error: {e}")
@@ -505,10 +552,6 @@ def auc_ci_delong(y_true, y_scores):
     Original: O(n²) nested loop - 850ms for n=1000
     Optimized: O(n log n) vectorized - 8ms for n=1000
     Speedup: 106x faster!
-    
-    Uses NumPy broadcasting instead of nested loops:
-    - pos[:, np.newaxis] > neg broadcasts to (n_pos, n_neg) in single operation
-    - Replaces: for p in pos: sum(p > neg) with vectorized comparison
     """
     try:
         y_true = np.array(y_true, dtype=bool)
@@ -526,10 +569,8 @@ def auc_ci_delong(y_true, y_scores):
         neg_scores = y_scores[~y_true]
         
         # OPTIMIZATION: Single vectorized operation replaces nested loop
-        # Old: for p in pos_scores: sum(p > neg_scores)
-        # New: Single broadcasting operation
         pos_expanded = pos_scores[:, np.newaxis]  # Shape: (n_pos, 1)
-        neg_expanded = neg_scores                  # Shape: (n_neg,)
+        neg_expanded = neg_scores                 # Shape: (n_neg,)
         
         # Vectorized comparison (no loop!)
         comparisons = pos_expanded > neg_expanded  # Shape: (n_pos, n_neg)
@@ -562,11 +603,21 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     Returns:
         tuple: (stats_dict, error_msg, plotly_fig, coords_df)
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     data = df[[truth_col, score_col]].dropna()
 
     if data.empty:
         logger.error("No data available for ROC analysis")
         return None, "Error: No data available.", None, None
+
+    # === INTEGRATION: Cache Check ===
+    # Include method and pos_label in key
+    cache_key = f"roc_{truth_col}_{score_col}_{method}_{pos_label_user}_{hash(data.values.tobytes())}"
+    cached_result = COMPUTATION_CACHE.get(cache_key)
+    if cached_result:
+        return cached_result
 
     y_true_raw = data[truth_col]
     y_score = pd.to_numeric(data[score_col], errors='coerce').dropna()
@@ -589,7 +640,10 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         logger.error("Missing positive or negative cases")
         return None, "Error: Need both Positive and Negative cases.", None, None
     
-    fpr, tpr, thresholds = roc_curve(y_true, y_score)
+    # === INTEGRATION: Robust ROC ===
+    fpr, tpr, thresholds = CONNECTION_HANDLER.retry_with_backoff(
+        lambda: roc_curve(y_true, y_score)
+    )
     auc_val = roc_auc_score(y_true, y_score)
     
     if method == 'delong':
@@ -681,9 +735,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         logger.error(f"Error creating ROC figure: {e}")
         fig = None
     
-    # 🔧 FIX: Build coords_df with proper calculation
-    # sklearn.roc_curve returns coordinates in ascending threshold order
-    # Specificity = 1 - FPR (correct formula)
+    # FIX: Build coords_df with proper calculation
     coords_df = pd.DataFrame({
         'Threshold': thresholds,
         'Sensitivity': (tpr * 100).round(1),  # Convert to percentage
@@ -692,8 +744,10 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     })
     
     logger.debug(f"ROC analysis complete: AUC={auc_val:.4f}")
-    logger.debug(f"Figure: {fig is not None}, Coords shape: {coords_df.shape}")
-    return stats_res, None, fig, coords_df
+    
+    result = (stats_res, None, fig, coords_df)
+    COMPUTATION_CACHE.set(cache_key, result)
+    return result
 
 
 def calculate_icc(df, cols):
@@ -705,6 +759,9 @@ def calculate_icc(df, cols):
     Returns:
         tuple: (icc_df, error_msg, anova_df)
     """
+    # === INTEGRATION: Memory Check ===
+    MEMORY_MANAGER.check_and_cleanup()
+
     if len(cols) < 2:
         logger.error("Need at least 2 variables")
         return None, "Please select at least 2 variables.", None
@@ -720,6 +777,12 @@ def calculate_icc(df, cols):
         logger.error("Insufficient raters")
         return None, "Insufficient raters (need at least 2 columns).", None
     
+    # === INTEGRATION: Cache Check ===
+    cache_key = f"icc_{tuple(sorted(cols))}_{hash(data.values.tobytes())}"
+    cached_result = COMPUTATION_CACHE.get(cache_key)
+    if cached_result:
+        return cached_result
+
     # OPTIMIZATION: Vectorized computation with NumPy broadcasting
     data_array = data.values
     grand_mean = data_array.mean()
@@ -784,7 +847,10 @@ def calculate_icc(df, cols):
     })
     
     logger.debug(f"ICC calculated: ICC(2,1)={icc2_1:.4f}, ICC(3,1)={icc3_1:.4f}")
-    return res_df, None, anova_df
+    
+    result = (res_df, None, anova_df)
+    COMPUTATION_CACHE.set(cache_key, result)
+    return result
 
 
 def generate_report(title, report_items):
@@ -794,7 +860,7 @@ def generate_report(title, report_items):
     Args:
         title (str): Report title
         report_items (list): List of dicts with 'type' and 'data' keys
-                            Types: 'table', 'plot', 'text', 'contingency_table', 'html'
+                             Types: 'table', 'plot', 'text', 'contingency_table', 'html'
     
     Returns:
         str: HTML report string
