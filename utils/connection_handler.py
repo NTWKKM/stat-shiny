@@ -41,7 +41,6 @@ class ConnectionHandler:
         logger.info(f"🔌 Connection handler initialized: max_retries={max_retries}, initial_backoff={initial_backoff}s")
     
     def retry_with_backoff(self, func: Callable, *args, **kwargs) -> Optional[Any]:
-        self.total_calls += 1
         """
         Execute function with exponential backoff retry on failure.
         
@@ -53,6 +52,7 @@ class ConnectionHandler:
         Returns:
             Function result or None if all retries failed
         """
+        self.total_calls += 1
         
         for attempt in range(self.max_retries):
             try:
@@ -74,7 +74,7 @@ class ConnectionHandler:
                 else:
                     logger.exception(f"❌ All {self.max_retries} retry attempts failed")
             
-            except Exception as e:
+            except Exception:
                 # Non-network errors: fail immediately
                 logger.exception("Non-retryable error")
                 return None
@@ -93,7 +93,7 @@ class ConnectionHandler:
         return {
             'failed_attempts': self.failed_attempts,
             'successful_retries': self.successful_retries,
-            'total_attempts': total_attempts,
+            'total_calls': self.total_calls,
             'success_rate': f"{success_rate:.1f}%",
             'max_retries': self.max_retries
         }
