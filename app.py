@@ -101,8 +101,8 @@ app_ui = ui.page_navbar(
 # ==========================================
 def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
-    logger.info(f"💾 Cache stats: {COMPUTATION_CACHE.get_stats()}")
-    logger.info(f"🧠 Memory status: {MEMORY_MANAGER.get_memory_status()}")
+    logger.info("💾 Cache stats: %s", COMPUTATION_CACHE.get_stats())
+    logger.info("🧠 Memory status: %s", MEMORY_MANAGER.get_memory_status())
 
     # --- Reactive State (Global) ---
     df = reactive.Value(None)
