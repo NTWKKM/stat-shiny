@@ -297,15 +297,12 @@ class ForestPlot:
 
         y_pos = list(range(len(self.data)))
         
-        # Add traces with resilience (though unlikely to fail, good practice)
-        def _add_traces():
-            fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_label'], mode="text", textposition="middle right", textfont=dict(size=13, color="black"), hoverinfo="none", showlegend=False), row=1, col=1)
-            fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_est'], mode="text", textposition="middle center", textfont=dict(size=13, color="black"), hoverinfo="none", showlegend=False), row=1, col=2)
+        # Add text traces for labels and estimates
+        fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_label'], mode="text", textposition="middle right", textfont={"size": 13, "color": "black"}, hoverinfo="none", showlegend=False), row=1, col=1)
+        fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_est'], mode="text", textposition="middle center", textfont={"size": 13, "color": "black"}, hoverinfo="none", showlegend=False), row=1, col=2)
 
-            if has_pval:
-                fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_p'], mode="text", textposition="middle center", textfont=dict(size=13, color=p_text_colors), hoverinfo="none", showlegend=False), row=1, col=3)
-
-        CONNECTION_HANDLER.retry_with_backoff(_add_traces)
+        if has_pval:
+            fig.add_trace(go.Scatter(x=[0]*len(y_pos), y=y_pos, text=self.data['__display_p'], mode="text", textposition="middle center", textfont={"size": 13, "color": p_text_colors}, hoverinfo="none", showlegend=False), row=1, col=3)
 
         finite_data = self.data[np.isfinite(self.data[self.estimate_col])]
         if not finite_data.empty:
