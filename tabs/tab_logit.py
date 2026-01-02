@@ -311,7 +311,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         row_count = len(d) if d is not None else 0
         return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
 
-    # --- 2. Dynamic Input Updates ---
+    # --- 2. Dynamic Input Updates (Optimized with Smart Selection) ---
     @reactive.Effect
     def _update_inputs():
         d = current_df()
@@ -322,6 +322,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         # Identify columns based on Model Type
         model_type = input.sel_model_type()
         
+        outcome_cols = []
         if model_type == 'logistic':
              # Binary for Logistic
              outcome_cols = [c for c in cols if d[c].nunique() == 2]
@@ -332,20 +333,73 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         # Identify potential subgroups (2-10 levels)
         sg_cols = [c for c in cols if 2 <= d[c].nunique() <= 10]
         
+        # --- SMART SELECTION LOGIC ---
+        
+        # 1. Smart Outcome Selection
+        selected_outcome = None
+        if outcome_cols:
+            # A. Check for Example Data specific names first (Priority)
+            example_targets = ["Outcome_Cured", "Status_Death", "Target", "Class"]
+            for target in example_targets:
+                if target in outcome_cols:
+                    selected_outcome = target
+                    break
+            
+            # B. Fuzzy scan for common keywords in uploaded data
+            if not selected_outcome:
+                outcome_keywords = ['outcome', 'status', 'event', 'target', 'result', 'died', 'survived', 'death']
+                for col in outcome_cols:
+                    if any(k in col.lower() for k in outcome_keywords):
+                        selected_outcome = col
+                        break
+            
+            # C. Default to first if nothing found
+            if not selected_outcome:
+                selected_outcome = outcome_cols[0]
+
+        # 2. Smart Treatment Selection (For Subgroup)
+        binary_cols = [c for c in cols if d[c].nunique() == 2]
+        selected_treatment = None
+        if binary_cols:
+            treat_keywords = ['treat', 'group', 'drug', 'arm', 'interv', 'exposure']
+            # Example Data Priority
+            if "Treatment_Group" in binary_cols:
+                selected_treatment = "Treatment_Group"
+            else:
+                for col in binary_cols:
+                    if any(k in col.lower() for k in treat_keywords):
+                        selected_treatment = col
+                        break
+        
+        # 3. Smart Subgroup Selection (For Subgroup)
+        selected_sg = None
+        if sg_cols:
+             # Try to find something that is NOT the outcome or treatment
+             candidates = [c for c in sg_cols if c != selected_outcome and c != selected_treatment]
+             if candidates:
+                 # Prefer common subgroups
+                 sg_keywords = ['sex', 'gender', 'age_group', 'bmi_group', 'stage', 'grade']
+                 for col in candidates:
+                     if any(k in col.lower() for k in sg_keywords):
+                         selected_sg = col
+                         break
+                 if not selected_sg: selected_sg = candidates[0]
+
+
+        # --- UPDATE UI ---
+        
         # Update Tab 1 Inputs
-        ui.update_select("sel_outcome", choices=outcome_cols)
+        ui.update_select("sel_outcome", choices=outcome_cols, selected=selected_outcome)
         ui.update_selectize("sel_exclude", choices=cols)
         
         # Update Interaction Inputs
         ui.update_select("int_var1", choices=[""] + cols)
         ui.update_select("int_var2", choices=[""] + cols)
         
-        # Update Tab 2 Inputs
-        # (Keep binary for subgroup outcomes usually, unless we expand subgroup module too)
-        binary_cols = [c for c in cols if d[c].nunique() == 2]
-        ui.update_select("sg_outcome", choices=binary_cols)
-        ui.update_select("sg_treatment", choices=cols)
-        ui.update_select("sg_subgroup", choices=sg_cols)
+        # Update Tab 2 Inputs (Subgroup)
+        ui.update_select("sg_outcome", choices=binary_cols, selected=selected_outcome if selected_outcome in binary_cols else None)
+        ui.update_select("sg_treatment", choices=cols, selected=selected_treatment)
+        ui.update_select("sg_subgroup", choices=sg_cols, selected=selected_sg)
         ui.update_selectize("sg_adjust", choices=cols)
 
     # --- Interaction Logic ---
