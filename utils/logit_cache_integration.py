@@ -41,6 +41,8 @@ def get_cached_logistic_analysis(calculate_func, cache_key_params: dict):
     # result is (html_table, or_results, aor_results)
     if result and isinstance(result, tuple) and len(result) == 3:
         COMPUTATION_CACHE.set('analyze_outcome', result, **cache_key_params)
-        logger.info(f"💾 Logit analysis results cached for 30 minutes")
+        logger.info("💾 Logit analysis results cached for 30 minutes")
+    else:
+        logger.warning("Logit analysis returned invalid result, not caching")
     
     return result
