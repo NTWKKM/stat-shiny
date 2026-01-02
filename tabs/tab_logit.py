@@ -54,8 +54,8 @@ def check_perfect_separation(df, target_col):
                 # If any cell is 0, it suggests potential separation
                 if (tab == 0).any().any():
                     risky_vars.append(col)
-            except Exception: 
-                pass
+            except Exception as e:
+                logger.debug(f"Could not check separation for {col}: {e}")
                 
     return risky_vars
 
@@ -418,7 +418,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                         )
                         # Immediate cleanup after creating figure
                         del df_crude
-                        gc.collect()
             
             except Exception as e:
                 logger.exception(f"Forest plot generation error: {e}")
