@@ -498,8 +498,9 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 if hasattr(input, btn_id):
                     val = getattr(input, btn_id)()
                     current_clicks[btn_id] = val
-            except Exception:
-                pass
+            except Exception as e:
+                # Log failure but continue loop so one bad button doesn't break everything
+                logger.debug(f"Failed to read interaction removal button {btn_id}: {e}")
         
         # Compare with previous state to detect clicks
         prev_clicks = last_remove_clicks.get()
@@ -788,15 +789,20 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @render.text
     def val_overall_p():
         res = subgroup_cached_res()
-        if res: return f"{res['overall']['p_value']:.4f}"
+        if res: 
+            overall = res.get('overall', {})
+            p = overall.get('p_value')
+            return f"{p:.4f}" if isinstance(p, (int, float)) else "N/A"
         return "-"
     
     @render.text
     def val_interaction_p():
         res = subgroup_cached_res()
         if res:
-             p_int = res['interaction']['p_value']
-             return f"{p_int:.4f}" if p_int is not None else "N/A"
+             # Defensively access nested keys
+             interaction = res.get('interaction', {})
+             p_int = interaction.get('p_value')
+             return f"{p_int:.4f}" if isinstance(p_int, (int, float)) else "N/A"
         return "-"
 
     @render.ui
