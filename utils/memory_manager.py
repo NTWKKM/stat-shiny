@@ -20,16 +20,16 @@ logger = get_logger(__name__)
 
 class MemoryManager:
     """
-    Monitor and manage memory usage on HF free tier (300MB limit).
+    Monitor and manage memory usage.
     Automatically triggers cleanup when approaching limits.
     """
     
-    def __init__(self, max_memory_mb: int = 280, cleanup_threshold_pct: float = 0.8):
+    def __init__(self, max_memory_mb: int = 14336, cleanup_threshold_pct: float = 0.8):
         """
         Initialize memory manager.
         
         Args:
-            max_memory_mb: Maximum allowed memory in MB (HF limit ~300MB)
+            max_memory_mb: Maximum allowed memory in MB (Set to 14GB for HF Spaces 16GB tier)
             cleanup_threshold_pct: Trigger cleanup at X% of max_memory
         """
         self.max_memory_mb = max_memory_mb
@@ -64,7 +64,7 @@ class MemoryManager:
         
         # Check if approaching threshold
         if current_mem > self.cleanup_threshold_mb:
-            logger.warning(f"\ud83d\udea8 Memory usage high ({current_mem:.0f}MB / {self.cleanup_threshold_mb:.0f}MB threshold)")
+            logger.warning(f"🚨 Memory usage high ({current_mem:.0f}MB / {self.cleanup_threshold_mb:.0f}MB threshold)")
             
             # Clear expired cache entries
             expired_count = COMPUTATION_CACHE.clear_expired()
@@ -75,11 +75,11 @@ class MemoryManager:
             new_mem = self.get_memory_usage()
             freed = current_mem - new_mem
             
-            logger.info(f"\ud83d\udd02 Memory after cleanup: {new_mem:.0f}MB (freed {freed:.0f}MB, {expired_count} cache items removed)")
+            logger.info(f"🔄 Memory after cleanup: {new_mem:.0f}MB (freed {freed:.0f}MB, {expired_count} cache items removed)")
             
             # Check if still critical
             if new_mem > self.max_memory_mb:
-                logger.error(f"\ud83d\udca3 CRITICAL: Memory {new_mem:.0f}MB > {self.max_memory_mb}MB limit!")
+                logger.error(f"💣 CRITICAL: Memory {new_mem:.0f}MB > {self.max_memory_mb}MB limit!")
                 self.alerts_sent += 1
                 return False
         
@@ -108,5 +108,5 @@ class MemoryManager:
         return f"MemoryManager({status['current_mb']}/{status['max_mb']}MB, {status['usage_pct']}%)" 
 
 
-# Global memory manager instance
-MEMORY_MANAGER = MemoryManager(max_memory_mb=280, cleanup_threshold_pct=0.8)
+# Global memory manager instance (Updated to 14GB limit)
+MEMORY_MANAGER = MemoryManager(max_memory_mb=14336, cleanup_threshold_pct=0.8)
