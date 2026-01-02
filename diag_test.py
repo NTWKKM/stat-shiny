@@ -501,10 +501,10 @@ def calculate_kappa(df, col1, col2):
     y2 = data[col2].astype(str)
     
     try:
-        # === INTEGRATION: Robust Fit ===
-        kappa = CONNECTION_HANDLER.retry_with_backoff(
-            lambda: cohen_kappa_score(y1, y2)
-        )
+        kappa = cohen_kappa_score(y1, y2)
+    except Exception as e:
+        logger.error(f"Error calculating Cohen's kappa: {e}")
+        raise
         
         if kappa < 0:
             interp = "Poor agreement"
@@ -641,9 +641,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         return None, "Error: Need both Positive and Negative cases.", None, None
     
     # === INTEGRATION: Robust ROC ===
-    fpr, tpr, thresholds = CONNECTION_HANDLER.retry_with_backoff(
-        lambda: roc_curve(y_true, y_score)
-    )
+    fpr, tpr, thresholds = roc_curve(y_true, y_score)
     auc_val = roc_auc_score(y_true, y_score)
     
     if method == 'delong':
