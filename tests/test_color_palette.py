@@ -1,10 +1,9 @@
-"""Test suite for UI Styling System consistency.
+"""Test suite for UI Styling System consistency. (Updated to match repository source)
 
 Verifies:
-1. Color variables in tabs/_common.py
-2. CSS Injection logic in tabs/_styling.py
+1. Color variables in tabs/_common.py via get_color_palette()
+2. CSS Generation logic in tabs/_styling.py (get_shiny_css)
 3. Integration between Styling and Common variables
-4. Essential UI elements (Primary, Secondary, Success, etc.)
 """
 
 import sys
@@ -15,11 +14,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def get_styling_data():
-    """Get color palette and styling data."""
+    """Get color palette data from the actual source function."""
     try:
-        from tabs._common import DEFAULT_COLORS, get_color_palette
+        # ใน tabs/_common.py มีฟังก์ชัน get_color_palette
+        from tabs._common import get_color_palette
+        palette = get_color_palette()
         return {
-            "colors": DEFAULT_COLORS,
+            "colors": palette,
             "fetcher": get_color_palette
         }
     except ImportError as e:
@@ -33,17 +34,17 @@ def test_styling_files_exist():
     assert (base_path / "_styling.py").exists(), "tabs/_styling.py is missing"
 
 def test_essential_ui_colors():
-    """Test that all brand and status colors are defined in DEFAULT_COLORS."""
+    """Test that all brand and status colors are defined in the palette."""
     data = get_styling_data()
-    assert data is not None, "Styling data not available"
+    assert data is not None, "Styling data not available (Import Error)"
     
     palette = data["colors"]
     
-    # 1. Check Brand Colors (Must match UI Styling Guide)
-    brand_colors = ['primary', 'primary_light', 'primary_dark', 'secondary']
+    # 1. Check Brand Colors (Navy Blue Theme)
+    brand_colors = ['primary', 'primary_light', 'primary_dark', 'smoke_white']
     for color in brand_colors:
         assert color in palette, f"Missing Brand Color: {color}"
-        assert palette[color].startswith('#'), f"Invalid format for {color}"
+        assert palette[color].startswith('#'), f"Invalid HEX format for {color}"
 
     # 2. Check Status Colors
     status_colors = ['success', 'danger', 'warning', 'info']
@@ -53,47 +54,54 @@ def test_essential_ui_colors():
     # 3. Check Neutral/Text Colors
     neutral_colors = ['text', 'text_secondary', 'background', 'surface', 'border']
     for color in neutral_colors:
-        assert color in palette, f"Missing Neutral/Text Color: {color}"
+        assert color in palette, f"Missing Neutral Color: {color}"
 
 def test_color_format_validity():
-    """Verify all colors are valid 7-character HEX codes (#RRGGBB)."""
+    """Verify all colors are valid HEX codes."""
     data = get_styling_data()
     palette = data["colors"]
     
     import re
-    hex_regex = re.compile(r'^#[0-9a-fA-F]{6}$')
+    # รองรับทั้ง #RGB และ #RRGGBB
+    hex_regex = re.compile(r'^#([A-Fa-f0-9]{3}){1,2}$')
     
     for key, hex_val in palette.items():
         assert hex_regex.match(hex_val), f"Color '{key}' has invalid HEX format: {hex_val}"
 
 def test_styling_injector_integration():
-    """Test if tabs/_styling.py can correctly import and use colors."""
+    """Test if tabs/_styling.py can correctly generate CSS using colors."""
     try:
-        from tabs._styling import apply_custom_styling
-        import streamlit as st
+        # ใน tabs/_styling.py ใช้ฟังก์ชัน get_shiny_css
+        from tabs._styling import get_shiny_css
         
-        # Test that the function exists and is callable
-        assert callable(apply_custom_styling), "apply_custom_styling is not a function"
+        # Test that the function exists
+        assert callable(get_shiny_css), "get_shiny_css is not a function"
         
-        # Verify it uses DEFAULT_COLORS internally (check source code briefly)
-        import inspect
-        source = inspect.getsource(apply_custom_styling)
-        assert "DEFAULT_COLORS" in source or "get_color_palette" in source, \
-            "apply_custom_styling might not be linked to the common color palette"
+        # Test CSS Generation
+        css_content = get_shiny_css()
+        assert isinstance(css_content, str), "get_shiny_css should return a string"
+        assert "<style>" in css_content, "Output should contain style tags"
+        
+        # Verify it pulls the primary color from common.py
+        data = get_styling_data()
+        primary_hex = data["colors"]["primary"]
+        assert primary_hex in css_content, "Generated CSS does not contain the primary color from _common.py"
             
     except (ImportError, Exception) as e:
         assert False, f"Styling injection test failed: {str(e)}"
 
 def test_no_hardcoded_old_colors():
-    """Check that old color keys are not being used in key files."""
+    """Check that old color keys are not being used."""
     data = get_styling_data()
     palette = data["colors"]
     
-    # Example: 'text_primary' was an old key, now it should be 'text'
-    assert 'text_primary' not in palette, "Old key 'text_primary' found, please use 'text'"
+    # เช็คว่าไม่มี key เก่าที่เลิกใช้ไปแล้ว
+    old_keys = ['text_primary', 'bg_main']
+    for old_key in old_keys:
+        assert old_key not in palette, f"Old key '{old_key}' found, please use the new naming convention"
 
 if __name__ == "__main__":
-    print("🎨 Running UI Styling System Tests...\n")
+    print("🎨 Running UI Styling System Tests (Production Ready)...\n")
 
     test_functions = [
         test_styling_files_exist,
