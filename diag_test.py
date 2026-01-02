@@ -26,7 +26,6 @@ from tabs._common import get_color_palette
 
 # === INTEGRATION: System Utilities ===
 from utils.memory_manager import MEMORY_MANAGER
-from utils.connection_handler import CONNECTION_HANDLER
 from utils.cache_manager import COMPUTATION_CACHE
 
 logger = get_logger(__name__)
@@ -40,6 +39,7 @@ def calculate_descriptive(df, col):
     Returns:
         pd.DataFrame: Descriptive statistics table
     """
+    MEMORY_MANAGER.check_and_cleanup()
     # Simple operation, typically doesn't need heavy memory management, 
     # but good to ensure stability if DF is huge.
     if col not in df.columns:
@@ -185,7 +185,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     # === INTEGRATION: Cache Check ===
     # Create a cache key based on inputs and data hash
     data_hash = hashlib.md5(data.values.tobytes()).hexdigest()[:16]
-    cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}
+    cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}"
     cached_result = COMPUTATION_CACHE.get(cache_key)
     if cached_result:
         logger.debug(f"Cache hit for calculate_chi2: {col1} vs {col2}")
@@ -326,8 +326,6 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         
         if "Fisher" not in method:
             # Re-run for details (fast enough, or use cached values if structured differently)
-            # Since connection handler was used above, we can assume safe here, 
-            # or just reuse variables if scope allows. We'll re-run as it's cheap.
             chi2, p, dof, ex = stats.chi2_contingency(tab)
             
             # Expected Counts Table
@@ -486,7 +484,8 @@ def calculate_kappa(df, col1, col2):
         return None, "No data after dropping NAs", None
     
     # === INTEGRATION: Cache Check ===
-    cache_key = f"kappa_{col1}_{col2}_{hash(data.values.tobytes())}"
+    data_hash = hashlib.md5(data.values.tobytes()).hexdigest()[:16]
+    cache_key = f"kappa_{col1}_{col2}_{data_hash}"
     cached_result = COMPUTATION_CACHE.get(cache_key)
     if cached_result:
         return cached_result
