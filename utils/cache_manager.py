@@ -62,38 +62,35 @@ class ComputationCache:
         return hashlib.md5(key_str.encode()).hexdigest()
     
     def get(self, func_name: str, **kwargs) -> Optional[Any]:
-    """
-    Retrieve cached result if exists and not expired.
-    
-    Args:
-        func_name: Function identifier
-        **kwargs: Parameters used to create cache key
-    
-    Returns:
-        Cached result or None if not found/expired
-    """
-    key = self._make_key(func_name, kwargs)  # Can be outside if pure function
-    
-    with self._lock:  # Protect ALL shared state access
-        if key in self.cache:
-            entry = self.cache[key]
-            
-            # Check if expired
-            if datetime.now() < entry['expires_at']:
-                # Update access count for LRU
-                self.access_count[key] = self.access_count.get(key, 0) + 1
-                self.hits += 1
-                logger.debug(f"✅ Cache HIT for {func_name} (key={key[:8]}...)")
-                return entry['result']
-            else:
-                # Remove expired entry
-                del self.cache[key]
-                if key in self.access_count:
-                    del self.access_count[key]
-                logger.debug(f"⏰ Cache EXPIRED for {func_name}")
+        """
+        Retrieve cached result if exists and not expired.
         
-        self.misses += 1
-        return None
+        Args:
+            func_name: Function identifier
+            **kwargs: Parameters used to create cache key
+        
+        Returns:
+            Cached result or None if not found/expired
+        """
+        key = self._make_key(func_name, kwargs)
+        
+        with self._lock:
+            if key in self.cache:
+                entry = self.cache[key]
+                
+                if datetime.now() < entry['expires_at']:
+                    self.access_count[key] = self.access_count.get(key, 0) + 1
+                    self.hits += 1
+                    logger.debug(f"✅ Cache HIT for {func_name} (key={key[:8]}...)")
+                    return entry['result']
+                else:
+                    del self.cache[key]
+                    if key in self.access_count:
+                        del self.access_count[key]
+                    logger.debug(f"⏰ Cache EXPIRED for {func_name}")
+            
+            self.misses += 1
+            return None
     
     def set(self, func_name: str, result: Any, **kwargs) -> None:
         """
@@ -131,12 +128,13 @@ class ComputationCache:
     
     def clear(self) -> None:
         """Clear all cached items."""
-        count = len(self.cache)
-        self.cache.clear()
-        self.access_count.clear()
-        self.hits = 0
-        self.misses = 0
-        logger.info(f"🗑️  Cache cleared ({count} items removed)")
+        with self._lock:
+            count = len(self.cache)
+            self.cache.clear()
+            self.access_count.clear()
+            self.hits = 0
+            self.misses = 0
+            logger.info(f"🗑️  Cache cleared ({count} items removed)")
     
     def clear_expired(self) -> int:
         """
@@ -145,18 +143,19 @@ class ComputationCache:
         Returns:
             Number of expired items removed
         """
-        expired_keys = [k for k, v in self.cache.items() 
-                       if datetime.now() >= v['expires_at']]
-        
-        for k in expired_keys:
-            del self.cache[k]
-            if k in self.access_count:
-                del self.access_count[k]
-        
-        if expired_keys:
-            logger.debug(f"🧹 Cache cleanup: removed {len(expired_keys)} expired items")
-        
-        return len(expired_keys)
+        with self._lock:
+            expired_keys = [k for k, v in self.cache.items() 
+                           if datetime.now() >= v['expires_at']]
+            
+            for k in expired_keys:
+                del self.cache[k]
+                if k in self.access_count:
+                    del self.access_count[k]
+            
+            if expired_keys:
+                logger.debug(f"🧹 Cache cleanup: removed {len(expired_keys)} expired items")
+            
+            return len(expired_keys)
     
     def get_stats(self) -> dict:
         """
