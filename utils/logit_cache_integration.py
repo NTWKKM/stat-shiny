@@ -29,10 +29,10 @@ def get_cached_logistic_analysis(calculate_func, cache_key_params: dict):
     # Try cache first
     cached = COMPUTATION_CACHE.get('analyze_outcome', **cache_key_params)
     if cached is not None:
-        logger.info(f"✅ Logit Analysis Cache HIT - using cached results")
+        logger.info("✅ Logit Analysis Cache HIT - using cached results")
         return cached
     
-    logger.info(f"📊 Logit Analysis Cache MISS - performing analysis")
+    logger.info("📊 Logit Analysis Cache MISS - performing analysis")
     
     # Calculate and cache
     result = calculate_func()
