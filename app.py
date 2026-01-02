@@ -1,4 +1,5 @@
 from shiny import App, ui, reactive, Session, render
+import html
 
 # Import Config/Logger
 from config import CONFIG
@@ -143,6 +144,10 @@ def server(input, output, session: Session):
         conn_icon = "🟢" if success_val >= 90 else "🟠" if success_val >= 70 else "🔴"
         conn_title = f"Resilience: {conn_stats['success_rate']} success rate ({conn_stats['failed_attempts']} failures)"
 
+        cache_title = html.escape(f"Cache: {cache_stats['cached_items']}/{cache_stats['max_size']} items (Hit rate: {cache_stats['hit_rate']})")
+        mem_title = html.escape(f"Memory: {mem_status['usage_pct']} ({mem_status['current_mb']}MB / {mem_status['max_mb']}MB)")
+        conn_title = html.escape(f"Resilience: {conn_stats['success_rate']} success rate ({conn_stats['failed_attempts']} failures)")
+        
         return ui.HTML(f"""
         <div style='text-align: right; font-size: 0.75em; color: #999;'>
             <span title='{cache_title}' style='cursor: help;'>{cache_icon} L1 Cache</span> | 
