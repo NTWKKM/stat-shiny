@@ -12,10 +12,14 @@ Features:
 
 from utils.cache_manager import COMPUTATION_CACHE
 from logger import get_logger
+from typing import Callable, Any, Tuple, Optional
 
 logger = get_logger(__name__)
 
-def get_cached_logistic_analysis(calculate_func, cache_key_params: dict):
+def get_cached_logistic_analysis(
+    calculate_func: Callable[[], Tuple[Any, Any, Any]], 
+    cache_key_params: dict
+) -> Optional[Tuple[Any, Any, Any]]:
     """
     Get logistic regression analysis results from cache or calculate if not cached.
     
