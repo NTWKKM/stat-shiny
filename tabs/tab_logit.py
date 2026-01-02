@@ -512,7 +512,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             
             x_label = "Adjusted IRR" if model_type == 'poisson' else "Adjusted OR"
             x_label_crude = "Crude IRR" if model_type == 'poisson' else "Crude OR"
-            col_key = 'aor' # The key in dict is still 'aor'/'or' from logic for consistency
             
             try:
                 if aor_res:
