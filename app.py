@@ -6,7 +6,7 @@ from config import CONFIG
 from logger import get_logger, LoggerFactory
 
 # Import Tabs Modules
-from tabs import tab_data           # 🟢 Data Module
+from tabs import tab_data            # 🟢 Data Module
 from tabs import tab_baseline_matching
 from tabs import tab_diag
 from tabs import tab_logit
@@ -28,9 +28,9 @@ logger = get_logger(__name__)
 
 # === LAYER 2 & 3: Initialize optimization systems ===
 logger.info("🚀 Initializing HF optimization layers...")
-logger.info("  %s", COMPUTATION_CACHE)     # Layer 1: Caching
-logger.info("  %s", MEMORY_MANAGER)        # Layer 2: Memory Mgmt
-logger.info("  %s", CONNECTION_HANDLER)    # Layer 3: Connection Resilience
+logger.info("  %s", COMPUTATION_CACHE)      # Layer 1: Caching
+logger.info("  %s", MEMORY_MANAGER)         # Layer 2: Memory Mgmt
+logger.info("  %s", CONNECTION_HANDLER)     # Layer 3: Connection Resilience
 
 # Get color palette for navbar styling
 colors = get_color_palette()
@@ -40,6 +40,7 @@ colors = get_color_palette()
 # ==========================================
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
+    # 🟢 แก้ไข: หุ้ม data_ui ด้วย nav_panel เพราะใน tab_data.py เราตัด nav_panel ออกแล้ว
     ui.nav_panel(
         "📁 Data Management",
         ui.div(tab_data.data_ui("data"), class_="app-container")
@@ -108,6 +109,7 @@ def server(input, output, session: Session):
     # --- Reactive State (Global) ---
     df = reactive.Value(None)
     var_meta = reactive.Value({})
+    # 🟢 เพิ่ม: ตัวแปรสำหรับเก็บข้อมูลไฟล์ที่อัปโหลด (จำเป็นสำหรับ tab_data ใหม่)
     uploaded_file_info = reactive.Value(None)
     
     # Matched data state (Shared across tabs)
@@ -184,6 +186,8 @@ def server(input, output, session: Session):
     # ==========================================
     
     # --- 1. Data Management ---
+    # 🟢 แก้ไข: ส่ง arguments ให้ครบ 7 ตัว ตามที่ tab_data.py ต้องการ
+    # ลำดับสำคัญมาก: df, var_meta, uploaded_file_info, df_matched, is_matched, matched_treatment_col, matched_covariates
     tab_data.data_server("data",
         df, var_meta, uploaded_file_info,
         df_matched, is_matched, matched_treatment_col, matched_covariates
