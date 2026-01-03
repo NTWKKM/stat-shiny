@@ -215,20 +215,15 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             raise
 
     # ==========================================
-    # Event Handlers - Using observe() pattern
+    # Event Handlers - VALIDATED Pattern
     # ==========================================
     
-    # 🟢 FIX: Use observe() which only triggers on value change, not on init
+    # 🟢 FIX: Use @reactive.Effect with direct input() call
+    # This creates dependency on button click and only triggers when button changes
     @reactive.Effect
-    def _handle_load_example():
-        # observe() will trigger only when button value changes (clicked)
-        btn_clicks = reactive.Value(0)
-        
-        # Subscribe using reactive computation
-        def observe_btn():
-            input.btn_load_example()  # Create dependency
-        
-        observe_btn()
+    def _on_load_example_click():
+        """Trigger on btn_load_example click"""
+        input.btn_load_example()  # Creates reactive dependency
         
         is_loading_data.set(True)
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
@@ -251,16 +246,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         
         finally:
             is_loading_data.set(False)
-    
-    # 🟢 Attach to button using reactive effect with proper trigger
-    reactive.Effect(
-        lambda: input.btn_load_example() and _handle_load_example()
-    )
 
-    # 🟢 File upload handler
     @reactive.Effect
-    def _handle_file_upload():
-        file_infos = input.file_upload()
+    def _on_file_upload():
+        """Trigger on file_upload change"""
+        file_infos = input.file_upload()  # Creates reactive dependency
         
         if not file_infos:
             return
@@ -283,10 +273,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         finally:
             is_loading_data.set(False)
 
-    # 🟢 Reset all handler
     @reactive.Effect
-    def _handle_reset():
-        input.btn_reset_all()
+    def _on_reset_all():
+        """Trigger on btn_reset_all click"""
+        input.btn_reset_all()  # Creates reactive dependency
         
         df.set(None)
         var_meta.set({})
@@ -345,7 +335,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     @reactive.Effect
     def _save_metadata():
-        input.btn_save_meta()
+        input.btn_save_meta()  # Creates reactive dependency
         
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
@@ -413,7 +403,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     
     @reactive.Effect
     def _clear_match():
-        input.btn_clear_match()
+        input.btn_clear_match()  # Creates reactive dependency
         
         df_matched.set(None)
         is_matched.set(False)
