@@ -64,8 +64,7 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # Debug Print: ถ้าเห็นข้อความนี้ใน Terminal แสดงว่าเชื่อมต่อสำเร็จ
-    print("DEBUG: data_server started successfully!") 
+    logger.debug("data_server started successfully")
 
     is_loading_data = reactive.Value(False)
 
@@ -354,8 +353,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     @render.ui
     def ui_btn_clear_match():
-        # Check if is_matched is available and valid
-        if is_matched and is_matched.get():
+        if is_matched.get():
              return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
