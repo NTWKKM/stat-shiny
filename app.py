@@ -116,90 +116,62 @@ def server(input, output, session: Session):
     # === 🚀 DYNAMIC STATUS BADGE LOGIC ===
     @render.ui
     def optimization_status():
-        """แสดงสถานะ optimization layers แบบ real-time"""
-        # === ✅ Reactive ticker สำหรับ optimization_status (safe version) ===
-        status_refresh_ticker = reactive.Value(0)
-    
-        @reactive.Effect
-        def _refresh_status_ticker():
-            """✅ FIX: Independent refresh mechanism that doesn't block other outputs"""
-            import time
-            import threading
-        
-            def ticker():
-                count = 0
-                while True:
-                    time.sleep(5)
-                    count += 1
-                    status_refresh_ticker.set(count)
-        
-            thread = threading.Thread(target=ticker, daemon=True)
-            thread.start()
-        
-            # Only start once
-            if status_refresh_ticker.get() == 0:
-                _refresh_status_ticker.started = True
-    
-        # Start on first render
-        if not hasattr(_refresh_status_ticker, 'started'):
-            _refresh_status_ticker()
-
-        @render.ui
-        def optimization_status():
-            """✅ FIX: Refresh only via ticker, never block the entire page"""
-            _ = status_refresh_ticker.get()  # ← Depend on ticker only, not invalidate_later
+        """แสดงสถานะ optimization layers (ไม่ต้อง refresh อัตโนมัติ)"""
 
         # 1. Cache status (L1)
         cache_stats = COMPUTATION_CACHE.get_stats()
-        cache_icon = "🟢" if cache_stats.get('cached_items', 0) > 0 else "⚪"
+        cache_icon = "🟢" if cache_stats.get("cached_items", 0) > 0 else "⚪"
 
         # 2. Memory status (L2)
         mem_status = MEMORY_MANAGER.get_memory_status()
-        mem_icon = "💗"  # Normal
-        if mem_status.get('status') == 'WARNING':
+        mem_icon = "💗"
+        if mem_status.get("status") == "WARNING":
             mem_icon = "💛"
-        elif mem_status.get('status') == 'CRITICAL':
+        elif mem_status.get("status") == "CRITICAL":
             mem_icon = "🔴"
-        elif mem_status.get('status') == 'UNKNOWN':
+        elif mem_status.get("status") == "UNKNOWN":
             mem_icon = "⚪"
 
         # 3. Connection status (L3)
         conn_stats = CONNECTION_HANDLER.get_stats()
         try:
-            rate_str = str(conn_stats.get('success_rate', '0'))
-            success_val = float(rate_str.replace('%', ''))
+            rate_str = str(conn_stats.get("success_rate", "0"))
+            success_val = float(rate_str.replace("%", ""))
         except (ValueError, TypeError, AttributeError):
             success_val = 0.0
         conn_icon = "🟢" if success_val >= 90 else "🟠" if success_val >= 70 else "🔴"
 
-        # Build tooltips
-        cache_title = html.escape(
+        import html as _html
+
+        cache_title = _html.escape(
             f"Cache: {cache_stats.get('cached_items', 0)}/{cache_stats.get('max_size', 0)} items "
             f"(Hit rate: {cache_stats.get('hit_rate', '0%')})"
         )
-        
-        usage_pct = mem_status.get('usage_pct')
-        current_mb = mem_status.get('current_mb')
-        max_mb = mem_status.get('max_mb', 'N/A')
-        
+
+        usage_pct = mem_status.get("usage_pct")
+        current_mb = mem_status.get("current_mb")
+        max_mb = mem_status.get("max_mb", "N/A")
         if usage_pct is not None and current_mb is not None:
-            mem_title = html.escape(f"Memory: {usage_pct:.1f}% ({current_mb}MB / {max_mb}MB)")
+            mem_title = _html.escape(
+                f"Memory: {usage_pct:.1f}% ({current_mb}MB / {max_mb}MB)"
+            )
         else:
-            mem_title = html.escape(f"Memory: Unknown ({max_mb}MB max)")
-        
-        conn_title = html.escape(
+            mem_title = _html.escape(f"Memory: Unknown ({max_mb}MB max)")
+
+        conn_title = _html.escape(
             f"Resilience: {conn_stats.get('success_rate', 'N/A')} success rate "
             f"({conn_stats.get('failed_attempts', 0)} failures)"
         )
-        
-        return ui.HTML(f"""
-        <div style='text-align: right; font-size: 0.75em; color: #999;'>
-            <span title='{cache_title}' style='cursor: help;'>{cache_icon} L1 Cache</span> | 
-            <span title='{mem_title}' style='cursor: help;'>{mem_icon} L2 Memory</span> | 
-            <span title='{conn_title}' style='cursor: help;'>{conn_icon} L3 Resilience</span> |
-            &copy; 2025 Medical Stat Tool
-        </div>
-        """)
+
+        return ui.HTML(
+            f"""
+            <div style="display:flex; gap:16px; align-items:center; font-size:13px;">
+              <span title="{cache_title}">{cache_icon} Cache</span>
+              <span title="{mem_title}">{mem_icon} Memory</span>
+              <span title="{conn_title}">{conn_icon} Resilience</span>
+            </div>
+            """
+        )
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:
