@@ -338,7 +338,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return data
 
     @render.data_frame
-    @render.data_frame
     def out_df_preview():
         d = df.get()
         if d is None:
