@@ -17,7 +17,7 @@ def data_ui():
             ui.h4("MENU"),
             ui.h5("1. Data Management"),
 
-            # เปลี่ยนจากปุ่ม Load Example → auto-generate แทน
+            # ใช้ upload file เป็น main entry
             ui.input_file(
                 "file_upload",
                 "Upload CSV/Excel",
@@ -30,7 +30,7 @@ def data_ui():
             ui.hr(),
             ui.output_ui("ui_btn_clear_match"),
 
-            # เพิ่มปุ่ม reset 2 แบบ:
+            # Reset controls
             ui.input_action_button(
                 "btn_reset_example",
                 "🔄 Reset to Example Data",
@@ -89,20 +89,23 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     """Server logic for Data Management"""
 
-    # track loading state
+    # loading flag เฉพาะตอน upload file / reset โดย user
     is_loading_data = reactive.Value(False)
 
-    # track data source (example / uploaded)
+    # track data source (example / uploaded / None)
     data_source = reactive.Value("example")
 
-    # Track initialization (one-time flag)
-    has_initialized = reactive.Value(False)  
+    # one-time init flag
+    has_initialized = reactive.Value(False)
 
-    # ========== 1. Core data generation helpers ==========
+    # ========== 1. Helper: generate example data (backend friendly) ==========
 
-    def _generate_example_data():
-        """Generate simulated clinical data and update reactive values"""
-        is_loading_data.set(True)
+    def _generate_example_data(show_notification: bool = True):
+        """Generate simulated clinical data and update reactive values.
+
+        - ใช้แบบ backend สำหรับ initial load (show_notification=False)
+        - ใช้แบบ interactive สำหรับ reset button (show_notification=True)
+        """
         try:
             np.random.seed(42)
             n = 1500
@@ -125,9 +128,14 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             hypertension = np.random.binomial(1, p_ht, n)
 
             lambda_base = 0.002
-            linear_predictor = 0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
+            linear_predictor = (
+                0.03 * age
+                + 0.4 * diabetes
+                + 0.3 * hypertension
+                - 0.6 * group
+            )
             hazard = lambda_base * np.exp(linear_predictor)
-            surv_time = np.random.exponential(1/hazard, n)
+            surv_time = np.random.exponential(1 / hazard, n)
             censor_time = np.random.uniform(0, 100, n)
             time_obs = np.minimum(surv_time, censor_time).round(1)
             time_obs = np.maximum(time_obs, 0.5)
@@ -166,72 +174,146 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             icc_rater2 = icc_rater2.round(1)
 
             data = {
-                'ID': range(1, n+1),
-                'Treatment_Group': group,
-                'Age_Years': age,
-                'Sex_Male': sex,
-                'BMI_kgm2': bmi,
-                'Comorb_Diabetes': diabetes,
-                'Comorb_Hypertension': hypertension,
-                'Outcome_Cured': outcome_cured,
-                'Time_Months': time_obs,
-                'Status_Death': status_death,
-                'Gold_Standard_Disease': gold_std,
-                'Test_Score_Rapid': rapid_score,
-                'Diagnosis_Dr_A': rater_a,
-                'Diagnosis_Dr_B': rater_b,
-                'Lab_HbA1c': hba1c,
-                'Lab_Glucose': glucose,
-                'ICC_SysBP_Rater1': icc_rater1,
-                'ICC_SysBP_Rater2': icc_rater2,
+                "ID": range(1, n + 1),
+                "Treatment_Group": group,
+                "Age_Years": age,
+                "Sex_Male": sex,
+                "BMI_kgm2": bmi,
+                "Comorb_Diabetes": diabetes,
+                "Comorb_Hypertension": hypertension,
+                "Outcome_Cured": outcome_cured,
+                "Time_Months": time_obs,
+                "Status_Death": status_death,
+                "Gold_Standard_Disease": gold_std,
+                "Test_Score_Rapid": rapid_score,
+                "Diagnosis_Dr_A": rater_a,
+                "Diagnosis_Dr_B": rater_b,
+                "Lab_HbA1c": hba1c,
+                "Lab_Glucose": glucose,
+                "ICC_SysBP_Rater1": icc_rater1,
+                "ICC_SysBP_Rater2": icc_rater2,
             }
 
             new_df = pd.DataFrame(data)
 
             meta = {
-                'Treatment_Group': {'type':'Categorical', 'map':{0:'Standard Care', 1:'New Drug'}, 'label': 'Treatment Group'},
-                'Sex_Male': {'type':'Categorical', 'map':{0:'Female', 1:'Male'}, 'label': 'Sex'},
-                'Comorb_Diabetes': {'type':'Categorical', 'map':{0:'No', 1:'Yes'}, 'label': 'Diabetes'},
-                'Comorb_Hypertension': {'type':'Categorical', 'map':{0:'No', 1:'Yes'}, 'label': 'Hypertension'},
-                'Outcome_Cured': {'type':'Categorical', 'map':{0:'Not Cured', 1:'Cured'}, 'label': 'Outcome (Cured)'},
-                'Status_Death': {'type':'Categorical', 'map':{0:'Censored/Alive', 1:'Dead'}, 'label': 'Status (Death)'},
-                'Gold_Standard_Disease': {'type':'Categorical', 'map':{0:'Healthy', 1:'Disease'}, 'label': 'Gold Standard'},
-                'Diagnosis_Dr_A': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. A)'},
-                'Diagnosis_Dr_B': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. B)'},
-                'Age_Years': {'type': 'Continuous', 'label': 'Age (Years)', 'map': {}},
-                'BMI_kgm2': {'type': 'Continuous', 'label': 'BMI (kg/m²)', 'map': {}},
-                'Time_Months': {'type': 'Continuous', 'label': 'Time (Months)', 'map': {}},
-                'Test_Score_Rapid': {'type': 'Continuous', 'label': 'Rapid Test Score (0-100)', 'map': {}},
-                'Lab_HbA1c': {'type': 'Continuous', 'label': 'HbA1c (%)', 'map': {}},
-                'Lab_Glucose': {'type': 'Continuous', 'label': 'Fasting Glucose (mg/dL)', 'map': {}},
-                'ICC_SysBP_Rater1': {'type': 'Continuous', 'label': 'Sys BP (Rater 1)', 'map': {}},
-                'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
+                "Treatment_Group": {
+                    "type": "Categorical",
+                    "map": {0: "Standard Care", 1: "New Drug"},
+                    "label": "Treatment Group",
+                },
+                "Sex_Male": {
+                    "type": "Categorical",
+                    "map": {0: "Female", 1: "Male"},
+                    "label": "Sex",
+                },
+                "Comorb_Diabetes": {
+                    "type": "Categorical",
+                    "map": {0: "No", 1: "Yes"},
+                    "label": "Diabetes",
+                },
+                "Comorb_Hypertension": {
+                    "type": "Categorical",
+                    "map": {0: "No", 1: "Yes"},
+                    "label": "Hypertension",
+                },
+                "Outcome_Cured": {
+                    "type": "Categorical",
+                    "map": {0: "Not Cured", 1: "Cured"},
+                    "label": "Outcome (Cured)",
+                },
+                "Status_Death": {
+                    "type": "Categorical",
+                    "map": {0: "Censored/Alive", 1: "Dead"},
+                    "label": "Status (Death)",
+                },
+                "Gold_Standard_Disease": {
+                    "type": "Categorical",
+                    "map": {0: "Healthy", 1: "Disease"},
+                    "label": "Gold Standard",
+                },
+                "Diagnosis_Dr_A": {
+                    "type": "Categorical",
+                    "map": {0: "Normal", 1: "Abnormal"},
+                    "label": "Diagnosis (Dr. A)",
+                },
+                "Diagnosis_Dr_B": {
+                    "type": "Categorical",
+                    "map": {0: "Normal", 1: "Abnormal"},
+                    "label": "Diagnosis (Dr. B)",
+                },
+                "Age_Years": {
+                    "type": "Continuous",
+                    "label": "Age (Years)",
+                    "map": {},
+                },
+                "BMI_kgm2": {
+                    "type": "Continuous",
+                    "label": "BMI (kg/m²)",
+                    "map": {},
+                },
+                "Time_Months": {
+                    "type": "Continuous",
+                    "label": "Time (Months)",
+                    "map": {},
+                },
+                "Test_Score_Rapid": {
+                    "type": "Continuous",
+                    "label": "Rapid Test Score (0-100)",
+                    "map": {},
+                },
+                "Lab_HbA1c": {
+                    "type": "Continuous",
+                    "label": "HbA1c (%)",
+                    "map": {},
+                },
+                "Lab_Glucose": {
+                    "type": "Continuous",
+                    "label": "Fasting Glucose (mg/dL)",
+                    "map": {},
+                },
+                "ICC_SysBP_Rater1": {
+                    "type": "Continuous",
+                    "label": "Sys BP (Rater 1)",
+                    "map": {},
+                },
+                "ICC_SysBP_Rater2": {
+                    "type": "Continuous",
+                    "label": "Sys BP (Rater 2)",
+                    "map": {},
+                },
             }
 
             df.set(new_df)
             var_meta.set(meta)
-            uploaded_file_info.set({"name": "Example Clinical Data", "source": "generated"})
+            uploaded_file_info.set(
+                {"name": "Example Clinical Data", "source": "generated"}
+            )
             data_source.set("example")
 
             logger.info(f"✅ Successfully generated {n} records (example data)")
+            if show_notification:
+                ui.notification_show(
+                    "✅ Example data loaded", type="message"
+                )
 
         except Exception as e:
             logger.exception("❌ Error generating example data")
-            ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
-        finally:
-            is_loading_data.set(False)
-              
-    # ========== 2. Auto-generate on first load ==========
+            if show_notification:
+                ui.notification_show(
+                    f"❌ Error: {str(e)[:200]}", type="error"
+                )
+
+    # ========== 2. Auto-init on first load (backend; no spinner/notification) ==========
 
     @reactive.Effect
     def _auto_init_example_data():
-        """Run ONCE on session start to generate example data"""
         if not has_initialized.get():
             has_initialized.set(True)
             logger.info("🚀 Initializing Data tab with example data (one-time)")
-            _generate_example_data()
+            _generate_example_data(show_notification=False)
 
-    # ========== 3. File upload handler ==========
+    # ========== 3. File upload handler (ใช้ spinner) ==========
 
     @reactive.Effect
     @reactive.event(input.file_upload)
@@ -246,7 +328,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         f = file_infos[0]
 
         try:
-            # Load file based on extension
             fname = f["name"].lower()
             if fname.endswith(".csv"):
                 logger.info(f"📥 Reading CSV: {f['name']}")
@@ -256,60 +337,85 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                     logger.info(f"📥 Reading Excel (openpyxl): {f['name']}")
                     new_df = pd.read_excel(f["datapath"], engine="openpyxl")
                 except ImportError:
-                    logger.warning("⚠️ openpyxl not available, using default engine")
+                    logger.warning(
+                        "⚠️ openpyxl not available, using default engine"
+                    )
                     new_df = pd.read_excel(f["datapath"])
             else:
-                ui.notification_show("❌ Unsupported file format. Use CSV or Excel.", type="error")
+                ui.notification_show(
+                    "❌ Unsupported file format. Use CSV or Excel.",
+                    type="error",
+                )
                 return
 
-            # Validate data
             if new_df is None or new_df.empty:
-                ui.notification_show("❌ File is empty or invalid", type="error")
+                ui.notification_show(
+                    "❌ File is empty or invalid", type="error"
+                )
                 logger.warning(f"⚠️ Empty file: {f['name']}")
                 return
 
-            # Size cap
             if len(new_df) > 100000:
                 new_df = new_df.head(100000)
-                ui.notification_show("⚠️ File too large. Showing first 100,000 rows.", type="warning")
-                logger.warning(f"⚠️ Large file capped: {f['name']} ({len(new_df)} rows)")
+                ui.notification_show(
+                    "⚠️ File too large. Showing first 100,000 rows.",
+                    type="warning",
+                )
+                logger.warning(
+                    f"⚠️ Large file capped: {f['name']} ({len(new_df)} rows)"
+                )
 
-            # Auto-detect variable types
             current_meta = {}
             for col in new_df.columns:
                 unique_vals = new_df[col].dropna().unique()
                 is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
 
                 if is_numeric and len(unique_vals) > 10:
-                    current_meta[col] = {"type": "Continuous", "map": {}, "label": col}
+                    current_meta[col] = {
+                        "type": "Continuous",
+                        "map": {},
+                        "label": col,
+                    }
                 else:
-                    current_meta[col] = {"type": "Categorical", "map": {}, "label": col}
+                    current_meta[col] = {
+                        "type": "Categorical",
+                        "map": {},
+                        "label": col,
+                    }
 
             df.set(new_df)
             var_meta.set(current_meta)
             uploaded_file_info.set({"name": f["name"], "source": "uploaded"})
             data_source.set("uploaded")
 
-            logger.info(f"✅ Successfully loaded {len(new_df)} rows from {f['name']}")
+            logger.info(
+                f"✅ Successfully loaded {len(new_df)} rows from {f['name']}"
+            )
             ui.notification_show(
-                f"✅ Loaded {len(new_df)} rows from {f['name']}", type="message"
+                f"✅ Loaded {len(new_df)} rows from {f['name']}",
+                type="message",
             )
 
         except Exception as e:
             logger.exception("❌ Error loading file")
-            ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
+            ui.notification_show(
+                f"❌ Error: {str(e)[:200]}", type="error"
+            )
         finally:
             is_loading_data.set(False)
 
-    # ========== 4. Reset / clear handlers ==========
+    # ========== 4. Reset / clear ==========
 
     @reactive.Effect
     @reactive.event(input.btn_reset_example)
     def reset_to_example():
         """Reset back to freshly generated example data"""
         logger.info("🔄 Reset to example data requested by user")
-        _generate_example_data()
-        ui.notification_show("✅ Reset to example data", type="message")
+        is_loading_data.set(True)
+        try:
+            _generate_example_data(show_notification=True)
+        finally:
+            is_loading_data.set(False)
 
     @reactive.Effect
     @reactive.event(input.btn_reset_all)
@@ -329,7 +435,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
         ui.notification_show("✅ All data cleared", type="warning")
 
-    # ========== 5. Metadata Logic (เดิม) ==========
+    # ========== 5. Metadata Logic (เหมือนเดิม) ==========
 
     @reactive.Effect
     def _update_var_select():
@@ -354,13 +460,18 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if meta and var_name in meta:
             m = meta[var_name]
             current_type = m.get("type", "Continuous")
-            map_str = "\n".join([f"{k}={v}" for k, v in m.get("map", {}).items()])
+            map_str = "\n".join(
+                [f"{k}={v}" for k, v in m.get("map", {}).items()]
+            )
 
         return ui.TagList(
             ui.input_radio_buttons(
                 "radio_var_type",
                 "ประเภทตัวแปร:",
-                choices={"Continuous": "Continuous", "Categorical": "Categorical"},
+                choices={
+                    "Continuous": "Continuous",
+                    "Categorical": "Categorical",
+                },
                 selected=current_type,
                 inline=True,
             ),
@@ -411,7 +522,9 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         }
 
         var_meta.set(current_meta)
-        ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
+        ui.notification_show(
+            f"✅ Saved settings for {var_name}", type="message"
+        )
 
     # ========== 6. Render outputs (loader + preview + clear matched) ==========
 
@@ -440,20 +553,12 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             )
         return None
 
-    @reactive.Calc
-    def _data_for_preview():
-        """Derived reactive value - triggers when df changes"""
-        d = df.get()
-        return d if d is not None and not d.empty else None
-
     @render.data_frame
     def out_df_preview():
-        """Display raw data preview (return DataFrame directly)"""
-        d = _data_for_preview()
-
-        if d is None:
+        """Display raw data preview - direct from df (stable)"""
+        d = df.get()
+        if d is None or not isinstance(d, pd.DataFrame) or d.empty:
             return pd.DataFrame()
-
         return d
 
     @render.ui
