@@ -1,66 +1,52 @@
 """
-🧮 Logistic Regression Core Logic (Shiny Compatible)
+🧮 Logistic & Poisson Regression Core Logic (Shiny Compatible) - Optimized & VIF Check
 
-No Streamlit dependencies - pure statistical functions.
+Features:
+- Binary Logistic Regression (BFGS / Firth)
+- Poisson Regression for Count Data
+- Interaction Terms Support
+- Automatic Mode Detection (Categorical/Linear)
+- Variance Inflation Factor (VIF) Check for Multicollinearity
+- Data Leakage Prevention & Validation
 """
 
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 import warnings
 import html
+import json
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
 
 logger = get_logger(__name__)
+
 COLORS = {
     'primary': '#2180BE',
     'primary_dark': '#1a5a8a',
     'danger': '#d32f2f',
+    'warning': '#f57c00',
     'text_secondary': '#666',
-    'border': '#e0e0e0'
+    'border': '#e0e0e0',
+    'bg_light': '#f8f9fa'
 }
 
-# Try to import Firth regression
+# --- Check Firth Availability ONLY (No Patching) ---
 try:
     from firthlogist import FirthLogisticRegression
-    
-    if not hasattr(FirthLogisticRegression, "_validate_data"):
-        from sklearn.utils.validation import check_X_y, check_array
-        
-        logger.info("Applying sklearn compatibility patch to FirthLogisticRegression")
-        
-        def _validate_data_patch(self, X, y=None, reset=True, validate_separately=False, **check_params):
-            """Compatibility shim for sklearn >= 1.6."""
-            if y is None:
-                return check_array(X, **check_params)
-            else:
-                return check_X_y(X, y, **check_params)
-        
-        FirthLogisticRegression._validate_data = _validate_data_patch
-        logger.info("Patch applied successfully")
-    
     HAS_FIRTH = True
 except (ImportError, AttributeError):
     HAS_FIRTH = False
-    logger.warning("firthlogist not available")
+    logger.warning("FirthLogisticRegression not found. Firth method will be disabled.")
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
 
-
-def clean_numeric_value(val):
-    """Convert value to float, removing common non-numeric characters."""
-    if pd.isna(val):
-        return np.nan
-    s = str(val).strip()
-    s = s.replace('>', '').replace('<', '').replace(',', '')
-    try:
-        return float(s)
-    except (TypeError, ValueError):
-        return np.nan
-
+def clean_numeric_series(series):
+    """Vectorized cleanup of numeric series."""
+    return pd.to_numeric(series, errors='coerce')
 
 def _robust_sort_key(x):
     """Sort key placing numeric values first."""
@@ -72,586 +58,307 @@ def _robust_sort_key(x):
     except (ValueError, TypeError):
         return (1, str(x))
 
-
-def run_binary_logit(y, X, method='default'):
-    """
-    Fit binary logistic regression.
-    
-    Returns:
-        tuple: (params, conf_int, pvalues, status_msg, stats_dict)
-    """
-    stats_metrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
-    
+def calculate_vif(X):
+    """Calculate Variance Inflation Factor (VIF) for multicollinearity check."""
     try:
-        X_const = sm.add_constant(X, has_constant='add')
-        
-        if method == 'firth':
-            if not HAS_FIRTH:
-                return None, None, None, "firthlogist not installed", stats_metrics
-            
-            fl = FirthLogisticRegression(fit_intercept=False)
-            fl.fit(X_const, y)
-            
-            coef = np.asarray(fl.coef_).reshape(-1)
-            if coef.shape[0] != len(X_const.columns):
-                return None, None, None, "Firth output shape mismatch", stats_metrics
-            
-            params = pd.Series(coef, index=X_const.columns)
-            pvalues = pd.Series(getattr(fl, "pvals_", np.full(len(X_const.columns), np.nan)), index=X_const.columns)
-            ci = getattr(fl, "ci_", None)
-            conf_int = (
-                pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
-                if ci is not None
-                else pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
-            )
-            return params, conf_int, pvalues, "OK", stats_metrics
-        
-        elif method == 'bfgs':
-            model = sm.Logit(y, X_const)
-            result = model.fit(method='bfgs', maxiter=100, disp=0)
+        if 'const' not in X.columns:
+            X_vif = sm.add_constant(X)
         else:
-            model = sm.Logit(y, X_const)
-            result = model.fit(disp=0)
+            X_vif = X.copy()
+            
+        non_const_cols = X_vif.columns[(X_vif != X_vif.iloc[0]).any()]
+        X_vif = X_vif[non_const_cols]
         
-        # Calculate R-squared metrics
-        try:
-            llf = result.llf
-            llnull = result.llnull
-            nobs = result.nobs
-            mcfadden = 1 - (llf / llnull) if llnull != 0 else np.nan
-            cox_snell = 1 - np.exp((2/nobs) * (llnull - llf))
-            max_r2 = 1 - np.exp((2/nobs) * llnull)
-            nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
-            stats_metrics = {"mcfadden": mcfadden, "nagelkerke": nagelkerke}
-        except (AttributeError, ZeroDivisionError, TypeError) as e:
-            logger.debug(f"Failed to calculate R2: {e}")
-        
-        return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
-    
+        vif_data = {}
+        col_list = list(X_vif.columns)
+        for i, col in enumerate(col_list):
+            if col == 'const': continue
+            try:
+                val = variance_inflation_factor(X_vif.values, i)
+                vif_data[col] = val
+            except:
+                vif_data[col] = np.inf
+        return vif_data
     except Exception as e:
-        logger.error(f"Logistic regression failed: {e}")
-        return None, None, None, str(e), stats_metrics
+        logger.warning(f"Could not calculate VIF: {e}")
+        return {}
 
+def run_regression_model(y, X, model_type='logistic', method='default'):
+    """Unified function for Logistic and Poisson regression."""
+    stats_metrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
+    try:
+        X = X.astype(float)
+        y = pd.to_numeric(y, errors='coerce')
+        valid_mask = y.notna()
+        y, X = y[valid_mask], X.loc[valid_mask]
+        X_const = sm.add_constant(X, has_constant='add')
+
+        if model_type == 'poisson':
+            model = sm.GLM(y, X_const, family=sm.families.Poisson())
+            result = model.fit()
+        else:
+            if method == 'firth':
+                if not HAS_FIRTH: return None, None, None, "firthlogist not installed", stats_metrics
+                fl = FirthLogisticRegression(fit_intercept=False)
+                fl.fit(X_const, y)
+                coef = np.asarray(fl.coef_).reshape(-1)
+                params = pd.Series(coef, index=X_const.columns)
+                pvalues = pd.Series(getattr(fl, "pvals_", np.full(len(X_const.columns), np.nan)), index=X_const.columns)
+                ci = getattr(fl, "ci_", None)
+                conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1]) if ci is not None else pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
+                return params, conf_int, pvalues, "OK", stats_metrics
+            elif method == 'bfgs':
+                model = sm.Logit(y, X_const)
+                result = model.fit(method='bfgs', maxiter=100, disp=0)
+            else:
+                model = sm.Logit(y, X_const)
+                result = model.fit(disp=0)
+
+        # Process Results for statsmodels
+        if result:
+            try:
+                llf, llnull, nobs = result.llf, result.llnull, result.nobs
+                mcfadden = 1 - (llf / llnull) if llnull != 0 else np.nan
+                cox_snell = 1 - np.exp((2/nobs) * (llnull - llf))
+                max_r2 = 1 - np.exp((2/nobs) * llnull)
+                nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
+                stats_metrics = {"mcfadden": mcfadden, "nagelkerke": nagelkerke}
+            except: pass
+            return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
+            
+    except Exception as e:
+        logger.error(f"Regression failed: {e}")
+        return None, None, None, str(e), stats_metrics
+    return None, None, None, "Unknown error", stats_metrics
 
 def get_label(col_name, var_meta):
     """Create formatted label for column."""
     display_name = col_name
     secondary_label = ""
-    
     if var_meta:
         if col_name in var_meta and 'label' in var_meta[col_name]:
             secondary_label = var_meta[col_name]['label']
         elif '_' in col_name:
             parts = col_name.split('_', 1)
-            if len(parts) > 1:
-                short_name = parts[1]
-                if short_name in var_meta and 'label' in var_meta[short_name]:
-                    secondary_label = var_meta[short_name]['label']
+            if len(parts) > 1 and parts[1] in var_meta and 'label' in var_meta[parts[1]]:
+                secondary_label = var_meta[parts[1]]['label']
     
     safe_name = html.escape(str(display_name))
     if secondary_label:
-        safe_label = html.escape(str(secondary_label))
-        return f"<b>{safe_name}</b><br><span style='color:#666; font-size:0.9em'>{safe_label}</span>"
-    else:
-        return f"<b>{safe_name}</b>"
-
+        return f"<b>{safe_name}</b><br><span style='color:#666; font-size:0.9em'>{html.escape(str(secondary_label))}</span>"
+    return f"<b>{safe_name}</b>"
 
 def fmt_p_with_styling(val):
-    """
-    Format p-value with red highlighting if significant (p < 0.05).
-    
-    OPTIMIZATION: Format p-values with conditional styling for significance.
-    """
-    if pd.isna(val):
-        return "-"
+    """Format p-value with red highlighting if significant (p < 0.05)."""
+    if pd.isna(val): return "-"
     try:
         val = float(val)
-        val = max(0, min(1, val))
-        if val < 0.001:
-            p_str = "<0.001"
-        elif val > 0.999:
-            p_str = ">0.999"
-        else:
-            p_str = f"{val:.3f}"
-        
-        # Add red styling if p < 0.05
-        if val < 0.05:
-            return f"<span class='sig-p'>{p_str}</span>"
-        else:
-            return p_str
-    except (ValueError, TypeError):
-        return "-"
+        p_str = "<0.001" if val < 0.001 else (">0.999" if val > 0.999 else f"{val:.3f}")
+        return f"<span class='sig-p'>{p_str}</span>" if val < 0.05 else p_str
+    except: return "-"
 
-
-def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
-    """
-    Perform logistic regression analysis for binary outcome.
-    
-    Returns:
-        tuple: (html_table, or_results, aor_results)
-    """
-    logger.info(f"Starting logistic analysis for outcome: {outcome_name}")
-    
+def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='logistic', interaction_terms=None):
+    """Perform regression analysis with VIF, Leakage protection, and Interactions."""
+    logger.info(f"📊 Starting analysis: {outcome_name}, Model: {model_type}")
     if outcome_name not in df.columns:
-        msg = f"Outcome '{outcome_name}' not found"
-        logger.error(msg)
-        return f"<div class='alert'>{msg}</div>", {}, {}
+        return f"<div class='alert'>Outcome '{outcome_name}' not found</div>", {}, {}
     
     y_raw = df[outcome_name].dropna()
-    unique_outcomes = set(y_raw.unique())
-    
-    if len(unique_outcomes) != 2:
-        msg = f"Invalid outcome: expected 2 values, found {len(unique_outcomes)}"
-        logger.error(msg)
-        return f"<div class='alert'>{msg}</div>", {}, {}
-    
-    if not unique_outcomes.issubset({0, 1}):
-        sorted_outcomes = sorted(unique_outcomes, key=str)
-        outcome_map = {sorted_outcomes[0]: 0, sorted_outcomes[1]: 1}
-        y = y_raw.map(outcome_map).astype(int)
+    if model_type == 'logistic':
+        unique_outcomes = sorted(y_raw.unique(), key=str)
+        if len(unique_outcomes) != 2:
+            return f"<div class='alert'>Invalid outcome for Logistic: expected 2 values, found {len(unique_outcomes)}</div>", {}, {}
+        y = (y_raw != unique_outcomes[0]).astype(int)
     else:
-        y = y_raw.astype(int)
-    
-    df_aligned = df.loc[y.index]
+        if not pd.api.types.is_numeric_dtype(y_raw) or (y_raw < 0).any():
+             return "<div class='alert'>Invalid outcome for Poisson: must be non-negative numeric</div>", {}, {}
+        y = y_raw
+
+    df_aligned = df.loc[y.index].copy()
     total_n = len(y)
-    candidates = []
-    results_db = {}
-    sorted_cols = sorted(df.columns.astype(str))
-    mode_map = {}
-    cat_levels_map = {}
-    
-    # Check for perfect separation
-    has_perfect_separation = False
-    if method == 'auto':
-        for col in sorted_cols:
-            if col == outcome_name or col not in df_aligned.columns:
+    results_db, mode_map, cat_levels_map, candidates = {}, {}, {}, []
+    interaction_cols, leakage_alerts = [], []
+
+    # --- Interaction Terms & Leakage Check ---
+    if interaction_terms:
+        for term in interaction_terms:
+            v1, v2 = (term.split(":") if isinstance(term, str) else term)
+            if outcome_name in [v1, v2]:
+                leakage_alerts.append(f"Excluded '<b>{v1}:{v2}</b>' (Outcome Leakage Risk)")
                 continue
-            try:
-                X_num = df_aligned[col].apply(clean_numeric_value)
-                if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
-                    has_perfect_separation = True
-                    break
-            except Exception:
-                continue
-    
-    # Select fitting method
+            if v1 in df_aligned.columns and v2 in df_aligned.columns:
+                new_col = f"{v1}*{v2}"
+                try:
+                    df_aligned[new_col] = clean_numeric_series(df_aligned[v1]) * clean_numeric_series(df_aligned[v2])
+                    interaction_cols.append(new_col)
+                    mode_map[new_col] = 'linear'
+                except: pass
+
+    # Detect method
     preferred_method = 'bfgs'
-    if method == 'auto' and HAS_FIRTH and (has_perfect_separation or len(df) < 50 or (y == 1).sum() < 20):
-        preferred_method = 'firth'
-    elif method == 'firth':
-        preferred_method = 'firth' if HAS_FIRTH else 'bfgs'
-    elif method == 'default':
-        preferred_method = 'default'
-    
-    def fmt_p(val):
-        """Format p-value without styling for internal use."""
-        if pd.isna(val):
-            return "-"
-        try:
-            val = float(val)
-            val = max(0, min(1, val))
-            if val < 0.001:
-                return "<0.001"
-            if val > 0.999:
-                return ">0.999"
-            return f"{val:.3f}"
-        except (ValueError, TypeError):
-            return "-"
-    
-    def count_val(series, v_str):
-        return (series.astype(str).apply(lambda x: x.replace('.0', '') if x.replace('.', '', 1).isdigit() else x) == v_str).sum()
-    
-    or_results = {}
-    
-    # Univariate analysis
-    logger.info(f"Starting univariate analysis for {len(sorted_cols)-1} variables")
-    for col in sorted_cols:
-        if col == outcome_name or col not in df_aligned.columns or df_aligned[col].isnull().all():
-            continue
+    if model_type == 'logistic':
+        if method == 'firth': preferred_method = 'firth' if HAS_FIRTH else 'bfgs'
+        elif method == 'auto' and HAS_FIRTH and (len(df) < 50 or (y == 1).sum() < 20): preferred_method = 'firth'
+    else: preferred_method = 'glm'
+
+    # 1. Univariate Analysis
+    all_cols = sorted(df.columns.astype(str)) + interaction_cols
+    for col in all_cols:
+        if col == outcome_name or col not in df_aligned.columns or df_aligned[col].isnull().all(): continue
         
         res = {'var': col}
         X_raw = df_aligned[col]
-        X_num = X_raw.apply(clean_numeric_value)
-        X_neg = X_raw[y == 0]
-        X_pos = X_raw[y == 1]
+        X_num = clean_numeric_series(X_raw)
         
-        unique_vals = X_num.dropna().unique()
-        mode = 'linear'
-        
-        # Auto-detect mode
-        if set(unique_vals).issubset({0, 1}):
-            mode = 'categorical'
-        elif len(unique_vals) < 10:
-            decimals_pct = sum(1 for v in unique_vals if not float(v).is_integer()) / len(unique_vals) if len(unique_vals) > 0 else 0
-            if decimals_pct < 0.3:
-                mode = 'categorical'
-        
-        # Check var_meta
-        if var_meta:
-            orig_name = col.split('_', 1)[1] if '_' in col else col
-            key = col if col in var_meta else orig_name
-            if key in var_meta:
-                user_mode = var_meta[key].get('type', '').lower()
-                if 'cat' in user_mode or 'simp' in user_mode:
-                    mode = 'categorical'
-                elif 'lin' in user_mode or 'cont' in user_mode:
-                    mode = 'linear'
-        
-        mode_map[col] = mode
-        
+        if col not in mode_map:
+            u = X_num.dropna().unique()
+            mode = 'categorical' if set(u).issubset({0,1}) or (len(u) < 10 and np.all(np.mod(u, 1) == 0)) else 'linear'
+            if var_meta:
+                key = col if col in var_meta else (col.split('_', 1)[1] if '_' in col else col)
+                if key in var_meta:
+                    m = var_meta[key].get('type', '').lower()
+                    if 'cat' in m: mode = 'categorical'
+                    elif 'lin' in m: mode = 'linear'
+            mode_map[col] = mode
+
+        mode = mode_map[col]
         if mode == 'categorical':
-            try:
-                levels = sorted(X_raw.dropna().unique(), key=_robust_sort_key)
-            except (TypeError, ValueError):
-                levels = sorted(X_raw.astype(str).unique())
-            cat_levels_map[col] = levels
+            try: lvls = sorted(X_raw.dropna().unique(), key=_robust_sort_key)
+            except: lvls = sorted(X_raw.astype(str).unique())
+            cat_levels_map[col] = lvls
             
             n_used = len(X_raw.dropna())
-            desc_tot = [f"n={n_used}"]
-            desc_neg = [f"n={len(X_neg.dropna())}"]
-            desc_pos = [f"n={len(X_pos.dropna())}"]
-            
-            for lvl in levels:
-                lbl_txt = str(int(float(lvl))) if str(lvl).endswith('.0') else str(lvl)
-                c_all = count_val(X_raw, lbl_txt)
-                p_all = (c_all / n_used) * 100 if n_used else 0
-                c_n = count_val(X_neg, lbl_txt)
-                p_n = (c_n / len(X_neg.dropna())) * 100 if len(X_neg.dropna()) else 0
-                c_p = count_val(X_pos, lbl_txt)
-                p_p = (c_p / len(X_pos.dropna())) * 100 if len(X_pos.dropna()) else 0
-                
-                desc_tot.append(f"{lbl_txt}: {c_all} ({p_all:.1f}%)")
-                desc_neg.append(f"{c_n} ({p_n:.1f}%)")
-                desc_pos.append(f"{c_p} ({p_p:.1f}%)")
-            
-            res['desc_total'] = "<br>".join(desc_tot)
-            res['desc_neg'] = "<br>".join(desc_neg)
-            res['desc_pos'] = "<br>".join(desc_pos)
-            
-            try:
-                ct = pd.crosstab(X_raw, y)
-                _, p, _, _ = stats.chi2_contingency(ct) if ct.size > 0 else (0, np.nan, 0, 0)
-                res['p_comp'] = p
-                res['test_name'] = "Chi-square"
-            except (ValueError, TypeError):
-                res['p_comp'] = np.nan
-                res['test_name'] = "-"
-            
-            if len(levels) > 1:
-                temp_df = pd.DataFrame({'y': y, 'raw': X_raw}).dropna()
-                dummy_cols = []
-                for lvl in levels[1:]:
-                    d_name = f"{col}::{lvl}"
-                    temp_df[d_name] = (temp_df['raw'].astype(str) == str(lvl)).astype(int)
-                    dummy_cols.append(d_name)
-                
-                if dummy_cols and temp_df[dummy_cols].std().sum() > 0:
-                    params, conf, pvals, status, _ = run_binary_logit(temp_df['y'], temp_df[dummy_cols], method=preferred_method)
-                    if status == "OK":
-                        or_lines, coef_lines, p_lines = ["Ref."], ["-"], ["-"]
-                        for lvl in levels[1:]:
-                            d_name = f"{col}::{lvl}"
-                            if d_name in params:
-                                coef = params[d_name]
-                                odd = np.exp(coef)
-                                ci_l, ci_h = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
-                                pv = pvals[d_name]
-                                
-                                coef_lines.append(f"{coef:.3f}")
-                                or_lines.append(f"{odd:.2f} ({ci_l:.2f}-{ci_h:.2f})")
-                                p_lines.append(fmt_p_with_styling(pv))
-                                or_results[f"{col}: {lvl}"] = {'or': odd, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
-                            else:
-                                or_lines.append("-")
-                                p_lines.append("-")
-                                coef_lines.append("-")
-                        
-                        res['or'] = "<br>".join(or_lines)
-                        res['coef'] = "<br>".join(coef_lines)
-                        res['p_or'] = "<br>".join(p_lines)
-                    else:
-                        res['or'] = "-"
-                        res['coef'] = "-"
-                else:
-                    res['or'] = "-"
-                    res['coef'] = "-"
+            if model_type == 'logistic':
+                X_neg, X_pos = X_raw[y==0], X_raw[y==1]
+                desc = [f"n={n_used}"] + [f"{l}: {(X_raw==l).sum()} ({((X_raw==l).sum()/n_used*100):.1f}%)" for l in lvls]
+                res.update({'desc_total': "<br>".join(desc), 'desc_neg': f"n={len(X_neg.dropna())}", 'desc_pos': f"n={len(X_pos.dropna())}"})
+                try: res['p_comp'] = stats.chi2_contingency(pd.crosstab(X_raw, y))[1]; res['test_name'] = "Chi-square"
+                except: res['p_comp'] = np.nan
             else:
-                res['or'] = "-"
-                res['coef'] = "-"
-        
-        else:  # Linear mode
-            n_used = len(X_num.dropna())
-            m_t, s_t = X_num.mean(), X_num.std()
-            m_n, s_n = pd.to_numeric(X_neg, errors='coerce').mean(), pd.to_numeric(X_neg, errors='coerce').std()
-            m_p, s_p = pd.to_numeric(X_pos, errors='coerce').mean(), pd.to_numeric(X_pos, errors='coerce').std()
-            
-            res['desc_total'] = f"n={n_used}<br>Mean: {m_t:.2f} (SD {s_t:.2f})"
-            res['desc_neg'] = f"{m_n:.2f} ({s_n:.2f})"
-            res['desc_pos'] = f"{m_p:.2f} ({s_p:.2f})"
-            
-            try:
-                _, p = stats.mannwhitneyu(pd.to_numeric(X_neg, errors='coerce').dropna(), pd.to_numeric(X_pos, errors='coerce').dropna())
-                res['p_comp'] = p
-                res['test_name'] = "Mann-Whitney"
-            except (ValueError, TypeError):
-                res['p_comp'] = np.nan
-                res['test_name'] = "-"
-            
-            data_uni = pd.DataFrame({'y': y, 'x': X_num}).dropna()
-            if not data_uni.empty and data_uni['x'].nunique() > 1:
-                params, hex_conf, pvals, status, _ = run_binary_logit(data_uni['y'], data_uni[['x']], method=preferred_method)
-                if status == "OK" and 'x' in params:
-                    coef = params['x']
-                    odd = np.exp(coef)
-                    ci_l, ci_h = np.exp(hex_conf.loc['x'][0]), np.exp(hex_conf.loc['x'][1])
-                    pv = pvals['x']
-                    
-                    res['coef'] = f"{coef:.3f}"
-                    res['or'] = f"{odd:.2f} ({ci_l:.2f}-{ci_h:.2f})"
-                    res['p_or'] = pv
-                    or_results[col] = {'or': odd, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
-                else:
-                    res['or'] = "-"
-                    res['coef'] = "-"
-            else:
-                res['or'] = "-"
-                res['coef'] = "-"
-        
-        results_db[col] = res
-        
-        # Screen for multivariate
-        p_screen = res.get('p_comp', np.nan)
-        if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
-            candidates.append(col)
-    
-    # Multivariate analysis
-    aor_results = {}
-    final_n_multi = 0
-    mv_metrics_text = ""
-    
-    def _is_candidate_valid(col):
-        mode = mode_map.get(col, "linear")
-        series = df_aligned[col]
-        if mode == "categorical":
-            return series.notna().sum() > 5
-        return series.apply(clean_numeric_value).notna().sum() > 5
-    
-    cand_valid = [c for c in candidates if _is_candidate_valid(c)]
-    
-    if len(cand_valid) > 0:
-        multi_df = pd.DataFrame({'y': y})
-        
-        for c in cand_valid:
-            mode = mode_map.get(c, 'linear')
-            if mode == 'categorical':
-                levels = cat_levels_map.get(c, [])
-                raw_vals = df_aligned[c]
-                if len(levels) > 1:
-                    for lvl in levels[1:]:
-                        d_name = f"{c}::{lvl}"
-                        multi_df[d_name] = (raw_vals.astype(str) == str(lvl)).astype(int)
-            else:
-                multi_df[c] = df_aligned[c].apply(clean_numeric_value)
-        
-        multi_data = multi_df.dropna()
-        final_n_multi = len(multi_data)
-        predictors = [col for col in multi_data.columns if col != 'y']
-        
-        if not multi_data.empty and final_n_multi > 10 and len(predictors) > 0:
-            params, conf, pvals, status, mv_stats = run_binary_logit(multi_data['y'], multi_data[predictors], method=preferred_method)
-            
-            if status == "OK":
-                r2_parts = []
-                mcf = mv_stats.get('mcfadden')
-                nag = mv_stats.get('nagelkerke')
-                if pd.notna(mcf):
-                    r2_parts.append(f"McFadden R² = {mcf:.3f}")
-                if pd.notna(nag):
-                    r2_parts.append(f"Nagelkerke R² = {nag:.3f}")
-                if r2_parts:
-                    mv_metrics_text = " | ".join(r2_parts)
-                
-                for var in cand_valid:
-                    mode = mode_map.get(var, 'linear')
-                    if mode == 'categorical':
-                        levels = cat_levels_map.get(var, [])
-                        aor_entries = []
-                        for lvl in levels[1:]:
-                            d_name = f"{var}::{lvl}"
-                            if d_name in params:
-                                coef = params[d_name]
-                                aor = np.exp(coef)
-                                ci_low, ci_high = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
-                                pv = pvals[d_name]
-                                # ✅ FIX: Add coef to aor_entries dict for rendering
-                                aor_entries.append({'lvl': lvl, 'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv})
-                                aor_results[f"{var}: {lvl}"] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
-                        results_db[var]['multi_res'] = aor_entries
-                    else:
-                        if var in params:
-                            coef = params[var]
-                            aor = np.exp(coef)
-                            ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(conf.loc[var][1])
-                            pv = pvals[var]
-                            # ✅ FIX: Add coef here too for rendering
-                            results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
-                            aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
-    
-    # Build HTML
-    html_rows = []
-    current_sheet = ""
-    valid_cols_for_html = [c for c in sorted_cols if c in results_db]
-    grouped_cols = sorted(valid_cols_for_html, key=lambda x: (x.split('_')[0] if '_' in x else "Variables", x))
-    
-    for col in grouped_cols:
-        if col == outcome_name:
-            continue
-        res = results_db[col]
-        mode = mode_map.get(col, 'linear')
-        sheet = col.split('_')[0] if '_' in col else "Variables"
-        
-        if sheet != current_sheet:
-            html_rows.append(f"<tr class='sheet-header'><td colspan='11'>{sheet}</td></tr>")
-            current_sheet = sheet
-        
-        lbl = get_label(col, var_meta)
-        mode_badge = {'categorical': '📊 (All Levels)', 'linear': '📉 (Trend)'}
-        if mode in mode_badge:
-            lbl += f"<br><span style='font-size:0.8em; color:#888'>{mode_badge[mode]}</span>"
-        
-        or_s = res.get('or', '-')
-        coef_s = res.get('coef', '-')
-        
-        # OPTIMIZATION: Use styled p-value formatting
-        if mode == 'categorical':
-            p_col_display = res.get('p_or', '-')
+                desc = [f"n={n_used}"] + [f"{l}: Mean={y.loc[X_raw==l].mean():.2f}" for l in lvls]
+                res.update({'desc_total': "<br>".join(desc), 'desc_neg': "-", 'desc_pos': "-", 'p_comp': np.nan})
+
+            if len(lvls) > 1:
+                temp = pd.DataFrame({'y': y, 'raw': X_raw}).dropna()
+                dummies = [f"{col}::{l}" for l in lvls[1:]]
+                for l in lvls[1:]: temp[f"{col}::{l}"] = (temp['raw'].astype(str) == str(l)).astype(int)
+                params, conf, pvals, status, _ = run_regression_model(temp['y'], temp[dummies], model_type, preferred_method)
+                if status == "OK":
+                    or_l, coef_l, p_l = ["Ref."], ["-"], ["-"]
+                    for d in dummies:
+                        if d in params:
+                            coef, val_exp, pv = params[d], np.exp(params[d]), pvals[d]
+                            ci = [np.exp(conf.loc[d][0]), np.exp(conf.loc[d][1])]
+                            coef_l.append(f"{coef:.3f}"); or_l.append(f"{val_exp:.2f} ({ci[0]:.2f}-{ci[1]:.2f})"); p_l.append(fmt_p_with_styling(pv))
+                        else: or_l.append("-"); p_l.append("-")
+                    res.update({'or': "<br>".join(or_l), 'coef': "<br>".join(coef_l), 'p_or': "<br>".join(p_l)})
         else:
-            p_col_display = fmt_p_with_styling(res.get('p_comp', np.nan))
-        
-        aor_s, acoef_s, ap_s = "-", "-", "-"
-        multi_res = res.get('multi_res')
-        
-        if multi_res:
-            if isinstance(multi_res, list):
-                # 📊 Categorical: multiple levels
-                aor_lines, acoef_lines, ap_lines = ["Ref."], ["-"], ["-"]
-                for item in multi_res:
-                    p_txt = fmt_p_with_styling(item['p'])
-                    acoef_lines.append(f"{item['coef']:.3f}")
-                    aor_lines.append(f"{item['aor']:.2f} ({item['l']:.2f}-{item['h']:.2f})")
-                    ap_lines.append(p_txt)
-                aor_s, acoef_s, ap_s = "<br>".join(aor_lines), "<br>".join(acoef_lines), "<br>".join(ap_lines)
+            n_used = len(X_num.dropna())
+            res['desc_total'] = f"n={n_used}<br>Mean: {X_num.mean():.2f}"
+            if model_type == 'logistic':
+                res['desc_neg'] = f"{X_num[y==0].mean():.2f}"; res['desc_pos'] = f"{X_num[y==1].mean():.2f}"
+                try: res['p_comp'] = stats.mannwhitneyu(X_num[y==0].dropna(), X_num[y==1].dropna())[1]; res['test_name'] = "Mann-Whitney"
+                except: res['p_comp'] = np.nan
             else:
-                # 📉 Linear: single value
-                if 'coef' in multi_res and pd.notna(multi_res['coef']):
-                    acoef_s = f"{multi_res['coef']:.3f}"
-                else:
-                    acoef_s = "-"
-                aor_s = f"{multi_res['aor']:.2f} ({multi_res['l']:.2f}-{multi_res['h']:.2f})"
-                ap_s = fmt_p_with_styling(multi_res['p'])
+                res.update({'desc_neg': "-", 'desc_pos': "-"}); try: res['p_comp'] = stats.spearmanr(X_num.dropna(), y.loc[X_num.dropna().index])[1]
+                except: res['p_comp'] = np.nan
+            
+            params, conf, pvals, status, _ = run_regression_model(y.loc[X_num.dropna().index], X_num.dropna().to_frame(), model_type, preferred_method)
+            if status == "OK" and X_num.name in params:
+                coef, val_exp, pv = params[X_num.name], np.exp(params[X_num.name]), pvals[X_num.name]
+                ci = [np.exp(conf.loc[X_num.name][0]), np.exp(conf.loc[X_num.name][1])]
+                res.update({'coef': f"{coef:.3f}", 'or': f"{val_exp:.2f} ({ci[0]:.2f}-{ci[1]:.2f})", 'p_or': fmt_p_with_styling(pv)})
+
+        results_db[col] = res
+        p_val = res.get('p_comp', np.nan)
+        if col in interaction_cols or (pd.notna(p_val) and p_val < 0.20): candidates.append(col)
+
+    # 2. Multivariate Analysis
+    aor_results, final_n_multi, mv_metrics, vif_alert = {}, 0, "", ""
+    cand_v = [c for c in candidates if df_aligned[c].notna().sum() > 5]
+    if cand_v:
+        m_df = pd.DataFrame({'y': y})
+        for c in cand_v:
+            if mode_map.get(c) == 'categorical':
+                for l in cat_levels_map.get(c, [])[1:]: m_df[f"{c}::{l}"] = (df_aligned[c].astype(str) == str(l)).astype(int)
+            else: m_df[c] = clean_numeric_series(df_aligned[c])
         
-        html_rows.append(f"""<tr>
-            <td>{lbl}</td>
-            <td>{res.get('desc_total','')}</td>
-            <td>{res.get('desc_neg','')}</td>
-            <td>{res.get('desc_pos','')}</td>
-            <td>{coef_s}</td>
-            <td>{or_s}</td>
-            <td>{res.get('test_name', '-')}</td>
-            <td>{p_col_display}</td>
-            <td>{acoef_s}</td>
-            <td>{aor_s}</td>
-            <td>{ap_s}</td>
-        </tr>""")
-    
-    logger.info(f"Logistic analysis complete. Multivariate n={final_n_multi}")
-    
-    model_fit_html = ""
-    if mv_metrics_text:
-        model_fit_html = f"<div style='margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; color: {COLORS['primary_dark']};'><b>Model Fit:</b> {mv_metrics_text}</div>"
-    
-    html_table = f"""<div id='{outcome_name}' class='table-container'>
-    <div class='outcome-title'>Outcome: {outcome_name} (n={total_n})</div>
-    <table>
-        <thead>
-            <tr>
-                <th>Variable</th>
-                <th>Total</th>
-                <th>Group 0</th>
-                <th>Group 1</th>
-                <th>Crude Coef.</th>
-                <th>Crude OR (95% CI)</th>
-                <th>Test</th>
-                <th>P-value</th>
-                <th>Adj. Coef.</th>
-                <th>aOR (95% CI)</th>
-                <th>aP-value</th>
-            </tr>
-        </thead>
-        <tbody>{chr(10).join(html_rows)}</tbody>
-    </table>
-    <div class='summary-box'>
-        <b>Method:</b> {preferred_method.capitalize()} Logit<br>
-        <div style='margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 0.9em; color: #666;'>
-            <b>Selection:</b> Variables with Crude P < 0.20 (n={final_n_multi})<br>
-            <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)
-            {model_fit_html}
-        </div>
-    </div>
-    </div><br>"""
-    
-    return html_table, or_results, aor_results
+        m_data = m_df.dropna(); final_n_multi = len(m_data)
+        preds = [c for c in m_data.columns if c != 'y']
+        if not m_data.empty and preds:
+            vif_d = calculate_vif(m_data[preds])
+            high_v = [k for k,v in vif_d.items() if v > 10]
+            if high_v: vif_alert = f"<div class='alert-box'>⚠️ <b>High VIF (>10):</b> {', '.join({v.split('::')[0] for v in high_v})}</div>"
+            
+            params, conf, pvals, status, stats_d = run_regression_model(m_data['y'], m_data[preds], model_type, preferred_method)
+            if status == "OK":
+                mv_metrics = f"McFadden R²={stats_d.get('mcfadden',0):.3f}"
+                for var in cand_v:
+                    if mode_map.get(var) == 'categorical':
+                        entries = []
+                        for l in cat_levels_map.get(var, [])[1:]:
+                            d = f"{var}::{l}"
+                            if d in params:
+                                aor, ci = np.exp(params[d]), [np.exp(conf.loc[d][0]), np.exp(conf.loc[d][1])]
+                                entries.append({'lvl': l, 'coef': params[d], 'aor': aor, 'l': ci[0], 'h': ci[1], 'p': pvals[d]})
+                                aor_results[f"{var}: {l}"] = {'aor': aor, 'ci_low': ci[0], 'ci_high': ci[1], 'p_value': pvals[d]}
+                        results_db[var]['multi_res'] = entries
+                    elif var in params:
+                        aor, ci = np.exp(params[var]), [np.exp(conf.loc[var][0]), np.exp(conf.loc[var][1])]
+                        results_db[var]['multi_res'] = {'coef': params[var], 'aor': aor, 'l': ci[0], 'h': ci[1], 'p': pvals[var]}
+                        aor_results[var] = {'aor': aor, 'ci_low': ci[0], 'ci_high': ci[1], 'p_value': pvals[var]}
 
+    # 3. HTML Builder
+    eff = "IRR" if model_type == 'poisson' else "OR"
+    html_rows = []
+    curr_sheet = ""
+    valid_cols = [c for c in (all_cols) if c in results_db]
+    for col in valid_cols:
+        res = results_db[col]
+        sheet = "Interaction" if col in interaction_cols else (col.split('_')[0] if '_' in col else "Variables")
+        if sheet != curr_sheet:
+            html_rows.append(f"<tr class='sheet-header'><td colspan='11'>{sheet}</td></tr>")
+            curr_sheet = sheet
+        
+        p_disp = res.get('p_or', '-') if mode_map.get(col)=='categorical' else fmt_p_with_styling(res.get('p_comp'))
+        aor_s, acoef_s, ap_s = "-", "-", "-"
+        multi = res.get('multi_res')
+        if multi:
+            if isinstance(multi, list):
+                aor_l, acoef_l, ap_l = ["Ref."], ["-"], ["-"]
+                for it in multi:
+                    acoef_l.append(f"{it['coef']:.3f}"); aor_l.append(f"{it['aor']:.2f} ({it['l']:.2f}-{it['h']:.2f})"); ap_l.append(fmt_p_with_styling(it['p']))
+                aor_s, acoef_s, ap_s = "<br>".join(aor_l), "<br>".join(acoef_l), "<br>".join(ap_l)
+            else:
+                acoef_s, aor_s, ap_s = f"{multi['coef']:.3f}", f"{multi['aor']:.2f} ({multi['l']:.2f}-{multi['h']:.2f})", fmt_p_with_styling(multi['p'])
 
-def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots: Odds Ratios"):
-    """Generate forest plots from results."""
-    html_parts = [f"<h2 style='margin-top:30px; color:{COLORS['primary']};'>{plot_title}</h2>"]
-    has_plot = False
-    
-    if or_results:
-        df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_results.items()])
-        if not df_crude.empty:
-            fig = create_forest_plot(df_crude, 'or', 'ci_low', 'ci_high', 'variable', 'p_value',
-                                    "<b>Univariable: Crude OR</b>", "Odds Ratio", 1.0)
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=True))
-            has_plot = True
-    
-    if aor_results:
-        df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_results.items()])
-        if not df_adj.empty:
-            fig = create_forest_plot(df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 'p_value',
-                                    "<b>Multivariable: Adjusted OR</b>", "Adjusted OR", 1.0)
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
-            has_plot = True
-    
-    if not has_plot:
-        html_parts.append("<p style='color:#999'>No results available.</p>")
-    else:
-        html_parts.append(f"""<div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS['primary']};'>
-            <b>Interpretation:</b> OR > 1 (Risk Factor), OR < 1 (Protective), CI crosses 1 (Not Significant)
-        </div>""")
-    
-    return "".join(html_parts)
+        html_rows.append(f"<tr><td>{get_label(col, var_meta)}</td><td>{res.get('desc_total','')}</td><td>{res.get('desc_neg','')}</td><td>{res.get('desc_pos','')}</td><td>{res.get('coef','-')}</td><td>{res.get('or','-')}</td><td>{res.get('test_name','-')}</td><td>{p_disp}</td><td>{acoef_s}</td><td>{aor_s}</td><td>{ap_s}</td></tr>")
 
+    table_html = f"""<div id='{outcome_name}' class='table-container'>
+        <div class='outcome-title'>{model_type.capitalize()} Outcome: {outcome_name} (n={total_n})</div>
+        <table><thead><tr><th>Variable</th><th>Total</th><th>Group 0</th><th>Group 1</th><th>Crude Coef.</th><th>Crude {eff}</th><th>Test</th><th>P-value</th><th>Adj. Coef.</th><th>Adj. {eff}</th><th>aP-value</th></tr></thead>
+        <tbody>{''.join(html_rows)}</tbody></table>
+        <div class='summary-box'><b>Method:</b> {preferred_method.capitalize()}<br>{vif_alert}{''.join(leakage_alerts)}<br>{mv_metrics}</div></div>"""
+    
+    return table_html, or_results, aor_results
 
-def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto'):
-    """Generate complete HTML report with logistic regression results."""
-    css = f"""<style>
-        body {{ font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f6f8; }}
-        .table-container {{ background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }}
-        table {{ width: 100%; border-collapse: separate; border-spacing: 0; }}
-        th {{ background-color: {COLORS['primary_dark']}; color: #fff; padding: 12px; }}
-        td {{ padding: 12px; border-bottom: 1px solid #eee; }}
-        tr:nth-child(even) {{ background-color: #f9f9f9; }}
-        .outcome-title {{ background-color: {COLORS['primary_dark']}; color: white; padding: 15px; }}
-        .sig-p {{ color: #fff; background-color: {COLORS['danger']}; font-weight: bold; padding: 2px 6px; border-radius: 3px; }}
-        .sheet-header td {{ background-color: #e8f4f8; color: {COLORS['primary']}; font-weight: bold; }}
-    </style>"""
+def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto', model_type='logistic', interaction_terms=None):
+    """Complete HTML generation."""
+    css = f"<style>body {{ font-family: sans-serif; padding: 20px; }} .table-container {{ background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow-x: auto; margin-bottom: 20px; }} table {{ width: 100%; border-collapse: collapse; }} th {{ background: {COLORS['primary_dark']}; color: white; padding: 10px; }} td {{ padding: 10px; border-bottom: 1px solid #eee; }} .sig-p {{ background: {COLORS['danger']}; color: white; padding: 2px 5px; border-radius: 3px; }} .sheet-header td {{ background: #f0f7fa; color: {COLORS['primary']}; font-weight: bold; }} .alert-box {{ background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }} .outcome-title {{ padding: 15px; background: {COLORS['primary_dark']}; color: white; font-weight: bold; }}</style>"
+    html_table, or_res, aor_res = analyze_outcome(target_outcome, df, var_meta, method, model_type, interaction_terms)
     
-    html_table, or_res, aor_res = analyze_outcome(target_outcome, df, var_meta, method=method)
-    plot_html = generate_forest_plot_html(or_res, aor_res)
-    
-    full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{plot_html}"
-    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 stat-shiny</div>"
-    
+    eff = "IRR" if model_type == 'poisson' else "OR"
+    plot_html = generate_forest_plot_html(or_res, aor_res, x_label=eff)
+    full_html = f"<html><head>{css}</head><body><h1>{model_type.capitalize()} Regression Report</h1>{html_table}{plot_html}</body></html>"
     return full_html, or_res, aor_res
+
+def generate_forest_plot_html(or_res, aor_res, x_label="OR"):
+    """Forest plot HTML generation."""
+    html_p = [f"<h2>Forest Plots ({x_label})</h2>"]
+    if or_res:
+        fig = create_forest_plot(pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()]), 'or', 'ci_low', 'ci_high', 'variable', 'p_value', f"Crude {x_label}", x_label, 1.0)
+        html_p.append(fig.to_html(full_html=False, include_plotlyjs=True))
+    if aor_res:
+        fig = create_forest_plot(pd.DataFrame([{'variable': k, **v} for k, v in aor_res.items()]), 'aor', 'ci_low', 'ci_high', 'variable', 'p_value', f"Adjusted {x_label}", x_label, 1.0)
+        html_p.append(fig.to_html(full_html=False, include_plotlyjs=False))
+    return "".join(html_p)
