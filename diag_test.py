@@ -41,6 +41,46 @@ def get_badge_html(text, level='info'):
     return f'<span style="{style}">{text}</span>'
 
 
+def format_p_value(p):
+    """Format P-value with significance highlighting."""
+    if not np.isfinite(p):
+        return "NA"
+    
+    # Define style for significant p-value
+    sig_style = 'font-weight: bold; color: #d63384;' # Pink/Purpleish for distinction
+    
+    if p < 0.001:
+        return f'<span style="{sig_style}">&lt;0.001</span>'
+    
+    p_str = f"{p:.4f}"
+    if p < 0.05:
+        return f'<span style="{sig_style}">{p_str}</span>'
+    return p_str
+
+
+def format_ci_html(ci_str, lower, upper, null_val=1.0, direction='exclude'):
+    """
+    Format CI string with highlighting if significant.
+    direction='exclude': Significant if null_val is NOT in [lower, upper]
+    direction='greater': Significant if lower > null_val
+    """
+    if not np.isfinite(lower) or not np.isfinite(upper):
+        return ci_str
+    
+    is_sig = False
+    if direction == 'exclude':
+        if (lower > null_val) or (upper < null_val):
+            is_sig = True
+    elif direction == 'greater':
+        if lower > null_val:
+            is_sig = True
+            
+    if is_sig:
+        # Green text for significant confidence intervals
+        return f'<span style="font-weight: bold; color: #198754;">{ci_str}</span>'
+    return ci_str
+
+
 def calculate_descriptive(df, col):
     """
     Calculate descriptive statistics for a column.
@@ -165,13 +205,7 @@ def calculate_ci_nnt(rd, rd_se, ci=0.95):
 
 def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_pos=None):
     """
-    Comprehensive 2x2+ contingency table analysis with:
-    - Chi-Square / Fisher's Exact Test
-    - Expected Counts & Standardized Residuals
-    - Effect Size (Cramér's V)
-    - Risk metrics (OR, RR, NNT, ARR, RRR) with 95% CI
-    - Diagnostic metrics (Se, Sp, PPV, NPV, LR+, LR-, DOR, Accuracy)
-    - Clinical Significance Badges
+    Comprehensive 2x2+ contingency table analysis.
     
     Returns:
         tuple: (display_tab, stats_df, msg, risk_df)
@@ -190,7 +224,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     data[col1] = data[col1].astype(str)
     data[col2] = data[col2].astype(str)
     
-    # OPTIMIZATION: Single crosstab computation, reuse for all operations
+    # OPTIMIZATION: Single crosstab computation
     tab = pd.crosstab(data[col1], data[col2])
     tab_raw = pd.crosstab(data[col1], data[col2], margins=True, margins_name="Total")
     tab_row_pct = pd.crosstab(data[col1], data[col2], normalize='index', margins=True, margins_name="Total") * 100
@@ -254,14 +288,12 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             row_data.append(cell_content)
         display_data.append(row_data)
     
-    # 🟢 MODIFIED: Better table structure for 2x2 clarity
+    # 2x2 Clarity structure
     display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
     
-    # Rename columns to show Variable 2 name
     rename_cols = {c: f"{col2} (Outcome/Col): {c}" for c in final_col_order if c != 'Total'}
     display_tab.rename(columns=rename_cols, inplace=True)
     
-    # Set index name and reset to make it a column (required for generate_report which uses index=False)
     display_tab.index.name = f"{col1} (Exposure/Row)"
     display_tab.reset_index(inplace=True)
     
@@ -279,7 +311,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             stats_res = {
                 "Test": method_name,
                 "Statistic (OR)": f"{odds_ratio:.4f}",
-                "P-value": f"{p_value:.4f}",
+                "P-value": format_p_value(p_value), # Highlighting applied
                 "Degrees of Freedom": "-",
                 "N": len(data)
             }
@@ -293,7 +325,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             stats_res = {
                 "Test": method_name,
                 "Statistic (χ²)": f"{chi2:.4f}",
-                "P-value": f"{p:.4f}",
+                "P-value": format_p_value(p), # Highlighting applied
                 "Degrees of Freedom": f"{dof}",
                 "N": len(data)
             }
@@ -330,59 +362,28 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         extra_report_items = []
         
         if "Fisher" not in method:
-            # Build report items with extra details
             chi2, p, dof, ex = stats.chi2_contingency(tab)
             
-            # Expected Counts Table
-            ex_df = pd.DataFrame(
-                np.round(ex, 2),
-                index=final_row_order_base,
-                columns=final_col_order_base
-            )
-            # 🟢 RESET INDEX for display
+            # Expected Counts
+            ex_df = pd.DataFrame(np.round(ex, 2), index=final_row_order_base, columns=final_col_order_base)
             ex_df.index.name = col1
             ex_df.reset_index(inplace=True)
+            extra_report_items.append({'type': 'table', 'header': 'Expected Counts (for Chi-Square validation)', 'data': ex_df})
             
-            extra_report_items.append({
-                'type': 'table',
-                'header': 'Expected Counts (for Chi-Square validation)',
-                'data': ex_df
-            })
-            
-            # Standardized Residuals: (Observed - Expected) / sqrt(Expected)
+            # Standardized Residuals
             std_residuals = (tab.values - ex) / np.sqrt(ex + 1e-10)
-            std_res_df = pd.DataFrame(
-                np.round(std_residuals, 2),
-                index=final_row_order_base,
-                columns=final_col_order_base
-            )
-            # 🟢 RESET INDEX for display
+            std_res_df = pd.DataFrame(np.round(std_residuals, 2), index=final_row_order_base, columns=final_col_order_base)
             std_res_df.index.name = col1
             std_res_df.reset_index(inplace=True)
+            extra_report_items.append({'type': 'table', 'header': 'Standardized Residuals (|value| > 2 indicates cell deviation)', 'data': std_res_df})
             
-            extra_report_items.append({
-                'type': 'table',
-                'header': 'Standardized Residuals (|value| > 2 indicates cell deviation)',
-                'data': std_res_df
-            })
-            
-            # Chi-square contribution by cell
+            # Chi-square contribution
             chi2_contrib = ((tab.values - ex)**2) / (ex + 1e-10)
-            chi2_contrib_df = pd.DataFrame(
-                np.round(chi2_contrib, 4),
-                index=final_row_order_base,
-                columns=final_col_order_base
-            )
+            chi2_contrib_df = pd.DataFrame(np.round(chi2_contrib, 4), index=final_row_order_base, columns=final_col_order_base)
             chi2_contrib_df['% of χ²'] = (chi2_contrib_df.sum(axis=1) / chi2 * 100).round(1)
-            # 🟢 RESET INDEX for display
             chi2_contrib_df.index.name = col1
             chi2_contrib_df.reset_index(inplace=True)
-            
-            extra_report_items.append({
-                'type': 'table',
-                'header': f'Cell Contributions to χ² = {chi2:.4f}',
-                'data': chi2_contrib_df
-            })
+            extra_report_items.append({'type': 'table', 'header': f'Cell Contributions to χ² = {chi2:.4f}', 'data': chi2_contrib_df})
         
         # ===== Risk & Diagnostic Metrics (only for 2x2) =====
         risk_df = None
@@ -397,7 +398,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 
                 label_exp = str(row_labels[0])
                 label_unexp = str(row_labels[1])
-                label_event = str(col_labels[0])
+                # label_event = str(col_labels[0])
                 
                 # --- RISK METRICS ---
                 risk_exp = a / (a + b) if (a + b) > 0 else 0
@@ -450,7 +451,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 
                 accuracy = (a + d) / (a + b + c + d)
                 youden_j = sensitivity + specificity - 1
-                f1_score = (2 * a) / (2*a + b + c) if (2*a + b + c) > 0 else 0
+                # f1_score = (2 * a) / (2*a + b + c) if (2*a + b + c) > 0 else 0
 
                 # --- BADGE GENERATION LOGIC ---
                 
@@ -491,17 +492,32 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 elif or_value > 2 or or_value < 0.5: or_badge = get_badge_html("Moderate Association", "info")
                 else: or_badge = get_badge_html("Weak/None", "neutral")
                 
+                # --- FORMAT STRINGS WITH HIGHLIGHTING ---
+                # RR CI
+                rr_ci_str = f"{rr_ci_lower:.4f}–{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA"
+                rr_ci_display = format_ci_html(rr_ci_str, rr_ci_lower, rr_ci_upper, null_val=1.0)
+                
+                # OR CI
+                or_ci_str = f"{or_ci_lower:.4f}–{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA"
+                or_ci_display = format_ci_html(or_ci_str, or_ci_lower, or_ci_upper, null_val=1.0)
+                
+                # NNT CI (If calculate_ci_nnt returns numbers, it means it's significant)
+                nnt_ci_str = f"{nnt_ci_lower:.1f}–{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA"
+                nnt_ci_display = nnt_ci_str
+                if np.isfinite(nnt_ci_lower):
+                    nnt_ci_display = f'<span style="font-weight: bold; color: #198754;">{nnt_ci_str}</span>'
+
                 # --- BUILD COMPREHENSIVE TABLE ---
                 risk_data = [
                     # SECTION: RISK
                     {"Metric": "═══════════ RISK METRICS ═══════════", "Value": "", "95% CI": "", "Interpretation": "Rows=Exposure, Cols=Outcome"},
                     
                     {"Metric": "Risk Ratio (RR)", "Value": f"{rr:.4f}", 
-                     "95% CI": f"{rr_ci_lower:.4f}–{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA", 
+                     "95% CI": rr_ci_display, 
                      "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}"},
                     
                     {"Metric": "Odds Ratio (OR)", "Value": f"{or_value:.4f}", 
-                     "95% CI": f"{or_ci_lower:.4f}–{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA", 
+                     "95% CI": or_ci_display, 
                      "Interpretation": f"{or_badge} Odds of event in {label_exp} vs {label_unexp}"},
                     
                     {"Metric": "Absolute Risk Reduction (ARR)", "Value": f"{arr:.2f}%", 
@@ -513,7 +529,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                      "Interpretation": f"Reduction in risk relative to baseline (if RR < 1)"},
                     
                     {"Metric": nnt_label, "Value": f"{nnt_abs:.1f}", 
-                     "95% CI": f"{nnt_ci_lower:.1f}–{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA", 
+                     "95% CI": nnt_ci_display, 
                      "Interpretation": f"{nnt_badge} Patients to treat/harm for 1 outcome"},
                     
                     # SECTION: DIAGNOSTIC
@@ -756,12 +772,17 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     elif auc_val >= 0.5: auc_badge = get_badge_html("Poor", "warning")
     else: auc_badge = get_badge_html("Worse than Chance", "danger")
 
+    # AUC Confidence Interval Formatting
+    auc_ci_str = f"{max(0, ci_lower_f):.4f}–{min(1, ci_upper_f):.4f}"
+    # Significant if lower bound > 0.5
+    auc_ci_display = format_ci_html(auc_ci_str, ci_lower_f, ci_upper_f, null_val=0.5, direction='greater')
+
     stats_res = {
         "AUC": f"{auc_val:.4f} {auc_badge}",
         "SE": f"{se:.4f}",
-        "95% CI": f"{max(0, ci_lower_f):.4f}–{min(1, ci_upper_f):.4f}",
+        "95% CI": auc_ci_display,
         "Method": m_name,
-        "P-value": f"{p_val_auc:.4f}",
+        "P-value": format_p_value(p_val_auc),
         "Youden J": f"{j_scores[best_idx]:.4f}",
         "Best Cut-off": f"{thresholds[best_idx]:.4f}",
         "Sensitivity": f"{tpr[best_idx]:.4f}",
