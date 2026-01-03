@@ -273,16 +273,36 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             cols = data.columns.tolist()
             numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
 
-            # --- AUTO-DETECTION LOGIC ---
-            # 1. Detect Time Variables: time, day, month, year, range
+            # --- AUTO-DETECTION LOGIC WITH PRIORITY ---
+            
+            # 1. Detect Time Variables (ตามลำดับความสำคัญใน time_keywords)
             time_keywords = ['time', 'day', 'month', 'year', 'range', 'followup', 'fu']
-            detected_time = [c for c in numeric_cols if any(k in c.lower() for k in time_keywords)]
-            default_time = detected_time[0] if detected_time else (numeric_cols[0] if numeric_cols else "Select...")
+            default_time = "Select..."
+            
+            # วนหาตามลำดับ keyword: เจอคำที่ Priority สูงกว่าก่อน จะหยุดหาทันที
+            for kw in time_keywords:
+                matched = [c for c in numeric_cols if kw in c.lower()]
+                if matched:
+                    default_time = matched[0]
+                    break
+            
+            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกตัวเลขตัวแรก
+            if default_time == "Select..." and numeric_cols:
+                default_time = numeric_cols[0]
 
-            # 2. Detect Event Variables: status, event, death, cure
+            # 2. Detect Event Variables (ตามลำดับความสำคัญใน event_keywords)
             event_keywords = ['status', 'event', 'death', 'cure', 'survive', 'died', 'outcome']
-            detected_event = [c for c in cols if any(k in c.lower() for k in event_keywords)]
-            default_event = detected_event[0] if detected_event else (cols[0] if cols else "Select...")
+            default_event = "Select..."
+            
+            for kw in event_keywords:
+                matched = [c for c in cols if kw in c.lower()]
+                if matched:
+                    default_event = matched[0]
+                    break
+            
+            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
+            if default_event == "Select..." and cols:
+                default_event = cols[0]
             
             # KM Curves
             ui.update_select("surv_time", choices=numeric_cols, selected=default_time)
