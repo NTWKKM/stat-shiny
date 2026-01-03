@@ -174,7 +174,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             # Chi-Square test
             use_correction = True if "Yates" in method else False
             
-            === INTEGRATION: Robust Execution ===
+            # === INTEGRATION: Robust Execution ===
             chi2, p, dof, ex = CONNECTION_HANDLER.retry_with_backoff(
                 lambda: stats.chi2_contingency(tab, correction=use_correction)
             )
