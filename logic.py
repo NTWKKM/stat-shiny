@@ -23,11 +23,11 @@ from logger import get_logger
 from forest_plot_lib import create_forest_plot
 
 # === IMPORT UTILS ===
-from utils.memory_manager import MEMORY_MANAGER
-from utils.connection_handler import CONNECTION_HANDLER
+#from utils.memory_manager import MEMORY_MANAGER
+#from utils.connection_handler import CONNECTION_HANDLER
 
 # === INTEGRATION: Import Cache Wrapper ===
-from utils.logit_cache_integration import get_cached_logistic_analysis
+# from utils.logit_cache_integration import get_cached_logistic_analysis
 
 logger = get_logger(__name__)
 COLORS = {
@@ -252,19 +252,19 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
     🟢 LAYER 1 OPTIMIZATION: Results cached for 30 minutes (via Wrapper)
     """
     # === MEMORY CHECK ===
-    if not MEMORY_MANAGER.check_and_cleanup():
-        logger.warning("Memory critical - proceeding with caution")
+    #if not MEMORY_MANAGER.check_and_cleanup():
+    #    logger.warning("Memory critical - proceeding with caution")
     
     # === CACHE KEY PREPARATION ===
-    cache_key_params = {
-        'outcome': outcome_name,
-        'df_shape': df.shape,
-        'df_hash': hash(pd.util.hash_pandas_object(df, index=True).values.tobytes()),
-        'var_meta_hash': hash(json.dumps(var_meta, sort_keys=True)) if var_meta else None,
-        'method': method,
-        'model_type': model_type,
-        'interaction_terms': str(interaction_terms) if interaction_terms else "None"
-    }
+    #cache_key_params = {
+    #    'outcome': outcome_name,
+    #    'df_shape': df.shape,
+    #    'df_hash': hash(pd.util.hash_pandas_object(df, index=True).values.tobytes()),
+    #    'var_meta_hash': hash(json.dumps(var_meta, sort_keys=True)) if var_meta else None,
+    #    'method': method,
+    #    'model_type': model_type,
+    #    'interaction_terms': str(interaction_terms) if interaction_terms else "None"
+    #}
     
     # === INNER COMPUTATION LOGIC ===
     def _perform_analysis():
@@ -691,10 +691,10 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         return (html_table, or_results, aor_results)
 
     # === CALL WRAPPER ===
-    return get_cached_logistic_analysis(
-        calculate_func=_perform_analysis,
-        cache_key_params=cache_key_params
-    )
+    #return get_cached_logistic_analysis(
+    #    calculate_func=_perform_analysis,
+    #    cache_key_params=cache_key_params
+    #)
 
 def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots", x_label="Odds Ratio"):
     """Generate forest plots from results with interpretation."""
