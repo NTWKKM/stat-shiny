@@ -17,9 +17,9 @@ from tabs._styling import get_shiny_css
 from tabs._common import get_color_palette
 
 # === LAYER 1, 2, 3: Import optimization managers ===
-from utils.cache_manager import COMPUTATION_CACHE
-from utils.memory_manager import MEMORY_MANAGER
-from utils.connection_handler import CONNECTION_HANDLER
+# from utils.cache_manager import COMPUTATION_CACHE
+# from utils.memory_manager import MEMORY_MANAGER
+# from utils.connection_handler import CONNECTION_HANDLER
 
 # Initialize Logger
 LoggerFactory.configure()
