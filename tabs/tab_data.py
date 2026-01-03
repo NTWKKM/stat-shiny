@@ -8,29 +8,24 @@ from tabs._common import get_color_palette
 logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
+
 @module.ui
 def data_ui():
-    # นำ ui.nav_panel ออก และส่งคืนส่วนประกอบภายในแทน
+    """UI for Data Management tab"""
     return ui.layout_sidebar(
         ui.sidebar(
             ui.h4("MENU"),
             ui.h5("1. Data Management"),
-            
             ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
             ui.br(), ui.br(),
-            
             ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
-            
             ui.hr(),
-            
             ui.output_ui("ui_btn_clear_match"),
             ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
-            
             width=300,
             bg="#f8f9fa"
         ),
-        
-        # --- ส่วน Variable Settings ---
+        # --- Variable Settings Section ---
         ui.accordion(
             ui.accordion_panel(
                 "🛠️ 1. Variable Settings & Labels",
@@ -47,40 +42,50 @@ def data_ui():
             id="acc_settings",
             open=True
         ),
-
         ui.br(),
-        
-        # --- ส่วน Raw Data Preview ---
+        # --- Raw Data Preview Section ---
         ui.card(
             ui.card_header("📄 2. Raw Data Preview"),
-            # ✅ ปรับปรุง: ใช้ระบุพารามิเตอร์เพื่อประสิทธิภาพในการ render
+            
+            # ✅ FIXED: Loading indicator (optional)
+            ui.output_ui("ui_loading_status"),
+            
+            # ✅ FIXED: Data frame output
             ui.output_data_frame("out_df_preview"),
+            
             height="600px",
             full_screen=True
-        )
+        ),
     )
 
-# --- 2. Server Logic ---
-@module.server
-def data_server(input, output, session, df, var_meta, uploaded_file_info, 
-                df_matched, is_matched, matched_treatment_col, matched_covariates):
-    
-    # ✅ ENHANCEMENT: Track loading state explicitly
-    is_loading_data = reactive.value(False)
 
-    # --- 1. Data Loading Logic ---
+# --- 2. Server Logic ---
+
+@module.server
+def data_server(input, output, session, df, var_meta, uploaded_file_info,
+                df_matched, is_matched, matched_treatment_col, matched_covariates):
+    """Server logic for Data Management"""
+    
+    # ✅ FIXED: Track loading state explicitly
+    is_loading_data = reactive.Value(False)
+
+    # ========== 1. Data Loading Logic ==========
+
     @reactive.Effect
     @reactive.event(input.btn_load_example)
     def load_example_data():
+        """Load example/simulated clinical data"""
         logger.info("🔄 User clicked Load Example Data")
         is_loading_data.set(True)
-        id_notify = ui.notification_show("📄 Generating simulation...", duration=None)
+        
+        # ✅ FIXED: Do NOT show notification with duration=None during long operations
+        # Let Shiny handle spinner automatically
         
         try:
             np.random.seed(42)
-            n = 1500  
+            n = 1500
             
-            # --- Simulation Logic (คงเดิมตามต้นฉบับ) ---
+            # --- Simulation Logic (Sample & Realistic) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -96,8 +101,8 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             logit_ht = -4 + (0.06 * age) + (0.05 * bmi)
             p_ht = 1 / (1 + np.exp(-logit_ht))
             hypertension = np.random.binomial(1, p_ht, n)
-
-            lambda_base = 0.002 
+            
+            lambda_base = 0.002
             linear_predictor = 0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
             hazard = lambda_base * np.exp(linear_predictor)
             surv_time = np.random.exponential(1/hazard, n)
@@ -109,33 +114,32 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             logit_cure = 0.5 + 1.2 * group - 0.04 * age - 0.5 * diabetes
             p_cure = 1 / (1 + np.exp(-logit_cure))
             outcome_cured = np.random.binomial(1, p_cure, n)
-
+            
             gold_std = np.random.binomial(1, 0.3, n)
-            rapid_score = np.where(gold_std==0, 
-                                   np.random.normal(20, 10, n), 
-                                   np.random.normal(50, 15, n))
+            rapid_score = np.where(gold_std==0,
+                                  np.random.normal(20, 10, n),
+                                  np.random.normal(50, 15, n))
             rapid_score = np.clip(rapid_score, 0, 100).round(1)
             
-            rater_a = np.where(gold_std==1, 
-                               np.random.binomial(1, 0.85, n), 
-                               np.random.binomial(1, 0.10, n))
-            
+            rater_a = np.where(gold_std==1,
+                              np.random.binomial(1, 0.85, n),
+                              np.random.binomial(1, 0.10, n))
             agree_prob = 0.85
-            rater_b = np.where(np.random.binomial(1, agree_prob, n)==1, 
-                               rater_a, 
-                               1 - rater_a)
-
+            rater_b = np.where(np.random.binomial(1, agree_prob, n)==1,
+                              rater_a,
+                              1 - rater_a)
+            
             hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
             glucose = (hba1c * 15) + np.random.normal(0, 15, n)
             glucose = glucose.round(0)
-
+            
             icc_rater1 = np.random.normal(120, 15, n).round(1)
             icc_rater2 = icc_rater1 + 5 + np.random.normal(0, 4, n)
             icc_rater2 = icc_rater2.round(1)
-
+            
             data = {
                 'ID': range(1, n+1),
-                'Treatment_Group': group,  
+                'Treatment_Group': group,
                 'Age_Years': age,
                 'Sex_Male': sex,
                 'BMI_kgm2': bmi,
@@ -145,7 +149,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'Time_Months': time_obs,
                 'Status_Death': status_death,
                 'Gold_Standard_Disease': gold_std,
-                'Test_Score_Rapid': rapid_score, 
+                'Test_Score_Rapid': rapid_score,
                 'Diagnosis_Dr_A': rater_a,
                 'Diagnosis_Dr_B': rater_b,
                 'Lab_HbA1c': hba1c,
@@ -176,70 +180,85 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            # Update states
+            # ✅ FIXED: Update all reactive values - Shiny will automatically invalidate dependents
+            df.set(new_df)
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
-            df.set(new_df)
             
             logger.info(f"✅ Successfully generated {n} records")
-            ui.notification_remove(id_notify)
+            
+            # ✅ Notification AFTER operation completes (won't block spinner)
             ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
-
+            
         except Exception as e:
             logger.exception(f"❌ Error generating example data")
-            ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
+        
         finally:
-            is_loading_data.set(False)
+            is_loading_data.set(False)  # ← Always clear loading flag
+
 
     @reactive.Effect
     @reactive.event(input.file_upload)
     def load_uploaded_file():
+        """Load user-uploaded CSV/Excel file"""
         file_infos: list[FileInfo] = input.file_upload()
+        
         if not file_infos:
             return
         
-        is_loading_data.set(True)
+        is_loading_data.set(True)  # ← Set loading = true
+        
         f = file_infos[0]
-        id_notify = ui.notification_show(f"📂 Loading {f['name']}...", duration=None)
+        # ✅ FIXED: Do NOT show notification during long operations
         
         try:
+            # Load file based on extension
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
             else:
                 new_df = pd.read_excel(f['datapath'], engine='openpyxl')
             
+            # Size check
             if len(new_df) > 100000:
                 new_df = new_df.head(100000)
                 ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
+            # Auto-detect variable types
             current_meta = {}
             for col in new_df.columns:
                 unique_vals = new_df[col].dropna().unique()
                 is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
+                
                 if is_numeric and len(unique_vals) > 10:
                     current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
                 else:
                     current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
+            # ✅ FIXED: Update ALL reactive values
+            df.set(new_df)
             var_meta.set(current_meta)
             uploaded_file_info.set({"name": f['name']})
-            df.set(new_df)
             
-            ui.notification_remove(id_notify)
+            logger.info(f"✅ Successfully loaded {len(new_df)} rows from {f['name']}")
+            
+            # ✅ Notification AFTER operation completes
             ui.notification_show(f"✅ Loaded {len(new_df)} rows from {f['name']}", type="message")
             
         except Exception as e:
             logger.exception(f"❌ Error loading file")
-            ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
+        
         finally:
-            is_loading_data.set(False)
+            is_loading_data.set(False)  # ← Always clear loading flag
+
 
     @reactive.Effect
     @reactive.event(input.btn_reset_all)
     def reset_all_data():
+        """Reset all data and state"""
         logger.info("🔄 Resetting all data")
+        
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -248,22 +267,29 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         matched_covariates.set([])
         uploaded_file_info.set(None)
         is_loading_data.set(False)
+        
         ui.notification_show("✅ All data reset", type="warning")
 
-    # --- 2. Metadata Logic ---
+
+    # ========== 2. Metadata Logic ==========
+
     @reactive.Effect
     def _update_var_select():
+        """Update variable selector when data changes"""
         data = df.get()
         if data is not None and not data.empty:
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
 
+
     @render.ui
     def ui_var_settings():
+        """Render variable settings UI"""
         var_name = input.sel_var_edit()
+        
         if not var_name or var_name == "Select...":
             return None
-            
+        
         meta = var_meta.get()
         current_type = 'Continuous'
         map_str = ""
@@ -272,33 +298,37 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             m = meta[var_name]
             current_type = m.get('type', 'Continuous')
             map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
-            
+        
         return ui.TagList(
             ui.input_radio_buttons(
-                "radio_var_type", 
-                "ประเภทตัวแปร:", 
+                "radio_var_type",
+                "ประเภทตัวแปร:",
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
                 selected=current_type,
                 inline=True
             ),
             ui.input_text_area(
-                "txt_var_map", 
-                "Value Labels (Format: 0=No, 1=Yes)", 
+                "txt_var_map",
+                "Value Labels (Format: 0=No, 1=Yes)",
                 value=map_str,
                 height="100px"
             ),
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
+
     @reactive.Effect
     @reactive.event(input.btn_save_meta)
     def _save_metadata():
+        """Save variable metadata"""
         var_name = input.sel_var_edit()
-        if var_name == "Select...": 
+        
+        if var_name == "Select...":
             return
         
         new_map = {}
         map_input = input.txt_var_map()
+        
         if map_input:
             for line in map_input.split('\n'):
                 if '=' in line:
@@ -310,41 +340,86 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                             k_val = int(k_num) if k_num.is_integer() else k_num
                         except (ValueError, TypeError):
                             k_val = k_clean
+                        
                         new_map[k_val] = v.strip()
                     except Exception:
                         pass
-
+        
         current_meta = var_meta.get() or {}
         current_meta[var_name] = {
-            'type': input.radio_var_type(), 
-            'map': new_map, 
+            'type': input.radio_var_type(),
+            'map': new_map,
             'label': var_name
         }
+        
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
-    # --- 3. Render Outputs ---
+
+    # ========== 3. Render Outputs ==========
+
+    # ✅ FIXED: Custom loading indicator
+    @render.ui
+    def ui_loading_status():
+        """Show custom loading indicator during data operations"""
+        if is_loading_data.get():
+            return ui.div(
+                ui.HTML("""
+                <div style='text-align: center; padding: 20px; color: #2180BE;'>
+                    <div style='display: inline-block; width: 30px; height: 30px; 
+                                border: 4px solid #f3f3f3; border-top: 4px solid #2180BE; 
+                                border-radius: 50%; animation: spin 1s linear infinite;'></div>
+                    <p style='margin-top: 10px; font-weight: 500;'>📊 Processing data...</p>
+                </div>
+                <style>
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                </style>
+                """),
+                id="loading_indicator"
+            )
+        return None
+
+
+    # ✅ FIXED: Use @reactive.Calc for dependency tracking
+    @reactive.Calc
+    def _data_for_preview():
+        """Derived reactive value - triggers when df changes"""
+        d = df.get()
+        return d if d is not None and not d.empty else None
+
+
+    # ✅ FIXED: Render data frame with proper dependency
     @render.data_frame
     def out_df_preview():
-        # ✅ แก้ไข: ใช้ isolate เพื่อไม่ให้ส่วนอื่นมาสะกิดให้ render ตารางใหม่โดยไม่จำเป็น
-        # และถอดส่วน logic return DataFrame หลอกออก เพื่อให้ Shiny จัดการ Spinner เอง
-        d = df.get()
-        if d is None or d.empty:
-            return render.DataTable(pd.DataFrame({'Status': ['🔭 No data loaded yet.']}))
+        """Display raw data preview"""
+        d = _data_for_preview()  # ← Use reactive calc for explicit dependency
+        
+        if d is None:
+            # ✅ FIXED: Return empty DataFrame instead of status text
+            # This prevents spinner from stalling
+            return render.DataTable(pd.DataFrame())
         
         return render.DataTable(d)
 
+
     @render.ui
     def ui_btn_clear_match():
+        """Show 'Clear Matched Data' button if matching is done"""
         if is_matched.get():
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
-    
+
+
     @reactive.Effect
     @reactive.event(input.btn_clear_match)
     def clear_matched_data():
+        """Clear matched dataset"""
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+        
         ui.notification_show("✅ Matched data cleared", type="message")
