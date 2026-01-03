@@ -338,56 +338,18 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return data
 
     @render.data_frame
+    @render.data_frame
     def out_df_preview():
-        """Render data frame preview with proper handling of None/empty states"""
-        try:
-            # Use the reactive calculation to ensure proper dependency tracking
-            d = _data_to_display()
-            
-            if d is None:
-                # 🔧 FIX: Show a proper empty state without loading spinner
-                empty_df = pd.DataFrame({
-                    'Status': ['No data loaded. Please load example data or upload a CSV/Excel file.']
-                })
-                return render.DataTable(
-                    empty_df,
-                    width="100%", 
-                    filters=False,
-                    selection_mode="none"
-                )
-            
-            if isinstance(d, pd.DataFrame) and len(d) == 0:
-                # Handle empty DataFrame
-                empty_df = pd.DataFrame({
-                    'Status': ['Dataset is empty.']
-                })
-                return render.DataTable(
-                    empty_df,
-                    width="100%", 
-                    filters=False,
-                    selection_mode="none"
-                )
-            
-            # 🔧 FIX: Return DataTable with proper settings
-            return render.DataTable(
-                d, 
-                width="100%", 
-                filters=True,
-                selection_mode="none"
+        d = df.get()
+        if d is None:
+            # แสดง empty dataframe ธรรมดา ไม่ใช้ DataTable
+            return pd.DataFrame(
+                {'Status': ['No data loaded. Please load example data or upload a CSV/Excel file.']}
             )
-            
-        except Exception as e:
-            # Handle any errors during rendering
-            logger.error(f"Error rendering preview: {e}", exc_info=True)
-            error_df = pd.DataFrame({
-                'Error': [f'Rendering Error: {str(e)}']
-            })
-            return render.DataTable(
-                error_df, 
-                width="100%",
-                filters=False,
-                selection_mode="none"
-            )
+        if isinstance(d, pd.DataFrame) and len(d) == 0:
+            return pd.DataFrame({'Status': ['Dataset is empty.']})
+        # ถ้ามีข้อมูลแล้ว return DataFrame ตรง ๆ
+        return d
 
     @render.ui
     def ui_btn_clear_match():
