@@ -20,6 +20,7 @@ from plotly.subplots import make_subplots
 from logger import get_logger
 from tabs._common import get_color_palette
 import warnings
+import re
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -65,6 +66,7 @@ class ForestPlot:
         
         self.data = data.copy()
 
+        # Clean numeric columns - enhanced to handle potential string/formatting issues
         numeric_cols = [estimate_col, ci_low_col, ci_high_col]
         for col in numeric_cols:
             self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
@@ -78,9 +80,9 @@ class ForestPlot:
         if is_interaction_col and is_interaction_col in self.data.columns:
             self.data['__is_interaction'] = self.data[is_interaction_col].astype(bool)
         else:
-            # Auto-detect based on label patterns (×, :, *, interaction)
+            # Enhanced auto-detect: support for emoji 🔗, colon, star, and 'interaction' text
             self.data['__is_interaction'] = self.data[label_col].astype(str).str.contains(
-                r'[×x*:].*[×x*:]|interaction|Interaction', case=False, regex=True, na=False
+                r'[🔗×x*:].*[×x*:]|interaction|Interaction', case=False, regex=True, na=False
             )
         
         n_interactions = self.data['__is_interaction'].sum()
@@ -104,14 +106,26 @@ class ForestPlot:
             logger.warning(f"Could not log estimate range: {e}")
     
     @staticmethod
+    def _clean_p_value_string(val):
+        """Helper to remove HTML styling from p-value strings before numeric conversion."""
+        if pd.isna(val) or val == '-':
+            return np.nan
+        s = str(val)
+        # Remove HTML tags (e.g., <span class='sig-p'>)
+        s = re.sub(r'<[^>]*>', '', s)
+        s = s.replace('<', '').replace('>', '').strip()
+        try:
+            return float(s)
+        except (ValueError, TypeError):
+            return np.nan
+
+    @staticmethod
     def _vectorized_significance_stars(p_series):
         """
         OPTIMIZED: Vectorize p-value to stars conversion (10x faster).
         """
-        p_numeric = pd.to_numeric(
-            p_series.astype(str).str.replace('<', '').str.replace('>', '').str.strip(),
-            errors='coerce'
-        )
+        # Clean potential HTML/Formatting before conversion
+        p_numeric = p_series.apply(ForestPlot._clean_p_value_string)
         
         stars = pd.Series('', index=p_series.index)
         stars[p_numeric < 0.001] = '***'
@@ -125,10 +139,7 @@ class ForestPlot:
         """
         OPTIMIZED: Vectorize p-value formatting (10x faster).
         """
-        p_numeric = pd.to_numeric(
-            p_series.astype(str).str.replace('<', '').str.replace('>', '').str.strip(),
-            errors='coerce'
-        )
+        p_numeric = p_series.apply(ForestPlot._clean_p_value_string)
         
         result = pd.Series('<0.001', index=p_series.index)
         mask_gt_001 = p_numeric >= 0.001
@@ -142,10 +153,7 @@ class ForestPlot:
         """
         OPTIMIZED: Vectorize p-value color assignment (10x faster).
         """
-        p_numeric = pd.to_numeric(
-            p_series.astype(str).str.replace('<', '').str.replace('>', '').str.strip(),
-            errors='coerce'
-        )
+        p_numeric = p_series.apply(ForestPlot._clean_p_value_string)
         
         colors = pd.Series('black', index=p_series.index)
         colors[p_numeric < 0.05] = 'red'
@@ -177,7 +185,7 @@ class ForestPlot:
                 ci_normalized[is_finite] = 0.5
         
         # Parse main color
-        hex_color = base_color.lstrip('#')
+        hex_color = str(base_color).lstrip('#')
         try:
             if len(hex_color) == 6:
                 rgb_main = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
@@ -217,10 +225,7 @@ class ForestPlot:
         pct_sig_main = 0
         
         if self.pval_col and self.pval_col in main_effects.columns and len(main_effects) > 0:
-            p_numeric = pd.to_numeric(
-                main_effects[self.pval_col].astype(str).str.replace('<', '').str.replace('>', ''), 
-                errors='coerce'
-            )
+            p_numeric = main_effects[self.pval_col].apply(ForestPlot._clean_p_value_string)
             n_sig_main = (p_numeric < 0.05).sum()
             pct_sig_main = 100 * n_sig_main / len(main_effects) if len(main_effects) > 0 else 0
         
@@ -229,10 +234,7 @@ class ForestPlot:
         pct_sig_int = 0
         
         if self.pval_col and self.pval_col in interactions.columns and len(interactions) > 0:
-            p_numeric = pd.to_numeric(
-                interactions[self.pval_col].astype(str).str.replace('<', '').str.replace('>', ''), 
-                errors='coerce'
-            )
+            p_numeric = interactions[self.pval_col].apply(ForestPlot._clean_p_value_string)
             n_sig_int = (p_numeric < 0.05).sum()
             pct_sig_int = 100 * n_sig_int / len(interactions) if len(interactions) > 0 else 0
         
@@ -267,7 +269,7 @@ class ForestPlot:
         ✅ NEW: Distinct styling for interaction terms.
         """
         if color is None:
-            color = COLORS['primary']
+            color = COLORS.get('primary', '#2180BE')
         
         # OPTIMIZATION: Vectorized estimate/CI formatting (single operation)
         est_fmt = self.data[self.estimate_col].apply(lambda x: f"{x:.2f}" if np.isfinite(x) else "Inf")
@@ -283,13 +285,15 @@ class ForestPlot:
             self.data['__display_p'] = ""
             p_text_colors = ["black"] * len(self.data)
         
-        # ✅ NEW: Add interaction icon to labels
-        self.data['__base_label'] = self.data[self.label_col].astype(str)
+        # ✅ NEW: Add interaction icon to labels and clean HTML
+        self.data['__base_label'] = self.data[self.label_col].astype(str).apply(lambda x: re.sub(r'<[^>]*>', '', x))
         is_interaction = self.data['__is_interaction'].values
         
         self.data['__display_label_raw'] = self.data['__base_label'].copy()
-        self.data.loc[is_interaction, '__display_label_raw'] = (
-            "🔗 " + self.data.loc[is_interaction, '__base_label']
+        # Only add icon if it doesn't already have one
+        mask_needs_icon = is_interaction & (~self.data['__display_label_raw'].str.contains('🔗'))
+        self.data.loc[mask_needs_icon, '__display_label_raw'] = (
+            "🔗 " + self.data.loc[mask_needs_icon, '__base_label']
         )
         
         # OPTIMIZATION: Vectorized label generation with significance stars
@@ -391,13 +395,16 @@ class ForestPlot:
             ci_sig = ((ci_low > ref_line) | (ci_high < ref_line)) if ref_line > 0 else ((ci_low * ci_high) > 0)
             
             if ci_sig.any() and (~ci_sig).any():
-                divider_y = np.where(~ci_sig)[0][0] - 0.5
-                fig.add_hline(
-                    y=divider_y, line_dash='dot', 
-                    line_color='rgba(100, 100, 100, 0.3)', 
-                    line_width=1.5, 
-                    row=1, col=plot_col
-                )
+                # Find the first non-significant row to place divider
+                non_sig_indices = np.where(~ci_sig)[0]
+                if len(non_sig_indices) > 0:
+                    divider_y = non_sig_indices[0] - 0.5
+                    fig.add_hline(
+                        y=divider_y, line_dash='dot', 
+                        line_color='rgba(100, 100, 100, 0.3)', 
+                        line_width=1.5, 
+                        row=1, col=plot_col
+                    )
 
         hover_parts = [
             "<b>%{text}</b><br>", 
@@ -536,6 +543,6 @@ def create_forest_plot(
             pval_col, is_interaction_col
         )
         return fp.create(title=title, x_label=x_label, ref_line=ref_line, height=height, **kwargs)
-    except ValueError as e:
+    except Exception as e:
         logger.error(f"Forest plot creation failed: {e}")
         return go.Figure()
