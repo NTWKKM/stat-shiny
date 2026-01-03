@@ -34,16 +34,16 @@ from tabs._common import get_color_palette
 from forest_plot_lib import create_forest_plot
 
 # === INTEGRATION: Import Cache Wrappers ===
-from utils.survival_cache_integration import (
-    get_cached_km_curves,
-    get_cached_na_curves,
-    get_cached_cox_model,
-    get_cached_survival_estimates
-)
+#from utils.survival_cache_integration import (
+#    get_cached_km_curves,
+#    get_cached_na_curves,
+#    get_cached_cox_model,
+#    get_cached_survival_estimates
+#)
 
 # === INTEGRATION: System Stability & Memory ===
-from utils.memory_manager import MEMORY_MANAGER
-from utils.connection_handler import CONNECTION_HANDLER
+#from utils.memory_manager import MEMORY_MANAGER
+#from utils.connection_handler import CONNECTION_HANDLER
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -128,7 +128,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
 
     def _compute_median():
         # === INTEGRATION: Memory Check ===
-        MEMORY_MANAGER.check_and_cleanup()
+        #MEMORY_MANAGER.check_and_cleanup()
 
         data = df.dropna(subset=[duration_col, event_col])
         
@@ -200,10 +200,10 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
         return pd.DataFrame(results)
 
     # === USE CACHE ===
-    return get_cached_survival_estimates(
-        calculate_func=_compute_median,
-        cache_key_params=cache_key_params
-    )
+    #return get_cached_survival_estimates(
+    #    calculate_func=_compute_median,
+    #    cache_key_params=cache_key_params
+    #)
 
 
 def fit_km_logrank(df, duration_col, event_col, group_col):
@@ -226,7 +226,7 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
 
     def _compute_km_data():
         # === INTEGRATION: Memory Check ===
-        MEMORY_MANAGER.check_and_cleanup()
+        #MEMORY_MANAGER.check_and_cleanup()
 
         data = df.dropna(subset=[duration_col, event_col])
         if group_col:
@@ -313,10 +313,10 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
 
     # === USE CACHE ===
     # Retrieve pre-calculated data (not the figure)
-    plot_data, stats_df = get_cached_km_curves(
-        calculate_func=_compute_km_data,
-        cache_key_params=cache_key_params
-    )
+    #plot_data, stats_df = get_cached_km_curves(
+    #    calculate_func=_compute_km_data,
+    #    cache_key_params=cache_key_params
+    #)
 
     # === RECONSTRUCT PLOT ===
     # Plotting is fast enough to do on-the-fly with cached data
@@ -387,7 +387,7 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
 
     def _compute_na_data():
         # === INTEGRATION: Memory Check ===
-        MEMORY_MANAGER.check_and_cleanup()
+        #MEMORY_MANAGER.check_and_cleanup()
 
         data = df.dropna(subset=[duration_col, event_col])
         if len(data) == 0:
@@ -445,10 +445,10 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
         return plot_data, pd.DataFrame(stats_list)
 
     # === USE CACHE ===
-    plot_data, stats_df = get_cached_na_curves(
-        calculate_func=_compute_na_data,
-        cache_key_params=cache_key_params
-    )
+    #plot_data, stats_df = get_cached_na_curves(
+    #    calculate_func=_compute_na_data,
+    #    cache_key_params=cache_key_params
+    #)
 
     # === RECONSTRUCT PLOT ===
     fig = go.Figure()
@@ -521,7 +521,7 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     def _fit_cox_model():
         # === INTEGRATION: Memory Check ===
         # CoxPH is memory intensive, critical to check here
-        MEMORY_MANAGER.check_and_cleanup()
+        #MEMORY_MANAGER.check_and_cleanup()
 
         missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
         if missing:
@@ -629,10 +629,10 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
 
     # === USE CACHE ===
     # Caching the tuple (cph object, results df, processed data, error string)
-    return get_cached_cox_model(
-        calculate_func=_fit_cox_model,
-        cache_key_params=cache_key_params
-    )
+    #return get_cached_cox_model(
+    #    calculate_func=_fit_cox_model,
+    #    cache_key_params=cache_key_params
+    #)
 
 
 def check_cph_assumptions(cph, data):
@@ -644,7 +644,7 @@ def check_cph_assumptions(cph, data):
         tuple: (report_text, list_of_figures)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    #MEMORY_MANAGER.check_and_cleanup()
 
     try:
         # 1. Run Test - Local computation (direct call)
@@ -802,7 +802,7 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
         tuple: (fig, stats_df, n_pre, n_post, error)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    #MEMORY_MANAGER.check_and_cleanup()
 
     missing = [c for c in [duration_col, event_col, group_col] if c not in df.columns]
     if missing:
