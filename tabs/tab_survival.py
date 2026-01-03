@@ -333,7 +333,7 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                 default_tx = cols[0]
 
             # 5. Detect subgroup Variables (ตามลำดับความสำคัญใน event_keywords)
-            subgr_keywords = ['group', 'comorbid', 'comorb', 'dz', 'lab', 'diag', 'sex', 'age', 'control', 'contr', 'ctr']
+            subgr_keywords = ['comorbid', 'comorb', 'group', 'control', 'contr', 'ctr' 'dz', 'lab', 'diag', 'sex', 'age']
             default_subgr = "Select..."
             
             for kw in subgr_keywords:
