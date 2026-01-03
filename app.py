@@ -186,12 +186,16 @@ def server(input, output, session: Session):
     # ==========================================
     
     # --- 1. Data Management ---
-    # 🟢 แก้ไข: ส่ง arguments ให้ครบ 7 ตัว ตามที่ tab_data.py ต้องการ
-    # ลำดับสำคัญมาก: df, var_meta, uploaded_file_info, df_matched, is_matched, matched_treatment_col, matched_covariates
-    tab_data.data_server("data",
-        df, var_meta, uploaded_file_info,
-        df_matched, is_matched, matched_treatment_col, matched_covariates
-    )
+    # 🟢 เพิ่ม try-except เพื่อดักจับ Error กรณี tab_data.py ไม่ตรงกัน
+    try:
+        tab_data.data_server("data",
+            df, var_meta, uploaded_file_info,
+            df_matched, is_matched, matched_treatment_col, matched_covariates
+        )
+    except Exception as e:
+        logger.error(f"❌ Error starting Data Module: {e}")
+        # แจ้งเตือนบนหน้าจอถ้า Module พัง
+        ui.notification_show(f"Critical Error in Data Module: {e}", type="error", duration=None)
 
     # --- 2. Table 1 & Matching ---
     tab_baseline_matching.baseline_matching_server("bm", 
