@@ -52,10 +52,10 @@ def data_ui():
 
             ui.br(),
             
-            # --- ส่วน Raw Data Preview with Loading State ---
+            # --- ส่วน Raw Data Preview ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
-                ui.output_ui("ui_preview_container"),
+                ui.output_data_frame("out_df_preview"),
                 height="600px",
                 full_screen=True
             )
@@ -67,8 +67,9 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # 🟢 FIX: Use reactive.Value instead of mutable flag
+    # 🟢 Use reactive values to track state
     is_loading_data = reactive.Value(False)
+    last_action = reactive.Value(None)  # Track what action triggered the load
 
     # ==========================================
     # Data Loading Functions
@@ -215,15 +216,13 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             raise
 
     # ==========================================
-    # Event Handlers - FIXED VERSION
+    # Event Handlers - FIXED with observe_event pattern
     # ==========================================
     
-    # 🟢 FIX: Use observable() instead of reactive.Effect + reactive.event() pattern
-    @reactive.Effect
-    def _handle_load_example():
-        # Check if button was clicked
-        input.btn_load_example()  # This creates the dependency
-        
+    # 🟢 FIX: Use observe() on input directly to avoid auto-trigger
+    # This only runs when button is actually clicked, not on session init
+    def _on_load_example_click():
+        """Handler for Load Example button"""
         is_loading_data.set(True)
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
         
@@ -237,6 +236,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             logger.info(f"✅ Successfully generated {len(new_df)} records")
             ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {len(new_df)} Clinical Records (Simulated)", type="message")
+            last_action.set("load_example")
 
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -245,10 +245,12 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         
         finally:
             is_loading_data.set(False)
+    
+    # Subscribe to button click (not session init)
+    input.btn_load_example.subscribe(_on_load_example_click)
 
-    @reactive.Effect
-    def _handle_file_upload():
-        # Check if file was uploaded
+    def _on_file_upload():
+        """Handler for File Upload"""
         file_infos = input.file_upload()
         
         if not file_infos:
@@ -265,17 +267,18 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             uploaded_file_info.set({"name": f['name']})
             
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
+            last_action.set("file_upload")
             
         except Exception as e:
             logger.error(f"Error: {e}")
             ui.notification_show(f"❌ Error: {str(e)}", type="error")
         finally:
             is_loading_data.set(False)
+    
+    input.file_upload.subscribe(_on_file_upload)
 
-    @reactive.Effect
-    def _handle_reset():
-        input.btn_reset_all()  # Create dependency
-        
+    def _on_reset_all():
+        """Handler for Reset All button"""
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -283,7 +286,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         matched_treatment_col.set(None)
         matched_covariates.set([])
         is_loading_data.set(False)
+        last_action.set("reset")
         ui.notification_show("All data reset", type="warning")
+    
+    input.btn_reset_all.subscribe(_on_reset_all)
 
     # ==========================================
     # Metadata Management
@@ -331,10 +337,8 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
-    @reactive.Effect
-    def _save_metadata():
-        input.btn_save_meta()  # Create dependency
-        
+    def _on_save_metadata():
+        """Handler for Save Settings button"""
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
             return
@@ -364,32 +368,35 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         }
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
+    
+    input.btn_save_meta.subscribe(_on_save_metadata)
 
     # ==========================================
-    # Output Rendering - FIXED VERSION
+    # Output Rendering
     # ==========================================
 
-    # 🟢 FIX: Add loading state UI container
-    @render.ui
-    def ui_preview_container():
-        # Create explicit dependency on is_loading_data
+    # 🟢 FIX: Proper DataTable rendering with three states
+    @render.data_frame
+    def out_df_preview():
+        # Create dependencies on both loading state and data
         loading = is_loading_data.get()
         data = df.get()
         
+        # If loading, show loading message
         if loading:
-            return ui.div(
-                ui.spinner("Loading data..."),
-                style="display: flex; justify-content: center; align-items: center; height: 400px;"
+            return render.DataTable(
+                pd.DataFrame({'Status': ['🔄 Loading data...']}),
+                width="100%"
             )
         
         # If no data, show placeholder
         if data is None:
-            return ui.div(
-                ui.p("📥 Load example data or upload a file to get started.", style="color: #999; text-align: center;"),
-                style="display: flex; justify-content: center; align-items: center; height: 400px;"
+            return render.DataTable(
+                pd.DataFrame({'Status': ['📥 Load example data or upload a file to get started.']}),
+                width="100%"
             )
         
-        # Show data preview
+        # Show actual data
         return render.DataTable(data, width="100%", filters=False)
 
     @render.ui
@@ -398,11 +405,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
-    @reactive.Effect
-    def _clear_match():
-        input.btn_clear_match()  # Create dependency
-        
+    def _on_clear_match():
+        """Handler for Clear Matched Data button"""
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+    
+    input.btn_clear_match.subscribe(_on_clear_match)
