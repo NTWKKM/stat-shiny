@@ -254,8 +254,16 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             row_data.append(cell_content)
         display_data.append(row_data)
     
+    # 🟢 MODIFIED: Better table structure for 2x2 clarity
     display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
-    display_tab.index.name = col1
+    
+    # Rename columns to show Variable 2 name
+    rename_cols = {c: f"{col2} (Outcome/Col): {c}" for c in final_col_order if c != 'Total'}
+    display_tab.rename(columns=rename_cols, inplace=True)
+    
+    # Set index name and reset to make it a column (required for generate_report which uses index=False)
+    display_tab.index.name = f"{col1} (Exposure/Row)"
+    display_tab.reset_index(inplace=True)
     
     msg = ""
     try:
@@ -331,6 +339,10 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 index=final_row_order_base,
                 columns=final_col_order_base
             )
+            # 🟢 RESET INDEX for display
+            ex_df.index.name = col1
+            ex_df.reset_index(inplace=True)
+            
             extra_report_items.append({
                 'type': 'table',
                 'header': 'Expected Counts (for Chi-Square validation)',
@@ -344,6 +356,10 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 index=final_row_order_base,
                 columns=final_col_order_base
             )
+            # 🟢 RESET INDEX for display
+            std_res_df.index.name = col1
+            std_res_df.reset_index(inplace=True)
+            
             extra_report_items.append({
                 'type': 'table',
                 'header': 'Standardized Residuals (|value| > 2 indicates cell deviation)',
@@ -358,6 +374,10 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 columns=final_col_order_base
             )
             chi2_contrib_df['% of χ²'] = (chi2_contrib_df.sum(axis=1) / chi2 * 100).round(1)
+            # 🟢 RESET INDEX for display
+            chi2_contrib_df.index.name = col1
+            chi2_contrib_df.reset_index(inplace=True)
+            
             extra_report_items.append({
                 'type': 'table',
                 'header': f'Cell Contributions to χ² = {chi2:.4f}',
@@ -599,6 +619,8 @@ def calculate_kappa(df, col1, col2):
         })
         
         conf_matrix = pd.crosstab(y1, y2, rownames=[f"{col1}"], colnames=[f"{col2}"])
+        # 🟢 RESET INDEX for display compatibility with generate_report
+        conf_matrix.reset_index(inplace=True)
         
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
         return res_df, None, conf_matrix
