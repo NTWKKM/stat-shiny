@@ -6,6 +6,7 @@ from logger import get_logger
 from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
 
 # --- 1. UI Definition ---
 @module.ui
@@ -27,12 +28,9 @@ def data_ui():
             ui.output_ui("ui_btn_clear_match"),
             ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
 
-
-
-
-
             width=300,
-            bg="#f8f9fa"
+            # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
+            bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
         ),
         
         # ส่วน Main Content
@@ -48,8 +46,6 @@ def data_ui():
                     ),
                     col_widths=(4, 8)
                 ),
-
-
             ),
             id="acc_settings",
             open=True
@@ -62,7 +58,6 @@ def data_ui():
             ui.output_data_frame("out_df_preview"),
             height="600px",
             full_screen=True
-
         )
     )
 
