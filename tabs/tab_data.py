@@ -332,9 +332,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         d = df.get()
         if d is None:
             # Return a simple placeholder DataFrame to stop loading spinner
-            return render.DataTable(pd.DataFrame({'Status': ['Waiting for data to be loaded...']}), width="100%")
+            # แก้ไข: ส่งคืน DataFrame โดยตรง ไม่ต้องผ่าน render.DataTable
+            return pd.DataFrame({'Status': ['Waiting for data to be loaded...']})
         
-        return render.DataTable(d, width="100%", filters=False)
+        # แก้ไข: ส่งคืน DataFrame โดยตรง ซึ่งเป็นสิ่งที่ @render.data_frame คาดหวัง
+        return d
 
     @render.ui
     def ui_btn_clear_match():
