@@ -22,8 +22,8 @@ import warnings
 import hashlib
 
 # === INTEGRATION: System Stability & Memory ===
-from utils.memory_manager import MEMORY_MANAGER
-from utils.cache_manager import COMPUTATION_CACHE
+#from utils.memory_manager import MEMORY_MANAGER
+#from utils.cache_manager import COMPUTATION_CACHE
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -157,11 +157,11 @@ class ForestPlot:
         # Use cache manager to store color calculations if repetitive
         
         # FIX: Calling global _stable_hash (no self. needed)
-        cache_key = f"ci_colors_{_stable_hash(self.data[self.ci_high_col].values.tobytes())}_{_stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
+        #cache_key = f"ci_colors_{_stable_hash(self.data[self.ci_high_col].values.tobytes())}_{_stable_hash(self.data[self.ci_low_col].values.tobytes())}_{base_color}"
         
-        cached_res = COMPUTATION_CACHE.get(cache_key)
-        if cached_res:
-            return cached_res
+        #cached_res = COMPUTATION_CACHE.get(cache_key)
+        #if cached_res:
+        #    return cached_res
 
         ci_high = self.data[self.ci_high_col].values
         ci_low = self.data[self.ci_low_col].values
@@ -199,7 +199,7 @@ class ForestPlot:
         ]
         
         result = (marker_colors, ci_normalized)
-        COMPUTATION_CACHE.set(cache_key, result)
+        #COMPUTATION_CACHE.set(cache_key, result)
         return result
     
     def get_summary_stats(self, ref_line: float = 1.0):
@@ -257,8 +257,8 @@ class ForestPlot:
         OPTIMIZED: Build interactive forest plot with vectorized operations.
         """
         # === INTEGRATION: Memory Check ===
-        if not MEMORY_MANAGER.check_and_cleanup():
-            logger.warning("Memory critical during forest plot creation")
+        #if not MEMORY_MANAGER.check_and_cleanup():
+        #    logger.warning("Memory critical during forest plot creation")
 
         if color is None:
             color = COLORS['primary']
