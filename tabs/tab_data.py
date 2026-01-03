@@ -327,28 +327,22 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
+    @output
     @render.data_frame
     def out_df_preview():
-        """Render data frame preview with proper handling of None/empty states"""
         try:
-            # ✅ เรียก df.get() โดยตรง ไม่ต้องผ่าน reactive calc
-            # Shiny จะทำการสร้าง dependency ให้อัตโนมัติเมื่อมีการเรียก .get() ภายใน render function
             d = df.get()
-            
+
             if d is None:
-                # แสดงสถานะว่างแทนการหมุนโหลด (Spinner)
                 return pd.DataFrame({
                     'Status': ['No data loaded. Please load example data or upload a CSV/Excel file.']
                 })
-            
+
             if isinstance(d, pd.DataFrame) and len(d) == 0:
-                # กรณี DataFrame มีหัวตารางแต่ไม่มีข้อมูล
                 return pd.DataFrame({'Status': ['Dataset is empty.']})
-            
-            # ✅ ส่งคืน DataFrame ตรงๆ (ไม่ต้องครอบด้วย render.DataTable)
-            # @render.data_frame จะจัดการแสดงผลเป็นตารางให้เอง
+
             return d
-            
+
         except Exception as e:
             logger.error(f"Error rendering preview: {e}", exc_info=True)
             return pd.DataFrame({'Error': [f'Rendering Error: {str(e)}']})
