@@ -51,7 +51,8 @@ def data_ui():
         
         ui.card(
             ui.card_header("📄 2. Raw Data Preview"),
-            ui.output_table("out_df_preview"),
+            # เปลี่ยนจาก output_table เป็น output_data_frame
+            ui.output_data_frame("out_df_preview"), 
             height="600px",
             full_screen=True
         )
@@ -253,7 +254,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Metadata Logic (Simplified with Dynamic UI) ---
+    # --- 2. Metadata Logic ---
     
     @reactive.Effect
     def _update_var_select():
@@ -331,25 +332,33 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    @render.table  # เปลี่ยน render.data_frame → render.table
+    @render.data_frame  # เปลี่ยนเป็น render.data_frame เพื่อใช้ร่วมกับ DataGrid
     def out_df_preview():
         try:
             d = df.get()
 
             if d is None:
-                return pd.DataFrame({
-                    'Status': ['No data loaded. Please load example data or upload a CSV/Excel file.']
-                })
+                # กรณีไม่มีข้อมูล ให้ส่ง DataFrame เปล่าที่มีคำแนะนำ
+                return render.DataGrid(
+                    pd.DataFrame({'Status': ['No data loaded. Please load example data or upload a file.']}),
+                    width="100%"
+                )
 
             if isinstance(d, pd.DataFrame) and len(d) == 0:
-                return pd.DataFrame({'Status': ['Dataset is empty.']})
+                return render.DataGrid(pd.DataFrame({'Status': ['Dataset is empty.']}), width="100%")
 
-            # ✅ ส่งตารางทั้งหมด (render.table จัดการ large dataset ได้)
-            return d
+            # ✅ ใช้ DataGrid: รองรับข้อมูลจำนวนมากได้ดี (Virtual Scrolling) 
+            # Browser จะไม่ค้างเพราะโหลดเฉพาะแถวที่แสดงผล
+            return render.DataGrid(
+                d,
+                width="100%",
+                height="100%", # ให้ความสูงปรับตาม Card
+                filters=True   # แถม: เพิ่มช่อง Filter หัวคอลัมน์ให้ด้วย
+            )
 
         except Exception as e:
             logger.exception("Error rendering preview: %s", e)
-            return pd.DataFrame({'Error': [f'Rendering Error: {e!s}']})
+            return render.DataGrid(pd.DataFrame({'Error': [f'Rendering Error: {e!s}']}))
             
     @render.ui
     def ui_btn_clear_match():
