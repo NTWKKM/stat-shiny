@@ -79,10 +79,10 @@ app_ui = ui.page_navbar(
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
     window_title="Medical Stat Tool",
-
+    
     # 🟢 ย้าย inverse=True ไปไว้ใน navbar_options
     navbar_options=ui.navbar_options(inverse=True),
-
+    
     # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
         ui.HTML(get_shiny_css())
@@ -96,11 +96,11 @@ def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
 
     # --- Reactive State (Global) ---
-
+    
     df = reactive.Value(None)
     var_meta = reactive.Value({})
     uploaded_file_info = reactive.Value(None)
-
+    
     # Matched data state (Shared across tabs)
     df_matched = reactive.Value(None)
     is_matched = reactive.Value(False)
@@ -122,14 +122,14 @@ def server(input, output, session: Session):
     # ==========================================
     # 3. CALL MODULES SERVER
     # ==========================================
-
+    
     # --- 1. Data Management ---
-
-    tab_data.data_server("data",
+    
+    tab_data.data_server("data", 
         df, var_meta, uploaded_file_info,
         df_matched, is_matched, matched_treatment_col, matched_covariates
     )
-
+    
     # --- 2. Table 1 & Matching ---
     tab_baseline_matching.baseline_matching_server("bm", 
         df, var_meta, df_matched, is_matched, 
@@ -147,7 +147,7 @@ def server(input, output, session: Session):
     )
 
     # --- 5. Correlation & ICC ---
-    tab_corr.corr_server("corr",
+    tab_corr.corr_server("corr", 
         df, var_meta, df_matched, is_matched
     )
 
