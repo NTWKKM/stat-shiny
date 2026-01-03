@@ -102,6 +102,15 @@ app_ui = ui.page_navbar(
 # ==========================================
 def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
+
+    # Ensure variables are set correctly
+    try:
+        df.set(new_df)
+        var_meta.set(meta)
+        uploaded_file_info.set({"name": "Example Clinical Data"})
+        logger.info("Reactive values updated successfully")
+    except Exception as e:
+        logger.error(f"Failed to set reactive values: {e}")
     
     # --- Reactive State (Global) ---
     df = reactive.Value(None)
@@ -118,7 +127,6 @@ def server(input, output, session: Session):
     @render.ui
     def optimization_status_footer():
         # ใช้ isolate เพื่อป้องกันไม่ให้การเปลี่ยนหน้าหรือเปลี่ยน data มา trigger ส่วนนี้
-        # และเอา reactive.invalidate_later ออกถาวรเพื่อแก้ปัญหา Spinner ค้าง
         with reactive.isolate():
             return ui.HTML("""
                 <div style='text-align: right; font-size: 0.75em; color: #999;'>
