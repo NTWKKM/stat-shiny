@@ -65,7 +65,9 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
+    # ✅ FIX #1: Add completion tracking to prevent race conditions
     is_loading_data = reactive.Value(False)
+    _loading_complete = reactive.Value(0)  # Counter to track completion
 
     # --- 1. Data Loading Logic ---
     @reactive.effect
@@ -175,6 +177,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
+            # ✅ FIX #2: Sequence reactive updates properly
             df.set(new_df)
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
@@ -182,13 +185,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             logger.info(f"✅ Successfully generated {n} records")
             ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
+            
+            # ✅ FIX #3: Mark completion AFTER all reactive updates
+            _loading_complete.set(_loading_complete.get() + 1)
 
         except Exception as e:
             logger.error(f"Error generating example data: {e}")
             ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {e}", type="error")
+            # ✅ FIX #7: Mark completion even on error
+            _loading_complete.set(_loading_complete.get() + 1)
         
         finally:
+            # ✅ FIX #3: Reset loading state last, after completion marker
             is_loading_data.set(False)
 
     @reactive.effect
@@ -212,9 +221,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 new_df = new_df.head(100000)
                 ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
-            df.set(new_df)
-            uploaded_file_info.set({"name": f['name']})
-            
+            # ✅ FIX #5: Build metadata before setting reactive values
             current_meta = var_meta.get() or {}
             
             for col in new_df.columns:
@@ -226,18 +233,28 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                     else:
                          current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
+            # ✅ FIX #2: Sequence updates properly
+            df.set(new_df)
             var_meta.set(current_meta)
+            uploaded_file_info.set({"name": f['name']})
+            
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
+            
+            # ✅ FIX #3: Mark completion after all updates
+            _loading_complete.set(_loading_complete.get() + 1)
             
         except Exception as e:
             logger.error(f"Error: {e}")
             ui.notification_show(f"❌ Error: {str(e)}", type="error")
+            # ✅ FIX #7: Mark completion on error
+            _loading_complete.set(_loading_complete.get() + 1)
         finally:
             is_loading_data.set(False)
 
     @reactive.effect
     @reactive.event(input.btn_reset_all)
     def _():
+        # ✅ FIX #6: Reset all reactive values including completion
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -245,6 +262,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         matched_treatment_col.set(None)
         matched_covariates.set([])
         is_loading_data.set(False)
+        _loading_complete.set(_loading_complete.get() + 1)
         ui.notification_show("All data reset", type="warning")
 
     # --- 2. Metadata Logic ---
@@ -324,27 +342,32 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
-    # --- 3. Render Outputs (แก้ไขส่วนนี้) ---
+    # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
-        """Render data preview table - ใช้ reactive.Calc เพื่อให้ track dependency ถูกต้อง"""
-        # ✅ บังคับให้ track reactive value
+        """
+        ✅ FIX #4: Track completion dependency to ensure proper rendering order
+        This forces the renderer to wait until loading operations complete
+        """
+        # Track completion to ensure we render after all updates propagate
+        _ = _loading_complete.get()
+        
         current_df = df.get()
         loading = is_loading_data.get()
         
-        # แสดง loading indicator
+        # Show loading indicator while data is being processed
         if loading:
             return pd.DataFrame({
                 'Status': ['🔄 Loading data...']
             })
         
-        # แสดง empty state
+        # Show empty state when no data is loaded
         if current_df is None or current_df.empty:
             return pd.DataFrame({
                 'Status': ['📭 No data loaded yet. Click "Load Example Data" or upload a file.']
             })
         
-        # แสดงข้อมูลจริง
+        # Return actual data
         return current_df
 
     @render.ui
