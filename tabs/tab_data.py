@@ -363,13 +363,21 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         - ข้อมูลขนาดใหญ่ render ลื่นไหล
         - ป้องกัน error จากการเปลี่ยนแปลง schema ของ df
         """
-        d = df.get()
+        d = _get_df_for_preview()
+        loading = _get_loading_state()
+
+        if loading:
+            return render.DataTable(
+                pd.DataFrame({"Status": ['📄 Loading data... Please wait...']})
+            )
+
         if d is None or d.empty:
             return render.DataTable(
                 pd.DataFrame(
                     {"Status": ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}
                 )
             )
+
         return render.DataTable(d)
 
     @reactive.Calc
