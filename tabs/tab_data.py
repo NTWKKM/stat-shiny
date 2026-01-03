@@ -350,21 +350,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     @render.data_frame
     def out_df_preview():
-        """Display raw data preview"""
-        # ✅ ใช้ reactive.Value.get() ตามโครงสร้างเดิม
         d = df.get()
-        
-        # ปรับปรุง: ตรวจสอบ d ให้มั่นใจว่าเป็น DataFrame และไม่ว่าง
         if d is None:
-            # คืนค่า DataFrame ที่มี column เปล่าเพื่อหยุด Loading Spinner อย่างสมบูรณ์
-            return render.DataTable(pd.DataFrame(columns=["No Data Available"]))
-        
-        if d.empty:
-            return render.DataTable(pd.DataFrame(columns=["Empty Dataset"]))
-
-        # กำหนดจำนวนแถวที่จะแสดงใน Preview เพื่อลดภาระ Memory (Layer 2 Optimization)
-        # ตามนโยบายคงเดิม แต่เพิ่มความเสถียร
-        return render.DataTable(d, selection_mode="none")
+            # คืนค่า DataFrame เปล่าที่มี columns เพื่อให้ UI หยุดหมุน
+            return render.DataTable(pd.DataFrame(columns=["Status"]), selection_mode="none")
+        return render.DataTable(d)
 
 
     @render.ui
