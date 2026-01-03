@@ -14,3 +14,4 @@ shimmy
 shinywidgets
 requests
 psutil>=5.9.0
+jinja2
