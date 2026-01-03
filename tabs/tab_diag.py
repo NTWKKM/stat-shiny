@@ -257,7 +257,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 ui.h3("🧪 Diagnostic Tests (ROC)"),
                 ui.p(
                     f"{len(d):,} rows | {len(d.columns)} columns",
-                    class_="text-secondary mb-3",
+                    style=f"color: {COLORS['text_secondary']}; margin-bottom: 1rem;",
                 ),
             )
         return ui.h3("🧪 Diagnostic Tests (ROC)")
@@ -266,9 +266,15 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_matched_info():
         if is_matched.get():
             return ui.div(
-                ui.tags.div(
-                    "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info",
+                ui.div(
+                    ui.strong("✅ Matched Dataset Available"),
+                    " - You can select it below for analysis",
+                    style=(
+                        "padding: 10px; border-radius: 6px; "
+                        "background-color: rgba(34,167,101,0.08); "
+                        f"border: 1px solid {COLORS['success']}; "
+                        f"color: {COLORS['success']};"
+                    ),
                 )
             )
         return None
@@ -406,7 +412,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_chi_caption():
         return ui.div(
             ui.markdown("*(Choose method in Tab 5 for guidance)*"),
-            class_="text-secondary text-sm",
+            style=f"font-size: 0.9em; color: {COLORS['text_secondary']};",
         )
 
     def get_pos_label_settings(df_input, col_name):
@@ -429,7 +435,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if not v1_uv:
             return ui.div(
                 ui.markdown(f"⚠️ No values in {v1_col}"),
-                class_="text-error text-sm",
+                style=f"font-size: 0.9em; color: {COLORS['danger']};",
             )
         return ui.input_select(
             "sel_chi_v1_pos",
@@ -446,7 +452,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if not v2_uv:
             return ui.div(
                 ui.markdown(f"⚠️ No values in {v2_col}"),
-                class_="text-error text-sm",
+                style=f"font-size: 0.9em; color: {COLORS['danger']};",
             )
         return ui.input_select(
             "sel_chi_v2_pos",
@@ -459,7 +465,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_chi_note():
         return ui.div(
             ui.markdown("*Select for Risk/OR calculation*"),
-            class_="text-secondary text-sm",
+            style=f"font-size: 0.9em; color: {COLORS['text_secondary']};",
         )
 
     @render.ui
@@ -515,7 +521,12 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if input.sel_kappa_v1() == input.sel_kappa_v2():
             return ui.div(
                 ui.markdown("⚠️ Please select two different columns for Kappa."),
-                class_="alert alert-warning",
+                style=(
+                    "padding: 10px; border-radius: 6px; "
+                    "background-color: rgba(255,185,0,0.08); "
+                    f"border: 1px solid {COLORS['warning']}; "
+                    "color: #000;"
+                ),
             )
         return None
 
@@ -532,12 +543,17 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_roc_status():
         if roc_processing.get():
             return ui.div(
-                ui.tags.div(
+                ui.div(
                     ui.tags.span(
                         class_="spinner-border spinner-border-sm me-2"
                     ),
                     "📄 Generating ROC curve and statistics... Please wait",
-                    class_="alert alert-info",
+                    style=(
+                        "padding: 10px; border-radius: 6px; "
+                        "background-color: rgba(30,58,95,0.08); "
+                        f"border: 1px solid {COLORS['primary']}; "
+                        f"color: {COLORS['primary_dark']};"
+                    ),
                 )
             )
         return None
@@ -546,12 +562,17 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_chi_status():
         if chi_processing.get():
             return ui.div(
-                ui.tags.div(
+                ui.div(
                     ui.tags.span(
                         class_="spinner-border spinner-border-sm me-2"
                     ),
                     "📄 Calculating Chi-Square statistics... Please wait",
-                    class_="alert alert-info",
+                    style=(
+                        "padding: 10px; border-radius: 6px; "
+                        "background-color: rgba(30,58,95,0.08); "
+                        f"border: 1px solid {COLORS['primary']}; "
+                        f"color: {COLORS['primary_dark']};"
+                    ),
                 )
             )
         return None
@@ -560,12 +581,17 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_kappa_status():
         if kappa_processing.get():
             return ui.div(
-                ui.tags.div(
+                ui.div(
                     ui.tags.span(
                         class_="spinner-border spinner-border-sm me-2"
                     ),
                     "📄 Calculating Kappa statistics... Please wait",
-                    class_="alert alert-info",
+                    style=(
+                        "padding: 10px; border-radius: 6px; "
+                        "background-color: rgba(30,58,95,0.08); "
+                        f"border: 1px solid {COLORS['primary']}; "
+                        f"color: {COLORS['primary_dark']};"
+                    ),
                 )
             )
         return None
@@ -574,12 +600,17 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_desc_status():
         if desc_processing.get():
             return ui.div(
-                ui.tags.div(
+                ui.div(
                     ui.tags.span(
                         class_="spinner-border spinner-border-sm me-2"
                     ),
                     "📄 Calculating descriptive statistics... Please wait",
-                    class_="alert alert-info",
+                    style=(
+                        "padding: 10px; border-radius: 6px; "
+                        "background-color: rgba(30,58,95,0.08); "
+                        f"border: 1px solid {COLORS['primary']}; "
+                        f"color: {COLORS['primary_dark']};"
+                    ),
                 )
             )
         return None
@@ -609,8 +640,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
             )
 
             if err:
-               roc_html.set(
-                    f"<div class='alert alert-danger'>📄 Error: {err}</div>"
+                roc_html.set(
+                    f"<div style='padding: 10px; border-radius: 6px; background-color: rgba(231,72,86,0.08); border: 1px solid {COLORS['danger']}; color: {COLORS['danger']};'>📄 Error: {err}</div>"
                 )
             else:
                 rep = [
@@ -666,7 +697,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
             return ui.HTML(roc_html.get())
         return ui.div(
             "Click 'Analyze ROC' to view results.",
-            class_="text-secondary p-3",
+            style=f"color: {COLORS['text_secondary']}; padding: 20px; text-align: center;",
         )
 
     @render.download(filename="roc_report.html")
@@ -740,8 +771,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 )
             else:
                 chi_html.set(
-                f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
-            )
+                    f"<div style='padding: 10px; border-radius: 6px; background-color: rgba(231,72,86,0.08); border: 1px solid {COLORS['danger']}; color: {COLORS['danger']};'>Analysis failed: {msg}</div>"
+                )
 
         finally:
             # Clear processing flag
@@ -752,7 +783,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if chi_html.get():
             return ui.HTML(chi_html.get())
         return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
+            "Results will appear here.",
+            style=f"color: {COLORS['text_secondary']}; padding: 20px; text-align: center;",
         )
 
     @render.download(filename="chi2_report.html")
@@ -775,7 +807,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
             )
             if err:
                 kappa_html.set(
-                    "<div class='alert alert-danger'>{}</div>".format(err)
+                    f"<div style='padding: 10px; border-radius: 6px; background-color: rgba(231,72,86,0.08); border: 1px solid {COLORS['danger']}; color: {COLORS['danger']};'>{err}</div>"
                 )
             else:
                 rep = [
@@ -810,7 +842,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if kappa_html.get():
             return ui.HTML(kappa_html.get())
         return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
+            "Results will appear here.",
+            style=f"color: {COLORS['text_secondary']}; padding: 20px; text-align: center;",
         )
 
     @render.download(filename="kappa_report.html")
@@ -840,9 +873,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 )
             else:
                 desc_html.set(
-                    "<div class='alert alert-danger'>No data available for {}</div>".format(
-                        input.sel_desc_var()
-                    )
+                    f"<div style='padding: 10px; border-radius: 6px; background-color: rgba(231,72,86,0.08); border: 1px solid {COLORS['danger']}; color: {COLORS['danger']};'>No data available for {input.sel_desc_var()}</div>"
                 )
 
         finally:
@@ -854,7 +885,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if desc_html.get():
             return ui.HTML(desc_html.get())
         return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
+            "Results will appear here.",
+            style=f"color: {COLORS['text_secondary']}; padding: 20px; text-align: center;",
         )
 
     @render.download(filename="descriptive_report.html")
