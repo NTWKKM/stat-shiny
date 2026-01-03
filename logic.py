@@ -435,9 +435,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
         if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
             candidates.append(col)
     
-    # Multivariate analysis (with optional interactions)
+    # ===================================================================
+    # 🔗 MULTIVARIATE ANALYSIS WITH INTERACTIONS
+    # ===================================================================
     aor_results = {}
     interaction_results = {}
+    int_meta = {}
     final_n_multi = 0
     mv_metrics_text = ""
     
@@ -453,6 +456,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
     if len(cand_valid) > 0:
         multi_df = pd.DataFrame({'y': y})
         
+        # Add main effects
         for c in cand_valid:
             mode = mode_map.get(c, 'linear')
             if mode == 'categorical':
@@ -465,11 +469,14 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
             else:
                 multi_df[c] = df_aligned[c].apply(clean_numeric_value)
         
-        # Add interaction terms if specified
+        # ✅ Add interaction terms if specified
         if interaction_pairs:
-            from interaction_lib import create_interaction_terms
-            multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
-            logger.info(f"Added {len(int_meta)} interaction terms")
+            try:
+                from interaction_lib import create_interaction_terms
+                multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
+                logger.info(f"✅ Added {len(int_meta)} interaction terms to multivariate model")
+            except Exception as e:
+                logger.error(f"Failed to create interaction terms: {e}")
         
         multi_data = multi_df.dropna()
         final_n_multi = len(multi_data)
@@ -514,12 +521,18 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
                             results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
                             aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
                 
-                # Process interaction effects
-                if interaction_pairs:
-                    from interaction_lib import format_interaction_results
-                    interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'logit')
+                # ✅ Process interaction effects
+                if int_meta:
+                    try:
+                        from interaction_lib import format_interaction_results
+                        interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'logit')
+                        logger.info(f"✅ Formatted {len(interaction_results)} interaction results")
+                    except Exception as e:
+                        logger.error(f"Failed to format interaction results: {e}")
     
-    # Build HTML
+    # ===================================================================
+    # 🎨 BUILD HTML TABLE (WITH INTERACTIONS)
+    # ===================================================================
     html_rows = []
     current_sheet = ""
     valid_cols_for_html = [c for c in sorted_cols if c in results_db]
@@ -583,8 +596,32 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
             <td>{ap_s}</td>
         </tr>""")
     
-    logger.info(f"Logistic analysis complete. Multivariate n={final_n_multi}")
+    # ✅ Add interaction terms to HTML table
+    if interaction_results:
+        html_rows.append(f"<tr class='sheet-header'><td colspan='11'>🔗 Interaction Terms</td></tr>")
+        for int_name, res in interaction_results.items():
+            int_label = res.get('label', int_name)
+            int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
+            int_or = res.get('or_formatted', '-')
+            int_p = fmt_p_with_styling(res.get('p', 1))
+            
+            html_rows.append(f"""<tr style='background-color: #fff9f0;'>
+                <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>{int_coef}</td>
+                <td><b>{int_or}</b></td>
+                <td>Interaction</td>
+                <td>-</td>
+                <td>{int_coef}</td>
+                <td><b>{int_or}</b></td>
+                <td>{int_p}</td>
+            </tr>""")
     
+    logger.info(f"Logistic analysis complete. Multivariate n={final_n_multi}, Interactions={len(interaction_results)}")
+    
+    # Model fit and interaction info
     model_fit_html = ""
     if mv_metrics_text:
         model_fit_html = f"<div style='margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; color: {COLORS['primary_dark']};'><b>Model Fit:</b> {mv_metrics_text}</div>"
@@ -592,8 +629,9 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
     interaction_info = ""
     if interaction_pairs:
         from interaction_lib import interpret_interaction
-        interaction_info = f"<br><b>Interactions:</b> {len(interaction_pairs)} pairs tested"
-        interaction_info += interpret_interaction(interaction_results, 'logit')
+        interaction_info = f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs"
+        if interaction_results:
+            interaction_info += interpret_interaction(interaction_results, 'logit')
     
     html_table = f"""<div id='{outcome_name}' class='table-container'>
     <div class='outcome-title'>Outcome: {outcome_name} (n={total_n})</div>
@@ -677,14 +715,14 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
     html_table, or_res, aor_res, int_res = analyze_outcome(target_outcome, df, var_meta, method=method, interaction_pairs=interaction_pairs)
     plot_html = generate_forest_plot_html(or_res, aor_res)
     
-    # Add interaction table if present
+    # ✅ Add interaction interpretation section
     interaction_html = ""
     if int_res:
         from interaction_lib import generate_interaction_html_table
-        interaction_html = f"<h2 style='color:{COLORS['primary']}'>Interaction Terms Analysis</h2>"
+        interaction_html = f"<h2 style='color:{COLORS['primary']}; margin-top: 30px;'>🔗 Interaction Terms Analysis</h2>"
         interaction_html += generate_interaction_html_table(int_res, 'logit')
     
     full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{interaction_html}{plot_html}"
-    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 stat-shiny</div>"
+    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 stat-shiny</div></body></html>"
     
     return full_html, or_res, aor_res
