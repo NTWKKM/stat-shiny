@@ -1,4 +1,4 @@
-shiny
+shiny>=0.6.0
 pandas
 numpy
 scipy
