@@ -555,6 +555,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     # =========================================================================
     
     @reactive.Effect
+    @reactive.event(input.radio_preset)
     def _apply_psm_presets():
         d = df.get()
         if d is None: return
