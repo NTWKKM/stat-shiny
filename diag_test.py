@@ -917,23 +917,19 @@ def calculate_icc(df, cols):
 def generate_report(title, report_items):
     """
     Generate HTML report from report items (tables, plots, etc).
-    
-    Args:
-        title (str): Report title
-        report_items (list): List of dicts with 'type' and 'data' keys
-                             Types: 'table', 'plot', 'text', 'contingency_table', 'html'
-    
-    Returns:
-        str: HTML report string
+    Styled to match Shiny application theme.
     """
     html_parts = []
     
-    # Define colors from palette for CSS
+    # ดึงสีจาก Palette กลาง เพื่อให้ตรงกับส่วนอื่นของเว็บ
     primary_color = COLORS.get('primary', '#0056b3')
-    primary_dark = '#004085' # Darker shade for contrast
-    bg_light = '#f5f5f5'
+    primary_light = '#e3f2fd' # สีพื้นหลังหัวตารางที่อ่อนลง ให้ดู modern ขึ้น
+    text_dark = '#2c3e50'
+    border_color = '#dee2e6'
+    bg_light = '#f8f9fa'
     
-    # Header
+    # Header & CSS Style
+    # ปรับ CSS ให้ Table ดูเหมือน Bootstrap Table ใน Shiny
     html_parts.append(f"""
     <!DOCTYPE html>
     <html>
@@ -943,82 +939,105 @@ def generate_report(title, report_items):
         <title>{_html.escape(title)}</title>
         <style>
             body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 margin: 20px;
                 background-color: {bg_light};
-                color: #333;
+                color: {text_dark};
+                line-height: 1.5;
             }}
             .container {{
                 max-width: 1200px;
                 margin: 0 auto;
                 background-color: white;
-                padding: 30px;
+                padding: 40px;
                 border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             }}
             h1 {{
                 color: {primary_color};
                 border-bottom: 2px solid {primary_color};
-                padding-bottom: 10px;
+                padding-bottom: 15px;
                 margin-bottom: 30px;
+                font-weight: 600;
             }}
             h2 {{
-                color: {primary_dark};
-                margin-top: 25px;
-                margin-bottom: 15px;
+                color: {text_dark};
+                margin-top: 35px;
+                margin-bottom: 20px;
+                font-size: 1.25rem;
+                font-weight: 600;
+                border-left: 5px solid {primary_color};
+                padding-left: 10px;
             }}
+            /* Table Styling - Mimic Bootstrap */
             table {{
                 width: 100%;
                 border-collapse: collapse;
-                margin: 15px 0;
-                font-size: 0.95em;
+                margin-bottom: 1rem;
+                color: {text_dark};
+                font-size: 0.95rem;
             }}
             th {{
-                background-color: {primary_dark};
+                vertical-align: bottom;
+                border-bottom: 2px solid {border_color};
+                background-color: {primary_color}; /* ใช้สี Primary ของ App */
                 color: white;
                 padding: 12px;
                 text-align: left;
                 font-weight: 600;
             }}
             td {{
-                border: 1px solid #ddd;
-                padding: 10px;
-                text-align: left;
+                padding: 12px;
+                vertical-align: top;
+                border-top: 1px solid {border_color};
             }}
             tr:nth-child(even) {{
-                background-color: #f9f9f9;
+                background-color: rgba(0, 0, 0, 0.02); /* Zebra stripe แบบบางๆ */
             }}
             tr:hover {{
-                background-color: #f0f0f0;
+                background-color: rgba(0, 0, 0, 0.05);
             }}
             .table-wrapper {{
+                display: block;
+                width: 100%;
                 overflow-x: auto;
-                margin: 20px 0;
+                margin-bottom: 20px;
+                border: 1px solid {border_color};
                 border-radius: 4px;
-                border: 1px solid #ddd;
             }}
             .plot-container {{
-                margin: 20px 0;
+                margin: 30px 0;
                 text-align: center;
+                border: 1px solid {border_color};
+                border-radius: 4px;
+                padding: 10px;
+                background: white;
             }}
             .text-section {{
-                margin: 15px 0;
-                padding: 15px;
-                background-color: #f9f9f9;
-                border-left: 4px solid {primary_color};
+                margin: 20px 0;
+                padding: 15px 20px;
+                background-color: #e9ecef;
                 border-radius: 4px;
+                color: {text_dark};
             }}
-            /* Badge Styles for HTML Report */
+            /* Badge Styles */
             span[style*="background-color"] {{
                 display: inline-block !important;
-                padding: 2px 6px !important;
-                border-radius: 4px !important;
+                padding: 4px 8px !important;
+                border-radius: 50rem !important; /* Pill shape */
+                font-weight: 600 !important;
+                font-size: 0.75em !important;
+                line-height: 1 !important;
+                text-align: center;
+                white-space: nowrap;
+                vertical-align: baseline;
             }}
         </style>
     </head>
     <body>
     <div class="container">
         <h1>{_html.escape(title)}</h1>
+        <p style="color: #6c757d; font-size: 0.9em;">Generated by Medical Stat Tool</p>
     """)
     
     # Process items
@@ -1037,7 +1056,7 @@ def generate_report(title, report_items):
                 html_parts.append(f'<h2>{_html.escape(str(header))}</h2>')
                 html_parts.append('<div class="table-wrapper">')
                 # escape=False is CRITICAL for badges to render as HTML
-                html_parts.append(data.to_html(border=0, classes='table', index=False, escape=False))
+                html_parts.append(data.to_html(border=0, classes='table table-striped table-hover', index=False, escape=False))
                 html_parts.append('</div>')
             else:
                 html_parts.append(f'<p>No data available for {_html.escape(str(header))}</p>')
@@ -1047,7 +1066,7 @@ def generate_report(title, report_items):
             if fig is not None:
                 try:
                     # Convert Plotly figure to HTML - use include_plotlyjs='cdn' for proper rendering
-                    plot_html = pio.to_html(fig, include_plotlyjs='cdn', div_id=None)
+                    plot_html = pio.to_html(fig, include_plotlyjs='cdn', div_id=None, full_html=False)
                     html_parts.append(f'<div class="plot-container">{plot_html}</div>')
                     logger.debug(f"Plot rendered successfully")
                 except Exception as e:
