@@ -196,15 +196,13 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @reactive.Effect
     @reactive.event(input.file_upload)
     def load_uploaded_file():
-        logger.info("🔄 User uploaded file")
-        is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
         
         if not file_infos:
-            logger.warning("⚠️ No file selected")
-            is_loading_data.set(False)
             return
         
+        logger.info("🔄 User uploaded file")
+        is_loading_data.set(True)
         f = file_infos[0]
         logger.info(f"📂 Processing file: {f['name']}")
         id_notify = ui.notification_show(f"📂 Loading {f['name']}...", duration=None)
@@ -213,7 +211,8 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
             else:
-                new_df = pd.read_excel(f['datapath'])
+                # ✅ FIX: Added engine='openpyxl' to ensure Excel compatibility
+                new_df = pd.read_excel(f['datapath'], engine='openpyxl')
             
             logger.info(f"📊 Loaded {len(new_df)} rows × {len(new_df.columns)} columns")
             
@@ -247,7 +246,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(input.btn_reset_all)  # ✅ ต้องมี lambda: และ ()
+    @reactive.event(input.btn_reset_all)  # ✅ Fixed event listener
     def reset_all_data():
         logger.info("🔄 Resetting all data")
         df.set(None)
@@ -302,7 +301,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         )
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_save_meta())  # ✅ ต้องมี lambda: และ ()
+    @reactive.event(lambda: input.btn_save_meta())  # ✅ Fixed trigger
     def _save_metadata():
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
@@ -347,20 +346,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     
     @render.data_frame
     def out_df_preview():
-        # Get reactive values - these will trigger re-rendering when they change
+        # Get reactive values
         d = _get_df_for_preview()
         loading = _get_loading_state()
         
-        # Show loading state
+        # ✅ FIX: Handle persistent loading spinner by returning a clear state
         if loading:
-            return pd.DataFrame({'Status': ['📄 Loading data... Please wait...']})
+            return render.DataTable(pd.DataFrame({'Status': ['📄 Loading data... Please wait...']}))
         
-        # Show empty state
         if d is None or d.empty:
-            return pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']})
+            return render.DataTable(pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}))
         
-        # Return actual data
-        return d
+        # ✅ FIX: Use render.DataTable for explicit rendering
+        return render.DataTable(d)
 
     @reactive.Calc
     def _get_matched_state():
@@ -373,7 +371,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input.btn_clear_match())  # ✅ ต้องมี lambda: และ ()
+    @reactive.event(lambda: input.btn_clear_match())  # ✅ Fixed trigger
     def clear_matched_data():
         logger.info("🔄 Clearing matched data")
         df_matched.set(None)
