@@ -406,7 +406,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
     #    cache_key = f"table1_{data_hash}_{hash(tuple(vars_list))}_{group_col}_{or_style}"
     #    
     #    cached_result = COMPUTATION_CACHE.get(cache_key)
-    3    if cached_result:
+    #    if cached_result:
     #        logger.info("Cache hit for Table One generation")
     #        return cached_result
     #except Exception as e:
