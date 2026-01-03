@@ -51,7 +51,7 @@ def data_ui():
         
         ui.card(
             ui.card_header("📄 2. Raw Data Preview"),
-            ui.output_data_frame("out_df_preview"),
+            ui.output_table("out_df_preview"),
             height="600px",
             full_screen=True
         )
@@ -331,7 +331,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    @render.data_frame
+    @render.table  # เปลี่ยน render.data_frame → render.table
     def out_df_preview():
         try:
             d = df.get()
@@ -344,12 +344,13 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             if isinstance(d, pd.DataFrame) and len(d) == 0:
                 return pd.DataFrame({'Status': ['Dataset is empty.']})
 
+            # ✅ ส่งตารางทั้งหมด (render.table จัดการ large dataset ได้)
             return d
 
         except Exception as e:
             logger.error(f"Error rendering preview: {e}", exc_info=True)
             return pd.DataFrame({'Error': [f'Rendering Error: {str(e)}']})
-
+            
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
