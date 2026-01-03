@@ -130,8 +130,10 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
             label = "Overall"
             
         n = len(df_g)
-        # FIXED: Use float() or .sum() correctly for single value comparison
-        events = float(df_g[event_col].sum())
+        
+        # ✅ FIXED: ปรับปรุงการตรวจสอบผลรวมให้ปลอดภัยจาก TypeError
+        event_sum = df_g[event_col].sum()
+        events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
         
         if n > 0:
             kmf = KaplanMeierFitter()
@@ -164,7 +166,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
         results.append({
             "Group": label,
             "N": n,
-            "Events": int(events),
+            "Events": int(float(events_val)),
             "Median Time (95% CI)": display_str
         })
         
@@ -174,9 +176,6 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
 def fit_km_logrank(df, duration_col, event_col, group_col):
     """
     OPTIMIZED: Fit KM curves and perform Log-rank test.
-    
-    Returns:
-        tuple: (plotly_fig, stats_df)
     """
     data = df.dropna(subset=[duration_col, event_col])
     if group_col:
@@ -282,9 +281,6 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
 def fit_nelson_aalen(df, duration_col, event_col, group_col):
     """
     OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
-    
-    Returns:
-        tuple: (plotly_fig, stats_df)
     """
     data = df.dropna(subset=[duration_col, event_col])
     if len(data) == 0:
@@ -342,10 +338,14 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
                 line=dict(color=colors[i % len(colors)], width=2)
             ))
             
+            # ✅ FIXED: ปรับปรุงการคำนวณ N และ Events ให้เสถียร
+            event_sum = df_g[event_col].sum()
+            events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+            
             stats_list.append({
                 'Group': label,
                 'N': len(df_g),
-                'Events': int(df_g[event_col].sum())
+                'Events': int(float(events_val))
             })
 
     fig.update_layout(
@@ -362,9 +362,6 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
 def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     """
     Fit Cox proportional hazards model.
-    
-    Returns:
-        tuple: (cph, res_df, data, error_msg)
     """
     missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
     if missing:
@@ -376,10 +373,19 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     if len(data) == 0:
         return None, None, data, "No valid data after dropping missing values."
 
-    # FIXED: Added .sum() check with explicit float cast to avoid Ambiguous Series error
-    if float(data[event_col].sum()) == 0:
-        logger.error("No events observed")
-        return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
+    # ✅ FIXED: แก้ไข Ambiguous Series error ด้วยการตรวจสอบผลลัพธ์ของ .sum()
+    try:
+        event_sum = data[event_col].sum()
+        event_total = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+        
+        if float(event_total) == 0:
+            logger.error("No events observed")
+            return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
+    except Exception as e:
+        logger.error(f"Error checking event sum: {e}")
+        # Fallback check
+        if not (data[event_col].astype(float) == 1).any():
+             return None, None, data, "No events found in event column."
 
     original_covariate_cols = list(covariate_cols)
     try:
@@ -471,9 +477,6 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
 def check_cph_assumptions(cph, data):
     """
     OPTIMIZED: Generate proportional hazards test report and Schoenfeld residual plots.
-    
-    Returns:
-        tuple: (report_text, list_of_figures)
     """
     try:
         results = proportional_hazard_test(cph, data, time_transform='rank')
@@ -537,9 +540,6 @@ def check_cph_assumptions(cph, data):
 def create_forest_plot_cox(res_df):
     """
     Create publication-quality forest plot of hazard ratios.
-    
-    Returns:
-        plotly_fig
     """
     if res_df is None or res_df.empty:
         logger.error("No Cox regression results")
@@ -566,9 +566,6 @@ def create_forest_plot_cox(res_df):
 def generate_forest_plot_cox_html(res_df):
     """
     Generate HTML snippet with forest plot for Cox regression.
-    
-    Returns:
-        html_string
     """
     if res_df is None or res_df.empty:
         return "<p>No Cox regression results available for forest plot.</p>"
@@ -600,9 +597,6 @@ def generate_forest_plot_cox_html(res_df):
 def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     """
     OPTIMIZED: Perform landmark-time Kaplan-Meier analysis.
-    
-    Returns:
-        tuple: (fig, stats_df, n_pre, n_post, error)
     """
     missing = [c for c in [duration_col, event_col, group_col] if c not in df.columns]
     if missing:
@@ -716,14 +710,10 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
 def generate_report_survival(title, elements):
     """
     Generate complete HTML report with embedded plots and tables.
-    
-    Returns:
-        html_string
     """
     primary_color = COLORS.get('primary', '#2180BE')
     primary_dark = COLORS.get('primary_dark', '#1a5a8a')
     text_color = COLORS.get('text', '#333')
-    danger = COLORS.get('danger', '#d32f2f')
     
     css_style = f"""<style>
         body{{
