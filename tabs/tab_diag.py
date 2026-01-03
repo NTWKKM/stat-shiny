@@ -1,5 +1,4 @@
 from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget
 import pandas as pd
 import numpy as np
 import diag_test
@@ -174,50 +173,50 @@ def diag_ui():
                 "ℹ️ Reference & Interpretation",
                 ui.markdown(
                     """
-                ## 📚 Reference & Interpretation Guide
+                    ## 📚 Reference & Interpretation Guide
 
-                💡 **Tip:** This section provides detailed explanations and interpretation rules for all the diagnostic tests.
+                    💡 **Tip:** This section provides detailed explanations and interpretation rules for all the diagnostic tests.
 
-                ### 🚦 Quick Decision Guide
+                    ### 🚦 Quick Decision Guide
 
-                | **Question** | **Recommended Test** | **Example** |
-                | :--- | :--- | :--- |
-                | My test is a **score** (e.g., 0-100) and I want to see how well it predicts a **disease** (Yes/No)? | **ROC Curve & AUC** | Risk Score vs Diabetes |
-                | I want to find the **best cut-off** value for my test score? | **ROC Curve (Youden Index)** | Finding optimal BP for Hypertension |
-                | Are these two **groups** (e.g., Treatment vs Control) different in outcome (Cured vs Not Cured)? | **Chi-Square** | Drug A vs Placebo on Recovery |
-                | Do two doctors **agree** on the same diagnosis? | **Cohen's Kappa** | Radiologist A vs Radiologist B |
-                | I just want to summarize **one variable** (Mean, Count)? | **Descriptive** | Age distribution |
+                    | **Question** | **Recommended Test** | **Example** |
+                    | :--- | :--- | :--- |
+                    | My test is a **score** (e.g., 0-100) and I want to see how well it predicts a **disease** (Yes/No)? | **ROC Curve & AUC** | Risk Score vs Diabetes |
+                    | I want to find the **best cut-off** value for my test score? | **ROC Curve (Youden Index)** | Finding optimal BP for Hypertension |
+                    | Are these two **groups** (e.g., Treatment vs Control) different in outcome (Cured vs Not Cured)? | **Chi-Square** | Drug A vs Placebo on Recovery |
+                    | Do two doctors **agree** on the same diagnosis? | **Cohen's Kappa** | Radiologist A vs Radiologist B |
+                    | I just want to summarize **one variable** (Mean, Count)? | **Descriptive** | Age distribution |
 
-                ### ⚖️ Interpretation Guidelines
+                    ### ⚖️ Interpretation Guidelines
 
-                #### ROC Curve & AUC
-                - **AUC > 0.9:** Excellent discrimination
-                - **AUC 0.8-0.9:** Good discrimination
-                - **AUC 0.7-0.8:** Fair discrimination
-                - **AUC 0.5-0.7:** Poor discrimination
-                - **AUC = 0.5:** No discrimination (random chance)
-                - **Youden J Index:** Sensitivity + Specificity - 1 (higher is better, max = 1)
+                    #### ROC Curve & AUC
+                    - **AUC > 0.9:** Excellent discrimination
+                    - **AUC 0.8-0.9:** Good discrimination
+                    - **AUC 0.7-0.8:** Fair discrimination
+                    - **AUC 0.5-0.7:** Poor discrimination
+                    - **AUC = 0.5:** No discrimination (random chance)
+                    - **Youden J Index:** Sensitivity + Specificity - 1 (higher is better, max = 1)
 
-                #### Chi-Square Test
-                - **P < 0.05:** Statistically significant association
-                - **Odds Ratio (OR):** If 95% CI doesn't include 1.0, it's significant
-                - **Risk Ratio (RR):** Similar interpretation as OR
-                - Use **Fisher's Exact Test** when expected counts < 5
+                    #### Chi-Square Test
+                    - **P < 0.05:** Statistically significant association
+                    - **Odds Ratio (OR):** If 95% CI doesn't include 1.0, it's significant
+                    - **Risk Ratio (RR):** Similar interpretation as OR
+                    - Use **Fisher's Exact Test** when expected counts < 5
 
-                #### Cohen's Kappa
-                - **Kappa > 0.8:** Almost perfect/excellent agreement
-                - **Kappa 0.6-0.8:** Substantial agreement
-                - **Kappa 0.4-0.6:** Moderate agreement
-                - **Kappa 0.2-0.4:** Fair agreement
-                - **Kappa 0.0-0.2:** Slight agreement
-                - **Kappa < 0:** Poor agreement (worse than chance)
+                    #### Cohen's Kappa
+                    - **Kappa > 0.8:** Almost perfect/excellent agreement
+                    - **Kappa 0.6-0.8:** Substantial agreement
+                    - **Kappa 0.4-0.6:** Moderate agreement
+                    - **Kappa 0.2-0.4:** Fair agreement
+                    - **Kappa 0.0-0.2:** Slight agreement
+                    - **Kappa < 0:** Poor agreement (worse than chance)
 
-                ### 📊 Descriptive Statistics
-                - **Mean:** Average value (affected by outliers)
-                - **Median:** Middle value (robust to outliers)
-                - **SD (Standard Deviation):** Spread of data around mean
-                - **Q1/Q3:** 25th and 75th percentiles
-                """
+                    ### 📊 Descriptive Statistics
+                    - **Mean:** Average value (affected by outliers)
+                    - **Median:** Middle value (robust to outliers)
+                    - **SD (Standard Deviation):** Spread of data around mean
+                    - **Q1/Q3:** 25th and 75th percentiles
+                    """
                 ),
             ),
         ),
@@ -429,8 +428,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if not v1_uv:
             return ui.div(
                 ui.markdown(f"⚠️ No values in {v1_col}"),
-                # class_="text-error text-sm", # 🔴 OLD: Not a standard Bootstrap class
-                class_="text-danger text-sm", # 🟢 NEW: Standard Bootstrap class for error text
+                class_="text-danger text-sm",
             )
         return ui.input_select(
             "sel_chi_v1_pos",
@@ -447,8 +445,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if not v2_uv:
             return ui.div(
                 ui.markdown(f"⚠️ No values in {v2_col}"),
-                # class_="text-error text-sm", # 🔴 OLD
-                class_="text-danger text-sm", # 🟢 NEW
+                class_="text-danger text-sm",
             )
         return ui.input_select(
             "sel_chi_v2_pos",
