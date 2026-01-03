@@ -365,23 +365,21 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         """
         d = _get_df_for_preview()
         loading = _get_loading_state()
-        
-        # State 1: ❌ Loading in progress → Shiny shows spinner + message
+    
+        # State 1: Loading
         if loading:
             return render.DataTable(
-                pd.DataFrame({'Status': ['📄 Loading data... Please wait...']}),
-                selection="none"
+                pd.DataFrame({'Status': ['📄 Loading data... Please wait...']})
             )
-        
-        # State 2: ❌ No data loaded yet → Show helpful message
+    
+        # State 2: Empty state
         if d is None or d.empty:
             return render.DataTable(
-                pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}),
-                selection="none"
+                pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']})
             )
-        
-        # State 3: ✅ Data ready → Display actual dataframe
-        return render.DataTable(d, selection="rows")
+    
+        # State 3: Data ready
+        return render.DataTable(d)
 
     @reactive.Calc
     def _get_matched_state():
