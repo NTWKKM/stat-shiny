@@ -39,7 +39,7 @@ def data_ui():
                 "🛠️ 1. Variable Settings & Labels",
                 ui.layout_columns(
                     ui.div(
-                        ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
+                        ui.input_select("sel_var_edit", "Select Variable:", choices=["Select..."]),
                     ),
                     ui.div(
                         ui.output_ui("ui_var_settings")
@@ -282,7 +282,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return ui.TagList(
             ui.input_radio_buttons(
                 "radio_var_type", 
-                "ประเภทตัวแปร:", 
+                "Variable Type:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
                 selected=current_type, # Set initial value directly
                 inline=True
