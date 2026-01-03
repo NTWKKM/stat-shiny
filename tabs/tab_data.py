@@ -329,16 +329,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
-        d = df.get()
+        # ดึงค่าจาก reactive value
         loading = is_loading_data.get()
+        d = df.get()
         
-        # ✅ FIX: return pandas DataFrame directly
+        # กรณีที่กำลังโหลดข้อมูล (ป้องกัน Spinner ค้าง)
         if loading:
-            return pd.DataFrame({'Status': ['🔄 Loading data...']})
+            return pd.DataFrame({'Status': ['🔄 Loading data... Please wait...']})
         
+        # กรณีที่ยังไม่มีข้อมูลในระบบ
         if d is None or d.empty:
             return pd.DataFrame({'Status': ['📭 No data loaded yet. Click "Load Example Data" or upload a file.']})
         
+        # ส่งคืน DataFrame จริง (แสดงผลเป็นตาราง)
         return d
 
     @render.ui
