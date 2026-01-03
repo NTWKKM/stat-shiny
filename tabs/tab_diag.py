@@ -429,7 +429,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if not v1_uv:
             return ui.div(
                 ui.markdown(f"⚠️ No values in {v1_col}"),
-                class_="text-error text-sm",
+                # class_="text-error text-sm", # 🔴 OLD: Not a standard Bootstrap class
+                class_="text-danger text-sm", # 🟢 NEW: Standard Bootstrap class for error text
             )
         return ui.input_select(
             "sel_chi_v1_pos",
@@ -446,7 +447,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
         if not v2_uv:
             return ui.div(
                 ui.markdown(f"⚠️ No values in {v2_col}"),
-                class_="text-error text-sm",
+                # class_="text-error text-sm", # 🔴 OLD
+                class_="text-danger text-sm", # 🟢 NEW
             )
         return ui.input_select(
             "sel_chi_v2_pos",
@@ -609,10 +611,8 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
             )
 
             if err:
-               roc_html.set(
+                roc_html.set(
                     f"<div class='alert alert-danger'>📄 Error: {err}</div>"
-
-
                 )
             else:
                 rep = [
@@ -744,8 +744,6 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
                 chi_html.set(
                 f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
             )
-
-
 
         finally:
             # Clear processing flag
