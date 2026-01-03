@@ -233,7 +233,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             
             var_meta.set(current_meta)
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
-            logger.info(f"✅ File uploaded: {f['name']} with {len(new_df)} rows")
+            logger.info("✅ File uploaded: %s with %s rows", f['name'], len(new_df))
             
         except Exception as e:
             logger.error(f"Error: {e}")
