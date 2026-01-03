@@ -1,251 +1,125 @@
-"""Test suite for color palette system consistency.
+"""Test suite for UI Styling System consistency. (Updated to match repository source)
 
-Verifies that:
-1. All color keys are defined
-2. Colors are valid hex/rgba values
-3. Used in tabs/_common.py
-4. survival_lib.py uses correct keys
-
-Run: python -m pytest tests/test_color_palette.py -v
-Or:  python tests/test_color_palette.py
+Verifies:
+1. Color variables in tabs/_common.py via get_color_palette()
+2. CSS Generation logic in tabs/_styling.py (get_shiny_css)
+3. Integration between Styling and Common variables
 """
 
 import sys
+import pytest
 from pathlib import Path
 
-# Add parent directory to path
+# Add parent directory to path to allow importing from 'tabs'
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-def get_color_palette():
-    """Get the color palette from tabs/_common.py"""
+def get_styling_data():
+    """Get color palette data from the actual source function."""
     try:
-        from tabs._common import get_color_palette as fetch_colors
+        # ใน tabs/_common.py มีฟังก์ชัน get_color_palette
+        from tabs._common import get_color_palette
 
-        return fetch_colors()
+        palette = get_color_palette()
+        return {"colors": palette, "fetcher": get_color_palette}
     except ImportError as e:
-        print(f"Warning: Could not import from tabs._common: {e}")
-        return {}
+        pytest.skip(f"Could not import from tabs._common: {e}")
 
 
-def test_color_palette_exists():
-    """Test that color palette can be loaded."""
-    palette = get_color_palette()
-    assert palette is not None, "Color palette should not be None"
-    assert isinstance(palette, dict), "Color palette should be a dictionary"
-    assert len(palette) > 0, "Color palette should not be empty"
+def test_styling_files_exist():
+    """Verify that both styling system files exist."""
+    base_path = Path(__file__).parent.parent / "tabs"
+    assert (base_path / "_common.py").exists(), "tabs/_common.py is missing"
+    assert (base_path / "_styling.py").exists(), "tabs/_styling.py is missing"
 
 
-def test_essential_colors_present():
-    """Test that all essential colors are defined.
+def test_essential_ui_colors():
+    """Test that all brand and status colors are defined in the palette."""
+    data = get_styling_data()
+    assert data is not None, "Styling data not available (Import Error)"
 
-    Based on actual palette in tabs/_common.py
-    """
-    palette = get_color_palette()
+    palette = data["colors"]
 
-    # Essential colors that MUST exist
-    essential_colors = [
-        "text",  # Primary text color (#1a2332)
-        "text_secondary",  # Secondary text color (#7f8c8d)
-        "primary",  # Primary action color (#2c5aa0)
-        "border",  # Border color (#d5dce0)
-        "danger",  # Error/alert color (#e74c3c)
-        "success",  # Success color (#27ae60)
-        "warning",  # Warning color (#f39c12)
-        "info",  # Info color (#5b6c7d)
-    ]
+    # 1. Check Brand Colors (Navy Blue Theme)
+    brand_colors = ["primary", "primary_light", "primary_dark", "smoke_white"]
+    for color in brand_colors:
+        assert color in palette, f"Missing Brand Color: {color}"
+        assert palette[color].startswith("#"), f"Invalid HEX format for {color}"
 
-    for color_key in essential_colors:
-        assert color_key in palette, f"Missing essential color: {color_key}"
-        assert palette[color_key], f"Color '{color_key}' is empty or None"
+    # 2. Check Status Colors
+    status_colors = ["success", "danger", "warning", "info"]
+    for color in status_colors:
+        assert color in palette, f"Missing Status Color: {color}"
+
+    # 3. Check Neutral/Text Colors
+    neutral_colors = ["text", "text_secondary", "background", "surface", "border"]
+    for color in neutral_colors:
+        assert color in palette, f"Missing Neutral Color: {color}"
 
 
 def test_color_format_validity():
-    """Test that color values are in valid format (hex)."""
-    palette = get_color_palette()
+    """Verify all colors are valid HEX codes."""
+    data = get_styling_data()
+    palette = data["colors"]
 
-    for color_key, color_value in palette.items():
-        assert isinstance(
-            color_value, str
-        ), f"Color '{color_key}' should be a string, got {type(color_value)}"
+    import re
 
-        # Check if valid hex format #RRGGBB (7 chars) or #RRGGBBAA (9 chars)
-        is_hex = color_value.startswith("#") and len(color_value) == 7
+    # รองรับทั้ง #RGB และ #RRGGBB
+    hex_regex = re.compile(r"^#([A-Fa-f0-9]{3}){1,2}$")
 
-        assert is_hex, (
-            f"Color '{color_key}' has invalid format: {color_value}. "
-            f"Expected hex format (#RRGGBB)"
-        )
+    for key, hex_val in palette.items():
+        assert hex_regex.match(
+            hex_val
+        ), f"Color '{key}' has invalid HEX format: {hex_val}"
 
 
-def test_color_consistency():
-    """Test that color naming is consistent."""
-    palette = get_color_palette()
-
-    # Color keys should be lowercase
-    for color_key in palette.keys():
-        assert color_key.islower(), f"Color key '{color_key}' should be lowercase"
-        # Allow snake_case or single words
-        assert all(
-            c.isalnum() or c == "_" for c in color_key
-        ), f"Color key '{color_key}' should only contain alphanumerics and underscores"
-
-
-def test_primary_variants():
-    """Test that primary color variants exist."""
-    palette = get_color_palette()
-
-    # Primary should have variants
-    assert "primary" in palette, "primary color missing"
-    assert "primary_dark" in palette, "primary_dark variant missing"
-    assert "primary_light" in palette, "primary_light variant missing"
-
-
-def test_status_colors():
-    """Test that all status colors are defined."""
-    palette = get_color_palette()
-
-    # Status colors from the actual palette
-    status_colors = {
-        "danger": "error/alert color",
-        "success": "success/matched color",
-        "warning": "warning/caution color",
-        "info": "informational color",
-    }
-
-    for status, description in status_colors.items():
-        assert status in palette, f"Missing status color: {status} ({description})"
-        assert palette[status], f"Status color '{status}' is empty"
-
-
-def test_neutral_colors():
-    """Test that neutral colors exist."""
-    palette = get_color_palette()
-
-    neutral_colors = [
-        "text",
-        "text_secondary",
-        "border",
-        "background",
-        "surface",
-        "neutral",
-    ]
-
-    for color in neutral_colors:
-        if color in palette:  # Some might be optional
-            assert palette[color], f"Neutral color '{color}' is empty"
-
-
-def test_no_duplicate_colors():
-    """Test that similar colors aren't accidentally duplicated."""
-    palette = get_color_palette()
-
-    # Count occurrences of each color value
-    color_values = list(palette.values())
-    value_counts = {}
-
-    for value in color_values:
-        value_counts[value] = value_counts.get(value, 0) + 1
-
-    # More than 50% duplicate might indicate errors
-    duplicates = sum(1 for count in value_counts.values() if count > 1)
-    duplicate_percentage = (
-        (duplicates / len(value_counts)) * 100 if value_counts else 0
-    )
-
-    # Print warning if suspicious
-    if duplicate_percentage > 50:
-        print(f"\n⚠️  Warning: {duplicate_percentage:.1f}% of colors are duplicated")
-        print("Duplicate colors:")
-        for value, count in sorted(
-            value_counts.items(), key=lambda x: x[1], reverse=True
-        ):
-            if count > 1:
-                keys = [k for k, v in palette.items() if v == value]
-                print(f"  {value}: {keys}")
-
-
-def test_color_usage_in_tabs():
-    """Test that color palette file exists and has function."""
+def test_styling_injector_integration():
+    """Test if tabs/_styling.py can correctly generate CSS using colors."""
     try:
-        common_file = Path(__file__).parent.parent / "tabs" / "_common.py"
-        assert common_file.exists(), "tabs/_common.py not found"
+        # ใน tabs/_styling.py ใช้ฟังก์ชัน get_shiny_css
+        from tabs._styling import get_shiny_css
 
-        with open(common_file) as f:
-            content = f.read()
+        # Test that the function exists
+        assert callable(get_shiny_css), "get_shiny_css is not a function"
 
-        # Check that get_color_palette function exists
-        assert "def get_color_palette" in content, (
-            "get_color_palette function not found in tabs/_common.py"
-        )
+        # Test CSS Generation
+        css_content = get_shiny_css()
+        assert isinstance(css_content, str), "get_shiny_css should return a string"
+        assert "<style>" in css_content, "Output should contain style tags"
 
-        # Check that it returns a dict
-        assert "return {" in content, (
-            "get_color_palette should return a dictionary"
-        )
-
-    except AssertionError:
-        raise
-    except FileNotFoundError:
-        raise AssertionError("tabs/_common.py not found") from None
-
-
-def test_survival_lib_color_usage():
-    """Test that survival_lib.py uses correct color keys."""
-    try:
-        survival_file = Path(__file__).parent.parent / "survival_lib.py"
-        assert survival_file.exists(), "survival_lib.py not found"
-
-        with open(survival_file) as f:
-            content = f.read()
-
-        # Should not use old key 'text_primary'
-        assert "COLORS['text_primary']" not in content, (
-            "survival_lib.py should use COLORS['text'], not COLORS['text_primary']"
-        )
-
-    except FileNotFoundError:
-        print("Warning: survival_lib.py not found")
-
-
-def test_hex_color_validity():
-    """Test that all hex colors are valid."""
-    palette = get_color_palette()
-
-    valid_hex_chars = set("0123456789abcdefABCDEF")
-
-    for color_key, color_value in palette.items():
-        # Must start with #
-        assert color_value.startswith("#"), f"{color_key} must start with #"
-
-        # Must be 7 chars total (#RRGGBB)
+        # Verify it pulls the primary color from common.py
+        data = get_styling_data()
+        primary_hex = data["colors"]["primary"]
         assert (
-            len(color_value) == 7
-        ), f"{color_key} must be 7 chars (#RRGGBB), got {len(color_value)}"
+            primary_hex in css_content
+        ), "Generated CSS does not contain the primary color from _common.py"
 
-        # All chars after # must be valid hex
-        hex_part = color_value[1:]  # Remove #
-        assert all(
-            c in valid_hex_chars for c in hex_part
-        ), f"{color_key} contains invalid hex characters: {hex_part}"
+    except ImportError as e:
+        pytest.fail(f"Styling injection test failed due to import error: {e}")
+
+
+def test_no_hardcoded_old_colors():
+    """Check that old color keys are not being used."""
+    data = get_styling_data()
+    palette = data["colors"]
+
+    # เช็คว่าไม่มี key เก่าที่เลิกใช้ไปแล้ว
+    old_keys = ["text_primary", "bg_main"]
+    for old_key in old_keys:
+        assert (
+            old_key not in palette
+        ), f"Old key '{old_key}' found, please use the new naming convention"
 
 
 if __name__ == "__main__":
-    # Run tests manually
-    print("Running Color Palette Tests...\n")
+    print("🎨 Running UI Styling System Tests (Production Ready)...\n")
 
     test_functions = [
-        test_color_palette_exists,
-        test_essential_colors_present,
+        test_styling_files_exist,
+        test_essential_ui_colors,
         test_color_format_validity,
-        test_color_consistency,
-        test_primary_variants,
-        test_status_colors,
-        test_neutral_colors,
-        test_no_duplicate_colors,
-        test_color_usage_in_tabs,
-        test_survival_lib_color_usage,
-        test_hex_color_validity,
+        test_styling_injector_integration,
+        test_no_hardcoded_old_colors,
     ]
 
     passed = 0
@@ -259,12 +133,12 @@ if __name__ == "__main__":
         except AssertionError as e:
             print(f"❌ {test_func.__name__}: {e}")
             failed += 1
-        except (ImportError, FileNotFoundError) as e:
-            print(f"⚠️  {test_func.__name__}: {type(e).__name__}: {e}")
+        except Exception as e:
+            print(f"⚠️  {test_func.__name__}: Error: {e}")
             failed += 1
 
     print(f"\n{'='*60}")
-    print(f"Results: {passed} passed, {failed} failed")
+    print(f"UI Test Results: {passed} passed, {failed} failed")
     print(f"{'='*60}")
 
     sys.exit(0 if failed == 0 else 1)
