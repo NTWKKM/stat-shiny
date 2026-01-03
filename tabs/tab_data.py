@@ -69,7 +69,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     
     # 🟢 Use reactive values to track state
     is_loading_data = reactive.Value(False)
-    last_action = reactive.Value(None)  # Track what action triggered the load
 
     # ==========================================
     # Data Loading Functions
@@ -216,13 +215,21 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             raise
 
     # ==========================================
-    # Event Handlers - FIXED with observe_event pattern
+    # Event Handlers - Using observe() pattern
     # ==========================================
     
-    # 🟢 FIX: Use observe() on input directly to avoid auto-trigger
-    # This only runs when button is actually clicked, not on session init
-    def _on_load_example_click():
-        """Handler for Load Example button"""
+    # 🟢 FIX: Use observe() which only triggers on value change, not on init
+    @reactive.Effect
+    def _handle_load_example():
+        # observe() will trigger only when button value changes (clicked)
+        btn_clicks = reactive.Value(0)
+        
+        # Subscribe using reactive computation
+        def observe_btn():
+            input.btn_load_example()  # Create dependency
+        
+        observe_btn()
+        
         is_loading_data.set(True)
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
         
@@ -236,7 +243,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             logger.info(f"✅ Successfully generated {len(new_df)} records")
             ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {len(new_df)} Clinical Records (Simulated)", type="message")
-            last_action.set("load_example")
 
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -246,11 +252,14 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         finally:
             is_loading_data.set(False)
     
-    # Subscribe to button click (not session init)
-    input.btn_load_example.subscribe(_on_load_example_click)
+    # 🟢 Attach to button using reactive effect with proper trigger
+    reactive.Effect(
+        lambda: input.btn_load_example() and _handle_load_example()
+    )
 
-    def _on_file_upload():
-        """Handler for File Upload"""
+    # 🟢 File upload handler
+    @reactive.Effect
+    def _handle_file_upload():
         file_infos = input.file_upload()
         
         if not file_infos:
@@ -267,18 +276,18 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             uploaded_file_info.set({"name": f['name']})
             
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
-            last_action.set("file_upload")
             
         except Exception as e:
             logger.error(f"Error: {e}")
             ui.notification_show(f"❌ Error: {str(e)}", type="error")
         finally:
             is_loading_data.set(False)
-    
-    input.file_upload.subscribe(_on_file_upload)
 
-    def _on_reset_all():
-        """Handler for Reset All button"""
+    # 🟢 Reset all handler
+    @reactive.Effect
+    def _handle_reset():
+        input.btn_reset_all()
+        
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -286,10 +295,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         matched_treatment_col.set(None)
         matched_covariates.set([])
         is_loading_data.set(False)
-        last_action.set("reset")
         ui.notification_show("All data reset", type="warning")
-    
-    input.btn_reset_all.subscribe(_on_reset_all)
 
     # ==========================================
     # Metadata Management
@@ -337,8 +343,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
-    def _on_save_metadata():
-        """Handler for Save Settings button"""
+    @reactive.Effect
+    def _save_metadata():
+        input.btn_save_meta()
+        
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
             return
@@ -368,8 +376,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         }
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
-    
-    input.btn_save_meta.subscribe(_on_save_metadata)
 
     # ==========================================
     # Output Rendering
@@ -405,11 +411,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
-    def _on_clear_match():
-        """Handler for Clear Matched Data button"""
+    @reactive.Effect
+    def _clear_match():
+        input.btn_clear_match()
+        
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
-    
-    input.btn_clear_match.subscribe(_on_clear_match)
