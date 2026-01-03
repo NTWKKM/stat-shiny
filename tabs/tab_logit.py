@@ -410,10 +410,27 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         row_count = len(d) if d is not None else 0
         return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
 
-    # ✅ NEW: Poisson dataset selector (reuse logic)
+    # ✅ FIX: Duplicate logic instead of calling renderer
     @render.ui
     def ui_dataset_selector_poisson():
-        return ui_dataset_selector()
+        if is_matched.get():
+            original = df.get()
+            matched = df_matched.get()
+            original_len = len(original) if original is not None else 0
+            matched_len = len(matched) if matched is not None else 0
+            return ui.input_radio_buttons(
+                "radio_dataset_source",
+                "📊 Select Dataset:",
+                {
+                    "original": f"📊 Original ({original_len})",
+                    "matched": f"✅ Matched ({matched_len})"
+                },
+                selected="matched",
+                inline=True
+            )
+        d = df.get()
+        row_count = len(d) if d is not None else 0
+        return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
 
     # --- Dynamic Input Updates ---
     @reactive.Effect
