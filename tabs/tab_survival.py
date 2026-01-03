@@ -303,14 +303,28 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
             if default_event == "Select..." and cols:
                 default_event = cols[0]
+                
+            # 3. Detect compare Variables (ตามลำดับความสำคัญใน event_keywords)
+            compare_keywords = ['treatment', 'group', 'comorbid', 'lab', 'diag', 'sex', 'age']
+            default_compare = "Select..."
             
+            for kw in compare_keywords:
+                matched = [c for c in cols if kw in c.lower()]
+                if matched:
+                    default_compare = matched[0]
+                    break
+            
+            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
+            if default_compare == "Select..." and cols:
+                default_compare = cols[0]
+                
             # KM Curves
             ui.update_select("surv_time", choices=numeric_cols, selected=default_time)
             ui.update_select("surv_event", choices=cols, selected=default_event)
             ui.update_select("surv_group", choices=["None"] + cols)
             
             # Landmark Analysis
-            ui.update_select("landmark_group", choices=cols)
+            ui.update_select("landmark_group", choices=cols, selected=default_compare)
             
             # Cox Regression
             ui.update_checkbox_group("cox_covariates", choices=cols)
