@@ -12,12 +12,17 @@ import warnings
 import html
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+
+# Fetch palette and extend for local needs
+_PALETTE = get_color_palette()
 COLORS = {
-    'primary': '#2180BE',
-    'primary_dark': '#1a5a8a',
-    'danger': '#d32f2f',
+    'primary': _PALETTE.get('primary', '#2180BE'),
+    # Create a darker shade if not provided, or fallback to a default
+    'primary_dark': _PALETTE.get('primary_dark', '#1a5a8a'), 
+    'danger': _PALETTE.get('danger', '#d32f2f'),
     'text_secondary': '#666',
     'border': '#e0e0e0'
 }
