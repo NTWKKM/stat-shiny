@@ -10,17 +10,17 @@ logger = get_logger(__name__)
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    # ไม่ต้องสร้าง ns() เองแล้ว ใช้ ID ชื่อตรงๆ ได้เลย
     return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("MENU"),
                 ui.h5("1. Data Management"),
                 
-                # ใช้ ID ตรงๆ (Shiny จะแปลงเป็น "data-btn_load_example" ให้เอง)
+                # 🟢 Load Example Data Button
                 ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
                 ui.br(), ui.br(),
                 
+                # 🟢 File Upload
                 ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
                 
                 ui.hr(),
@@ -41,7 +41,6 @@ def data_ui():
                             ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
                         ),
                         ui.div(
-                            # ใช้ Server-side rendering แทน ui.panel_conditional เพื่อเลี่ยงปัญหา ID ใน JS
                             ui.output_ui("ui_var_settings")
                         ),
                         col_widths=(4, 8)
@@ -53,10 +52,10 @@ def data_ui():
 
             ui.br(),
             
-            # --- ส่วน Raw Data Preview ---
+            # --- ส่วน Raw Data Preview with Loading State ---
             ui.card(
                 ui.card_header("📄 2. Raw Data Preview"),
-                ui.output_data_frame("out_df_preview"),
+                ui.output_ui("ui_preview_container"),
                 height="600px",
                 full_screen=True
             )
@@ -68,18 +67,16 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # ไม่ต้องประกาศ ns = session.ns
-    # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
-    
+    # 🟢 FIX: Use reactive.Value instead of mutable flag
     is_loading_data = reactive.Value(False)
 
-    # --- 1. Data Loading Logic ---
-    @reactive.Effect
-    @reactive.event(lambda: input.btn_load_example()) 
-    def _():
+    # ==========================================
+    # Data Loading Functions
+    # ==========================================
+    
+    def _load_example_data():
+        """Generate example clinical data"""
         logger.info("Generating example data...")
-        is_loading_data.set(True)
-        id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
         
         try:
             np.random.seed(42)
@@ -181,34 +178,16 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            df.set(new_df)
-            var_meta.set(meta)
-            uploaded_file_info.set({"name": "Example Clinical Data"})
+            return new_df, meta
             
-            logger.info(f"✅ Successfully generated {n} records")
-            ui.notification_remove(id_notify)
-            ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
-
         except Exception as e:
             logger.error(f"Error generating example data: {e}")
-            ui.notification_remove(id_notify)
-            ui.notification_show(f"❌ Error: {e}", type="error")
-        
-        finally:
-            is_loading_data.set(False)
+            raise
 
-    @reactive.Effect
-    @reactive.event(lambda: input.file_upload()) 
-    def _():
-        is_loading_data.set(True)
-        file_infos: list[FileInfo] = input.file_upload()
-        
-        if not file_infos:
-            is_loading_data.set(False)
-            return
-        
-        f = file_infos[0]
+    def _load_file_data(file_info: FileInfo):
+        """Load data from uploaded file"""
         try:
+            f = file_info
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
             else:
@@ -218,21 +197,73 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 new_df = new_df.head(100000)
                 ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
-            df.set(new_df)
-            uploaded_file_info.set({"name": f['name']})
-            
-            current_meta = var_meta.get() or {}
+            # Auto-detect metadata
+            current_meta = {}
             
             for col in new_df.columns:
-                if col not in current_meta:
-                    unique_vals = new_df[col].dropna().unique()
-                    is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
-                    if is_numeric and len(unique_vals) > 10:
-                         current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
-                    else:
-                         current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
+                unique_vals = new_df[col].dropna().unique()
+                is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
+                if is_numeric and len(unique_vals) > 10:
+                    current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
+                else:
+                    current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
+            return new_df, current_meta
+            
+        except Exception as e:
+            logger.error(f"Error loading file: {e}")
+            raise
+
+    # ==========================================
+    # Event Handlers - FIXED VERSION
+    # ==========================================
+    
+    # 🟢 FIX: Use observable() instead of reactive.Effect + reactive.event() pattern
+    @reactive.Effect
+    def _handle_load_example():
+        # Check if button was clicked
+        input.btn_load_example()  # This creates the dependency
+        
+        is_loading_data.set(True)
+        id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
+        
+        try:
+            new_df, meta = _load_example_data()
+            
+            df.set(new_df)
+            var_meta.set(meta)
+            uploaded_file_info.set({"name": "Example Clinical Data"})
+            
+            logger.info(f"✅ Successfully generated {len(new_df)} records")
+            ui.notification_remove(id_notify)
+            ui.notification_show(f"✅ Loaded {len(new_df)} Clinical Records (Simulated)", type="message")
+
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            ui.notification_remove(id_notify)
+            ui.notification_show(f"❌ Error: {e}", type="error")
+        
+        finally:
+            is_loading_data.set(False)
+
+    @reactive.Effect
+    def _handle_file_upload():
+        # Check if file was uploaded
+        file_infos = input.file_upload()
+        
+        if not file_infos:
+            return
+        
+        is_loading_data.set(True)
+        
+        try:
+            f = file_infos[0]
+            new_df, current_meta = _load_file_data(f)
+            
+            df.set(new_df)
             var_meta.set(current_meta)
+            uploaded_file_info.set({"name": f['name']})
+            
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
             
         except Exception as e:
@@ -242,8 +273,9 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_reset_all())
-    def _():
+    def _handle_reset():
+        input.btn_reset_all()  # Create dependency
+        
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -253,17 +285,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Metadata Logic (Simplified with Dynamic UI) ---
+    # ==========================================
+    # Metadata Management
+    # ==========================================
     
-    # Update Dropdown list
+    # Update Dropdown list when df changes
     @reactive.Effect
-    def _update_var_select() -> None:
+    def _update_var_select():
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
 
-    # Render Settings UI dynamically when a variable is selected
+    # Render Settings UI dynamically
     @render.ui
     def ui_var_settings():
         var_name = input.sel_var_edit()
@@ -271,7 +305,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if not var_name or var_name == "Select...":
             return None
             
-        # Retrieve current meta
         meta = var_meta.get()
         current_type = 'Continuous'
         map_str = ""
@@ -286,23 +319,25 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 "radio_var_type", 
                 "ประเภทตัวแปร:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
-                selected=current_type, # Set initial value directly
+                selected=current_type,
                 inline=True
             ),
             ui.input_text_area(
                 "txt_var_map", 
                 "Value Labels (Format: 0=No, 1=Yes)", 
-                value=map_str, # Set initial value directly
+                value=map_str,
                 height="100px"
             ),
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_save_meta())
     def _save_metadata():
+        input.btn_save_meta()  # Create dependency
+        
         var_name = input.sel_var_edit()
-        if var_name == "Select...": return
+        if var_name == "Select...": 
+            return
         
         new_map = {}
         map_input = input.txt_var_map()
@@ -330,25 +365,43 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
-    # --- 3. Render Outputs ---
-    @render.data_frame
-    def out_df_preview():
-        d = df.get()
-        if d is None:
-            return render.DataTable(pd.DataFrame({'Status': ['🔄 No data loaded yet.']}), width="100%")
+    # ==========================================
+    # Output Rendering - FIXED VERSION
+    # ==========================================
+
+    # 🟢 FIX: Add loading state UI container
+    @render.ui
+    def ui_preview_container():
+        # Create explicit dependency on is_loading_data
+        loading = is_loading_data.get()
+        data = df.get()
         
-        return render.DataTable(d, width="100%", filters=False)
+        if loading:
+            return ui.div(
+                ui.spinner("Loading data..."),
+                style="display: flex; justify-content: center; align-items: center; height: 400px;"
+            )
+        
+        # If no data, show placeholder
+        if data is None:
+            return ui.div(
+                ui.p("📥 Load example data or upload a file to get started.", style="color: #999; text-align: center;"),
+                style="display: flex; justify-content: center; align-items: center; height: 400px;"
+            )
+        
+        # Show data preview
+        return render.DataTable(data, width="100%", filters=False)
 
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
-             # ใน Module Context ไม่ต้องใส่ ns() เอง
-             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
+            return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input.btn_clear_match())
-    def _():
+    def _clear_match():
+        input.btn_clear_match()  # Create dependency
+        
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
