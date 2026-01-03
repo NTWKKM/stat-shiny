@@ -329,14 +329,28 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
-        d = df.get()
-        if d is None:
-            # Return a simple placeholder DataFrame to stop loading spinner
-            # แก้ไข: ส่งคืน DataFrame โดยตรง ไม่ต้องผ่าน render.DataTable
-            return pd.DataFrame({'Status': ['Waiting for data to be loaded...']})
-        
-        # แก้ไข: ส่งคืน DataFrame โดยตรง ซึ่งเป็นสิ่งที่ @render.data_frame คาดหวัง
-        return d
+        try:
+            d = df.get()
+            if d is None:
+                # แก้ไข: กรณีไม่มีข้อมูล ให้ส่งคืน Empty DataFrame ผ่าน render.DataTable
+                # เพื่อหยุด Loading Spinner และแสดงตารางเปล่าพร้อมข้อความ
+                return render.DataTable(
+                    pd.DataFrame({'Status': ['Waiting for data to be loaded...']}),
+                    width="100%", 
+                    filters=False,
+                    selection_mode="none"
+                )
+            
+            # แก้ไข: ห่อหุ้มด้วย render.DataTable เพื่อความเสถียรในการ Render
+            return render.DataTable(d, width="100%", filters=True)
+            
+        except Exception as e:
+            # กรณีเกิด Error ภายใน Render ให้แสดง Error เป็นตาราง
+            logger.error(f"Error rendering preview: {e}")
+            return render.DataTable(
+                pd.DataFrame({'Error': [f'Error: {str(e)}']}), 
+                width="100%"
+            )
 
     @render.ui
     def ui_btn_clear_match():
