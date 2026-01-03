@@ -1,5 +1,5 @@
 """
-📈 Correlation & ICC Analysis Module (Shiny)
+📈 Correlation & ICC Analysis Module (Shiny) - FIXED
 
 Provides UI and server logic for:
 - Pearson/Spearman correlation analysis with scatter plots
@@ -7,7 +7,8 @@ Provides UI and server logic for:
 - Interactive reporting and HTML export
 """
 
-from shiny import ui, reactive, render, Session
+from shiny import ui, reactive, render, req
+from shiny.session import get_current_session  # Import เพื่อดึง session ปัจจุบัน
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
@@ -21,14 +22,6 @@ logger = get_logger(__name__)
 def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> tuple:
     """
     Choose between original and matched datasets for correlation analysis.
-    
-    Args:
-        df: Original dataset
-        df_matched: Reactive value containing matched data
-        is_matched: Reactive value indicating if matching has been done
-        
-    Returns:
-        Tuple of (selected_dataframe, label_string)
     """
     if is_matched.get() and df_matched.get() is not None:
         return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
@@ -39,36 +32,23 @@ def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, i
 def _auto_detect_icc_vars(cols: list) -> list:
     """
     Auto-detect ICC/Rater variables based on column name patterns.
-    Looks for patterns like 'ICC_', 'Rater', 'Rater1', 'Rater2', etc.
-    
-    Args:
-        cols: List of column names
-        
-    Returns:
-        List of auto-detected ICC/Rater variable names
     """
     icc_patterns = ['icc', 'rater', 'method', 'observer', 'judge']
     detected = []
-    
+
     for col in cols:
         col_lower = col.lower()
         for pattern in icc_patterns:
             if pattern in col_lower:
                 detected.append(col)
                 break
-    
+
     return detected
 
 
 def corr_ui(namespace: str) -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
-    
-    Args:
-        namespace: Shiny module namespace ID
-        
-    Returns:
-        UI elements for the correlation tab
     """
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
@@ -76,13 +56,13 @@ def corr_ui(namespace: str) -> ui.TagChild:
             "📈 Pearson/Spearman",
             ui.card(
                 ui.card_header("📈 Continuous Correlation Analysis"),
-                
+
                 ui.layout_columns(
                     ui.input_select(
                         f"{namespace}_coeff_type",
                         "Correlation Coefficient:",
-                        choices={"Pearson": "Pearson", "Spearman": "Spearman"},
-                        selected="Pearson"
+                        choices={"pearson": "Pearson", "spearman": "Spearman"},
+                        selected="pearson"
                     ),
                     ui.input_select(
                         f"{namespace}_cv1",
@@ -96,7 +76,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     ),
                     col_widths=[3, 4, 4]
                 ),
-                
+
                 ui.layout_columns(
                     ui.input_action_button(
                         f"{namespace}_btn_run_corr",
@@ -112,21 +92,21 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     ),
                     col_widths=[6, 6]
                 ),
-                
+
                 ui.output_ui(f"{namespace}_out_corr_result"),
-                
+
                 full_screen=True
             )
         ),
-        
+
         # TAB 2: ICC (Reliability)
         ui.nav_panel(
             "📍 Reliability (ICC)",
             ui.card(
                 ui.card_header("📍 Intraclass Correlation Coefficient"),
-                
+
                 ui.output_ui(f"{namespace}_out_icc_note"),
-                
+
                 ui.input_selectize(
                     f"{namespace}_icc_vars",
                     "Select Variables (Raters/Methods) - Select 2+:",
@@ -134,7 +114,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     multiple=True,
                     selected=[]
                 ),
-                
+
                 ui.layout_columns(
                     ui.input_action_button(
                         f"{namespace}_btn_run_icc",
@@ -150,19 +130,19 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     ),
                     col_widths=[6, 6]
                 ),
-                
+
                 ui.output_ui(f"{namespace}_out_icc_result"),
-                
+
                 full_screen=True
             )
         ),
-        
+
         # TAB 3: Reference & Interpretation
         ui.nav_panel(
             "ℹ️ Reference",
             ui.card(
                 ui.card_header("📚 Reference & Interpretation Guide"),
-                
+
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("📈 Correlation (Relationship)"),
@@ -209,7 +189,7 @@ raters/methods** measuring the same thing.
                     ),
                     col_widths=[6, 6]
                 ),
-                
+
                 ui.card(
                     ui.card_header("📝 Common Questions"),
                     ui.markdown("""
@@ -225,7 +205,7 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
 * **A:** At least 2 (to compare two raters/methods). More raters = more reliable ICC.
                     """)
                 ),
-                
+
                 full_screen=True
             )
         )
@@ -236,25 +216,32 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
                 df_matched: reactive.Value, is_matched: reactive.Value):
     """
     Server logic for correlation analysis module.
-    
-    Args:
-        namespace: Module namespace ID
-        df: Reactive value with original dataframe
-        var_meta: Reactive value with variable metadata
-        df_matched: Reactive value with matched dataframe
-        is_matched: Reactive value indicating if matching completed
     """
-    
+    # === FIX: Get session and input manually ===
+    session = get_current_session()
+    input = session.input
+
     COLORS = get_color_palette()
+
+    # ==================== FIX: HELPER FOR NAMESPACE OUTPUTS ====================
+    # Shiny decorators use function name as ID. Since we use dynamic namespace,
+    # we need to manually set the function name before decorating.
+    def render_with_id(renderer, output_suffix):
+        def decorator(func):
+            # Force function name to match the UI ID pattern
+            func.__name__ = f"{namespace}_{output_suffix}"
+            return renderer(func)
+        return decorator
+    # ===========================================================================
     
     # ==================== REACTIVE STATES ====================
-    
+
     corr_result = reactive.Value(None)  # Stores result from correlation analysis
     icc_result = reactive.Value(None)   # Stores result from ICC analysis
     numeric_cols_list = reactive.Value([])  # List of numeric columns
-    
+
     # ==================== UPDATE NUMERIC COLUMNS ====================
-    
+
     @reactive.Effect
     def _update_numeric_cols():
         """Update list of numeric columns when data changes."""
@@ -263,38 +250,38 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             # Simple numeric check; in production, use safer dtype checks
             cols = data.select_dtypes(include=[np.number]).columns.tolist()
             numeric_cols_list.set(cols)
-            
+
             # Update UI selects
             if cols:
                 ui.update_select(f"{namespace}_cv1", choices=cols, selected=cols[0])
                 ui.update_select(f"{namespace}_cv2", 
                                choices=cols, 
                                selected=cols[1] if len(cols) > 1 else cols[0])
-                
+
                 # Auto-detect ICC variables
                 icc_vars = _auto_detect_icc_vars(cols)
-                
+
                 # Update selectize with all numeric cols
                 ui.update_selectize(
                     f"{namespace}_icc_vars",
                     choices=cols,
                     selected=icc_vars  # Pre-select auto-detected ones
                 )
-                
+
                 logger.info(f"Auto-detected ICC/Rater variables: {icc_vars}")
-    
+
     # ==================== ICC SELECTION INFO ====================
-    
-    @render.ui
+
+    @render_with_id(render.ui, "out_icc_note") # ID: {namespace}_out_icc_note
     def ui_icc_note():
         """Display info about auto-detected ICC variables."""
         data = df.get()
         if data is None:
             return None
-        
+
         cols = data.select_dtypes(include=[np.number]).columns.tolist()
         icc_vars = _auto_detect_icc_vars(cols)
-        
+
         if icc_vars:
             return ui.div(
                 ui.p(
@@ -303,90 +290,165 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
                 )
             )
         return None
-    
+
     # ==================== CORRELATION ANALYSIS ====================
-    
+
     @reactive.Effect
-    @reactive.event(lambda: getattr(ui.input_action_button, f"{namespace}_btn_run_corr", None)) # Placeholder fix
+    @reactive.event(lambda: input[f"{namespace}_btn_run_corr"]())
     def _run_correlation():
         """Run correlation analysis when button clicked."""
-        # TODO: Implement correlation logic connecting to correlation.py
-        pass
-    
-    @reactive.Effect
-    def handle_corr_button():
-         # TODO: Implement button handling logic
-         pass
-    
-    # Using input directly in render function (better pattern)
-    
-    @render.ui
+        # 1. Get Data (Matched or Original)
+        data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
+
+        if data_source is None:
+            ui.notification_show("No data available", type="error")
+            return
+
+        # 2. Get Inputs
+        col1 = input[f"{namespace}_cv1"]()
+        col2 = input[f"{namespace}_cv2"]()
+        method = input[f"{namespace}_coeff_type"]()
+
+        if not col1 or not col2:
+            ui.notification_show("Please select two variables", type="warning")
+            return
+
+        if col1 == col2:
+            ui.notification_show("Please select different variables", type="warning")
+            return
+
+        # 3. Call correlation.py logic
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message="Calculating correlation...", detail="This may take a moment")
+
+            # Returns (result_dict, error_msg, plotly_figure)
+            res_stats, err, fig = correlation.calculate_correlation(
+                data_source, col1, col2, method=method
+            )
+
+        # 4. Handle Result
+        if err:
+            ui.notification_show(f"Error: {err}", type="error")
+            corr_result.set(None)
+        else:
+            # Structure for rendering
+            corr_result.set({
+                "stats": res_stats,
+                "figure": fig,
+                "method": method,
+                "var1": col1,
+                "var2": col2,
+                "data_label": label
+            })
+            ui.notification_show("Correlation analysis complete", type="default")
+
+    @render_with_id(render.ui, "out_corr_result") # ID: {namespace}_out_corr_result
     def out_corr_result():
         """Display correlation analysis results."""
-        # Check if button was clicked - simplified logic
-        # In a real app, you might check input[f"{namespace}_btn_run_corr"]
-        
         result = corr_result.get()
         if result is None:
             return ui.markdown("*Results will appear here after clicking '📈 Analyze Correlation'*")
-        
+
+        # Use output_ui to render the Plotly HTML
         return ui.card(
             ui.card_header("Results"),
-            ui.markdown(f"**Method:** {result['method']}"),
-            ui.markdown(f"**Variables:** {result['var1']} vs {result['var2']}"),
-            
-            ui.output_data_frame("out_corr_table"),
-            
+            ui.markdown(f"**Data Source:** {result['data_label']}"),
+            ui.markdown(f"**Method:** {result['method'].title()}"),
+
+            ui.output_data_frame(f"{namespace}_out_corr_table"),
+
             ui.card_header("Scatter Plot"),
-            ui.output_plot("out_corr_plot"),
+            ui.output_ui(f"{namespace}_out_corr_plot_html"), 
         )
-    
-    @render.data_frame
+
+    @render_with_id(render.data_frame, "out_corr_table") # ID: {namespace}_out_corr_table
     def out_corr_table():
         """Render correlation results table."""
         result = corr_result.get()
         if result is None:
             return None
-        
+
         df_result = pd.DataFrame([result['stats']])
         return render.DataGrid(df_result)
-    
-    @render.plot
-    def out_corr_plot():
-        """Render scatter plot."""
+
+    @render_with_id(render.ui, "out_corr_plot_html") # ID: {namespace}_out_corr_plot_html
+    def out_corr_plot_html():
+        """Render scatter plot as HTML."""
         result = corr_result.get()
         if result is None or result['figure'] is None:
             return None
-        return result['figure']
-    
+
+        # Convert Plotly figure to HTML
+        fig = result['figure']
+        html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
+        return ui.HTML(html_str)
+
     # ==================== ICC ANALYSIS ====================
-    
-    @render.ui
+
+    @reactive.Effect
+    @reactive.event(lambda: input[f"{namespace}_btn_run_icc"]())
+    def _run_icc():
+        """Run ICC analysis."""
+        # 1. Get Data
+        data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
+
+        if data_source is None:
+            ui.notification_show("No data available", type="error")
+            return
+
+        # 2. Get Inputs
+        cols = input[f"{namespace}_icc_vars"]()
+
+        if not cols or len(cols) < 2:
+            ui.notification_show("Please select at least 2 variables for ICC", type="warning")
+            return
+
+        # 3. Call diag_test.py ICC logic
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message="Calculating ICC...", detail="Computing variance components")
+
+            # Returns (res_df, error_msg, anova_df)
+            res_df, err, anova_df = diag_test.calculate_icc(data_source, list(cols))
+
+        # 4. Handle Result
+        if err:
+            ui.notification_show(f"Error: {err}", type="error")
+            icc_result.set(None)
+        else:
+            icc_result.set({
+                "results_df": res_df,
+                "anova_df": anova_df,
+                "data_label": label
+            })
+            ui.notification_show("ICC analysis complete", type="default")
+
+    @render_with_id(render.ui, "out_icc_result") # ID: {namespace}_out_icc_result
     def out_icc_result():
         """Display ICC analysis results."""
         result = icc_result.get()
         if result is None:
             return ui.markdown("*Results will appear here after clicking '📍 Calculate ICC'*")
-        
+
         return ui.card(
             ui.card_header("ICC Results"),
-            
+            ui.markdown(f"**Data Source:** {result['data_label']}"),
+
             ui.card_header("Single Measures ICC"),
-            ui.output_data_frame("out_icc_table"),
-            
+            ui.output_data_frame(f"{namespace}_out_icc_table"),
+
             ui.card_header("ANOVA Table (Reference)"),
-            ui.output_data_frame("out_icc_anova_table"),
+            ui.output_data_frame(f"{namespace}_out_icc_anova_table"),
         )
-    
-    @render.data_frame
+
+    @render_with_id(render.data_frame, "out_icc_table") # ID: {namespace}_out_icc_table
     def out_icc_table():
         """Render ICC results table."""
         result = icc_result.get()
         if result is None:
             return None
         return render.DataGrid(result['results_df'])
-    
-    @render.data_frame
+
+    @render_with_id(render.data_frame, "out_icc_anova_table") # ID: {namespace}_out_icc_anova_table
     def out_icc_anova_table():
         """Render ANOVA table."""
         result = icc_result.get()
@@ -403,6 +465,6 @@ def correlation_ui(namespace: str) -> ui.TagChild:
 
 
 def correlation_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
-                      df_matched: reactive.Value, is_matched: reactive.Value):
+                       df_matched: reactive.Value, is_matched: reactive.Value):
     """Wrapper for compatibility."""
     return corr_server(namespace, df, var_meta, df_matched, is_matched)
