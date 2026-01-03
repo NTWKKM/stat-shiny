@@ -155,10 +155,11 @@ def settings_ui(id: str) -> ui.TagChild:
                     ),
 
                     ui.input_action_button(f"{id}_btn_save_analysis", "💾 Save Analysis Settings",
-                                          class_="btn-primary", width="100%"),
+                                           class_="btn-primary", width="100%"),
 
                     width=300,
-                    bg="#f8f9fa"
+                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
+                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
                 ),
 
                 ui.card(
@@ -266,10 +267,11 @@ def settings_ui(id: str) -> ui.TagChild:
                     ),
 
                     ui.input_action_button(f"{id}_btn_save_ui", "💾 Save UI Settings",
-                                          class_="btn-primary", width="100%"),
+                                           class_="btn-primary", width="100%"),
 
                     width=300,
-                    bg="#f8f9fa"
+                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
+                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
                 ),
 
                 ui.card(
@@ -307,7 +309,7 @@ def settings_ui(id: str) -> ui.TagChild:
                         f"{id}_logging_level",
                         "Log Level",
                         choices={"DEBUG": "DEBUG", "INFO": "INFO", "WARNING": "WARNING",
-                                "ERROR": "ERROR", "CRITICAL": "CRITICAL"},
+                                 "ERROR": "ERROR", "CRITICAL": "CRITICAL"},
                         selected=CONFIG.get('logging.level'),
                         width="100%"
                     ),
@@ -347,7 +349,7 @@ def settings_ui(id: str) -> ui.TagChild:
                         f"{id}_console_level",
                         "Console Level",
                         choices={"DEBUG": "DEBUG", "INFO": "INFO", "WARNING": "WARNING",
-                                "ERROR": "ERROR", "CRITICAL": "CRITICAL"},
+                                 "ERROR": "ERROR", "CRITICAL": "CRITICAL"},
                         selected=CONFIG.get('logging.console_level'),
                         width="100%"
                     ),
@@ -378,10 +380,11 @@ def settings_ui(id: str) -> ui.TagChild:
                     ),
 
                     ui.input_action_button(f"{id}_btn_save_logging", "💾 Save Logging Settings",
-                                          class_="btn-primary", width="100%"),
+                                           class_="btn-primary", width="100%"),
 
                     width=300,
-                    bg="#f8f9fa"
+                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
+                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
                 ),
 
                 ui.card(
@@ -428,10 +431,11 @@ def settings_ui(id: str) -> ui.TagChild:
                     ),
 
                     ui.input_action_button(f"{id}_btn_save_perf", "💾 Save Performance Settings",
-                                          class_="btn-primary", width="100%"),
+                                           class_="btn-primary", width="100%"),
 
                     width=300,
-                    bg="#f8f9fa"
+                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
+                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
                 ),
 
                 ui.card(
@@ -512,10 +516,11 @@ def settings_ui(id: str) -> ui.TagChild:
                     ),
 
                     ui.input_action_button(f"{id}_btn_save_advanced", "💾 Save Advanced Settings",
-                                          class_="btn-primary", width="100%"),
+                                           class_="btn-primary", width="100%"),
 
                     width=300,
-                    bg="#f8f9fa"
+                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
+                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
                 ),
 
                 ui.card(
