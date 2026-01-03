@@ -8,9 +8,11 @@ import pandas as pd
 import numpy as np
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
+from tabs._common import get_color_palette
 import warnings
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()
 
 
 class SubgroupAnalysisLogit:
@@ -224,10 +226,13 @@ class SubgroupAnalysisLogit:
             'results_df': self.results
         }
     
-    def create_forest_plot(self, title="Subgroup Analysis: Logistic Regression", color="#2180BE"):
+    def create_forest_plot(self, title="Subgroup Analysis: Logistic Regression", color=None):
         """Create forest plot."""
         if self.results is None:
             raise ValueError("Run analyze() first")
+        
+        if color is None:
+            color = COLORS['primary']
         
         plot_data = self.results[['group', 'or', 'ci_low', 'ci_high', 'p_value']].copy()
         plot_data.columns = ['variable', 'or', 'ci_low', 'ci_high', 'p_value']
@@ -448,10 +453,13 @@ class SubgroupAnalysisCox:
             'results_df': self.results
         }
     
-    def create_forest_plot(self, title="Subgroup Analysis: Cox Regression", color="#2180BE"):
+    def create_forest_plot(self, title="Subgroup Analysis: Cox Regression", color=None):
         """Create forest plot."""
         if self.results is None:
             raise ValueError("Run analyze() first")
+        
+        if color is None:
+            color = COLORS['primary']
         
         plot_data = self.results[['group', 'hr', 'ci_low', 'ci_high', 'p_value']].copy()
         plot_data.columns = ['variable', 'hr', 'ci_low', 'ci_high', 'p_value']
