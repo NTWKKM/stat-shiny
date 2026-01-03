@@ -1,4 +1,4 @@
-from shiny import App, ui, reactive, Session
+from shiny import App, ui, reactive, Session, render
 
 # Import Config/Logger
 from config import CONFIG
