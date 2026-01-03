@@ -64,9 +64,7 @@ def data_ui():
 @module.server
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
-
-    # 1. ประกาศตัวแปรนี้ไว้บรรทัดแรกของ server (สำคัญมาก!)
-    is_processing = reactive.Value(False)
+    
     # ✅ FIX: Track loading state for UI feedback
     is_loading_data = reactive.Value(False)
 
@@ -178,28 +176,34 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            # --- อัปเดต Global Reactive Values ---
+            # ✅ FIX: Sequence reactive updates properly
             df.set(new_df)
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
             
+            logger.info(f"✅ Successfully generated {n} records")
             ui.notification_remove(id_notify)
-            ui.notification_show(f"✅ Loaded {n} records (Simulation)", type="message")
+            ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
 
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error(f"Error generating example data: {e}")
             ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {e}", type="error")
+        
         finally:
-            is_processing.set(False)
+            # ✅ FIX: Reset loading state last
+            is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(input.file_upload)
-    def _handle_upload():
+    @reactive.event(lambda: input.file_upload()) 
+    def _():
+        is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
-        if not file_infos: return
         
-        is_processing.set(True)
+        if not file_infos:
+            is_loading_data.set(False)
+            return
+        
         f = file_infos[0]
         try:
             if f['name'].lower().endswith('.csv'):
@@ -207,57 +211,150 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             else:
                 new_df = pd.read_excel(f['datapath'])
             
+            if len(new_df) > 100000:
+                new_df = new_df.head(100000)
+                ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
+            
             df.set(new_df)
             uploaded_file_info.set({"name": f['name']})
             
-            # สร้าง Default Metadata
-            current_meta = {}
+            # ✅ FIX: Build metadata after df is set
+            current_meta = var_meta.get() or {}
+            
             for col in new_df.columns:
-                if pd.api.types.is_numeric_dtype(new_df[col]) and new_df[col].nunique() > 10:
-                    current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
-                else:
-                    current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
+                if col not in current_meta:
+                    unique_vals = new_df[col].dropna().unique()
+                    is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
+                    if is_numeric and len(unique_vals) > 10:
+                         current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
+                    else:
+                         current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
+            
             var_meta.set(current_meta)
-            ui.notification_show(f"✅ Uploaded: {f['name']}", type="message")
+            ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
+            
         except Exception as e:
-            ui.notification_show(f"❌ Upload Error: {e}", type="error")
+            logger.error(f"Error: {e}")
+            ui.notification_show(f"❌ Error: {str(e)}", type="error")
         finally:
-            is_processing.set(False)
+            is_loading_data.set(False)
 
-    # --- 3. Render Preview (แก้ไขปัญหาค้าง) ---
-    @render.data_frame
-    def out_df_preview():
-        # ต้องเรียก .get() ของทุกตัวแปรที่ต้องการให้ Trigger การทำงาน
-        is_loading = is_processing.get()
-        data = df.get()
-        
-        if is_loading:
-            # คืนค่า DataFrame หลอกที่มีค่าเดียว เพื่อหยุด Spinner ของ Shiny
-            return pd.DataFrame({"Status": ["🔄 กำลังประมวลผลข้อมูล..."]})
-        
-        if data is None or data.empty:
-            return pd.DataFrame({"Status": ["📭 ยังไม่มีข้อมูล กรุณาโหลด Example หรือ Upload ไฟล์"]})
-        
-        return data
-
-    # (รักษา Meta Settings และ Reset Logic อื่นๆ ไว้ตามเดิม)
     @reactive.Effect
-    @reactive.event(input.btn_reset_all)
-    def _reset():
+    @reactive.event(lambda: input.btn_reset_all())
+    def _():
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
         is_matched.set(False)
-        ui.notification_show("Data Reset Successfully", type="warning")
+        matched_treatment_col.set(None)
+        matched_covariates.set([])
+        uploaded_file_info.set(None) # Reset file info
+        is_loading_data.set(False)
+        ui.notification_show("All data reset", type="warning")
+
+    # --- 2. Metadata Logic ---
+    @reactive.Effect
+    def _update_var_select():
+        data = df.get()
+        if data is not None and not data.empty:
+            cols = ["Select..."] + data.columns.tolist()
+            ui.update_select("sel_var_edit", choices=cols)
 
     @render.ui
     def ui_var_settings():
         var_name = input.sel_var_edit()
-        if not var_name or var_name == "Select...": return None
-        return ui.div(f"Settings for {var_name}") # (ตัวอย่างย่อ - คง Code ส่วน ui_var_settings เดิมของคุณไว้ได้เลย)
+        
+        if not var_name or var_name == "Select...":
+            return None
+            
+        meta = var_meta.get()
+        current_type = 'Continuous'
+        map_str = ""
+        
+        if meta and var_name in meta:
+            m = meta[var_name]
+            current_type = m.get('type', 'Continuous')
+            map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
+            
+        return ui.TagList(
+            ui.input_radio_buttons(
+                "radio_var_type", 
+                "ประเภทตัวแปร:", 
+                choices={"Continuous": "Continuous", "Categorical": "Categorical"},
+                selected=current_type,
+                inline=True
+            ),
+            ui.input_text_area(
+                "txt_var_map", 
+                "Value Labels (Format: 0=No, 1=Yes)", 
+                value=map_str,
+                height="100px"
+            ),
+            ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
+        )
 
     @reactive.Effect
-    def _update_var_select():
-        data = df.get()
-        if data is not None:
-            ui.update_select("sel_var_edit", choices=["Select..."] + data.columns.tolist())
+    @reactive.event(lambda: input.btn_save_meta())
+    def _save_metadata():
+        var_name = input.sel_var_edit()
+        if var_name == "Select...": 
+            return
+        
+        new_map = {}
+        map_input = input.txt_var_map()
+        if map_input:
+            for line in map_input.split('\n'):
+                if '=' in line:
+                    k, v = line.split('=', 1)
+                    try:
+                        k_clean = k.strip()
+                        try:
+                            k_num = float(k_clean)
+                            k_val = int(k_num) if k_num.is_integer() else k_num
+                        except (ValueError, TypeError):
+                            k_val = k_clean
+                        new_map[k_val] = v.strip()
+                    except (ValueError, AttributeError) as e:
+                        logger.debug(f"Skipping malformed mapping line: {line} - {e}")
+
+        current_meta = var_meta.get() or {}
+        current_meta[var_name] = {
+            'type': input.radio_var_type(), 
+            'map': new_map, 
+            'label': var_name
+        }
+        var_meta.set(current_meta)
+        ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
+
+    # --- 3. Render Outputs ---
+    @render.data_frame
+    def out_df_preview():
+        # ดึงค่าจาก reactive value
+        loading = is_loading_data.get()
+        d = df.get()
+        
+        # กรณีที่กำลังโหลดข้อมูล (ป้องกัน Spinner ค้าง)
+        if loading:
+            return pd.DataFrame({'Status': ['🔄 Loading data... Please wait...']})
+        
+        # กรณีที่ยังไม่มีข้อมูลในระบบ
+        if d is None or d.empty:
+            return pd.DataFrame({'Status': ['📭 No data loaded yet. Click "Load Example Data" or upload a file.']})
+        
+        # ส่งคืน DataFrame จริง (แสดงผลเป็นตาราง)
+        return d
+
+    @render.ui
+    def ui_btn_clear_match():
+        if is_matched.get():
+             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
+        return None
+    
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_clear_match())
+    def _():
+        df_matched.set(None)
+        is_matched.set(False)
+        matched_treatment_col.set(None)
+        matched_covariates.set([])
+        ui.notification_show("Matched data cleared", type="message")
