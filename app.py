@@ -117,7 +117,37 @@ def server(input, output, session: Session):
     @render.ui
     def optimization_status():
         """แสดงสถานะ optimization layers แบบ real-time"""
-        reactive.invalidate_later(5)  # Refresh ทุก 5 วินาที
+        # === ✅ Reactive ticker สำหรับ optimization_status (safe version) ===
+        status_refresh_ticker = reactive.Value(0)
+    
+        @reactive.Effect
+        def _refresh_status_ticker():
+            """✅ FIX: Independent refresh mechanism that doesn't block other outputs"""
+            import time
+            import threading
+        
+            def ticker():
+                count = 0
+                while True:
+                    time.sleep(5)
+                    count += 1
+                    status_refresh_ticker.set(count)
+        
+            thread = threading.Thread(target=ticker, daemon=True)
+            thread.start()
+        
+            # Only start once
+            if status_refresh_ticker.get() == 0:
+                _refresh_status_ticker.started = True
+    
+        # Start on first render
+        if not hasattr(_refresh_status_ticker, 'started'):
+            _refresh_status_ticker()
+
+        @render.ui
+        def optimization_status():
+            """✅ FIX: Refresh only via ticker, never block the entire page"""
+            _ = status_refresh_ticker.get()  # ← Depend on ticker only, not invalidate_later
 
         # 1. Cache status (L1)
         cache_stats = COMPUTATION_CACHE.get_stats()
