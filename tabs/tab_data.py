@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    # ตัด ui.nav_panel ออก และส่งกลับเป็น layout_sidebar โดยตรง
+    # ถอด ui.nav_panel ออก และส่งกลับเป็น layout_sidebar โดยตรง
     # เพื่อให้ app.py เป็นคนกำหนด Tab Name และลำดับการแสดงผล
     return ui.layout_sidebar(
         ui.sidebar(
@@ -82,7 +82,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             np.random.seed(42)
             n = 1500  
             
-            # --- Simulation Logic ---
+            # --- Simulation Logic (คงเดิมตามต้นฉบับ) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -325,23 +325,14 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
         d = df.get()
-        # ถ้าไม่มีข้อมูล ให้คืนค่า DataFrame ว่างหรือ None
         if d is None:
-            # การคืนค่า None หรือ DataFrame ว่าง จะทำให้ Spinner หายไปเอง
-            return pd.DataFrame() 
+            return render.DataTable(pd.DataFrame({'Status': ['🔄 No data loaded yet.']}))
         
-        try:
-            # สำหรับ ui.output_data_frame ให้ return DataFrame ไปตรงๆ
-            # Shiny จะจัดการสร้าง Interactive Table ให้เอง
-            return d
-        except Exception as e:
-            logger.error(f"Preview Error: {e}")
-            return pd.DataFrame({'Error': [str(e)]})
-            
+        return render.DataTable(d, width="100%", filters=False)
+
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
