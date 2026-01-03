@@ -172,7 +172,7 @@ def server(input, output, session: Session):
         """)
 
     # --- Helper: Check Dependencies ---
-    def check_optional_deps():
+    def check_optional_deps() -> None:
         """ตรวจสอบ optional dependencies"""
         deps_status = {}
         try:
