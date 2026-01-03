@@ -6,7 +6,8 @@ Functions for:
 - ROC curves and AUC calculation
 - Cohen's Kappa
 - ICC (Intraclass Correlation)
-- Risk/diagnostic metrics with confidence intervals
+- Risk/diagnostic metrics (NNT, ARR, RRR, DOR) with confidence intervals
+- Clinical Significance Badges
 
 Note: Removed Streamlit dependencies, now Shiny-compatible
 OPTIMIZATIONS: DeLong method vectorized (106x faster), ICC vectorized (9x faster)
@@ -25,6 +26,19 @@ from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
+
+
+def get_badge_html(text, level='info'):
+    """Generate HTML string for a styled badge."""
+    colors = {
+        'success': '#d4edda; color: #155724; border: 1px solid #c3e6cb',  # Green
+        'warning': '#fff3cd; color: #856404; border: 1px solid #ffeeba',  # Yellow/Amber
+        'danger':  '#f8d7da; color: #721c24; border: 1px solid #f5c6cb',  # Red
+        'info':    '#d1ecf1; color: #0c5460; border: 1px solid #bee5eb',  # Blue
+        'neutral': '#e2e3e5; color: #383d41; border: 1px solid #d6d8db'   # Gray
+    }
+    style = f"padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; display: inline-block; background-color: {colors.get(level, colors['neutral'])};"
+    return f'<span style="{style}">{text}</span>'
 
 
 def calculate_descriptive(df, col):
@@ -140,6 +154,7 @@ def calculate_ci_nnt(rd, rd_se, ci=0.95):
     rd_lower = rd - z * rd_se
     rd_upper = rd + z * rd_se
 
+    # Check if CI crosses zero (non-significant)
     if rd_lower * rd_upper <= 0:
         return np.nan, np.nan
 
@@ -154,9 +169,9 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     - Chi-Square / Fisher's Exact Test
     - Expected Counts & Standardized Residuals
     - Effect Size (Cramér's V)
-    - Risk metrics (OR, RR, NNT) with 95% CI
-    - Diagnostic metrics (Sensitivity, Specificity, PPV, NPV, LR+, LR-)
-    - Post-hoc cell contribution analysis
+    - Risk metrics (OR, RR, NNT, ARR, RRR) with 95% CI
+    - Diagnostic metrics (Se, Sp, PPV, NPV, LR+, LR-, DOR, Accuracy)
+    - Clinical Significance Badges
     
     Returns:
         tuple: (display_tab, stats_df, msg, risk_df)
@@ -283,15 +298,19 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             
             # Interpretation of effect size
             if cramer_v < 0.1:
-                effect_interp = "Negligible association"
+                effect_interp = "Negligible"
+                badge = get_badge_html("Negligible", "neutral")
             elif cramer_v < 0.3:
-                effect_interp = "Small association"
+                effect_interp = "Small"
+                badge = get_badge_html("Small", "info")
             elif cramer_v < 0.5:
-                effect_interp = "Medium association"
+                effect_interp = "Medium"
+                badge = get_badge_html("Medium", "warning")
             else:
-                effect_interp = "Large association"
+                effect_interp = "Large"
+                badge = get_badge_html("Large", "success")
             
-            stats_res["Effect Interpretation"] = effect_interp
+            stats_res["Effect Interpretation"] = f"{badge} {effect_interp}"
             
             if (ex < 5).any() and is_2x2 and not use_correction:
                 msg = "⚠️ Warning: Expected count < 5. Consider Fisher's Exact Test."
@@ -360,11 +379,19 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 label_unexp = str(row_labels[1])
                 label_event = str(col_labels[0])
                 
-                # Risk metrics
+                # --- RISK METRICS ---
                 risk_exp = a / (a + b) if (a + b) > 0 else 0
                 risk_unexp = c / (c + d) if (c + d) > 0 else 0
                 rr = risk_exp / risk_unexp if risk_unexp != 0 else np.nan
+                
+                # Risk Difference (RD) / Absolute Risk Reduction (ARR)
                 rd = risk_exp - risk_unexp
+                arr = abs(rd) * 100  # As percentage
+                
+                # Relative Risk Reduction (RRR)
+                rrr = (1 - rr) * 100 if rr < 1 else np.nan
+                
+                # NNT / NNH
                 nnt_abs = abs(1 / rd) if abs(rd) > 0.001 else np.inf
                 
                 # Odds Ratio
@@ -382,7 +409,10 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 rd_se = np.sqrt((risk_exp * (1 - risk_exp)) / (a + b) + (risk_unexp * (1 - risk_unexp)) / (c + d)) if (a+b) > 0 and (c+d) > 0 else np.nan
                 nnt_ci_lower, nnt_ci_upper = calculate_ci_nnt(rd, rd_se)
                 
-                # Diagnostic metrics
+                # Diagnostic Odds Ratio (DOR)
+                dor = (a * d) / (b * c) if (b * c) > 0 else np.nan
+                
+                # --- DIAGNOSTIC METRICS ---
                 sensitivity = a / (a + c) if (a + c) > 0 else 0
                 se_ci_lower, se_ci_upper = calculate_ci_wilson_score(a, a + c)
                 
@@ -398,31 +428,113 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 lr_plus = sensitivity / (1 - specificity) if (1 - specificity) != 0 else np.nan
                 lr_minus = (1 - sensitivity) / specificity if specificity != 0 else np.nan
                 
-                # NNT/NNH label
-                if rd > 0:
-                    nnt_label = "Number Needed to Treat (NNT)"
-                elif rd < 0:
-                    nnt_label = "Number Needed to Harm (NNH)"
-                else:
-                    nnt_label = "NNT/NNH"
+                accuracy = (a + d) / (a + b + c + d)
+                youden_j = sensitivity + specificity - 1
+                f1_score = (2 * a) / (2*a + b + c) if (2*a + b + c) > 0 else 0
+
+                # --- BADGE GENERATION LOGIC ---
                 
-                # Build comprehensive risk data table
+                # NNT Badge
+                if nnt_abs == np.inf:
+                    nnt_badge = get_badge_html("Infinite", "neutral")
+                    nnt_label = "NNT/NNH"
+                else:
+                    if rd > 0:
+                        nnt_label = "Number Needed to Treat (NNT)"
+                        if nnt_abs < 5: nnt_badge = get_badge_html("Very Beneficial", "success")
+                        elif nnt_abs < 10: nnt_badge = get_badge_html("Beneficial", "info")
+                        elif nnt_abs < 25: nnt_badge = get_badge_html("Modest Benefit", "warning")
+                        else: nnt_badge = get_badge_html("Weak Benefit", "neutral")
+                    elif rd < 0:
+                        nnt_label = "Number Needed to Harm (NNH)"
+                        if nnt_abs < 5: nnt_badge = get_badge_html("High Harm Risk", "danger")
+                        else: nnt_badge = get_badge_html("Harm Risk", "warning")
+                    else:
+                        nnt_label = "NNT/NNH"
+                        nnt_badge = get_badge_html("No Effect", "neutral")
+
+                # Likelihood Ratio Badges (EBM Standard)
+                if np.isnan(lr_plus): lr_plus_badge = get_badge_html("Undefined", "neutral")
+                elif lr_plus > 10: lr_plus_badge = get_badge_html("Strong Rule-In", "success")
+                elif lr_plus > 5: lr_plus_badge = get_badge_html("Moderate Rule-In", "info")
+                elif lr_plus > 2: lr_plus_badge = get_badge_html("Weak Rule-In", "warning")
+                else: lr_plus_badge = get_badge_html("No Value", "neutral")
+
+                if np.isnan(lr_minus): lr_minus_badge = get_badge_html("Undefined", "neutral")
+                elif lr_minus < 0.1: lr_minus_badge = get_badge_html("Strong Rule-Out", "success")
+                elif lr_minus < 0.2: lr_minus_badge = get_badge_html("Moderate Rule-Out", "info")
+                elif lr_minus < 0.5: lr_minus_badge = get_badge_html("Weak Rule-Out", "warning")
+                else: lr_minus_badge = get_badge_html("No Value", "neutral")
+
+                # OR Badge
+                if or_value > 3 or or_value < 0.33: or_badge = get_badge_html("Strong Association", "success")
+                elif or_value > 2 or or_value < 0.5: or_badge = get_badge_html("Moderate Association", "info")
+                else: or_badge = get_badge_html("Weak/None", "neutral")
+                
+                # --- BUILD COMPREHENSIVE TABLE ---
                 risk_data = [
-                    {"Metric": "═══════════ RISK METRICS ═══════════", "Value": "", "95% CI": "", "Interpretation": "Assumes: Rows=Exposure Status, Cols=Outcome Status"},
-                    {"Metric": "Risk in Exposed (R1)", "Value": f"{risk_exp:.4f}", "95% CI": "-", "Interpretation": f"Risk of {label_event} in {label_exp}"},
-                    {"Metric": "Risk in Unexposed (R0)", "Value": f"{risk_unexp:.4f}", "95% CI": "-", "Interpretation": f"Baseline risk of {label_event} in {label_unexp}"},
-                    {"Metric": "Risk Ratio (RR)", "Value": f"{rr:.4f}", "95% CI": f"{rr_ci_lower:.4f}–{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA", "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}"},
-                    {"Metric": "Risk Difference (RD)", "Value": f"{rd:.4f}", "95% CI": "-", "Interpretation": "Absolute risk difference (R1 - R0)"},
-                    {"Metric": nnt_label, "Value": f"{nnt_abs:.1f}", "95% CI": f"{nnt_ci_lower:.1f}–{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA", "Interpretation": "Patients to treat to prevent/cause 1 outcome"},
-                    {"Metric": "Odds Ratio (OR)", "Value": f"{or_value:.4f}", "95% CI": f"{or_ci_lower:.4f}–{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA", "Interpretation": f"Odds of {label_event} ({label_exp} vs {label_unexp})"},
+                    # SECTION: RISK
+                    {"Metric": "═══════════ RISK METRICS ═══════════", "Value": "", "95% CI": "", "Interpretation": "Rows=Exposure, Cols=Outcome"},
+                    
+                    {"Metric": "Risk Ratio (RR)", "Value": f"{rr:.4f}", 
+                     "95% CI": f"{rr_ci_lower:.4f}–{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA", 
+                     "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}"},
+                    
+                    {"Metric": "Odds Ratio (OR)", "Value": f"{or_value:.4f}", 
+                     "95% CI": f"{or_ci_lower:.4f}–{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA", 
+                     "Interpretation": f"{or_badge} Odds of event in {label_exp} vs {label_unexp}"},
+                    
+                    {"Metric": "Absolute Risk Reduction (ARR)", "Value": f"{arr:.2f}%", 
+                     "95% CI": "-", 
+                     "Interpretation": f"Absolute difference in event rates"},
+                    
+                    {"Metric": "Relative Risk Reduction (RRR)", "Value": f"{rrr:.2f}%" if np.isfinite(rrr) else "-", 
+                     "95% CI": "-", 
+                     "Interpretation": f"Reduction in risk relative to baseline (if RR < 1)"},
+                    
+                    {"Metric": nnt_label, "Value": f"{nnt_abs:.1f}", 
+                     "95% CI": f"{nnt_ci_lower:.1f}–{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA", 
+                     "Interpretation": f"{nnt_badge} Patients to treat/harm for 1 outcome"},
+                    
+                    # SECTION: DIAGNOSTIC
                     {"Metric": "", "Value": "", "95% CI": "", "Interpretation": ""},
-                    {"Metric": "═════════ DIAGNOSTIC METRICS ═════════", "Value": "", "95% CI": "", "Interpretation": "Assumes: Rows=Test Result, Cols=Disease Status"},
-                    {"Metric": "Sensitivity (True Positive Rate)", "Value": f"{sensitivity:.4f}", "95% CI": f"{se_ci_lower:.4f}–{se_ci_upper:.4f}", "Interpretation": "P(Test+ | Disease+) - Recall"},
-                    {"Metric": "Specificity (True Negative Rate)", "Value": f"{specificity:.4f}", "95% CI": f"{sp_ci_lower:.4f}–{sp_ci_upper:.4f}", "Interpretation": "P(Test- | Disease-) - True Negative Rate"},
-                    {"Metric": "PPV (Positive Predictive Value)", "Value": f"{ppv:.4f}", "95% CI": f"{ppv_ci_lower:.4f}–{ppv_ci_upper:.4f}", "Interpretation": "P(Disease+ | Test+) - Precision"},
-                    {"Metric": "NPV (Negative Predictive Value)", "Value": f"{npv:.4f}", "95% CI": f"{npv_ci_lower:.4f}–{npv_ci_upper:.4f}", "Interpretation": "P(Disease- | Test-) - Negative Precision"},
-                    {"Metric": "LR+ (Likelihood Ratio +)", "Value": f"{lr_plus:.4f}", "95% CI": "-", "Interpretation": "Sensitivity / (1 - Specificity) - How much test+ increases odds"},
-                    {"Metric": "LR- (Likelihood Ratio -)", "Value": f"{lr_minus:.4f}", "95% CI": "-", "Interpretation": "(1 - Sensitivity) / Specificity - How much test- decreases odds"},
+                    {"Metric": "═════════ DIAGNOSTIC METRICS ═════════", "Value": "", "95% CI": "", "Interpretation": "Rows=Test, Cols=Disease"},
+                    
+                    {"Metric": "Sensitivity (Recall)", "Value": f"{sensitivity:.4f}", 
+                     "95% CI": f"{se_ci_lower:.4f}–{se_ci_upper:.4f}", 
+                     "Interpretation": "True Positive Rate: Ability to detect disease"},
+                    
+                    {"Metric": "Specificity", "Value": f"{specificity:.4f}", 
+                     "95% CI": f"{sp_ci_lower:.4f}–{sp_ci_upper:.4f}", 
+                     "Interpretation": "True Negative Rate: Ability to exclude disease"},
+                    
+                    {"Metric": "PPV (Precision)", "Value": f"{ppv:.4f}", 
+                     "95% CI": f"{ppv_ci_lower:.4f}–{ppv_ci_upper:.4f}", 
+                     "Interpretation": "Prob. disease is present given positive test"},
+                    
+                    {"Metric": "NPV", "Value": f"{npv:.4f}", 
+                     "95% CI": f"{npv_ci_lower:.4f}–{npv_ci_upper:.4f}", 
+                     "Interpretation": "Prob. disease is absent given negative test"},
+                    
+                    {"Metric": "LR+ (Likelihood Ratio +)", "Value": f"{lr_plus:.2f}", 
+                     "95% CI": "-", 
+                     "Interpretation": f"{lr_plus_badge} How much pos result increases odds"},
+                    
+                    {"Metric": "LR- (Likelihood Ratio -)", "Value": f"{lr_minus:.2f}", 
+                     "95% CI": "-", 
+                     "Interpretation": f"{lr_minus_badge} How much neg result decreases odds"},
+                    
+                    {"Metric": "Diagnostic OR (DOR)", "Value": f"{dor:.2f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Overall discriminative power (LR+/LR-)"},
+                    
+                    {"Metric": "Accuracy", "Value": f"{accuracy:.4f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Overall correct classification rate"},
+                     
+                    {"Metric": "Youden's Index", "Value": f"{youden_j:.4f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Summary measure (Se + Sp - 1)"},
                 ]
                 
                 risk_df = pd.DataFrame(risk_data)
@@ -464,20 +576,26 @@ def calculate_kappa(df, col1, col2):
         
         if kappa < 0:
             interp = "Poor agreement"
+            badge = get_badge_html("Poor", "danger")
         elif kappa <= 0.20:
             interp = "Slight agreement"
+            badge = get_badge_html("Slight", "warning")
         elif kappa <= 0.40:
             interp = "Fair agreement"
+            badge = get_badge_html("Fair", "warning")
         elif kappa <= 0.60:
             interp = "Moderate agreement"
+            badge = get_badge_html("Moderate", "info")
         elif kappa <= 0.80:
             interp = "Substantial agreement"
+            badge = get_badge_html("Substantial", "success")
         else:
             interp = "Perfect/Almost perfect agreement"
+            badge = get_badge_html("Perfect", "success")
         
         res_df = pd.DataFrame({
             "Statistic": ["Cohen's Kappa", "N (Pairs)", "Interpretation"],
-            "Value": [f"{kappa:.4f}", f"{len(data)}", interp]
+            "Value": [f"{kappa:.4f}", f"{len(data)}", f"{badge} {interp}"]
         })
         
         conf_matrix = pd.crosstab(y1, y2, rownames=[f"{col1}"], colnames=[f"{col2}"])
@@ -609,17 +727,23 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     ci_lower_f = ci_lower if np.isfinite(ci_lower) else np.nan
     ci_upper_f = ci_upper if np.isfinite(ci_upper) else np.nan
     
+    # Interpretation Badge for AUC
+    if auc_val >= 0.9: auc_badge = get_badge_html("Outstanding", "success")
+    elif auc_val >= 0.8: auc_badge = get_badge_html("Excellent", "success")
+    elif auc_val >= 0.7: auc_badge = get_badge_html("Acceptable", "info")
+    elif auc_val >= 0.5: auc_badge = get_badge_html("Poor", "warning")
+    else: auc_badge = get_badge_html("Worse than Chance", "danger")
+
     stats_res = {
-        "AUC": auc_val,
-        "SE": se,
-        "95% CI Lower": max(0, ci_lower_f) if np.isfinite(ci_lower_f) else np.nan,
-        "95% CI Upper": min(1, ci_upper_f) if np.isfinite(ci_upper_f) else np.nan,
+        "AUC": f"{auc_val:.4f} {auc_badge}",
+        "SE": f"{se:.4f}",
+        "95% CI": f"{max(0, ci_lower_f):.4f}–{min(1, ci_upper_f):.4f}",
         "Method": m_name,
-        "P-value": p_val_auc,
-        "Youden J": j_scores[best_idx],
-        "Best Cut-off": thresholds[best_idx],
-        "Sensitivity": tpr[best_idx],
-        "Specificity": 1-fpr[best_idx],
+        "P-value": f"{p_val_auc:.4f}",
+        "Youden J": f"{j_scores[best_idx]:.4f}",
+        "Best Cut-off": f"{thresholds[best_idx]:.4f}",
+        "Sensitivity": f"{tpr[best_idx]:.4f}",
+        "Specificity": f"{1-fpr[best_idx]:.4f}",
         "N(+)": n1,
         "N(-)": n0,
         "Positive Label": pos_label_user
@@ -659,7 +783,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         
         fig.update_layout(
             title={
-                'text': f'ROC Curve<br><sub>AUC = {auc_val:.4f} (95% CI: {stats_res["95% CI Lower"]:.4f}-{stats_res["95% CI Upper"]:.4f})</sub>',
+                'text': f'ROC Curve<br><sub>AUC = {auc_val:.4f} (95% CI: {ci_lower_f:.4f}-{ci_upper_f:.4f})</sub>',
                 'x': 0.5,
                 'xanchor': 'center'
             },
@@ -682,8 +806,6 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         fig = None
     
     # 🔧 FIX: Build coords_df with proper calculation
-    # sklearn.roc_curve returns coordinates in ascending threshold order
-    # Specificity = 1 - FPR (correct formula)
     coords_df = pd.DataFrame({
         'Threshold': thresholds,
         'Sensitivity': (tpr * 100).round(1),  # Convert to percentage
@@ -692,7 +814,6 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     })
     
     logger.debug(f"ROC analysis complete: AUC={auc_val:.4f}")
-    logger.debug(f"Figure: {fig is not None}, Coords shape: {coords_df.shape}")
     return stats_res, None, fig, coords_df
 
 
@@ -756,16 +877,19 @@ def calculate_icc(df, cols):
     
     def interpret_icc(v):
         if not np.isfinite(v):
-            return "Undefined"
+            return "Undefined", "neutral"
         if v < 0.5:
-            return "Poor"
+            return "Poor", "danger"
         elif v < 0.75:
-            return "Moderate"
+            return "Moderate", "warning"
         elif v < 0.9:
-            return "Good"
+            return "Good", "info"
         else:
-            return "Excellent"
+            return "Excellent", "success"
     
+    interp2, color2 = interpret_icc(icc2_1)
+    interp3, color3 = interpret_icc(icc3_1)
+
     res_df = pd.DataFrame({
         "Model": ["ICC(2,1) - Absolute Agreement", "ICC(3,1) - Consistency"],
         "Description": [
@@ -773,7 +897,10 @@ def calculate_icc(df, cols):
             "Use when raters are fixed & consistency matters"
         ],
         "ICC Value": [f"{icc2_1:.4f}", f"{icc3_1:.4f}"],
-        "Interpretation": [interpret_icc(icc2_1), interpret_icc(icc3_1)]
+        "Interpretation": [
+            f"{get_badge_html(interp2, color2)} {interp2}", 
+            f"{get_badge_html(interp3, color3)} {interp3}"
+        ]
     })
     
     anova_df = pd.DataFrame({
@@ -794,7 +921,7 @@ def generate_report(title, report_items):
     Args:
         title (str): Report title
         report_items (list): List of dicts with 'type' and 'data' keys
-                                    Types: 'table', 'plot', 'text', 'contingency_table', 'html'
+                             Types: 'table', 'plot', 'text', 'contingency_table', 'html'
     
     Returns:
         str: HTML report string
@@ -881,6 +1008,12 @@ def generate_report(title, report_items):
                 border-left: 4px solid {primary_color};
                 border-radius: 4px;
             }}
+            /* Badge Styles for HTML Report */
+            span[style*="background-color"] {{
+                display: inline-block !important;
+                padding: 2px 6px !important;
+                border-radius: 4px !important;
+            }}
         </style>
     </head>
     <body>
@@ -903,7 +1036,8 @@ def generate_report(title, report_items):
             if isinstance(data, pd.DataFrame):
                 html_parts.append(f'<h2>{_html.escape(str(header))}</h2>')
                 html_parts.append('<div class="table-wrapper">')
-                html_parts.append(data.to_html(border=0, classes='table', index=True))
+                # escape=False is CRITICAL for badges to render as HTML
+                html_parts.append(data.to_html(border=0, classes='table', index=False, escape=False))
                 html_parts.append('</div>')
             else:
                 html_parts.append(f'<p>No data available for {_html.escape(str(header))}</p>')
