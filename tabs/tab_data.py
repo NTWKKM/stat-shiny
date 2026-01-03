@@ -3,8 +3,6 @@ from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
 from logger import get_logger
-# ลบ import tabs._common ออกก่อนเพื่อลดความเสี่ยง ถ้าไม่ได้ใช้ get_color_palette ในนี้
-# from tabs._common import get_color_palette 
 
 logger = get_logger(__name__)
 
@@ -329,65 +327,31 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    # 🔧 FIX: Use @reactive.Calc to create a reactive dependency on df
-    # This ensures the output updates whenever df changes
-    @reactive.Calc
-    def _data_to_display():
-        """Reactive calculation that tracks df changes"""
-        data = df.get()
-        return data
-
     @render.data_frame
     def out_df_preview():
         """Render data frame preview with proper handling of None/empty states"""
         try:
-            # Use the reactive calculation to ensure proper dependency tracking
-            d = _data_to_display()
+            # ✅ เรียก df.get() โดยตรง ไม่ต้องผ่าน reactive calc
+            # Shiny จะทำการสร้าง dependency ให้อัตโนมัติเมื่อมีการเรียก .get() ภายใน render function
+            d = df.get()
             
             if d is None:
-                # 🔧 FIX: Show a proper empty state without loading spinner
-                empty_df = pd.DataFrame({
+                # แสดงสถานะว่างแทนการหมุนโหลด (Spinner)
+                return pd.DataFrame({
                     'Status': ['No data loaded. Please load example data or upload a CSV/Excel file.']
                 })
-                return render.DataTable(
-                    empty_df,
-                    width="100%", 
-                    filters=False,
-                    selection_mode="none"
-                )
             
             if isinstance(d, pd.DataFrame) and len(d) == 0:
-                # Handle empty DataFrame
-                empty_df = pd.DataFrame({
-                    'Status': ['Dataset is empty.']
-                })
-                return render.DataTable(
-                    empty_df,
-                    width="100%", 
-                    filters=False,
-                    selection_mode="none"
-                )
+                # กรณี DataFrame มีหัวตารางแต่ไม่มีข้อมูล
+                return pd.DataFrame({'Status': ['Dataset is empty.']})
             
-            # 🔧 FIX: Return DataTable with proper settings
-            return render.DataTable(
-                d, 
-                width="100%", 
-                filters=True,
-                selection_mode="none"
-            )
+            # ✅ ส่งคืน DataFrame ตรงๆ (ไม่ต้องครอบด้วย render.DataTable)
+            # @render.data_frame จะจัดการแสดงผลเป็นตารางให้เอง
+            return d
             
         except Exception as e:
-            # Handle any errors during rendering
             logger.error(f"Error rendering preview: {e}", exc_info=True)
-            error_df = pd.DataFrame({
-                'Error': [f'Rendering Error: {str(e)}']
-            })
-            return render.DataTable(
-                error_df, 
-                width="100%",
-                filters=False,
-                selection_mode="none"
-            )
+            return pd.DataFrame({'Error': [f'Rendering Error: {str(e)}']})
 
     @render.ui
     def ui_btn_clear_match():
