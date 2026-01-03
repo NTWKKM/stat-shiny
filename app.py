@@ -192,8 +192,8 @@ def server(input, output, session: Session):
             df, var_meta, uploaded_file_info,
             df_matched, is_matched, matched_treatment_col, matched_covariates
         )
-    except Exception as e:
-        logger.error(f"❌ Error starting Data Module: {e}")
+    except (TypeError, ValueError, AttributeError) as e:
+        logger.exception("❌ Error starting Data Module")
         # แจ้งเตือนบนหน้าจอถ้า Module พัง
         ui.notification_show(f"Critical Error in Data Module: {e}", type="error", duration=None)
 
