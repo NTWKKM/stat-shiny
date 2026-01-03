@@ -80,8 +80,8 @@ app_ui = ui.page_navbar(
     id="main_navbar",
     window_title="Medical Stat Tool",
     
-    # 🟢 ย้าย inverse=True ไปไว้ใน navbar_options
-    navbar_options=ui.navbar_options(inverse=True),
+    # 🟢 แก้ไข: ลบ inverse=True ออก (Deprecated)
+    navbar_options=ui.navbar_options(),
     
     # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
