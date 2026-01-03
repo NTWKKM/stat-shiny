@@ -57,9 +57,10 @@ def _hex_to_rgba(hex_color, alpha) -> str:
     """
     Convert hex color to RGBA string for Plotly.
     """
-    hex_color = hex_color.lstrip('#')
+    hex_color = str(hex_color).lstrip('#')
     if len(hex_color) != 6:
-        raise ValueError(f"Invalid hex color: got {len(hex_color)} chars, expected 6")
+        # Fallback to a default color if hex is invalid
+        return f'rgba(31, 119, 180, {alpha})'
     rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     return f'rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})'
 
@@ -109,7 +110,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
         raise ValueError(f"Event column '{event_col}' must contain numeric values")
     
     unique_events = data[event_col].dropna().unique()
-    if not all(v in [0, 1, True, False] for v in unique_events):
+    if not all(v in [0, 1, True, False, 0.0, 1.0] for v in unique_events):
         raise ValueError(f"Event column '{event_col}' must contain only 0/1 or boolean values")
     
     if group_col:
@@ -129,7 +130,8 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
             label = "Overall"
             
         n = len(df_g)
-        events = df_g[event_col].sum()
+        # FIXED: Use float() or .sum() correctly for single value comparison
+        events = float(df_g[event_col].sum())
         
         if n > 0:
             kmf = KaplanMeierFitter()
@@ -162,7 +164,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
         results.append({
             "Group": label,
             "N": n,
-            "Events": events,
+            "Events": int(events),
             "Median Time (95% CI)": display_str
         })
         
@@ -343,7 +345,7 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
             stats_list.append({
                 'Group': label,
                 'N': len(df_g),
-                'Events': df_g[event_col].sum()
+                'Events': int(df_g[event_col].sum())
             })
 
     fig.update_layout(
@@ -374,7 +376,8 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     if len(data) == 0:
         return None, None, data, "No valid data after dropping missing values."
 
-    if data[event_col].sum() == 0:
+    # FIXED: Added .sum() check with explicit float cast to avoid Ambiguous Series error
+    if float(data[event_col].sum()) == 0:
         logger.error("No events observed")
         return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
 
@@ -490,7 +493,7 @@ def check_cph_assumptions(cph, data):
                 y=residuals,
                 mode='markers',
                 name='Residuals',
-                marker={'color': COLORS['primary'], 'opacity': 0.6, 'size': 6}
+                marker={'color': COLORS.get('primary', '#2180BE'), 'opacity': 0.6, 'size': 6}
             ))
             
             try:
@@ -505,7 +508,7 @@ def check_cph_assumptions(cph, data):
                     y=trend_y,
                     mode='lines',
                     name='Trend (Linear)',
-                    line={'color': COLORS['danger'], 'dash': 'dash', 'width': 2}
+                    line={'color': COLORS.get('danger', '#d32f2f'), 'dash': 'dash', 'width': 2}
                 ))
             except Exception as e:
                 logger.warning(f"Could not fit trend line for {col}: {e}")
@@ -570,8 +573,12 @@ def generate_forest_plot_cox_html(res_df):
     if res_df is None or res_df.empty:
         return "<p>No Cox regression results available for forest plot.</p>"
     
-    fig = create_forest_plot_cox(res_df)
-    plot_html = fig.to_html(include_plotlyjs=True, div_id='cox_forest_plot')
+    try:
+        fig = create_forest_plot_cox(res_df)
+        plot_html = fig.to_html(include_plotlyjs=True, div_id='cox_forest_plot')
+    except Exception as e:
+        logger.error(f"Forest plot HTML generation error: {e}")
+        return f"<p>Error generating forest plot: {e}</p>"
     
     interp_html = f"""
     <div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS.get('primary', '#218084')}; border-radius:4px;'>
@@ -713,10 +720,10 @@ def generate_report_survival(title, elements):
     Returns:
         html_string
     """
-    primary_color = COLORS['primary']
-    primary_dark = COLORS['primary_dark']
-    text_color = COLORS['text']
-    danger = COLORS['danger']
+    primary_color = COLORS.get('primary', '#2180BE')
+    primary_dark = COLORS.get('primary_dark', '#1a5a8a')
+    text_color = COLORS.get('text', '#333')
+    danger = COLORS.get('danger', '#d32f2f')
     
     css_style = f"""<style>
         body{{
@@ -781,7 +788,10 @@ def generate_report_survival(title, elements):
         elif t == 'text':
             html_doc += f"<p>{_html.escape(str(d))}</p>"
         elif t == 'table':
-            html_doc += d.to_html()
+            if isinstance(d, pd.DataFrame):
+                html_doc += d.to_html(classes='table table-striped', border=0)
+            else:
+                html_doc += str(d)
         elif t == 'plot':
             if hasattr(d, 'to_html'):
                 html_doc += d.to_html(full_html=False, include_plotlyjs=True)
@@ -794,7 +804,8 @@ def generate_report_survival(title, elements):
             html_doc += str(d)
     
     html_doc += """<div class='report-footer'>
-    © 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by GitHub
-    </div></body>\n</html>"""
+    © 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny
+    </div></body>
+</html>"""
     
     return html_doc
