@@ -95,6 +95,9 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # track data source (example / uploaded)
     data_source = reactive.Value("example")
 
+    # Track initialization (one-time flag)
+    has_initialized = reactive.Value(False)  
+
     # ========== 1. Core data generation helpers ==========
 
     def _generate_example_data():
@@ -217,15 +220,15 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
         finally:
             is_loading_data.set(False)
-
+              
     # ========== 2. Auto-generate on first load ==========
 
     @reactive.Effect
     def _auto_init_example_data():
-        """Run once on session start to generate example data"""
-        # ถ้า df ยังไม่มี data ค่อย generate (กันกรณีมี state shared)
-        if df.get() is None or (hasattr(df.get(), "empty") and df.get().empty):
-            logger.info("🚀 Initializing Data tab with example data")
+        """Run ONCE on session start to generate example data"""
+        if not has_initialized.get():
+            has_initialized.set(True)
+            logger.info("🚀 Initializing Data tab with example data (one-time)")
             _generate_example_data()
 
     # ========== 3. File upload handler ==========
