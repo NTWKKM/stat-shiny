@@ -40,8 +40,7 @@ colors = get_color_palette()
 # ==========================================
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
-    # 🟢 แก้ไข: เรียกใช้ tab_data.data_ui("data") ตรงๆ 
-    # ไม่ต้องมี ui.nav_panel ครอบ เพราะใน tab_data.py มีการประกาศ ui.nav_panel ไว้ที่ตัว Module แล้ว
+    # ✅ เรียกใช้ tab_data.data_ui("data") โดยตรง (มี nav_panel อยู่ใน module แล้ว)
     tab_data.data_ui("data"),
     
     # --- 2. Table 1 & Matching Module ---
@@ -80,9 +79,9 @@ app_ui = ui.page_navbar(
         ui.div(tab_settings.settings_ui("settings"), class_="app-container")
     ),
 
-    # === LAYER 2 & 3: ปรับเป็น Dynamic Status Badge ===
+    # === LAYER 2 & 3: Dynamic Status Badge ===
     footer=ui.div(
-        ui.output_ui("optimization_status"), # ✅ แสดงสถานะแบบ Real-time
+        ui.output_ui("optimization_status"),
         style="padding: 10px; border-top: 1px solid #eee; margin-top: 20px;"
     ),
 
@@ -90,7 +89,6 @@ app_ui = ui.page_navbar(
     id="main_navbar",
     window_title="Medical Stat Tool",
 
-    # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
         ui.HTML(get_shiny_css())
     ),
@@ -105,40 +103,37 @@ def server(input, output, session: Session):
     logger.info("🧠 Memory status: %s", MEMORY_MANAGER.get_memory_status())
 
     # --- Reactive State (Global) ---
-    df = reactive.Value(None)
-    var_meta = reactive.Value({})
-    # 🟢 เพิ่ม: ตัวแปรสำหรับเก็บข้อมูลไฟล์ที่อัปโหลด (จำเป็นสำหรับ tab_data ใหม่)
-    uploaded_file_info = reactive.Value(None)
+    df = reactive.value(None)
+    var_meta = reactive.value({})
+    uploaded_file_info = reactive.value(None)
     
     # Matched data state (Shared across tabs)
-    df_matched = reactive.Value(None)
-    is_matched = reactive.Value(False)
-    matched_treatment_col = reactive.Value(None)
-    matched_covariates = reactive.Value([])
+    df_matched = reactive.value(None)
+    is_matched = reactive.value(False)
+    matched_treatment_col = reactive.value(None)
+    matched_covariates = reactive.value([])
 
     # === 🚀 DYNAMIC STATUS BADGE LOGIC ===
-    @output
     @render.ui
-    def optimization_status() -> ui.HTML:
-        # ตั้งค่าให้ Refresh ตัวเองทุก 5 วินาที
-        reactive.invalidate_later(5)
+    def optimization_status():
+        """แสดงสถานะ optimization layers แบบ real-time"""
+        reactive.invalidate_later(5)  # Refresh ทุก 5 วินาที
 
-        # 1. เช็คสถานะ Cache (L1)
+        # 1. Cache status (L1)
         cache_stats = COMPUTATION_CACHE.get_stats()
-        # ถ้ามีของใน Cache ให้เป็นเขียว 🟢 ถ้าว่างให้เป็นเทา ⚪
-        cache_icon = "🟢" if cache_stats['cached_items'] > 0 else "⚪"
+        cache_icon = "🟢" if cache_stats.get('cached_items', 0) > 0 else "⚪"
 
-        # 2. เช็คสถานะ Memory (L2)
+        # 2. Memory status (L2)
         mem_status = MEMORY_MANAGER.get_memory_status()
         mem_icon = "💗"  # Normal
-        if mem_status['status'] == 'WARNING':
-            mem_icon = "💛"  # Approaching limit
-        elif mem_status['status'] == 'CRITICAL':
-            mem_icon = "🔴"  # Critical
-        elif mem_status['status'] == 'UNKNOWN':
-            mem_icon = "⚪"  # Unknown
+        if mem_status.get('status') == 'WARNING':
+            mem_icon = "💛"
+        elif mem_status.get('status') == 'CRITICAL':
+            mem_icon = "🔴"
+        elif mem_status.get('status') == 'UNKNOWN':
+            mem_icon = "⚪"
 
-        # 3. เช็คสถานะ Connection (L3)
+        # 3. Connection status (L3)
         conn_stats = CONNECTION_HANDLER.get_stats()
         try:
             rate_str = str(conn_stats.get('success_rate', '0'))
@@ -147,14 +142,25 @@ def server(input, output, session: Session):
             success_val = 0.0
         conn_icon = "🟢" if success_val >= 90 else "🟠" if success_val >= 70 else "🔴"
 
-        cache_title = html.escape(f"Cache: {cache_stats['cached_items']}/{cache_stats['max_size']} items (Hit rate: {cache_stats['hit_rate']})")
-        usage_pct = mem_status['usage_pct']
-        current_mb = mem_status['current_mb']
+        # Build tooltips
+        cache_title = html.escape(
+            f"Cache: {cache_stats.get('cached_items', 0)}/{cache_stats.get('max_size', 0)} items "
+            f"(Hit rate: {cache_stats.get('hit_rate', '0%')})"
+        )
+        
+        usage_pct = mem_status.get('usage_pct')
+        current_mb = mem_status.get('current_mb')
+        max_mb = mem_status.get('max_mb', 'N/A')
+        
         if usage_pct is not None and current_mb is not None:
-            mem_title = html.escape(f"Memory: {usage_pct:.1f}% ({current_mb}MB / {mem_status['max_mb']}MB)")
+            mem_title = html.escape(f"Memory: {usage_pct:.1f}% ({current_mb}MB / {max_mb}MB)")
         else:
-            mem_title = html.escape(f"Memory: Unknown ({mem_status['max_mb']}MB max)")
-        conn_title = html.escape(f"Resilience: {conn_stats['success_rate']} success rate ({conn_stats['failed_attempts']} failures)")
+            mem_title = html.escape(f"Memory: Unknown ({max_mb}MB max)")
+        
+        conn_title = html.escape(
+            f"Resilience: {conn_stats.get('success_rate', 'N/A')} success rate "
+            f"({conn_stats.get('failed_attempts', 0)} failures)"
+        )
         
         return ui.HTML(f"""
         <div style='text-align: right; font-size: 0.75em; color: #999;'>
@@ -167,6 +173,7 @@ def server(input, output, session: Session):
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps():
+        """ตรวจสอบ optional dependencies"""
         deps_status = {}
         try:
             import firthlogist
@@ -175,7 +182,7 @@ def server(input, output, session: Session):
             deps_status['firth'] = {'installed': False, 'msg': '⚠️ Firth regression unavailable'}
         
         if not deps_status['firth']['installed']:
-            ui.notification_show(deps_status['firth']['msg'], type="warning")
+            ui.notification_show(deps_status['firth']['msg'], type="warning", duration=5)
             
     check_optional_deps()
 
@@ -184,45 +191,108 @@ def server(input, output, session: Session):
     # ==========================================
     
     # --- 1. Data Management ---
-    # 🟢 เพิ่ม try-except เพื่อดักจับ Error กรณี tab_data.py ไม่ตรงกัน
+    logger.info("🔧 Initializing Data Management Module...")
     try:
-        tab_data.data_server("data",
-            df, var_meta, uploaded_file_info,
-            df_matched, is_matched, matched_treatment_col, matched_covariates
+        tab_data.data_server(
+            "data",
+            df, 
+            var_meta, 
+            uploaded_file_info,
+            df_matched, 
+            is_matched, 
+            matched_treatment_col, 
+            matched_covariates
         )
-    except (TypeError, ValueError, AttributeError) as e:
-        logger.exception("❌ Error starting Data Module")
-        # แจ้งเตือนบนหน้าจอถ้า Module พัง
-        ui.notification_show(f"Critical Error in Data Module: {e}", type="error", duration=None)
+        logger.info("✅ Data Management Module initialized successfully")
+    except Exception as e:
+        logger.exception("❌ Critical Error in Data Module")
+        ui.notification_show(
+            f"Critical Error in Data Module: {str(e)[:100]}", 
+            type="error", 
+            duration=10
+        )
 
     # --- 2. Table 1 & Matching ---
-    tab_baseline_matching.baseline_matching_server("bm", 
-        df, var_meta, df_matched, is_matched, 
-        matched_treatment_col, matched_covariates
-    )
+    logger.info("🔧 Initializing Table 1 & Matching Module...")
+    try:
+        tab_baseline_matching.baseline_matching_server(
+            "bm", 
+            df, 
+            var_meta, 
+            df_matched, 
+            is_matched, 
+            matched_treatment_col, 
+            matched_covariates
+        )
+        logger.info("✅ Table 1 & Matching Module initialized")
+    except Exception as e:
+        logger.exception("❌ Error in Table 1 & Matching Module")
 
     # --- 3. Diagnostic Tests ---
-    tab_diag.diag_server("diag", 
-        df, var_meta, df_matched, is_matched
-    )
+    logger.info("🔧 Initializing Diagnostic Tests Module...")
+    try:
+        tab_diag.diag_server(
+            "diag", 
+            df, 
+            var_meta, 
+            df_matched, 
+            is_matched
+        )
+        logger.info("✅ Diagnostic Tests Module initialized")
+    except Exception as e:
+        logger.exception("❌ Error in Diagnostic Tests Module")
 
     # --- 4. Logistic Regression ---
-    tab_logit.logit_server("logit",
-        df, var_meta, df_matched, is_matched
-    )
+    logger.info("🔧 Initializing Logistic Regression Module...")
+    try:
+        tab_logit.logit_server(
+            "logit",
+            df, 
+            var_meta, 
+            df_matched, 
+            is_matched
+        )
+        logger.info("✅ Logistic Regression Module initialized")
+    except Exception as e:
+        logger.exception("❌ Error in Logistic Regression Module")
 
     # --- 5. Correlation & ICC ---
-    tab_corr.corr_server("corr",
-        df, var_meta, df_matched, is_matched
-    )
+    logger.info("🔧 Initializing Correlation & ICC Module...")
+    try:
+        tab_corr.corr_server(
+            "corr",
+            df, 
+            var_meta, 
+            df_matched, 
+            is_matched
+        )
+        logger.info("✅ Correlation & ICC Module initialized")
+    except Exception as e:
+        logger.exception("❌ Error in Correlation & ICC Module")
 
     # --- 6. Survival Analysis Module ---
-    tab_survival.survival_server("survival",
-        df, var_meta, df_matched, is_matched
-    )
+    logger.info("🔧 Initializing Survival Analysis Module...")
+    try:
+        tab_survival.survival_server(
+            "survival",
+            df, 
+            var_meta, 
+            df_matched, 
+            is_matched
+        )
+        logger.info("✅ Survival Analysis Module initialized")
+    except Exception as e:
+        logger.exception("❌ Error in Survival Analysis Module")
 
     # --- 7. Settings Module ---
-    tab_settings.settings_server("settings", CONFIG)
+    logger.info("🔧 Initializing Settings Module...")
+    try:
+        tab_settings.settings_server("settings", CONFIG)
+        logger.info("✅ Settings Module initialized")
+    except Exception as e:
+        logger.exception("❌ Error in Settings Module")
+
+    logger.info("🎉 All modules initialized")
 
 # ==========================================
 # 4. APP LAUNCHER
