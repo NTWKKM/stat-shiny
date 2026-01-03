@@ -25,8 +25,8 @@ from logger import get_logger
 from tabs._common import get_color_palette
 
 # === INTEGRATION: System Utilities ===
-from utils.memory_manager import MEMORY_MANAGER
-from utils.cache_manager import COMPUTATION_CACHE
+# from utils.memory_manager import MEMORY_MANAGER
+# from utils.cache_manager import COMPUTATION_CACHE
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -39,7 +39,7 @@ def calculate_descriptive(df, col):
     Returns:
         pd.DataFrame: Descriptive statistics table
     """
-    MEMORY_MANAGER.check_and_cleanup()
+    # MEMORY_MANAGER.check_and_cleanup()
     # Simple operation, typically doesn't need heavy memory management, 
     # but good to ensure stability if DF is huge.
     if col not in df.columns:
@@ -170,7 +170,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         tuple: (display_tab, stats_df, msg, risk_df)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    # MEMORY_MANAGER.check_and_cleanup()
 
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns '{col1}' or '{col2}' not found")
@@ -184,12 +184,12 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
 
     # === INTEGRATION: Cache Check ===
     # Create a cache key based on inputs and data hash
-    data_hash = hashlib.md5(data.values.tobytes()).hexdigest()[:16]
-    cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}"
-    cached_result = COMPUTATION_CACHE.get(cache_key)
-    if cached_result:
-        logger.debug(f"Cache hit for calculate_chi2: {col1} vs {col2}")
-        return cached_result
+    # data_hash = hashlib.md5(data.values.tobytes()).hexdigest()[:16]
+    # cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}"
+    # cached_result = COMPUTATION_CACHE.get(cache_key)
+    # if cached_result:
+    #    logger.debug(f"Cache hit for calculate_chi2: {col1} vs {col2}")
+    #    return cached_result
 
     data = data.copy()
     data[col1] = data[col1].astype(str)
@@ -454,9 +454,9 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 risk_df = None
         
         # === INTEGRATION: Set Cache ===
-        result = (display_tab, stats_df, msg, risk_df)
-        COMPUTATION_CACHE.set(cache_key, result)
-        return result
+        # result = (display_tab, stats_df, msg, risk_df)
+        # COMPUTATION_CACHE.set(cache_key, result)
+        # return result
     
     except Exception as e:
         logger.error(f"Chi-square calculation error: {e}")
@@ -471,7 +471,7 @@ def calculate_kappa(df, col1, col2):
         tuple: (result_df, error_msg, conf_matrix)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    # MEMORY_MANAGER.check_and_cleanup()
 
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns not found: {col1}, {col2}")
@@ -484,11 +484,11 @@ def calculate_kappa(df, col1, col2):
         return None, "No data after dropping NAs", None
     
     # === INTEGRATION: Cache Check ===
-    data_hash = hashlib.md5(data.values.tobytes()).hexdigest()[:16]
-    cache_key = f"kappa_{col1}_{col2}_{data_hash}"
-    cached_result = COMPUTATION_CACHE.get(cache_key)
-    if cached_result:
-        return cached_result
+    # data_hash = hashlib.md5(data.values.tobytes()).hexdigest()[:16]
+    # cache_key = f"kappa_{col1}_{col2}_{data_hash}"
+    # cached_result = COMPUTATION_CACHE.get(cache_key)
+    #if cached_result:
+    #    return cached_result
 
     y1 = data[col1].astype(str)
     y2 = data[col2].astype(str)
@@ -519,7 +519,7 @@ def calculate_kappa(df, col1, col2):
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
         
         result = (res_df, None, conf_matrix)
-        COMPUTATION_CACHE.set(cache_key, result)
+        # COMPUTATION_CACHE.set(cache_key, result)
         return result
     
     except Exception as e:
@@ -594,7 +594,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         tuple: (stats_dict, error_msg, plotly_fig, coords_df)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    # MEMORY_MANAGER.check_and_cleanup()
 
     data = df[[truth_col, score_col]].dropna()
 
@@ -604,10 +604,10 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
 
     # === INTEGRATION: Cache Check ===
     # Include method and pos_label in key
-    cache_key = f"roc_{truth_col}_{score_col}_{method}_{pos_label_user}_{hash(data.values.tobytes())}"
-    cached_result = COMPUTATION_CACHE.get(cache_key)
-    if cached_result:
-        return cached_result
+    # cache_key = f"roc_{truth_col}_{score_col}_{method}_{pos_label_user}_{hash(data.values.tobytes())}"
+    # cached_result = COMPUTATION_CACHE.get(cache_key)
+    # if cached_result:
+    #    return cached_result
 
     y_true_raw = data[truth_col]
     y_score = pd.to_numeric(data[score_col], errors='coerce').dropna()
@@ -734,7 +734,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     logger.debug(f"ROC analysis complete: AUC={auc_val:.4f}")
     
     result = (stats_res, None, fig, coords_df)
-    COMPUTATION_CACHE.set(cache_key, result)
+    # COMPUTATION_CACHE.set(cache_key, result)
     return result
 
 
@@ -748,7 +748,7 @@ def calculate_icc(df, cols):
         tuple: (icc_df, error_msg, anova_df)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    # MEMORY_MANAGER.check_and_cleanup()
 
     if len(cols) < 2:
         logger.error("Need at least 2 variables")
@@ -766,10 +766,10 @@ def calculate_icc(df, cols):
         return None, "Insufficient raters (need at least 2 columns).", None
     
     # === INTEGRATION: Cache Check ===
-    cache_key = f"icc_{tuple(sorted(cols))}_{hash(data.values.tobytes())}"
-    cached_result = COMPUTATION_CACHE.get(cache_key)
-    if cached_result:
-        return cached_result
+    #cache_key = f"icc_{tuple(sorted(cols))}_{hash(data.values.tobytes())}"
+    #cached_result = COMPUTATION_CACHE.get(cache_key)
+    #if cached_result:
+    #    return cached_result
 
     # OPTIMIZATION: Vectorized computation with NumPy broadcasting
     data_array = data.values
@@ -837,7 +837,7 @@ def calculate_icc(df, cols):
     logger.debug(f"ICC calculated: ICC(2,1)={icc2_1:.4f}, ICC(3,1)={icc3_1:.4f}")
     
     result = (res_df, None, anova_df)
-    COMPUTATION_CACHE.set(cache_key, result)
+    #COMPUTATION_CACHE.set(cache_key, result)
     return result
 
 
