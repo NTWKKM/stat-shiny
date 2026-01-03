@@ -18,6 +18,7 @@ import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import warnings
 import html
+import json
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
 
@@ -132,7 +133,7 @@ def run_regression_model(y, X, model_type='logistic', method='default'):
             try:
                 model = sm.GLM(y, X_const, family=sm.families.Poisson())
                 result = model.fit()
-            except Exception as e:
+            except (ValueError, np.linalg.LinAlgError, RuntimeError) as e:
                  return None, None, None, f"Poisson Error: {str(e)}", stats_metrics
 
         # --- LOGISTIC REGRESSION ---
@@ -182,13 +183,13 @@ def run_regression_model(y, X, model_type='logistic', method='default'):
                 max_r2 = 1 - np.exp((2/nobs) * llnull)
                 nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
                 stats_metrics = {"mcfadden": mcfadden, "nagelkerke": nagelkerke}
-            except Exception as e:
+            except (AttributeError, ZeroDivisionError, ValueError) as e:
                 logger.debug(f"Failed to calculate R2: {e}")
             
             return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
             
-    except Exception as e:
-        logger.error(f"Regression failed: {e}")
+    except (ValueError, np.linalg.LinAlgError, RuntimeError) as e:
+        logger.exception("Regression failed")
         return None, None, None, str(e), stats_metrics
     
     return None, None, None, "Unknown error", stats_metrics
@@ -259,7 +260,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         'outcome': outcome_name,
         'df_shape': df.shape,
         'df_hash': hash(pd.util.hash_pandas_object(df, index=True).values.tobytes()),
-        'var_meta_hash': hash(str(sorted(var_meta.items()))) if var_meta else None,
+        'var_meta_hash': hash(json.dumps(var_meta, sort_keys=True)) if var_meta else None,
         'method': method,
         'model_type': model_type,
         'interaction_terms': str(interaction_terms) if interaction_terms else "None"
@@ -346,7 +347,8 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
                     if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
                         has_perfect_separation = True
                         break
-                except Exception:
+                except (ValueError, TypeError) as e:
+                    logger.debug(f"Could not check perfect separation for {col}: {e}")
                     continue
         
         # Select fitting method
