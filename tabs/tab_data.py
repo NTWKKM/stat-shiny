@@ -67,12 +67,12 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # 🟢 USE CLICK COUNTER PATTERN - prevents auto-trigger on init
+    # 🟢 Click counter - independent trigger
     load_example_clicks = reactive.Value(0)
     clear_match_clicks = reactive.Value(0)
     reset_all_clicks = reactive.Value(0)
     
-    # Track loading state separately
+    # Loading state
     is_loading_data = reactive.Value(False)
 
     # ==========================================
@@ -220,109 +220,120 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             raise
 
     # ==========================================
-    # Event Handlers - CLICK COUNTER PATTERN
+    # Event Handlers
     # ==========================================
     
-    # 🟢 Step 1: Button observers (just track clicks, don't load)
+    # 🟢 Button click trackers
     @reactive.Effect
     def _track_load_example_click():
-        """Only tracks button click, doesn't trigger load"""
-        input.btn_load_example()  # Create dependency
-        current = load_example_clicks.get()
-        load_example_clicks.set(current + 1)  # Increment counter
+        """Track button click without triggering load"""
+        input.btn_load_example()
+        with reactive.IsolatedContext():
+            current = load_example_clicks.get()
+            load_example_clicks.set(current + 1)
 
-    # 🟢 Step 2: Data loading effect (depends on click counter, not button)
+    # 🟢 Data loader effect - ISOLATED from circular dependencies
     @reactive.Effect
-    def _on_load_example_click_effect():
-        """Actually loads data when click counter increments"""
-        _ = load_example_clicks.get()  # Depends on counter, not button
+    def _on_load_example_effect():
+        """Load data when click counter increments"""
+        _ = load_example_clicks.get()  # Trigger on click counter change
         
-        is_loading_data.set(True)
+        # Use IsolatedContext to prevent circular dependency
+        with reactive.IsolatedContext():
+            is_loading_data.set(True)
+        
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
         
         try:
             new_df, meta = _load_example_data()
             
-            df.set(new_df)
-            var_meta.set(meta)
-            uploaded_file_info.set({"name": "Example Clinical Data"})
+            with reactive.IsolatedContext():
+                df.set(new_df)
+                var_meta.set(meta)
+                uploaded_file_info.set({"name": "Example Clinical Data"})
             
             logger.info(f"✅ Successfully generated {len(new_df)} records")
             ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {len(new_df)} Clinical Records (Simulated)", type="message")
 
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error(f"Error: {e}", exc_info=True)
             ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {e}", type="error")
         
         finally:
-            is_loading_data.set(False)
+            with reactive.IsolatedContext():
+                is_loading_data.set(False)
+            logger.info("Loading state set to False")
 
-    # 🟢 File upload handler
     @reactive.Effect
     def _on_file_upload():
-        """Trigger on file_upload change"""
+        """Handle file upload"""
         file_infos = input.file_upload()
         
         if not file_infos:
             return
         
-        is_loading_data.set(True)
+        with reactive.IsolatedContext():
+            is_loading_data.set(True)
         
         try:
             f = file_infos[0]
             new_df, current_meta = _load_file_data(f)
             
-            df.set(new_df)
-            var_meta.set(current_meta)
-            uploaded_file_info.set({"name": f['name']})
+            with reactive.IsolatedContext():
+                df.set(new_df)
+                var_meta.set(current_meta)
+                uploaded_file_info.set({"name": f['name']})
             
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
             
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error(f"Error: {e}", exc_info=True)
             ui.notification_show(f"❌ Error: {str(e)}", type="error")
         finally:
-            is_loading_data.set(False)
+            with reactive.IsolatedContext():
+                is_loading_data.set(False)
 
-    # 🟢 Reset all handler
     @reactive.Effect
     def _track_reset_click():
         """Track reset button click"""
         input.btn_reset_all()
-        current = reset_all_clicks.get()
-        reset_all_clicks.set(current + 1)
+        with reactive.IsolatedContext():
+            current = reset_all_clicks.get()
+            reset_all_clicks.set(current + 1)
 
     @reactive.Effect
     def _on_reset_all_effect():
-        """Actually reset data when click counter increments"""
+        """Reset all data"""
         _ = reset_all_clicks.get()
         
-        df.set(None)
-        var_meta.set({})
-        df_matched.set(None)
-        is_matched.set(False)
-        matched_treatment_col.set(None)
-        matched_covariates.set([])
-        is_loading_data.set(False)
+        with reactive.IsolatedContext():
+            df.set(None)
+            var_meta.set({})
+            df_matched.set(None)
+            is_matched.set(False)
+            matched_treatment_col.set(None)
+            matched_covariates.set([])
+            is_loading_data.set(False)
+        
         ui.notification_show("All data reset", type="warning")
 
     # ==========================================
     # Metadata Management
     # ==========================================
     
-    # Update Dropdown list when df changes
     @reactive.Effect
     def _update_var_select():
+        """Update variable select dropdown"""
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
 
-    # Render Settings UI dynamically
     @render.ui
     def ui_var_settings():
+        """Render variable settings UI"""
         var_name = input.sel_var_edit()
         
         if not var_name or var_name == "Select...":
@@ -356,6 +367,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     @reactive.Effect
     def _save_metadata():
+        """Save metadata settings"""
         input.btn_save_meta()
         
         var_name = input.sel_var_edit()
@@ -379,45 +391,44 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                     except (ValueError, AttributeError) as e:
                         logger.debug(f"Skipping malformed mapping line: {line} - {e}")
 
-        current_meta = var_meta.get() or {}
-        current_meta[var_name] = {
-            'type': input.radio_var_type(), 
-            'map': new_map, 
-            'label': var_name
-        }
-        var_meta.set(current_meta)
+        with reactive.IsolatedContext():
+            current_meta = var_meta.get() or {}
+            current_meta[var_name] = {
+                'type': input.radio_var_type(), 
+                'map': new_map, 
+                'label': var_name
+            }
+            var_meta.set(current_meta)
+        
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # ==========================================
     # Output Rendering
     # ==========================================
 
-    # 🟢 DataTable rendering with proper dependency
     @render.data_frame
     def out_df_preview():
-        # Create dependencies explicitly
+        """Render data preview table"""
         loading = is_loading_data.get()
         data = df.get()
         
-        # If loading, show loading message
         if loading:
             return render.DataTable(
                 pd.DataFrame({'Status': ['🔄 Loading data...']}),
                 width="100%"
             )
         
-        # If no data, show placeholder
         if data is None:
             return render.DataTable(
                 pd.DataFrame({'Status': ['📥 Load example data or upload a file to get started.']}),
                 width="100%"
             )
         
-        # Show actual data
         return render.DataTable(data, width="100%", filters=False)
 
     @render.ui
     def ui_btn_clear_match():
+        """Show clear match button if matched"""
         if is_matched.get():
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
@@ -426,15 +437,17 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     def _track_clear_match_click():
         """Track clear match button click"""
         input.btn_clear_match()
-        current = clear_match_clicks.get()
-        clear_match_clicks.set(current + 1)
+        with reactive.IsolatedContext():
+            current = clear_match_clicks.get()
+            clear_match_clicks.set(current + 1)
 
     @reactive.Effect
     def _on_clear_match_effect():
-        """Actually clear matched data when click counter increments"""
+        """Clear matched data"""
         _ = clear_match_clicks.get()
         
-        df_matched.set(None)
-        is_matched.set(False)
-        matched_treatment_col.set(None)
-        matched_covariates.set([])
+        with reactive.IsolatedContext():
+            df_matched.set(None)
+            is_matched.set(False)
+            matched_treatment_col.set(None)
+            matched_covariates.set([])
