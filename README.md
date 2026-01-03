@@ -1,4 +1,3 @@
-```
 ---
 title: shinystat
 emoji: 📊
@@ -8,7 +7,6 @@ sdk: docker
 app_port: 7860
 pinned: false
 ---
-```
 
 [Hugging Face Space](https://huggingface.co/spaces/ntwkkm/shinystat)
 
