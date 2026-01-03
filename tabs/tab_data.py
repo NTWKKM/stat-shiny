@@ -80,7 +80,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             np.random.seed(42)
             n = 1500  
             
-            # --- Simulation Logic ---
+            # --- Simulation Logic (คงเดิมตามที่คุณให้มา) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -248,6 +248,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+        uploaded_file_info.set(None) # Reset file info
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
@@ -331,16 +332,13 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         d = df.get()
         loading = is_loading_data.get()
         
-        # ✅ FIX: สำหรับ @render.data_frame ต้อง return pandas DataFrame โดยตรง
+        # ✅ FIX: return pandas DataFrame directly
         if loading:
-            # ส่ง DataFrame ชั่วคราวที่มีแถวเดียวเพื่อหยุด Spinner และแสดงสถานะ
             return pd.DataFrame({'Status': ['🔄 Loading data...']})
         
         if d is None or d.empty:
-            # ส่ง DataFrame ชั่วคราวเพื่อแจ้งผู้ใช้ให้โหลดข้อมูล
             return pd.DataFrame({'Status': ['📭 No data loaded yet. Click "Load Example Data" or upload a file.']})
         
-        # คืนค่า DataFrame หลัก (Shiny จะจัดการสร้าง DataTable ให้เองจาก decorator)
         return d
 
     @render.ui
