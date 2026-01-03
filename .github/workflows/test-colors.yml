@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # เพิ่ม shiny เข้าไปเพื่อให้ import tabs/_common.py ได้
+          # Install shiny to enable tabs/_common.py imports
           pip install pytest pandas numpy shiny
       
       - name: Verify Styling System integrity
