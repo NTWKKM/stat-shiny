@@ -138,7 +138,11 @@ def server(input, output, session: Session):
 
         # 3. เช็คสถานะ Connection (L3)
         conn_stats = CONNECTION_HANDLER.get_stats()
-        success_val = float(conn_stats['success_rate'].replace('%',''))
+        try:
+            rate_str = str(conn_stats.get('success_rate', '0'))
+            success_val = float(rate_str.replace('%', ''))
+        except (ValueError, TypeError, AttributeError):
+            success_val = 0.0
         conn_icon = "🟢" if success_val >= 90 else "🟠" if success_val >= 70 else "🔴"
 
         cache_title = html.escape(f"Cache: {cache_stats['cached_items']}/{cache_stats['max_size']} items (Hit rate: {cache_stats['hit_rate']})")
