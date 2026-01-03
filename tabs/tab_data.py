@@ -257,7 +257,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     def _update_var_select():
         data = df.get()
         if data is not None:
-            cols = ["Select..."] + data.columns.tolist()
+            cols = ["Select...", *data.columns.tolist()]
             ui.update_select("sel_var_edit", choices=cols)
 
     # Render Settings UI dynamically when a variable is selected
