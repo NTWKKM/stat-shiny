@@ -233,7 +233,7 @@ def calculate_smd(df, treatment_col, covariate_cols) -> pd.DataFrame:
             'covariate_cols': tuple(sorted(covariate_cols)),
             'df_shape': df.shape,
             'data_hash': hash(
-                df[treatment_col].values.tobytes() +
+                df[treatment_col].astype(str).values.tobytes() +
                 b''.join(df[col].astype(str).values.tobytes() for col in covariate_cols)
             )
         }
