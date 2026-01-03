@@ -229,6 +229,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             
             var_meta.set(current_meta)
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
+            logger.info(f"✅ File uploaded: {f['name']} with {len(new_df)} rows")
             
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -257,6 +258,8 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
+        else:
+            ui.update_select("sel_var_edit", choices=["Select..."])
 
     # Render Settings UI dynamically when a variable is selected
     @render.ui
@@ -326,29 +329,64 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
+    # 🔧 FIX: Use @reactive.Calc to create a reactive dependency on df
+    # This ensures the output updates whenever df changes
+    @reactive.Calc
+    def _data_to_display():
+        """Reactive calculation that tracks df changes"""
+        data = df.get()
+        return data
+
     @render.data_frame
     def out_df_preview():
+        """Render data frame preview with proper handling of None/empty states"""
         try:
-            d = df.get()
+            # Use the reactive calculation to ensure proper dependency tracking
+            d = _data_to_display()
+            
             if d is None:
-                # แก้ไข: กรณีไม่มีข้อมูล ให้ส่งคืน Empty DataFrame ผ่าน render.DataTable
-                # เพื่อหยุด Loading Spinner และแสดงตารางเปล่าพร้อมข้อความ
+                # 🔧 FIX: Show a proper empty state without loading spinner
+                empty_df = pd.DataFrame({
+                    'Status': ['No data loaded. Please load example data or upload a CSV/Excel file.']
+                })
                 return render.DataTable(
-                    pd.DataFrame({'Status': ['Waiting for data to be loaded...']}),
+                    empty_df,
                     width="100%", 
                     filters=False,
                     selection_mode="none"
                 )
             
-            # แก้ไข: ห่อหุ้มด้วย render.DataTable เพื่อความเสถียรในการ Render
-            return render.DataTable(d, width="100%", filters=True)
+            if isinstance(d, pd.DataFrame) and len(d) == 0:
+                # Handle empty DataFrame
+                empty_df = pd.DataFrame({
+                    'Status': ['Dataset is empty.']
+                })
+                return render.DataTable(
+                    empty_df,
+                    width="100%", 
+                    filters=False,
+                    selection_mode="none"
+                )
+            
+            # 🔧 FIX: Return DataTable with proper settings
+            return render.DataTable(
+                d, 
+                width="100%", 
+                filters=True,
+                selection_mode="none"
+            )
             
         except Exception as e:
-            # กรณีเกิด Error ภายใน Render ให้แสดง Error เป็นตาราง
-            logger.error(f"Error rendering preview: {e}")
+            # Handle any errors during rendering
+            logger.error(f"Error rendering preview: {e}", exc_info=True)
+            error_df = pd.DataFrame({
+                'Error': [f'Rendering Error: {str(e)}']
+            })
             return render.DataTable(
-                pd.DataFrame({'Error': [f'Error: {str(e)}']}), 
-                width="100%"
+                error_df, 
+                width="100%",
+                filters=False,
+                selection_mode="none"
             )
 
     @render.ui
@@ -364,3 +402,4 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+        ui.notification_show("✅ Matched data cleared", type="message")
