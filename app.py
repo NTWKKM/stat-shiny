@@ -37,12 +37,10 @@ colors = get_color_palette()
 # ==========================================
 # 1. UI DEFINITION
 # ==========================================
-# ใน Shiny เวอร์ชั่นใหม่ เราใช้ page_navbar ที่รองรับการทำเนมสเปซและคลาสผ่าน wrapper
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
     ui.nav_panel(
         "📁 Data Management",
-        # ✅ แก้ไข: ใช้ ui.div หุ้มแทนการส่ง class_ เข้าไปใน nav_panel โดยตรงเพื่อรองรับเวอร์ชั่นใหม่
         ui.div(tab_data.data_ui("data"), class_="app-container")
     ),
     
@@ -83,15 +81,10 @@ app_ui = ui.page_navbar(
     ),
 
     # === LAYER 2 & 3: Add optimization status badge to footer ===
-    footer=ui.div( # ✅ ปรับใช้ argument footer ของ page_navbar โดยตรง
-        ui.HTML("""
-        <div style='text-align: right; font-size: 0.75em; color: #999; padding: 10px; border-top: 1px solid #eee; margin-top: 20px;'>
-            <span title='Cache enabled'>🟢 L1 Cache</span> | 
-            <span title='Memory monitoring'>💗 L2 Memory</span> | 
-            <span title='Connection resilience'>🟠 L3 Resilience</span> |
-            &copy; 2025 Medical Stat Tool
-        </div>
-        """)
+    # ปรับปรุง: ใช้ ui.output_ui เพื่อรองรับการแสดงผลแบบ Dynamic ในอนาคตแต่ไม่มี invalidate_later ที่นี่
+    footer=ui.div( 
+        ui.output_ui("optimization_status_footer"),
+        style="padding: 10px; border-top: 1px solid #eee; margin-top: 20px;"
     ),
 
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
@@ -109,9 +102,7 @@ app_ui = ui.page_navbar(
 # ==========================================
 def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
-    logger.info(f"💾 Cache stats: {COMPUTATION_CACHE.get_stats()}")
-    logger.info(f"🧠 Memory status: {MEMORY_MANAGER.get_memory_status()}")
-
+    
     # --- Reactive State (Global) ---
     df = reactive.Value(None)
     var_meta = reactive.Value({})
@@ -122,6 +113,21 @@ def server(input, output, session: Session):
     is_matched = reactive.Value(False)
     matched_treatment_col = reactive.Value(None)
     matched_covariates = reactive.Value([])
+
+    # --- Optimization Status (Footer) ---
+    @render.ui
+    def optimization_status_footer():
+        # ใช้ isolate เพื่อป้องกันไม่ให้การเปลี่ยนหน้าหรือเปลี่ยน data มา trigger ส่วนนี้
+        # และเอา reactive.invalidate_later ออกถาวรเพื่อแก้ปัญหา Spinner ค้าง
+        with reactive.isolate():
+            return ui.HTML("""
+                <div style='text-align: right; font-size: 0.75em; color: #999;'>
+                    <span title='Cache enabled'>🟢 L1 Cache</span> | 
+                    <span title='Memory monitoring'>💗 L2 Memory</span> | 
+                    <span title='Connection resilience'>🟠 L3 Resilience</span> |
+                    &copy; 2025 Medical Stat Tool
+                </div>
+            """)
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps():
