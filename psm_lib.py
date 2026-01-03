@@ -25,14 +25,14 @@ from logger import get_logger
 import html as _html
 
 # === INTEGRATION: Import Cache Wrappers ===
-from utils.psm_cache_integration import (
-    get_cached_propensity_scores, 
-    get_cached_matched_data,
-    get_cached_smd
-)
+#from utils.psm_cache_integration import (
+#    get_cached_propensity_scores, 
+#    get_cached_matched_data,
+#    get_cached_smd
+#)
 
 # === INTEGRATION: System Stability & Memory ===
-from utils.memory_manager import MEMORY_MANAGER
+#from utils.memory_manager import MEMORY_MANAGER
 
 logger = get_logger(__name__)
 
@@ -65,7 +65,7 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
         # Define the computation logic as an inner function
         def _compute_propensity_score() -> pd.DataFrame:
             # === INTEGRATION: Memory Check ===
-            MEMORY_MANAGER.check_and_cleanup()
+            #MEMORY_MANAGER.check_and_cleanup()
 
             logger.info("🔄 Computing propensity scores (Logic Execution)...")
             
@@ -98,10 +98,10 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
 
         # === USE CACHE INTEGRATION WRAPPER ===
         # This handles cache checking, logging hit/miss, and storing result
-        return get_cached_propensity_scores(
-            calculate_func=_compute_propensity_score,
-            cache_key_params=cache_key_params
-        )
+        #return get_cached_propensity_scores(
+        #    calculate_func=_compute_propensity_score,
+        #    cache_key_params=cache_key_params
+        #)
 
     except Exception:
         logger.exception("PSM calculation error")
@@ -140,7 +140,7 @@ def perform_matching(df, treatment_col, caliper=0.2) -> pd.DataFrame:
         # Define the matching logic as an inner function
         def _perform_matching_logic():
             # === INTEGRATION: Memory Check ===
-            MEMORY_MANAGER.check_and_cleanup()
+            #MEMORY_MANAGER.check_and_cleanup()
 
             logger.info("🔄 Performing matching logic...")
             
@@ -206,10 +206,10 @@ def perform_matching(df, treatment_col, caliper=0.2) -> pd.DataFrame:
             return matched_df
 
         # === USE CACHE INTEGRATION WRAPPER ===
-        return get_cached_matched_data(
-            matching_func=_perform_matching_logic,
-            cache_key_params=cache_key_params
-        )
+        #return get_cached_matched_data(
+        #    matching_func=_perform_matching_logic,
+        #    cache_key_params=cache_key_params
+        #)
 
     except Exception as e:
         logger.exception("Matching error")
@@ -241,7 +241,7 @@ def calculate_smd(df, treatment_col, covariate_cols) -> pd.DataFrame:
         # Define the SMD logic as an inner function
         def _compute_smd_logic():
             # === INTEGRATION: Memory Check ===
-            MEMORY_MANAGER.check_and_cleanup()
+            #MEMORY_MANAGER.check_and_cleanup()
 
             logger.info("🔄 Computing SMD (Logic Execution)...")
             
@@ -279,10 +279,10 @@ def calculate_smd(df, treatment_col, covariate_cols) -> pd.DataFrame:
             return pd.DataFrame(smd_data)
 
         # === USE CACHE INTEGRATION WRAPPER ===
-        return get_cached_smd(
-            smd_func=_compute_smd_logic,
-            cache_key_params=cache_key_params
-        )
+        #return get_cached_smd(
+        #    smd_func=_compute_smd_logic,
+        #    cache_key_params=cache_key_params
+        #)
         
     except Exception:
         logger.exception("SMD calculation error")
