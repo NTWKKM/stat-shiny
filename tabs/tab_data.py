@@ -10,53 +10,57 @@ logger = get_logger(__name__)
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
-    # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
-    return ui.layout_sidebar(
-        ui.sidebar(
-            ui.h4("MENU"),
-            ui.h5("1. Data Management"),
-            
-            ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
-            ui.br(), ui.br(),
-            
-            ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
-            
-            ui.hr(),
-            
-            ui.output_ui("ui_btn_clear_match"),
-            ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
-            
-            width=300,
-            bg="#f8f9fa"
-        ),
-        
-        # ส่วน Main Content
-        ui.accordion(
-            ui.accordion_panel(
-                "🛠️ 1. Variable Settings & Labels",
-                ui.layout_columns(
-                    ui.div(
-                        # 🟢 แก้ไขภาษาไทยเป็นอังกฤษ
-                        ui.input_select("sel_var_edit", "Select Variable to Configure:", choices=["Select..."]),
-                    ),
-                    ui.div(
-                        ui.output_ui("ui_var_settings")
-                    ),
-                    col_widths=(4, 8)
-                ),
+    # ไม่ต้องสร้าง ns() เองแล้ว ใช้ ID ชื่อตรงๆ ได้เลย
+    return ui.nav_panel(
+        "📁 Data Management",
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h4("MENU"),
+                ui.h5("1. Data Management"),
+                
+                # ใช้ ID ตรงๆ (Shiny จะแปลงเป็น "data-btn_load_example" ให้เอง)
+                ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
+                ui.br(), ui.br(),
+                
+                ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
+                
+                ui.hr(),
+                
+                ui.output_ui("ui_btn_clear_match"),
+                ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
+                
+                width=300,
+                bg="#f8f9fa"
             ),
-            id="acc_settings",
-            open=True
-        ),
+            
+            # --- ส่วน Variable Settings ---
+            ui.accordion(
+                ui.accordion_panel(
+                    "🛠️ 1. Variable Settings & Labels",
+                    ui.layout_columns(
+                        ui.div(
+                            ui.input_select("sel_var_edit", "Select Variable to Configure:", choices=["Select..."]),
+                        ),
+                        ui.div(
+                            # ใช้ Server-side rendering แทน ui.panel_conditional เพื่อเลี่ยงปัญหา ID ใน JS
+                            ui.output_ui("ui_var_settings")
+                        ),
+                        col_widths=(4, 8)
+                    ),
+                ),
+                id="acc_settings",
+                open=True
+            ),
 
-        ui.br(),
-        
-        ui.card(
-            ui.card_header("📄 2. Raw Data Preview"),
-            ui.output_data_frame("out_df_preview"),
-            height="600px",
-            full_screen=True
+            ui.br(),
+            
+            # --- ส่วน Raw Data Preview ---
+            ui.card(
+                ui.card_header("📄 2. Raw Data Preview"),
+                ui.output_data_frame("out_df_preview"),
+                height="600px",
+                full_screen=True
+            )
         )
     )
 
@@ -281,7 +285,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return ui.TagList(
             ui.input_radio_buttons(
                 "radio_var_type", 
-                # 🟢 แก้ไขภาษาไทยเป็นอังกฤษ
                 "Variable Type:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
                 selected=current_type, # Set initial value directly
