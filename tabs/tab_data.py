@@ -3,15 +3,15 @@ from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
 from logger import get_logger
-from tabs._common import get_color_palette
+# ลบ import tabs._common ออกก่อนเพื่อลดความเสี่ยง ถ้าไม่ได้ใช้ get_color_palette ในนี้
+# from tabs._common import get_color_palette 
 
 logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
-    # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
+    # ใช้ layout_sidebar ภายใต้ nav_panel ของ app.py
     return ui.layout_sidebar(
         ui.sidebar(
             ui.h4("MENU"),
@@ -37,7 +37,6 @@ def data_ui():
                 "🛠️ 1. Variable Settings & Labels",
                 ui.layout_columns(
                     ui.div(
-                        # 🟢 แก้ไขภาษาไทยเป็นอังกฤษ
                         ui.input_select("sel_var_edit", "Select Variable to Configure:", choices=["Select..."]),
                     ),
                     ui.div(
@@ -65,14 +64,14 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # ไม่ต้องประกาศ ns = session.ns
-    # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
-    
+    # Debug Print: ถ้าเห็นข้อความนี้ใน Terminal แสดงว่าเชื่อมต่อสำเร็จ
+    print("DEBUG: data_server started successfully!") 
+
     is_loading_data = reactive.Value(False)
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
-    @reactive.event(lambda: input.btn_load_example()) 
+    @reactive.event(input.btn_load_example) 
     def _():
         logger.info("Generating example data...")
         is_loading_data.set(True)
@@ -195,7 +194,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(lambda: input.file_upload()) 
+    @reactive.event(input.file_upload) 
     def _():
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
@@ -239,7 +238,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_reset_all())
+    @reactive.event(input.btn_reset_all)
     def _():
         df.set(None)
         var_meta.set({})
@@ -281,23 +280,22 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return ui.TagList(
             ui.input_radio_buttons(
                 "radio_var_type", 
-                # 🟢 แก้ไขภาษาไทยเป็นอังกฤษ
                 "Variable Type:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
-                selected=current_type, # Set initial value directly
+                selected=current_type,
                 inline=True
             ),
             ui.input_text_area(
                 "txt_var_map", 
                 "Value Labels (Format: 0=No, 1=Yes)", 
-                value=map_str, # Set initial value directly
+                value=map_str,
                 height="100px"
             ),
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_save_meta())
+    @reactive.event(input.btn_save_meta)
     def _save_metadata():
         var_name = input.sel_var_edit()
         if var_name == "Select...": return
@@ -333,19 +331,20 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     def out_df_preview():
         d = df.get()
         if d is None:
-            return render.DataTable(pd.DataFrame({'Status': ['🔄 No data loaded yet.']}), width="100%")
+            # Return a simple placeholder DataFrame to stop loading spinner
+            return render.DataTable(pd.DataFrame({'Status': ['Waiting for data to be loaded...']}), width="100%")
         
         return render.DataTable(d, width="100%", filters=False)
 
     @render.ui
     def ui_btn_clear_match():
-        if is_matched.get():
-             # ใน Module Context ไม่ต้องใส่ ns() เอง
+        # Check if is_matched is available and valid
+        if is_matched and is_matched.get():
              return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input.btn_clear_match())
+    @reactive.event(input.btn_clear_match)
     def _():
         df_matched.set(None)
         is_matched.set(False)
