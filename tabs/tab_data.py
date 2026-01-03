@@ -257,7 +257,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     
     # Update Dropdown list
     @reactive.Effect
-    def _update_var_select():
+    def _update_var_select() -> None:
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
