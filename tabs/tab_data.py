@@ -325,20 +325,23 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
+    # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
         d = df.get()
-        # ถ้าไม่มีข้อมูล ให้คืนค่า DataFrame ว่างแทนการปล่อยให้ Shiny รอ
+        # ถ้าไม่มีข้อมูล ให้คืนค่า DataFrame ว่างหรือ None
         if d is None:
-            return render.DataTable(pd.DataFrame({'Status': ['⌛ Ready for data...']}))
+            # การคืนค่า None หรือ DataFrame ว่าง จะทำให้ Spinner หายไปเอง
+            return pd.DataFrame() 
         
-        # ใช้ DataTable พร้อมกำหนดความกว้างให้ชัดเจน
         try:
-            return render.DataTable(d, width="100%", filters=False)
+            # สำหรับ ui.output_data_frame ให้ return DataFrame ไปตรงๆ
+            # Shiny จะจัดการสร้าง Interactive Table ให้เอง
+            return d
         except Exception as e:
             logger.error(f"Preview Error: {e}")
-            return render.DataTable(pd.DataFrame({'Error': [str(e)]}))
-
+            return pd.DataFrame({'Error': [str(e)]})
+            
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
