@@ -3,6 +3,7 @@ from shiny import App, ui, reactive, Session
 # Import Config/Logger
 from config import CONFIG
 from logger import get_logger, LoggerFactory
+from logic import HAS_FIRTH
 
 # Import Tabs Modules
 from tabs import tab_data           # 🟢 Data Module
@@ -108,16 +109,12 @@ def server(input, output, session: Session):
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps():
-        deps_status = {}
-        try:
-            import firthlogist
-            deps_status['firth'] = {'installed': True, 'msg': '✅ Firth regression enabled'}
-        except ImportError:
-            deps_status['firth'] = {'installed': False, 'msg': '⚠️ Firth regression unavailable'}
-
-
-        if not deps_status['firth']['installed']:
-            ui.notification_show(deps_status['firth']['msg'], type="warning")
+        # เช็คจากตัวแปร HAS_FIRTH ที่ logic.py เตรียมไว้ให้แล้ว
+        if HAS_FIRTH:
+            logger.info("Optional dependencies: firth=True")
+        else:
+            logger.warning("Optional dependencies: firth=False")
+            ui.notification_show("⚠️ Firth regression unavailable", type="warning")
 
 
     check_optional_deps()
