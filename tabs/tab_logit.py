@@ -146,7 +146,7 @@ def logit_ui():
             ui.card(
                 ui.card_header("📊 Count Data Analysis"),
                 
-                ui.output_ui("ui_dataset_selector_poisson"),
+                ui.output_ui("ui_dataset_selector"),
                 ui.hr(),
                 
                 ui.layout_columns(
@@ -409,11 +409,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         d = df.get()
         row_count = len(d) if d is not None else 0
         return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
-
-    # ✅ NEW: Poisson dataset selector (reuse logic)
-    @render.ui
-    def ui_dataset_selector_poisson():
-        return ui_dataset_selector()
 
     # --- Dynamic Input Updates ---
     @reactive.Effect
