@@ -18,7 +18,7 @@ def data_ui():
             ui.h5("1. Data Management"),
             ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
             ui.br(), ui.br(),
-            ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
+            ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx", ".xls"], multiple=False),
             ui.hr(),
             ui.output_ui("ui_btn_clear_match"),
             ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
@@ -216,8 +216,12 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             # Load file based on extension
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
-            else:
+            elif f['name'].lower().endswith(('.xlsx', '.xls')):
+                # ✅ FIXED: Added .xls support and explicitly check extensions
                 new_df = pd.read_excel(f['datapath'], engine='openpyxl')
+            else:
+                ui.notification_show("❌ Unsupported file format", type="error")
+                return
             
             # Size check
             if len(new_df) > 100000:
