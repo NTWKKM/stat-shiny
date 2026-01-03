@@ -64,7 +64,9 @@ def data_ui():
 @module.server
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
-    
+
+    # 1. ประกาศตัวแปรนี้ไว้บรรทัดแรกของ server (สำคัญมาก!)
+    is_processing = reactive.Value(False)
     # ✅ FIX: Track loading state for UI feedback
     is_loading_data = reactive.Value(False)
 
