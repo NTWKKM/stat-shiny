@@ -33,7 +33,6 @@ from utils.psm_cache_integration import (
 
 # === INTEGRATION: System Stability & Memory ===
 from utils.memory_manager import MEMORY_MANAGER
-from utils.connection_handler import CONNECTION_HANDLER
 
 logger = get_logger(__name__)
 
@@ -105,7 +104,7 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
         )
 
     except Exception as e:
-        logger.error(f"PSM calculation error: {e}")
+        logger.exception("PSM calculation error")
         raise
 
 
@@ -213,7 +212,7 @@ def perform_matching(df, treatment_col, caliper=0.2):
         )
 
     except Exception as e:
-        logger.error(f"Matching error: {e}")
+        logger.exception("Matching error")
         raise
 
 def calculate_smd(df, treatment_col, covariate_cols):
@@ -233,7 +232,10 @@ def calculate_smd(df, treatment_col, covariate_cols):
             'treatment_col': treatment_col,
             'covariate_cols': tuple(sorted(covariate_cols)),
             'df_shape': df.shape,
-            'treatment_hash': hash(df[treatment_col].values.tobytes())
+            'data_hash': hash(
+                df[treatment_col].values.tobytes() +
+                b''.join(df[col].astype(str).values.tobytes() for col in covariate_cols)
+            )
         }
         
         # Define the SMD logic as an inner function
@@ -361,7 +363,7 @@ def generate_psm_report(title, elements):
         elif el['type'] == 'table':
             if isinstance(el['data'], pd.DataFrame):
                 # Clean table style
-                table_html = el['data'].to_html(classes='table table-striped table-bordered', index=False, float_format="{:.4f}".format)
+                table_html = el['data'].to_html(classes='table table-striped table-bordered', index=False, float_format="{:.4f}".format, escape=True)
                 html += f"<div style='margin: 20px 0;'>{table_html}</div>"
         elif el['type'] == 'plot':
             # Convert Plotly fig to HTML div
