@@ -17,8 +17,11 @@ from shiny import ui, reactive, render
 from shiny.session import get_current_session
 from config import CONFIG
 from logger import get_logger
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()
+
 
 def settings_ui(id: str) -> ui.TagChild:
     """
@@ -39,7 +42,7 @@ def settings_ui(id: str) -> ui.TagChild:
             ui.layout_sidebar(
                 ui.sidebar(
                     ui.h5("Analysis Parameters"),
-                    
+
                     # Logistic Regression Section
                     ui.h6("🔹 Logistic Regression"),
                     ui.input_select(
@@ -67,9 +70,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('analysis.logit_min_cases'),
                         min=1, max=100, width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Survival Analysis Section
                     ui.h6("🔹 Survival Analysis"),
                     ui.input_select(
@@ -86,9 +89,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         selected=CONFIG.get('analysis.cox_method'),
                         width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Variable Detection Section
                     ui.h6("🔹 Variable Detection"),
                     ui.input_numeric(
@@ -103,9 +106,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         min=0.0, max=1.0, value=CONFIG.get('analysis.var_detect_decimal_pct'),
                         step=0.05, width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # P-value Formatting Section
                     ui.h6("🔹 P-value Bounds (NEJM)"),
                     ui.input_slider(
@@ -132,9 +135,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('analysis.pvalue_format_large'),
                         width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Missing Data Section
                     ui.h6("🔹 Missing Data"),
                     ui.input_select(
@@ -150,14 +153,14 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('analysis.missing_threshold_pct'),
                         min=0, max=100, width="100%"
                     ),
-                    
+
                     ui.input_action_button(f"{id}_btn_save_analysis", "💾 Save Analysis Settings",
                                           class_="btn-primary", width="100%"),
-                    
+
                     width=300,
                     bg="#f8f9fa"
                 ),
-                
+
                 ui.card(
                     ui.card_header("📋 Analysis Settings Guide"),
                     ui.markdown("""
@@ -178,7 +181,7 @@ def settings_ui(id: str) -> ui.TagChild:
                 )
             )
         ),
-        
+
         # ==========================================
         # 2. UI & DISPLAY TAB
         # ==========================================
@@ -187,7 +190,7 @@ def settings_ui(id: str) -> ui.TagChild:
             ui.layout_sidebar(
                 ui.sidebar(
                     ui.h5("Display Settings"),
-                    
+
                     # Page Setup
                     ui.h6("🔹 Page Setup"),
                     ui.input_text(
@@ -210,9 +213,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         selected=CONFIG.get('ui.layout'),
                         width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Tables
                     ui.h6("🔹 Tables"),
                     ui.input_numeric(
@@ -232,9 +235,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('ui.table_decimal_places'),
                         min=0, max=10, width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Plots
                     ui.h6("🔹 Plots"),
                     ui.input_numeric(
@@ -261,14 +264,14 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('ui.plot_style'),
                         width="100%"
                     ),
-                    
+
                     ui.input_action_button(f"{id}_btn_save_ui", "💾 Save UI Settings",
                                           class_="btn-primary", width="100%"),
-                    
+
                     width=300,
                     bg="#f8f9fa"
                 ),
-                
+
                 ui.card(
                     ui.card_header("🎏 UI Settings Guide"),
                     ui.markdown("""
@@ -283,7 +286,7 @@ def settings_ui(id: str) -> ui.TagChild:
                 )
             )
         ),
-        
+
         # ==========================================
         # 3. LOGGING TAB
         # ==========================================
@@ -292,7 +295,7 @@ def settings_ui(id: str) -> ui.TagChild:
             ui.layout_sidebar(
                 ui.sidebar(
                     ui.h5("Logging Configuration"),
-                    
+
                     # Global Settings
                     ui.h6("🔹 Global"),
                     ui.input_checkbox(
@@ -308,9 +311,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         selected=CONFIG.get('logging.level'),
                         width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # File Logging
                     ui.h6("🔹 File Logging"),
                     ui.input_checkbox(
@@ -330,9 +333,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('logging.log_file'),
                         width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Console Logging
                     ui.h6("🔹 Console"),
                     ui.input_checkbox(
@@ -348,9 +351,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         selected=CONFIG.get('logging.console_level'),
                         width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Event Logging
                     ui.h6("🔹 Log Events"),
                     ui.input_checkbox(
@@ -373,14 +376,14 @@ def settings_ui(id: str) -> ui.TagChild:
                         "Performance Timing",
                         value=CONFIG.get('logging.log_performance'),
                     ),
-                    
+
                     ui.input_action_button(f"{id}_btn_save_logging", "💾 Save Logging Settings",
                                           class_="btn-primary", width="100%"),
-                    
+
                     width=300,
                     bg="#f8f9fa"
                 ),
-                
+
                 ui.card(
                     ui.card_header("📊 Logging Status"),
                     ui.output_text(f"{id}_txt_logging_status"),
@@ -388,7 +391,7 @@ def settings_ui(id: str) -> ui.TagChild:
                 )
             )
         ),
-        
+
         # ==========================================
         # 4. PERFORMANCE TAB
         # ==========================================
@@ -397,7 +400,7 @@ def settings_ui(id: str) -> ui.TagChild:
             ui.layout_sidebar(
                 ui.sidebar(
                     ui.h5("Performance Tuning"),
-                    
+
                     ui.input_checkbox(
                         f"{id}_caching_enabled",
                         "Enable Caching",
@@ -409,9 +412,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('performance.cache_ttl'),
                         min=60, max=86400, width="100%"
                     ),
-                    
+
                     ui.br(),
-                    
+
                     ui.input_checkbox(
                         f"{id}_compression_enabled",
                         "Enable Compression",
@@ -423,14 +426,14 @@ def settings_ui(id: str) -> ui.TagChild:
                         value=CONFIG.get('performance.num_threads'),
                         min=1, max=32, width="100%"
                     ),
-                    
+
                     ui.input_action_button(f"{id}_btn_save_perf", "💾 Save Performance Settings",
                                           class_="btn-primary", width="100%"),
-                    
+
                     width=300,
                     bg="#f8f9fa"
                 ),
-                
+
                 ui.card(
                     ui.card_header("Info: Performance Guide"),
                     ui.markdown("""
@@ -450,7 +453,7 @@ def settings_ui(id: str) -> ui.TagChild:
                 )
             )
         ),
-        
+
         # ==========================================
         # 5. ADVANCED TAB
         # ==========================================
@@ -459,7 +462,7 @@ def settings_ui(id: str) -> ui.TagChild:
             ui.layout_sidebar(
                 ui.sidebar(
                     ui.h5("Advanced Settings"),
-                    
+
                     # Validation
                     ui.h6("🔹 Validation"),
                     ui.input_checkbox(
@@ -482,9 +485,9 @@ def settings_ui(id: str) -> ui.TagChild:
                         "Auto-fix Errors",
                         value=CONFIG.get('validation.auto_fix_errors'),
                     ),
-                    
+
                     ui.br(),
-                    
+
                     # Debug
                     ui.h6("🔹 Debug"),
                     ui.input_checkbox(
@@ -507,14 +510,14 @@ def settings_ui(id: str) -> ui.TagChild:
                         "Show Timings",
                         value=CONFIG.get('debug.show_timings'),
                     ),
-                    
+
                     ui.input_action_button(f"{id}_btn_save_advanced", "💾 Save Advanced Settings",
                                           class_="btn-primary", width="100%"),
-                    
+
                     width=300,
                     bg="#f8f9fa"
                 ),
-                
+
                 ui.card(
                     ui.card_header("⚠️ Advanced Options"),
                     ui.markdown("""
@@ -531,7 +534,7 @@ def settings_ui(id: str) -> ui.TagChild:
                 )
             )
         ),
-        
+
         id=f"{id}_tabs"
     )
 
@@ -549,7 +552,7 @@ def settings_server(id: str, config) -> None:
     """
     session = get_current_session()
     input = session.input
-    
+
     # ---------------------------------------------------------
     # Manual Output Registration for Dynamic IDs
     # ---------------------------------------------------------
@@ -559,14 +562,14 @@ def settings_server(id: str, config) -> None:
         level = config.get('logging.level')
         status = "✅ ENABLED" if enabled else "❌ DISABLED"
         return f"Logging Status: {status}\nLevel: {level}"
-    
+
     # สำคัญ: เปลี่ยนชื่อฟังก์ชันให้ตรงกับ Dynamic ID ที่เราต้องการ
     # Shiny จะลงทะเบียน output ตามชื่อ __name__ ของฟังก์ชันที่ถูก decorate
     _txt_logging_status_logic.__name__ = f"{id}_txt_logging_status"
-    
+
     # ลงทะเบียนด้วย render decorator แบบ manual call
     render.text(_txt_logging_status_logic)
-    
+
     # ==========================================
     # ANALYSIS SETTINGS SAVE
     # ==========================================
@@ -589,13 +592,13 @@ def settings_server(id: str, config) -> None:
             config.update('analysis.pvalue_format_large', input[f"{id}_pvalue_format_large"]())
             config.update('analysis.missing_strategy', input[f"{id}_missing_strategy"]())
             config.update('analysis.missing_threshold_pct', int(input[f"{id}_missing_threshold_pct"]()))
-            
+
             logger.info("✅ Analysis settings saved")
             ui.notification_show("✅ Analysis settings saved", type="message")
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error saving analysis settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
-    
+
     # ==========================================
     # UI SETTINGS SAVE
     # ==========================================
@@ -614,13 +617,13 @@ def settings_server(id: str, config) -> None:
             config.update('ui.plot_height', int(input[f"{id}_plot_height"]()))
             config.update('ui.plot_dpi', int(input[f"{id}_plot_dpi"]()))
             config.update('ui.plot_style', input[f"{id}_plot_style"]())
-            
+
             logger.info("✅ UI settings saved")
             ui.notification_show("✅ UI settings saved", type="message")
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error saving UI settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
-    
+
     # ==========================================
     # LOGGING SETTINGS SAVE
     # ==========================================
@@ -640,13 +643,13 @@ def settings_server(id: str, config) -> None:
             config.update('logging.log_data_operations', bool(input[f"{id}_log_data_ops"]()))
             config.update('logging.log_analysis_operations', bool(input[f"{id}_log_analysis_ops"]()))
             config.update('logging.log_performance', bool(input[f"{id}_log_performance"]()))
-            
+
             logger.info("✅ Logging settings saved")
             ui.notification_show("✅ Logging settings saved", type="message")
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error saving logging settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
-    
+
     # ==========================================
     # PERFORMANCE SETTINGS SAVE
     # ==========================================
@@ -659,13 +662,13 @@ def settings_server(id: str, config) -> None:
             config.update('performance.cache_ttl', int(input[f"{id}_cache_ttl"]()))
             config.update('performance.enable_compression', bool(input[f"{id}_compression_enabled"]()))
             config.update('performance.num_threads', int(input[f"{id}_num_threads"]()))
-            
+
             logger.info("✅ Performance settings saved")
             ui.notification_show("✅ Performance settings saved", type="message")
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error saving performance settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
-    
+
     # ==========================================
     # ADVANCED SETTINGS SAVE
     # ==========================================
@@ -682,7 +685,7 @@ def settings_server(id: str, config) -> None:
             config.update('debug.verbose', bool(input[f"{id}_debug_verbose"]()))
             config.update('debug.profile_performance', bool(input[f"{id}_profile_performance"]()))
             config.update('debug.show_timings', bool(input[f"{id}_show_timings"]()))
-            
+
             logger.info("✅ Advanced settings saved")
             ui.notification_show("✅ Advanced settings saved", type="message")
         except (ValueError, TypeError, KeyError) as e:
