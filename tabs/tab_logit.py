@@ -517,7 +517,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         return None
 
     # ==========================================================================
-    # ✅ LOGIC: Binary Logistic Regression (WITH INTERACTIONS)
+    # ✅ LOGIC: Binary Logistic Regression (WITH INTERACTIONS - BACKWARD COMPATIBLE)
     # ==========================================================================
     @reactive.Effect
     @reactive.event(input.btn_run_logit)
@@ -549,14 +549,23 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             p.set(message="Running Logistic Regression...", detail="Calculating...")
 
             try:
-                # ✅ Pass interaction_pairs and receive 4 values
-                html_rep, or_res, aor_res, int_res = process_data_and_generate_html(
+                # ✅ Try to get result (could be 3 or 4 values)
+                result = process_data_and_generate_html(
                     final_df, target, var_meta=var_meta.get(), 
                     method=method, interaction_pairs=interaction_pairs or None
                 )
                 
-                if interaction_pairs:
-                    logger.info(f"✅ Logistic regression completed with {len(int_res)} interactions")
+                # ✅ Handle both 3-value and 4-value returns (backward compatibility)
+                if len(result) == 4:
+                    html_rep, or_res, aor_res, int_res = result
+                    if interaction_pairs:
+                        logger.info(f"✅ Logistic regression completed with {len(int_res)} interactions")
+                elif len(result) == 3:
+                    html_rep, or_res, aor_res = result
+                    int_res = {}
+                    logger.info("⚠️ Using legacy 3-value return (no interaction support)")
+                else:
+                    raise ValueError(f"Unexpected return value count: {len(result)}")
                 
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
@@ -570,16 +579,20 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_res.items()])
                 if not df_adj.empty:
                     fig_adj = create_forest_plot(
-                        df_adj, 'aor', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                        title="<b>Multivariable: Adjusted OR</b>", x_label="Adjusted OR"
+                        df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 
+                        pval_col='p_value',
+                        title="Multivariable: Adjusted OR",  # ✅ FIX: Remove HTML tags
+                        x_label="Adjusted OR"
                     )
 
             if or_res:
                 df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()])
                 if not df_crude.empty:
                     fig_crude = create_forest_plot(
-                        df_crude, 'or', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                        title="<b>Univariable: Crude OR</b>", x_label="Crude OR"
+                        df_crude, 'or', 'ci_low', 'ci_high', 'variable', 
+                        pval_col='p_value',
+                        title="Univariable: Crude OR",  # ✅ FIX: Remove HTML tags
+                        x_label="Crude OR"
                     )
 
             logit_res.set({
@@ -657,7 +670,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         if res: yield res['html']
 
     # ==========================================================================
-    # ✅ LOGIC: Poisson Regression (WITH INTERACTIONS)
+    # ✅ LOGIC: Poisson Regression (WITH INTERACTIONS - BACKWARD COMPATIBLE)
     # ==========================================================================
     @reactive.Effect
     @reactive.event(input.btn_run_poisson)
@@ -689,14 +702,23 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             p.set(message="Running Poisson Regression...", detail="Calculating...")
 
             try:
-                # ✅ Pass interaction_pairs and receive 4 values
-                html_rep, irr_res, airr_res, int_res = analyze_poisson_outcome(
+                # ✅ Try to get result (could be 3 or 4 values)
+                result = analyze_poisson_outcome(
                     target, final_df, var_meta=var_meta.get(), 
                     offset_col=offset_col, interaction_pairs=interaction_pairs or None
                 )
                 
-                if interaction_pairs:
-                    logger.info(f"✅ Poisson regression completed with {len(int_res)} interactions")
+                # ✅ Handle both 3-value and 4-value returns (backward compatibility)
+                if len(result) == 4:
+                    html_rep, irr_res, airr_res, int_res = result
+                    if interaction_pairs:
+                        logger.info(f"✅ Poisson regression completed with {len(int_res)} interactions")
+                elif len(result) == 3:
+                    html_rep, irr_res, airr_res = result
+                    int_res = {}
+                    logger.info("⚠️ Using legacy 3-value return (no interaction support)")
+                else:
+                    raise ValueError(f"Unexpected return value count: {len(result)}")
                 
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
@@ -710,16 +732,20 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 df_adj = pd.DataFrame([{'variable': k, **v} for k, v in airr_res.items()])
                 if not df_adj.empty:
                     fig_adj = create_forest_plot(
-                        df_adj, 'airr', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                        title="<b>Multivariable: Adjusted IRR</b>", x_label="Adjusted IRR"
+                        df_adj, 'airr', 'ci_low', 'ci_high', 'variable', 
+                        pval_col='p_value',
+                        title="Multivariable: Adjusted IRR",  # ✅ FIX: Remove HTML tags
+                        x_label="Adjusted IRR"
                     )
 
             if irr_res:
                 df_crude = pd.DataFrame([{'variable': k, **v} for k, v in irr_res.items()])
                 if not df_crude.empty:
                     fig_crude = create_forest_plot(
-                        df_crude, 'irr', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
-                        title="<b>Univariable: Crude IRR</b>", x_label="Crude IRR"
+                        df_crude, 'irr', 'ci_low', 'ci_high', 'variable', 
+                        pval_col='p_value',
+                        title="Univariable: Crude IRR",  # ✅ FIX: Remove HTML tags
+                        x_label="Crude IRR"
                     )
 
             poisson_res.set({
