@@ -327,12 +327,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
-        d = df.get()
-        if d is None:
-            return render.DataTable(pd.DataFrame({'Status': ['🔄 No data loaded yet.']}), width="100%")
-        
-        # ใช้ DataTable สำหรับ Preview ข้อมูลขนาดใหญ่โดยไม่ค้าง
-        return render.DataTable(d, width="100%", filters=False)
+        curr_df = df.get() # ดึงค่าจาก reactive variable
+        if curr_df is None or curr_df.empty:
+            return None # ถ้าไม่มีข้อมูล Shiny จะซ่อน spinner เอง
+        return render.DataTable(curr_df)
 
     @render.ui
     def ui_btn_clear_match():
