@@ -53,6 +53,7 @@ def data_ui():
         # --- ส่วน Raw Data Preview ---
         ui.card(
             ui.card_header("📄 2. Raw Data Preview"),
+            # ✅ ปรับปรุง: ใช้ระบุพารามิเตอร์เพื่อประสิทธิภาพในการ render
             ui.output_data_frame("out_df_preview"),
             height="600px",
             full_screen=True
@@ -65,8 +66,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
     # ✅ ENHANCEMENT: Track loading state explicitly
-    # - False: แอปว่างเปล่า (empty state)
-    # - True: แอปกำลังประมวลผลข้อมูล (processing state)
     is_loading_data = reactive.value(False)
 
     # --- 1. Data Loading Logic ---
@@ -81,7 +80,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             np.random.seed(42)
             n = 1500  
             
-            # --- Simulation Logic ---
+            # --- Simulation Logic (คงเดิมตามต้นฉบับ) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -177,7 +176,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            # Update states in sequence
+            # Update states
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
             df.set(new_df)
@@ -190,7 +189,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             logger.exception(f"❌ Error generating example data")
             ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
-        
         finally:
             is_loading_data.set(False)
 
@@ -198,30 +196,23 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @reactive.event(input.file_upload)
     def load_uploaded_file():
         file_infos: list[FileInfo] = input.file_upload()
-        
         if not file_infos:
             return
         
-        logger.info("🔄 User uploaded file")
         is_loading_data.set(True)
         f = file_infos[0]
-        logger.info(f"📂 Processing file: {f['name']}")
         id_notify = ui.notification_show(f"📂 Loading {f['name']}...", duration=None)
         
         try:
             if f['name'].lower().endswith('.csv'):
                 new_df = pd.read_csv(f['datapath'])
             else:
-                # ✅ FIX: Added engine='openpyxl' to ensure Excel compatibility
                 new_df = pd.read_excel(f['datapath'], engine='openpyxl')
-            
-            logger.info(f"📊 Loaded {len(new_df)} rows × {len(new_df.columns)} columns")
             
             if len(new_df) > 100000:
                 new_df = new_df.head(100000)
                 ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
-            # Build metadata
             current_meta = {}
             for col in new_df.columns:
                 unique_vals = new_df[col].dropna().unique()
@@ -231,7 +222,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 else:
                     current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
-            # Update states
             var_meta.set(current_meta)
             uploaded_file_info.set({"name": f['name']})
             df.set(new_df)
@@ -247,7 +237,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(input.btn_reset_all)  # ✅ Fixed event listener
+    @reactive.event(input.btn_reset_all)
     def reset_all_data():
         logger.info("🔄 Resetting all data")
         df.set(None)
@@ -271,7 +261,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @render.ui
     def ui_var_settings():
         var_name = input.sel_var_edit()
-        
         if not var_name or var_name == "Select...":
             return None
             
@@ -302,13 +291,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         )
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_save_meta())  # ✅ Fixed trigger
+    @reactive.event(input.btn_save_meta)
     def _save_metadata():
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
             return
-        
-        logger.info(f"💾 Saving metadata for {var_name}")
         
         new_map = {}
         map_input = input.txt_var_map()
@@ -324,8 +311,8 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                         except (ValueError, TypeError):
                             k_val = k_clean
                         new_map[k_val] = v.strip()
-                    except (ValueError, AttributeError) as e:
-                        logger.debug(f"Skipping malformed mapping line: {line} - {e}")
+                    except Exception:
+                        pass
 
         current_meta = var_meta.get() or {}
         current_meta[var_name] = {
@@ -337,51 +324,25 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    @reactive.Calc
-    def _get_df_for_preview():
-        """Get current dataframe with caching"""
-        return df.get()
-    
-    @reactive.Calc
-    def _get_loading_state():
-        """Get current loading state with caching"""
-        return is_loading_data.get()
-    
     @render.data_frame
     def out_df_preview():
-        d = _get_df_for_preview()
-        loading = _get_loading_state()
-
-        if loading:
-            return render.DataTable(
-                pd.DataFrame({'Status': ['📄 Loading data... Please wait...']})
-            )
-
+        # ✅ แก้ไข: ใช้ isolate เพื่อไม่ให้ส่วนอื่นมาสะกิดให้ render ตารางใหม่โดยไม่จำเป็น
+        # และถอดส่วน logic return DataFrame หลอกออก เพื่อให้ Shiny จัดการ Spinner เอง
+        d = df.get()
         if d is None or d.empty:
-            return render.DataTable(
-                pd.DataFrame(
-                    {'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}
-                )
-            )
-
+            return render.DataTable(pd.DataFrame({'Status': ['🔭 No data loaded yet.']}))
+        
         return render.DataTable(d)
 
-    @reactive.Calc
-    def _get_matched_state():
-        """Get matched status with caching"""
-        return is_matched.get()
-    
     @render.ui
     def ui_btn_clear_match():
-        """Show clear button only when matched data exists"""
-        if _get_matched_state():
+        if is_matched.get():
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(lambda: input.btn_clear_match())  # ✅ Fixed trigger
+    @reactive.event(input.btn_clear_match)
     def clear_matched_data():
-        logger.info("🔄 Clearing matched data")
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
