@@ -350,12 +350,26 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     @render.data_frame
     def out_df_preview():
+        """Display raw data preview"""
+        # ดึงค่าจาก reactive value df
         d = df.get()
+    
+        # ✅ แก้ไข: หากไม่มีข้อมูล ให้ส่ง DataFrame ที่มี Column เปล่า
+        # เพื่อให้ DataTable ของ Shiny รู้ว่า "โหลดเสร็จแล้วแต่ไม่มีข้อมูล"
         if d is None:
-            # คืนค่า DataFrame เปล่าที่มี columns เพื่อให้ UI หยุดหมุน
-            return render.DataTable(pd.DataFrame(columns=["Status"]), selection_mode="none")
-        return render.DataTable(d)
+            return render.DataTable(
+                pd.DataFrame({"Status": ["No data loaded. Please upload or load example data."]}),
+                selection_mode="none"
+            )
+    
+        if d.empty:
+            return render.DataTable(
+                pd.DataFrame({"Status": ["Dataset is empty."]}),
+                selection_mode="none"
+            )
 
+        # ✅ คืนค่าข้อมูลตามปกติ
+        return render.DataTable(d, selection_mode="none")
 
     @render.ui
     def ui_btn_clear_match():
