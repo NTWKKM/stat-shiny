@@ -114,7 +114,12 @@ def run_regression_model(y, X, model_type='logistic', method='default'):
     
     try:
         X = X.astype(float)
-        y = pd.to_numeric(y, errors='coerce').fillna(0) # Ensure numeric target
+        y = pd.to_numeric(y, errors='coerce')
+        
+        # Drop rows with missing target values
+        valid_mask = y.notna()
+        y = y[valid_mask]
+        X = X.loc[valid_mask]
         
         X_const = sm.add_constant(X, has_constant='add')
         
