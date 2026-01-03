@@ -119,7 +119,7 @@ def server(input, output, session: Session):
     # === 🚀 DYNAMIC STATUS BADGE LOGIC ===
     @output
     @render.ui
-    def optimization_status():
+    def optimization_status() -> ui.HTML:
         # ตั้งค่าให้ Refresh ตัวเองทุก 5 วินาที
         reactive.invalidate_later(5)
 
@@ -135,6 +135,8 @@ def server(input, output, session: Session):
             mem_icon = "💛"  # Approaching limit
         elif mem_status['status'] == 'CRITICAL':
             mem_icon = "🔴"  # Critical
+        elif mem_status['status'] == 'UNKNOWN':
+            mem_icon = "⚪"  # Unknown
 
         # 3. เช็คสถานะ Connection (L3)
         conn_stats = CONNECTION_HANDLER.get_stats()
@@ -146,7 +148,12 @@ def server(input, output, session: Session):
         conn_icon = "🟢" if success_val >= 90 else "🟠" if success_val >= 70 else "🔴"
 
         cache_title = html.escape(f"Cache: {cache_stats['cached_items']}/{cache_stats['max_size']} items (Hit rate: {cache_stats['hit_rate']})")
-        mem_title = html.escape(f"Memory: {mem_status['usage_pct']} ({mem_status['current_mb']}MB / {mem_status['max_mb']}MB)")
+        usage_pct = mem_status['usage_pct']
+        current_mb = mem_status['current_mb']
+        if usage_pct is not None and current_mb is not None:
+            mem_title = html.escape(f"Memory: {usage_pct:.1f}% ({current_mb}MB / {mem_status['max_mb']}MB)")
+        else:
+            mem_title = html.escape(f"Memory: Unknown ({mem_status['max_mb']}MB max)")
         conn_title = html.escape(f"Resilience: {conn_stats['success_rate']} success rate ({conn_stats['failed_attempts']} failures)")
         
         return ui.HTML(f"""
