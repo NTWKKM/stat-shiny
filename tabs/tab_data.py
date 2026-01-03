@@ -218,9 +218,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 new_df = pd.read_csv(f['datapath'])
             elif f['name'].lower().endswith(('.xlsx', '.xls')):
                 # ✅ FIXED: Added .xls support and explicitly check extensions
-                new_df = pd.read_excel(f['datapath'], engine='openpyxl')
+                try:
+                    new_df = pd.read_excel(f['datapath'], engine='openpyxl')
+                except ImportError:
+                    # Fallback to default engine if openpyxl not available
+                    logger.warning("⚠️ openpyxl not available, trying default engine")
+                    new_df = pd.read_excel(f['datapath'])
             else:
                 ui.notification_show("❌ Unsupported file format", type="error")
+                return
+            
+            # Validate data was loaded
+            if new_df is None or new_df.empty:
+                ui.notification_show("❌ File is empty or invalid", type="error")
                 return
             
             # Size check
@@ -395,18 +405,20 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return d if d is not None and not d.empty else None
 
 
-    # ✅ FIXED: Render data frame with proper dependency
+    # ✅ FIXED: Return DataFrame directly, NOT render.DataTable(d)
+    # The @render.data_frame decorator handles DataTable rendering automatically
     @render.data_frame
     def out_df_preview():
         """Display raw data preview"""
         d = _data_for_preview()  # ← Use reactive calc for explicit dependency
         
         if d is None:
-            # ✅ FIXED: Return empty DataFrame instead of status text
+            # ✅ FIXED: Return empty DataFrame (not wrapped in render.DataTable)
             # This prevents spinner from stalling
-            return render.DataTable(pd.DataFrame())
+            return pd.DataFrame()
         
-        return render.DataTable(d)
+        # ✅ FIXED: Return DataFrame directly - Shiny handles the rest
+        return d
 
 
     @render.ui
