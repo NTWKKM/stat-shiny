@@ -195,13 +195,13 @@ def server(input, output, session: Session):
     try:
         tab_data.data_server(
             "data",
-            df, 
-            var_meta, 
-            uploaded_file_info,
-            df_matched, 
-            is_matched, 
-            matched_treatment_col, 
-            matched_covariates
+            df,                   # 1
+            var_meta,             # 2
+            uploaded_file_info,   # 3
+            df_matched,           # 4
+            is_matched,           # 5
+            matched_treatment_col,# 6
+            matched_covariates    # 7
         )
         logger.info("✅ Data Management Module initialized successfully")
     except Exception as e:
