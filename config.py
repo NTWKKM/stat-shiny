@@ -61,7 +61,6 @@ class ConfigManager:
             their corresponding default settings.
         """
         return {
-
             # ========== ANALYSIS SETTINGS ==========
             "analysis": {
                 # Logistic Regression
@@ -130,10 +129,6 @@ class ConfigManager:
                 # Console Logging
                 "console_enabled": True,
                 "console_level": "INFO",
-                
-                # Streamlit Logging
-                "streamlit_enabled": True,
-                "streamlit_level": "WARNING",
                 
                 # What to Log
                 "log_file_operations": True,
