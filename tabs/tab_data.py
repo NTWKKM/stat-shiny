@@ -271,80 +271,71 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     @render.ui
     def ui_var_settings():
-        try:
-            var_name = input.sel_var_edit()
-            
-            if not var_name or var_name == "Select...":
-                return None
-                
-            meta = var_meta.get()
-            current_type = 'Continuous'
-            map_str = ""
-            
-            if meta and var_name in meta:
-                m = meta[var_name]
-                current_type = m.get('type', 'Continuous')
-                map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
-                
-            return ui.TagList(
-                ui.input_radio_buttons(
-                    "radio_var_type", 
-                    "ประเภทตัวแปร:", 
-                    choices={"Continuous": "Continuous", "Categorical": "Categorical"},
-                    selected=current_type,
-                    inline=True
-                ),
-                ui.input_text_area(
-                    "txt_var_map", 
-                    "Value Labels (Format: 0=No, 1=Yes)", 
-                    value=map_str,
-                    height="100px"
-                ),
-                ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ ui_var_settings rendering issue: {str(e)}")
+        var_name = input.sel_var_edit()
+        
+        if not var_name or var_name == "Select...":
             return None
+            
+        meta = var_meta.get()
+        current_type = 'Continuous'
+        map_str = ""
+        
+        if meta and var_name in meta:
+            m = meta[var_name]
+            current_type = m.get('type', 'Continuous')
+            map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
+            
+        return ui.TagList(
+            ui.input_radio_buttons(
+                "radio_var_type", 
+                "ประเภทตัวแปร:", 
+                choices={"Continuous": "Continuous", "Categorical": "Categorical"},
+                selected=current_type,
+                inline=True
+            ),
+            ui.input_text_area(
+                "txt_var_map", 
+                "Value Labels (Format: 0=No, 1=Yes)", 
+                value=map_str,
+                height="100px"
+            ),
+            ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
+        )
 
     @reactive.Effect
-    @reactive.event(lambda: input.btn_save_meta())
+    @reactive.event(lambda: input.btn_save_meta())  # ✅ Fixed trigger
     def _save_metadata():
-        try:
-            var_name = input.sel_var_edit()
-            if var_name == "Select..." or not var_name:
-                return
-            
-            logger.info(f"💾 Saving metadata for {var_name}")
-            
-            new_map = {}
-            map_input = input.txt_var_map()
-            if map_input:
-                for line in map_input.split('\n'):
-                    if '=' in line:
-                        k, v = line.split('=', 1)
+        var_name = input.sel_var_edit()
+        if var_name == "Select...": 
+            return
+        
+        logger.info(f"💾 Saving metadata for {var_name}")
+        
+        new_map = {}
+        map_input = input.txt_var_map()
+        if map_input:
+            for line in map_input.split('\n'):
+                if '=' in line:
+                    k, v = line.split('=', 1)
+                    try:
+                        k_clean = k.strip()
                         try:
-                            k_clean = k.strip()
-                            try:
-                                k_num = float(k_clean)
-                                k_val = int(k_num) if k_num.is_integer() else k_num
-                            except (ValueError, TypeError):
-                                k_val = k_clean
-                            new_map[k_val] = v.strip()
-                        except (ValueError, AttributeError) as e:
-                            logger.debug(f"Skipping malformed mapping line: {line} - {e}")
+                            k_num = float(k_clean)
+                            k_val = int(k_num) if k_num.is_integer() else k_num
+                        except (ValueError, TypeError):
+                            k_val = k_clean
+                        new_map[k_val] = v.strip()
+                    except (ValueError, AttributeError) as e:
+                        logger.debug(f"Skipping malformed mapping line: {line} - {e}")
 
-            current_meta = var_meta.get() or {}
-            current_meta[var_name] = {
-                'type': input.radio_var_type(), 
-                'map': new_map, 
-                'label': var_name
-            }
-            var_meta.set(current_meta)
-            ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
-            
-        except Exception as e:
-            logger.error(f"❌ Error saving metadata: {str(e)}")
-            ui.notification_show(f"❌ Error saving: {str(e)[:100]}", type="error")
+        current_meta = var_meta.get() or {}
+        current_meta[var_name] = {
+            'type': input.radio_var_type(), 
+            'map': new_map, 
+            'label': var_name
+        }
+        var_meta.set(current_meta)
+        ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
     @reactive.Calc
@@ -374,20 +365,23 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         """
         d = _get_df_for_preview()
         loading = _get_loading_state()
-
+        
+        # State 1: ❌ Loading in progress → Shiny shows spinner + message
         if loading:
             return render.DataTable(
-                pd.DataFrame({"Status": ['📄 Loading data... Please wait...']})
+                pd.DataFrame({'Status': ['📄 Loading data... Please wait...']}),
+                selection="none"
             )
-
+        
+        # State 2: ❌ No data loaded yet → Show helpful message
         if d is None or d.empty:
             return render.DataTable(
-                pd.DataFrame(
-                    {"Status": ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}
-                )
+                pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}),
+                selection="none"
             )
-
-        return render.DataTable(d)
+        
+        # State 3: ✅ Data ready → Display actual dataframe
+        return render.DataTable(d, selection="rows")
 
     @reactive.Calc
     def _get_matched_state():
