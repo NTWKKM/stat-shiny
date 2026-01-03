@@ -598,6 +598,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         if not covs:
             return ui.span(
                 "⚠️ Select covariates",
+                # class_="text-danger fw-bold" # 🟢 Changed to text-danger (Bootstrap standard)
                 class_="text-danger fw-bold"
             )
         return ui.span(
@@ -716,10 +717,10 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
 
                 ui.h5("Step 3️⃣: Match Quality Summary"),
                 ui.layout_columns(
-                    ui.value_box("Pairs Matched", ui.output_ui("val_pairs"), theme="bg-teal"),
-                    ui.value_box("Sample Retained", ui.output_ui("val_retained"), theme="bg-teal"),
-                    ui.value_box("Good Balance", ui.output_ui("val_balance"), theme="bg-green"),
-                    ui.value_box("SMD Improvement", ui.output_ui("val_smd_imp"), theme="bg-green"),
+                    ui.value_box("Pairs Matched", ui.output_ui("val_pairs"), theme="primary"),
+                    ui.value_box("Sample Retained", ui.output_ui("val_retained"), theme="primary"),
+                    ui.value_box("Good Balance", ui.output_ui("val_balance"), theme="success"),
+                    ui.value_box("SMD Improvement", ui.output_ui("val_smd_imp"), theme="success"),
                     col_widths=[3, 3, 3, 3]
                 ),
 
@@ -878,7 +879,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         res = psm_results.get()
         if res:
             yield res['df_matched'].to_csv(index=False)
-              
+            
     @render.download(filename="psm_report.html")
     def btn_dl_psm_report():
         res = psm_results.get()
@@ -987,7 +988,7 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     def btn_dl_matched_csv_view():
         if df_matched.get() is not None:
             yield df_matched.get().to_csv(index=False)
-              
+            
     @render.download(filename="matched_data.xlsx")
     def btn_dl_matched_xlsx_view():
         if df_matched.get() is not None:
