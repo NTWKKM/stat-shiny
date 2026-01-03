@@ -102,15 +102,6 @@ app_ui = ui.page_navbar(
 # ==========================================
 def server(input, output, session: Session):
     logger.info("📱 Shiny app session started")
-
-    # Ensure variables are set correctly
-    try:
-        df.set(new_df)
-        var_meta.set(meta)
-        uploaded_file_info.set({"name": "Example Clinical Data"})
-        logger.info("Reactive values updated successfully")
-    except Exception as e:
-        logger.error(f"Failed to set reactive values: {e}")
     
     # --- Reactive State (Global) ---
     df = reactive.Value(None)
