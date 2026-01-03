@@ -65,14 +65,14 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # ✅ FIX: ใช้ reactive.value (ตัวพิมพ์เล็ก) ให้ตรงกับ app.py
+    # ✅ FIX: Track loading state
     is_loading_data = reactive.value(False)
 
     # --- 1. Data Loading Logic ---
-    @reactive.effect
-    @reactive.event(input.btn_load_example) 
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_load_example())  # ✅ ต้องมี lambda: และ ()
     def _():
-        logger.info("Generating example data...")
+        logger.info("🔄 User clicked Load Example Data")
         is_loading_data.set(True)
         id_notify = ui.notification_show("📄 Generating simulation...", duration=None)
         
@@ -80,7 +80,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             np.random.seed(42)
             n = 1500  
             
-            # --- Simulation Logic (คงเดิมตามที่คุณให้มา) ---
+            # --- Simulation Logic ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -176,35 +176,37 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            # ✅ FIX: Update states ในลำดับที่ถูกต้อง
+            # Update states in sequence
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
-            df.set(new_df)  # Set df สุดท้าย เพื่อ trigger render
+            df.set(new_df)
             
             logger.info(f"✅ Successfully generated {n} records")
             ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
 
         except Exception as e:
-            logger.exception(f"Error generating example data: {e}")
+            logger.exception(f"❌ Error generating example data")
             ui.notification_remove(id_notify)
-            ui.notification_show(f"❌ Error: {e}", type="error")
+            ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
         
         finally:
-            # ✅ FIX: ต้อง set loading เป็น False เสมอ
             is_loading_data.set(False)
 
-    @reactive.effect
-    @reactive.event(input.file_upload) 
+    @reactive.Effect
+    @reactive.event(lambda: input.file_upload())  # ✅ ต้องมี lambda: และ ()
     def _():
+        logger.info("🔄 User uploaded file")
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
         
         if not file_infos:
+            logger.warning("⚠️ No file selected")
             is_loading_data.set(False)
             return
         
         f = file_infos[0]
+        logger.info(f"📂 Processing file: {f['name']}")
         id_notify = ui.notification_show(f"📂 Loading {f['name']}...", duration=None)
         
         try:
@@ -213,11 +215,13 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             else:
                 new_df = pd.read_excel(f['datapath'])
             
+            logger.info(f"📊 Loaded {len(new_df)} rows × {len(new_df.columns)} columns")
+            
             if len(new_df) > 100000:
                 new_df = new_df.head(100000)
                 ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
-            # ✅ FIX: สร้าง metadata ก่อน
+            # Build metadata
             current_meta = {}
             for col in new_df.columns:
                 unique_vals = new_df[col].dropna().unique()
@@ -230,21 +234,22 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             # Update states
             var_meta.set(current_meta)
             uploaded_file_info.set({"name": f['name']})
-            df.set(new_df)  # Set df สุดท้าย
+            df.set(new_df)
             
             ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {len(new_df)} rows from {f['name']}", type="message")
             
         except Exception as e:
-            logger.exception(f"Error loading file: {e}")
+            logger.exception(f"❌ Error loading file")
             ui.notification_remove(id_notify)
-            ui.notification_show(f"❌ Error: {str(e)}", type="error")
+            ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
         finally:
             is_loading_data.set(False)
 
-    @reactive.effect
-    @reactive.event(input.btn_reset_all)
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_reset_all())  # ✅ ต้องมี lambda: และ ()
     def _():
+        logger.info("🔄 Resetting all data")
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -256,7 +261,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show("✅ All data reset", type="warning")
 
     # --- 2. Metadata Logic ---
-    @reactive.effect
+    @reactive.Effect
     def _update_var_select():
         data = df.get()
         if data is not None and not data.empty:
@@ -296,12 +301,14 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
-    @reactive.effect
-    @reactive.event(input.btn_save_meta)
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_save_meta())  # ✅ ต้องมี lambda: และ ()
     def _save_metadata():
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
             return
+        
+        logger.info(f"💾 Saving metadata for {var_name}")
         
         new_map = {}
         map_input = input.txt_var_map()
@@ -332,19 +339,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
-        # ✅ FIX: ดึงค่าจาก reactive values อย่างชัดเจน
+        # Get reactive values
         d = df.get()
         loading = is_loading_data.get()
         
-        # กรณีที่กำลังโหลดข้อมูล
+        # Show loading state
         if loading:
             return pd.DataFrame({'Status': ['📄 Loading data... Please wait...']})
         
-        # กรณีที่ยังไม่มีข้อมูลในระบบ
+        # Show empty state
         if d is None or d.empty:
             return pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']})
         
-        # ส่งคืน DataFrame จริง
+        # Return actual data
         return d
 
     @render.ui
@@ -353,9 +360,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
-    @reactive.effect
-    @reactive.event(input.btn_clear_match)
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_clear_match())  # ✅ ต้องมี lambda: และ ()
     def _():
+        logger.info("🔄 Clearing matched data")
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
