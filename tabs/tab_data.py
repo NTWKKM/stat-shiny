@@ -47,10 +47,7 @@ def data_ui():
         ui.card(
             ui.card_header("📄 2. Raw Data Preview"),
             
-            # ✅ FIXED: Loading indicator (optional)
-            ui.output_ui("ui_loading_status"),
-            
-            # ✅ FIXED: Data frame output
+            # ✅ Data frame output
             ui.output_data_frame("out_df_preview"),
             
             height="600px",
@@ -65,9 +62,6 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     """Server logic for Data Management"""
-    
-    # ✅ FIXED: Track loading state explicitly
-    is_loading_data = reactive.Value(False)
 
     # ========== 1. Data Loading Logic ==========
 
@@ -76,10 +70,9 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     def load_example_data():
         """Load example/simulated clinical data"""
         logger.info("🔄 User clicked Load Example Data")
-        is_loading_data.set(True)
         
-        # ✅ FIXED: Do NOT show notification with duration=None during long operations
-        # Let Shiny handle spinner automatically
+        # ✅ Show blocking notification with duration=None during long operations
+        id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
         
         try:
             np.random.seed(42)
@@ -180,22 +173,21 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
             }
             
-            # ✅ FIXED: Update all reactive values - Shiny will automatically invalidate dependents
+            # ✅ Update all reactive values
             df.set(new_df)
             var_meta.set(meta)
             uploaded_file_info.set({"name": "Example Clinical Data"})
             
             logger.info(f"✅ Successfully generated {n} records")
             
-            # ✅ Notification AFTER operation completes (won't block spinner)
+            # ✅ Remove blocking notification and show success message
+            ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
             
         except Exception as e:
             logger.exception(f"❌ Error generating example data")
+            ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
-        
-        finally:
-            is_loading_data.set(False)  # ← Always clear loading flag
 
 
     @reactive.Effect
@@ -207,10 +199,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if not file_infos:
             return
         
-        is_loading_data.set(True)  # ← Set loading = true
-        
         f = file_infos[0]
-        # ✅ FIXED: Do NOT show notification during long operations
+        
+        # ✅ Show blocking notification during file load
+        id_notify = ui.notification_show(f"🔄 Loading {f['name']}...", duration=None)
         
         try:
             # Load file based on extension
@@ -235,22 +227,21 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 else:
                     current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
             
-            # ✅ FIXED: Update ALL reactive values
+            # ✅ Update ALL reactive values
             df.set(new_df)
             var_meta.set(current_meta)
             uploaded_file_info.set({"name": f['name']})
             
             logger.info(f"✅ Successfully loaded {len(new_df)} rows from {f['name']}")
             
-            # ✅ Notification AFTER operation completes
+            # ✅ Remove blocking notification and show success message
+            ui.notification_remove(id_notify)
             ui.notification_show(f"✅ Loaded {len(new_df)} rows from {f['name']}", type="message")
             
         except Exception as e:
             logger.exception(f"❌ Error loading file")
+            ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
-        
-        finally:
-            is_loading_data.set(False)  # ← Always clear loading flag
 
 
     @reactive.Effect
@@ -266,7 +257,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         matched_treatment_col.set(None)
         matched_covariates.set([])
         uploaded_file_info.set(None)
-        is_loading_data.set(False)
         
         ui.notification_show("✅ All data reset", type="warning")
 
@@ -358,47 +348,14 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     # ========== 3. Render Outputs ==========
 
-    # ✅ FIXED: Custom loading indicator
-    @render.ui
-    def ui_loading_status():
-        """Show custom loading indicator during data operations"""
-        if is_loading_data.get():
-            return ui.div(
-                ui.HTML("""
-                <div style='text-align: center; padding: 20px; color: #2180BE;'>
-                    <div style='display: inline-block; width: 30px; height: 30px; 
-                                border: 4px solid #f3f3f3; border-top: 4px solid #2180BE; 
-                                border-radius: 50%; animation: spin 1s linear infinite;'></div>
-                    <p style='margin-top: 10px; font-weight: 500;'>📊 Processing data...</p>
-                </div>
-                <style>
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                </style>
-                """),
-                id="loading_indicator"
-            )
-        return None
-
-
-    # ✅ FIXED: Use @reactive.Calc for dependency tracking
-    @reactive.Calc
-    def _data_for_preview():
-        """Derived reactive value - triggers when df changes"""
-        d = df.get()
-        return d if d is not None and not d.empty else None
-
-
-    # ✅ FIXED: Render data frame with proper dependency
     @render.data_frame
     def out_df_preview():
         """Display raw data preview"""
-        d = _data_for_preview()  # ← Use reactive calc for explicit dependency
+        # ✅ Direct access to df - avoids reactive.Calc dependency chain
+        d = df.get()
         
-        if d is None:
-            # ✅ FIXED: Return empty DataFrame instead of status text
+        if d is None or d.empty:
+            # ✅ Return empty DataFrame instead of status text
             # This prevents spinner from stalling
             return render.DataTable(pd.DataFrame())
         
