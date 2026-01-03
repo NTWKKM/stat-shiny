@@ -65,7 +65,9 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # ✅ FIX: Track loading state
+    # ✅ ENHANCEMENT: Track loading state explicitly
+    # - False: แอปว่างเปล่า (empty state)
+    # - True: แอปกำลังประมวลผลข้อมูล (processing state)
     is_loading_data = reactive.value(False)
 
     # --- 1. Data Loading Logic ---
@@ -338,34 +340,57 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # --- 3. Render Outputs ---
     @reactive.Calc
     def _get_df_for_preview():
+        """Get current dataframe with caching"""
         return df.get()
     
     @reactive.Calc
     def _get_loading_state():
+        """Get current loading state with caching"""
         return is_loading_data.get()
     
     @render.data_frame
     def out_df_preview():
-        # Get reactive values
+        """
+        ✅ ENHANCED: Handle loading spinner & empty states properly
+        
+        Flow:
+        1. is_loading_data=True  → Show loading message (Spinner visible)
+        2. is_loading_data=False + df=None → Show empty state message
+        3. is_loading_data=False + df exists → Show actual data
+        
+        การหุ้มด้วย render.DataTable ช่วยให้:
+        - Shiny รู้ว่าการ render เสร็จแล้ว → ปิด spinner
+        - ข้อมูลขนาดใหญ่ render ลื่นไหล
+        - ป้องกัน error จากการเปลี่ยนแปลง schema ของ df
+        """
         d = _get_df_for_preview()
         loading = _get_loading_state()
         
-        # ✅ FIX: Handle persistent loading spinner by returning a clear state
+        # State 1: ❌ Loading in progress → Shiny shows spinner + message
         if loading:
-            return render.DataTable(pd.DataFrame({'Status': ['📄 Loading data... Please wait...']}))
+            return render.DataTable(
+                pd.DataFrame({'Status': ['📄 Loading data... Please wait...']}),
+                selection="none"
+            )
         
+        # State 2: ❌ No data loaded yet → Show helpful message
         if d is None or d.empty:
-            return render.DataTable(pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}))
+            return render.DataTable(
+                pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}),
+                selection="none"
+            )
         
-        # ✅ FIX: Use render.DataTable for explicit rendering
-        return render.DataTable(d)
+        # State 3: ✅ Data ready → Display actual dataframe
+        return render.DataTable(d, selection="rows")
 
     @reactive.Calc
     def _get_matched_state():
+        """Get matched status with caching"""
         return is_matched.get()
     
     @render.ui
     def ui_btn_clear_match():
+        """Show clear button only when matched data exists"""
         if _get_matched_state():
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
