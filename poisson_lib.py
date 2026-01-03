@@ -12,9 +12,13 @@ import statsmodels.api as sm
 import warnings
 import html
 from logger import get_logger
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
+
+# Initialize color palette for consistent styling
+COLORS = get_color_palette()
 
 
 def run_poisson_regression(y, X, offset=None):
@@ -109,7 +113,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
         tuple: (html_table, irr_results, airr_results)
     """
     from logic import (clean_numeric_value, _robust_sort_key, get_label, 
-                       fmt_p_with_styling, COLORS)
+                       fmt_p_with_styling)
     
     logger.info(f"Starting Poisson analysis for outcome: {outcome_name}")
     
@@ -141,6 +145,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
     cat_levels_map = {}
     
     def fmt_p(val):
+        """Plain p-value formatting (non-styled)"""
         if pd.isna(val):
             return "-"
         try:
@@ -398,7 +403,180 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
                                 'airr': airr, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv
                             }
     
-    # Build HTML
+    # ===================================================================
+    # 🎨 STYLED HTML GENERATION
+    # ===================================================================
+    
+    # Professional CSS styling matching the Navy Blue theme
+    css_styles = f"""<style>
+        body {{
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            padding: 20px;
+            background-color: {COLORS['background']};
+            color: {COLORS['text']};
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }}
+        
+        .table-container {{
+            background: {COLORS['surface']};
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+            overflow-x: auto;
+            margin-bottom: 16px;
+            border: 1px solid {COLORS['border']};
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }}
+        
+        .table-container:hover {{
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
+            border-color: {COLORS['primary_light']};
+        }}
+        
+        table {{
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 13px;
+        }}
+        
+        th {{
+            background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary']} 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border: none;
+            font-size: 13px;
+        }}
+        
+        th:first-child {{
+            border-radius: 0;
+        }}
+        
+        th:last-child {{
+            border-radius: 0;
+        }}
+        
+        td {{
+            padding: 12px;
+            border-bottom: 1px solid {COLORS['border']};
+            vertical-align: middle;
+        }}
+        
+        tbody tr {{
+            transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }}
+        
+        tbody tr:nth-child(even) {{
+            background-color: {COLORS['background']};
+        }}
+        
+        tbody tr:hover {{
+            background-color: {COLORS['primary_light']};
+        }}
+        
+        .outcome-title {{
+            background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
+            color: white;
+            padding: 15px 16px;
+            font-weight: 600;
+            font-size: 15px;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 2px solid {COLORS['primary_dark']};
+        }}
+        
+        .summary-box {{
+            background-color: {COLORS['primary_light']};
+            border-top: 2px solid {COLORS['border']};
+            padding: 14px 16px;
+            font-size: 0.9em;
+            color: {COLORS['text']};
+            border-radius: 0 0 8px 8px;
+            line-height: 1.6;
+        }}
+        
+        .summary-box b {{
+            color: {COLORS['primary_dark']};
+        }}
+        
+        .sig-p {{
+            color: #fff;
+            background-color: {COLORS['danger']};
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+        }}
+        
+        .sheet-header td {{
+            background-color: {COLORS['primary_light']};
+            color: {COLORS['primary_dark']};
+            font-weight: bold;
+            padding: 10px 12px;
+            border-top: 2px solid {COLORS['primary']};
+            border-bottom: 1px solid {COLORS['primary']};
+            font-size: 13px;
+        }}
+        
+        .alert {{
+            background-color: rgba(231, 72, 86, 0.08);
+            border: 1px solid {COLORS['danger']};
+            border-radius: 6px;
+            padding: 12px 16px;
+            color: {COLORS['danger']};
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }}
+        
+        h1, h2, h3 {{
+            color: {COLORS['primary_dark']};
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }}
+        
+        h1 {{
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }}
+        
+        h2 {{
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }}
+        
+        /* Responsive design */
+        @media (max-width: 768px) {{
+            body {{
+                padding: 12px;
+            }}
+            
+            table {{
+                font-size: 12px;
+            }}
+            
+            th, td {{
+                padding: 8px;
+            }}
+            
+            .outcome-title {{
+                padding: 12px 14px;
+                font-size: 14px;
+            }}
+            
+            .summary-box {{
+                padding: 12px 14px;
+            }}
+        }}
+    </style>"""
+    
+    # Build HTML table rows
     html_rows = []
     current_sheet = ""
     valid_cols_for_html = [c for c in sorted_cols if c in results_db]
@@ -412,23 +590,29 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
         mode = mode_map.get(col, 'linear')
         sheet = col.split('_')[0] if '_' in col else "Variables"
         
+        # Sheet header with styled grouping
         if sheet != current_sheet:
             html_rows.append(f"<tr class='sheet-header'><td colspan='9'>{sheet}</td></tr>")
             current_sheet = sheet
         
         lbl = get_label(col, var_meta)
-        mode_badge = {'categorical': '📊 (All Levels)', 'linear': '📉 (Trend)'}
+        mode_badge = {
+            'categorical': '📊 (All Levels)', 
+            'linear': '📉 (Trend)'
+        }
         if mode in mode_badge:
-            lbl += f"<br><span style='font-size:0.8em; color:#888'>{mode_badge[mode]}</span>"
+            lbl += f"<br><span style='font-size:0.8em; color:{COLORS['text_secondary']}'>{mode_badge[mode]}</span>"
         
         irr_s = res.get('irr', '-')
         coef_s = res.get('coef', '-')
         
+        # Use styled p-value formatting
         if mode == 'categorical':
             p_col_display = res.get('p_irr', '-')
         else:
             p_col_display = fmt_p_with_styling(res.get('p_comp', np.nan))
         
+        # Multivariate results
         airr_s, acoef_s, ap_s = "-", "-", "-"
         multi_res = res.get('multi_res')
         
@@ -463,38 +647,49 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
     
     logger.info(f"Poisson analysis complete. Multivariate n={final_n_multi}")
     
+    # Model fit information with styled formatting
     model_fit_html = ""
     if mv_metrics_text:
-        model_fit_html = f"<div style='margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; color: {COLORS['primary_dark']};'><b>Model Fit:</b> {mv_metrics_text}</div>"
+        model_fit_html = f"""<div style='margin-top: 8px; padding-top: 8px; 
+                                        border-top: 1px dashed {COLORS['border']}; 
+                                        color: {COLORS['primary_dark']};'>
+            <b>Model Fit:</b> {mv_metrics_text}
+        </div>"""
     
+    # Offset information
     offset_info = f" | Offset: {offset_col}" if offset_col else ""
     
-    html_table = f"""<div id='{outcome_name}' class='table-container'>
-    <div class='outcome-title'>Outcome: {outcome_name} (n={total_n}){offset_info}</div>
-    <table>
-        <thead>
-            <tr>
-                <th>Variable</th>
-                <th>Description</th>
-                <th>Crude Coef.</th>
-                <th>Crude IRR (95% CI)</th>
-                <th>Test</th>
-                <th>P-value</th>
-                <th>Adj. Coef.</th>
-                <th>aIRR (95% CI)</th>
-                <th>aP-value</th>
-            </tr>
-        </thead>
-        <tbody>{chr(10).join(html_rows)}</tbody>
-    </table>
-    <div class='summary-box'>
-        <b>Method:</b> Poisson GLM<br>
-        <div style='margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 0.9em; color: #666;'>
-            <b>Selection:</b> Variables with Crude P < 0.20 (n={final_n_multi})<br>
-            <b>Interpretation:</b> IRR = Incidence Rate Ratio (Rate in exposed / Rate in unexposed)
-            {model_fit_html}
+    # Complete HTML report with professional styling
+    html_table = f"""{css_styles}
+    <div id='{outcome_name}' class='table-container'>
+        <div class='outcome-title'>📊 Poisson Regression: {outcome_name} (n={total_n}){offset_info}</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Variable</th>
+                    <th>Description</th>
+                    <th>Crude Coef.</th>
+                    <th>Crude IRR (95% CI)</th>
+                    <th>Test</th>
+                    <th>P-value</th>
+                    <th>Adj. Coef.</th>
+                    <th>aIRR (95% CI)</th>
+                    <th>aP-value</th>
+                </tr>
+            </thead>
+            <tbody>{chr(10).join(html_rows)}</tbody>
+        </table>
+        <div class='summary-box'>
+            <b>Method:</b> Poisson GLM (Generalized Linear Model)<br>
+            <div style='margin-top: 8px; padding-top: 8px; 
+                        border-top: 1px solid {COLORS['border']}; 
+                        font-size: 0.9em; color: {COLORS['text_secondary']};'>
+                <b>Selection Criteria:</b> Variables with Crude P &lt; 0.20 included in multivariate model (n={final_n_multi})<br>
+                <b>Interpretation:</b> IRR = Incidence Rate Ratio (Rate in exposed / Rate in unexposed)<br>
+                <b>Visual Indicators:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit increase)
+                {model_fit_html}
+            </div>
         </div>
-    </div>
     </div><br>"""
     
     return html_table, irr_results, airr_results
