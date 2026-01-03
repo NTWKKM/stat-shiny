@@ -3,6 +3,8 @@
 
 Handles count outcomes (e.g., number of events, hospital visits)
 Returns Incidence Rate Ratios (IRR) instead of Odds Ratios (OR)
+
+✅ Now supports Interaction Terms Analysis
 """
 
 import pandas as pd
@@ -99,7 +101,7 @@ def check_count_outcome(series):
         return False, f"Validation error: {str(e)}"
 
 
-def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
+def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, interaction_pairs=None):
     """
     Perform Poisson regression analysis for count outcome.
     
@@ -108,9 +110,10 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
         df: Input DataFrame
         var_meta: Variable metadata dictionary
         offset_col: Optional column name for exposure offset (e.g., person-years)
+        interaction_pairs: List of tuples for interactions [(var1, var2), ...]
     
     Returns:
-        tuple: (html_table, irr_results, airr_results)
+        tuple: (html_table, irr_results, airr_results, interaction_results)
     """
     from logic import (clean_numeric_value, _robust_sort_key, get_label, 
                        fmt_p_with_styling)
@@ -120,13 +123,13 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
         logger.error(msg)
-        return f"<div class='alert'>{msg}</div>", {}, {}
+        return f"<div class='alert'>{msg}</div>", {}, {}, {}
     
     # Validate count data
     is_valid, msg = check_count_outcome(df[outcome_name])
     if not is_valid:
         logger.error(f"Invalid count data: {msg}")
-        return f"<div class='alert'>⚠️ {msg}</div>", {}, {}
+        return f"<div class='alert'>⚠️ {msg}</div>", {}, {}, {}
     
     y = pd.to_numeric(df[outcome_name], errors='coerce').dropna()
     df_aligned = df.loc[y.index]
@@ -321,8 +324,12 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
         if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
             candidates.append(col)
     
-    # Multivariate analysis
+    # ===================================================================
+    # 🔗 MULTIVARIATE ANALYSIS WITH INTERACTIONS
+    # ===================================================================
     airr_results = {}
+    interaction_results = {}
+    int_meta = {}
     final_n_multi = 0
     mv_metrics_text = ""
     
@@ -338,6 +345,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
     if len(cand_valid) > 0:
         multi_df = pd.DataFrame({'y': y})
         
+        # Add main effects
         for c in cand_valid:
             mode = mode_map.get(c, 'linear')
             if mode == 'categorical':
@@ -349,6 +357,15 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
                         multi_df[d_name] = (raw_vals.astype(str) == str(lvl)).astype(int)
             else:
                 multi_df[c] = df_aligned[c].apply(clean_numeric_value)
+        
+        # ✅ Add interaction terms if specified
+        if interaction_pairs:
+            try:
+                from interaction_lib import create_interaction_terms
+                multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
+                logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
+            except Exception as e:
+                logger.error(f"Failed to create interaction terms: {e}")
         
         multi_data = multi_df.dropna()
         final_n_multi = len(multi_data)
@@ -370,6 +387,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
                 if r2_parts:
                     mv_metrics_text = " | ".join(r2_parts)
                 
+                # Process main effects
                 for var in cand_valid:
                     mode = mode_map.get(var, 'linear')
                     if mode == 'categorical':
@@ -402,9 +420,18 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
                             airr_results[var] = {
                                 'airr': airr, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv
                             }
+                
+                # ✅ Process interaction effects
+                if int_meta:
+                    try:
+                        from interaction_lib import format_interaction_results
+                        interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'poisson')
+                        logger.info(f"✅ Formatted {len(interaction_results)} Poisson interaction results")
+                    except Exception as e:
+                        logger.error(f"Failed to format interaction results: {e}")
     
     # ===================================================================
-    # 🎨 STYLED HTML GENERATION
+    # 🎨 STYLED HTML GENERATION (WITH INTERACTIONS)
     # ===================================================================
     
     # Professional CSS styling matching the Navy Blue theme
@@ -450,14 +477,6 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
             letter-spacing: 0.5px;
             border: none;
             font-size: 13px;
-        }}
-        
-        th:first-child {{
-            border-radius: 0;
-        }}
-        
-        th:last-child {{
-            border-radius: 0;
         }}
         
         td {{
@@ -539,40 +558,13 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
             margin-bottom: 16px;
         }}
         
-        h1 {{
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }}
-        
-        h2 {{
-            font-size: 24px;
-            font-weight: 600;
-            letter-spacing: -0.3px;
-        }}
-        
         /* Responsive design */
         @media (max-width: 768px) {{
-            body {{
-                padding: 12px;
-            }}
-            
-            table {{
-                font-size: 12px;
-            }}
-            
-            th, td {{
-                padding: 8px;
-            }}
-            
-            .outcome-title {{
-                padding: 12px 14px;
-                font-size: 14px;
-            }}
-            
-            .summary-box {{
-                padding: 12px 14px;
-            }}
+            body {{ padding: 12px; }}
+            table {{ font-size: 12px; }}
+            th, td {{ padding: 8px; }}
+            .outcome-title {{ padding: 12px 14px; font-size: 14px; }}
+            .summary-box {{ padding: 12px 14px; }}
         }}
     </style>"""
     
@@ -645,9 +637,30 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
             <td>{ap_s}</td>
         </tr>""")
     
-    logger.info(f"Poisson analysis complete. Multivariate n={final_n_multi}")
+    # ✅ Add interaction terms to HTML table
+    if interaction_results:
+        html_rows.append(f"<tr class='sheet-header'><td colspan='9'>🔗 Interaction Terms</td></tr>")
+        for int_name, res in interaction_results.items():
+            int_label = res.get('label', int_name)
+            int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
+            int_irr = res.get('irr_formatted', '-')  # Use IRR instead of OR for Poisson
+            int_p = fmt_p_with_styling(res.get('p', 1))
+            
+            html_rows.append(f"""<tr style='background-color: #fff9f0;'>
+                <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
+                <td>-</td>
+                <td>{int_coef}</td>
+                <td><b>{int_irr}</b></td>
+                <td>Interaction</td>
+                <td>-</td>
+                <td>{int_coef}</td>
+                <td><b>{int_irr}</b></td>
+                <td>{int_p}</td>
+            </tr>""")
     
-    # Model fit information with styled formatting
+    logger.info(f"Poisson analysis complete. Multivariate n={final_n_multi}, Interactions={len(interaction_results)}")
+    
+    # Model fit and interaction info
     model_fit_html = ""
     if mv_metrics_text:
         model_fit_html = f"""<div style='margin-top: 8px; padding-top: 8px; 
@@ -655,6 +668,13 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
                                         color: {COLORS['primary_dark']};'>
             <b>Model Fit:</b> {mv_metrics_text}
         </div>"""
+    
+    interaction_info = ""
+    if interaction_pairs:
+        from interaction_lib import interpret_interaction
+        interaction_info = f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs"
+        if interaction_results:
+            interaction_info += interpret_interaction(interaction_results, 'poisson')
     
     # Offset information
     offset_info = f" | Offset: {offset_col}" if offset_col else ""
@@ -688,8 +708,9 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None):
                 <b>Interpretation:</b> IRR = Incidence Rate Ratio (Rate in exposed / Rate in unexposed)<br>
                 <b>Visual Indicators:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit increase)
                 {model_fit_html}
+                {interaction_info}
             </div>
         </div>
     </div><br>"""
     
-    return html_table, irr_results, airr_results
+    return html_table, irr_results, airr_results, interaction_results
