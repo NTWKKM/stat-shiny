@@ -15,7 +15,10 @@ import numpy as np
 import survival_lib
 from subgroup_analysis_module import SubgroupAnalysisCox
 from logger import get_logger
+from tabs._common import get_color_palette
 import json
+
+COLORS = get_color_palette()
 
 logger = get_logger(__name__)
 
@@ -223,7 +226,6 @@ def surv_ui(namespace: str) -> ui.TagChild:
                     col_widths=[4, 8]
                 ),
                 
-                # FIXED: Changed ui.details to ui.tags.details
                 ui.tags.details(
                     ui.tags.summary("⚠️ Advanced Settings"),
                     ui.input_numeric(
@@ -366,7 +368,10 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         """Display curves analysis results."""
         result = curves_result.get()
         if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Generate Curve'*")
+            return ui.div(
+                ui.markdown("*Results will appear here after clicking 'Generate Curve'*"),
+                style=f"color: {COLORS['text_secondary']}; padding: 20px; text-align: center;",
+            )
         
         return ui.card(
             ui.card_header("📈 Results"),
@@ -398,7 +403,10 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         """Display landmark analysis results."""
         result = landmark_result.get()
         if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Run Landmark Analysis'*")
+            return ui.div(
+                ui.markdown("*Results will appear here after clicking 'Run Landmark Analysis'*"),
+                style=f"color: {COLORS['text_secondary']}; padding: 20px; text-align: center;",
+            )
         
         return ui.card(
             ui.card_header("📈 Landmark Results"),
@@ -435,7 +443,10 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         """Display cox regression results."""
         result = cox_result.get()
         if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Run Cox Model'*")
+            return ui.div(
+                ui.markdown("*Results will appear here after clicking 'Run Cox Model'*"),
+                style=f"color: {COLORS['text_secondary']}; padding: 20px; text-align: center;",
+            )
         
         return ui.card(
             ui.card_header("📄 Cox Model Results"),
@@ -473,7 +484,6 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         
         if result.get('assumptions_text'):
             ui_elements.append(
-                # FIXED: Changed ui.details to ui.tags.details
                 ui.tags.details(
                     ui.tags.summary("View Assumption Advice (Text)"),
                     ui.markdown(f"```\n{result['assumptions_text']}\n```")
@@ -492,7 +502,6 @@ def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     @render.ui
     def out_sg_result():
         """Display subgroup analysis results."""
-        # This will be rendered after analysis completes
         return ui.card(
             ui.markdown("*Subgroup analysis results will appear here*")
         )
