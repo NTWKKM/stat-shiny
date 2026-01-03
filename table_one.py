@@ -21,9 +21,9 @@ import warnings
 from logger import get_logger
 
 # === INTEGRATION: System Utilities ===
-from utils.memory_manager import MEMORY_MANAGER
-from utils.connection_handler import CONNECTION_HANDLER
-from utils.cache_manager import COMPUTATION_CACHE
+#from utils.memory_manager import MEMORY_MANAGER
+#from utils.connection_handler import CONNECTION_HANDLER
+#from utils.cache_manager import COMPUTATION_CACHE
 
 try:
     from tabs._common import get_color_palette
@@ -385,7 +385,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
         html_string
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    #MEMORY_MANAGER.check_and_cleanup()
 
     COLORS = get_color_palette()
     
@@ -393,25 +393,25 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
         raise ValueError(f"or_style must be 'all_levels' or 'simple'")
     
     # === INTEGRATION: Cache Check ===
-    cache_key = None
-    try:
-        # Fix: selected_vars might be a tuple from Shiny inputs, force to list
-        vars_list = list(selected_vars) if isinstance(selected_vars, (list, tuple)) else [selected_vars]
-        
-        # Determine columns to subset for hashing
-        cols_to_hash = vars_list + ([group_col] if group_col and group_col != "None" else [])
-        
-        data_subset = df[cols_to_hash]
-        data_hash = hash(np.sum(pd.util.hash_pandas_object(data_subset).values))
-        cache_key = f"table1_{data_hash}_{hash(tuple(vars_list))}_{group_col}_{or_style}"
-        
-        cached_result = COMPUTATION_CACHE.get(cache_key)
-        if cached_result:
-            logger.info("Cache hit for Table One generation")
-            return cached_result
-    except Exception as e:
-        logger.warning(f"Cache key generation failed: {e}")
-        cache_key = None
+    #cache_key = None
+    #try:
+    #    # Fix: selected_vars might be a tuple from Shiny inputs, force to list
+    #    vars_list = list(selected_vars) if isinstance(selected_vars, (list, tuple)) else [selected_vars]
+    #    
+    #    # Determine columns to subset for hashing
+    #    cols_to_hash = vars_list + ([group_col] if group_col and group_col != "None" else [])
+    #    
+    #    data_subset = df[cols_to_hash]
+    #    data_hash = hash(np.sum(pd.util.hash_pandas_object(data_subset).values))
+    #    cache_key = f"table1_{data_hash}_{hash(tuple(vars_list))}_{group_col}_{or_style}"
+    #    
+    #    cached_result = COMPUTATION_CACHE.get(cache_key)
+    3    if cached_result:
+    #        logger.info("Cache hit for Table One generation")
+    #        return cached_result
+    #except Exception as e:
+    #    logger.warning(f"Cache key generation failed: {e}")
+    #    cache_key = None
 
     has_group = group_col is not None and group_col != "None"
     groups = []
@@ -772,7 +772,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
 """
     
     # === INTEGRATION: Set Cache ===
-    if cache_key:
-        COMPUTATION_CACHE.set(cache_key, html)
+    #if cache_key:
+    #    COMPUTATION_CACHE.set(cache_key, html)
 
     return html
