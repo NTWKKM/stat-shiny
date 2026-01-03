@@ -67,7 +67,12 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # 🟢 Use reactive values to track state
+    # 🟢 USE CLICK COUNTER PATTERN - prevents auto-trigger on init
+    load_example_clicks = reactive.Value(0)
+    clear_match_clicks = reactive.Value(0)
+    reset_all_clicks = reactive.Value(0)
+    
+    # Track loading state separately
     is_loading_data = reactive.Value(False)
 
     # ==========================================
@@ -215,15 +220,22 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             raise
 
     # ==========================================
-    # Event Handlers - VALIDATED Pattern
+    # Event Handlers - CLICK COUNTER PATTERN
     # ==========================================
     
-    # 🟢 FIX: Use @reactive.Effect with direct input() call
-    # This creates dependency on button click and only triggers when button changes
+    # 🟢 Step 1: Button observers (just track clicks, don't load)
     @reactive.Effect
-    def _on_load_example_click():
-        """Trigger on btn_load_example click"""
-        input.btn_load_example()  # Creates reactive dependency
+    def _track_load_example_click():
+        """Only tracks button click, doesn't trigger load"""
+        input.btn_load_example()  # Create dependency
+        current = load_example_clicks.get()
+        load_example_clicks.set(current + 1)  # Increment counter
+
+    # 🟢 Step 2: Data loading effect (depends on click counter, not button)
+    @reactive.Effect
+    def _on_load_example_click_effect():
+        """Actually loads data when click counter increments"""
+        _ = load_example_clicks.get()  # Depends on counter, not button
         
         is_loading_data.set(True)
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
@@ -247,10 +259,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         finally:
             is_loading_data.set(False)
 
+    # 🟢 File upload handler
     @reactive.Effect
     def _on_file_upload():
         """Trigger on file_upload change"""
-        file_infos = input.file_upload()  # Creates reactive dependency
+        file_infos = input.file_upload()
         
         if not file_infos:
             return
@@ -273,10 +286,18 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         finally:
             is_loading_data.set(False)
 
+    # 🟢 Reset all handler
     @reactive.Effect
-    def _on_reset_all():
-        """Trigger on btn_reset_all click"""
-        input.btn_reset_all()  # Creates reactive dependency
+    def _track_reset_click():
+        """Track reset button click"""
+        input.btn_reset_all()
+        current = reset_all_clicks.get()
+        reset_all_clicks.set(current + 1)
+
+    @reactive.Effect
+    def _on_reset_all_effect():
+        """Actually reset data when click counter increments"""
+        _ = reset_all_clicks.get()
         
         df.set(None)
         var_meta.set({})
@@ -335,7 +356,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     @reactive.Effect
     def _save_metadata():
-        input.btn_save_meta()  # Creates reactive dependency
+        input.btn_save_meta()
         
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
@@ -371,10 +392,10 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     # Output Rendering
     # ==========================================
 
-    # 🟢 FIX: Proper DataTable rendering with three states
+    # 🟢 DataTable rendering with proper dependency
     @render.data_frame
     def out_df_preview():
-        # Create dependencies on both loading state and data
+        # Create dependencies explicitly
         loading = is_loading_data.get()
         data = df.get()
         
@@ -402,8 +423,16 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         return None
     
     @reactive.Effect
-    def _clear_match():
-        input.btn_clear_match()  # Creates reactive dependency
+    def _track_clear_match_click():
+        """Track clear match button click"""
+        input.btn_clear_match()
+        current = clear_match_clicks.get()
+        clear_match_clicks.set(current + 1)
+
+    @reactive.Effect
+    def _on_clear_match_effect():
+        """Actually clear matched data when click counter increments"""
+        _ = clear_match_clicks.get()
         
         df_matched.set(None)
         is_matched.set(False)
