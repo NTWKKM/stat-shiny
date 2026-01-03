@@ -350,38 +350,22 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     
     @render.data_frame
     def out_df_preview():
-        """
-        ✅ ENHANCED: Handle loading spinner & empty states properly
-        
-        Flow:
-        1. is_loading_data=True  → Show loading message (Spinner visible)
-        2. is_loading_data=False + df=None → Show empty state message
-        3. is_loading_data=False + df exists → Show actual data
-        
-        การหุ้มด้วย render.DataTable ช่วยให้:
-        - Shiny รู้ว่าการ render เสร็จแล้ว → ปิด spinner
-        - ข้อมูลขนาดใหญ่ render ลื่นไหล
-        - ป้องกัน error จากการเปลี่ยนแปลง schema ของ df
-        """
         d = _get_df_for_preview()
         loading = _get_loading_state()
-        
-        # State 1: ❌ Loading in progress → Shiny shows spinner + message
+
         if loading:
             return render.DataTable(
-                pd.DataFrame({'Status': ['📄 Loading data... Please wait...']}),
-                selection="none"
+                pd.DataFrame({'Status': ['📄 Loading data... Please wait...']})
             )
-        
-        # State 2: ❌ No data loaded yet → Show helpful message
+
         if d is None or d.empty:
             return render.DataTable(
-                pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}),
-                selection="none"
+                pd.DataFrame(
+                    {'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']}
+                )
             )
-        
-        # State 3: ✅ Data ready → Display actual dataframe
-        return render.DataTable(d, selection="rows")
+
+        return render.DataTable(d)
 
     @reactive.Calc
     def _get_matched_state():
