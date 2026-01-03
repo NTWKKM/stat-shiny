@@ -676,12 +676,17 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots:
     html_parts = [f"<h2 style='margin-top:30px; color:{COLORS['primary']};'>{plot_title}</h2>"]
     has_plot = False
     
+    # FIX: Ensure Plotly JS is loaded once at the beginning
+    plotly_js_script = '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>'
+    html_parts.insert(0, plotly_js_script)
+    
     if or_results:
         df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_results.items()])
         if not df_crude.empty:
             fig = create_forest_plot(df_crude, 'or', 'ci_low', 'ci_high', 'variable', 'p_value',
                                     "<b>Univariable: Crude OR</b>", "Odds Ratio", 1.0)
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=True))
+            # FIX: Change include_plotlyjs to False as we load it manually above
+            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
             has_plot = True
             logger.info(f"✅ Added crude OR forest plot with {len(df_crude)} variables")
     
@@ -690,6 +695,7 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots:
         if not df_adj.empty:
             fig = create_forest_plot(df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 'p_value',
                                     "<b>Multivariable: Adjusted OR</b>", "Adjusted OR", 1.0)
+            # FIX: Change include_plotlyjs to False
             html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
             has_plot = True
             logger.info(f"✅ Added adjusted OR forest plot with {len(df_adj)} variables")
@@ -711,17 +717,21 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
     
     css = f"""<style>
         body {{ font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f6f8; }}
-        .table-container {{ background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }}
+        .table-container {{ background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; margin-bottom: 20px; }}
         table {{ width: 100%; border-collapse: separate; border-spacing: 0; }}
-        th {{ background-color: {COLORS['primary_dark']}; color: #fff; padding: 12px; }}
-        td {{ padding: 12px; border-bottom: 1px solid #eee; }}
+        th {{ background-color: {COLORS['primary_dark']}; color: #fff; padding: 12px; text-align: left; }}
+        td {{ padding: 12px; border-bottom: 1px solid #eee; vertical-align: top; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
-        .outcome-title {{ background-color: {COLORS['primary_dark']}; color: white; padding: 15px; }}
+        .outcome-title {{ background-color: {COLORS['primary_dark']}; color: white; padding: 15px; font-weight: bold; font-size: 1.2em; }}
         .sig-p {{ color: #fff; background-color: {COLORS['danger']}; font-weight: bold; padding: 2px 6px; border-radius: 3px; }}
-        .sheet-header td {{ background-color: #e8f4f8; color: {COLORS['primary']}; font-weight: bold; }}
+        .sheet-header td {{ background-color: #e8f4f8; color: {COLORS['primary']}; font-weight: bold; border-top: 2px solid {COLORS['primary']}; }}
+        .summary-box {{ padding: 15px; background: #fff; border-top: 1px solid #eee; }}
     </style>"""
     
+    # FIX: Get interaction results properly from analyze_outcome
     html_table, or_res, aor_res, int_res = analyze_outcome(target_outcome, df, var_meta, method=method, interaction_pairs=interaction_pairs)
+    
+    # FIX: Ensure plot_html is generated even if interaction exists
     plot_html = generate_forest_plot_html(or_res, aor_res)
     
     # ✅ Add interaction interpretation section
@@ -730,6 +740,7 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
         try:
             from interaction_lib import generate_interaction_html_table
             interaction_html = f"<h2 style='color:{COLORS['primary']}; margin-top: 30px;'>🔗 Interaction Terms Analysis</h2>"
+            # FIX: Ensure the function exists and is called correctly
             interaction_html += generate_interaction_html_table(int_res, 'logit')
             logger.info(f"✅ Added interaction HTML table with {len(int_res)} terms")
         except ImportError:
@@ -737,8 +748,14 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
         except Exception as e:
             logger.error(f"❌ Failed to generate interaction HTML: {e}")
     
-    full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{interaction_html}{plot_html}"
-    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 stat-shiny</div></body></html>"
+    # FIX: Construct final HTML by combining all parts in correct order
+    full_html = f"<!DOCTYPE html><html><head>{css}</head><body>"
+    full_html += f"<h1>Logistic Regression Report: {target_outcome}</h1>"
+    full_html += html_table
+    full_html += interaction_html
+    full_html += plot_html
+    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 40px;'>&copy; 2025 stat-shiny Analysis Core</div>"
+    full_html += "</body></html>"
     
     logger.info("✅ HTML report generation complete")
     return full_html, or_res, aor_res, int_res
