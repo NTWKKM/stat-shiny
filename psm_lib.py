@@ -63,14 +63,14 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
         }
 
         # Define the computation logic as an inner function
-        def _compute_propensity_score():
+        def _compute_propensity_score() -> pd.DataFrame:
             # === INTEGRATION: Memory Check ===
             MEMORY_MANAGER.check_and_cleanup()
 
             logger.info("🔄 Computing propensity scores (Logic Execution)...")
             
             # Prepare Data: Drop NAs in relevant columns to ensure consistent length
-            cols_needed = [treatment_col] + covariate_cols
+            cols_needed = [treatment_col, *covariate_cols]
             data = df.dropna(subset=cols_needed).copy()
             
             X = data[covariate_cols]
@@ -93,7 +93,7 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
             ps_clipped = np.clip(ps, 1e-6, 1 - 1e-6)
             data['logit_ps'] = np.log(ps_clipped / (1 - ps_clipped))
             
-            logger.info(f"Propensity scores calculated: mean={ps.mean():.3f}, std={ps.std():.3f}")
+            logger.info("Propensity scores calculated: mean=%.3f, std=%.3f", ps.mean(), ps.std())
             return data
 
         # === USE CACHE INTEGRATION WRAPPER ===
@@ -108,7 +108,7 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
         raise
 
 
-def perform_matching(df, treatment_col, caliper=0.2):
+def perform_matching(df, treatment_col, caliper=0.2) -> pd.DataFrame:
     """
     Perform 1:1 nearest neighbor matching on propensity scores using Caliper.
     
@@ -156,8 +156,8 @@ def perform_matching(df, treatment_col, caliper=0.2):
             std_logit = df['logit_ps'].std()
             caliper_width = caliper * std_logit
             
-            logger.info(f"Matching parameters: SD_logit={std_logit:.3f}, Caliper Width={caliper_width:.3f} (coef={caliper})")
-
+            logger.info("Matching parameters: SD_logit=%.3f, Caliper Width=%.3f (coef=%s)", std_logit, caliper_width, caliper)
+            
             # Nearest Neighbors Matching
             # We fit NN on Control group
             # === INTEGRATION: Robust Fit ===
@@ -202,7 +202,7 @@ def perform_matching(df, treatment_col, caliper=0.2):
             all_matched_indices = matched_indices_treated + matched_indices_control
             matched_df = df.loc[all_matched_indices].copy()
             
-            logger.info(f"Matched {count_matched} pairs out of {len(treated)} treated units.")
+            logger.info("Matched %d pairs out of %d treated units.", count_matched, len(treated))
             return matched_df
 
         # === USE CACHE INTEGRATION WRAPPER ===
@@ -215,7 +215,7 @@ def perform_matching(df, treatment_col, caliper=0.2):
         logger.exception("Matching error")
         raise
 
-def calculate_smd(df, treatment_col, covariate_cols):
+def calculate_smd(df, treatment_col, covariate_cols) -> pd.DataFrame:
     """
     Calculate Standardized Mean Difference (SMD) for balance checking.
     
@@ -274,7 +274,7 @@ def calculate_smd(df, treatment_col, covariate_cols):
                     })
                 else:
                     # For categorical (dummy coded 0/1), SMD is difference in proportions / pooled SD
-                    logger.debug(f"Skipping categorical variable '{col}' in SMD calculation")
+                    logger.debug("Skipping categorical variable '%s' in SMD calculation", col)
             
             return pd.DataFrame(smd_data)
 
