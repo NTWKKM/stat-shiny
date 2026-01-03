@@ -348,8 +348,8 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             return d
 
         except Exception as e:
-            logger.error(f"Error rendering preview: {e}", exc_info=True)
-            return pd.DataFrame({'Error': [f'Rendering Error: {str(e)}']})
+            logger.exception("Error rendering preview: %s", e)
+            return pd.DataFrame({'Error': [f'Rendering Error: {e!s}']})
             
     @render.ui
     def ui_btn_clear_match():
