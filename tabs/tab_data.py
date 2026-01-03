@@ -10,13 +10,13 @@ logger = get_logger(__name__)
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    return ui.nav_panel("\ud83d\udcc1 Data Management",
+    return ui.nav_panel("📁 Data Management",
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("MENU"),
                 ui.h5("1. Data Management"),
                 
-                ui.input_action_button("btn_load_example", "\ud83d\udcc4 Load Example Data", class_="btn-secondary"),
+                ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
                 ui.br(), ui.br(),
                 
                 ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
@@ -24,19 +24,19 @@ def data_ui():
                 ui.hr(),
                 
                 ui.output_ui("ui_btn_clear_match"),
-                ui.input_action_button("btn_reset_all", "\u26a0\ufe0f Reset All Data", class_="btn-danger"),
+                ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
                 
                 width=300,
                 bg="#f8f9fa"
             ),
             
-            # --- \u0e2a\u0e48\u0e27\u0e19 Variable Settings ---
+            # --- ส่วน Variable Settings ---
             ui.accordion(
                 ui.accordion_panel(
-                    "\ud83d\udee0\ufe0f 1. Variable Settings & Labels",
+                    "🛠️ 1. Variable Settings & Labels",
                     ui.layout_columns(
                         ui.div(
-                            ui.input_select("sel_var_edit", "\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e15\u0e31\u0e27\u0e41\u0e1b\u0e23\u0e17\u0e35\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32:", choices=["Select..."]),
+                            ui.input_select("sel_var_edit", "เลือกตัวแปรที่ต้องการตั้งค่า:", choices=["Select..."]),
                         ),
                         ui.div(
                             ui.output_ui("ui_var_settings")
@@ -50,9 +50,9 @@ def data_ui():
 
             ui.br(),
             
-            # --- \u0e2a\u0e48\u0e27\u0e19 Raw Data Preview ---
+            # --- ส่วน Raw Data Preview ---
             ui.card(
-                ui.card_header("\ud83d\udcc4 2. Raw Data Preview"),
+                ui.card_header("📄 2. Raw Data Preview"),
                 ui.output_data_frame("out_df_preview"),
                 height="600px",
                 full_screen=True
@@ -65,20 +65,20 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    # \u2705 FIX: Track loading state
+    # ✅ FIX: Track loading state
     is_loading_data = reactive.value(False)
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
     @reactive.event(input.btn_load_example)
     def load_example_data():
-        logger.info("\ud83d\udd04 User clicked Load Example Data")
+        logger.info("🔄 User clicked Load Example Data")
         is_loading_data.set(True)
-        id_notify = ui.notification_show("\ud83d\udcc4 Generating simulation...", duration=None)
+        id_notify = ui.notification_show("📄 Generating simulation...", duration=None)
         
         try:
             np.random.seed(42)
-            n = 1500 
+            n = 1500  
             
             # --- Simulation Logic ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
@@ -167,7 +167,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 'Diagnosis_Dr_A': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. A)'},
                 'Diagnosis_Dr_B': {'type':'Categorical', 'map':{0:'Normal', 1:'Abnormal'}, 'label': 'Diagnosis (Dr. B)'},
                 'Age_Years': {'type': 'Continuous', 'label': 'Age (Years)', 'map': {}},
-                'BMI_kgm2': {'type': 'Continuous', 'label': 'BMI (kg/m\u00b2)', 'map': {}},
+                'BMI_kgm2': {'type': 'Continuous', 'label': 'BMI (kg/m²)', 'map': {}},
                 'Time_Months': {'type': 'Continuous', 'label': 'Time (Months)', 'map': {}},
                 'Test_Score_Rapid': {'type': 'Continuous', 'label': 'Rapid Test Score (0-100)', 'map': {}},
                 'Lab_HbA1c': {'type': 'Continuous', 'label': 'HbA1c (%)', 'map': {}},
@@ -181,14 +181,14 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             uploaded_file_info.set({"name": "Example Clinical Data"})
             df.set(new_df)
             
-            logger.info(f"\u2705 Successfully generated {n} records")
+            logger.info(f"✅ Successfully generated {n} records")
             ui.notification_remove(id_notify)
-            ui.notification_show(f"\u2705 Loaded {n} Clinical Records (Simulated)", type="message")
+            ui.notification_show(f"✅ Loaded {n} Clinical Records (Simulated)", type="message")
 
         except Exception as e:
-            logger.exception(f"\u274c Error generating example data")
+            logger.exception(f"❌ Error generating example data")
             ui.notification_remove(id_notify)
-            ui.notification_show(f"\u274c Error: {str(e)[:200]}", type="error")
+            ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
         
         finally:
             is_loading_data.set(False)
@@ -196,18 +196,18 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @reactive.Effect
     @reactive.event(input.file_upload)
     def load_uploaded_file():
-        logger.info("\ud83d\udd04 User uploaded file")
+        logger.info("🔄 User uploaded file")
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
         
         if not file_infos:
-            logger.warning("\u26a0\ufe0f No file selected")
+            logger.warning("⚠️ No file selected")
             is_loading_data.set(False)
             return
         
         f = file_infos[0]
-        logger.info(f"\ud83d\udcc2 Processing file: {f['name']}")
-        id_notify = ui.notification_show(f"\ud83d\udcc2 Loading {f['name']}...", duration=None)
+        logger.info(f"📂 Processing file: {f['name']}")
+        id_notify = ui.notification_show(f"📂 Loading {f['name']}...", duration=None)
         
         try:
             if f['name'].lower().endswith('.csv'):
@@ -215,11 +215,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             else:
                 new_df = pd.read_excel(f['datapath'])
             
-            logger.info(f"\ud83d\udcca Loaded {len(new_df)} rows \u00d7 {len(new_df.columns)} columns")
+            logger.info(f"📊 Loaded {len(new_df)} rows × {len(new_df.columns)} columns")
             
             if len(new_df) > 100000:
                 new_df = new_df.head(100000)
-                ui.notification_show("\u26a0\ufe0f Large file: showing first 100,000 rows", type="warning")
+                ui.notification_show("⚠️ Large file: showing first 100,000 rows", type="warning")
             
             # Build metadata
             current_meta = {}
@@ -237,19 +237,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             df.set(new_df)
             
             ui.notification_remove(id_notify)
-            ui.notification_show(f"\u2705 Loaded {len(new_df)} rows from {f['name']}", type="message")
+            ui.notification_show(f"✅ Loaded {len(new_df)} rows from {f['name']}", type="message")
             
         except Exception as e:
-            logger.exception(f"\u274c Error loading file")
+            logger.exception(f"❌ Error loading file")
             ui.notification_remove(id_notify)
-            ui.notification_show(f"\u274c Error: {str(e)[:200]}", type="error")
+            ui.notification_show(f"❌ Error: {str(e)[:200]}", type="error")
         finally:
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(input.btn_reset_all)
+    @reactive.event(input.btn_reset_all)  # ✅ ต้องมี lambda: และ ()
     def reset_all_data():
-        logger.info("\ud83d\udd04 Resetting all data")
+        logger.info("🔄 Resetting all data")
         df.set(None)
         var_meta.set({})
         df_matched.set(None)
@@ -258,22 +258,15 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         matched_covariates.set([])
         uploaded_file_info.set(None)
         is_loading_data.set(False)
-        ui.notification_show("\u2705 All data reset", type="warning")
+        ui.notification_show("✅ All data reset", type="warning")
 
     # --- 2. Metadata Logic ---
-    @reactive.Calc
-    def _get_data_for_select():
-        return df.get()
-    
     @reactive.Effect
-    @reactive.event(_get_data_for_select)
     def _update_var_select():
         data = df.get()
         if data is not None and not data.empty:
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
-        else:
-            ui.update_select("sel_var_edit", choices=["Select..."])
 
     @render.ui
     def ui_var_settings():
@@ -289,12 +282,12 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if meta and var_name in meta:
             m = meta[var_name]
             current_type = m.get('type', 'Continuous')
-            map_str = "\\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
+            map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
             
         return ui.TagList(
             ui.input_radio_buttons(
                 "radio_var_type", 
-                "\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17\u0e15\u0e31\u0e27\u0e41\u0e1b\u0e23:", 
+                "ประเภทตัวแปร:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
                 selected=current_type,
                 inline=True
@@ -305,22 +298,22 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
                 value=map_str,
                 height="100px"
             ),
-            ui.input_action_button("btn_save_meta", "\ud83d\udcbe Save Settings", class_="btn-primary")
+            ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
     @reactive.Effect
-    @reactive.event(input.btn_save_meta)
-    def save_metadata():
+    @reactive.event(lambda: input.btn_save_meta())  # ✅ ต้องมี lambda: และ ()
+    def _save_metadata():
         var_name = input.sel_var_edit()
         if var_name == "Select...": 
             return
         
-        logger.info(f"\ud83d\udcbe Saving metadata for {var_name}")
+        logger.info(f"💾 Saving metadata for {var_name}")
         
         new_map = {}
         map_input = input.txt_var_map()
         if map_input:
-            for line in map_input.split('\\n'):
+            for line in map_input.split('\n'):
                 if '=' in line:
                     k, v = line.split('=', 1)
                     try:
@@ -341,7 +334,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             'label': var_name
         }
         var_meta.set(current_meta)
-        ui.notification_show(f"\u2705 Saved settings for {var_name}", type="message")
+        ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
     @reactive.Calc
@@ -360,11 +353,11 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         
         # Show loading state
         if loading:
-            return pd.DataFrame({'Status': ['\ud83d\udcc4 Loading data... Please wait...']})
+            return pd.DataFrame({'Status': ['📄 Loading data... Please wait...']})
         
         # Show empty state
         if d is None or d.empty:
-            return pd.DataFrame({'Status': ['\ud83d\udd2d No data loaded yet. Click "Load Example Data" or upload a file.']})
+            return pd.DataFrame({'Status': ['🔭 No data loaded yet. Click "Load Example Data" or upload a file.']})
         
         # Return actual data
         return d
@@ -376,15 +369,15 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @render.ui
     def ui_btn_clear_match():
         if _get_matched_state():
-            return ui.input_action_button("btn_clear_match", "\ud83d\udd04 Clear Matched Data")
+            return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(input.btn_clear_match)
+    @reactive.event(lambda: input.btn_clear_match())  # ✅ ต้องมี lambda: และ ()
     def clear_matched_data():
-        logger.info("\ud83d\udd04 Clearing matched data")
+        logger.info("🔄 Clearing matched data")
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
-        ui.notification_show("\u2705 Matched data cleared", type="message")
+        ui.notification_show("✅ Matched data cleared", type="message")
