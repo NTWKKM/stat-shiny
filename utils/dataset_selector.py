@@ -1,5 +1,4 @@
 """Shared utility for dataset selection across analysis tabs."""
-import streamlit as st
 import pandas as pd
 from typing import Tuple
 
@@ -25,31 +24,6 @@ def get_dataset_for_analysis(
     Returns:
         Tuple[pd.DataFrame, str]: A tuple containing the selected DataFrame and a descriptive label indicating which dataset was chosen and its row count (e.g., "✅ Matched Data (123 rows)" or "📊 Original Data (456 rows)").
     """
-    has_matched = (
-        st.session_state.get("is_matched", False)
-        and st.session_state.get("df_matched") is not None
-    )
-
-    if has_matched:
-        col1, _ = st.columns([2, 1])
-        with col1:
-            data_source = st.radio(
-                label_prefix,
-                ["📊 Original Data", "✅ Matched Data (จาก PSM)"],
-                index=1 if default_to_matched else 0,
-                horizontal=True,
-                key=session_key,
-            )
-
-        MATCHED_OPTION = "✅ Matched Data (จาก PSM)"
-        if data_source == MATCHED_OPTION:
-            selected_df = st.session_state.df_matched.copy()
-            label = f"✅ Matched Data ({len(selected_df)} rows)"
-        else:
-            selected_df = df.copy()
-            label = f"📊 Original Data ({len(df)} rows)"
-    else:
-        selected_df = df
-        label = f"📊 Original Data ({len(df)} rows)"
-
-    return selected_df, label
+    if is_matched and df_matched is not None:
+        return df_matched, "Matched Data"
+    return df, "Original Data
