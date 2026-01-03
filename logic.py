@@ -1,7 +1,10 @@
 """
-🧮 Logistic Regression Core Logic (Shiny Compatible)
+🧮 Enhanced Logistic & Poisson Regression Core Logic
 
-No Streamlit dependencies - pure statistical functions.
+Now supports:
+- Logistic regression (binary outcomes)
+- Poisson regression (count outcomes)  
+- Interaction terms analysis
 """
 
 import pandas as pd
@@ -20,7 +23,6 @@ logger = get_logger(__name__)
 _PALETTE = get_color_palette()
 COLORS = {
     'primary': _PALETTE.get('primary', '#2180BE'),
-    # Create a darker shade if not provided, or fallback to a default
     'primary_dark': _PALETTE.get('primary_dark', '#1a5a8a'), 
     'danger': _PALETTE.get('danger', '#d32f2f'),
     'text_secondary': '#666',
@@ -188,19 +190,26 @@ def fmt_p_with_styling(val):
         return "-"
 
 
-def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
+def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_pairs=None):
     """
     Perform logistic regression analysis for binary outcome.
     
+    Args:
+        outcome_name: Target outcome column
+        df: Input DataFrame
+        var_meta: Variable metadata
+        method: 'auto', 'bfgs', or 'firth'
+        interaction_pairs: List of tuples for interactions [(var1, var2), ...]
+    
     Returns:
-        tuple: (html_table, or_results, aor_results)
+        tuple: (html_table, or_results, aor_results, interaction_results)
     """
     logger.info(f"Starting logistic analysis for outcome: {outcome_name}")
     
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
         logger.error(msg)
-        return f"<div class='alert'>{msg}</div>", {}, {}
+        return f"<div class='alert'>{msg}</div>", {}, {}, {}
     
     y_raw = df[outcome_name].dropna()
     unique_outcomes = set(y_raw.unique())
@@ -208,7 +217,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
     if len(unique_outcomes) != 2:
         msg = f"Invalid outcome: expected 2 values, found {len(unique_outcomes)}"
         logger.error(msg)
-        return f"<div class='alert'>{msg}</div>", {}, {}
+        return f"<div class='alert'>{msg}</div>", {}, {}, {}
     
     if not unique_outcomes.issubset({0, 1}):
         sorted_outcomes = sorted(unique_outcomes, key=str)
@@ -377,9 +386,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                     else:
                         res['or'] = "-"
                         res['coef'] = "-"
-                else:
-                    res['or'] = "-"
-                    res['coef'] = "-"
             else:
                 res['or'] = "-"
                 res['coef'] = "-"
@@ -429,8 +435,9 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
             candidates.append(col)
     
-    # Multivariate analysis
+    # Multivariate analysis (with optional interactions)
     aor_results = {}
+    interaction_results = {}
     final_n_multi = 0
     mv_metrics_text = ""
     
@@ -458,6 +465,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             else:
                 multi_df[c] = df_aligned[c].apply(clean_numeric_value)
         
+        # Add interaction terms if specified
+        if interaction_pairs:
+            from interaction_lib import create_interaction_terms
+            multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
+            logger.info(f"Added {len(int_meta)} interaction terms")
+        
         multi_data = multi_df.dropna()
         final_n_multi = len(multi_data)
         predictors = [col for col in multi_data.columns if col != 'y']
@@ -476,6 +489,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                 if r2_parts:
                     mv_metrics_text = " | ".join(r2_parts)
                 
+                # Process main effects
                 for var in cand_valid:
                     mode = mode_map.get(var, 'linear')
                     if mode == 'categorical':
@@ -488,7 +502,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                                 aor = np.exp(coef)
                                 ci_low, ci_high = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
                                 pv = pvals[d_name]
-                                # ✅ FIX: Add coef to aor_entries dict for rendering
                                 aor_entries.append({'lvl': lvl, 'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv})
                                 aor_results[f"{var}: {lvl}"] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
                         results_db[var]['multi_res'] = aor_entries
@@ -498,9 +511,13 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                             aor = np.exp(coef)
                             ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(conf.loc[var][1])
                             pv = pvals[var]
-                            # ✅ FIX: Add coef here too for rendering
                             results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
                             aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
+                
+                # Process interaction effects
+                if interaction_pairs:
+                    from interaction_lib import format_interaction_results
+                    interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'logit')
     
     # Build HTML
     html_rows = []
@@ -527,7 +544,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         or_s = res.get('or', '-')
         coef_s = res.get('coef', '-')
         
-        # OPTIMIZATION: Use styled p-value formatting
         if mode == 'categorical':
             p_col_display = res.get('p_or', '-')
         else:
@@ -538,7 +554,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         
         if multi_res:
             if isinstance(multi_res, list):
-                # 📊 Categorical: multiple levels
                 aor_lines, acoef_lines, ap_lines = ["Ref."], ["-"], ["-"]
                 for item in multi_res:
                     p_txt = fmt_p_with_styling(item['p'])
@@ -547,7 +562,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                     ap_lines.append(p_txt)
                 aor_s, acoef_s, ap_s = "<br>".join(aor_lines), "<br>".join(acoef_lines), "<br>".join(ap_lines)
             else:
-                # 📉 Linear: single value
                 if 'coef' in multi_res and pd.notna(multi_res['coef']):
                     acoef_s = f"{multi_res['coef']:.3f}"
                 else:
@@ -575,6 +589,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
     if mv_metrics_text:
         model_fit_html = f"<div style='margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; color: {COLORS['primary_dark']};'><b>Model Fit:</b> {mv_metrics_text}</div>"
     
+    interaction_info = ""
+    if interaction_pairs:
+        from interaction_lib import interpret_interaction
+        interaction_info = f"<br><b>Interactions:</b> {len(interaction_pairs)} pairs tested"
+        interaction_info += interpret_interaction(interaction_results, 'logit')
+    
     html_table = f"""<div id='{outcome_name}' class='table-container'>
     <div class='outcome-title'>Outcome: {outcome_name} (n={total_n})</div>
     <table>
@@ -601,11 +621,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             <b>Selection:</b> Variables with Crude P < 0.20 (n={final_n_multi})<br>
             <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)
             {model_fit_html}
+            {interaction_info}
         </div>
     </div>
     </div><br>"""
     
-    return html_table, or_results, aor_results
+    return html_table, or_results, aor_results, interaction_results
 
 
 def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots: Odds Ratios"):
@@ -639,7 +660,7 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots:
     return "".join(html_parts)
 
 
-def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto'):
+def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto', interaction_pairs=None):
     """Generate complete HTML report with logistic regression results."""
     css = f"""<style>
         body {{ font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f6f8; }}
@@ -653,10 +674,17 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
         .sheet-header td {{ background-color: #e8f4f8; color: {COLORS['primary']}; font-weight: bold; }}
     </style>"""
     
-    html_table, or_res, aor_res = analyze_outcome(target_outcome, df, var_meta, method=method)
+    html_table, or_res, aor_res, int_res = analyze_outcome(target_outcome, df, var_meta, method=method, interaction_pairs=interaction_pairs)
     plot_html = generate_forest_plot_html(or_res, aor_res)
     
-    full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{plot_html}"
+    # Add interaction table if present
+    interaction_html = ""
+    if int_res:
+        from interaction_lib import generate_interaction_html_table
+        interaction_html = f"<h2 style='color:{COLORS['primary']}'>Interaction Terms Analysis</h2>"
+        interaction_html += generate_interaction_html_table(int_res, 'logit')
+    
+    full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{interaction_html}{plot_html}"
     full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 stat-shiny</div>"
     
     return full_html, or_res, aor_res
