@@ -89,7 +89,7 @@ def logit_ui():
                 ui.h6("Exclude Variables (Optional):"),
                 ui.input_selectize("sel_exclude", label=None, choices=[], multiple=True),
                 
-                # ✅ NEW: Interaction Terms Selection
+                # ✅ Interaction Terms Selection
                 ui.accordion(
                     ui.accordion_panel(
                         "🔗 Interaction Terms (Advanced)",
@@ -138,7 +138,7 @@ def logit_ui():
         ),
 
         # =====================================================================
-        # TAB 2: Poisson Regression (NEW!)
+        # TAB 2: Poisson Regression
         # =====================================================================
         ui.nav_panel(
             "📊 Poisson Regression",
@@ -175,12 +175,15 @@ def logit_ui():
                 ui.accordion(
                     ui.accordion_panel(
                         "🔗 Interaction Terms (Advanced)",
+                        ui.p("Test if the effect of one variable depends on another:", 
+                             style="font-size: 0.9em; color: #666;"),
                         ui.input_selectize(
                             "poisson_interactions",
                             "Select Variable Pairs for Interactions:",
                             choices=[],
                             multiple=True
                         ),
+                        ui.p("Format: var1 × var2", style="font-size: 0.8em; font-style: italic; color: #999;")
                     ),
                     open=False
                 ),
@@ -295,7 +298,7 @@ def logit_ui():
         ),
 
         # =====================================================================
-        # TAB 4: Reference (Updated with Poisson info)
+        # TAB 4: Reference (Updated with Poisson & Interaction info)
         # =====================================================================
         ui.nav_panel(
             "ℹ️ Reference",
@@ -350,6 +353,10 @@ def logit_ui():
 
 **Caution:** Interactions complicate interpretation—use only when justified.
 
+**Supported in:**
+* ✅ Binary Logistic Regression (OR)
+* ✅ Poisson Regression (IRR)
+
 ---
 
 ### Perfect Separation (Logistic Only)
@@ -368,7 +375,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     # --- State Management ---
     logit_res = reactive.Value(None)
-    poisson_res = reactive.Value(None)  # ✅ NEW
+    poisson_res = reactive.Value(None)
     subgroup_res = reactive.Value(None)
     subgroup_analyzer = reactive.Value(None)
 
@@ -410,7 +417,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         row_count = len(d) if d is not None else 0
         return ui.p(f"📊 Using Original Data ({row_count} rows)", class_="text-muted")
 
-    # ✅ FIX: Duplicate logic instead of calling renderer
     @render.ui
     def ui_dataset_selector_poisson():
         if is_matched.get():
@@ -442,7 +448,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         binary_cols = [c for c in cols if d[c].nunique() == 2]
         sg_cols = [c for c in cols if 2 <= d[c].nunique() <= 10]
         
-        # ✅ NEW: Count columns for Poisson
+        # Count columns for Poisson
         count_cols = []
         for c in cols:
             try:
@@ -456,13 +462,13 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         ui.update_select("sel_outcome", choices=binary_cols)
         ui.update_selectize("sel_exclude", choices=cols)
         
-        # ✅ NEW: Interaction pairs for logistic
+        # Interaction pairs for logistic
         interaction_choices = {f"{v1} × {v2}": f"{v1} × {v2}" 
                               for i, v1 in enumerate(cols) 
                               for v2 in cols[i+1:] if v1 != v2}
         ui.update_selectize("sel_interactions", choices=interaction_choices)
 
-        # ✅ NEW: Update Poisson Inputs
+        # Update Poisson Inputs
         ui.update_select("poisson_outcome", choices=count_cols)
         ui.update_select("poisson_offset", choices=["None"] + cols)
         ui.update_selectize("poisson_exclude", choices=cols)
@@ -490,7 +496,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             )
         return None
 
-    # ✅ NEW: Count validation for Poisson
+    # Count validation for Poisson
     @render.ui
     def ui_count_validation():
         d = current_df()
@@ -511,7 +517,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         return None
 
     # ==========================================================================
-    # LOGIC: Binary Logistic Regression
+    # ✅ LOGIC: Binary Logistic Regression (WITH INTERACTIONS)
     # ==========================================================================
     @reactive.Effect
     @reactive.event(input.btn_run_logit)
@@ -528,6 +534,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                 parts = pair_str.split(' × ')
                 if len(parts) == 2:
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
+            logger.info(f"✅ Logistic: {len(interaction_pairs)} interaction pairs selected")
 
         if d is None or d.empty:
             ui.notification_show("Please load data first", type="error")
@@ -542,10 +549,15 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             p.set(message="Running Logistic Regression...", detail="Calculating...")
 
             try:
-                html_rep, or_res, aor_res = process_data_and_generate_html(
+                # ✅ Pass interaction_pairs and receive 4 values
+                html_rep, or_res, aor_res, int_res = process_data_and_generate_html(
                     final_df, target, var_meta=var_meta.get(), 
                     method=method, interaction_pairs=interaction_pairs or None
                 )
+                
+                if interaction_pairs:
+                    logger.info(f"✅ Logistic regression completed with {len(int_res)} interactions")
+                
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
                 logger.exception("Logistic regression error")
@@ -573,7 +585,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             logit_res.set({
                 "html": html_rep,
                 "fig_adj": fig_adj,
-                "fig_crude": fig_crude
+                "fig_crude": fig_crude,
+                "interaction_results": int_res  # ✅ Store interaction results
             })
 
             ui.notification_show("✅ Analysis Complete!", type="message")
@@ -583,8 +596,10 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def out_logit_status():
         res = logit_res.get()
         if res:
+            int_count = len(res.get('interaction_results', {}))
+            int_text = f" ({int_count} interactions)" if int_count > 0 else ""
             return ui.div(
-                ui.h5("✅ Regression Complete"),
+                ui.h5(f"✅ Regression Complete{int_text}"),
                 style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;"
             )
         return None
@@ -642,7 +657,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         if res: yield res['html']
 
     # ==========================================================================
-    # ✅ NEW: LOGIC - Poisson Regression
+    # ✅ LOGIC: Poisson Regression (WITH INTERACTIONS)
     # ==========================================================================
     @reactive.Effect
     @reactive.event(input.btn_run_poisson)
@@ -652,12 +667,14 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         exclude = input.poisson_exclude()
         offset_col = input.poisson_offset() if input.poisson_offset() != "None" else None
         
+        # ✅ Parse interaction pairs
         interaction_pairs = []
         if input.poisson_interactions():
             for pair_str in input.poisson_interactions():
                 parts = pair_str.split(' × ')
                 if len(parts) == 2:
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
+            logger.info(f"✅ Poisson: {len(interaction_pairs)} interaction pairs selected")
 
         if d is None or d.empty:
             ui.notification_show("Please load data first", type="error")
@@ -672,9 +689,15 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             p.set(message="Running Poisson Regression...", detail="Calculating...")
 
             try:
-                html_rep, irr_res, airr_res = analyze_poisson_outcome(
-                    target, final_df, var_meta=var_meta.get(), offset_col=offset_col
+                # ✅ Pass interaction_pairs and receive 4 values
+                html_rep, irr_res, airr_res, int_res = analyze_poisson_outcome(
+                    target, final_df, var_meta=var_meta.get(), 
+                    offset_col=offset_col, interaction_pairs=interaction_pairs or None
                 )
+                
+                if interaction_pairs:
+                    logger.info(f"✅ Poisson regression completed with {len(int_res)} interactions")
+                
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
                 logger.exception("Poisson regression error")
@@ -702,7 +725,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             poisson_res.set({
                 "html": html_rep,
                 "fig_adj": fig_adj,
-                "fig_crude": fig_crude
+                "fig_crude": fig_crude,
+                "interaction_results": int_res  # ✅ Store interaction results
             })
 
             ui.notification_show("✅ Poisson Analysis Complete!", type="message")
@@ -712,8 +736,10 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def out_poisson_status():
         res = poisson_res.get()
         if res:
+            int_count = len(res.get('interaction_results', {}))
+            int_text = f" ({int_count} interactions)" if int_count > 0 else ""
             return ui.div(
-                ui.h5("✅ Poisson Regression Complete"),
+                ui.h5(f"✅ Poisson Regression Complete{int_text}"),
                 style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;"
             )
         return None
