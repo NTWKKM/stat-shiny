@@ -272,10 +272,21 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             # Update Dropdowns
             cols = data.columns.tolist()
             numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+
+            # --- AUTO-DETECTION LOGIC ---
+            # 1. Detect Time Variables: time, day, month, year, range
+            time_keywords = ['time', 'day', 'month', 'year', 'range', 'followup', 'fu']
+            detected_time = [c for c in numeric_cols if any(k in c.lower() for k in time_keywords)]
+            default_time = detected_time[0] if detected_time else (numeric_cols[0] if numeric_cols else "Select...")
+
+            # 2. Detect Event Variables: status, event, death, cure
+            event_keywords = ['status', 'event', 'death', 'cure', 'survive', 'died', 'outcome']
+            detected_event = [c for c in cols if any(k in c.lower() for k in event_keywords)]
+            default_event = detected_event[0] if detected_event else (cols[0] if cols else "Select...")
             
             # KM Curves
-            ui.update_select("surv_time", choices=numeric_cols)
-            ui.update_select("surv_event", choices=cols)
+            ui.update_select("surv_time", choices=numeric_cols, selected=default_time)
+            ui.update_select("surv_event", choices=cols, selected=default_event)
             ui.update_select("surv_group", choices=["None"] + cols)
             
             # Landmark Analysis
@@ -285,8 +296,8 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             ui.update_checkbox_group("cox_covariates", choices=cols)
             
             # Subgroup Analysis
-            ui.update_select("sg_time", choices=numeric_cols)
-            ui.update_select("sg_event", choices=cols)
+            ui.update_select("sg_time", choices=numeric_cols, selected=default_time)
+            ui.update_select("sg_event", choices=cols, selected=default_event)
             ui.update_select("sg_treatment", choices=cols)
             ui.update_select("sg_subgroup", choices=cols)
             ui.update_checkbox_group("sg_adjust", choices=cols)
