@@ -305,7 +305,7 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                 default_event = cols[0]
                 
             # 3. Detect compare Variables (ตามลำดับความสำคัญใน event_keywords)
-            compare_keywords = ['treatment', 'group', 'comorbid', 'lab', 'diag', 'sex', 'age']
+            compare_keywords = ['treatment', 'group', 'comorbid', 'comorb', 'dz', 'lab', 'diag', 'sex', 'age']
             default_compare = "Select..."
             
             for kw in compare_keywords:
@@ -317,6 +317,34 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
             if default_compare == "Select..." and cols:
                 default_compare = cols[0]
+
+            # 4. Detect treatment Variables (ตามลำดับความสำคัญใน event_keywords)
+            tx_keywords = ['treatment', 'tx', 'group', 'drug', 'give']
+            default_tx = "Select..."
+            
+            for kw in tx_keywords:
+                matched = [c for c in cols if kw in c.lower()]
+                if matched:
+                    default_tx = matched[0]
+                    break
+            
+            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
+            if default_tx == "Select..." and cols:
+                default_tx = cols[0]
+
+            # 5. Detect subgroup Variables (ตามลำดับความสำคัญใน event_keywords)
+            subgr_keywords = ['group', 'comorbid', 'comorb', 'dz', 'lab', 'diag', 'sex', 'age', 'control', 'contr', 'ctr']
+            default_subgr = "Select..."
+            
+            for kw in subgr_keywords:
+                matched = [c for c in cols if kw in c.lower()]
+                if matched:
+                    default_subgr = matched[0]
+                    break
+            
+            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
+            if default_subgr == "Select..." and cols:
+                default_subgr = cols[0]
                 
             # KM Curves
             ui.update_select("surv_time", choices=numeric_cols, selected=default_time)
@@ -332,8 +360,8 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             # Subgroup Analysis
             ui.update_select("sg_time", choices=numeric_cols, selected=default_time)
             ui.update_select("sg_event", choices=cols, selected=default_event)
-            ui.update_select("sg_treatment", choices=cols)
-            ui.update_select("sg_subgroup", choices=cols)
+            ui.update_select("sg_treatment", choices=cols, selected=default_tx)
+            ui.update_select("sg_subgroup", choices=cols, selected=default_subgr)
             ui.update_checkbox_group("sg_adjust", choices=cols)
 
     # ==================== 1. CURVES LOGIC (KM/NA) ====================
