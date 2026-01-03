@@ -57,8 +57,8 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
             'covariate_cols': tuple(sorted(covariate_cols)),
             'df_shape': df.shape,
             'df_hash': hash(
-                df[treatment_col].values.tobytes() + 
-                b''.join(df[col].values.tobytes() for col in covariate_cols)
+                df[treatment_col].astype(str).values.tobytes() + 
+                b''.join(df[col].astype(str).values.tobytes() for col in covariate_cols)
             )
         }
 
@@ -103,7 +103,7 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
             cache_key_params=cache_key_params
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("PSM calculation error")
         raise
 
@@ -343,7 +343,7 @@ def plot_love_plot(smd_pre, smd_post):
         logger.exception("Love Plot Error")
         # Return empty figure with error message
         fig = go.Figure()
-        fig.add_annotation(text=f"Error plotting Love Plot: {e}", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(text="Error generating Love Plot. Check logs for details.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)
         return fig
 
 def generate_psm_report(title, elements):
