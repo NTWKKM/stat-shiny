@@ -339,7 +339,7 @@ def plot_love_plot(smd_pre, smd_post):
         )
         return fig
 
-    except Exception as e:
+    except Exception:
         logger.exception("Love Plot Error")
         # Return empty figure with error message
         fig = go.Figure()
