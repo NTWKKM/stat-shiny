@@ -22,9 +22,9 @@ from tabs._common import get_color_palette
 from logger import get_logger
 
 # === INTEGRATION: System Utilities ===
-from utils.memory_manager import MEMORY_MANAGER
+#from utils.memory_manager import MEMORY_MANAGER
 from utils.connection_handler import CONNECTION_HANDLER
-from utils.cache_manager import COMPUTATION_CACHE
+#from utils.cache_manager import COMPUTATION_CACHE
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -51,7 +51,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         tuple: (display_tab, stats_df, msg, risk_df)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    #MEMORY_MANAGER.check_and_cleanup()
 
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns not found: {col1}, {col2}")
@@ -65,16 +65,16 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
 
     # === INTEGRATION: Cache Check ===
     # Create a robust cache key based on data content and parameters
-    try:
-        data_hash = hash(tuple(data[col1].astype(str).values.tobytes()) + tuple(data[col2].astype(str).values.tobytes()))
-        cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}"
-        
-        cached_result = COMPUTATION_CACHE.get(cache_key)
-        if cached_result:
-            logger.info(f"Cache hit for Chi2 analysis: {col1} vs {col2}")
-            return cached_result
-    except Exception as e:
-        logger.warning(f"Cache key generation failed: {e}")
+    #try:
+    #    data_hash = hash(tuple(data[col1].astype(str).values.tobytes()) + tuple(data[col2].astype(str).values.tobytes()))
+    #    cache_key = f"chi2_{col1}_{col2}_{method}_{v1_pos}_{v2_pos}_{data_hash}"
+    #    
+    #    cached_result = COMPUTATION_CACHE.get(cache_key)
+    #    if cached_result:
+    #        logger.info(f"Cache hit for Chi2 analysis: {col1} vs {col2}")
+    #        return cached_result
+    #except Exception as e:
+    #    logger.warning(f"Cache key generation failed: {e}")
 
     try:
         # OPTIMIZATION: Single crosstab computation, reuse for all operations
@@ -174,7 +174,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             # Chi-Square test
             use_correction = True if "Yates" in method else False
             
-            # === INTEGRATION: Robust Execution ===
+            === INTEGRATION: Robust Execution ===
             chi2, p, dof, ex = CONNECTION_HANDLER.retry_with_backoff(
                 lambda: stats.chi2_contingency(tab, correction=use_correction)
             )
@@ -199,8 +199,8 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         stats_df.columns = ['Statistic', 'Value']
         
         # Store result in cache
-        result = (display_tab, stats_df, msg, None)
-        COMPUTATION_CACHE.set(cache_key, result)
+        #result = (display_tab, stats_df, msg, None)
+        #COMPUTATION_CACHE.set(cache_key, result)
         
         return result
     
@@ -228,7 +228,7 @@ def calculate_correlation(df, col1, col2, method='pearson'):
         tuple: (result_dict, error_msg, plotly_figure)
     """
     # === INTEGRATION: Memory Check ===
-    MEMORY_MANAGER.check_and_cleanup()
+    #MEMORY_MANAGER.check_and_cleanup()
 
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns not found: {col1}, {col2}")
@@ -242,16 +242,16 @@ def calculate_correlation(df, col1, col2, method='pearson'):
         return None, "Error: Need at least 2 numeric values.", None
 
     # === INTEGRATION: Cache Check ===
-    try:
-        data_hash = hash(tuple(data_numeric[col1].values.tobytes()) + tuple(data_numeric[col2].values.tobytes()))
-        cache_key = f"corr_{col1}_{col2}_{method}_{data_hash}"
-        
-        cached_result = COMPUTATION_CACHE.get(cache_key)
-        if cached_result:
-            logger.info(f"Cache hit for Correlation: {col1} vs {col2}")
-            return cached_result
-    except Exception as e:
-        logger.warning(f"Cache key generation failed: {e}")
+    #try:
+    #    data_hash = hash(tuple(data_numeric[col1].values.tobytes()) + tuple(data_numeric[col2].values.tobytes()))
+    #    cache_key = f"corr_{col1}_{col2}_{method}_{data_hash}"
+    #    
+    #    cached_result = COMPUTATION_CACHE.get(cache_key)
+    #    if cached_result:
+    #        logger.info(f"Cache hit for Correlation: {col1} vs {col2}")
+    #        return cached_result
+    #except Exception as e:
+    #    logger.warning(f"Cache key generation failed: {e}")
 
     try:
         v1 = data_numeric[col1]
@@ -331,7 +331,7 @@ def calculate_correlation(df, col1, col2, method='pearson'):
         result = (result_dict, None, fig)
         
         # Store in cache
-        COMPUTATION_CACHE.set(cache_key, result)
+        #COMPUTATION_CACHE.set(cache_key, result)
         
         return result
 
