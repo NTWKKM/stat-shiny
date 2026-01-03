@@ -251,9 +251,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Metadata Logic (Simplified with Dynamic UI) ---
-    
-    # Update Dropdown list
+    # --- 2. Metadata Logic ---
     @reactive.Effect
     def _update_var_select():
         data = df.get()
@@ -261,7 +259,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
 
-    # Render Settings UI dynamically when a variable is selected
     @render.ui
     def ui_var_settings():
         var_name = input.sel_var_edit()
@@ -269,7 +266,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if not var_name or var_name == "Select...":
             return None
             
-        # Retrieve current meta
         meta = var_meta.get()
         current_type = 'Continuous'
         map_str = ""
@@ -335,16 +331,17 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         d = df.get()
         loading = is_loading_data.get()
         
-        # ✅ FIX: Show loading indicator while data is being processed
+        # ✅ FIX: สำหรับ @render.data_frame ต้อง return pandas DataFrame โดยตรง
         if loading:
-            return render.DataTable(pd.DataFrame({'Status': ['🔄 Loading data...']}), width="100%")
+            # ส่ง DataFrame ชั่วคราวที่มีแถวเดียวเพื่อหยุด Spinner และแสดงสถานะ
+            return pd.DataFrame({'Status': ['🔄 Loading data...']})
         
-        # Show empty state when no data is loaded
         if d is None or d.empty:
-            return render.DataTable(pd.DataFrame({'Status': ['📭 No data loaded yet. Click "Load Example Data" or upload a file.']}), width="100%")
+            # ส่ง DataFrame ชั่วคราวเพื่อแจ้งผู้ใช้ให้โหลดข้อมูล
+            return pd.DataFrame({'Status': ['📭 No data loaded yet. Click "Load Example Data" or upload a file.']})
         
-        # Return actual data with proper wrapper
-        return render.DataTable(d, width="100%", filters=False)
+        # คืนค่า DataFrame หลัก (Shiny จะจัดการสร้าง DataTable ให้เองจาก decorator)
+        return d
 
     @render.ui
     def ui_btn_clear_match():
