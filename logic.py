@@ -673,43 +673,54 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
 def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots: Odds Ratios"):
     """Generate forest plots from results."""
     logger.info(f"Generating forest plots: OR={len(or_results)}, aOR={len(aor_results)}")
-    html_parts = [f"<h2 style='margin-top:30px; color:{COLORS['primary']};'>{plot_title}</h2>"]
+    html_parts = []
     has_plot = False
     
-    # FIX: Ensure Plotly JS is loaded once at the beginning
-    plotly_js_script = '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>'
-    html_parts.insert(0, plotly_js_script)
+    # ✅ FIX 1: Load Plotly JS only ONCE at the top
+    html_parts.append('<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>')
+    html_parts.append(f"<h2 style='margin-top:30px; color:{COLORS['primary']};'>{plot_title}</h2>")
     
     if or_results:
         df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_results.items()])
-        if not df_crude.empty:
-            fig = create_forest_plot(df_crude, 'or', 'ci_low', 'ci_high', 'variable', 'p_value',
-                                    "<b>Univariable: Crude OR</b>", "Odds Ratio", 1.0)
-            # FIX: Change include_plotlyjs to False as we load it manually above
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
-            has_plot = True
-            logger.info(f"✅ Added crude OR forest plot with {len(df_crude)} variables")
+        if not df_crude.empty and len(df_crude) > 0:
+            try:
+                fig = create_forest_plot(
+                    df_crude, 'or', 'ci_low', 'ci_high', 'variable', 'p_value',
+                    "<b>Univariable: Crude OR</b>", "Odds Ratio", 1.0
+                )
+                # ✅ FIX 2: Use include_plotlyjs=False since we loaded it manually
+                html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False, div_id='crude_or_plot'))
+                has_plot = True
+                logger.info(f"✅ Added crude OR forest plot with {len(df_crude)} variables")
+            except Exception as e:
+                logger.error(f"Failed to create crude OR plot: {e}")
     
     if aor_results:
         df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_results.items()])
-        if not df_adj.empty:
-            fig = create_forest_plot(df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 'p_value',
-                                    "<b>Multivariable: Adjusted OR</b>", "Adjusted OR", 1.0)
-            # FIX: Change include_plotlyjs to False
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
-            has_plot = True
-            logger.info(f"✅ Added adjusted OR forest plot with {len(df_adj)} variables")
+        if not df_adj.empty and len(df_adj) > 0:
+            try:
+                fig = create_forest_plot(
+                    df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 'p_value',
+                    "<b>Multivariable: Adjusted OR</b>", "Adjusted OR", 1.0
+                )
+                # ✅ FIX 3: Use unique div_id for each plot
+                html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False, div_id='adjusted_or_plot'))
+                has_plot = True
+                logger.info(f"✅ Added adjusted OR forest plot with {len(df_adj)} variables")
+            except Exception as e:
+                logger.error(f"Failed to create adjusted OR plot: {e}")
     
     if not has_plot:
-        html_parts.append("<p style='color:#999'>No results available for forest plot.</p>")
+        html_parts.append("<p style='color:#999; padding:20px;'>ไม่มีข้อมูลสำหรับ Forest Plot</p>")
         logger.warning("⚠️ No data available for forest plot generation")
     else:
-        html_parts.append(f"""<div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS['primary']};'>
-            <b>Interpretation:</b> OR > 1 (Risk Factor), OR < 1 (Protective), CI crosses 1 (Not Significant)
-        </div>""")
+        html_parts.append(f"""
+        <div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS['primary']};'>
+            <b>📊 การตีความ:</b> OR > 1 (ปัจจัยเสี่ยง), OR < 1 (ปัจจัยป้องกัน), CI ตัดเส้น 1 (ไม่มีนัยสำคัญ)
+        </div>
+        """)
     
     return "".join(html_parts)
-
 
 def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto', interaction_pairs=None):
     """Generate complete HTML report with logistic regression results."""
