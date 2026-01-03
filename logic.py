@@ -134,7 +134,7 @@ def run_regression_model(y, X, model_type='logistic', method='default'):
                 model = sm.GLM(y, X_const, family=sm.families.Poisson())
                 result = model.fit()
             except (ValueError, np.linalg.LinAlgError, RuntimeError) as e:
-                 return None, None, None, f"Poisson Error: {str(e)}", stats_metrics
+                 return None, None, None, f"Poisson Error: {e!s}", stats_metrics
 
         # --- LOGISTIC REGRESSION ---
         else:
@@ -291,7 +291,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
             if not pd.api.types.is_numeric_dtype(y_raw):
                  return (f"<div class='alert'>Invalid outcome for Poisson: must be numeric, found {y_raw.dtype}</div>", {}, {})
             if (y_raw < 0).any():
-                 return (f"<div class='alert'>Invalid outcome for Poisson: must be non-negative</div>", {}, {})
+                 return ("<div class='alert'>Invalid outcome for Poisson: must be non-negative</div>", {}, {})
             y = y_raw # Keep as counts/rates
 
         
@@ -364,7 +364,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', model_type='
         or_results = {}
         
         # 1. Univariate Analysis
-        logger.info(f"Starting univariate analysis")
+        logger.info("Starting univariate analysis")
         all_cols_to_test = sorted_cols + interaction_cols_created
 
         for col in all_cols_to_test:
