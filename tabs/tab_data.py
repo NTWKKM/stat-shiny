@@ -1,4 +1,4 @@
-from shiny import ui, module, reactive, render
+from shiny import ui, module, reactive, render, output
 from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
