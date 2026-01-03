@@ -40,11 +40,9 @@ colors = get_color_palette()
 # ==========================================
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
-    # 🟢 แก้ไข: หุ้ม data_ui ด้วย nav_panel เพราะใน tab_data.py เราตัด nav_panel ออกแล้ว
-    ui.nav_panel(
-        "📁 Data Management",
-        ui.div(tab_data.data_ui("data"), class_="app-container")
-    ),
+    # 🟢 แก้ไข: เรียกใช้ tab_data.data_ui("data") ตรงๆ 
+    # ไม่ต้องมี ui.nav_panel ครอบ เพราะใน tab_data.py มีการประกาศ ui.nav_panel ไว้ที่ตัว Module แล้ว
+    tab_data.data_ui("data"),
     
     # --- 2. Table 1 & Matching Module ---
     ui.nav_panel(
