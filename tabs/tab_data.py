@@ -1,4 +1,4 @@
-from shiny import ui, module, reactive, render, output
+from shiny import ui, module, reactive, render
 from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
@@ -109,19 +109,25 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             outcome_cured = np.random.binomial(1, p_cure, n)
 
             gold_std = np.random.binomial(1, 0.3, n)
-            rapid_score = np.where(gold_std==0, 
-                                   np.random.normal(20, 10, n), 
-                                   np.random.normal(50, 15, n))
+            rapid_score = np.where(
+                gold_std == 0, 
+                np.random.normal(20, 10, n), 
+                np.random.normal(50, 15, n)
+            )
             rapid_score = np.clip(rapid_score, 0, 100).round(1)
             
-            rater_a = np.where(gold_std==1, 
-                               np.random.binomial(1, 0.85, n), 
-                               np.random.binomial(1, 0.10, n))
+            rater_a = np.where(
+                gold_std == 1, 
+                np.random.binomial(1, 0.85, n), 
+                np.random.binomial(1, 0.10, n)
+            )
             
             agree_prob = 0.85
-            rater_b = np.where(np.random.binomial(1, agree_prob, n)==1, 
-                               rater_a, 
-                               1 - rater_a)
+            rater_b = np.where(
+                np.random.binomial(1, agree_prob, n) == 1, 
+                rater_a, 
+                1 - rater_a
+            )
 
             hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
             glucose = (hba1c * 15) + np.random.normal(0, 15, n)
@@ -249,7 +255,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
 
     # --- 2. Metadata Logic (Simplified with Dynamic UI) ---
     
-    # Update Dropdown list
     @reactive.Effect
     def _update_var_select():
         data = df.get()
@@ -259,7 +264,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         else:
             ui.update_select("sel_var_edit", choices=["Select..."])
 
-    # Render Settings UI dynamically when a variable is selected
     @render.ui
     def ui_var_settings():
         var_name = input.sel_var_edit()
@@ -267,7 +271,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if not var_name or var_name == "Select...":
             return None
             
-        # Retrieve current meta
         meta = var_meta.get()
         current_type = 'Continuous'
         map_str = ""
@@ -275,7 +278,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if meta and var_name in meta:
             m = meta[var_name]
             current_type = m.get('type', 'Continuous')
-            map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
+            map_str = "\n".join([f"{k}={v}" for k, v in m.get('map', {}).items()])
             
         return ui.TagList(
             ui.input_radio_buttons(
@@ -298,7 +301,8 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @reactive.event(input.btn_save_meta)
     def _save_metadata():
         var_name = input.sel_var_edit()
-        if var_name == "Select...": return
+        if var_name == "Select...":
+            return
         
         new_map = {}
         map_input = input.txt_var_map()
@@ -327,7 +331,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    @output
     @render.data_frame
     def out_df_preview():
         try:
@@ -350,7 +353,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
-             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
+            return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
