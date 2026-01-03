@@ -3,13 +3,15 @@ from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
 from logger import get_logger
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 
 # --- 1. UI Definition ---
 @module.ui
 def data_ui():
-    # ใช้ layout_sidebar ภายใต้ nav_panel ของ app.py
+    # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
+    # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
     return ui.layout_sidebar(
         ui.sidebar(
             ui.h4("MENU"),
@@ -35,6 +37,7 @@ def data_ui():
                 "🛠️ 1. Variable Settings & Labels",
                 ui.layout_columns(
                     ui.div(
+                        # 🟢 แก้ไขภาษาไทยเป็นอังกฤษ
                         ui.input_select("sel_var_edit", "Select Variable to Configure:", choices=["Select..."]),
                     ),
                     ui.div(
@@ -51,8 +54,7 @@ def data_ui():
         
         ui.card(
             ui.card_header("📄 2. Raw Data Preview"),
-            # เปลี่ยนจาก output_table เป็น output_data_frame
-            ui.output_data_frame("out_df_preview"), 
+            ui.output_data_frame("out_df_preview"),
             height="600px",
             full_screen=True
         )
@@ -63,13 +65,14 @@ def data_ui():
 def data_server(input, output, session, df, var_meta, uploaded_file_info, 
                 df_matched, is_matched, matched_treatment_col, matched_covariates):
     
-    logger.debug("data_server started successfully")
-
+    # ไม่ต้องประกาศ ns = session.ns
+    # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
+    
     is_loading_data = reactive.Value(False)
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
-    @reactive.event(input.btn_load_example) 
+    @reactive.event(lambda: input.btn_load_example()) 
     def _():
         logger.info("Generating example data...")
         is_loading_data.set(True)
@@ -110,25 +113,19 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             outcome_cured = np.random.binomial(1, p_cure, n)
 
             gold_std = np.random.binomial(1, 0.3, n)
-            rapid_score = np.where(
-                gold_std == 0, 
-                np.random.normal(20, 10, n), 
-                np.random.normal(50, 15, n)
-            )
+            rapid_score = np.where(gold_std==0, 
+                                   np.random.normal(20, 10, n), 
+                                   np.random.normal(50, 15, n))
             rapid_score = np.clip(rapid_score, 0, 100).round(1)
             
-            rater_a = np.where(
-                gold_std == 1, 
-                np.random.binomial(1, 0.85, n), 
-                np.random.binomial(1, 0.10, n)
-            )
+            rater_a = np.where(gold_std==1, 
+                               np.random.binomial(1, 0.85, n), 
+                               np.random.binomial(1, 0.10, n))
             
             agree_prob = 0.85
-            rater_b = np.where(
-                np.random.binomial(1, agree_prob, n) == 1, 
-                rater_a, 
-                1 - rater_a
-            )
+            rater_b = np.where(np.random.binomial(1, agree_prob, n)==1, 
+                               rater_a, 
+                               1 - rater_a)
 
             hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
             glucose = (hba1c * 15) + np.random.normal(0, 15, n)
@@ -198,7 +195,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(input.file_upload) 
+    @reactive.event(lambda: input.file_upload()) 
     def _():
         is_loading_data.set(True)
         file_infos: list[FileInfo] = input.file_upload()
@@ -234,7 +231,6 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             
             var_meta.set(current_meta)
             ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
-            logger.info("✅ File uploaded: %s with %s rows", f['name'], len(new_df))
             
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -243,7 +239,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
             is_loading_data.set(False)
 
     @reactive.Effect
-    @reactive.event(input.btn_reset_all)
+    @reactive.event(lambda: input.btn_reset_all())
     def _():
         df.set(None)
         var_meta.set({})
@@ -254,17 +250,17 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
-    # --- 2. Metadata Logic ---
+    # --- 2. Metadata Logic (Simplified with Dynamic UI) ---
     
+    # Update Dropdown list
     @reactive.Effect
     def _update_var_select():
         data = df.get()
         if data is not None:
             cols = ["Select..."] + data.columns.tolist()
             ui.update_select("sel_var_edit", choices=cols)
-        else:
-            ui.update_select("sel_var_edit", choices=["Select..."])
 
+    # Render Settings UI dynamically when a variable is selected
     @render.ui
     def ui_var_settings():
         var_name = input.sel_var_edit()
@@ -272,6 +268,7 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if not var_name or var_name == "Select...":
             return None
             
+        # Retrieve current meta
         meta = var_meta.get()
         current_type = 'Continuous'
         map_str = ""
@@ -279,31 +276,31 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         if meta and var_name in meta:
             m = meta[var_name]
             current_type = m.get('type', 'Continuous')
-            map_str = "\n".join([f"{k}={v}" for k, v in m.get('map', {}).items()])
+            map_str = "\n".join([f"{k}={v}" for k,v in m.get('map', {}).items()])
             
         return ui.TagList(
             ui.input_radio_buttons(
                 "radio_var_type", 
+                # 🟢 แก้ไขภาษาไทยเป็นอังกฤษ
                 "Variable Type:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
-                selected=current_type,
+                selected=current_type, # Set initial value directly
                 inline=True
             ),
             ui.input_text_area(
                 "txt_var_map", 
                 "Value Labels (Format: 0=No, 1=Yes)", 
-                value=map_str,
+                value=map_str, # Set initial value directly
                 height="100px"
             ),
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
         )
 
     @reactive.Effect
-    @reactive.event(input.btn_save_meta)
+    @reactive.event(lambda: input.btn_save_meta())
     def _save_metadata():
         var_name = input.sel_var_edit()
-        if var_name == "Select...":
-            return
+        if var_name == "Select...": return
         
         new_map = {}
         map_input = input.txt_var_map()
@@ -332,45 +329,25 @@ def data_server(input, output, session, df, var_meta, uploaded_file_info,
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
     # --- 3. Render Outputs ---
-    @render.data_frame  # เปลี่ยนเป็น render.data_frame เพื่อใช้ร่วมกับ DataGrid
+    @render.data_frame
     def out_df_preview():
-        try:
-            d = df.get()
+        d = df.get()
+        if d is None:
+            return render.DataTable(pd.DataFrame({'Status': ['🔄 No data loaded yet.']}), width="100%")
+        
+        return render.DataTable(d, width="100%", filters=False)
 
-            if d is None:
-                # กรณีไม่มีข้อมูล ให้ส่ง DataFrame เปล่าที่มีคำแนะนำ
-                return render.DataGrid(
-                    pd.DataFrame({'Status': ['No data loaded. Please load example data or upload a file.']}),
-                    width="100%"
-                )
-
-            if isinstance(d, pd.DataFrame) and len(d) == 0:
-                return render.DataGrid(pd.DataFrame({'Status': ['Dataset is empty.']}), width="100%")
-
-            # ✅ ใช้ DataGrid: รองรับข้อมูลจำนวนมากได้ดี (Virtual Scrolling) 
-            # Browser จะไม่ค้างเพราะโหลดเฉพาะแถวที่แสดงผล
-            return render.DataGrid(
-                d,
-                width="100%",
-                height="100%", # ให้ความสูงปรับตาม Card
-                filters=True   # แถม: เพิ่มช่อง Filter หัวคอลัมน์ให้ด้วย
-            )
-
-        except Exception as e:
-            logger.exception("Error rendering preview: %s", e)
-            return render.DataGrid(pd.DataFrame({'Error': [f'Rendering Error: {e!s}']}))
-            
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
-            return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
+             # ใน Module Context ไม่ต้องใส่ ns() เอง
+             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
     
     @reactive.Effect
-    @reactive.event(input.btn_clear_match)
+    @reactive.event(lambda: input.btn_clear_match())
     def _():
         df_matched.set(None)
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
-        ui.notification_show("✅ Matched data cleared", type="message")
