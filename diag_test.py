@@ -304,9 +304,9 @@ def calculate_chi2(
                     pct = 100.0
                 else:
                     pct = tab_row_pct.loc[row_name, col_name]
-                cell_content = f"{int(count)} ({pct:.1f}%)"
+                cell_content = f"{int(count)}<br><small style='color:#666'>({pct:.1f}%)</small>"
             except KeyError:
-                cell_content = "0 (0.0%)"
+                cell_content = "0<br><small>(0.0%)</small>"
             row_data.append(cell_content)
         display_data.append(row_data)
     
@@ -609,7 +609,7 @@ def calculate_chi2(
                     {"Metric": "Accuracy", "Value": f"{accuracy:.4f}", 
                      "95% CI": "-", 
                      "Interpretation": "Overall correct classification rate"},
-                     
+                      
                     {"Metric": "Youden's Index", "Value": f"{youden_j:.4f}", 
                      "95% CI": "-", 
                      "Interpretation": "Summary measure (Se + Sp - 1)"},
@@ -693,8 +693,12 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
             row_vals = []
             for col in order:
                 count = tab_raw.loc[row, col]
-                pct = 100.0 if col == "Total" else tab_row_pct.loc[row, col]
-                row_vals.append(f"{int(count)} ({pct:.1f}%)")
+                if col == "Total":
+                    pct = 100.0
+                else:
+                    pct = tab_row_pct.loc[row, col]
+                # HTML formatted cell for Contingency Table style
+                row_vals.append(f"{int(count)}<br><small style='color:#666'>({pct:.1f}%)</small>")
             display_data.append(row_vals)
             
         col_tuples = []
@@ -1073,44 +1077,62 @@ def generate_report(
             color: white;
             font-weight: 600;
         }}
-        /* Contingency Table Specific Styling - Clean Dark Navy Theme */
+        
+        /* 🎨 Navy Blue Contingency Table Theme */
         .contingency-table {{
-            border: 1px solid #dee2e6;
-            margin: 24px 0;
+            width: 100%;
+            border-collapse: separate !important;
+            border-spacing: 0;
+            border: 1px solid #d1d9e6;
+            border-radius: 8px;
+            overflow: hidden;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin: 24px 0;
+            font-family: 'Segoe UI', sans-serif;
         }}
-        .contingency-table th, .contingency-table thead th {{
-            background-color: {primary_dark};
+        
+        /* Header Rows (Variable Names & Categories) */
+        .contingency-table thead tr th {{
+            background: linear-gradient(135deg, {primary_dark} 0%, #004080 100%) !important;
             color: white !important;
             font-weight: 600;
             text-align: center;
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             vertical-align: middle;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 12px 18px;
         }}
-        /* Index cells (first column) */
+        
+        /* Row Headers (Index - Variable 1 Categories) */
         .contingency-table tbody th {{
-            background-color: {primary_dark};
-            color: white !important;
+            background-color: #f1f8ff !important;
+            color: {primary_dark} !important;
+            font-weight: bold;
             text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-right: 2px solid #d1d9e6;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: middle;
         }}
-        /* Data cells */
-        .contingency-table td {{
-            background-color: white;
-            color: {text_color};
+        
+        /* Data Cells */
+        .contingency-table tbody td {{
+            background-color: #ffffff;
+            color: #2c3e50;
             text-align: center;
-            padding: 12px 18px;
-            border: 1px solid #dee2e6;
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            border-right: 1px solid #f0f0f0;
             font-variant-numeric: tabular-nums;
         }}
-        .contingency-table tr:hover td {{
-            background-color: #f1f5f9;
+        
+        /* Hover Effect for Rows */
+        .contingency-table tbody tr:hover td {{
+            background-color: #e6f3ff !important;
+            transition: background-color 0.2s ease;
         }}
-        /* Header top-left corner handling */
-        .contingency-table thead tr:first-child th:first-child {{
-            border-top-left-radius: 6px;
-        }}
+        
+        /* Total Row/Col Highlighting (Optional Logic) */
+        /* You can target last-child if you want specific styling for Totals */
+        
         .interpretation {{
             background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
             border-left: 4px solid {primary_color};
@@ -1150,6 +1172,7 @@ def generate_report(
         
         elif element_type in ('table', 'contingency_table', 'contingency'):
             if hasattr(data, 'to_html'):
+                 # Apply the specific Navy Blue class
                  classes = 'contingency-table' if element_type in ('contingency_table', 'contingency') else ''
                  html += data.to_html(index=True, classes=classes, escape=False)
             else:
