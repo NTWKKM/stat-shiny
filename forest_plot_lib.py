@@ -59,22 +59,24 @@ class ForestPlot:
         
         self.data = data.copy()
 
-        # 1. แปลงเป็นตัวเลข (Coerce จะทำให้ค่าที่เป็น string เช่น "Ref." กลายเป็น NaN)
+        # 1. แปลงเป็นตัวเลข
         numeric_cols = [estimate_col, ci_low_col, ci_high_col]
         for col in numeric_cols:
             self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
         
-        # 2. กรองเฉพาะแถวที่สามารถวาดกราฟได้จริงๆ (ต้องมีเลขครบ 3 ช่อง)
-        # เราจะไม่ลบทั้ง DataFrame แต่จะเลือกเฉพาะแถวที่วาดได้
+        # 2. กรองเฉพาะแถวที่มีข้อมูลครบเพื่อวาดกราฟ
+        # แก้ไขจาก .all(axis=1) เป็นการเก็บข้อมูลเดิมไว้ก่อนแล้วกรองเฉพาะแถวที่จะ plot
         valid_mask = self.data[numeric_cols].notna().all(axis=1)
-        plot_data = self.data[valid_mask].copy()
         
-        if plot_data.empty:
+        if not valid_mask.any():
+            # ถ้าไม่มีข้อมูลที่วาดได้เลยจริงๆ ค่อยเตือน
             logger.warning("No valid numeric data to plot (might be all 'Ref.' or NaN)")
             self.data = pd.DataFrame()
             return
         
-        self.data = plot_data.iloc[::-1].reset_index(drop=True)
+        # กรองเอาเฉพาะแถวที่ valid ไปใช้งานต่อ
+        self.data = self.data[valid_mask].copy()
+        self.data = self.data.iloc[::-1].reset_index(drop=True)
         
         self.estimate_col = estimate_col
         self.ci_low_col = ci_low_col
