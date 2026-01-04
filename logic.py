@@ -620,10 +620,6 @@ def analyze_outcome(
         mode = mode_map.get(col, 'linear')
         sheet = col.split('_')[0] if '_' in col else "Variables"
         
-        if sheet != current_sheet:
-            html_rows.append(f"<tr class='sheet-header'><td colspan='11'>{sheet}</td></tr>")
-            current_sheet = sheet
-        
         lbl = get_label(col, var_meta)
         mode_badge = {'categorical': '📊 (All Levels)', 'linear': '📉 (Trend)'}
         if mode in mode_badge:
@@ -673,7 +669,6 @@ def analyze_outcome(
     
     # ✅ NEW: Add interaction terms to HTML table
     if interaction_results:
-        html_rows.append("<tr class='sheet-header'><td colspan='11'>🔗 Interaction Terms</td></tr>")
         for int_name, res in interaction_results.items():
             int_label = res.get('label', int_name)
             int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
