@@ -1,12 +1,12 @@
 """
-📈 Correlation & ICC Analysis Module (Shiny) - WORKING VERSION
+📈 Correlation & ICC Analysis Module (Shiny) - UPDATED VERSION
 
 Provides UI and server logic for:
 - Pearson/Spearman correlation analysis with scatter plots
 - Intraclass correlation (ICC) for reliability/agreement
 - Interactive reporting and HTML export
 
-Fixed: Uses @module.ui and @module.server decorators properly
+Updated: Uses dataset selector pattern like tab_diag.py
 """
 
 from shiny import ui, reactive, render, req, module
@@ -18,6 +18,7 @@ from logger import get_logger
 from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+
 
 def _auto_detect_icc_vars(cols: list) -> list:
     """
@@ -35,114 +36,124 @@ def _auto_detect_icc_vars(cols: list) -> list:
 
     return detected
 
-# ✅ FIX: Use @module.ui decorator like tab_diag.py
+
+# ✅ Use @module.ui decorator
 @module.ui
 def corr_ui():
     """
     Create the UI for correlation analysis tab.
+    NO manual namespace needed - Shiny handles it automatically.
     """
-    return ui.navset_tab(
-        # TAB 1: Pearson/Spearman Correlation
-        ui.nav_panel(
-            "📈 Pearson/Spearman",
-            ui.card(
-                ui.card_header("📈 Continuous Correlation Analysis"),
+    return ui.div(
+        # Title + Data Summary inline
+        ui.output_ui("ui_title_with_summary"),
+        
+        # Dataset Info Box
+        ui.output_ui("ui_matched_info"),
+        ui.br(),
+        
+        # Dataset Selector
+        ui.output_ui("ui_dataset_selector"),
+        ui.br(),
+        
+        # Main Analysis Tabs
+        ui.navset_tab(
+            # TAB 1: Pearson/Spearman Correlation
+            ui.nav_panel(
+                "📈 Pearson/Spearman",
+                ui.card(
+                    ui.card_header("📈 Continuous Correlation Analysis"),
 
-                # --- ส่วนที่เพิ่มใหม่: ตัวเลือก Dataset สำหรับสลับไปใช้ข้อมูลที่ผ่านการ Match ---
-                ui.output_ui("ui_matched_status_banner_corr"),
-                ui.output_ui("ui_dataset_selector_corr"),
-                ui.hr(),
-
-                ui.layout_columns(
-                    ui.input_select(
-                        "coeff_type",
-                        "Correlation Coefficient:",
-                        choices={"pearson": "Pearson", "spearman": "Spearman"},
-                        selected="pearson"
+                    ui.layout_columns(
+                        ui.input_select(
+                            "coeff_type",
+                            "Correlation Coefficient:",
+                            choices={"pearson": "Pearson", "spearman": "Spearman"},
+                            selected="pearson"
+                        ),
+                        ui.input_select(
+                            "cv1",
+                            "Variable 1 (X-axis):",
+                            choices=["Select..."]
+                        ),
+                        ui.input_select(
+                            "cv2",
+                            "Variable 2 (Y-axis):",
+                            choices=["Select..."]
+                        ),
+                        col_widths=[3, 4, 4]
                     ),
-                    ui.input_select(
-                        "cv1",
-                        "Variable 1 (X-axis):",
-                        choices=["Select..."]
+
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_corr",
+                            "📈 Analyze Correlation",
+                            class_="btn-primary",
+                            width="100%"
+                        ),
+                        ui.input_action_button(
+                            "btn_dl_corr",
+                            "📥 Download Report",
+                            class_="btn-secondary",
+                            width="100%"
+                        ),
+                        col_widths=[6, 6]
                     ),
-                    ui.input_select(
-                        "cv2",
-                        "Variable 2 (Y-axis):",
-                        choices=["Select..."]
+
+                    ui.output_ui("out_corr_result"),
+
+                    full_screen=True
+                )
+            ),
+
+            # TAB 2: ICC (Reliability)
+            ui.nav_panel(
+                "🔍 Reliability (ICC)",
+                ui.card(
+                    ui.card_header("🔍 Intraclass Correlation Coefficient"),
+
+                    ui.output_ui("out_icc_note"),
+
+                    ui.input_selectize(
+                        "icc_vars",
+                        "Select Variables (Raters/Methods) - Select 2+:",
+                        choices=["Select..."],
+                        multiple=True,
+                        selected=[]
                     ),
-                    col_widths=[3, 4, 4]
-                ),
 
-                ui.layout_columns(
-                    ui.input_action_button(
-                        "btn_run_corr",
-                        "📈 Analyze Correlation",
-                        class_="btn-primary",
-                        width="100%"
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_icc",
+                            "🔍 Calculate ICC",
+                            class_="btn-primary",
+                            width="100%"
+                        ),
+                        ui.input_action_button(
+                            "btn_dl_icc",
+                            "📥 Download Report",
+                            class_="btn-secondary",
+                            width="100%"
+                        ),
+                        col_widths=[6, 6]
                     ),
-                    ui.input_action_button(
-                        "btn_dl_corr",
-                        "📥 Download Report",
-                        class_="btn-secondary",
-                        width="100%"
-                    ),
-                    col_widths=[6, 6]
-                ),
 
-                ui.output_ui("out_corr_result"),
+                    ui.output_ui("out_icc_result"),
 
-                full_screen=True
-            )
-        ),
+                    full_screen=True
+                )
+            ),
 
-        # TAB 2: ICC (Reliability)
-        ui.nav_panel(
-            "🔍 Reliability (ICC)",
-            ui.card(
-                ui.card_header("🔍 Intraclass Correlation Coefficient"),
+            # TAB 3: Reference & Interpretation
+            ui.nav_panel(
+                "📖 Reference",
+                ui.card(
+                    ui.card_header("📚 Reference & Interpretation Guide"),
 
-                ui.output_ui("out_icc_note"),
-
-                ui.input_selectize(
-                    "icc_vars",
-                    "Select Variables (Raters/Methods) - Select 2+:",
-                    choices=["Select..."],
-                    multiple=True,
-                    selected=[]
-                ),
-
-                ui.layout_columns(
-                    ui.input_action_button(
-                        "btn_run_icc",
-                        "🔍 Calculate ICC",
-                        class_="btn-primary",
-                        width="100%"
-                    ),
-                    ui.input_action_button(
-                        "btn_dl_icc",
-                        "📥 Download Report",
-                        class_="btn-secondary",
-                        width="100%"
-                    ),
-                    col_widths=[6, 6]
-                ),
-
-                ui.output_ui("out_icc_result"),
-
-                full_screen=True
-            )
-        ),
-
-        # TAB 3: Reference & Interpretation
-        ui.nav_panel(
-            "📖 Reference",
-            ui.card(
-                ui.card_header("📚 Reference & Interpretation Guide"),
-
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("📈 Correlation (Relationship)"),
-                        ui.markdown("""
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("📈 Correlation (Relationship)"),
+                            ui.markdown("""
 **Concept:** Measures the strength and direction of the relationship between 
 **two continuous variables**.
 
@@ -155,7 +166,7 @@ def corr_ui():
 * **Robust to:** Outliers.
 
 **Interpretation of Coefficient (r or rho):**
-* **+1.0:** Perfect Positive (As X goes up, Y goes down).
+* **+1.0:** Perfect Positive (As X goes up, Y goes up).
 * **-1.0:** Perfect Negative (As X goes up, Y goes down).
 * **0.0:** No relationship.
 
@@ -164,11 +175,11 @@ def corr_ui():
 * **0.4 - 0.7:** Moderate 📉
 * **0.2 - 0.4:** Weak 📊
 * **< 0.2:** Negligible
-                        """)
-                    ),
-                    ui.card(
-                        ui.card_header("🔍 ICC (Reliability)"),
-                        ui.markdown("""
+                            """)
+                        ),
+                        ui.card(
+                            ui.card_header("🔍 ICC (Reliability)"),
+                            ui.markdown("""
 **Concept:** Measures the reliability or agreement between **two or more 
 raters/methods** measuring the same thing.
 
@@ -181,14 +192,14 @@ raters/methods** measuring the same thing.
 * **0.75 - 0.90:** Good Reliability
 * **0.50 - 0.75:** Moderate Reliability ⚠️
 * **< 0.50:** Poor Reliability ❌
-                        """)
+                            """)
+                        ),
+                        col_widths=[6, 6]
                     ),
-                    col_widths=[6, 6]
-                ),
 
-                ui.card(
-                    ui.card_header("💡 Common Questions"),
-                    ui.markdown("""
+                    ui.card(
+                        ui.card_header("💡 Common Questions"),
+                        ui.markdown("""
 **Q: Why use ICC instead of Pearson for reliability?**
 * **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
 higher than Rater B, Pearson = 1.0 but they don't agree! ICC accounts for this.
@@ -199,16 +210,17 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
 
 **Q: How many variables do I need for ICC?**
 * **A:** At least 2 (to compare two raters/methods). More raters = more reliable ICC.
-                    """)
-                ),
+                        """)
+                    ),
 
-                full_screen=True
+                    full_screen=True
+                )
             )
         )
     )
 
 
-# ✅ FIX: Use @module.server decorator properly
+# ✅ Use @module.server decorator properly
 @module.server
 def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
@@ -218,67 +230,78 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     COLORS = get_color_palette()
     
     # ==================== REACTIVE STATES ====================
+
     corr_result = reactive.Value(None)  # Stores result from correlation analysis
     icc_result = reactive.Value(None)   # Stores result from ICC analysis
     numeric_cols_list = reactive.Value([])  # List of numeric columns
 
-    # ==================== DATASET SELECTOR LOGIC (เพิ่มใหม่) ====================
+    # ==================== DATASET SELECTION LOGIC ====================
+    
+    @reactive.Calc
+    def current_df():
+        """Select between original and matched dataset based on user preference."""
+        if is_matched.get() and input.radio_corr_source() == "matched":
+            return df_matched.get()
+        return df.get()
     
     @render.ui
-    def ui_dataset_selector_corr():
-        """Render radio buttons to select dataset if matched data is available."""
+    def ui_title_with_summary():
+        """Display title with dataset summary."""
+        d = current_df()
+        if d is not None:
+            return ui.div(
+                ui.h3("📈 Correlation & ICC Analysis"),
+                ui.p(
+                    f"{len(d):,} rows | {len(d.columns)} columns",
+                    class_="text-secondary mb-3"
+                )
+            )
+        return ui.h3("📈 Correlation & ICC Analysis")
+    
+    @render.ui
+    def ui_matched_info():
+        """Display matched dataset availability info."""
         if is_matched.get():
+            return ui.div(
+                ui.tags.div(
+                    "✅ **Matched Dataset Available** - You can select it below for analysis",
+                    class_="alert alert-info"
+                )
+            )
+        return None
+    
+    @render.ui
+    def ui_dataset_selector():
+        """Render dataset selector radio buttons."""
+        if is_matched.get():
+            original = df.get()
+            matched = df_matched.get()
+            original_len = len(original) if original is not None else 0
+            matched_len = len(matched) if matched is not None else 0
             return ui.input_radio_buttons(
-                "radio_dataset_source",
-                "📄 Select Dataset for Analysis:",
-                choices={
-                    "original": "📊 Original Data",
-                    "matched": "✅ Matched Data (from PSM)"
+                "radio_corr_source",
+                "📊 Select Dataset:",
+                {
+                    "original": f"📊 Original Data ({original_len:,} rows)",
+                    "matched": f"✅ Matched Data ({matched_len:,} rows)"
                 },
-                selected="original",
+                selected="matched",
                 inline=True
             )
         return None
-
-    @render.ui
-    def ui_matched_status_banner_corr():
-        """Show a success banner when matched data is ready."""
-        if is_matched.get():
-            return ui.div(
-                ui.p(
-                    ui.strong("✅ Matched Dataset Available"),
-                    " - You can switch to matched data for correlation analysis",
-                    style=f"color: {COLORS['success']}; margin-bottom: 0;"
-                ),
-                style=f"padding: 10px; border-radius: 6px; margin-bottom: 15px; background-color: {COLORS['success']}15; border: 1px solid {COLORS['success']};"
-            )
-        return None
-
-    @reactive.Calc
-    def get_current_data():
-        """Helper to get the selected dataset based on user choice."""
-        try:
-            # ใช้ input.radio_dataset_source() ถ้ามี (กรณีมีการรัน PSM แล้ว)
-            use_matched = input.radio_dataset_source() == "matched"
-        except:
-            use_matched = False
-
-        if is_matched.get() and use_matched and df_matched.get() is not None:
-            return df_matched.get().copy(), "✅ Matched Data"
-        return df.get(), "📊 Original Data"
 
     # ==================== UPDATE NUMERIC COLUMNS ====================
 
     @reactive.Effect
     def _update_numeric_cols():
-        """Update list of numeric columns when data OR dataset source changes."""
-        # ดึงข้อมูลจาก Calc แทน df.get() โดยตรง เพื่อรองรับการสลับ Dataset
-        data, _ = get_current_data()
+        """Update list of numeric columns when data changes."""
+        data = current_df()
         if data is not None:
             cols = data.select_dtypes(include=[np.number]).columns.tolist()
             numeric_cols_list.set(cols)
 
             if cols:
+                # ✅ Use input ID directly (no ns needed in @module.server)
                 ui.update_select("cv1", choices=cols, selected=cols[0])
                 ui.update_select("cv2", 
                                choices=cols, 
@@ -291,14 +314,15 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
                     choices=cols,
                     selected=icc_vars 
                 )
-                logger.info("Updated numeric columns for source: %s", cols)
+
+                logger.info("Auto-detected ICC/Rater variables: %s", icc_vars)
 
     # ==================== ICC SELECTION INFO ====================
 
     @render.ui
     def out_icc_note():
         """Display info about auto-detected ICC variables."""
-        data, _ = get_current_data()
+        data = current_df()
         if data is None:
             return None
 
@@ -320,9 +344,9 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     @reactive.event(input.btn_run_corr)
     def _run_correlation():
         """Run correlation analysis when button clicked."""
-        data_source, label = get_current_data()
+        data = current_df()
 
-        if data_source is None:
+        if data is None:
             ui.notification_show("No data available", type="error")
             return
 
@@ -341,22 +365,28 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Calculating correlation...", detail="This may take a moment")
             res_stats, err, fig = correlation.calculate_correlation(
-                data_source, col1, col2, method=method
+                data, col1, col2, method=method
             )
 
         if err:
             ui.notification_show(f"Error: {err}", type="error")
             corr_result.set(None)
         else:
+            # Determine data label
+            if is_matched.get() and input.radio_corr_source() == "matched":
+                data_label = f"✅ Matched Data ({len(data)} rows)"
+            else:
+                data_label = f"📊 Original Data ({len(data)} rows)"
+                
             corr_result.set({
                 "stats": res_stats,
                 "figure": fig,
                 "method": method,
                 "var1": col1,
                 "var2": col2,
-                "data_label": label
+                "data_label": data_label
             })
-            ui.notification_show(f"Correlation complete using {label}", type="default")
+            ui.notification_show("Correlation analysis complete", type="default")
 
     @render.ui
     def out_corr_result():
@@ -403,9 +433,9 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     @reactive.event(input.btn_run_icc)
     def _run_icc():
         """Run ICC analysis."""
-        data_source, label = get_current_data()
+        data = current_df()
 
-        if data_source is None:
+        if data is None:
             ui.notification_show("No data available", type="error")
             return
 
@@ -417,18 +447,24 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
 
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Calculating ICC...", detail="Computing variance components")
-            res_df, err, anova_df = diag_test.calculate_icc(data_source, list(cols))
+            res_df, err, anova_df = diag_test.calculate_icc(data, list(cols))
 
         if err:
             ui.notification_show(f"Error: {err}", type="error")
             icc_result.set(None)
         else:
+            # Determine data label
+            if is_matched.get() and input.radio_corr_source() == "matched":
+                data_label = f"✅ Matched Data ({len(data)} rows)"
+            else:
+                data_label = f"📊 Original Data ({len(data)} rows)"
+                
             icc_result.set({
                 "results_df": res_df,
                 "anova_df": anova_df,
-                "data_label": label
+                "data_label": data_label
             })
-            ui.notification_show(f"ICC analysis complete using {label}", type="default")
+            ui.notification_show("ICC analysis complete", type="default")
 
     @render.ui
     def out_icc_result():
@@ -466,6 +502,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
 
 
 # ==================== MODULE EXPORT ====================
+# ✅ Export functions properly for app.py
 
 def correlation_ui(id: str) -> ui.TagChild:
     """Wrapper for module UI - called from app.py"""
