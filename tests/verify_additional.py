@@ -66,7 +66,7 @@ def test_diag_descriptive(df):
 def test_diag_chi2(df):
     print("\n[TEST] Diagnostic Chi-Square")
     try:
-        display_tab, stats_df, msg, risk_df = calculate_chi2(df, 'exposure', 'disease')
+        _display_tab, stats_df, msg, risk_df = calculate_chi2(df, 'exposure', 'disease')
         if stats_df is not None:
             print("✅ calculate_chi2 returned stats")
             print(f"   Test used: {stats_df.loc[stats_df['Statistic']=='Test', 'Value'].values[0]}")
@@ -81,7 +81,7 @@ def test_diag_chi2(df):
 def test_diag_roc(df):
     print("\n[TEST] Diagnostic ROC")
     try:
-        stats_dict, error_msg, fig, coords = analyze_roc(df, 'disease', 'test_score', pos_label_user='1')
+        stats_dict, error_msg, _fig, _coords = analyze_roc(df, 'disease', 'test_score', pos_label_user='1')
         if stats_dict is not None:
             print(f"✅ ROC Analysis successful. AUC: {stats_dict['AUC']}")
         else:
@@ -93,12 +93,12 @@ def test_survival_km(df):
     print("\n[TEST] Survival KM & Log-rank")
     try:
         # Check median survival
-        kms = calculate_median_survival(df, 'time', 'event', 'exposure')
+        _kms = calculate_median_survival(df, 'time', 'event', 'exposure')
         if not kms.empty:
              print("✅ calculate_median_survival returned results")
         
         # Check Log-rank
-        fig, stats = fit_km_logrank(df, 'time', 'event', 'exposure')
+        _fig, stats = fit_km_logrank(df, 'time', 'event', 'exposure')
         if not stats.empty:
             print(f"✅ Log-rank test performed: p={stats.iloc[0]['P-value']}")
     except Exception as e:
@@ -107,7 +107,7 @@ def test_survival_km(df):
 def test_survival_cox(df):
     print("\n[TEST] Survival CoxPH")
     try:
-        cph, res_df, data, err = fit_cox_ph(df, 'time', 'event', ['age', 'sex', 'exposure'])
+        cph, res_df, _data, err = fit_cox_ph(df, 'time', 'event', ['age', 'sex', 'exposure'])
         if cph is not None:
             print("✅ CoxPH fitted successfully")
             print(f"   Covariates: {res_df.index.tolist()}")
@@ -119,8 +119,12 @@ def test_survival_cox(df):
 
 def test_modernized_modules():
     print("\n[TEST] Modernized Modules Import & Basic Check")
-    from logger import get_logger
-    logger = get_logger(__name__)
+    try:
+        from logger import get_logger
+        _ = get_logger(__name__)  # Verify import and instantiation work
+        print("✅ logger.py imported successfully")
+    except Exception as e:
+        print(f"❌ logger.py failed: {e}")
 
     # Test table_one.py
     try:
