@@ -17,7 +17,7 @@ Features:
 
 Usage:
     from tabs._styling import get_shiny_css, style_card, style_button
-    
+
     ui.HTML(get_shiny_css())
 """
 
@@ -27,7 +27,7 @@ from tabs._common import get_color_palette
 def get_shiny_css():
     """
     Returns comprehensive CSS for Shiny app styling with professional Navy Blue theme.
-    
+
     Includes:
     - Global styles and typography
     - Card and container styling
@@ -38,13 +38,13 @@ def get_shiny_css():
     - Status indicators and badges
     - Responsive design
     - Accessibility features
-    
+
     Usage:
         In your Shiny app UI:
         ui.tags.head(ui.HTML(get_shiny_css()))
     """
     COLORS = get_color_palette()
-    
+
     css = f"""
     <style>
         /* ===========================
@@ -921,18 +921,18 @@ def get_shiny_css():
         }}
     </style>
     """
-    
+
     return css
 
 
 def style_card_header(title: str, icon: str = "") -> str:
     """
     Generate styled card header HTML.
-    
+
     Args:
         title: Header text
         icon: Optional emoji or icon
-        
+
     Returns:
         HTML string for card header
     """
@@ -954,7 +954,7 @@ def style_card_header(title: str, icon: str = "") -> str:
 
 def _hex_to_rgb(hex_color: str) -> str:
     """Convert hex color to RGB values for rgba()."""
-    hex_color = hex_color.lstrip('#')
+    hex_color = hex_color.lstrip("#")
     r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
     return f"{r}, {g}, {b}"
 
@@ -962,24 +962,24 @@ def _hex_to_rgb(hex_color: str) -> str:
 def style_status_badge(status: str, text: str) -> str:
     """
     Generate styled status badge.
-    
+
     Args:
         status: 'success', 'danger', 'warning', 'info'
         text: Badge text
-        
+
     Returns:
         HTML string for status badge
     """
     COLORS = get_color_palette()
     color_map = {
-        'success': COLORS['success'],
-        'danger': COLORS['danger'],
-        'warning': COLORS['warning'],
-        'info': COLORS['info'],
+        "success": COLORS["success"],
+        "danger": COLORS["danger"],
+        "warning": COLORS["warning"],
+        "info": COLORS["info"],
     }
-    color = color_map.get(status, COLORS['info'])
-    text_color = '#000' if status == 'warning' else color
-    
+    color = color_map.get(status, COLORS["info"])
+    text_color = "#000" if status == "warning" else color
+
     return f"""
     <span style="
         display: inline-flex;
@@ -1001,33 +1001,33 @@ def style_status_badge(status: str, text: str) -> str:
 def style_alert(alert_type: str, message: str, title: str = "") -> str:
     """
     Generate styled alert/notification box.
-    
+
     Args:
         alert_type: 'success', 'danger', 'warning', 'info'
         message: Alert message
         title: Optional alert title
-        
+
     Returns:
         HTML string for alert
     """
     COLORS = get_color_palette()
     color_map = {
-        'success': COLORS['success'],
-        'danger': COLORS['danger'],
-        'warning': COLORS['warning'],
-        'info': COLORS['primary'],
+        "success": COLORS["success"],
+        "danger": COLORS["danger"],
+        "warning": COLORS["warning"],
+        "info": COLORS["primary"],
     }
-    color = color_map.get(alert_type, COLORS['info'])
+    color = color_map.get(alert_type, COLORS["info"])
     icon_map = {
-        'success': '✅',
-        'danger': '❌',
-        'warning': '⚠️',
-        'info': 'ℹ️',
+        "success": "✅",
+        "danger": "❌",
+        "warning": "⚠️",
+        "info": "ℹ️",
     }
-    icon = icon_map.get(alert_type, '')
-    
+    icon = icon_map.get(alert_type, "")
+
     title_html = f"<strong>{title}</strong><br>" if title else ""
-    
+
     return f"""
     <div style="
         background-color: rgba({_hex_to_rgb(color)}, 0.1);
@@ -1045,12 +1045,12 @@ def style_alert(alert_type: str, message: str, title: str = "") -> str:
 def get_color_code(color_name: str) -> str:
     """
     Get hex color code by name.
-    
+
     Args:
         color_name: Color name (e.g., 'primary', 'success')
-        
+
     Returns:
         Hex color code
     """
     colors = get_color_palette()
-    return colors.get(color_name, '#1E3A5F')
+    return colors.get(color_name, "#1E3A5F")
