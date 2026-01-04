@@ -419,7 +419,18 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             fig_crude = None
 
             if aor_res:
-                df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_res.items()])
+                # ปรับการดึงค่าให้ยืดหยุ่น (รองรับทั้ง 'aor' และ 'or')
+                plot_data_adj = []
+                for k, v in aor_res.items():
+                    plot_data_adj.append({
+                        'variable': k,
+                        'aor': v.get('aor') or v.get('or'), # ดึงค่า aor ถ้าไม่มีให้เอา or
+                        'ci_low': v.get('ci_low'),
+                        'ci_high': v.get('ci_high'),
+                        'p_value': v.get('p_value')
+                    })
+                
+                df_adj = pd.DataFrame(plot_data_adj)
                 if not df_adj.empty:
                     fig_adj = create_forest_plot(
                         df_adj, 'aor', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
@@ -427,7 +438,18 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
                     )
 
             if or_res:
-                df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()])
+                # ทำแบบเดียวกันกับ Crude OR
+                plot_data_crude = []
+                for k, v in or_res.items():
+                    plot_data_crude.append({
+                        'variable': k,
+                        'or': v.get('or'),
+                        'ci_low': v.get('ci_low'),
+                        'ci_high': v.get('ci_high'),
+                        'p_value': v.get('p_value')
+                    })
+                
+                df_crude = pd.DataFrame(plot_data_crude)
                 if not df_crude.empty:
                     fig_crude = create_forest_plot(
                         df_crude, 'or', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
