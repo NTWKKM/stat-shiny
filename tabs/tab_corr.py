@@ -7,7 +7,6 @@ Provides UI and server logic for:
 - Interactive reporting and HTML export
 """
 
-# === FIX: Import ui เพื่อเรียกใช้ ui.NS ===
 from shiny import ui, reactive, render, req, module
 import pandas as pd
 import numpy as np
@@ -50,8 +49,9 @@ def corr_ui(id: str) -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
     """
-    # === FIX: ใช้ ui.NS(id) ซึ่งเป็นวิธีที่ปลอดภัยที่สุด ===
-    ns = ui.NS(id) 
+    # ✅ FIX: Manual namespace function for Shiny for Python
+    def ns(input_id: str) -> str:
+        return f"{id}-{input_id}"
     
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
@@ -104,9 +104,9 @@ def corr_ui(id: str) -> ui.TagChild:
 
         # TAB 2: ICC (Reliability)
         ui.nav_panel(
-            "📍 Reliability (ICC)",
+            "🔍 Reliability (ICC)",
             ui.card(
-                ui.card_header("📍 Intraclass Correlation Coefficient"),
+                ui.card_header("🔍 Intraclass Correlation Coefficient"),
 
                 ui.output_ui(ns("out_icc_note")),
 
@@ -121,7 +121,7 @@ def corr_ui(id: str) -> ui.TagChild:
                 ui.layout_columns(
                     ui.input_action_button(
                         ns("btn_run_icc"),
-                        "📍 Calculate ICC",
+                        "🔍 Calculate ICC",
                         class_="btn-primary",
                         width="100%"
                     ),
@@ -174,7 +174,7 @@ def corr_ui(id: str) -> ui.TagChild:
                         """)
                     ),
                     ui.card(
-                        ui.card_header("📍 ICC (Reliability)"),
+                        ui.card_header("🔍 ICC (Reliability)"),
                         ui.markdown("""
 **Concept:** Measures the reliability or agreement between **two or more 
 raters/methods** measuring the same thing.
@@ -194,7 +194,7 @@ raters/methods** measuring the same thing.
                 ),
 
                 ui.card(
-                    ui.card_header("📝 Common Questions"),
+                    ui.card_header("💡 Common Questions"),
                     ui.markdown("""
 **Q: Why use ICC instead of Pearson for reliability?**
 * **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
@@ -215,7 +215,6 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
     )
 
 
-# === FIX: ใช้ @module.server ป้องกันความสับสนกับชื่อตัวแปร ===
 @module.server
 def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
@@ -398,7 +397,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
         """Display ICC analysis results."""
         result = icc_result.get()
         if result is None:
-            return ui.markdown("*Results will appear here after clicking '📍 Calculate ICC'*")
+            return ui.markdown("*Results will appear here after clicking '🔍 Calculate ICC'*")
 
         return ui.card(
             ui.card_header("ICC Results"),
