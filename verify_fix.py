@@ -27,7 +27,10 @@ else:
         print("SUCCESS: Kappa Crosstab now matches Chi2 style (includes Total, Percentages, and proper Headers)")
     else:
         print("FAILURE: Formatting missing")
-        if not has_total: print("- Total missing")
-        if not has_percentages: print("- Percentages missing")
-        if not has_rater_method: print("- Rater/Method headers missing")
+        if not has_total: 
+            print("- Total missing")
+        if not has_percentages: 
+            print("- Percentages missing")
+        if not has_rater_method: 
+            print("- Rater/Method headers missing")
         # print(report_html)
