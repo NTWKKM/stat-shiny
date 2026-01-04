@@ -1,10 +1,12 @@
 """
-📈 Correlation & ICC Analysis Module (Shiny) - FIXED
+📈 Correlation & ICC Analysis Module (Shiny) - WORKING VERSION
 
 Provides UI and server logic for:
 - Pearson/Spearman correlation analysis with scatter plots
 - Intraclass correlation (ICC) for reliability/agreement
 - Interactive reporting and HTML export
+
+Fixed: Uses @module.ui and @module.server decorators properly
 """
 
 from shiny import ui, reactive, render, req, module
@@ -45,15 +47,13 @@ def _auto_detect_icc_vars(cols: list) -> list:
     return detected
 
 
-def corr_ui(id: str) -> ui.TagChild:
+# ✅ FIX: Use @module.ui decorator like tab_diag.py
+@module.ui
+def corr_ui():
     """
     Create the UI for correlation analysis tab.
+    NO manual namespace needed - Shiny handles it automatically.
     """
-    # ✅ FIX: Manual namespace function for Shiny for Python
-    # ⚠️ ใช้ underscore (_) แทน dash (-) เพราะ Shiny ID ไม่รับ dash
-    def ns(input_id: str) -> str:
-        return f"{id}_{input_id}"
-    
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
         ui.nav_panel(
@@ -63,18 +63,18 @@ def corr_ui(id: str) -> ui.TagChild:
 
                 ui.layout_columns(
                     ui.input_select(
-                        ns("coeff_type"),
+                        "coeff_type",
                         "Correlation Coefficient:",
                         choices={"pearson": "Pearson", "spearman": "Spearman"},
                         selected="pearson"
                     ),
                     ui.input_select(
-                        ns("cv1"),
+                        "cv1",
                         "Variable 1 (X-axis):",
                         choices=["Select..."]
                     ),
                     ui.input_select(
-                        ns("cv2"),
+                        "cv2",
                         "Variable 2 (Y-axis):",
                         choices=["Select..."]
                     ),
@@ -83,13 +83,13 @@ def corr_ui(id: str) -> ui.TagChild:
 
                 ui.layout_columns(
                     ui.input_action_button(
-                        ns("btn_run_corr"),
+                        "btn_run_corr",
                         "📈 Analyze Correlation",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        ns("btn_dl_corr"),
+                        "btn_dl_corr",
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -97,7 +97,7 @@ def corr_ui(id: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
 
-                ui.output_ui(ns("out_corr_result")),
+                ui.output_ui("out_corr_result"),
 
                 full_screen=True
             )
@@ -109,10 +109,10 @@ def corr_ui(id: str) -> ui.TagChild:
             ui.card(
                 ui.card_header("🔍 Intraclass Correlation Coefficient"),
 
-                ui.output_ui(ns("out_icc_note")),
+                ui.output_ui("out_icc_note"),
 
                 ui.input_selectize(
-                    ns("icc_vars"),
+                    "icc_vars",
                     "Select Variables (Raters/Methods) - Select 2+:",
                     choices=["Select..."],
                     multiple=True,
@@ -121,13 +121,13 @@ def corr_ui(id: str) -> ui.TagChild:
 
                 ui.layout_columns(
                     ui.input_action_button(
-                        ns("btn_run_icc"),
+                        "btn_run_icc",
                         "🔍 Calculate ICC",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        ns("btn_dl_icc"),
+                        "btn_dl_icc",
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -135,7 +135,7 @@ def corr_ui(id: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
 
-                ui.output_ui(ns("out_icc_result")),
+                ui.output_ui("out_icc_result"),
 
                 full_screen=True
             )
@@ -216,6 +216,7 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
     )
 
 
+# ✅ FIX: Use @module.server decorator properly
 @module.server
 def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
@@ -241,6 +242,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
             numeric_cols_list.set(cols)
 
             if cols:
+                # ✅ FIX: Use input ID directly (no ns needed in @module.server)
                 ui.update_select("cv1", choices=cols, selected=cols[0])
                 ui.update_select("cv2", 
                                choices=cols, 
@@ -429,11 +431,14 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
 
 
 # ==================== MODULE EXPORT ====================
+# ✅ FIX: Export functions properly for app.py
 
 def correlation_ui(id: str) -> ui.TagChild:
+    """Wrapper for module UI - called from app.py"""
     return corr_ui(id)
 
 
 def correlation_server(id: str, df: reactive.Value, var_meta: reactive.Value,
                        df_matched: reactive.Value, is_matched: reactive.Value):
+    """Wrapper for module server - called from app.py"""
     return corr_server(id, df, var_meta, df_matched, is_matched)
