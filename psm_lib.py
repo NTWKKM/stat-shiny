@@ -173,7 +173,7 @@ def generate_psm_report(
         elif el['type'] == 'plot':
             # Convert Plotly figure to HTML div
             if hasattr(el['data'], 'to_html'):
-                 html += el['data'].to_html(full_html=False, include_plotlyjs='cdn')
+                html += el['data'].to_html(full_html=False, include_plotlyjs='cdn')
             
     html += "</body></html>"
     return html
