@@ -18,6 +18,7 @@ from shiny.session import get_current_session
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
+from typing import Optional, List, Dict, Any, Union
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -544,7 +545,7 @@ def settings_ui(id: str) -> ui.TagChild:
     )
 
 
-def settings_server(id: str, config) -> None:
+def settings_server(id: str, config: Any) -> None:
     """
     Server logic for settings tab with reactive configuration updates.
     
@@ -556,12 +557,16 @@ def settings_server(id: str, config) -> None:
         None
     """
     session = get_current_session()
+    if session is None:
+        logger.warning("No active session found for settings_server")
+        return
+        
     input = session.input
 
     # ---------------------------------------------------------
     # Manual Output Registration for Dynamic IDs
     # ---------------------------------------------------------
-    def _txt_logging_status_logic():
+    def _txt_logging_status_logic() -> str:
         """Display current logging configuration status."""
         enabled = config.get('logging.enabled')
         level = config.get('logging.level')

@@ -3,14 +3,15 @@ from shiny.types import FileInfo
 import pandas as pd
 import numpy as np
 from logger import get_logger
-from tabs._common import get_color_palette
+from tabs._common import get_color_palette, wrap_with_container
+from typing import Optional, List, Dict, Any, Union, cast
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
 
 # --- 1. UI Definition ---
 @module.ui
-def data_ui():
+def data_ui() -> ui.TagChild:
     # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
     # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
     return ui.layout_sidebar(
@@ -63,13 +64,23 @@ def data_ui():
 
 # --- 2. Server Logic ---
 @module.server
-def data_server(input, output, session, df, var_meta, uploaded_file_info, 
-                df_matched, is_matched, matched_treatment_col, matched_covariates):
+def data_server(
+    input: Any, 
+    output: Any, 
+    session: Any, 
+    df: reactive.Value[Optional[pd.DataFrame]], 
+    var_meta: reactive.Value[Dict[str, Any]], 
+    uploaded_file_info: reactive.Value[Optional[Dict[str, Any]]], 
+    df_matched: reactive.Value[Optional[pd.DataFrame]], 
+    is_matched: reactive.Value[bool], 
+    matched_treatment_col: reactive.Value[Optional[str]], 
+    matched_covariates: reactive.Value[List[str]]
+) -> None:
 
     # ไม่ต้องประกาศ ns = session.ns
     # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
 
-    is_loading_data = reactive.Value(False)
+    is_loading_data: reactive.Value[bool] = reactive.Value(False)
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect

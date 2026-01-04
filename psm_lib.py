@@ -2,17 +2,23 @@
 🧪 Propensity Score Matching (PSM) Library (Shiny Compatible)
 
 Propensity score calculation and matching without Streamlit dependencies.
+OPTIMIZED for Python 3.12 with strict type hints.
 """
 
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from sklearn.linear_model import LogisticRegression
+from typing import Union, Optional, List, Dict, Tuple, Any, Set
 from logger import get_logger
 
 logger = get_logger(__name__)
 
-def calculate_propensity_score(df, treatment_col, covariate_cols):
+def calculate_propensity_score(
+    df: pd.DataFrame, 
+    treatment_col: str, 
+    covariate_cols: List[str]
+) -> pd.Series:
     """
     Calculate propensity scores using logistic regression.
     """
@@ -31,7 +37,12 @@ def calculate_propensity_score(df, treatment_col, covariate_cols):
         logger.error(f"PSM calculation error: {e}")
         raise
 
-def perform_matching(df, treatment_col, ps_col, caliper=0.1):
+def perform_matching(
+    df: pd.DataFrame, 
+    treatment_col: str, 
+    ps_col: str, 
+    caliper: float = 0.1
+) -> pd.DataFrame:
     """
     Perform 1:1 nearest neighbor matching on propensity scores.
     """
@@ -39,8 +50,8 @@ def perform_matching(df, treatment_col, ps_col, caliper=0.1):
         treated = df[df[treatment_col] == 1].copy()
         control = df[df[treatment_col] == 0].copy()
         
-        matched_pairs = []
-        used_controls = set()
+        matched_pairs: List[int] = []
+        used_controls: Set[Any] = set()
         
         # Simple nearest neighbor matching
         for idx, treated_row in treated.iterrows():
@@ -66,7 +77,11 @@ def perform_matching(df, treatment_col, ps_col, caliper=0.1):
         logger.error(f"Matching error: {e}")
         raise
 
-def compute_smd(df, treatment_col, covariate_cols):
+def compute_smd(
+    df: pd.DataFrame, 
+    treatment_col: str, 
+    covariate_cols: List[str]
+) -> pd.DataFrame:
     """
     Calculate Standardized Mean Difference (SMD) for balance checking.
     """
@@ -95,7 +110,10 @@ def compute_smd(df, treatment_col, covariate_cols):
         
     return pd.DataFrame(smd_data)
 
-def plot_love_plot(smd_pre, smd_post):
+def plot_love_plot(
+    smd_pre: pd.DataFrame, 
+    smd_post: pd.DataFrame
+) -> go.Figure:
     """
     Create a Love Plot (Dot Plot for SMD) using Plotly.
     """
@@ -133,7 +151,10 @@ def plot_love_plot(smd_pre, smd_post):
     
     return fig
 
-def generate_psm_report(title, elements):
+def generate_psm_report(
+    title: str, 
+    elements: List[Dict[str, Any]]
+) -> str:
     """
     Generate a simple HTML report for PSM results.
     """
@@ -145,10 +166,14 @@ def generate_psm_report(title, elements):
         if el['type'] == 'text':
             html += f"<h3>{el['data']}</h3>"
         elif el['type'] == 'table':
-            html += el['data'].to_html()
+            if isinstance(el['data'], pd.DataFrame):
+                html += el['data'].to_html()
+            else:
+                html += str(el['data'])
         elif el['type'] == 'plot':
             # Convert Plotly figure to HTML div
-            html += el['data'].to_html(full_html=False, include_plotlyjs='cdn')
+            if hasattr(el['data'], 'to_html'):
+                 html += el['data'].to_html(full_html=False, include_plotlyjs='cdn')
             
     html += "</body></html>"
     return html

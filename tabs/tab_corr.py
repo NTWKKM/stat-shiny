@@ -14,13 +14,14 @@ import pandas as pd
 import numpy as np
 import correlation  # Import from root
 import diag_test  # Import for ICC calculation
+from typing import Optional, List, Dict, Any, Union, cast
 from logger import get_logger
 from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 
 
-def _auto_detect_icc_vars(cols: list) -> list:
+def _auto_detect_icc_vars(cols: List[str]) -> List[str]:
     """
     Auto-detect ICC/Rater variables based on column name patterns.
     """
@@ -39,7 +40,7 @@ def _auto_detect_icc_vars(cols: list) -> list:
 
 # ✅ Use @module.ui decorator
 @module.ui
-def corr_ui():
+def corr_ui() -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
     NO manual namespace needed - Shiny handles it automatically.
@@ -154,44 +155,44 @@ def corr_ui():
                         ui.card(
                             ui.card_header("📈 Correlation (Relationship)"),
                             ui.markdown("""
-**Concept:** Measures the strength and direction of the relationship between 
-**two continuous variables**.
+                            **Concept:** Measures the strength and direction of the relationship between 
+                            **two continuous variables**.
 
-**1. Pearson (r):**
-* **Best for:** Linear relationships (straight line), normally distributed data.
-* **Sensitive to:** Outliers.
+                            **1. Pearson (r):**
+                            * **Best for:** Linear relationships (straight line), normally distributed data.
+                            * **Sensitive to:** Outliers.
 
-**2. Spearman (rho):**
-* **Best for:** Monotonic relationships, non-normal data, or ranks.
-* **Robust to:** Outliers.
+                            **2. Spearman (rho):**
+                            * **Best for:** Monotonic relationships, non-normal data, or ranks.
+                            * **Robust to:** Outliers.
 
-**Interpretation of Coefficient (r or rho):**
-* **+1.0:** Perfect Positive (As X goes up, Y goes up).
-* **-1.0:** Perfect Negative (As X goes up, Y goes down).
-* **0.0:** No relationship.
+                            **Interpretation of Coefficient (r or rho):**
+                            * **+1.0:** Perfect Positive (As X goes up, Y goes up).
+                            * **-1.0:** Perfect Negative (As X goes up, Y goes down).
+                            * **0.0:** No relationship.
 
-**Strength Guidelines:**
-* **0.7 - 1.0:** Strong 📈
-* **0.4 - 0.7:** Moderate 📉
-* **0.2 - 0.4:** Weak 📊
-* **< 0.2:** Negligible
+                            **Strength Guidelines:**
+                            * **0.7 - 1.0:** Strong 📈
+                            * **0.4 - 0.7:** Moderate 📉
+                            * **0.2 - 0.4:** Weak 📊
+                            * **< 0.2:** Negligible
                             """)
                         ),
                         ui.card(
                             ui.card_header("🔍 ICC (Reliability)"),
                             ui.markdown("""
-**Concept:** Measures the reliability or agreement between **two or more 
-raters/methods** measuring the same thing.
+                            **Concept:** Measures the reliability or agreement between **two or more 
+                            raters/methods** measuring the same thing.
 
-**Common Types:**
-* **ICC(2,1) Absolute Agreement:** Use when exact scores must match.
-* **ICC(3,1) Consistency:** Use when ranking consistency matters.
+                            **Common Types:**
+                            * **ICC(2,1) Absolute Agreement:** Use when exact scores must match.
+                            * **ICC(3,1) Consistency:** Use when ranking consistency matters.
 
-**Interpretation of ICC Value:**
-* **> 0.90:** Excellent Reliability ✅
-* **0.75 - 0.90:** Good Reliability
-* **0.50 - 0.75:** Moderate Reliability ⚠️
-* **< 0.50:** Poor Reliability ❌
+                            **Interpretation of ICC Value:**
+                            * **> 0.90:** Excellent Reliability ✅
+                            * **0.75 - 0.90:** Good Reliability
+                            * **0.50 - 0.75:** Moderate Reliability ⚠️
+                            * **< 0.50:** Poor Reliability ❌
                             """)
                         ),
                         col_widths=[6, 6]
@@ -200,16 +201,16 @@ raters/methods** measuring the same thing.
                     ui.card(
                         ui.card_header("💡 Common Questions"),
                         ui.markdown("""
-**Q: Why use ICC instead of Pearson for reliability?**
-* **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
-higher than Rater B, Pearson = 1.0 but they don't agree! ICC accounts for this.
+                        **Q: Why use ICC instead of Pearson for reliability?**
+                        * **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
+                        higher than Rater B, Pearson = 1.0 but they don't agree! ICC accounts for this.
 
-**Q: What if p-value is significant but r is low (0.1)?**
-* **A:** P-value means it's likely not zero. With large samples, tiny correlations 
-can be "significant". **Focus on r-value magnitude** for clinical relevance.
+                        **Q: What if p-value is significant but r is low (0.1)?**
+                        * **A:** P-value means it's likely not zero. With large samples, tiny correlations 
+                        can be "significant". **Focus on r-value magnitude** for clinical relevance.
 
-**Q: How many variables do I need for ICC?**
-* **A:** At least 2 (to compare two raters/methods). More raters = more reliable ICC.
+                        **Q: How many variables do I need for ICC?**
+                        * **A:** At least 2 (to compare two raters/methods). More raters = more reliable ICC.
                         """)
                     ),
 
@@ -222,8 +223,15 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
 
 # ✅ Use @module.server decorator properly
 @module.server
-def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
-                df_matched: reactive.Value, is_matched: reactive.Value):
+def corr_server(
+    input: Any, 
+    output: Any, 
+    session: Any, 
+    df: reactive.Value[Optional[pd.DataFrame]], 
+    var_meta: reactive.Value[Dict[str, Any]], 
+    df_matched: reactive.Value[Optional[pd.DataFrame]], 
+    is_matched: reactive.Value[bool]
+) -> None:
     """
     Server logic for correlation analysis module.
     """
@@ -231,14 +239,14 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     
     # ==================== REACTIVE STATES ====================
 
-    corr_result = reactive.Value(None)  # Stores result from correlation analysis
-    icc_result = reactive.Value(None)   # Stores result from ICC analysis
-    numeric_cols_list = reactive.Value([])  # List of numeric columns
+    corr_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)  # Stores result from correlation analysis
+    icc_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)   # Stores result from ICC analysis
+    numeric_cols_list: reactive.Value[List[str]] = reactive.Value([])  # List of numeric columns
 
     # ==================== DATASET SELECTION LOGIC ====================
     
     @reactive.Calc
-    def current_df():
+    def current_df() -> Optional[pd.DataFrame]:
         """Select between original and matched dataset based on user preference."""
         if is_matched.get() and input.radio_corr_source() == "matched":
             return df_matched.get()
@@ -304,8 +312,8 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
                 # ✅ Use input ID directly (no ns needed in @module.server)
                 ui.update_select("cv1", choices=cols, selected=cols[0])
                 ui.update_select("cv2", 
-                               choices=cols, 
-                               selected=cols[1] if len(cols) > 1 else cols[0])
+                                choices=cols, 
+                                selected=cols[1] if len(cols) > 1 else cols[0])
 
                 icc_vars = _auto_detect_icc_vars(cols)
 
@@ -499,10 +507,3 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
         if result is None:
             return None
         return render.DataGrid(result['anova_df'])
-
-
-# ==================== MODULE EXPORT ====================
-# ✅ No wrapper functions needed - @module.ui and @module.server handle everything
-# Use directly in app.py:
-#   corr_ui("corr_module")
-#   corr_server("corr_module", df, var_meta, df_matched, is_matched)

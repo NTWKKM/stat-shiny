@@ -3,10 +3,12 @@ from shinywidgets import output_widget, render_widget
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import table_one  # Import from root
 import psm_lib  # Import from root
 from logger import get_logger
 import io
+from typing import Optional, List, Dict, Any, Union, cast
 
 from tabs._common import get_color_palette
 
@@ -16,7 +18,7 @@ COLORS = get_color_palette()
 # ==============================================================================
 # Helper Function (Pure Python)
 # ==============================================================================
-def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: list) -> pd.DataFrame:
+def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: List[str]) -> pd.DataFrame:
     """
     Compute standardized mean differences (SMD) for categorical covariates between treated and control groups.
     """
@@ -66,7 +68,7 @@ def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: l
 # UI Definition - Stacked Layout (Controls Top + Content Bottom)
 # ==============================================================================
 @module.ui
-def baseline_matching_ui():
+def baseline_matching_ui() -> ui.TagChild:
     return ui.navset_card_tab(
 
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
@@ -392,19 +394,29 @@ def baseline_matching_ui():
 # Server Logic
 # ==============================================================================
 @module.server
-def baseline_matching_server(input, output, session, df, var_meta, df_matched, is_matched, matched_treatment_col, matched_covariates):
+def baseline_matching_server(
+    input: Any, 
+    output: Any, 
+    session: Any, 
+    df: reactive.Value[Optional[pd.DataFrame]], 
+    var_meta: reactive.Value[Dict[str, Any]], 
+    df_matched: reactive.Value[Optional[pd.DataFrame]], 
+    is_matched: reactive.Value[bool], 
+    matched_treatment_col: reactive.Value[Optional[str]], 
+    matched_covariates: reactive.Value[List[str]]
+) -> None:
 
     # -------------------------------------------------------------------------
     # SHARED REACTIVE VALUES
     # -------------------------------------------------------------------------
-    psm_results = reactive.Value(None)
-    html_content = reactive.Value(None)
+    psm_results: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    html_content: reactive.Value[Optional[str]] = reactive.Value(None)
 
     # -------------------------------------------------------------------------
     # HELPER: Get Current Data for Table 1
     # -------------------------------------------------------------------------
     @reactive.Calc
-    def current_t1_data():
+    def current_t1_data() -> tuple[Optional[pd.DataFrame], str]:
         if is_matched.get() and input.radio_dataset_source() == "matched" and df_matched.get() is not None:
             return df_matched.get(), "✅ Matched Data"
         return df.get(), "📊 Original Data"

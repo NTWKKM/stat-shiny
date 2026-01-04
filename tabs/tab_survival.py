@@ -13,14 +13,16 @@ for automatic namespace scoping and cleaner code organization.
 """
 
 from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget
+from shinywidgets import output_widget, render_widget  # type: ignore
 import pandas as pd
 import numpy as np
 import survival_lib
+from typing import Optional, List, Dict, Any, Tuple, Union, cast
+
 try:
     from subgroup_analysis_module import SubgroupAnalysisCox
 except ImportError:
-    SubgroupAnalysisCox = None
+    SubgroupAnalysisCox = None  # type: ignore
     
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -32,7 +34,7 @@ COLORS = get_color_palette()
 # UI Definition - Modern Module Pattern
 # ==============================================================================
 @module.ui
-def survival_ui():
+def survival_ui() -> ui.TagChild:
     """Modern Shiny UI module - no namespace argument needed."""
     return ui.div(
         # Title + Data Summary inline
@@ -251,19 +253,26 @@ def survival_ui():
 # Server Logic - Modern Module Pattern
 # ==============================================================================
 @module.server
-def survival_server(input, output, session, df: reactive.Value, var_meta: reactive.Value,
-                    df_matched: reactive.Value, is_matched: reactive.Value):
+def survival_server(
+    input: Any, 
+    output: Any, 
+    session: Any, 
+    df: reactive.Value[Optional[pd.DataFrame]], 
+    var_meta: reactive.Value[Dict[str, Any]],
+    df_matched: reactive.Value[Optional[pd.DataFrame]], 
+    is_matched: reactive.Value[bool]
+) -> None:
     """Modern Shiny server module - automatic namespace scoping via decorator."""
     
     # ==================== REACTIVE VALUES ====================
-    curves_result = reactive.Value(None)
-    landmark_result = reactive.Value(None)
-    cox_result = reactive.Value(None)
-    sg_result = reactive.Value(None)
+    curves_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    landmark_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    cox_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    sg_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
     
     # ==================== DATASET SELECTION LOGIC ====================
     @reactive.Calc
-    def current_df():
+    def current_df() -> Optional[pd.DataFrame]:
         """Select between original and matched dataset based on user preference."""
         if is_matched.get() and input.radio_survival_source() == "matched":
             return df_matched.get()
@@ -317,9 +326,9 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
     
     # ==================== LABEL MAPPING LOGIC ====================
     @reactive.Calc
-    def label_map():
+    def label_map() -> Dict[str, str]:
         """Build a dictionary mapping raw column names to user-friendly labels from var_meta."""
-        meta = var_meta.get() if hasattr(var_meta, 'get') else var_meta()
+        meta = var_meta.get()
         if not meta:
             return {}
         try:
@@ -456,6 +465,8 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             if plot_type == "km":
                 fig, stats = survival_lib.fit_km_logrank(data, time_col, event_col, group_col)
                 medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col)
+                
+                # Merge stats and medians if possible, or just concat
                 if 'Group' in stats.columns and 'Group' in medians.columns:
                     stats = stats.merge(medians, on='Group', how='outer')
                 else:
@@ -728,7 +739,8 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         try:
             ui.notification_show("Running Subgroup Analysis...", duration=None, id="run_sg")
             
-            analyzer = SubgroupAnalysisCox(data)
+            # Ensure SubgroupAnalysisCox is treated as a class we can instantiate
+            analyzer = SubgroupAnalysisCox(data) # type: ignore
             result, _, error = analyzer.analyze(
                 duration_col=time,
                 event_col=event,

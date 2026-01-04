@@ -5,6 +5,7 @@ Handles count outcomes (e.g., number of events, hospital visits)
 Returns Incidence Rate Ratios (IRR) instead of Odds Ratios (OR)
 
 ✅ Now supports Interaction Terms Analysis
+OPTIMIZED for Python 3.12 with strict type hints.
 """
 
 import pandas as pd
@@ -15,6 +16,7 @@ import warnings
 import html
 from logger import get_logger
 from tabs._common import get_color_palette
+from typing import Union, Optional, List, Dict, Tuple, Any
 
 logger = get_logger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
@@ -23,7 +25,11 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 COLORS = get_color_palette()
 
 
-def run_poisson_regression(y, X, offset=None):
+def run_poisson_regression(
+    y: Union[pd.Series, np.ndarray], 
+    X: pd.DataFrame, 
+    offset: Optional[Union[pd.Series, np.ndarray]] = None
+) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
     """
     Fit Poisson regression model.
     
@@ -66,7 +72,7 @@ def run_poisson_regression(y, X, offset=None):
         return None, None, None, str(e), stats_metrics
 
 
-def check_count_outcome(series):
+def check_count_outcome(series: pd.Series) -> Tuple[bool, str]:
     """
     Validate if series is suitable for Poisson regression.
     
@@ -101,7 +107,13 @@ def check_count_outcome(series):
         return False, f"Validation error: {str(e)}"
 
 
-def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, interaction_pairs=None):
+def analyze_poisson_outcome(
+    outcome_name: str, 
+    df: pd.DataFrame, 
+    var_meta: Optional[Dict[str, Any]] = None, 
+    offset_col: Optional[str] = None, 
+    interaction_pairs: Optional[List[Tuple[str, str]]] = None
+) -> Tuple[str, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
     """
     Perform Poisson regression analysis for count outcome.
     
@@ -147,7 +159,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, in
     mode_map = {}
     cat_levels_map = {}
     
-    def fmt_p(val):
+    def fmt_p(val: Union[float, str]) -> str:
         """Plain p-value formatting (non-styled)"""
         if pd.isna(val):
             return "-"
@@ -333,7 +345,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, in
     final_n_multi = 0
     mv_metrics_text = ""
     
-    def _is_candidate_valid(col):
+    def _is_candidate_valid(col: str) -> bool:
         mode = mode_map.get(col, "linear")
         series = df_aligned[col]
         if mode == "categorical":
@@ -361,7 +373,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, in
         # ✅ Add interaction terms if specified
         if interaction_pairs:
             try:
-                from interaction_lib import create_interaction_terms
+                from interaction_lib import create_interaction_terms, format_interaction_results
                 multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                 logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
             except Exception as e:
@@ -424,7 +436,6 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, in
                 # ✅ Process interaction effects
                 if int_meta:
                     try:
-                        from interaction_lib import format_interaction_results
                         interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'poisson')
                         logger.info(f"✅ Formatted {len(interaction_results)} Poisson interaction results")
                     except Exception as e:

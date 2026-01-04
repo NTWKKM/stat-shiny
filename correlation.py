@@ -16,15 +16,21 @@ import numpy as np
 import scipy.stats as stats
 import plotly.graph_objects as go
 import html as _html
-import io
-import base64
+from typing import Union, Optional, List, Dict, Tuple, Any
 from tabs._common import get_color_palette
 
 # Get unified color palette
 COLORS = get_color_palette()
 
 
-def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_pos=None):
+def calculate_chi2(
+    df: pd.DataFrame, 
+    col1: str, 
+    col2: str, 
+    method: str = 'Pearson (Standard)', 
+    v1_pos: Optional[str] = None, 
+    v2_pos: Optional[str] = None
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], str, Optional[pd.DataFrame]]:
     """
     OPTIMIZED: Compute chi-square or Fisher's exact test between two categorical variables.
     
@@ -63,14 +69,14 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     base_col_labels = [col for col in all_col_labels if col != 'Total']
     base_row_labels = [row for row in all_row_labels if row != 'Total']
     
-    def get_original_label(label_str, df_labels):
+    def get_original_label(label_str: str, df_labels: List[Any]) -> Any:
         """Find the original label from a collection."""
         for lbl in df_labels:
             if str(lbl) == label_str:
                 return lbl
         return label_str
     
-    def custom_sort(label):
+    def custom_sort(label: Any) -> Tuple[int, Any]:
         """Sort key for mixed numeric/string labels."""
         try:
             return (0, float(label))
@@ -128,6 +134,8 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     try:
         is_2x2 = (tab.shape == (2, 2))
         
+        stats_res: Dict[str, Union[str, int]] = {}
+        
         if "Fisher" in method:
             if not is_2x2:
                 return display_tab, None, "Error: Fisher's Exact Test requires a 2x2 table.", None
@@ -145,14 +153,14 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         else:
             # Chi-Square test
             use_correction = True if "Yates" in method else False
-            chi2, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
+            chi2_val, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
             method_name = "Chi-Square"
             if is_2x2:
                 method_name += " (with Yates')" if use_correction else " (Pearson)"
             
             stats_res = {
                 "Test": method_name,
-                "Statistic": f"{chi2:.4f}",
+                "Statistic": f"{chi2_val:.4f}",
                 "P-value": f"{p:.4f}",
                 "Degrees of Freedom": f"{dof}",
                 "N": len(data)
@@ -171,7 +179,12 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         return display_tab, None, str(e), None
 
 
-def calculate_correlation(df, col1, col2, method='pearson'):
+def calculate_correlation(
+    df: pd.DataFrame, 
+    col1: str, 
+    col2: str, 
+    method: str = 'pearson'
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[go.Figure]]:
     """
     OPTIMIZED: Compute correlation between two numeric variables.
     
@@ -270,7 +283,10 @@ def calculate_correlation(df, col1, col2, method='pearson'):
     return {"Method": name, "Coefficient": corr, "P-value": p, "N": len(data_numeric)}, None, fig
 
 
-def generate_report(title, elements):
+def generate_report(
+    title: str, 
+    elements: List[Dict[str, Any]]
+) -> str:
     """
     Generate HTML report from elements.
     
@@ -402,7 +418,10 @@ def generate_report(title, elements):
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
         
         elif element_type == 'table':
-            html += data.to_html(index=True, classes='', escape=True)
+            if hasattr(data, 'to_html'):
+                 html += data.to_html(index=True, classes='', escape=True)
+            else:
+                 html += str(data)
         
         elif element_type == 'plot':
             if hasattr(data, 'to_html'):

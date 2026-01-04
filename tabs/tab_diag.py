@@ -2,6 +2,7 @@ from shiny import ui, module, reactive, render, req
 import pandas as pd
 import numpy as np
 import diag_test
+from typing import Optional, List, Dict, Any, Union, cast
 
 from tabs._common import get_color_palette
 
@@ -11,7 +12,7 @@ COLORS = get_color_palette()
 # UI Definition
 # ==============================================================================
 @module.ui
-def diag_ui():
+def diag_ui() -> ui.TagChild:
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
@@ -227,23 +228,31 @@ def diag_ui():
 # Server Logic
 # ==============================================================================
 @module.server
-def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
+def diag_server(
+    input: Any, 
+    output: Any, 
+    session: Any, 
+    df: reactive.Value[Optional[pd.DataFrame]], 
+    var_meta: reactive.Value[Dict[str, Any]], 
+    df_matched: reactive.Value[Optional[pd.DataFrame]], 
+    is_matched: reactive.Value[bool]
+) -> None:
 
     # --- Reactive Results Storage ---
-    roc_html = reactive.Value(None)
-    chi_html = reactive.Value(None)
-    kappa_html = reactive.Value(None)
-    desc_html = reactive.Value(None)
+    roc_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    chi_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    kappa_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    desc_html: reactive.Value[Optional[str]] = reactive.Value(None)
 
     # --- Processing Status Indicators ---
-    roc_processing = reactive.Value(False)
-    chi_processing = reactive.Value(False)
-    kappa_processing = reactive.Value(False)
-    desc_processing = reactive.Value(False)
+    roc_processing: reactive.Value[bool] = reactive.Value(False)
+    chi_processing: reactive.Value[bool] = reactive.Value(False)
+    kappa_processing: reactive.Value[bool] = reactive.Value(False)
+    desc_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
-    def current_df():
+    def current_df() -> Optional[pd.DataFrame]:
         if is_matched.get() and input.radio_diag_source() == "matched":
             return df_matched.get()
         return df.get()
@@ -289,7 +298,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     # Get all columns
     @reactive.Calc
-    def all_cols():
+    def all_cols() -> List[str]:
         d = current_df()
         if d is not None:
             return d.columns.tolist()
@@ -408,7 +417,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
             class_="text-secondary text-sm",
         )
 
-    def get_pos_label_settings(df_input, col_name):
+    def get_pos_label_settings(df_input: pd.DataFrame, col_name: str) -> tuple[List[str], int]:
         if df_input is None or col_name not in df_input.columns:
             return [], 0
         unique_vals = [str(x) for x in df_input[col_name].dropna().unique()]
@@ -424,6 +433,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_chi_v1_pos():
         v1_col = input.sel_chi_v1()
         d = current_df()
+        if d is None: return None
         v1_uv, v1_idx = get_pos_label_settings(d, v1_col)
         if not v1_uv:
             return ui.div(
@@ -441,6 +451,7 @@ def diag_server(input, output, session, df, var_meta, df_matched, is_matched):
     def ui_chi_v2_pos():
         v2_col = input.sel_chi_v2()
         d = current_df()
+        if d is None: return None
         v2_uv, v2_idx = get_pos_label_settings(d, v2_col)
         if not v2_uv:
             return ui.div(

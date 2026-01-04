@@ -20,7 +20,7 @@ Usage:
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Tuple, List, cast
 import warnings
 from logger import get_logger
 
@@ -39,14 +39,14 @@ class ConfigManager:
     - Runtime updates
     """
     
-    def __init__(self, config_dict: Optional[Dict] = None):
+    def __init__(self, config_dict: Optional[Dict[str, Any]] = None) -> None:
         """
         Create a ConfigManager populated with the given configuration or the module defaults and apply environment variable overrides.
         
         Parameters:
             config_dict (dict | None): Optional initial configuration dictionary to use instead of the built-in defaults. If None, the manager is initialized from the default configuration.
         """
-        self._config = config_dict or self._get_default_config()
+        self._config: Dict[str, Any] = config_dict or self._get_default_config()
         self._env_prefix = "MEDSTAT_"
         self._load_env_overrides()
     
@@ -191,7 +191,7 @@ class ConfigManager:
         Retrieve a configuration value using a dot-separated key path.
         """
         keys = key.split('.')
-        value = self._config
+        value: Any = self._config
         for k in keys:
             if isinstance(value, dict) and k in value:
                 value = value[k]
@@ -260,24 +260,28 @@ class ConfigManager:
                 logger.exception("Failed to write config to %s", filepath)
         return json_str
     
-    def validate(self) -> tuple[bool, list[str]]:
+    def validate(self) -> Tuple[bool, List[str]]:
         """
         Validate key configuration constraints and collect any violations.
         """
         errors = []
-        screening_p = self.get('analysis.logit_screening_p')
+        screening_p = cast(Optional[float], self.get('analysis.logit_screening_p'))
         if screening_p is None or not (0 < screening_p < 1):
             errors.append("analysis.logit_screening_p must be between 0 and 1")
-        lower = self.get('analysis.pvalue_bounds_lower')
-        upper = self.get('analysis.pvalue_bounds_upper')
+        
+        lower = cast(Optional[float], self.get('analysis.pvalue_bounds_lower'))
+        upper = cast(Optional[float], self.get('analysis.pvalue_bounds_upper'))
         if lower is None or upper is None or not (lower < upper):
             errors.append("pvalue_bounds_lower must be < pvalue_bounds_upper")
+        
         valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
         if self.get('logging.level') not in valid_levels:
             errors.append(f"logging.level must be one of {valid_levels}")
+        
         valid_methods = ['auto', 'firth', 'bfgs', 'default']
         if self.get('analysis.logit_method') not in valid_methods:
             errors.append(f"analysis.logit_method must be one of {valid_methods}")
+            
         return len(errors) == 0, errors
     
     def __repr__(self) -> str:
@@ -321,18 +325,18 @@ if __name__ == "__main__":
     
     # Test 5: Validate
     print("\n[Test 5] Validating configuration:")
-    is_valid, errors = CONFIG.validate()
+    is_valid, validation_errors = CONFIG.validate()
     print(f"  Valid: {is_valid}")
-    if errors:
-        for err in errors:
+    if validation_errors:
+        for err in validation_errors:
             print(f"    ✗ {err}")
     else:
         print("    ✓ No errors found")
     
     # Test 6: Export to JSON
     print("\n[Test 6] Exporting configuration:")
-    json_str = CONFIG.to_json(pretty=False)
-    print(f"  JSON length: {len(json_str)} characters")
+    json_output = CONFIG.to_json(pretty=False)
+    print(f"  JSON length: {len(json_output)} characters")
     
     print("\n" + "="*60)
     print("All tests completed!")

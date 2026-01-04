@@ -4,6 +4,7 @@
 No Streamlit dependencies - pure statistical functions.
 """
 
+from typing import TypedDict, Literal, Any, cast, Union, Optional
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
@@ -52,8 +53,41 @@ except (ImportError, AttributeError):
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
 
+# ✅ NEW: Type Definitions (Compatible with Python 3.9+)
+FitStatus = Union[Literal["OK"], str]
+MethodType = Literal["default", "bfgs", "firth", "auto"]
 
-def validate_logit_data(y, X):
+class StatsMetrics(TypedDict):
+    mcfadden: float
+    nagelkerke: float
+
+# Functional syntax for TypedDict to support 'or' as a key
+ORResult = TypedDict("ORResult", {
+    "or": float,
+    "ci_low": float,
+    "ci_high": float,
+    "p_value": float
+})
+
+class AORResultEntry(TypedDict):
+    coef: float
+    aor: float
+    l: float
+    h: float
+    p: float
+    lvl: Optional[str]
+
+# Functional syntax for InteractionResult due to 'or' keyword
+InteractionResult = TypedDict("InteractionResult", {
+    "coef": float,
+    "or": Optional[float],
+    "ci_low": float,
+    "ci_high": float,
+    "p_value": float,
+    "label": str
+})
+
+def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
     """
     ✅ NEW: Added validation to prevent crashes during model fitting.
     Checks for perfect separation, zero variance, and collinearity.
@@ -85,7 +119,7 @@ def validate_logit_data(y, X):
     return True, "OK"
 
 
-def clean_numeric_value(val):
+def clean_numeric_value(val: Any) -> float:
     """Convert value to float, removing common non-numeric characters."""
     if pd.isna(val):
         return np.nan
@@ -97,7 +131,7 @@ def clean_numeric_value(val):
         return np.nan
 
 
-def _robust_sort_key(x):
+def _robust_sort_key(x: Any) -> tuple[int, Union[float, str]]:
     """Sort key placing numeric values first."""
     try:
         if pd.isna(x):
@@ -108,14 +142,18 @@ def _robust_sort_key(x):
         return (1, str(x))
 
 
-def run_binary_logit(y, X, method='default'):
+def run_binary_logit(
+    y: pd.Series, 
+    X: pd.DataFrame, 
+    method: MethodType = 'default'
+) -> tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], FitStatus, StatsMetrics]:
     """
     Fit binary logistic regression.
     
     Returns:
         tuple: (params, conf_int, pvalues, status_msg, stats_dict)
     """
-    stats_metrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
+    stats_metrics: StatsMetrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
     
     # ✅ NEW: Initial Validation
     is_valid, msg = validate_logit_data(y, X)
@@ -178,7 +216,7 @@ def run_binary_logit(y, X, method='default'):
         return None, None, None, err_msg, stats_metrics
 
 
-def get_label(col_name, var_meta):
+def get_label(col_name: str, var_meta: Optional[dict[str, Any]]) -> str:
     """Create formatted label for column."""
     display_name = col_name
     secondary_label = ""
@@ -201,21 +239,21 @@ def get_label(col_name, var_meta):
         return f"<b>{safe_name}</b>"
 
 
-def fmt_p_with_styling(val):
+def fmt_p_with_styling(val: Union[float, str, None]) -> str:
     """Format p-value with red highlighting if significant (p < 0.05)."""
     if pd.isna(val):
         return "-"
     try:
-        val = float(val)
-        val = max(0, min(1, val))
-        if val < 0.001:
+        val_f = float(val)
+        val_f = max(0.0, min(1.0, val_f))
+        if val_f < 0.001:
             p_str = "<0.001"
-        elif val > 0.999:
+        elif val_f > 0.999:
             p_str = ">0.999"
         else:
-            p_str = f"{val:.3f}"
+            p_str = f"{val_f:.3f}"
         
-        if val < 0.05:
+        if val_f < 0.05:
             return f"<span class='sig-p'>{p_str}</span>"
         else:
             return p_str
@@ -223,7 +261,13 @@ def fmt_p_with_styling(val):
         return "-"
 
 
-def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_pairs=None):
+def analyze_outcome(
+    outcome_name: str, 
+    df: pd.DataFrame, 
+    var_meta: Optional[dict[str, Any]] = None, 
+    method: MethodType = 'auto', 
+    interaction_pairs: Optional[list[tuple[str, str]]] = None
+) -> tuple[str, dict[str, ORResult], dict[str, ORResult], dict[str, InteractionResult]]:
     """
     Perform logistic regression analysis for binary outcome.
     
@@ -242,7 +286,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
         logger.error(msg)
-        return f"<div class='alert'>{msg}</div>", {}, {}
+        return f"<div class='alert'>{msg}</div>", {}, {}, {}
     
     y_raw = df[outcome_name].dropna()
     unique_outcomes = set(y_raw.unique())
@@ -250,7 +294,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
     if len(unique_outcomes) != 2:
         msg = f"Invalid outcome: expected 2 values, found {len(unique_outcomes)}"
         logger.error(msg)
-        return f"<div class='alert'>{msg}</div>", {}, {}
+        return f"<div class='alert'>{msg}</div>", {}, {}, {}
     
     if not unique_outcomes.issubset({0, 1}):
         sorted_outcomes = sorted(unique_outcomes, key=str)
@@ -282,7 +326,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
                 continue
     
     # Select fitting method
-    preferred_method = 'bfgs'
+    preferred_method: MethodType = 'bfgs'
     if method == 'auto' and HAS_FIRTH and (has_perfect_separation or len(df) < 50 or (y == 1).sum() < 20):
         preferred_method = 'firth'
     elif method == 'firth':
@@ -290,10 +334,10 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
     elif method == 'default':
         preferred_method = 'default'
     
-    def count_val(series, v_str):
+    def count_val(series: pd.Series, v_str: str) -> int:
         return (series.astype(str).apply(lambda x: x.replace('.0', '') if x.replace('.', '', 1).isdigit() else x) == v_str).sum()
     
-    or_results = {}
+    or_results: dict[str, ORResult] = {}
     
     # Univariate analysis
     logger.info(f"Starting univariate analysis for {len(sorted_cols)-1} variables")
@@ -301,7 +345,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
         if col == outcome_name or col not in df_aligned.columns or df_aligned[col].isnull().all():
             continue
         
-        res = {'var': col}
+        res: dict[str, Any] = {'var': col}
         X_raw = df_aligned[col]
         X_num = X_raw.apply(clean_numeric_value)
         X_neg = X_raw[y == 0]
@@ -457,9 +501,9 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
             candidates.append(col)
     
     # Multivariate analysis
-    aor_results = {}
-    interaction_results = {}  # ✅ NEW: Store interaction results
-    int_meta = {}  # ✅ NEW: Store interaction metadata
+    aor_results: dict[str, ORResult] = {}
+    interaction_results: dict[str, InteractionResult] = {}
+    int_meta = {}
     final_n_multi = 0
     mv_metrics_text = ""
     
@@ -527,7 +571,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
                                 ci_low, ci_high = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
                                 pv = pvals[d_name]
                                 aor_entries.append({'lvl': lvl, 'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv})
-                                aor_results[f"{var}: {lvl}"] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
+                                aor_results[f"{var}: {lvl}"] = {'or': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
                         results_db[var]['multi_res'] = aor_entries
                     else:
                         if var in params:
@@ -536,7 +580,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
                             ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(conf.loc[var][1])
                             pv = pvals[var]
                             results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
-                            aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
+                            aor_results[var] = {'or': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
                 
                 # ✅ NEW: Process interaction effects
                 if int_meta:
@@ -679,72 +723,3 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_
     </div><br>"""
     
     return html_table, or_results, aor_results, interaction_results
-
-
-def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots: Odds Ratios"):
-    """Generate forest plots from results."""
-    html_parts = [f"<h2 style='margin-top:30px; color:{COLORS['primary']};'>{plot_title}</h2>"]
-    has_plot = False
-    
-    if or_results:
-        df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_results.items()])
-        if not df_crude.empty:
-            fig = create_forest_plot(df_crude, 'or', 'ci_low', 'ci_high', 'variable', 'p_value',
-                                    "<b>Univariable: Crude OR</b>", "Odds Ratio", 1.0)
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=True))
-            has_plot = True
-    
-    if aor_results:
-        df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_results.items()])
-        if not df_adj.empty:
-            fig = create_forest_plot(df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 'p_value',
-                                    "<b>Multivariable: Adjusted OR</b>", "Adjusted OR", 1.0)
-            html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
-            has_plot = True
-    
-    if not has_plot:
-        html_parts.append("<p style='color:#999'>No results available.</p>")
-    else:
-        html_parts.append(f"""<div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS['primary']};'>
-            <b>Interpretation:</b> OR > 1 (Risk Factor), OR < 1 (Protective), CI crosses 1 (Not Significant)
-        </div>""")
-    
-    return "".join(html_parts)
-
-
-def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto', interaction_pairs=None):
-    """
-    Generate complete HTML report with logistic regression results.
-    
-    Args:
-        df: Input DataFrame
-        target_outcome: Name of binary outcome column
-        var_meta: Variable metadata dictionary
-        method: 'auto', 'default', 'bfgs', or 'firth'
-        interaction_pairs: List of tuples for interactions [(var1, var2), ...]
-    
-    Returns:
-        tuple: (full_html, or_res, aor_res, interaction_res)
-    """
-    css = f"""<style>
-        body {{ font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f6f8; }}
-        .table-container {{ background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }}
-        table {{ width: 100%; border-collapse: separate; border-spacing: 0; }}
-        th {{ background-color: {COLORS['primary_dark']}; color: #fff; padding: 12px; }}
-        td {{ padding: 12px; border-bottom: 1px solid #eee; }}
-        tr:nth-child(even) {{ background-color: #f9f9f9; }}
-        .outcome-title {{ background-color: {COLORS['primary_dark']}; color: white; padding: 15px; }}
-        .sig-p {{ color: #fff; background-color: {COLORS['danger']}; font-weight: bold; padding: 2px 6px; border-radius: 3px; }}
-        .sheet-header td {{ background-color: #e8f4f8; color: {COLORS['primary']}; font-weight: bold; }}
-    </style>"""
-    
-    html_table, or_res, aor_res, interaction_res = analyze_outcome(
-        target_outcome, df, var_meta, method=method, interaction_pairs=interaction_pairs
-    )
-    plot_html = generate_forest_plot_html(or_res, aor_res)
-    
-    full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{plot_html}"
-    full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 stat-shiny</div>"
-    
-    return full_html, or_res, aor_res, interaction_res
-
