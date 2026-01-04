@@ -31,13 +31,14 @@ COLORS = get_color_palette()
 def get_badge_html(text, level='info'):
     """Generate HTML string for a styled badge."""
     colors = {
-        'success': '#d4edda; color: #155724; border: 1px solid #c3e6cb',  # Green
-        'warning': '#fff3cd; color: #856404; border: 1px solid #ffeeba',  # Yellow/Amber
-        'danger':  '#f8d7da; color: #721c24; border: 1px solid #f5c6cb',  # Red
-        'info':    '#d1ecf1; color: #0c5460; border: 1px solid #bee5eb',  # Blue
-        'neutral': '#e2e3e5; color: #383d41; border: 1px solid #d6d8db'   # Gray
+        'success': {'bg': '#d4edda', 'color': '#155724', 'border': '#c3e6cb'},
+        'warning': {'bg': '#fff3cd', 'color': '#856404', 'border': '#ffeeba'},
+        'danger':  {'bg': '#f8d7da', 'color': '#721c24', 'border': '#f5c6cb'},
+        'info':    {'bg': '#d1ecf1', 'color': '#0c5460', 'border': '#bee5eb'},
+        'neutral': {'bg': '#e2e3e5', 'color': '#383d41', 'border': '#d6d8db'}
     }
-    style = f"padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; display: inline-block; background-color: {colors.get(level, colors['neutral'])};"
+    c = colors.get(level, colors['neutral'])
+    style = f"padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; display: inline-block; background-color: {c['bg']}; color: {c['color']}; border: 1px solid {c['border']};"
     return f'<span style="{style}">{text}</span>'
 
 
@@ -350,7 +351,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 effect_interp = "Large"
                 badge = get_badge_html("Large", "success")
             
-            stats_res["Effect Interpretation"] = f"{badge} {effect_interp}"
+            stats_res["Effect Interpretation"] = badge
             
             if (ex < 5).any() and is_2x2 and not use_correction:
                 msg = "⚠️ Warning: Expected count < 5. Consider Fisher's Exact Test."
@@ -462,47 +463,66 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 else:
                     if rd > 0:
                         nnt_label = "Number Needed to Treat (NNT)"
-                        if nnt_abs < 5: nnt_badge = get_badge_html("Very Beneficial", "success")
-                        elif nnt_abs < 10: nnt_badge = get_badge_html("Beneficial", "info")
-                        elif nnt_abs < 25: nnt_badge = get_badge_html("Modest Benefit", "warning")
-                        else: nnt_badge = get_badge_html("Weak Benefit", "neutral")
+                        if nnt_abs < 5: 
+                            nnt_badge = get_badge_html("Very Beneficial", "success")
+                        elif nnt_abs < 10: 
+                            nnt_badge = get_badge_html("Beneficial", "info")
+                        elif nnt_abs < 25: 
+                            nnt_badge = get_badge_html("Modest Benefit", "warning")
+                        else: 
+                            nnt_badge = get_badge_html("Weak Benefit", "neutral")
                     elif rd < 0:
                         nnt_label = "Number Needed to Harm (NNH)"
-                        if nnt_abs < 5: nnt_badge = get_badge_html("High Harm Risk", "danger")
-                        else: nnt_badge = get_badge_html("Harm Risk", "warning")
+                        if nnt_abs < 5: 
+                            nnt_badge = get_badge_html("High Harm Risk", "danger")
+                        else: 
+                            nnt_badge = get_badge_html("Harm Risk", "warning")
                     else:
                         nnt_label = "NNT/NNH"
                         nnt_badge = get_badge_html("No Effect", "neutral")
 
                 # Likelihood Ratio Badges (EBM Standard)
-                if np.isnan(lr_plus): lr_plus_badge = get_badge_html("Undefined", "neutral")
-                elif lr_plus > 10: lr_plus_badge = get_badge_html("Strong Rule-In", "success")
-                elif lr_plus > 5: lr_plus_badge = get_badge_html("Moderate Rule-In", "info")
-                elif lr_plus > 2: lr_plus_badge = get_badge_html("Weak Rule-In", "warning")
-                else: lr_plus_badge = get_badge_html("No Value", "neutral")
+                if np.isnan(lr_plus): 
+                    lr_plus_badge = get_badge_html("Undefined", "neutral")
+                elif lr_plus > 10: 
+                    lr_plus_badge = get_badge_html("Strong Rule-In", "success")
+                elif lr_plus > 5: 
+                    lr_plus_badge = get_badge_html("Moderate Rule-In", "info")
+                elif lr_plus > 2: 
+                    lr_plus_badge = get_badge_html("Weak Rule-In", "warning")
+                else: 
+                    lr_plus_badge = get_badge_html("No Value", "neutral")
 
-                if np.isnan(lr_minus): lr_minus_badge = get_badge_html("Undefined", "neutral")
-                elif lr_minus < 0.1: lr_minus_badge = get_badge_html("Strong Rule-Out", "success")
-                elif lr_minus < 0.2: lr_minus_badge = get_badge_html("Moderate Rule-Out", "info")
-                elif lr_minus < 0.5: lr_minus_badge = get_badge_html("Weak Rule-Out", "warning")
-                else: lr_minus_badge = get_badge_html("No Value", "neutral")
+                if np.isnan(lr_minus): 
+                    lr_minus_badge = get_badge_html("Undefined", "neutral")
+                elif lr_minus < 0.1: 
+                    lr_minus_badge = get_badge_html("Strong Rule-Out", "success")
+                elif lr_minus < 0.2: 
+                    lr_minus_badge = get_badge_html("Moderate Rule-Out", "info")
+                elif lr_minus < 0.5: 
+                    lr_minus_badge = get_badge_html("Weak Rule-Out", "warning")
+                else: 
+                    lr_minus_badge = get_badge_html("No Value", "neutral")
 
                 # OR Badge
-                if or_value > 3 or or_value < 0.33: or_badge = get_badge_html("Strong Association", "success")
-                elif or_value > 2 or or_value < 0.5: or_badge = get_badge_html("Moderate Association", "info")
-                else: or_badge = get_badge_html("Weak/None", "neutral")
+                if or_value > 3 or or_value < 0.33: 
+                    or_badge = get_badge_html("Strong Association", "success")
+                elif or_value > 2 or or_value < 0.5: 
+                    or_badge = get_badge_html("Moderate Association", "info")
+                else: 
+                    or_badge = get_badge_html("Weak/None", "neutral")
                 
                 # --- FORMAT STRINGS WITH HIGHLIGHTING ---
                 # RR CI
-                rr_ci_str = f"{rr_ci_lower:.4f}–{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA"
+                rr_ci_str = f"{rr_ci_lower:.4f}-{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA"
                 rr_ci_display = format_ci_html(rr_ci_str, rr_ci_lower, rr_ci_upper, null_val=1.0)
                 
                 # OR CI
-                or_ci_str = f"{or_ci_lower:.4f}–{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA"
+                or_ci_str = f"{or_ci_lower:.4f}-{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA"
                 or_ci_display = format_ci_html(or_ci_str, or_ci_lower, or_ci_upper, null_val=1.0)
                 
                 # NNT CI (If calculate_ci_nnt returns numbers, it means it's significant)
-                nnt_ci_str = f"{nnt_ci_lower:.1f}–{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA"
+                nnt_ci_str = f"{nnt_ci_lower:.1f}-{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA"
                 nnt_ci_display = nnt_ci_str
                 if np.isfinite(nnt_ci_lower):
                     nnt_ci_display = f'<span style="font-weight: bold; color: #198754;">{nnt_ci_str}</span>'
@@ -522,11 +542,11 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                     
                     {"Metric": "Absolute Risk Reduction (ARR)", "Value": f"{arr:.2f}%", 
                      "95% CI": "-", 
-                     "Interpretation": f"Absolute difference in event rates"},
+                     "Interpretation": "Absolute difference in event rates"},
                     
                     {"Metric": "Relative Risk Reduction (RRR)", "Value": f"{rrr:.2f}%" if np.isfinite(rrr) else "-", 
                      "95% CI": "-", 
-                     "Interpretation": f"Reduction in risk relative to baseline (if RR < 1)"},
+                     "Interpretation": "Reduction in risk relative to baseline (if RR < 1)"},
                     
                     {"Metric": nnt_label, "Value": f"{nnt_abs:.1f}", 
                      "95% CI": nnt_ci_display, 
@@ -766,11 +786,16 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     ci_upper_f = ci_upper if np.isfinite(ci_upper) else np.nan
     
     # Interpretation Badge for AUC
-    if auc_val >= 0.9: auc_badge = get_badge_html("Outstanding", "success")
-    elif auc_val >= 0.8: auc_badge = get_badge_html("Excellent", "success")
-    elif auc_val >= 0.7: auc_badge = get_badge_html("Acceptable", "info")
-    elif auc_val >= 0.5: auc_badge = get_badge_html("Poor", "warning")
-    else: auc_badge = get_badge_html("Worse than Chance", "danger")
+    if auc_val >= 0.9: 
+        auc_badge = get_badge_html("Outstanding", "success")
+    elif auc_val >= 0.8: 
+        auc_badge = get_badge_html("Excellent", "success")
+    elif auc_val >= 0.7: 
+        auc_badge = get_badge_html("Acceptable", "info")
+    elif auc_val >= 0.5: 
+        auc_badge = get_badge_html("Poor", "warning")
+    else: 
+        auc_badge = get_badge_html("Worse than Chance", "danger")
 
     # AUC Confidence Interval Formatting
     auc_ci_str = f"{max(0, ci_lower_f):.4f}–{min(1, ci_upper_f):.4f}"
