@@ -80,7 +80,7 @@ def data_server(
     # ไม่ต้องประกาศ ns = session.ns
     # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
 
-    is_loading_data: reactive.Value[bool] = reactive.Value(False)
+    is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
