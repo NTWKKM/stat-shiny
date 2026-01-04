@@ -268,7 +268,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
                     selected=icc_vars  # Pre-select auto-detected ones
                 )
 
-                logger.info(f"Auto-detected ICC/Rater variables: {icc_vars}")
+                logger.info("Auto-detected ICC/Rater variables: %s", icc_vars)
 
     # ==================== ICC SELECTION INFO ====================
 
