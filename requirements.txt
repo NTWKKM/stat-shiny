@@ -6,7 +6,7 @@ statsmodels
 lifelines
 scikit-learn
 plotly
-firthlogist
+firthmodels
 openpyxl
 matplotlib
 seaborn
