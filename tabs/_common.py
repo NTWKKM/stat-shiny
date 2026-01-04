@@ -1,22 +1,30 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional, Any
 
 if TYPE_CHECKING:
     from shiny.ui import TagChild
 
-def wrap_with_container(content) -> "TagChild":
+def wrap_with_container(content: "TagChild") -> "TagChild":
     """
     Wraps UI content with the .app-container CSS class.
-    ... (คงคอมเมนต์เดิมไว้ทั้งหมด) ...
+    
+    Args:
+        content: The UI content (TagChild) to wrap.
+    
+    Returns:
+        A shiny.ui.div element with class='app-container'.
     """
-    from shiny import ui  # ย้ายมา import ภายในฟังก์ชัน
+    from shiny import ui  # Import inside function to avoid circular imports if any
 
     return ui.div(content, class_="app-container")
 
 
-def get_color_palette():
+def get_color_palette() -> Dict[str, str]:
     """
     Returns a unified color palette dictionary for all modules.
-    ... (คงคอมเมนต์เดิมไว้ทั้งหมด) ...
+    Ensures consistency across the application.
+    
+    Returns:
+        Dict[str, str]: A dictionary mapping color names to hex codes.
     """
     return {
         # Primary colors - Navy Blue theme
@@ -39,9 +47,12 @@ def get_color_palette():
     }
 
 
-def get_color_info():
+def get_color_info() -> Dict[str, Any]:
     """
     Returns information about the color palette for documentation.
+    
+    Returns:
+        Dict[str, Any]: Metadata about the design system.
     """
     return {
         "theme": "Professional Medical Analytics - Navy Blue with Smoke White Navbar",

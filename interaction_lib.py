@@ -11,11 +11,16 @@ import statsmodels.api as sm
 from scipy.stats import chi2
 from logger import get_logger
 from logic import clean_numeric_value
+from typing import Union, Optional, List, Dict, Tuple, Any
 
 logger = get_logger(__name__)
 
 
-def create_interaction_terms(df, interaction_pairs, mode_map=None):
+def create_interaction_terms(
+    df: pd.DataFrame, 
+    interaction_pairs: List[Tuple[str, str]], 
+    mode_map: Optional[Dict[str, str]] = None
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Create interaction variables from pairs of predictors.
     
@@ -94,7 +99,13 @@ def create_interaction_terms(df, interaction_pairs, mode_map=None):
     return df_result, interaction_meta
 
 
-def test_interaction_significance(y, X_base, X_with_int, model_type='logit', offset=None):
+def test_interaction_significance(
+    y: pd.Series, 
+    X_base: pd.DataFrame, 
+    X_with_int: pd.DataFrame, 
+    model_type: str = 'logit', 
+    offset: Optional[pd.Series] = None
+) -> Dict[str, Union[float, int, bool]]:
     """
     Test if adding interaction terms significantly improves model fit.
     
@@ -156,19 +167,15 @@ def test_interaction_significance(y, X_base, X_with_int, model_type='logit', off
         }
 
 
-def format_interaction_results(params, conf_int, pvalues, interaction_meta, model_type='logit'):
+def format_interaction_results(
+    params: pd.Series, 
+    conf_int: pd.DataFrame, 
+    pvalues: pd.Series, 
+    interaction_meta: Dict[str, Any], 
+    model_type: str = 'logit'
+) -> Dict[str, Any]:
     """
     Format interaction results for display.
-    
-    Args:
-        params: Model parameters
-        conf_int: Confidence intervals
-        pvalues: P-values
-        interaction_meta: Metadata from create_interaction_terms
-        model_type: 'logit' or 'poisson'
-    
-    Returns:
-        dict: Formatted results for each interaction term
     """
     results = {}
     effect_name = "OR" if model_type == 'logit' else "IRR"
@@ -204,16 +211,12 @@ def format_interaction_results(params, conf_int, pvalues, interaction_meta, mode
     return results
 
 
-def interpret_interaction(results, model_type='logit'):
+def interpret_interaction(
+    results: Dict[str, Any], 
+    model_type: str = 'logit'
+) -> str:
     """
     Generate interpretation text for interaction results.
-    
-    Args:
-        results: Formatted interaction results
-        model_type: 'logit' or 'poisson'
-    
-    Returns:
-        str: HTML interpretation text
     """
     if not results:
         return "<p>No interaction terms to interpret.</p>"
@@ -254,16 +257,12 @@ def interpret_interaction(results, model_type='logit'):
     return "".join(interp_lines)
 
 
-def generate_interaction_html_table(results, model_type='logit'):
+def generate_interaction_html_table(
+    results: Dict[str, Any], 
+    model_type: str = 'logit'
+) -> str:
     """
     Generate HTML table for interaction results.
-    
-    Args:
-        results: Formatted interaction results
-        model_type: 'logit' or 'poisson'
-    
-    Returns:
-        str: HTML table
     """
     from logic import fmt_p_with_styling, COLORS
     

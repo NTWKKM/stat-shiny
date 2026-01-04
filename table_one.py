@@ -16,12 +16,13 @@ from scipy import stats
 import statsmodels.api as sm
 import html as _html
 import warnings
+from typing import Union, Optional, List, Dict, Tuple, Any, Sequence
 from logger import get_logger
 
 try:
     from tabs._common import get_color_palette
 except ImportError:
-    def get_color_palette():
+    def get_color_palette() -> Dict[str, str]:
         return {
             'primary': '#1B7E8F',
             'primary_dark': '#0D4D57',
@@ -40,7 +41,7 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-def clean_numeric(val):
+def clean_numeric(val: Any) -> float:
     """
     Parse value to float, handling strings and special characters.
     """
@@ -54,12 +55,12 @@ def clean_numeric(val):
 
 
 @np.vectorize
-def _clean_numeric_vector(val):
+def _clean_numeric_vector(val: Any) -> float:
     """Vectorized numeric cleaning."""
     return clean_numeric(val)
 
 
-def check_normality(series):
+def check_normality(series: pd.Series) -> bool:
     """
     Perform Shapiro-Wilk test for normality.
     """
@@ -75,18 +76,18 @@ def check_normality(series):
         return False
 
 
-def format_p(p):
+def format_p(p: Union[float, str]) -> str:
     """
     Format p-value for display.
     """
-    if pd.isna(p): 
+    if pd.isna(p) or isinstance(p, str): 
         return "-"
-    if p < 0.001: 
+    if float(p) < 0.001: 
         return "<0.001"
-    return f"{p:.3f}"
+    return f"{float(p):.3f}"
 
 
-def get_stats_continuous(series):
+def get_stats_continuous(series: pd.Series) -> str:
     """
     OPTIMIZED: Get mean ± SD with batch cleaning.
     """
@@ -97,7 +98,11 @@ def get_stats_continuous(series):
     return f"{clean.mean():.1f} ± {clean.std():.1f}"
 
 
-def get_stats_categorical_data(series, var_meta=None, col_name=None):
+def get_stats_categorical_data(
+    series: pd.Series, 
+    var_meta: Optional[Dict[str, Any]] = None, 
+    col_name: Optional[str] = None
+) -> Tuple[pd.Series, int, pd.Series]:
     """
     Get categorical counts with optional mapping.
     """
@@ -119,7 +124,10 @@ def get_stats_categorical_data(series, var_meta=None, col_name=None):
     return counts, total, mapped_series
 
 
-def get_stats_categorical_str(counts, total):
+def get_stats_categorical_str(
+    counts: Union[pd.Series, Dict[Any, int]], 
+    total: int
+) -> str:
     """
     OPTIMIZED: Format categorical counts as HTML string with vectorization.
     
@@ -135,7 +143,7 @@ def get_stats_categorical_str(counts, total):
     return "<br>".join(res)
 
 
-def compute_or_ci(a, b, c, d):
+def compute_or_ci(a: float, b: float, c: float, d: float) -> str:
     """
     Calculate OR and 95% CI from 2x2 table with Haldane-Anscombe correction.
     """
@@ -161,7 +169,7 @@ def compute_or_ci(a, b, c, d):
         return "-"
 
 
-def safe_group_compare(series, val):
+def safe_group_compare(series: pd.Series, val: Any) -> pd.Series:
     """
     Robust group comparison handling numeric and string mismatches.
     """
@@ -175,7 +183,13 @@ def safe_group_compare(series, val):
     return series.astype(str) == str(val)
 
 
-def compute_or_vs_ref(row_series, cat_target, cat_ref, group_series, g1_val):
+def compute_or_vs_ref(
+    row_series: pd.Series, 
+    cat_target: Any, 
+    cat_ref: Any, 
+    group_series: pd.Series, 
+    g1_val: Any
+) -> str:
     """
     Calculate OR comparing target vs reference category.
     """
@@ -200,7 +214,12 @@ def compute_or_vs_ref(row_series, cat_target, cat_ref, group_series, g1_val):
         return "-"
 
 
-def calculate_or_continuous_logit(df, feature_col, group_col, group1_val):
+def calculate_or_continuous_logit(
+    df: pd.DataFrame, 
+    feature_col: str, 
+    group_col: str, 
+    group1_val: Any
+) -> str:
     """
     Calculate OR using logistic regression with fallback solvers.
     """
@@ -241,7 +260,16 @@ def calculate_or_continuous_logit(df, feature_col, group_col, group1_val):
         return "-"
 
 
-def calculate_smd(df, col, group_col, g1_val, g2_val, is_cat, mapped_series=None, cats=None):
+def calculate_smd(
+    df: pd.DataFrame, 
+    col: str, 
+    group_col: str, 
+    g1_val: Any, 
+    g2_val: Any, 
+    is_cat: bool, 
+    mapped_series: Optional[pd.Series] = None, 
+    cats: Optional[List[Any]] = None
+) -> str:
     """
     OPTIMIZED: Calculate standardized mean difference (SMD) with vectorization.
     """
@@ -302,7 +330,7 @@ def calculate_smd(df, col, group_col, g1_val, g2_val, is_cat, mapped_series=None
         return "-"
 
 
-def calculate_p_continuous(data_groups):
+def calculate_p_continuous(data_groups: List[pd.Series]) -> Tuple[float, str]:
     """
     Calculate p-value for continuous variables.
     """
@@ -333,7 +361,7 @@ def calculate_p_continuous(data_groups):
         return np.nan, f"Error"
 
 
-def calculate_p_categorical(df, col, group_col):
+def calculate_p_categorical(df: pd.DataFrame, col: str, group_col: str) -> Tuple[float, str]:
     """
     Calculate p-value for categorical variables.
     """
@@ -361,7 +389,13 @@ def calculate_p_categorical(df, col, group_col):
         return np.nan, f"Error"
 
 
-def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'):
+def generate_table(
+    df: pd.DataFrame, 
+    selected_vars: List[str], 
+    group_col: Optional[str], 
+    var_meta: Optional[Dict[str, Any]], 
+    or_style: str = 'all_levels'
+) -> str:
     """
     OPTIMIZED: Generate baseline characteristics table as HTML with modern styling.
     
@@ -392,7 +426,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
                 mapper = var_meta[key].get('map', {})
         
         raw_groups = df[group_col].dropna().unique().tolist()
-        def _group_sort_key(v):
+        def _group_sort_key(v: Any) -> Tuple[int, Union[float, str]]:
             s = str(v)
             try:
                 return (0, float(s))
@@ -412,7 +446,7 @@ def generate_table(df, selected_vars, group_col, var_meta, or_style='all_levels'
     
     if show_or:
         group_vals = [g["val"] for g in groups]
-        def _sort_key(v):
+        def _sort_key(v: Any) -> Tuple[int, Union[float, str]]:
             s = str(v)
             try:
                 return (0, float(s))

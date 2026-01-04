@@ -1,17 +1,18 @@
 from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget
+from shinywidgets import output_widget, render_widget  # type: ignore
 import pandas as pd
 import numpy as np
 import json
 import plotly.graph_objects as go
 from htmltools import HTML, div
 import gc
+from typing import Optional, List, Dict, Any, Tuple, Union, cast
 
 # Import internal modules
 from logic import process_data_and_generate_html
-from poisson_lib import analyze_poisson_outcome  # ✅ NEW: Poisson support
+from poisson_lib import analyze_poisson_outcome
 from forest_plot_lib import create_forest_plot
-from subgroup_analysis_module import SubgroupAnalysisLogit
+from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from logger import get_logger
 from tabs._common import get_color_palette
 
@@ -21,9 +22,9 @@ COLORS = get_color_palette()
 # ==============================================================================
 # Helper Functions (Pure Logic)
 # ==============================================================================
-def check_perfect_separation(df, target_col):
+def check_perfect_separation(df: pd.DataFrame, target_col: str) -> List[str]:
     """Identify columns causing perfect separation."""
-    risky_vars = []
+    risky_vars: List[str] = []
     try:
         y = pd.to_numeric(df[target_col], errors='coerce').dropna()
         if y.nunique() < 2: 
@@ -36,6 +37,7 @@ def check_perfect_separation(df, target_col):
 
         if df[col].nunique() < 10: 
             try:
+                # Use crosstab to find cells with 0 count (perfect separation indicator)
                 tab = pd.crosstab(df[col], y)
                 if (tab == 0).any().any():
                     risky_vars.append(col)
@@ -47,7 +49,7 @@ def check_perfect_separation(df, target_col):
 # UI Definition
 # ==============================================================================
 @module.ui
-def logit_ui():
+def logit_ui() -> ui.TagChild:
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
@@ -98,7 +100,7 @@ def logit_ui():
                     ui.h6("Exclude Variables (Optional):"),
                     ui.input_selectize("sel_exclude", label=None, choices=[], multiple=True),
                     
-                    # ✅ NEW: Interaction Pairs selector
+                    # Interaction Pairs selector
                     ui.h6("🔗 Interaction Pairs (Optional):"),
                     ui.input_selectize(
                         "sel_interactions", 
@@ -142,7 +144,7 @@ def logit_ui():
             ),
 
             # =====================================================================
-            # TAB 2: Poisson Regression (✅ NEW)
+            # TAB 2: Poisson Regression
             # =====================================================================
             ui.nav_panel(
                 "📊 Poisson Regression",
@@ -212,19 +214,19 @@ def logit_ui():
                     ui.nav_panel(
                         "📚 Reference",
                         ui.markdown("""
-### Poisson Regression Reference
-
-**When to Use:**
-* Count outcomes (e.g., number of events, visits, infections)
-* Rate data with exposure offset (e.g., events per person-year)
-
-**Interpretation:**
-* **IRR > 1**: Higher incidence rate (Risk factor) 🔴
-* **IRR < 1**: Lower incidence rate (Protective) 🟢
-* **IRR = 1**: No effect on rate
-
-**Overdispersion:**
-If variance >> mean, consider Negative Binomial regression.
+                        ### Poisson Regression Reference
+                        
+                        **When to Use:**
+                        * Count outcomes (e.g., number of events, visits, infections)
+                        * Rate data with exposure offset (e.g., events per person-year)
+                        
+                        **Interpretation:**
+                        * **IRR > 1**: Higher incidence rate (Risk factor) 🔴
+                        * **IRR < 1**: Lower incidence rate (Protective) 🟢
+                        * **IRR = 1**: No effect on rate
+                        
+                        **Overdispersion:**
+                        If variance >> mean, consider Negative Binomial regression.
                         """)
                     )
                 )
@@ -311,53 +313,53 @@ If variance >> mean, consider Negative Binomial regression.
             ),
 
             # =====================================================================
-            # TAB 3: Reference
+            # TAB 4: Reference
             # =====================================================================
             ui.nav_panel(
                 "ℹ️ Reference",
                 ui.markdown("""
-## 📚 Logistic Regression Reference
-
-### When to Use:
-* Predicting binary outcomes (Disease/No Disease)
-* Understanding risk/protective factors (Odds Ratios)
-* Adjustment for confounders in observational studies
-
-### Interpretation:
-
-**Odds Ratios (OR):**
-* **OR > 1**: Risk Factor (Increased odds) 🔴
-* **OR < 1**: Protective Factor (Decreased odds) 🟢
-* **OR = 1**: No Effect
-* **CI crosses 1**: Not statistically significant
-
-**Example:**
-* OR = 2.5 (CI 1.2-5.0): Exposure increases odds of outcome by 2.5× (Range: 1.2× to 5×)
-
-### Regression Methods:
-
-**Standard (MLE)** - Most common
-* Uses Maximum Likelihood Estimation
-* Fast and reliable for most datasets
-* Issues: Perfect separation causes failure
-
-**Firth's (Penalized)** - For separation issues
-* Reduces bias using penalized likelihood
-* Better for rare outcomes or small samples
-* Handles perfect separation well
-
-**Auto** - Recommended
-* Automatically detects separation
-* Uses Firth if needed, Standard otherwise
-
-### Perfect Separation:
-Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
-* **Solution:** Use **Auto** or **Firth's** method, or exclude the variable.
-
-### Subgroup Analysis:
-* Tests if treatment effect varies by group (Interaction test)
-* **P-interaction < 0.05**: Significant heterogeneity → Report subgroups separately
-* **P-interaction ≥ 0.05**: Homogeneous effect → Report overall effect
+                ## 📚 Logistic Regression Reference
+                
+                ### When to Use:
+                * Predicting binary outcomes (Disease/No Disease)
+                * Understanding risk/protective factors (Odds Ratios)
+                * Adjustment for confounders in observational studies
+                
+                ### Interpretation:
+                
+                **Odds Ratios (OR):**
+                * **OR > 1**: Risk Factor (Increased odds) 🔴
+                * **OR < 1**: Protective Factor (Decreased odds) 🟢
+                * **OR = 1**: No Effect
+                * **CI crosses 1**: Not statistically significant
+                
+                **Example:**
+                * OR = 2.5 (CI 1.2-5.0): Exposure increases odds of outcome by 2.5× (Range: 1.2× to 5×)
+                
+                ### Regression Methods:
+                
+                **Standard (MLE)** - Most common
+                * Uses Maximum Likelihood Estimation
+                * Fast and reliable for most datasets
+                * Issues: Perfect separation causes failure
+                
+                **Firth's (Penalized)** - For separation issues
+                * Reduces bias using penalized likelihood
+                * Better for rare outcomes or small samples
+                * Handles perfect separation well
+                
+                **Auto** - Recommended
+                * Automatically detects separation
+                * Uses Firth if needed, Standard otherwise
+                
+                ### Perfect Separation:
+                Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
+                * **Solution:** Use **Auto** or **Firth's** method, or exclude the variable.
+                
+                ### Subgroup Analysis:
+                * Tests if treatment effect varies by group (Interaction test)
+                * **P-interaction < 0.05**: Significant heterogeneity → Report subgroups separately
+                * **P-interaction ≥ 0.05**: Homogeneous effect → Report overall effect
                 """)
             )
         )
@@ -367,13 +369,25 @@ Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
 # Server Logic
 # ==============================================================================
 @module.server
-def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
+def logit_server(
+    input: Any, 
+    output: Any, 
+    session: Any, 
+    df: reactive.Value[Optional[pd.DataFrame]], 
+    var_meta: reactive.Value[Dict[str, Any]], 
+    df_matched: reactive.Value[Optional[pd.DataFrame]], 
+    is_matched: reactive.Value[bool]
+) -> None:
 
     # --- State Management ---
-    logit_res = reactive.Value(None)     # Store main logit results
-    poisson_res = reactive.Value(None)   # ✅ NEW: Store Poisson results
-    subgroup_res = reactive.Value(None)  # Store subgroup results
-    subgroup_analyzer = reactive.Value(None) # Store analyzer instance
+    # Store main logit results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
+    logit_res = reactive.Value(None)     
+    # Store Poisson results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
+    poisson_res = reactive.Value(None)   
+    # Store subgroup results: SubgroupResult
+    subgroup_res: reactive.Value[Optional[SubgroupResult]] = reactive.Value(None)
+    # Store analyzer instance: SubgroupAnalysisLogit
+    subgroup_analyzer: reactive.Value[Optional[SubgroupAnalysisLogit]] = reactive.Value(None)
 
     # --- Cache Clearing on Tab Change ---
     @reactive.Effect
@@ -391,7 +405,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     
     # --- Dataset Selection Logic ---
     @reactive.Calc
-    def current_df():
+    def current_df() -> Optional[pd.DataFrame]:
         if is_matched.get() and input.radio_logit_source() == "matched":
             return df_matched.get()
         return df.get()
@@ -460,13 +474,16 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         ui.update_select("sel_outcome", choices=binary_cols)
         ui.update_selectize("sel_exclude", choices=cols)
         
-        # ✅ NEW: Generate interaction pair choices for Logit
+        # Generate interaction pair choices for Logit
         interaction_choices = [f"{cols[i]} × {cols[j]}" for i in range(len(cols)) for j in range(i+1, len(cols)) if i != j]
         ui.update_selectize("sel_interactions", choices=interaction_choices[:50])  # Limit to 50 pairs
         
-        # ✅ NEW: Update Tab 2 (Poisson) Inputs
+        # Update Tab 2 (Poisson) Inputs
         # Identify count columns (non-negative integers)
-        count_cols = [c for c in cols if df.get().__getitem__(c).dropna().apply(lambda x: x >= 0 if pd.api.types.is_number(x) else False).all()]
+        count_cols = [
+            c for c in cols 
+            if pd.api.types.is_numeric_dtype(d[c]) and (d[c].dropna() >= 0).all() and (d[c].dropna() % 1 == 0).all()
+        ]
         ui.update_select("poisson_outcome", choices=count_cols if count_cols else cols)
         ui.update_select("poisson_offset", choices=["None"] + cols)
         ui.update_selectize("poisson_exclude", choices=cols)
@@ -504,9 +521,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         target = input.sel_outcome()
         exclude = input.sel_exclude()
         method = input.radio_method()
-        interactions_raw = input.sel_interactions()  # ✅ NEW: Get interaction pairs
+        interactions_raw = input.sel_interactions()
 
-        # FIX: Check if DataFrame is None or empty using proper methods
         if d is None or d.empty:
             ui.notification_show("Please load data first", type="error")
             return
@@ -517,8 +533,8 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         # Prepare data
         final_df = d.drop(columns=exclude, errors='ignore')
         
-        # ✅ NEW: Parse interaction pairs from "var1 × var2" format
-        interaction_pairs = None
+        # Parse interaction pairs from "var1 × var2" format
+        interaction_pairs: Optional[List[Tuple[str, str]]] = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:
@@ -531,7 +547,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
             p.set(message="Running Logistic Regression...", detail="Calculating...")
 
             try:
-                # Run Logic from logic.py (✅ UPDATED: Now returns 4 values)
+                # Run Logic from logic.py
                 html_rep, or_res, aor_res, interaction_res = process_data_and_generate_html(
                     final_df, target, var_meta=var_meta.get(), method=method,
                     interaction_pairs=interaction_pairs
@@ -634,7 +650,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         if res: yield res['html']
 
     # ==========================================================================
-    # LOGIC: Poisson Regression (✅ NEW)
+    # LOGIC: Poisson Regression
     # ==========================================================================
     @reactive.Effect
     @reactive.event(input.btn_run_poisson)
@@ -657,7 +673,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         offset = offset_col if offset_col != "None" else None
         
         # Parse interaction pairs
-        interaction_pairs = None
+        interaction_pairs: Optional[List[Tuple[str, str]]] = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:
@@ -779,7 +795,6 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     def _run_subgroup():
         d = current_df()
         
-        # FIX: Check if DataFrame is None or empty using proper methods
         if d is None or d.empty:
             ui.notification_show("Please load data first", type="error")
             return
