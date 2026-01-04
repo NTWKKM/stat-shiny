@@ -19,29 +19,32 @@ A comprehensive, interactive web application for medical statistical analysis, b
 
 ## 🚀 Key Features
 
-The application is organized into modular tabs for different analytical workflows:
+The application is organized into modular tabs for different analytical workflows.
 
-* **📁 Data Management**: Upload CSV/Excel datasets, preview data, and check variable types.
-* **📋 Table 1 & Matching**:
-* Generate standard "Table 1" baseline characteristics.
-* Perform **Propensity Score Matching (PSM)** to create balanced cohorts.
+### 📁 Data Management
+Upload CSV/Excel datasets, preview data, and check variable types.
 
+### 📋 Table 1 & Matching
+- Generate standard "Table 1" baseline characteristics.
+- Perform **Propensity Score Matching (PSM)** to create balanced cohorts.
 
-* **🧪 Diagnostic Tests**: Calculate sensitivity, specificity, PPV, NPV, and visualize ROC curves.
-* **📊 Risk Factors (Logistic Regression)**:
-* Run Univariable and Multivariable Logistic Regression.
-* Visualize results with Forest Plots.
-* Supports **Firth's Regression** for rare events (if dependencies are met).
+### 🧪 Diagnostic Tests
+Calculate sensitivity, specificity, PPV, NPV, and visualize ROC curves.
 
+### 📊 Risk Factors (Logistic Regression)
+- Run Univariable and Multivariable Logistic Regression.
+- Visualize results with Forest Plots.
+- Supports **Firth's Regression** for rare events (if dependencies are met).
 
-* **📈 Correlation & ICC**: Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
-* **⏳ Survival Analysis**:
-* Kaplan-Meier survival curves.
-* Cox Proportional Hazards modeling.
+### 📈 Correlation & ICC
+Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
 
+### ⏳ Survival Analysis
+- Kaplan-Meier survival curves.
+- Cox Proportional Hazards modeling.
 
-* **⚙️ Settings**: Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
-
+### ⚙️ Settings
+Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
 ## 🛠️ Installation & Usage
 
 ### Option 1: Run Locally (Python)
