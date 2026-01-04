@@ -9,6 +9,7 @@ import gc
 
 # Import internal modules
 from logic import process_data_and_generate_html
+from poisson_lib import analyze_poisson_outcome  # ✅ NEW: Poisson support
 from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit
 from logger import get_logger
@@ -96,8 +97,20 @@ def logit_ui():
                     
                     ui.h6("Exclude Variables (Optional):"),
                     ui.input_selectize("sel_exclude", label=None, choices=[], multiple=True),
-
-                    ui.hr(),
+                    
+                    # ✅ NEW: Interaction Pairs selector
+                    ui.h6("🔗 Interaction Pairs (Optional):"),
+                    ui.input_selectize(
+                        "sel_interactions", 
+                        label=None, 
+                        choices=[], 
+                        multiple=True,
+                        options={"placeholder": "Select variable pairs to test interactions..."}
+                    ),
+                    ui.p(
+                        "💡 Select pairs of variables to test for interaction effects (e.g., 'age × sex')",
+                        style="font-size: 0.8em; color: #666; margin-top: 4px;"
+                    ),
 
                     ui.layout_columns(
                         ui.input_action_button(
@@ -129,7 +142,96 @@ def logit_ui():
             ),
 
             # =====================================================================
-            # TAB 2: Subgroup Analysis
+            # TAB 2: Poisson Regression (✅ NEW)
+            # =====================================================================
+            ui.nav_panel(
+                "📊 Poisson Regression",
+
+                # Control section (top)
+                ui.card(
+                    ui.card_header("📊 Poisson Analysis Options"),
+
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Variable Selection:"),
+                            ui.input_select("poisson_outcome", "Select Count Outcome (Y):", choices=[]),
+                            ui.input_select("poisson_offset", "Offset Column (Optional):", choices=["None"]),
+                            ui.p(
+                                "💡 Offset: Use for rate calculations (e.g., person-years, population)",
+                                style="font-size: 0.8em; color: #666; margin-top: 4px;"
+                            ),
+                        ),
+
+                        ui.card(
+                            ui.card_header("Advanced Settings:"),
+                            ui.h6("Exclude Variables (Optional):"),
+                            ui.input_selectize("poisson_exclude", label=None, choices=[], multiple=True),
+                        ),
+                        
+                        col_widths=[6, 6]
+                    ),
+                    
+                    # Interaction Pairs selector
+                    ui.h6("🔗 Interaction Pairs (Optional):"),
+                    ui.input_selectize(
+                        "poisson_interactions", 
+                        label=None, 
+                        choices=[], 
+                        multiple=True,
+                        options={"placeholder": "Select variable pairs to test interactions..."}
+                    ),
+
+                    ui.hr(),
+
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_poisson",
+                            "🚀 Run Poisson Regression",
+                            class_="btn-primary btn-sm w-100"
+                        ),
+                        ui.download_button(
+                            "btn_dl_poisson_report",
+                            "📥 Download Report",
+                            class_="btn-secondary btn-sm w-100"
+                        ),
+                        col_widths=[6, 6]
+                    ),
+                ),
+
+                # Content section (bottom)
+                ui.output_ui("out_poisson_status"),
+                ui.navset_card_underline(
+                    ui.nav_panel(
+                        "🌳 Forest Plots",
+                        ui.output_ui("ui_poisson_forest_tabs")
+                    ),
+                    ui.nav_panel(
+                        "📋 Detailed Report",
+                        ui.output_ui("out_poisson_html_report")
+                    ),
+                    ui.nav_panel(
+                        "📚 Reference",
+                        ui.markdown("""
+### Poisson Regression Reference
+
+**When to Use:**
+* Count outcomes (e.g., number of events, visits, infections)
+* Rate data with exposure offset (e.g., events per person-year)
+
+**Interpretation:**
+* **IRR > 1**: Higher incidence rate (Risk factor) 🔴
+* **IRR < 1**: Lower incidence rate (Protective) 🟢
+* **IRR = 1**: No effect on rate
+
+**Overdispersion:**
+If variance >> mean, consider Negative Binomial regression.
+                        """)
+                    )
+                )
+            ),
+
+            # =====================================================================
+            # TAB 3: Subgroup Analysis
             # =====================================================================
             ui.nav_panel(
                 "🗣️ Subgroup Analysis",
@@ -269,12 +371,13 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
     # --- State Management ---
     logit_res = reactive.Value(None)     # Store main logit results
+    poisson_res = reactive.Value(None)   # ✅ NEW: Store Poisson results
     subgroup_res = reactive.Value(None)  # Store subgroup results
     subgroup_analyzer = reactive.Value(None) # Store analyzer instance
 
     # --- Cache Clearing on Tab Change ---
     @reactive.Effect
-    @reactive.event(input.btn_run_logit, input.btn_run_subgroup)
+    @reactive.event(input.btn_run_logit, input.btn_run_poisson, input.btn_run_subgroup)
     def _cleanup_after_analysis():
         """
         OPTIMIZATION: Clear cache after completing analysis.
@@ -353,11 +456,23 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         # Identify potential subgroups (2-10 levels)
         sg_cols = [c for c in cols if 2 <= d[c].nunique() <= 10]
 
-        # Update Tab 1 Inputs
+        # Update Tab 1 (Binary Logit) Inputs
         ui.update_select("sel_outcome", choices=binary_cols)
         ui.update_selectize("sel_exclude", choices=cols)
+        
+        # ✅ NEW: Generate interaction pair choices for Logit
+        interaction_choices = [f"{cols[i]} × {cols[j]}" for i in range(len(cols)) for j in range(i+1, len(cols)) if i != j]
+        ui.update_selectize("sel_interactions", choices=interaction_choices[:50])  # Limit to 50 pairs
+        
+        # ✅ NEW: Update Tab 2 (Poisson) Inputs
+        # Identify count columns (non-negative integers)
+        count_cols = [c for c in cols if df.get().__getitem__(c).dropna().apply(lambda x: x >= 0 if pd.api.types.is_number(x) else False).all()]
+        ui.update_select("poisson_outcome", choices=count_cols if count_cols else cols)
+        ui.update_select("poisson_offset", choices=["None"] + cols)
+        ui.update_selectize("poisson_exclude", choices=cols)
+        ui.update_selectize("poisson_interactions", choices=interaction_choices[:50])
 
-        # Update Tab 2 Inputs
+        # Update Tab 3 (Subgroup) Inputs
         ui.update_select("sg_outcome", choices=binary_cols)
         ui.update_select("sg_treatment", choices=cols)
         ui.update_select("sg_subgroup", choices=sg_cols)
@@ -389,6 +504,7 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
         target = input.sel_outcome()
         exclude = input.sel_exclude()
         method = input.radio_method()
+        interactions_raw = input.sel_interactions()  # ✅ NEW: Get interaction pairs
 
         # FIX: Check if DataFrame is None or empty using proper methods
         if d is None or d.empty:
@@ -400,14 +516,25 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
 
         # Prepare data
         final_df = d.drop(columns=exclude, errors='ignore')
+        
+        # ✅ NEW: Parse interaction pairs from "var1 × var2" format
+        interaction_pairs = None
+        if interactions_raw:
+            interaction_pairs = []
+            for pair_str in interactions_raw:
+                parts = pair_str.split(" × ")
+                if len(parts) == 2:
+                    interaction_pairs.append((parts[0].strip(), parts[1].strip()))
+            logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
 
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Running Logistic Regression...", detail="Calculating...")
 
             try:
-                # Run Logic from logic.py
-                html_rep, or_res, aor_res = process_data_and_generate_html(
-                    final_df, target, var_meta=var_meta.get(), method=method
+                # Run Logic from logic.py (✅ UPDATED: Now returns 4 values)
+                html_rep, or_res, aor_res, interaction_res = process_data_and_generate_html(
+                    final_df, target, var_meta=var_meta.get(), method=method,
+                    interaction_pairs=interaction_pairs
                 )
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
@@ -504,6 +631,144 @@ def logit_server(input, output, session, df, var_meta, df_matched, is_matched):
     @render.download(filename="logit_report.html")
     def btn_dl_report():
         res = logit_res.get()
+        if res: yield res['html']
+
+    # ==========================================================================
+    # LOGIC: Poisson Regression (✅ NEW)
+    # ==========================================================================
+    @reactive.Effect
+    @reactive.event(input.btn_run_poisson)
+    def _run_poisson():
+        d = current_df()
+        target = input.poisson_outcome()
+        exclude = input.poisson_exclude()
+        offset_col = input.poisson_offset()
+        interactions_raw = input.poisson_interactions()
+
+        if d is None or d.empty:
+            ui.notification_show("Please load data first", type="error")
+            return
+        if not target:
+            ui.notification_show("Please select a count outcome variable", type="error")
+            return
+
+        # Prepare data
+        final_df = d.drop(columns=exclude, errors='ignore')
+        offset = offset_col if offset_col != "None" else None
+        
+        # Parse interaction pairs
+        interaction_pairs = None
+        if interactions_raw:
+            interaction_pairs = []
+            for pair_str in interactions_raw:
+                parts = pair_str.split(" × ")
+                if len(parts) == 2:
+                    interaction_pairs.append((parts[0].strip(), parts[1].strip()))
+            logger.info(f"Poisson: Using {len(interaction_pairs)} interaction pairs")
+
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message="Running Poisson Regression...", detail="Calculating...")
+
+            try:
+                html_rep, irr_res, airr_res, interaction_res = analyze_poisson_outcome(
+                    target, final_df, var_meta=var_meta.get(),
+                    offset_col=offset, interaction_pairs=interaction_pairs
+                )
+            except Exception as e:
+                ui.notification_show(f"Error: {e!s}", type="error")
+                logger.exception("Poisson regression error")
+                return
+
+            # Generate Forest Plots for IRR
+            fig_adj = None
+            fig_crude = None
+
+            if airr_res:
+                df_adj = pd.DataFrame([{'variable': k, **v} for k, v in airr_res.items()])
+                if not df_adj.empty:
+                    fig_adj = create_forest_plot(
+                        df_adj, 'airr', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
+                        title="<b>Multivariable: Adjusted IRR</b>", x_label="Adjusted IRR"
+                    )
+
+            if irr_res:
+                df_crude = pd.DataFrame([{'variable': k, **v} for k, v in irr_res.items()])
+                if not df_crude.empty:
+                    fig_crude = create_forest_plot(
+                        df_crude, 'irr', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
+                        title="<b>Univariable: Crude IRR</b>", x_label="Crude IRR"
+                    )
+
+            # Store Results
+            poisson_res.set({
+                "html": html_rep,
+                "fig_adj": fig_adj,
+                "fig_crude": fig_crude
+            })
+
+            ui.notification_show("✅ Poisson Analysis Complete!", type="message")
+
+    # --- Render Poisson Results ---
+    @render.ui
+    def out_poisson_status():
+        res = poisson_res.get()
+        if res:
+            return ui.div(
+                ui.h5("✅ Poisson Regression Complete"),
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;"
+            )
+        return None
+
+    @render.ui
+    def out_poisson_html_report():
+        res = poisson_res.get()
+        if res:
+            return ui.card(
+                ui.card_header("📋 Poisson Regression Report"),
+                ui.HTML(res['html'])
+            )
+        return ui.card(
+            ui.card_header("📋 Poisson Regression Report"),
+            ui.div(
+                "Run analysis to see detailed report.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+            )
+        )
+
+    @render.ui
+    def ui_poisson_forest_tabs():
+        res = poisson_res.get()
+        if not res:
+            return ui.div(
+                "Run analysis to see forest plots.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+            )
+
+        tabs = []
+        if res['fig_crude']:
+            tabs.append(ui.nav_panel("Crude IRR", output_widget("out_poisson_forest_crude")))
+        if res['fig_adj']:
+            tabs.append(ui.nav_panel("Adjusted IRR", output_widget("out_poisson_forest_adj")))
+
+        if not tabs:
+            return ui.div("No forest plots available.", class_="text-muted")
+        return ui.navset_card_tab(*tabs)
+
+    @render_widget
+    def out_poisson_forest_adj():
+        res = poisson_res.get()
+        if res and res['fig_adj']: return res['fig_adj']
+        return None
+
+    @render_widget
+    def out_poisson_forest_crude():
+        res = poisson_res.get()
+        if res and res['fig_crude']: return res['fig_crude']
+        return None
+
+    @render.download(filename="poisson_report.html")
+    def btn_dl_poisson_report():
+        res = poisson_res.get()
         if res: yield res['html']
 
     # ==========================================================================
