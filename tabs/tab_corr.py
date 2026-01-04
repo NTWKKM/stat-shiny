@@ -7,6 +7,7 @@ Provides UI and server logic for:
 - Interactive reporting and HTML export
 """
 
+# === FIX: ตรวจสอบการ Import module และ NS ===
 from shiny import ui, reactive, render, req, module
 import pandas as pd
 import numpy as np
@@ -49,8 +50,10 @@ def corr_ui(id: str) -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
     """
-    # === FIX: ใช้ module.NS(id) แทน ui.NS(id) ===
-    ns = module.NS(id) 
+    # === FIX: ใช้ NS โดยตรงจาก ui หรือ module ให้ถูกต้องตามเวอร์ชัน ===
+    # ในเวอร์ชันส่วนใหญ่ ui.NS หรือ module.NS จะใช้งานได้ 
+    # แต่ถ้า error บอกว่า module ไม่มี NS ให้ใช้จาก ui.NS แทนครับ
+    ns = ui.NS(id) 
     
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
@@ -214,12 +217,12 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
     )
 
 
-# === FIX: ใช้ @module.server เพื่อความชัดเจนและป้องกัน shadow name ===
+# === FIX: ใช้ @module.server ป้องกันความสับสนกับชื่อตัวแปร ===
 @module.server
 def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
     """
-    Server logic for correlation analysis module using @module.server decorator.
+    Server logic for correlation analysis module.
     """
     COLORS = get_color_palette()
     
@@ -236,25 +239,21 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
         """Update list of numeric columns when data changes."""
         data = df.get()
         if data is not None:
-            # Simple numeric check; in production, use safer dtype checks
             cols = data.select_dtypes(include=[np.number]).columns.tolist()
             numeric_cols_list.set(cols)
 
-            # Update UI selects
             if cols:
                 ui.update_select("cv1", choices=cols, selected=cols[0])
                 ui.update_select("cv2", 
                                choices=cols, 
                                selected=cols[1] if len(cols) > 1 else cols[0])
 
-                # Auto-detect ICC variables
                 icc_vars = _auto_detect_icc_vars(cols)
 
-                # Update selectize with all numeric cols
                 ui.update_selectize(
                     "icc_vars",
                     choices=cols,
-                    selected=icc_vars  # Pre-select auto-detected ones
+                    selected=icc_vars 
                 )
 
                 logger.info("Auto-detected ICC/Rater variables: %s", icc_vars)
@@ -286,14 +285,12 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     @reactive.event(input.btn_run_corr)
     def _run_correlation():
         """Run correlation analysis when button clicked."""
-        # 1. Get Data (Matched or Original)
         data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
 
         if data_source is None:
             ui.notification_show("No data available", type="error")
             return
 
-        # 2. Get Inputs
         col1 = input.cv1()
         col2 = input.cv2()
         method = input.coeff_type()
@@ -306,21 +303,16 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
             ui.notification_show("Please select different variables", type="warning")
             return
 
-        # 3. Call correlation.py logic
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Calculating correlation...", detail="This may take a moment")
-
-            # Returns (result_dict, error_msg, plotly_figure)
             res_stats, err, fig = correlation.calculate_correlation(
                 data_source, col1, col2, method=method
             )
 
-        # 4. Handle Result
         if err:
             ui.notification_show(f"Error: {err}", type="error")
             corr_result.set(None)
         else:
-            # Structure for rendering
             corr_result.set({
                 "stats": res_stats,
                 "figure": fig,
@@ -338,7 +330,6 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
         if result is None:
             return ui.markdown("*Results will appear here after clicking '📈 Analyze Correlation'*")
 
-        # Use output_ui to render the Plotly HTML
         return ui.card(
             ui.card_header("Results"),
             ui.markdown(f"**Data Source:** {result['data_label']}"),
@@ -367,7 +358,6 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
         if result is None or result['figure'] is None:
             return None
 
-        # Convert Plotly figure to HTML
         fig = result['figure']
         html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
         return ui.HTML(html_str)
@@ -378,28 +368,22 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     @reactive.event(input.btn_run_icc)
     def _run_icc():
         """Run ICC analysis."""
-        # 1. Get Data
         data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
 
         if data_source is None:
             ui.notification_show("No data available", type="error")
             return
 
-        # 2. Get Inputs
         cols = input.icc_vars()
 
         if not cols or len(cols) < 2:
             ui.notification_show("Please select at least 2 variables for ICC", type="warning")
             return
 
-        # 3. Call diag_test.py ICC logic
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Calculating ICC...", detail="Computing variance components")
-
-            # Returns (res_df, error_msg, anova_df)
             res_df, err, anova_df = diag_test.calculate_icc(data_source, list(cols))
 
-        # 4. Handle Result
         if err:
             ui.notification_show(f"Error: {err}", type="error")
             icc_result.set(None)
@@ -449,11 +433,9 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
 # ==================== MODULE EXPORT ====================
 
 def correlation_ui(id: str) -> ui.TagChild:
-    """Wrapper for compatibility with existing app structure."""
     return corr_ui(id)
 
 
 def correlation_server(id: str, df: reactive.Value, var_meta: reactive.Value,
                        df_matched: reactive.Value, is_matched: reactive.Value):
-    """Wrapper for calling the @module.server decorated server function."""
     return corr_server(id, df, var_meta, df_matched, is_matched)
