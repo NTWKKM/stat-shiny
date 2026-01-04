@@ -43,7 +43,6 @@ jobs:
       
       - name: Run UI Styling Tests
         run: pytest tests/test_color_palette.py -v
-        continue-on-error: false
 
   test-multi-version:
     name: Compatibility Test (Python ${{ matrix.python-version }})
