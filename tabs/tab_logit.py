@@ -475,8 +475,9 @@ def logit_server(
         ui.update_selectize("sel_exclude", choices=cols)
         
         # Generate interaction pair choices for Logit
-        interaction_choices = [f"{cols[i]} × {cols[j]}" for i in range(len(cols)) for j in range(i+1, len(cols)) if i != j]
-        ui.update_selectize("sel_interactions", choices=interaction_choices[:50])  # Limit to 50 pairs
+        from itertools import islice, combinations
+        interaction_choices = list(islice((f"{a} × {b}" for a, b in combinations(cols, 2)), 50))
+        ui.update_selectize("sel_interactions", choices=interaction_choices)
         
         # Update Tab 2 (Poisson) Inputs
         # Identify count columns (non-negative integers)
