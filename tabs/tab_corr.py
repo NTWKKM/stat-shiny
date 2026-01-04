@@ -502,14 +502,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
 
 
 # ==================== MODULE EXPORT ====================
-# ✅ Export functions properly for app.py
-
-def correlation_ui(id: str) -> ui.TagChild:
-    """Wrapper for module UI - called from app.py"""
-    return corr_ui(id)
-
-
-def correlation_server(id: str, df: reactive.Value, var_meta: reactive.Value,
-                       df_matched: reactive.Value, is_matched: reactive.Value):
-    """Wrapper for module server - called from app.py"""
-    return corr_server(id, df, var_meta, df_matched, is_matched)
+# ✅ No wrapper functions needed - @module.ui and @module.server handle everything
+# Use directly in app.py:
+#   corr_ui("corr_module")
+#   corr_server("corr_module", df, var_meta, df_matched, is_matched)
