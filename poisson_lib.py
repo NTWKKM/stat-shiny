@@ -643,7 +643,11 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, in
         for int_name, res in interaction_results.items():
             int_label = res.get('label', int_name)
             int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
-            int_irr = res.get('irr_formatted', '-')  # Use IRR instead of OR for Poisson
+            irr_val = res.get('irr')
+            if irr_val is not None and pd.notna(irr_val):
+                int_irr = f"{irr_val:.2f} ({res.get('ci_low', 0):.2f}-{res.get('ci_high', 0):.2f})"
+            else:
+                int_irr = "-"
             int_p = fmt_p_with_styling(res.get('p', 1))
             
             html_rows.append(f"""<tr style='background-color: #fff9f0;'>
