@@ -8,7 +8,7 @@ Provides UI and server logic for:
 """
 
 from shiny import ui, reactive, render, req
-from shiny.session import get_current_session  # Import เพื่อดึง session ปัจจุบัน
+from shiny.session import get_current_session  # Import to get the current session
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
