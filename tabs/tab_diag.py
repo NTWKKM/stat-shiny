@@ -417,7 +417,7 @@ def diag_server(
             class_="text-secondary text-sm",
         )
 
-    def get_pos_label_settings(df_input: pd.DataFrame, col_name: str) -> tuple[List[str], int]:
+    def get_pos_label_settings(df_input: pd.DataFrame, col_name: str) -> tuple[list[str], int]:
         if df_input is None or col_name not in df_input.columns:
             return [], 0
         unique_vals = [str(x) for x in df_input[col_name].dropna().unique()]
