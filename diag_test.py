@@ -310,14 +310,12 @@ def calculate_chi2(
             row_data.append(cell_content)
         display_data.append(row_data)
     
-    # 2x2 Clarity structure
-    display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
+    # 2x2 Clarity structure with MultiIndex for hierarchical header
+    col_tuples = [(col2, c) if c != 'Total' else ('Total', '') for c in final_col_order]
+    multi_cols = pd.MultiIndex.from_tuples(col_tuples)
     
-    rename_cols = {c: f"{col2} (Outcome/Col): {c}" for c in final_col_order if c != 'Total'}
-    display_tab.rename(columns=rename_cols, inplace=True)
-    
-    display_tab.index.name = f"{col1} (Exposure/Row)"
-    display_tab.reset_index(inplace=True)
+    display_tab = pd.DataFrame(display_data, columns=multi_cols, index=final_row_order)
+    display_tab.index.name = col1
     
     msg = ""
     try:
@@ -692,11 +690,11 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
                 row_vals.append(f"{int(count)} ({pct:.1f}%)")
             display_data.append(row_vals)
             
-        conf_matrix = pd.DataFrame(display_data, index=order, columns=order)
-        conf_matrix.index.name = f"{col1} (Rater/Method 1)"
-        rename_cols = {c: f"{col2} (Rater/Method 2): {c}" for c in labels}
-        conf_matrix.rename(columns=rename_cols, inplace=True)
-        conf_matrix.reset_index(inplace=True)
+        col_tuples = [(col2, c) if c != 'Total' else ('Total', '') for c in order]
+        multi_cols = pd.MultiIndex.from_tuples(col_tuples)
+        
+        conf_matrix = pd.DataFrame(display_data, index=order, columns=multi_cols)
+        conf_matrix.index.name = col1
         
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
         return res_df, None, conf_matrix
@@ -1050,22 +1048,31 @@ def generate_report(
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             border-radius: 6px;
             overflow: hidden;
+            border: 1px solid #dee2e6;
         }}
         table th, table td {{
-            border: 1px solid #ecf0f1;
             padding: 12px 15px;
-            text-align: left;
+            text-align: center;
+            border: 1px solid #dee2e6;
         }}
         table th {{
             background-color: {primary_color};
             color: white;
             font-weight: 600;
         }}
-        table tr:hover {{
-            background-color: #f8f9fa;
+        /* Contingency Table Specific Styling */
+        .contingency-table th, .contingency-table td:first-child {{
+            background-color: {primary_color};
+            color: white;
+            font-weight: 600;
+            text-align: left;
         }}
-        table tr:nth-child(even) {{
-            background-color: #fcfcfc;
+        .contingency-table td {{
+            background-color: white;
+            color: {text_color};
+        }}
+        .contingency-table tr:hover td {{
+            background-color: #f8f9fa;
         }}
         .interpretation {{
             background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
@@ -1106,7 +1113,8 @@ def generate_report(
         
         elif element_type in ('table', 'contingency_table', 'contingency'):
             if hasattr(data, 'to_html'):
-                 html += data.to_html(index=True, classes='', escape=False)
+                 classes = 'contingency-table' if element_type in ('contingency_table', 'contingency') else ''
+                 html += data.to_html(index=True, classes=classes, escape=False)
             else:
                  html += str(data)
         
