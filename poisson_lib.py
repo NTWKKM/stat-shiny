@@ -68,7 +68,7 @@ def run_poisson_regression(
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
     
     except Exception as e:
-        logger.exception(f"Poisson regression failed: {e}")
+        logger.exception("Poisson regression failed")
         return None, None, None, str(e), stats_metrics
 
 
@@ -104,7 +104,8 @@ def check_count_outcome(series: pd.Series) -> Tuple[bool, str]:
         return True, "Valid count data"
     
     except Exception as e:
-        return False, f"Validation error: {str(e)}"
+        logger.exception("Count outcome validation error")
+        return False, f"Validation error: {e!s}"
 
 
 def analyze_poisson_outcome(
@@ -659,7 +660,7 @@ def analyze_poisson_outcome(
                 int_irr = f"{irr_val:.2f} ({res.get('ci_low', 0):.2f}-{res.get('ci_high', 0):.2f})"
             else:
                 int_irr = "-"
-            int_p = fmt_p_with_styling(res.get('p', 1))
+            int_p = fmt_p_with_styling(res.get('p_value', 1))
             
             html_rows.append(f"""<tr style='background-color: #fff9f0;'>
                 <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
