@@ -66,3 +66,25 @@ def perform_matching(df, treatment_col, ps_col, caliper=0.1):
     except Exception as e:
         logger.error(f"Matching error: {e}")
         raise
+
+def compute_smd(df, treatment_col, covariate_cols):
+    """
+    Calculate Standardized Mean Difference (SMD) for balance checking.
+    """
+    smd_data = []
+    treated = df[df[treatment_col] == 1]
+    control = df[df[treatment_col] == 0]
+    
+    for col in covariate_cols:
+        if not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        
+        m1 = treated[col].mean()
+        m0 = control[col].mean()
+        v1 = treated[col].var()
+        v0 = control[col].var()
+        
+        smd = abs(m1 - m0) / np.sqrt((v1 + v0) / 2)
+        smd_data.append({'Variable': col, 'SMD': smd})
+        
+    return pd.DataFrame(smd_data)
