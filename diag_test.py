@@ -880,3 +880,218 @@ def analyze_roc(
     })
 
     return stats_dict, None, fig, coords_df
+
+
+def calculate_icc(df: pd.DataFrame, cols: List[str]) -> Tuple[Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame]]:
+    """
+    Calculate Intraclass Correlation Coefficient (ICC).
+    Uses statsmodels ANOVA to compute ICC(1), ICC(2), ICC(3).
+    
+    Returns:
+        tuple: (icc_results_df, error_msg, anova_table)
+    """
+    if len(cols) < 2:
+        return None, "Neet at least 2 columns for ICC", None
+        
+    data = df[cols].dropna()
+    if data.empty:
+        return None, "No data available", None
+        
+    try:
+        # Reshape to long format for ANOVA
+        # Subject | Rater | Score
+        n = len(data)
+        k = len(cols)
+        
+        # Create long format
+        data = data.copy()
+        data['Subject'] = range(n)
+        long_df = data.melt(id_vars='Subject', value_vars=cols, var_name='Rater', value_name='Score')
+        
+        # Grand Mean
+        grand_mean = long_df['Score'].mean()
+        
+        # Calculate Sum of Squares
+        # SST (Total)
+        sst = ((long_df['Score'] - grand_mean)**2).sum()
+        df_t = n*k - 1
+        
+        # SSBS (Between Subjects)
+        subj_means = long_df.groupby('Subject')['Score'].mean()
+        ssbs = k * ((subj_means - grand_mean)**2).sum()
+        df_bs = n - 1
+        msbs = ssbs / df_bs
+        
+        # SSBM (Between Methods/Raters)
+        rater_means = long_df.groupby('Rater')['Score'].mean()
+        ssbm = n * ((rater_means - grand_mean)**2).sum()
+        df_bm = k - 1
+        msbm = ssbm / df_bm
+        
+        # SSWS (Within Subjects)
+        ssws = sst - ssbs
+        df_ws = df_t - df_bs
+        msws = ssws / df_ws
+        
+        # SSE (Error)
+        sse = ssws - ssbm
+        df_e = df_ws - df_bm
+        mse = sse / df_e
+        
+        # --- ICC Formulas (Shrout & Fleiss, 1979) ---
+        
+        # ICC(1): One-way random
+        # Absolute agreement, rater effect is random noise
+        # icc1 = (msbs - msws) / (msbs + (k-1)*msws)
+        # Using correct MSWS term for ICC(1) is actually just MSWS from One-way ANOVA, 
+        # but here we derived MSWS from Two-way. For One-way, MSWS_1 = (SST - SSBS) / (n(k-1))
+        # Let's stick to the standard Two-Way output which is what people usually want for "Rater consistency"
+        
+        # ICC(1) - One Way Random - Rare in this context but calculated as:
+        # MSW_oneway = (sst - ssbs) / (n*(k-1))
+        # icc1 = (msbs - MSW_oneway) / (msbs + (k-1)*MSW_oneway)
+        
+        # ICC(2): Two-way random (Absolute Agreement) <--- Most common
+        # Raters are random sample from population of raters
+        icc2 = (msbs - mse) / (msbs + (k-1)*mse + (k/n)*(msbm - mse))
+        
+        # ICC(3): Two-way mixed (Consistency)
+        # Raters are fixed (e.g., the specific machines used)
+        icc3 = (msbs - mse) / (msbs + (k-1)*mse)
+        
+        # Formatting results
+        res_data = [
+            # {'Type': 'ICC(1) One-way random', 'ICC': icc1, 'Description': 'Reliability if raters were different for each subject'},
+            {'Type': 'ICC(2) Absolute Agreement', 'ICC': icc2, 'Description': 'Raters are random (Generalize to other raters)'},
+            {'Type': 'ICC(3) Consistency',  'ICC': icc3, 'Description': 'Raters are fixed (Specific to these raters)'}
+        ]
+        
+        results_df = pd.DataFrame(res_data)
+        
+        # Anova Table for reference
+        anova_data = [
+            {'Source': 'Subjects', 'SS': ssbs, 'df': df_bs, 'MS': msbs, 'F': msbs/mse if mse>0 else np.nan},
+            {'Source': 'Raters',   'SS': ssbm, 'df': df_bm, 'MS': msbm, 'F': msbm/mse if mse>0 else np.nan},
+            {'Source': 'Error',    'SS': sse,  'df': df_e,  'MS': mse,  'F': np.nan},
+            {'Source': 'Total',    'SS': sst,  'df': df_t,  'MS': np.nan, 'F': np.nan}
+        ]
+        anova_df = pd.DataFrame(anova_data)
+        
+        return results_df, None, anova_df
+        
+    except Exception as e:
+        logger.error(f"ICC calculation failed: {e}")
+        return None, str(e), None
+
+
+def generate_report(
+    title: str, 
+    elements: List[Dict[str, Any]]
+) -> str:
+    """
+    Generate HTML report from elements.
+    Copied from correlation.py for standalone usage in diag_test module.
+    """
+    primary_color = COLORS['primary']
+    primary_dark = COLORS['primary_dark']
+    text_color = '#333333'
+    
+    css_style = f"""
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+            color: {text_color};
+            line-height: 1.6;
+        }}
+        h1 {{
+            color: {primary_dark};
+            border-bottom: 3px solid {primary_color};
+            padding-bottom: 12px;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }}
+        h2 {{
+            color: {primary_dark};
+            margin-top: 25px;
+            font-size: 1.35em;
+            border-left: 5px solid {primary_color};
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }}
+        table {{
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border-radius: 6px;
+            overflow: hidden;
+        }}
+        table th, table td {{
+            border: 1px solid #ecf0f1;
+            padding: 12px 15px;
+            text-align: left;
+        }}
+        table th {{
+            background-color: {primary_color};
+            color: white;
+            font-weight: 600;
+        }}
+        table tr:hover {{
+            background-color: #f8f9fa;
+        }}
+        table tr:nth-child(even) {{
+            background-color: #fcfcfc;
+        }}
+        .interpretation {{
+            background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
+            border-left: 4px solid {primary_color};
+            padding: 14px 15px;
+            margin: 16px 0;
+            border-radius: 5px;
+            line-height: 1.7;
+            color: {text_color};
+        }}
+        .report-footer {{
+            text-align: center;
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-top: 40px;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }}
+    </style>
+    """
+    
+    html = f"<!DOCTYPE html>\n<html>\n<head><meta charset='utf-8'>{css_style}</head>\n<body>"
+    html += f"<h1>{_html.escape(str(title))}</h1>"
+    
+    for element in elements:
+        element_type = element.get('type')
+        data = element.get('data')
+        header = element.get('header')
+        
+        if header:
+            html += f"<h2>{_html.escape(str(header))}</h2>"
+        
+        if element_type == 'text':
+            html += f"<p>{_html.escape(str(data))}</p>"
+        
+        elif element_type == 'interpretation':
+            html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
+        
+        elif element_type == 'table':
+            if hasattr(data, 'to_html'):
+                 html += data.to_html(index=True, classes='', escape=False)
+            else:
+                 html += str(data)
+        
+        elif element_type == 'plot':
+            if hasattr(data, 'to_html'):
+                html += data.to_html(full_html=False, include_plotlyjs='cdn')
+    
+    html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
+    html += "</body>\n</html>"
+    return html
