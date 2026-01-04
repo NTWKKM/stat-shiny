@@ -621,7 +621,7 @@ def calculate_chi2(
         return display_tab, stats_df, msg, risk_df
     
     except Exception as e:
-        logger.error(f"Chi-square calculation error: {e}")
+        logger.exception("Chi-square calculation error")
         return display_tab, None, str(e), None
 
 
@@ -865,7 +865,7 @@ def analyze_roc(
         x=fpr, y=tpr, 
         mode='lines', 
         name=f'ROC (AUC = {auc_val:.3f})',
-        line=dict(color=COLORS['primary'], width=3)
+        line={'color': COLORS['primary'], 'width': 3}
     ))
 
     # Diagonal Line
@@ -873,7 +873,7 @@ def analyze_roc(
         x=[0, 1], y=[0, 1], 
         mode='lines', 
         name='Chance (AUC = 0.50)',
-        line=dict(color='gray', dash='dash')
+        line={'color': 'gray', 'dash': 'dash'}
     ))
 
     # Best Threshold Point
@@ -881,7 +881,7 @@ def analyze_roc(
         x=[fpr[best_idx]], y=[tpr[best_idx]],
         mode='markers',
         name=f"Best Threshold ({thresholds[best_idx]:.3f})",
-        marker=dict(color='red', size=10, symbol='star')
+        marker={'color': 'red', 'size': 10, 'symbol': 'star'}
     ))
 
     fig.update_layout(
@@ -891,7 +891,7 @@ def analyze_roc(
         template="plotly_white",
         height=500,
         hovermode="x unified",
-        legend=dict(x=0.6, y=0.1)
+        legend={'x': 0.6, 'y': 0.1}
     )
 
     coords_df = pd.DataFrame({
