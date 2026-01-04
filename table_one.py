@@ -116,7 +116,7 @@ def get_stats_categorical_data(
             
     mapped_series = series.copy()
     if mapper:
-        mapped_series = mapped_series.map(lambda x: mapper.get(x, mapper.get(float(x), x)) if pd.notna(x) else x)
+        mapped_series = mapped_series.map(lambda x: mapper.get(x, mapper.get(float(x), x) if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.','',1).isdigit()) else x) if pd.notna(x) else x)
         
     counts = mapped_series.value_counts().sort_index()
     total = len(mapped_series.dropna())
@@ -139,7 +139,7 @@ def get_stats_categorical_str(
     
     pcts = (counts / total * 100) if total > 0 else pd.Series([0] * len(counts))
     res = [f"{_html.escape(str(cat))}: {int(count)} ({pct:.1f}%)" 
-           for cat, (count, pct) in zip(counts.index, zip(counts.values, pcts.values, strict=True), strict=True)]
+           for cat, (count, pct) in zip(counts.index, zip(counts.values, pcts.values))]
     return "<br>".join(res)
 
 
@@ -730,7 +730,7 @@ def generate_table(
                 row_html += f"                    <td class='numeric-cell'>{or_cell_content}</td>\n"
                 
                 smd_cats = counts_total.index.tolist() if is_cat else None
-                smd_val = calculate_smd(df, col, group_col, group_1_val, group_2_val, is_cat, mapped_full_series, smd_cats)
+                smd_val = calculate_smd(df, col, group_col, group_1_val, group_2_val, is_cat=is_cat, mapped_series=mapped_full_series, cats=smd_cats)
                 row_html += f"                    <td class='numeric-cell'>{smd_val}</td>\n"
             
             if is_cat: 
