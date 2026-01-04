@@ -19,12 +19,11 @@ logger = get_logger(__name__)
 # Fetch palette and extend for local needs
 _PALETTE = get_color_palette()
 COLORS = {
-    'primary': _PALETTE.get('primary', '#2180BE'),
-    # Create a darker shade if not provided, or fallback to a default
-    'primary_dark': _PALETTE.get('primary_dark', '#1a5a8a'), 
-    'danger': _PALETTE.get('danger', '#d32f2f'),
-    'text_secondary': '#666',
-    'border': '#e0e0e0'
+    'primary': _PALETTE.get('primary', '#1E3A5F'),
+    'primary_dark': _PALETTE.get('primary_dark', '#0F2440'), 
+    'danger': _PALETTE.get('danger', '#E74856'),
+    'text_secondary': _PALETTE.get('text_secondary', '#6B7280'),
+    'border': _PALETTE.get('border', '#E5E7EB')
 }
 
 # Try to import Firth regression
