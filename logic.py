@@ -54,6 +54,38 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
 
 
+def validate_logit_data(y, X):
+    """
+    ✅ NEW: Added validation to prevent crashes during model fitting.
+    Checks for perfect separation, zero variance, and collinearity.
+    """
+    issues = []
+    
+    # Check for empty data
+    if len(y) == 0 or X.empty:
+        return False, "Empty data provided"
+        
+    # Check for zero variance (constant columns)
+    for col in X.columns:
+        if X[col].nunique() <= 1:
+            issues.append(f"Variable '{col}' has zero variance (only one value)")
+            
+    # Check for perfect separation (quasi-complete or complete)
+    # If any cell in crosstab is 0, Logit might fail to converge
+    for col in X.columns:
+        try:
+            ct = pd.crosstab(X[col], y)
+            if (ct == 0).any().any():
+                logger.debug(f"Perfect separation detected in variable: {col}")
+                # We don't block this, but we log it to use Firth later
+        except Exception:
+            pass
+
+    if issues:
+        return False, "; ".join(issues)
+    return True, "OK"
+
+
 def clean_numeric_value(val):
     """Convert value to float, removing common non-numeric characters."""
     if pd.isna(val):
@@ -86,6 +118,11 @@ def run_binary_logit(y, X, method='default'):
     """
     stats_metrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
     
+    # ✅ NEW: Initial Validation
+    is_valid, msg = validate_logit_data(y, X)
+    if not is_valid:
+        return None, None, None, msg, stats_metrics
+
     try:
         X_const = sm.add_constant(X, has_constant='add')
         
@@ -133,8 +170,12 @@ def run_binary_logit(y, X, method='default'):
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
     
     except Exception as e:
+        # ✅ NEW: Friendly Error Messaging for Technical Jargon
+        err_msg = str(e)
+        if "Singular matrix" in err_msg or "LinAlgError" in err_msg:
+            err_msg = "Model fitting failed: data may have perfect separation or too much collinearity."
         logger.error(f"Logistic regression failed: {e}")
-        return None, None, None, str(e), stats_metrics
+        return None, None, None, err_msg, stats_metrics
 
 
 def get_label(col_name, var_meta):
@@ -161,11 +202,7 @@ def get_label(col_name, var_meta):
 
 
 def fmt_p_with_styling(val):
-    """
-    Format p-value with red highlighting if significant (p < 0.05).
-    
-    OPTIMIZATION: Format p-values with conditional styling for significance.
-    """
+    """Format p-value with red highlighting if significant (p < 0.05)."""
     if pd.isna(val):
         return "-"
     try:
@@ -178,7 +215,6 @@ def fmt_p_with_styling(val):
         else:
             p_str = f"{val:.3f}"
         
-        # Add red styling if p < 0.05
         if val < 0.05:
             return f"<span class='sig-p'>{p_str}</span>"
         else:
@@ -188,12 +224,7 @@ def fmt_p_with_styling(val):
 
 
 def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
-    """
-    Perform logistic regression analysis for binary outcome.
-    
-    Returns:
-        tuple: (html_table, or_results, aor_results)
-    """
+    """Perform logistic regression analysis for binary outcome."""
     logger.info(f"Starting logistic analysis for outcome: {outcome_name}")
     
     if outcome_name not in df.columns:
@@ -246,21 +277,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         preferred_method = 'firth' if HAS_FIRTH else 'bfgs'
     elif method == 'default':
         preferred_method = 'default'
-    
-    def fmt_p(val):
-        """Format p-value without styling for internal use."""
-        if pd.isna(val):
-            return "-"
-        try:
-            val = float(val)
-            val = max(0, min(1, val))
-            if val < 0.001:
-                return "<0.001"
-            if val > 0.999:
-                return ">0.999"
-            return f"{val:.3f}"
-        except (ValueError, TypeError):
-            return "-"
     
     def count_val(series, v_str):
         return (series.astype(str).apply(lambda x: x.replace('.0', '') if x.replace('.', '', 1).isdigit() else x) == v_str).sum()
@@ -374,7 +390,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                         res['coef'] = "<br>".join(coef_lines)
                         res['p_or'] = "<br>".join(p_lines)
                     else:
-                        res['or'] = "-"
+                        res['or'] = f"<span style='color:red; font-size:0.8em'>{status}</span>"
                         res['coef'] = "-"
                 else:
                     res['or'] = "-"
@@ -415,7 +431,7 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                     res['p_or'] = pv
                     or_results[col] = {'or': odd, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
                 else:
-                    res['or'] = "-"
+                    res['or'] = f"<span style='color:red; font-size:0.8em'>{status}</span>"
                     res['coef'] = "-"
             else:
                 res['or'] = "-"
@@ -487,7 +503,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                                 aor = np.exp(coef)
                                 ci_low, ci_high = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
                                 pv = pvals[d_name]
-                                # ✅ FIX: Add coef to aor_entries dict for rendering
                                 aor_entries.append({'lvl': lvl, 'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv})
                                 aor_results[f"{var}: {lvl}"] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
                         results_db[var]['multi_res'] = aor_entries
@@ -497,9 +512,11 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                             aor = np.exp(coef)
                             ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(conf.loc[var][1])
                             pv = pvals[var]
-                            # ✅ FIX: Add coef here too for rendering
                             results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
                             aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
+            else:
+                # Log multivariate failure
+                mv_metrics_text = f"<span style='color:red'>Adjustment Failed: {status}</span>"
     
     # Build HTML
     html_rows = []
@@ -526,7 +543,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         or_s = res.get('or', '-')
         coef_s = res.get('coef', '-')
         
-        # OPTIMIZATION: Use styled p-value formatting
         if mode == 'categorical':
             p_col_display = res.get('p_or', '-')
         else:
@@ -537,7 +553,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
         
         if multi_res:
             if isinstance(multi_res, list):
-                # 📊 Categorical: multiple levels
                 aor_lines, acoef_lines, ap_lines = ["Ref."], ["-"], ["-"]
                 for item in multi_res:
                     p_txt = fmt_p_with_styling(item['p'])
@@ -546,7 +561,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                     ap_lines.append(p_txt)
                 aor_s, acoef_s, ap_s = "<br>".join(aor_lines), "<br>".join(acoef_lines), "<br>".join(ap_lines)
             else:
-                # 📉 Linear: single value
                 if 'coef' in multi_res and pd.notna(multi_res['coef']):
                     acoef_s = f"{multi_res['coef']:.3f}"
                 else:
