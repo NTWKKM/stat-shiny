@@ -311,7 +311,14 @@ def calculate_chi2(
         display_data.append(row_data)
     
     # 2x2 Clarity structure with MultiIndex for hierarchical header
-    col_tuples = [(col2, c) if c != 'Total' else ('Total', '') for c in final_col_order]
+    # Ensure "Total" is properly handled for MultiIndex column structure
+    col_tuples = []
+    for c in final_col_order:
+        if c == 'Total':
+            col_tuples.append(('Total', ''))
+        else:
+            col_tuples.append((col2, str(c)))
+    
     multi_cols = pd.MultiIndex.from_tuples(col_tuples)
     
     display_tab = pd.DataFrame(display_data, columns=multi_cols, index=final_row_order)
@@ -690,7 +697,13 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
                 row_vals.append(f"{int(count)} ({pct:.1f}%)")
             display_data.append(row_vals)
             
-        col_tuples = [(col2, c) if c != 'Total' else ('Total', '') for c in order]
+        col_tuples = []
+        for c in order:
+            if c == "Total":
+                col_tuples.append(("Total", ""))
+            else:
+                col_tuples.append((col2, str(c)))
+        
         multi_cols = pd.MultiIndex.from_tuples(col_tuples)
         
         conf_matrix = pd.DataFrame(display_data, index=order, columns=multi_cols)
@@ -1060,19 +1073,43 @@ def generate_report(
             color: white;
             font-weight: 600;
         }}
-        /* Contingency Table Specific Styling */
-        .contingency-table th, .contingency-table td:first-child {{
-            background-color: {primary_color};
-            color: white;
-            font-weight: 600;
-            text-align: left;
+        /* Contingency Table Specific Styling - Clean Dark Navy Theme */
+        .contingency-table {{
+            border: 1px solid #dee2e6;
+            margin: 24px 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }}
+        .contingency-table th, .contingency-table thead th {{
+            background-color: {primary_dark};
+            color: white !important;
+            font-weight: 600;
+            text-align: center;
+            vertical-align: middle;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px 18px;
+        }}
+        /* Index cells (first column) */
+        .contingency-table tbody th {{
+            background-color: {primary_dark};
+            color: white !important;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }}
+        /* Data cells */
         .contingency-table td {{
             background-color: white;
             color: {text_color};
+            text-align: center;
+            padding: 12px 18px;
+            border: 1px solid #dee2e6;
+            font-variant-numeric: tabular-nums;
         }}
         .contingency-table tr:hover td {{
-            background-color: #f8f9fa;
+            background-color: #f1f5f9;
+        }}
+        /* Header top-left corner handling */
+        .contingency-table thead tr:first-child th:first-child {{
+            border-top-left-radius: 6px;
         }}
         .interpretation {{
             background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
