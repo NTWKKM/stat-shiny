@@ -7,8 +7,10 @@ Provides UI and server logic for:
 - Interactive reporting and HTML export
 """
 
-# === FIX: ตรวจสอบการ Import module และ NS ===
+# === FIX: แก้ไขการ Import เพื่อเรียกใช้ NS ให้ถูกต้อง ===
 from shiny import ui, reactive, render, req, module
+from shiny.module import NS  # Import NS เข้ามาโดยตรงจาก shiny.module
+
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
@@ -50,10 +52,8 @@ def corr_ui(id: str) -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
     """
-    # === FIX: ใช้ NS โดยตรงจาก ui หรือ module ให้ถูกต้องตามเวอร์ชัน ===
-    # ในเวอร์ชันส่วนใหญ่ ui.NS หรือ module.NS จะใช้งานได้ 
-    # แต่ถ้า error บอกว่า module ไม่มี NS ให้ใช้จาก ui.NS แทนครับ
-    ns = ui.NS(id) 
+    # === FIX: เรียกใช้ NS(id) ที่เรา import มาโดยตรงจาก shiny.module ===
+    ns = NS(id) 
     
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
@@ -217,7 +217,7 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
     )
 
 
-# === FIX: ใช้ @module.server ป้องกันความสับสนกับชื่อตัวแปร ===
+# === ใช้ @module.server ป้องกันความสับสนกับชื่อตัวแปร ===
 @module.server
 def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
