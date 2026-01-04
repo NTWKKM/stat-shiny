@@ -212,7 +212,7 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
     )
 
 
-@module
+@module.server
 def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
     """
