@@ -49,7 +49,9 @@ def corr_ui(id: str) -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
     """
-    ns = ui.NS(id)
+    # === FIX: ใช้ module.NS(id) แทน ui.NS(id) ===
+    ns = module.NS(id) 
+    
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
         ui.nav_panel(
@@ -212,11 +214,12 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
     )
 
 
+# === FIX: ใช้ @module.server เพื่อความชัดเจนและป้องกัน shadow name ===
 @module.server
 def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
     """
-    Server logic for correlation analysis module using @module decorator.
+    Server logic for correlation analysis module using @module.server decorator.
     """
     COLORS = get_color_palette()
     
@@ -452,5 +455,5 @@ def correlation_ui(id: str) -> ui.TagChild:
 
 def correlation_server(id: str, df: reactive.Value, var_meta: reactive.Value,
                        df_matched: reactive.Value, is_matched: reactive.Value):
-    """Wrapper for calling the @module decorated server function."""
+    """Wrapper for calling the @module.server decorated server function."""
     return corr_server(id, df, var_meta, df_matched, is_matched)
