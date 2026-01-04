@@ -660,8 +660,8 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                 raise ValueError("No matches found within the specified caliper.")
 
             # SMD Calculations
-            smd_pre = psm_lib.calculate_smd(df_ps, final_treat_col, final_cov_cols)
-            smd_post = psm_lib.calculate_smd(df_m, final_treat_col, final_cov_cols)
+            smd_pre = psm_lib.compute_smd(df_ps, final_treat_col, final_cov_cols)
+            smd_post = psm_lib.compute_smd(df_m, final_treat_col, final_cov_cols)
 
             if cat_covs:
                 smd_pre_cat = _calculate_categorical_smd(df_ps, final_treat_col, cat_covs)
@@ -920,11 +920,14 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
                        f"border: 1px solid {COLORS['success']}; margin-bottom: 20px;")
             )
         else:
-            return ui.info_message(
-                "ℹ️ **No matched data available yet.**\n\n"
-                "1. Go to **Subtab 2 (Propensity Score Matching)**\n\n"
-                "2. Configure variables and run PSM matching\n\n"
-                "3. Return here to view and export matched data"
+            return ui.div(
+                ui.markdown(
+                    "### ℹ️ No matched data available yet.\n\n"
+                    "1. Go to **Subtab 2 (Propensity Score Matching)**\n\n"
+                    "2. Configure variables and run PSM matching\n\n"
+                    "3. Return here to view and export matched data"
+                ),
+                style=f"padding: 20px; border-radius: 8px; background-color: {COLORS['info']}15; border: 1px solid {COLORS['info']};"
             )
 
     @render.ui
