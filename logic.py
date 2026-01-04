@@ -47,7 +47,7 @@ try:
     HAS_FIRTH = True
 except (ImportError, AttributeError):
     HAS_FIRTH = False
-    logger.warning("firthlogist not available")
+    logger.warning("firthmodels not available")
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
@@ -127,7 +127,7 @@ def run_binary_logit(y, X, method='default'):
         
         if method == 'firth':
             if not HAS_FIRTH:
-                return None, None, None, "firthlogist not installed", stats_metrics
+                return None, None, None, "firthmodels not installed", stats_metrics
             
             fl = FirthLogisticRegression(fit_intercept=False)
             fl.fit(X_const, y)
