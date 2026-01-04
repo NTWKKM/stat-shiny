@@ -672,8 +672,30 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
             "Value": [f"{kappa:.4f}", f"{len(data)}", f"{badge} {interp}"]
         })
         
-        conf_matrix = pd.crosstab(y1, y2, rownames=[f"{col1}"], colnames=[f"{col2}"])
-        # 🟢 RESET INDEX for display compatibility with generate_report
+        # Match Chi2 style: totals and percentages
+        tab_raw = pd.crosstab(y1, y2, margins=True, margins_name="Total")
+        tab_row_pct = pd.crosstab(y1, y2, normalize='index', margins=True, margins_name="Total") * 100
+        
+        # Sort labels (excluding 'Total')
+        labels = sorted(list(set(y1.unique()) | set(y2.unique())))
+        order = labels + ["Total"]
+        
+        tab_raw = tab_raw.reindex(index=order, columns=order, fill_value=0)
+        tab_row_pct = tab_row_pct.reindex(index=order, columns=order, fill_value=0)
+        
+        display_data = []
+        for row in order:
+            row_vals = []
+            for col in order:
+                count = tab_raw.loc[row, col]
+                pct = 100.0 if col == "Total" else tab_row_pct.loc[row, col]
+                row_vals.append(f"{int(count)} ({pct:.1f}%)")
+            display_data.append(row_vals)
+            
+        conf_matrix = pd.DataFrame(display_data, index=order, columns=order)
+        conf_matrix.index.name = f"{col1} (Rater/Method 1)"
+        rename_cols = {c: f"{col2} (Rater/Method 2): {c}" for c in labels}
+        conf_matrix.rename(columns=rename_cols, inplace=True)
         conf_matrix.reset_index(inplace=True)
         
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
