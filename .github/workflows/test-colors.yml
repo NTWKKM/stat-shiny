@@ -27,11 +27,9 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
       
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          # Install shiny to enable tabs/_common.py imports
-          pip install pytest pandas numpy shiny
+      # เปลี่ยนจากเดิมมาเรียกใช้ Composite Action
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
       
       - name: Verify Styling System integrity
         run: |
@@ -59,11 +57,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          # Install shiny in all versions for accurate testing
-          pip install pytest pandas numpy shiny
+          
+      # เรียกใช้ Composite Action แทนบล็อกเดิม
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
+
       - name: Run tests
         run: pytest tests/test_color_palette.py
 
@@ -76,8 +74,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
+          
+      # ติดตั้ง linter เพิ่มเติม (ส่วน dependencies หลักถูกดึงผ่าน action)
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
+        
       - name: Install linters
         run: pip install flake8 black
+        
       - name: Check code style (flake8)
         run: flake8 tabs/_common.py tabs/_styling.py tests/test_color_palette.py --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Check formatting (black)
