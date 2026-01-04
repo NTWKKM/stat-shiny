@@ -26,8 +26,8 @@ COLORS = get_color_palette()
 
 
 def run_poisson_regression(
-    y: Union[pd.Series, np.ndarray], 
-    X: pd.DataFrame, 
+    y: Union[pd.Series, np.ndarray],
+    X: pd.DataFrame,
     offset: Optional[Union[pd.Series, np.ndarray]] = None
 ) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
     """
@@ -593,8 +593,8 @@ def analyze_poisson_outcome(
     
     # Build HTML table rows
     html_rows = []
-    current_sheet = ""
     valid_cols_for_html = [c for c in sorted_cols if c in results_db]
+    # Keep sorting by group to ensure variables of same sheet stay together
     grouped_cols = sorted(valid_cols_for_html, key=lambda x: (x.split('_')[0] if '_' in x else "Variables", x))
     
     for col in grouped_cols:
@@ -603,12 +603,6 @@ def analyze_poisson_outcome(
         
         res = results_db[col]
         mode = mode_map.get(col, 'linear')
-        sheet = col.split('_')[0] if '_' in col else "Variables"
-        
-        # Sheet header with styled grouping
-        if sheet != current_sheet:
-            html_rows.append(f"<tr class='sheet-header'><td colspan='9'>{sheet}</td></tr>")
-            current_sheet = sheet
         
         lbl = get_label(col, var_meta)
         mode_badge = {
@@ -660,9 +654,8 @@ def analyze_poisson_outcome(
             <td>{ap_s}</td>
         </tr>""")
     
-    # ✅ Add interaction terms to HTML table
+    # ✅ Add interaction terms to HTML table (No header row)
     if interaction_results:
-        html_rows.append("<tr class='sheet-header'><td colspan='9'>🔗 Interaction Terms</td></tr>")
         for int_name, res in interaction_results.items():
             int_label = res.get('label', int_name)
             int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
