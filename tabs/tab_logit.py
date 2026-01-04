@@ -9,7 +9,7 @@ import gc
 from typing import Optional, List, Dict, Any, Tuple, Union, cast
 
 # Import internal modules
-from logic import process_data_and_generate_html
+from logic import analyze_outcome
 from poisson_lib import analyze_poisson_outcome
 from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
@@ -548,8 +548,8 @@ def logit_server(
 
             try:
                 # Run Logic from logic.py
-                html_rep, or_res, aor_res, interaction_res = process_data_and_generate_html(
-                    final_df, target, var_meta=var_meta.get(), method=method,
+                html_rep, or_res, aor_res, interaction_res = analyze_outcome(
+                    target, final_df, var_meta=var_meta.get(), method=method,
                     interaction_pairs=interaction_pairs
                 )
             except Exception as e:
