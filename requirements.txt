@@ -6,10 +6,11 @@ statsmodels
 lifelines
 scikit-learn
 plotly
-firthlogist
+firthmodels
 openpyxl
 matplotlib
 seaborn
 shimmy
 shinywidgets
 requests
+jinja2
