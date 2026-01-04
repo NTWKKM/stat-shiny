@@ -40,7 +40,8 @@ def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: L
         return pd.DataFrame(columns=['Variable', 'SMD'])
 
     for col in cat_cols:
-        if col not in df.columns: continue
+        if col not in df.columns: 
+            continue
         try:
             categories = df[col].dropna().unique()
             smd_squared_sum = 0
