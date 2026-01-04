@@ -21,6 +21,7 @@ def get_styling_data():
         from tabs._common import get_color_palette
     except ImportError as e:
         pytest.skip(f"Could not import from tabs._common: {e}")
+        return None  # Unreachable when pytest.skip raises, but explicit for clarity
     else:
         palette = get_color_palette()
         return {"colors": palette, "fetcher": get_color_palette}
