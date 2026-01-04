@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional, Any, Dict, List, Generator, cast
+from typing import ClassVar
 import time
 import threading
 
@@ -202,10 +203,10 @@ class Logger:
 class LoggerFactory:
     """Factory for creating and managing loggers."""
     
-    _loggers: Dict[str, Logger] = {}
-    _context_filter: Optional[ContextFilter] = None
-    _perf_logger: Optional[PerformanceLogger] = None
-    _configured: bool = False
+    _loggers: ClassVar[Dict[str, Logger]] = {}
+    _context_filter: ClassVar[Optional[ContextFilter]] = None
+    _perf_logger: ClassVar[Optional[PerformanceLogger]] = None
+    _configured: ClassVar[bool] = False
     _lock = threading.Lock()
     
     @classmethod
