@@ -1,10 +1,9 @@
-# แก้ไขไฟล์ tabs/_common.py
-# คงคอมเมนต์และโครงสร้างเดิมไว้ทั้งหมด
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from shiny.ui import TagChild
 
-def wrap_with_container(
-    content,
-):  # ลบ Type hint TagChild ออกเพื่อเลี่ยงการ import shiny ด้านบน
+def wrap_with_container(content) -> "TagChild":
     """
     Wraps UI content with the .app-container CSS class.
     ... (คงคอมเมนต์เดิมไว้ทั้งหมด) ...
