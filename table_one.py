@@ -266,6 +266,7 @@ def calculate_smd(
     group_col: str, 
     g1_val: Any, 
     g2_val: Any, 
+    *,
     is_cat: bool, 
     mapped_series: Optional[pd.Series] = None, 
     cats: Optional[List[Any]] = None
