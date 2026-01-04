@@ -61,6 +61,7 @@ def test_essential_ui_colors():
 def test_color_format_validity():
     """Verify all colors are valid HEX codes."""
     data = get_styling_data()
+    assert data is not None, "Styling data not available"
     palette = data["colors"]
 
     import re
@@ -113,6 +114,7 @@ def test_styling_injector_integration():
 def test_no_hardcoded_old_colors():
     """Check that old color keys are not being used."""
     data = get_styling_data()
+    assert data is not None, "Styling data not available"
     palette = data["colors"]
 
     # Check old key
