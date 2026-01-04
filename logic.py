@@ -223,8 +223,20 @@ def fmt_p_with_styling(val):
         return "-"
 
 
-def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
-    """Perform logistic regression analysis for binary outcome."""
+def analyze_outcome(outcome_name, df, var_meta=None, method='auto', interaction_pairs=None):
+    """
+    Perform logistic regression analysis for binary outcome.
+    
+    Args:
+        outcome_name: Name of binary outcome column
+        df: Input DataFrame
+        var_meta: Variable metadata dictionary
+        method: 'auto', 'default', 'bfgs', or 'firth'
+        interaction_pairs: List of tuples for interactions [(var1, var2), ...]
+    
+    Returns:
+        tuple: (html_table, or_results, aor_results, interaction_results)
+    """
     logger.info(f"Starting logistic analysis for outcome: {outcome_name}")
     
     if outcome_name not in df.columns:
@@ -446,6 +458,8 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
     
     # Multivariate analysis
     aor_results = {}
+    interaction_results = {}  # ✅ NEW: Store interaction results
+    int_meta = {}  # ✅ NEW: Store interaction metadata
     final_n_multi = 0
     mv_metrics_text = ""
     
@@ -472,6 +486,15 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                         multi_df[d_name] = (raw_vals.astype(str) == str(lvl)).astype(int)
             else:
                 multi_df[c] = df_aligned[c].apply(clean_numeric_value)
+        
+        # ✅ NEW: Add interaction terms if specified
+        if interaction_pairs:
+            try:
+                from interaction_lib import create_interaction_terms
+                multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
+                logger.info(f"✅ Added {len(int_meta)} interaction terms to logistic multivariate model")
+            except Exception as e:
+                logger.error(f"Failed to create interaction terms: {e}")
         
         multi_data = multi_df.dropna()
         final_n_multi = len(multi_data)
@@ -514,6 +537,15 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                             pv = pvals[var]
                             results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
                             aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
+                
+                # ✅ NEW: Process interaction effects
+                if int_meta:
+                    try:
+                        from interaction_lib import format_interaction_results
+                        interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'logit')
+                        logger.info(f"✅ Formatted {len(interaction_results)} logistic interaction results")
+                    except Exception as e:
+                        logger.error(f"Failed to format interaction results: {e}")
             else:
                 # Log multivariate failure
                 mv_metrics_text = f"<span style='color:red'>Adjustment Failed: {status}</span>"
@@ -582,7 +614,34 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             <td>{ap_s}</td>
         </tr>""")
     
-    logger.info(f"Logistic analysis complete. Multivariate n={final_n_multi}")
+    # ✅ NEW: Add interaction terms to HTML table
+    if interaction_results:
+        html_rows.append("<tr class='sheet-header'><td colspan='11'>🔗 Interaction Terms</td></tr>")
+        for int_name, res in interaction_results.items():
+            int_label = res.get('label', int_name)
+            int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
+            or_val = res.get('or')
+            if or_val is not None and pd.notna(or_val):
+                int_or = f"{or_val:.2f} ({res.get('ci_low', 0):.2f}-{res.get('ci_high', 0):.2f})"
+            else:
+                int_or = "-"
+            int_p = fmt_p_with_styling(res.get('p_value', 1))
+            
+            html_rows.append(f"""<tr style='background-color: #fff9f0;'>
+                <td><b>🔗 {int_label}</b><br><small style='color: #666;'>(Interaction)</small></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>{int_coef}</td>
+                <td><b>{int_or}</b></td>
+                <td>Interaction</td>
+                <td>-</td>
+                <td>{int_coef}</td>
+                <td><b>{int_or}</b></td>
+                <td>{int_p}</td>
+            </tr>""")
+    
+    logger.info(f"Logistic analysis complete. Multivariate n={final_n_multi}, Interactions={len(interaction_results)}")
     
     model_fit_html = ""
     if mv_metrics_text:
@@ -614,11 +673,12 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
             <b>Selection:</b> Variables with Crude P < 0.20 (n={final_n_multi})<br>
             <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)
             {model_fit_html}
+            {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}
         </div>
     </div>
     </div><br>"""
     
-    return html_table, or_results, aor_results
+    return html_table, or_results, aor_results, interaction_results
 
 
 def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots: Odds Ratios"):
@@ -652,8 +712,20 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots:
     return "".join(html_parts)
 
 
-def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto'):
-    """Generate complete HTML report with logistic regression results."""
+def process_data_and_generate_html(df, target_outcome, var_meta=None, method='auto', interaction_pairs=None):
+    """
+    Generate complete HTML report with logistic regression results.
+    
+    Args:
+        df: Input DataFrame
+        target_outcome: Name of binary outcome column
+        var_meta: Variable metadata dictionary
+        method: 'auto', 'default', 'bfgs', or 'firth'
+        interaction_pairs: List of tuples for interactions [(var1, var2), ...]
+    
+    Returns:
+        tuple: (full_html, or_res, aor_res, interaction_res)
+    """
     css = f"""<style>
         body {{ font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f6f8; }}
         .table-container {{ background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }}
@@ -666,10 +738,13 @@ def process_data_and_generate_html(df, target_outcome, var_meta=None, method='au
         .sheet-header td {{ background-color: #e8f4f8; color: {COLORS['primary']}; font-weight: bold; }}
     </style>"""
     
-    html_table, or_res, aor_res = analyze_outcome(target_outcome, df, var_meta, method=method)
+    html_table, or_res, aor_res, interaction_res = analyze_outcome(
+        target_outcome, df, var_meta, method=method, interaction_pairs=interaction_pairs
+    )
     plot_html = generate_forest_plot_html(or_res, aor_res)
     
     full_html = f"<!DOCTYPE html><html><head>{css}</head><body><h1>Logistic Regression Report</h1>{html_table}{plot_html}"
     full_html += "<div style='text-align: right; font-size: 0.75em; color: #999; margin-top: 20px;'>&copy; 2025 stat-shiny</div>"
     
-    return full_html, or_res, aor_res
+    return full_html, or_res, aor_res, interaction_res
+
