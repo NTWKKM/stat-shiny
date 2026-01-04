@@ -149,8 +149,8 @@ if __name__ == "__main__":
         except AssertionError as e:
             print(f"❌ {test_func.__name__}: {e}")
             failed += 1
-        except Exception as e:
-            print(f"⚠️  {test_func.__name__}: Error: {e}")
+        except (ImportError, RuntimeError) as e:
+            print(f"⚠️  {test_func.__name__}: Error: {type(e).__name__}: {e}")
             failed += 1
 
     print(f"\n{'='*60}")

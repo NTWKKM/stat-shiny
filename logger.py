@@ -162,7 +162,7 @@ class Logger:
         else:
             self.info(msg)
     
-    def log_data_summary(self, df_name: str, shape: tuple, dtypes: Dict[str, str]) -> None:
+    def log_data_summary(self, df_name: str, shape: tuple[int, ...], dtypes: Dict[str, str]) -> None:
         """Log data summary."""
         if DEFAULT_CONFIG.get('logging.log_data_operations'):
             self.info(
@@ -207,7 +207,7 @@ class LoggerFactory:
     _context_filter: ClassVar[Optional[ContextFilter]] = None
     _perf_logger: ClassVar[Optional[PerformanceLogger]] = None
     _configured: ClassVar[bool] = False
-    _lock = threading.Lock()
+    _lock: ClassVar[threading.Lock] = threading.Lock()
     
     @classmethod
     def configure(cls) -> None:

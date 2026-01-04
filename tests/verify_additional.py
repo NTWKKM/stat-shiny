@@ -93,7 +93,7 @@ def test_survival_km(df):
     print("\n[TEST] Survival KM & Log-rank")
     try:
         # Check median survival
-        _kms = calculate_median_survival(df, 'time', 'event', 'exposure')
+        kms = calculate_median_survival(df, 'time', 'event', 'exposure')
         if not kms.empty:
              print("✅ calculate_median_survival returned results")
         
