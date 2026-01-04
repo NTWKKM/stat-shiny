@@ -285,7 +285,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, in
             
             # Correlation test
             try:
-                corr, p = stats.spearmanr(X_num.dropna(), y.loc[X_num.dropna().index])
+                _, p = stats.spearmanr(X_num.dropna(), y.loc[X_num.dropna().index])
                 res['p_comp'] = p
                 res['test_name'] = "Spearman"
             except (ValueError, TypeError):
@@ -639,7 +639,7 @@ def analyze_poisson_outcome(outcome_name, df, var_meta=None, offset_col=None, in
     
     # ✅ Add interaction terms to HTML table
     if interaction_results:
-        html_rows.append(f"<tr class='sheet-header'><td colspan='9'>🔗 Interaction Terms</td></tr>")
+        html_rows.append("<tr class='sheet-header'><td colspan='9'>🔗 Interaction Terms</td></tr>")
         for int_name, res in interaction_results.items():
             int_label = res.get('label', int_name)
             int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
