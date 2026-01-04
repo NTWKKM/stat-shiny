@@ -966,7 +966,6 @@ def generate_report(title, report_items):
     
     # ดึงสีจาก Palette กลาง เพื่อให้ตรงกับส่วนอื่นของเว็บ
     primary_color = COLORS.get('primary', '#0056b3')
-    primary_light = '#e3f2fd' # สีพื้นหลังหัวตารางที่อ่อนลง ให้ดู modern ขึ้น
     text_dark = '#2c3e50'
     border_color = '#dee2e6'
     bg_light = '#f8f9fa'
