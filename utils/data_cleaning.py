@@ -1,11 +1,13 @@
 """
 🧹 Data Cleaning Utilities
 Consolidated from logic.py, table_one.py, and poisson_lib.py
+Driven by central configuration from config.py
 """
 
 import pandas as pd
 import numpy as np
 from typing import Any, Union
+from config import CONFIG  # นำเข้าตัวสั่งการ
 
 def clean_numeric(val: Any) -> float:
     """
@@ -38,6 +40,19 @@ def robust_sort_key(x: Any) -> tuple:
         return (0, val)
     except (ValueError, TypeError):
         return (1, str(x))
+
+def is_continuous_variable(series: pd.Series) -> bool:
+    """
+    Determine if a variable should be treated as continuous based on CONFIG.
+    (Uses thresholds from config.py)
+    """
+    # ดึงค่าจาก config.py
+    threshold = CONFIG.get('analysis.var_detect_threshold', 10)
+    
+    unique_count = series.nunique()
+    if unique_count > threshold:
+        return True
+    return False
 
 @np.vectorize
 def clean_numeric_vector(val: Any) -> float:
