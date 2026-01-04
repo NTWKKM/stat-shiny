@@ -27,7 +27,7 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
       
-      # เปลี่ยนจากเดิมมาเรียกใช้ Composite Action
+      # Use Composite Action for environment setup
       - name: Setup environment
         uses: ./.github/actions/setup-test-env
       
