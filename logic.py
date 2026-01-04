@@ -28,22 +28,7 @@ COLORS = {
 
 # Try to import Firth regression
 try:
-    from firthlogist import FirthLogisticRegression
-    
-    if not hasattr(FirthLogisticRegression, "_validate_data"):
-        from sklearn.utils.validation import check_X_y, check_array
-        
-        logger.info("Applying sklearn compatibility patch to FirthLogisticRegression")
-        
-        def _validate_data_patch(self, X, y=None, reset=True, validate_separately=False, **check_params):
-            """Compatibility shim for sklearn >= 1.6."""
-            if y is None:
-                return check_array(X, **check_params)
-            else:
-                return check_X_y(X, y, **check_params)
-        
-        FirthLogisticRegression._validate_data = _validate_data_patch
-        logger.info("Patch applied successfully")
+    from firthmodels import FirthLogisticRegression  
     
     HAS_FIRTH = True
 except (ImportError, AttributeError):
