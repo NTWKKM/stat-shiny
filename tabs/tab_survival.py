@@ -271,7 +271,7 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         # Fallback to empty dict if structure is different
         try:
             return {item.get('name', k): item.get('label', k) for k, item in meta.items()}
-        except:
+        except (AttributeError, TypeError, KeyError):
             return {}
 
     def get_label(col_name: str) -> str:
