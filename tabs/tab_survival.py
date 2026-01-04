@@ -260,6 +260,24 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
     cox_result = reactive.Value(None)
     sg_result = reactive.Value(None)
     
+    # ==================== LABEL MAPPING LOGIC ====================
+    @reactive.Calc
+    def label_map():
+        """Build a dictionary mapping raw column names to user-friendly labels from var_meta."""
+        meta = var_meta.get() if hasattr(var_meta, 'get') else var_meta()
+        if not meta:
+            return {}
+        # Assuming meta is a list of dicts with 'name' and 'label' or similar structure
+        # Fallback to empty dict if structure is different
+        try:
+            return {item.get('name', k): item.get('label', k) for k, item in meta.items()}
+        except:
+            return {}
+
+    def get_label(col_name: str) -> str:
+        """Helper to get label for a column, falling back to column name."""
+        return label_map().get(col_name, col_name)
+
     # ==================== DATASET UPDATES ====================
     @reactive.Effect
     def _update_current_dataset():
@@ -275,22 +293,20 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
 
             # --- AUTO-DETECTION LOGIC WITH PRIORITY ---
             
-            # 1. Detect Time Variables (ตามลำดับความสำคัญใน time_keywords)
+            # 1. Detect Time Variables
             time_keywords = ['time', 'day', 'month', 'year', 'range', 'followup', 'fu']
             default_time = "Select..."
             
-            # วนหาตามลำดับ keyword: เจอคำที่ Priority สูงกว่าก่อน จะหยุดหาทันที
             for kw in time_keywords:
                 matched = [c for c in numeric_cols if kw in c.lower()]
                 if matched:
                     default_time = matched[0]
                     break
             
-            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกตัวเลขตัวแรก
             if default_time == "Select..." and numeric_cols:
                 default_time = numeric_cols[0]
 
-            # 2. Detect Event Variables (ตามลำดับความสำคัญใน event_keywords)
+            # 2. Detect Event Variables
             event_keywords = ['status', 'event', 'death', 'cure', 'survive', 'died', 'outcome']
             default_event = "Select..."
             
@@ -300,11 +316,10 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                     default_event = matched[0]
                     break
             
-            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
             if default_event == "Select..." and cols:
                 default_event = cols[0]
                 
-            # 3. Detect compare Variables (ตามลำดับความสำคัญใน event_keywords)
+            # 3. Detect compare Variables
             compare_keywords = ['treatment', 'group', 'comorbid', 'comorb', 'dz', 'lab', 'diag', 'sex', 'age']
             default_compare = "Select..."
             
@@ -314,11 +329,10 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                     default_compare = matched[0]
                     break
             
-            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
             if default_compare == "Select..." and cols:
                 default_compare = cols[0]
 
-            # 4. Detect treatment Variables (ตามลำดับความสำคัญใน event_keywords)
+            # 4. Detect treatment Variables
             tx_keywords = ['treatment', 'tx', 'group', 'drug', 'give']
             default_tx = "Select..."
             
@@ -328,11 +342,10 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                     default_tx = matched[0]
                     break
             
-            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
             if default_tx == "Select..." and cols:
                 default_tx = cols[0]
 
-            # 5. Detect subgroup Variables (ตามลำดับความสำคัญใน event_keywords)
+            # 5. Detect subgroup Variables
             subgr_keywords = ['comorbid', 'comorb', 'group', 'control', 'contr', 'ctr', 'dz', 'lab', 'diag', 'sex', 'age']
             default_subgr = "Select..."
             
@@ -342,27 +355,30 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                     default_subgr = matched[0]
                     break
             
-            # Fallback: ถ้าไม่เจอ keyword เลย ให้เลือกคอลัมน์แรกสุด
             if default_subgr == "Select..." and cols:
                 default_subgr = cols[0]
                 
+            # Update UI choices with labels if available
+            choices_with_labels = {c: get_label(c) for c in cols}
+            num_choices_with_labels = {c: get_label(c) for c in numeric_cols}
+
             # KM Curves
-            ui.update_select("surv_time", choices=numeric_cols, selected=default_time)
-            ui.update_select("surv_event", choices=cols, selected=default_event)
-            ui.update_select("surv_group", choices=["None"] + cols)
+            ui.update_select("surv_time", choices=num_choices_with_labels, selected=default_time)
+            ui.update_select("surv_event", choices=choices_with_labels, selected=default_event)
+            ui.update_select("surv_group", choices={"None": "None", **choices_with_labels})
             
             # Landmark Analysis
-            ui.update_select("landmark_group", choices=cols, selected=default_compare)
+            ui.update_select("landmark_group", choices=choices_with_labels, selected=default_compare)
             
             # Cox Regression
-            ui.update_checkbox_group("cox_covariates", choices=cols)
+            ui.update_checkbox_group("cox_covariates", choices=choices_with_labels)
             
             # Subgroup Analysis
-            ui.update_select("sg_time", choices=numeric_cols, selected=default_time)
-            ui.update_select("sg_event", choices=cols, selected=default_event)
-            ui.update_select("sg_treatment", choices=cols, selected=default_tx)
-            ui.update_select("sg_subgroup", choices=cols, selected=default_subgr)
-            ui.update_checkbox_group("sg_adjust", choices=cols)
+            ui.update_select("sg_time", choices=num_choices_with_labels, selected=default_time)
+            ui.update_select("sg_event", choices=choices_with_labels, selected=default_event)
+            ui.update_select("sg_treatment", choices=choices_with_labels, selected=default_tx)
+            ui.update_select("sg_subgroup", choices=choices_with_labels, selected=default_subgr)
+            ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
 
     # ==================== 1. CURVES LOGIC (KM/NA) ====================
     @reactive.Effect
@@ -542,6 +558,9 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                 ui.notification_remove("run_cox")
                 return
             
+            # Update results with labels for forest plot if possible
+            # Note: res_df column 'Variable' could be mapped to labels here if forest plot lib supports it
+            
             # 2. Forest Plot
             forest_fig = survival_lib.create_forest_plot_cox(res_df)
             
@@ -610,8 +629,10 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         # Display Plots
         if res['assumptions_plots']:
             html_plots = ""
-            for fig in res['assumptions_plots']:
-                html_plots += fig.to_html(full_html=False, include_plotlyjs='cdn')
+            for i, fig in enumerate(res['assumptions_plots']):
+                # Include Plotly.js only for the first plot
+                include_js = 'cdn' if i == 0 else False
+                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
             
             elements.append(ui.HTML(html_plots))
             
