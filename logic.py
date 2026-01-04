@@ -137,13 +137,14 @@ def run_binary_logit(y, X, method='default'):
                 return None, None, None, "Firth output shape mismatch", stats_metrics
             
             params = pd.Series(coef, index=X_const.columns)
-            pvalues = pd.Series(getattr(fl, "pvals_", np.full(len(X_const.columns), np.nan)), index=X_const.columns)
-            ci = getattr(fl, "ci_", None)
-            conf_int = (
-                pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
-                if ci is not None
-                else pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
-            )
+            # firthmodels uses pvalues_ (not pvals_)
+            pvalues = pd.Series(getattr(fl, "pvalues_", np.full(len(X_const.columns), np.nan)), index=X_const.columns)
+            # firthmodels uses conf_int() method (not ci_ attribute)
+            try:
+                ci = fl.conf_int()  # Returns DataFrame with 0, 1 columns
+                conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
+            except Exception:
+                conf_int = pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
             return params, conf_int, pvalues, "OK", stats_metrics
         
         elif method == 'bfgs':
