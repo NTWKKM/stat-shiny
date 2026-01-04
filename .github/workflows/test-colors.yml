@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # เพิ่ม shiny ในทุก version เพื่อความแม่นยำในการทดสอบ
+          # Install shiny in all versions for accurate testing
           pip install pytest pandas numpy shiny
       - name: Run tests
         run: pytest tests/test_color_palette.py
