@@ -628,7 +628,10 @@ def baseline_matching_server(
     def _run_psm():
         d = df.get()
         treat_col = input.sel_treat_col()
-        cov_cols = list(input.sel_covariates() or [])
+        cov_cols = [
+            c for c in (input.sel_covariates() or [])
+            if c not in {treat_col, input.sel_outcome_col()}
+        ]
         caliper = float(input.sel_caliper_preset())
 
         if d is None or not treat_col or not cov_cols:
