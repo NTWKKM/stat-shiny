@@ -11,6 +11,7 @@ import statsmodels.api as sm
 from scipy.stats import chi2
 from logger import get_logger
 from logic import clean_numeric_value
+from logic import fmt_p_with_styling, COLORS
 from typing import Union, Optional, List, Dict, Tuple, Any
 
 logger = get_logger(__name__)
@@ -157,7 +158,7 @@ def test_interaction_significance(
             'bic_full': result_full.bic
         }
     
-    except Exception as e:
+    except Exception:
         logger.exception("Interaction test failed")
         return {
             'lr_stat': np.nan,
@@ -264,7 +265,6 @@ def generate_interaction_html_table(
     """
     Generate HTML table for interaction results.
     """
-    from logic import fmt_p_with_styling, COLORS
     
     if not results:
         return "<p class='text-muted'>No interaction results available.</p>"
