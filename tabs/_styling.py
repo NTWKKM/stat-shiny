@@ -16,7 +16,7 @@ Features:
 - Enhanced table styling
 
 Usage:
-    from tabs._styling import get_shiny_css, style_card, style_button
+    from tabs._styling import get_shiny_css, style_card_header, style_status_badge, style_alert
 
     ui.HTML(get_shiny_css())
 """
