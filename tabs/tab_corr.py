@@ -139,7 +139,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
 
         # TAB 3: Reference & Interpretation
         ui.nav_panel(
-            "ℹ️ Reference",
+            "📖 Reference",
             ui.card(
                 ui.card_header("📚 Reference & Interpretation Guide"),
 
