@@ -1,4 +1,7 @@
-from shiny import App, ui, reactive, Session
+from shiny import App, ui, reactive, Session, Inputs, Outputs
+from shiny.types import FileInfo
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
 # Import Config/Logger
 from config import CONFIG
@@ -92,23 +95,24 @@ app_ui = ui.page_navbar(
 # ==========================================
 # 2. SERVER LOGIC
 # ==========================================
-def server(input, output, session: Session):
+def server(input: Inputs, output: Outputs, session: Session) -> None:
     logger.info("📱 Shiny app session started")
 
     # --- Reactive State (Global) ---
     
-    df = reactive.Value(None)
-    var_meta = reactive.Value({})
-    uploaded_file_info = reactive.Value(None)
+    # Type hints added for better clarity, though specific DataFrame type isn't enforceble at runtime
+    df: reactive.Value[Optional[Any]] = reactive.Value(None)
+    var_meta: reactive.Value[Dict[str, Any]] = reactive.Value({})
+    uploaded_file_info: reactive.Value[Optional[List[FileInfo]]] = reactive.Value(None)
     
     # Matched data state (Shared across tabs)
-    df_matched = reactive.Value(None)
-    is_matched = reactive.Value(False)
-    matched_treatment_col = reactive.Value(None)
-    matched_covariates = reactive.Value([])
+    df_matched: reactive.Value[Optional[Any]] = reactive.Value(None)
+    is_matched: reactive.Value[bool] = reactive.Value(False)
+    matched_treatment_col: reactive.Value[Optional[str]] = reactive.Value(None)
+    matched_covariates: reactive.Value[List[str]] = reactive.Value([])
 
     # --- Helper: Check Dependencies ---
-    def check_optional_deps():
+    def check_optional_deps() -> None:
         # เช็คจากตัวแปร HAS_FIRTH ที่ logic.py เตรียมไว้ให้แล้ว
         if HAS_FIRTH:
             logger.info("Optional dependencies: firth=True")
