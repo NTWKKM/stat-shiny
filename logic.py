@@ -124,12 +124,14 @@ def run_binary_logit(y, X, method='default'):
             
             params = pd.Series(coef, index=X_const.columns)
             pvalues = pd.Series(getattr(fl, "pvals_", np.full(len(X_const.columns), np.nan)), index=X_const.columns)
+            # ปรับปรุงตรงนี้: ตรวจสอบ ci ให้ชัวร์ก่อนสร้าง DataFrame
             ci = getattr(fl, "ci_", None)
-            conf_int = (
-                pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
-                if ci is not None
-                else pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
-            )
+            if ci is not None and len(ci) == len(X_const.columns):
+                conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
+            else:
+                # ถ้า CI ไม่มี ให้ใส่ NaN เพื่อไม่ให้ระบบค้างและแสดงผลเป็น "-" ในตาราง
+                conf_int = pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
+                
             return params, conf_int, pvalues, "OK", stats_metrics
         
         elif method == 'bfgs':
