@@ -310,19 +310,20 @@ def calculate_chi2(
             row_data.append(cell_content)
         display_data.append(row_data)
     
-    # 2x2 Clarity structure with MultiIndex for hierarchical header
-    # Ensure "Total" is properly handled for MultiIndex column structure
+    # --- CONSTRUCT MULTI-INDEX FOR 2-ROW HEADER LAYOUT ---
     col_tuples = []
     for c in final_col_order:
         if c == 'Total':
-            col_tuples.append(('Total', ''))
+            # Use empty string for second level to create vertical merge effect
+            # Tuple: (Level 1 Header, Level 2 Header)
+            col_tuples.append(('Total', '')) 
         else:
             col_tuples.append((col2, str(c)))
     
     multi_cols = pd.MultiIndex.from_tuples(col_tuples)
     
     display_tab = pd.DataFrame(display_data, columns=multi_cols, index=final_row_order)
-    display_tab.index.name = col1
+    display_tab.index.name = col1  # This ensures the first column (Index) has the correct name
     
     msg = ""
     try:
@@ -338,7 +339,7 @@ def calculate_chi2(
             stats_res = {
                 "Test": method_name,
                 "Statistic (OR)": f"{odds_ratio:.4f}",
-                "P-value": format_p_value(p_value), # Highlighting applied
+                "P-value": format_p_value(p_value), 
                 "Degrees of Freedom": "-",
                 "N": len(data)
             }
@@ -352,7 +353,7 @@ def calculate_chi2(
             stats_res = {
                 "Test": method_name,
                 "Statistic (χ²)": f"{chi2_val:.4f}",
-                "P-value": format_p_value(p), # Highlighting applied
+                "P-value": format_p_value(p), 
                 "Degrees of Freedom": f"{dof}",
                 "N": len(data)
             }
@@ -701,6 +702,7 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
                 row_vals.append(f"{int(count)}<br><small style='color:#666'>({pct:.1f}%)</small>")
             display_data.append(row_vals)
             
+        # --- CONSTRUCT MULTI-INDEX FOR KAPPA TABLE ---
         col_tuples = []
         for c in order:
             if c == "Total":
@@ -1101,6 +1103,11 @@ def generate_report(
             border: 1px solid rgba(255, 255, 255, 0.1);
             vertical-align: middle;
         }}
+
+        /* HACK: Hide top border for empty cells in header to simulate rowspan for 'Total' */
+        .contingency-table thead tr:last-child th:empty {{
+            border-top: none !important;
+        }}
         
         /* Row Headers (Index - Variable 1 Categories) */
         .contingency-table tbody th {{
@@ -1129,9 +1136,6 @@ def generate_report(
             background-color: #e6f3ff !important;
             transition: background-color 0.2s ease;
         }}
-        
-        /* Total Row/Col Highlighting (Optional Logic) */
-        /* You can target last-child if you want specific styling for Totals */
         
         .interpretation {{
             background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
