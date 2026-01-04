@@ -646,11 +646,13 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
 
             # --- 🟢 FIXED: Updated to match new psm_lib API ---
             # Calculation
-            # 1. Calculate Propensity Score (Returns DF, not Tuple)
-            df_ps = psm_lib.calculate_propensity_score(df_analysis, final_treat_col, final_cov_cols)
+            # 1. Calculate Propensity Score (Returns Series)
+            ps_scores = psm_lib.calculate_propensity_score(df_analysis, final_treat_col, final_cov_cols)
+            df_ps = df_analysis.copy()
+            df_ps['propensity_score'] = ps_scores
 
             # 2. Perform Matching (Signature: df, treatment, caliper)
-            df_m = psm_lib.perform_matching(df_ps, final_treat_col, caliper=caliper)
+            df_m = psm_lib.perform_matching(df_ps, final_treat_col, 'propensity_score', caliper=caliper)
             
             msg = "Matching successful" # Default success message
             
