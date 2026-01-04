@@ -64,15 +64,12 @@ def test_logistic_interactions(df):
     print("\n[TEST 2] Logistic Regression with Interactions")
     try:
         pairs = [('age', 'sex'), ('treatment', 'age')]
-        html, or_res, aor_res, int_res = analyze_outcome(
+        _html, _or_res, aor_res, int_res = analyze_outcome(
             'outcome_bin', df, method='bfgs', interaction_pairs=pairs
         )
         
         print(f"✅ Multivariate results count: {len(aor_res)}")
         print(f"✅ Interaction results count: {len(int_res)}")
-        
-        expected_keys = ['age×sex', 'treatment×age'] 
-        # Note: formatting might differ (e.g. :: or just *)
         
         if len(int_res) > 0:
             print("✅ Interactions successfully computed and returned.")
@@ -89,7 +86,7 @@ def test_logistic_interactions(df):
 def test_poisson_basic(df):
     print("\n[TEST 3] Poisson Regression Basic")
     try:
-        html, irr_res, airr_res, int_res = analyze_poisson_outcome(
+        _html, irr_res, _airr_res, _int_res = analyze_poisson_outcome(
             'outcome_count', df, offset_col='offset'
         )
         print("✅ analyze_poisson_outcome executed successfully.")
@@ -108,7 +105,7 @@ def test_poisson_interactions(df):
     print("\n[TEST 4] Poisson Regression with Interactions")
     try:
         pairs = [('age', 'sex')]
-        html, irr_res, airr_res, int_res = analyze_poisson_outcome(
+        _html, _irr_res, _airr_res, int_res = analyze_poisson_outcome(
             'outcome_count', df, offset_col='offset', interaction_pairs=pairs
         )
         
