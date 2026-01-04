@@ -557,19 +557,19 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                     {"Metric": "═════════ DIAGNOSTIC METRICS ═════════", "Value": "", "95% CI": "", "Interpretation": "Rows=Test, Cols=Disease"},
                     
                     {"Metric": "Sensitivity (Recall)", "Value": f"{sensitivity:.4f}", 
-                     "95% CI": f"{se_ci_lower:.4f}–{se_ci_upper:.4f}", 
+                     "95% CI": f"{se_ci_lower:.4f}-{se_ci_upper:.4f}", 
                      "Interpretation": "True Positive Rate: Ability to detect disease"},
                     
                     {"Metric": "Specificity", "Value": f"{specificity:.4f}", 
-                     "95% CI": f"{sp_ci_lower:.4f}–{sp_ci_upper:.4f}", 
+                     "95% CI": f"{sp_ci_lower:.4f}-{sp_ci_upper:.4f}", 
                      "Interpretation": "True Negative Rate: Ability to exclude disease"},
                     
                     {"Metric": "PPV (Precision)", "Value": f"{ppv:.4f}", 
-                     "95% CI": f"{ppv_ci_lower:.4f}–{ppv_ci_upper:.4f}", 
+                     "95% CI": f"{ppv_ci_lower:.4f}-{ppv_ci_upper:.4f}", 
                      "Interpretation": "Prob. disease is present given positive test"},
                     
                     {"Metric": "NPV", "Value": f"{npv:.4f}", 
-                     "95% CI": f"{npv_ci_lower:.4f}–{npv_ci_upper:.4f}", 
+                     "95% CI": f"{npv_ci_lower:.4f}-{npv_ci_upper:.4f}", 
                      "Interpretation": "Prob. disease is absent given negative test"},
                     
                     {"Metric": "LR+ (Likelihood Ratio +)", "Value": f"{lr_plus:.2f}", 
@@ -798,7 +798,7 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
         auc_badge = get_badge_html("Worse than Chance", "danger")
 
     # AUC Confidence Interval Formatting
-    auc_ci_str = f"{max(0, ci_lower_f):.4f}–{min(1, ci_upper_f):.4f}"
+    auc_ci_str = f"{max(0, ci_lower_f):.4f}-{min(1, ci_upper_f):.4f}"
     # Significant if lower bound > 0.5
     auc_ci_display = format_ci_html(auc_ci_str, ci_lower_f, ci_upper_f, null_val=0.5, direction='greater')
 
