@@ -101,7 +101,7 @@ def compute_smd(
         
         # Standardized Mean Difference formula
         pooled_sd = np.sqrt((v1 + v0) / 2)
-        if pooled_sd == 0:
+        if pooled_sd < 1e-10:
             smd = 0
         else:
             smd = abs(m1 - m0) / pooled_sd
@@ -130,14 +130,14 @@ def plot_love_plot(
     fig.add_trace(go.Scatter(
         x=df_plot['SMD_Unmatched'], y=df_plot['Variable'],
         mode='markers', name='Unmatched',
-        marker=dict(color='red', size=10, symbol='circle')
+        marker={'color': 'red', 'size': 10, 'symbol': 'circle'}
     ))
 
     # Add Matched points (Green Diamonds)
     fig.add_trace(go.Scatter(
         x=df_plot['SMD_Matched'], y=df_plot['Variable'],
         mode='markers', name='Matched',
-        marker=dict(color='green', size=12, symbol='diamond')
+        marker={'color': 'green', 'size': 12, 'symbol': 'diamond'}
     ))
 
     fig.update_layout(
@@ -146,7 +146,7 @@ def plot_love_plot(
         yaxis_title="Variables",
         template="plotly_white",
         height=max(400, len(df_plot) * 30),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.02, 'xanchor': 'right', 'x': 1}
     )
     
     return fig
