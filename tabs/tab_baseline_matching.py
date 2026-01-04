@@ -588,9 +588,13 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
         if not config_valid:
             summary_items.append("❌ **Error:** Please select at least one covariate")
 
-        summary_text = "**✅ Configuration Summary:**\n" + "\n".join(summary_items)
+        summary_text = "**✅ Configuration Summary:**\n\n" + "\n".join([f"- {item}" for item in summary_items])
 
-        return ui.info_message(summary_text, class_="bg-primary-light")
+        # เปลี่ยนจาก ui.info_message เป็น UI component ที่ถูกต้อง
+        return ui.div(
+            ui.markdown(summary_text),
+            style=f"padding: 15px; border-radius: 8px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};"
+        )
 
     @render.ui
     def ui_psm_run_status():
@@ -644,51 +648,47 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
             else:
                 final_cov_cols = cov_cols
 
-            # --- 🟢 FIXED: Updated to match new psm_lib API ---
             # Calculation
-            # 1. Calculate Propensity Score (Returns Series)
             ps_scores = psm_lib.calculate_propensity_score(df_analysis, final_treat_col, final_cov_cols)
             df_ps = df_analysis.copy()
             df_ps['propensity_score'] = ps_scores
 
-            # 2. Perform Matching (Signature: df, treatment, caliper)
+            # Perform Matching
             df_m = psm_lib.perform_matching(df_ps, final_treat_col, 'propensity_score', caliper=caliper)
-            
-            msg = "Matching successful" # Default success message
             
             if df_m is None or df_m.empty:
                 raise ValueError("No matches found within the specified caliper.")
 
-            # SMD
+            # SMD Calculations
             smd_pre = psm_lib.calculate_smd(df_ps, final_treat_col, final_cov_cols)
             smd_post = psm_lib.calculate_smd(df_m, final_treat_col, final_cov_cols)
 
-            # Cat SMD
             if cat_covs:
                 smd_pre_cat = _calculate_categorical_smd(df_ps, final_treat_col, cat_covs)
                 smd_post_cat = _calculate_categorical_smd(df_m, final_treat_col, cat_covs)
                 smd_pre = pd.concat([smd_pre, smd_pre_cat], ignore_index=True)
                 smd_post = pd.concat([smd_post, smd_post_cat], ignore_index=True)
 
-            # Save results
-            results = {
+            # --- Atomic State Update ---
+            # เตรียมข้อมูลผลลัพธ์ให้พร้อมก่อนทำการ set ค่าให้กับ reactive values
+            new_results = {
                 "df_matched": df_m,
                 "smd_pre": smd_pre,
                 "smd_post": smd_post,
                 "final_treat_col": final_treat_col,
-                "msg": msg,
+                "msg": "Matching successful",
                 "df_ps_len": len(df_ps),
                 "df_matched_len": len(df_m),
                 "treat_pre_sum": df_ps[final_treat_col].sum(),
                 "treat_post_sum": df_m[final_treat_col].sum()
             }
-            psm_results.set(results)
 
-            # Update Global State
+            # อัปเดตพร้อมกันหลังจากผ่านการตรวจสอบและคำนวณทั้งหมดแล้ว
+            psm_results.set(new_results)
             df_matched.set(df_m)
-            is_matched.set(True)
             matched_treatment_col.set(final_treat_col)
             matched_covariates.set(cov_cols)
+            is_matched.set(True) # Set True เป็นลำดับสุดท้ายเพื่อยืนยันว่าทุกอย่างพร้อม
 
             ui.notification_remove("psm_running")
             ui.notification_show("✅ Matching Successful!", type="message")
