@@ -50,9 +50,7 @@ def is_continuous_variable(series: pd.Series) -> bool:
     threshold = CONFIG.get('analysis.var_detect_threshold', 10)
     
     unique_count = series.nunique()
-    if unique_count > threshold:
-        return True
-    return False
+    return unique_count > threshold
 
 @np.vectorize
 def clean_numeric_vector(series: pd.Series) -> pd.Series:
