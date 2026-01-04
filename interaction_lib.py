@@ -8,6 +8,7 @@ Compatible with both Logistic and Poisson regression
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
+from scipy.stats import chi2
 from logger import get_logger
 from logic import clean_numeric_value
 
@@ -132,7 +133,6 @@ def test_interaction_significance(y, X_base, X_with_int, model_type='logit', off
         lr_stat = -2 * (result_base.llf - result_full.llf)
         df = len(X_full_const.columns) - len(X_base_const.columns)
         
-        from scipy.stats import chi2
         p_value = 1 - chi2.cdf(lr_stat, df)
         
         return {
@@ -147,7 +147,7 @@ def test_interaction_significance(y, X_base, X_with_int, model_type='logit', off
         }
     
     except Exception as e:
-        logger.error(f"Interaction test failed: {e}")
+        logger.exception("Interaction test failed")
         return {
             'lr_stat': np.nan,
             'df': 0,
@@ -223,7 +223,7 @@ def interpret_interaction(results, model_type='logit'):
     sig_interactions = [k for k, v in results.items() if v['significant']]
     
     if not sig_interactions:
-        return f"""<div class='alert alert-info'>
+        return """<div class='alert alert-info'>
             <b>No Significant Interactions Found</b><br>
             The effect of predictors does not significantly vary across levels of other variables.
             Main effects can be interpreted independently.
