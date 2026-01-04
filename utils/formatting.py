@@ -9,7 +9,7 @@ import pandas as pd
 from typing import Union, Optional
 from config import CONFIG  # นำเข้าตัวสั่งการ
 
-def format_p_value(p: float, use_style: bool = True) -> str:
+def format_p_value(p: float, *, use_style: bool = True) -> str:
     """
     Format P-value using settings from CONFIG.
     """
@@ -32,9 +32,9 @@ def format_p_value(p: float, use_style: bool = True) -> str:
         p_text = f"{p:.{precision}f}"
         
     if use_style:
-        # ใช้ค่าความเชื่อมั่น (Significance Level) จาก Config หรือ Default 0.05
-        sig_threshold = 0.05 
-        sig_style = 'font-weight: bold; color: #d63384;' 
+        # ใช้ค่าความเชื่อมั่น (Significance Level) จาก Config
+        sig_threshold = CONFIG.get('analysis.significance_level', 0.05)
+        sig_style = CONFIG.get('ui.styles.sig_p_value', 'font-weight: bold; color: #d63384;')
         if p < sig_threshold:
             return f'<span style="{sig_style}">{p_text}</span>'
             
@@ -58,8 +58,9 @@ def format_ci_html(ci_str: str, lower: float, upper: float, null_val: float = 1.
             is_sig = True
             
     if is_sig:
-        # ใช้สีเขียวสำหรับค่าที่มีนัยสำคัญตาม Logic เดิม
-        return f'<span style="font-weight: bold; color: #198754; font-family: monospace;">{ci_str}</span>'
+        # ใช้สีเขียวสำหรับค่าที่มีนัยสำคัญตาม Config
+        sig_style = CONFIG.get('ui.styles.sig_ci', 'font-weight: bold; color: #198754; font-family: monospace;')
+        return f'<span style="{sig_style}">{ci_str}</span>'
     return ci_str
 
 def get_badge_html(text: str, level: str = 'info') -> str:
