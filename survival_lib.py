@@ -597,8 +597,8 @@ def generate_forest_plot_cox_html(res_df: pd.DataFrame) -> str:
     try:
         fig = create_forest_plot_cox(res_df)
         plot_html = fig.to_html(include_plotlyjs=True, div_id='cox_forest_plot')
-    except Exception as e:
-        logger.error(f"Forest plot HTML generation error: {e}")
+    except (ValueError, AttributeError) as e:
+        logger.exception("Forest plot HTML generation error")
         return f"<p>Error generating forest plot: {e}</p>"
     
     interp_html = f"""
@@ -824,7 +824,7 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
             html_doc += str(d)
     
     html_doc += """<div class='report-footer'>
-    © 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny
+    © 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny
     </div></body>
     </html>"""
     
