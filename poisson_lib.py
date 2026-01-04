@@ -62,7 +62,7 @@ def run_poisson_regression(y, X, offset=None):
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
     
     except Exception as e:
-        logger.error(f"Poisson regression failed: {e}")
+        logger.exception(f"Poisson regression failed: {e}")
         return None, None, None, str(e), stats_metrics
 
 
