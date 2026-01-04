@@ -19,17 +19,6 @@ from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 
-
-def _get_dataset_for_correlation(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> tuple:
-    """
-    Choose between original and matched datasets for correlation analysis.
-    """
-    if is_matched.get() and df_matched.get() is not None:
-        return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
-    else:
-        return df, f"📊 Original Data ({len(df)} rows)"
-
-
 def _auto_detect_icc_vars(cols: list) -> list:
     """
     Auto-detect ICC/Rater variables based on column name patterns.
@@ -46,13 +35,11 @@ def _auto_detect_icc_vars(cols: list) -> list:
 
     return detected
 
-
 # ✅ FIX: Use @module.ui decorator like tab_diag.py
 @module.ui
 def corr_ui():
     """
     Create the UI for correlation analysis tab.
-    NO manual namespace needed - Shiny handles it automatically.
     """
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
@@ -60,6 +47,11 @@ def corr_ui():
             "📈 Pearson/Spearman",
             ui.card(
                 ui.card_header("📈 Continuous Correlation Analysis"),
+
+                # --- ส่วนที่เพิ่มใหม่: ตัวเลือก Dataset สำหรับสลับไปใช้ข้อมูลที่ผ่านการ Match ---
+                ui.output_ui("ui_matched_status_banner_corr"),
+                ui.output_ui("ui_dataset_selector_corr"),
+                ui.hr(),
 
                 ui.layout_columns(
                     ui.input_select(
@@ -163,7 +155,7 @@ def corr_ui():
 * **Robust to:** Outliers.
 
 **Interpretation of Coefficient (r or rho):**
-* **+1.0:** Perfect Positive (As X goes up, Y goes up).
+* **+1.0:** Perfect Positive (As X goes up, Y goes down).
 * **-1.0:** Perfect Negative (As X goes up, Y goes down).
 * **0.0:** No relationship.
 
@@ -226,23 +218,67 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     COLORS = get_color_palette()
     
     # ==================== REACTIVE STATES ====================
-
     corr_result = reactive.Value(None)  # Stores result from correlation analysis
     icc_result = reactive.Value(None)   # Stores result from ICC analysis
     numeric_cols_list = reactive.Value([])  # List of numeric columns
+
+    # ==================== DATASET SELECTOR LOGIC (เพิ่มใหม่) ====================
+    
+    @render.ui
+    def ui_dataset_selector_corr():
+        """Render radio buttons to select dataset if matched data is available."""
+        if is_matched.get():
+            return ui.input_radio_buttons(
+                "radio_dataset_source",
+                "📄 Select Dataset for Analysis:",
+                choices={
+                    "original": "📊 Original Data",
+                    "matched": "✅ Matched Data (from PSM)"
+                },
+                selected="original",
+                inline=True
+            )
+        return None
+
+    @render.ui
+    def ui_matched_status_banner_corr():
+        """Show a success banner when matched data is ready."""
+        if is_matched.get():
+            return ui.div(
+                ui.p(
+                    ui.strong("✅ Matched Dataset Available"),
+                    " - You can switch to matched data for correlation analysis",
+                    style=f"color: {COLORS['success']}; margin-bottom: 0;"
+                ),
+                style=f"padding: 10px; border-radius: 6px; margin-bottom: 15px; background-color: {COLORS['success']}15; border: 1px solid {COLORS['success']};"
+            )
+        return None
+
+    @reactive.Calc
+    def get_current_data():
+        """Helper to get the selected dataset based on user choice."""
+        try:
+            # ใช้ input.radio_dataset_source() ถ้ามี (กรณีมีการรัน PSM แล้ว)
+            use_matched = input.radio_dataset_source() == "matched"
+        except:
+            use_matched = False
+
+        if is_matched.get() and use_matched and df_matched.get() is not None:
+            return df_matched.get().copy(), "✅ Matched Data"
+        return df.get(), "📊 Original Data"
 
     # ==================== UPDATE NUMERIC COLUMNS ====================
 
     @reactive.Effect
     def _update_numeric_cols():
-        """Update list of numeric columns when data changes."""
-        data = df.get()
+        """Update list of numeric columns when data OR dataset source changes."""
+        # ดึงข้อมูลจาก Calc แทน df.get() โดยตรง เพื่อรองรับการสลับ Dataset
+        data, _ = get_current_data()
         if data is not None:
             cols = data.select_dtypes(include=[np.number]).columns.tolist()
             numeric_cols_list.set(cols)
 
             if cols:
-                # ✅ FIX: Use input ID directly (no ns needed in @module.server)
                 ui.update_select("cv1", choices=cols, selected=cols[0])
                 ui.update_select("cv2", 
                                choices=cols, 
@@ -255,15 +291,14 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
                     choices=cols,
                     selected=icc_vars 
                 )
-
-                logger.info("Auto-detected ICC/Rater variables: %s", icc_vars)
+                logger.info("Updated numeric columns for source: %s", cols)
 
     # ==================== ICC SELECTION INFO ====================
 
     @render.ui
     def out_icc_note():
         """Display info about auto-detected ICC variables."""
-        data = df.get()
+        data, _ = get_current_data()
         if data is None:
             return None
 
@@ -285,7 +320,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     @reactive.event(input.btn_run_corr)
     def _run_correlation():
         """Run correlation analysis when button clicked."""
-        data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
+        data_source, label = get_current_data()
 
         if data_source is None:
             ui.notification_show("No data available", type="error")
@@ -321,7 +356,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
                 "var2": col2,
                 "data_label": label
             })
-            ui.notification_show("Correlation analysis complete", type="default")
+            ui.notification_show(f"Correlation complete using {label}", type="default")
 
     @render.ui
     def out_corr_result():
@@ -368,7 +403,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
     @reactive.event(input.btn_run_icc)
     def _run_icc():
         """Run ICC analysis."""
-        data_source, label = _get_dataset_for_correlation(df.get(), df_matched, is_matched)
+        data_source, label = get_current_data()
 
         if data_source is None:
             ui.notification_show("No data available", type="error")
@@ -393,7 +428,7 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
                 "anova_df": anova_df,
                 "data_label": label
             })
-            ui.notification_show("ICC analysis complete", type="default")
+            ui.notification_show(f"ICC analysis complete using {label}", type="default")
 
     @render.ui
     def out_icc_result():
@@ -431,7 +466,6 @@ def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.V
 
 
 # ==================== MODULE EXPORT ====================
-# ✅ FIX: Export functions properly for app.py
 
 def correlation_ui(id: str) -> ui.TagChild:
     """Wrapper for module UI - called from app.py"""
