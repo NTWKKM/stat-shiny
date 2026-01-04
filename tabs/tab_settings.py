@@ -158,8 +158,8 @@ def settings_ui(id: str) -> ui.TagChild:
                                            class_="btn-primary", width="100%"),
 
                     width=300,
-                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
-                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
+                    # บรรทัดที่ 162: เปลี่ยนมาใช้ COLORS['smoke_white']
+                    bg=COLORS['smoke_white']
                 ),
 
                 ui.card(
@@ -270,8 +270,8 @@ def settings_ui(id: str) -> ui.TagChild:
                                            class_="btn-primary", width="100%"),
 
                     width=300,
-                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
-                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
+                    # บรรทัดที่ 274: เปลี่ยนมาใช้ COLORS['smoke_white']
+                    bg=COLORS['smoke_white']
                 ),
 
                 ui.card(
@@ -383,8 +383,8 @@ def settings_ui(id: str) -> ui.TagChild:
                                            class_="btn-primary", width="100%"),
 
                     width=300,
-                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
-                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
+                    # บรรทัดที่ 387: เปลี่ยนมาใช้ COLORS['smoke_white']
+                    bg=COLORS['smoke_white']
                 ),
 
                 ui.card(
@@ -434,8 +434,8 @@ def settings_ui(id: str) -> ui.TagChild:
                                            class_="btn-primary", width="100%"),
 
                     width=300,
-                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
-                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
+                    # บรรทัดที่ 438: เปลี่ยนมาใช้ COLORS['smoke_white']
+                    bg=COLORS['smoke_white']
                 ),
 
                 ui.card(
@@ -519,8 +519,8 @@ def settings_ui(id: str) -> ui.TagChild:
                                            class_="btn-primary", width="100%"),
 
                     width=300,
-                    # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
-                    bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
+                    # บรรทัดที่ 523: เปลี่ยนมาใช้ COLORS['smoke_white']
+                    bg=COLORS['smoke_white']
                 ),
 
                 ui.card(
