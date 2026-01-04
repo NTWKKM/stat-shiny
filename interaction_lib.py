@@ -146,7 +146,16 @@ def test_interaction_significance(
         df = len(X_full_const.columns) - len(X_base_const.columns)
         
         p_value = 1 - chi2.cdf(lr_stat, df)
-        
+
+    except Exception:
+        logger.exception("Interaction test failed")
+        return {
+            'lr_stat': np.nan,
+            'df': 0,
+            'p_value': np.nan,
+            'improvement': False
+        }
+    else:
         return {
             'lr_stat': lr_stat,
             'df': df,
@@ -156,15 +165,6 @@ def test_interaction_significance(
             'aic_full': result_full.aic,
             'bic_base': result_base.bic,
             'bic_full': result_full.bic
-        }
-    
-    except Exception:
-        logger.exception("Interaction test failed")
-        return {
-            'lr_stat': np.nan,
-            'df': 0,
-            'p_value': np.nan,
-            'improvement': False
         }
 
 
