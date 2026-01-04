@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from logger import get_logger
+from logic import clean_numeric_value
 
 logger = get_logger(__name__)
 
@@ -40,7 +41,6 @@ def create_interaction_terms(df, interaction_pairs, mode_map=None):
         mode2 = mode_map.get(var2, 'linear') if mode_map else 'linear'
         
         # Get clean numeric values
-        from logic import clean_numeric_value
         x1 = df[var1].apply(clean_numeric_value)
         x2 = df[var2].apply(clean_numeric_value)
         
