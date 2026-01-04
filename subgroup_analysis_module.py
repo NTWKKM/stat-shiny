@@ -2,16 +2,42 @@
 🧪 Subgroup Analysis Module (Shiny Compatible)
 
 Professional subgroup analysis without Streamlit dependencies.
+OPTIMIZED for Python 3.12 with strict type hints and TypedDict.
 """
 
 import pandas as pd
 import numpy as np
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
+from tabs._common import get_color_palette
 import warnings
+from typing import Union, Optional, List, Dict, Tuple, Any, TypedDict
+import plotly.graph_objects as go
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()
 
+class SubgroupResult(TypedDict):
+    group: str
+    n: int
+    events: int
+    or_val: float
+    ci_low: float
+    ci_high: float
+    p_value: float
+    type: str
+    subgroup: Optional[str]
+
+class SubgroupStats(TypedDict):
+    n_overall: int
+    events_overall: int
+    n_subgroups: int
+    or_overall: float
+    ci_overall: Tuple[float, float]
+    p_overall: float
+    p_interaction: float
+    heterogeneous: bool
+    or_range: Tuple[float, float]
 
 class SubgroupAnalysisLogit:
     """
@@ -22,13 +48,19 @@ class SubgroupAnalysisLogit:
     def __init__(self, df: pd.DataFrame):
         """Initialize with dataset copy."""
         self.df = df.copy()
-        self.results = None
-        self.stats = None
-        self.interaction_result = None
-        self.figure = None
+        self.results: Optional[pd.DataFrame] = None
+        self.stats: Optional[Dict[str, Any]] = None
+        self.interaction_result: Optional[Dict[str, Any]] = None
+        self.figure: Optional[go.Figure] = None
         logger.info(f"SubgroupAnalysisLogit initialized with {len(df)} observations")
     
-    def validate_inputs(self, outcome_col, treatment_col, subgroup_col, adjustment_cols=None):
+    def validate_inputs(
+        self, 
+        outcome_col: str, 
+        treatment_col: str, 
+        subgroup_col: str, 
+        adjustment_cols: Optional[List[str]] = None
+    ) -> bool:
         """Validate input columns and data types."""
         required_cols = {outcome_col, treatment_col, subgroup_col}
         if adjustment_cols:
@@ -50,7 +82,14 @@ class SubgroupAnalysisLogit:
         logger.info("Input validation passed")
         return True
     
-    def analyze(self, outcome_col, treatment_col, subgroup_col, adjustment_cols=None, min_subgroup_n=5):
+    def analyze(
+        self, 
+        outcome_col: str, 
+        treatment_col: str, 
+        subgroup_col: str, 
+        adjustment_cols: Optional[List[str]] = None, 
+        min_subgroup_n: int = 5
+    ) -> Dict[str, Any]:
         """Perform logistic regression subgroup analysis."""
         try:
             from statsmodels.formula.api import logit
@@ -71,25 +110,26 @@ class SubgroupAnalysisLogit:
             if adjustment_cols:
                 formula_base += ' + ' + ' + '.join(adjustment_cols)
             
-            results_list = []
+            results_list: List[Dict[str, Any]] = []
             
             # Overall model
             logger.info("Computing overall model...")
             model_overall = logit(formula_base, data=df_clean).fit(disp=0)
             
-            or_overall = np.exp(model_overall.params[treatment_col])
+            or_overall = float(np.exp(model_overall.params[treatment_col]))
             ci_overall = np.exp(model_overall.conf_int().loc[treatment_col])
-            p_overall = model_overall.pvalues[treatment_col]
+            p_overall = float(model_overall.pvalues[treatment_col])
             
             results_list.append({
                 'group': f'Overall (N={len(df_clean)})',
                 'n': len(df_clean),
                 'events': int(df_clean[outcome_col].sum()),
                 'or': or_overall,
-                'ci_low': ci_overall[0],
-                'ci_high': ci_overall[1],
+                'ci_low': float(ci_overall[0]),
+                'ci_high': float(ci_overall[1]),
                 'p_value': p_overall,
-                'type': 'overall'
+                'type': 'overall',
+                'subgroup': None
             })
             
             logger.info(f"Overall: OR={or_overall:.3f}, P={p_overall:.4f}")
@@ -112,18 +152,18 @@ class SubgroupAnalysisLogit:
                 try:
                     model_sub = logit(formula_base, data=df_sub).fit(disp=0)
                     
-                    or_sub = np.exp(model_sub.params[treatment_col])
+                    or_sub = float(np.exp(model_sub.params[treatment_col]))
                     ci_sub = np.exp(model_sub.conf_int().loc[treatment_col])
-                    p_sub = model_sub.pvalues[treatment_col]
+                    p_sub = float(model_sub.pvalues[treatment_col])
                     
                     results_list.append({
                         'group': f'{subgroup_col}={subgroup_val} (N={len(df_sub)})',
-                        'subgroup': subgroup_val,
+                        'subgroup': str(subgroup_val),
                         'n': len(df_sub),
                         'events': int(df_sub[outcome_col].sum()),
                         'or': or_sub,
-                        'ci_low': ci_sub[0],
-                        'ci_high': ci_sub[1],
+                        'ci_low': float(ci_sub[0]),
+                        'ci_high': float(ci_sub[1]),
                         'p_value': p_sub,
                         'type': 'subgroup'
                     })
@@ -149,11 +189,11 @@ class SubgroupAnalysisLogit:
                 df_diff = model_full.df_model - model_reduced.df_model
                 
                 if df_diff > 0:
-                    p_interaction = stats.chi2.sf(lr_stat, df_diff)
+                    p_interaction = float(stats.chi2.sf(lr_stat, df_diff))
                 else:
                     p_interaction = np.nan
                 
-                is_sig = isinstance(p_interaction, (int, float)) and pd.notna(p_interaction) and p_interaction < 0.05
+                is_sig = pd.notna(p_interaction) and p_interaction < 0.05
                 
                 self.interaction_result = {
                     'p_value': p_interaction,
@@ -174,7 +214,7 @@ class SubgroupAnalysisLogit:
             logger.error(f"Analysis failed: {e}")
             raise
     
-    def _compute_summary_statistics(self):
+    def _compute_summary_statistics(self) -> Dict[str, Any]:
         """Compute summary statistics."""
         if self.results is None or self.results.empty:
             return {}
@@ -182,19 +222,22 @@ class SubgroupAnalysisLogit:
         overall = self.results[self.results['type'] == 'overall'].iloc[0]
         subgroups = self.results[self.results['type'] == 'subgroup']
         
+        p_int = self.interaction_result.get('p_value', np.nan) if self.interaction_result else np.nan
+        is_het = self.interaction_result.get('significant', False) if self.interaction_result else False
+
         return {
             'n_overall': int(overall['n']),
             'events_overall': int(overall['events']),
             'n_subgroups': len(subgroups),
-            'or_overall': overall['or'],
-            'ci_overall': (overall['ci_low'], overall['ci_high']),
-            'p_overall': overall['p_value'],
-            'p_interaction': self.interaction_result.get('p_value', np.nan),
-            'heterogeneous': self.interaction_result.get('significant', False),
-            'or_range': (subgroups['or'].min(), subgroups['or'].max()) if not subgroups.empty else (0, 0)
+            'or_overall': float(overall['or']),
+            'ci_overall': (float(overall['ci_low']), float(overall['ci_high'])),
+            'p_overall': float(overall['p_value']),
+            'p_interaction': p_int,
+            'heterogeneous': is_het,
+            'or_range': (float(subgroups['or'].min()), float(subgroups['or'].max())) if not subgroups.empty else (0.0, 0.0)
         }
     
-    def _format_output(self):
+    def _format_output(self) -> Dict[str, Any]:
         """Format results for output."""
         if self.results is None or self.results.empty:
             return {}
@@ -204,8 +247,8 @@ class SubgroupAnalysisLogit:
             return {}
             
         overall = overall_rows.iloc[0]
-        p_int = self.interaction_result['p_value']
-        p_int_val = float(p_int) if isinstance(p_int, (int, float)) and pd.notna(p_int) else None
+        p_int = self.interaction_result['p_value'] if self.interaction_result else np.nan
+        p_int_val = float(p_int) if pd.notna(p_int) else None
 
         return {
             'overall': {
@@ -218,25 +261,28 @@ class SubgroupAnalysisLogit:
             'subgroups': self.results[self.results['type'] == 'subgroup'].to_dict('records'),
             'interaction': {
                 'p_value': p_int_val,
-                'significant': bool(self.interaction_result['significant'])
+                'significant': bool(self.interaction_result['significant']) if self.interaction_result else False
             },
             'summary': self.stats,
             'results_df': self.results
         }
     
-    def create_forest_plot(self, title="Subgroup Analysis: Logistic Regression", color="#2180BE"):
+    def create_forest_plot(self, title: str = "Subgroup Analysis: Logistic Regression", color: Optional[str] = None) -> go.Figure:
         """Create forest plot."""
         if self.results is None:
             raise ValueError("Run analyze() first")
         
+        if color is None:
+            color = COLORS['primary']
+        
         plot_data = self.results[['group', 'or', 'ci_low', 'ci_high', 'p_value']].copy()
         plot_data.columns = ['variable', 'or', 'ci_low', 'ci_high', 'p_value']
         
-        p_int = self.interaction_result['p_value']
-        is_het = self.interaction_result.get('significant', False)
+        p_int = self.interaction_result.get('p_value', np.nan) if self.interaction_result else np.nan
+        is_het = self.interaction_result.get('significant', False) if self.interaction_result else False
         het_text = "Heterogeneous" if is_het else "Homogeneous"
         
-        if isinstance(p_int, (int, float)) and pd.notna(p_int):
+        if pd.notna(p_int):
             title_final = f"{title}<br><span style='font-size: 12px; color: #666;'>P = {p_int:.4f} ({het_text})</span>"
         else:
             title_final = title
@@ -265,13 +311,20 @@ class SubgroupAnalysisCox:
     def __init__(self, df: pd.DataFrame):
         """Initialize with dataset copy."""
         self.df = df.copy()
-        self.results = None
-        self.stats = None
-        self.interaction_result = None
-        self.figure = None
+        self.results: Optional[pd.DataFrame] = None
+        self.stats: Optional[Dict[str, Any]] = None
+        self.interaction_result: Optional[Dict[str, Any]] = None
+        self.figure: Optional[go.Figure] = None
         logger.info(f"SubgroupAnalysisCox initialized with {len(df)} observations")
     
-    def validate_inputs(self, duration_col, event_col, treatment_col, subgroup_col, adjustment_cols=None):
+    def validate_inputs(
+        self, 
+        duration_col: str, 
+        event_col: str, 
+        treatment_col: str, 
+        subgroup_col: str, 
+        adjustment_cols: Optional[List[str]] = None
+    ) -> bool:
         """Validate input columns and data types."""
         required_cols = {duration_col, event_col, treatment_col, subgroup_col}
         if adjustment_cols:
@@ -293,7 +346,16 @@ class SubgroupAnalysisCox:
         logger.info("Input validation passed")
         return True
     
-    def analyze(self, duration_col, event_col, treatment_col, subgroup_col, adjustment_cols=None, min_subgroup_n=5, min_events=2):
+    def analyze(
+        self, 
+        duration_col: str, 
+        event_col: str, 
+        treatment_col: str, 
+        subgroup_col: str, 
+        adjustment_cols: Optional[List[str]] = None, 
+        min_subgroup_n: int = 5, 
+        min_events: int = 2
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """Perform Cox subgroup analysis."""
         try:
             from lifelines import CoxPHFitter
@@ -310,7 +372,7 @@ class SubgroupAnalysisCox:
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
             
-            results_list = []
+            results_list: List[Dict[str, Any]] = []
             
             # Overall Cox model
             logger.info("Computing overall Cox model...")
@@ -318,17 +380,17 @@ class SubgroupAnalysisCox:
                 cph_overall = CoxPHFitter()
                 cph_overall.fit(df_clean, duration_col=duration_col, event_col=event_col, show_progress=False)
                 
-                hr_overall = np.exp(cph_overall.params[treatment_col])
+                hr_overall = float(np.exp(cph_overall.params[treatment_col]))
                 ci_overall = np.exp(cph_overall.confidence_intervals_.loc[treatment_col])
-                p_overall = cph_overall.summary.loc[treatment_col, 'p']
+                p_overall = float(cph_overall.summary.loc[treatment_col, 'p'])
                 
                 results_list.append({
                     'group': f'Overall (N={len(df_clean)})',
                     'n': len(df_clean),
                     'events': int(df_clean[event_col].sum()),
                     'hr': hr_overall,
-                    'ci_low': ci_overall[0],
-                    'ci_high': ci_overall[1],
+                    'ci_low': float(ci_overall[0]),
+                    'ci_high': float(ci_overall[1]),
                     'p_value': p_overall,
                     'type': 'overall'
                 })
@@ -356,18 +418,18 @@ class SubgroupAnalysisCox:
                     cph_sub = CoxPHFitter()
                     cph_sub.fit(df_sub, duration_col=duration_col, event_col=event_col, show_progress=False)
                     
-                    hr_sub = np.exp(cph_sub.params[treatment_col])
+                    hr_sub = float(np.exp(cph_sub.params[treatment_col]))
                     ci_sub = np.exp(cph_sub.confidence_intervals_.loc[treatment_col])
-                    p_sub = cph_sub.summary.loc[treatment_col, 'p']
+                    p_sub = float(cph_sub.summary.loc[treatment_col, 'p'])
                     
                     results_list.append({
                         'group': f'{subgroup_col}={subgroup_val} (N={len(df_sub)})',
-                        'subgroup': subgroup_val,
+                        'subgroup': str(subgroup_val),
                         'n': len(df_sub),
                         'events': int(df_sub[event_col].sum()),
                         'hr': hr_sub,
-                        'ci_low': ci_sub[0],
-                        'ci_high': ci_sub[1],
+                        'ci_low': float(ci_sub[0]),
+                        'ci_high': float(ci_sub[1]),
                         'p_value': p_sub,
                         'type': 'subgroup'
                     })
@@ -405,7 +467,7 @@ class SubgroupAnalysisCox:
             logger.error(f"Analysis failed: {e}")
             return None, None, str(e)
     
-    def _compute_summary_statistics(self):
+    def _compute_summary_statistics(self) -> Dict[str, Any]:
         """Compute summary statistics."""
         if self.results is None or self.results.empty:
             return {}
@@ -417,13 +479,13 @@ class SubgroupAnalysisCox:
             'n_overall': int(overall['n']),
             'events_overall': int(overall['events']),
             'n_subgroups': len(subgroups),
-            'hr_overall': overall['hr'],
-            'ci_overall': (overall['ci_low'], overall['ci_high']),
-            'p_overall': overall['p_value'],
-            'hr_range': (subgroups['hr'].min(), subgroups['hr'].max()) if not subgroups.empty else (0, 0)
+            'hr_overall': float(overall['hr']),
+            'ci_overall': (float(overall['ci_low']), float(overall['ci_high'])),
+            'p_overall': float(overall['p_value']),
+            'hr_range': (float(subgroups['hr'].min()), float(subgroups['hr'].max())) if not subgroups.empty else (0.0, 0.0)
         }
     
-    def _format_output(self):
+    def _format_output(self) -> Dict[str, Any]:
         """Format results for output."""
         if self.results is None or self.results.empty:
             return {}
@@ -448,10 +510,13 @@ class SubgroupAnalysisCox:
             'results_df': self.results
         }
     
-    def create_forest_plot(self, title="Subgroup Analysis: Cox Regression", color="#2180BE"):
+    def create_forest_plot(self, title: str = "Subgroup Analysis: Cox Regression", color: Optional[str] = None) -> go.Figure:
         """Create forest plot."""
         if self.results is None:
             raise ValueError("Run analyze() first")
+        
+        if color is None:
+            color = COLORS['primary']
         
         plot_data = self.results[['group', 'hr', 'ci_low', 'ci_high', 'p_value']].copy()
         plot_data.columns = ['variable', 'hr', 'ci_low', 'ci_high', 'p_value']

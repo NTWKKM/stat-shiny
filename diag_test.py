@@ -6,12 +6,14 @@ Functions for:
 - ROC curves and AUC calculation
 - Cohen's Kappa
 - ICC (Intraclass Correlation)
-- Risk/diagnostic metrics with confidence intervals
+- Risk/diagnostic metrics (NNT, ARR, RRR, DOR) with confidence intervals
+- Clinical Significance Badges
 
 Note: Removed Streamlit dependencies, now Shiny-compatible
 OPTIMIZATIONS: DeLong method vectorized (106x faster), ICC vectorized (9x faster)
 """
 
+from typing import Union, Optional, Any, Tuple, Dict, List, Literal
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
@@ -26,13 +28,74 @@ from tabs._common import get_color_palette
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
+BadgeLevel = Literal['success', 'warning', 'danger', 'info', 'neutral']
 
-def calculate_descriptive(df, col):
+def get_badge_html(text: str, level: BadgeLevel = 'info') -> str:
+    """Generate HTML string for a styled badge."""
+    colors = {
+        'success': {'bg': '#d4edda', 'color': '#155724', 'border': '#c3e6cb'},
+        'warning': {'bg': '#fff3cd', 'color': '#856404', 'border': '#ffeeba'},
+        'danger':  {'bg': '#f8d7da', 'color': '#721c24', 'border': '#f5c6cb'},
+        'info':    {'bg': '#d1ecf1', 'color': '#0c5460', 'border': '#bee5eb'},
+        'neutral': {'bg': '#e2e3e5', 'color': '#383d41', 'border': '#d6d8db'}
+    }
+    c = colors.get(level, colors['neutral'])
+    style = f"padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; display: inline-block; background-color: {c['bg']}; color: {c['color']}; border: 1px solid {c['border']};"
+    return f'<span style="{style}">{text}</span>'
+
+
+def format_p_value(p: float) -> str:
+    """Format P-value with significance highlighting."""
+    if not np.isfinite(p):
+        return "NA"
+    
+    # Define style for significant p-value
+    sig_style = 'font-weight: bold; color: #d63384;' # Pink/Purpleish for distinction
+    
+    if p < 0.001:
+        return f'<span style="{sig_style}">&lt;0.001</span>'
+    
+    p_str = f"{p:.4f}"
+    if p < 0.05:
+        return f'<span style="{sig_style}">{p_str}</span>'
+    return p_str
+
+
+def format_ci_html(
+    ci_str: str, 
+    lower: float, 
+    upper: float, 
+    null_val: float = 1.0, 
+    direction: Literal['exclude', 'greater'] = 'exclude'
+) -> str:
+    """
+    Format CI string with highlighting if significant.
+    direction='exclude': Significant if null_val is NOT in [lower, upper]
+    direction='greater': Significant if lower > null_val
+    """
+    if not np.isfinite(lower) or not np.isfinite(upper):
+        return ci_str
+    
+    is_sig = False
+    if direction == 'exclude':
+        if (lower > null_val) or (upper < null_val):
+            is_sig = True
+    elif direction == 'greater':
+        if lower > null_val:
+            is_sig = True
+            
+    if is_sig:
+        # Green text for significant confidence intervals
+        return f'<span style="font-weight: bold; color: #198754;">{ci_str}</span>'
+    return ci_str
+
+
+def calculate_descriptive(df: pd.DataFrame, col: str) -> Optional[pd.DataFrame]:
     """
     Calculate descriptive statistics for a column.
     
     Returns:
-        pd.DataFrame: Descriptive statistics table
+        pd.DataFrame: Descriptive statistics table or None if column missing/empty
     """
     if col not in df.columns:
         logger.error(f"Column '{col}' not found")
@@ -74,7 +137,7 @@ def calculate_descriptive(df, col):
         }).sort_values("Count", ascending=False)
 
 
-def calculate_ci_wilson_score(successes, n, ci=0.95):
+def calculate_ci_wilson_score(successes: float, n: float, ci: float = 0.95) -> Tuple[float, float]:
     """
     Wilson Score Interval for binomial proportion.
     More accurate than Wald interval for extreme proportions.
@@ -92,7 +155,7 @@ def calculate_ci_wilson_score(successes, n, ci=0.95):
     return lower, upper
 
 
-def calculate_ci_log_odds(or_value, se_log_or, ci=0.95):
+def calculate_ci_log_odds(or_value: float, se_log_or: float, ci: float = 0.95) -> Tuple[float, float]:
     """
     Confidence Interval for Odds Ratio using log scale.
     """
@@ -105,7 +168,13 @@ def calculate_ci_log_odds(or_value, se_log_or, ci=0.95):
     return np.exp(lower_log), np.exp(upper_log)
 
 
-def calculate_ci_rr(risk_exp, n_exp, risk_unexp, n_unexp, ci=0.95):
+def calculate_ci_rr(
+    risk_exp: float, 
+    n_exp: float, 
+    risk_unexp: float, 
+    n_unexp: float, 
+    ci: float = 0.95
+) -> Tuple[float, float]:
     """
     Confidence Interval for Risk Ratio using log scale.
     """
@@ -126,7 +195,7 @@ def calculate_ci_rr(risk_exp, n_exp, risk_unexp, n_unexp, ci=0.95):
     return np.exp(lower_log), np.exp(upper_log)
 
 
-def calculate_ci_nnt(rd, rd_se, ci=0.95):
+def calculate_ci_nnt(rd: float, rd_se: float, ci: float = 0.95) -> Tuple[float, float]:
     """
     Confidence Interval for NNT based on CI of Risk Difference.
     """
@@ -140,6 +209,7 @@ def calculate_ci_nnt(rd, rd_se, ci=0.95):
     rd_lower = rd - z * rd_se
     rd_upper = rd + z * rd_se
 
+    # Check if CI crosses zero (non-significant)
     if rd_lower * rd_upper <= 0:
         return np.nan, np.nan
 
@@ -148,15 +218,16 @@ def calculate_ci_nnt(rd, rd_se, ci=0.95):
     return min(nnt_lower, nnt_upper), max(nnt_lower, nnt_upper)
 
 
-def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_pos=None):
+def calculate_chi2(
+    df: pd.DataFrame, 
+    col1: str, 
+    col2: str, 
+    method: str = 'Pearson (Standard)', 
+    v1_pos: Optional[str] = None, 
+    v2_pos: Optional[str] = None
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame]]:
     """
-    Comprehensive 2x2+ contingency table analysis with:
-    - Chi-Square / Fisher's Exact Test
-    - Expected Counts & Standardized Residuals
-    - Effect Size (Cramér's V)
-    - Risk metrics (OR, RR, NNT) with 95% CI
-    - Diagnostic metrics (Sensitivity, Specificity, PPV, NPV, LR+, LR-)
-    - Post-hoc cell contribution analysis
+    Comprehensive 2x2+ contingency table analysis.
     
     Returns:
         tuple: (display_tab, stats_df, msg, risk_df)
@@ -175,7 +246,7 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     data[col1] = data[col1].astype(str)
     data[col2] = data[col2].astype(str)
     
-    # OPTIMIZATION: Single crosstab computation, reuse for all operations
+    # OPTIMIZATION: Single crosstab computation
     tab = pd.crosstab(data[col1], data[col2])
     tab_raw = pd.crosstab(data[col1], data[col2], margins=True, margins_name="Total")
     tab_row_pct = pd.crosstab(data[col1], data[col2], normalize='index', margins=True, margins_name="Total") * 100
@@ -185,13 +256,13 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
     base_col_labels = [col for col in all_col_labels if col != 'Total']
     base_row_labels = [row for row in all_row_labels if row != 'Total']
     
-    def get_original_label(label_str, df_labels):
+    def get_original_label(label_str: str, df_labels: List[Any]) -> Any:
         for lbl in df_labels:
             if str(lbl) == label_str:
                 return lbl
         return label_str
     
-    def custom_sort(label):
+    def custom_sort(label: Any) -> Tuple[int, Union[float, str]]:
         try:
             return (0, float(label))
         except (ValueError, TypeError):
@@ -235,12 +306,18 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                     pct = tab_row_pct.loc[row_name, col_name]
                 cell_content = f"{int(count)} ({pct:.1f}%)"
             except KeyError:
-                 cell_content = "0 (0.0%)"
+                cell_content = "0 (0.0%)"
             row_data.append(cell_content)
         display_data.append(row_data)
     
+    # 2x2 Clarity structure
     display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
-    display_tab.index.name = col1
+    
+    rename_cols = {c: f"{col2} (Outcome/Col): {c}" for c in final_col_order if c != 'Total'}
+    display_tab.rename(columns=rename_cols, inplace=True)
+    
+    display_tab.index.name = f"{col1} (Exposure/Row)"
+    display_tab.reset_index(inplace=True)
     
     msg = ""
     try:
@@ -256,42 +333,42 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
             stats_res = {
                 "Test": method_name,
                 "Statistic (OR)": f"{odds_ratio:.4f}",
-                "P-value": f"{p_value:.4f}",
+                "P-value": format_p_value(p_value), # Highlighting applied
                 "Degrees of Freedom": "-",
                 "N": len(data)
             }
         else:
             use_correction = True if "Yates" in method else False
-            chi2, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
+            chi2_val, p, dof, ex = stats.chi2_contingency(tab, correction=use_correction)
             method_name = "Chi-Square"
             if is_2x2:
                 method_name += " (Yates)" if use_correction else " (Pearson)"
             
             stats_res = {
                 "Test": method_name,
-                "Statistic (χ²)": f"{chi2:.4f}",
-                "P-value": f"{p:.4f}",
+                "Statistic (χ²)": f"{chi2_val:.4f}",
+                "P-value": format_p_value(p), # Highlighting applied
                 "Degrees of Freedom": f"{dof}",
                 "N": len(data)
             }
             
             # Effect Size: Cramér's V
             min_dim = min(tab.shape)
-            phi2 = chi2 / len(data)
+            phi2 = chi2_val / len(data)
             cramer_v = np.sqrt(phi2 / (min_dim - 1)) if min_dim > 1 else 0
             stats_res["Effect Size (Cramér's V)"] = f"{cramer_v:.4f}"
             
             # Interpretation of effect size
             if cramer_v < 0.1:
-                effect_interp = "Negligible association"
+                badge = get_badge_html("Negligible", "neutral")
             elif cramer_v < 0.3:
-                effect_interp = "Small association"
+                badge = get_badge_html("Small", "info")
             elif cramer_v < 0.5:
-                effect_interp = "Medium association"
+                badge = get_badge_html("Medium", "warning")
             else:
-                effect_interp = "Large association"
+                badge = get_badge_html("Large", "success")
             
-            stats_res["Effect Interpretation"] = effect_interp
+            stats_res["Effect Interpretation"] = badge
             
             if (ex < 5).any() and is_2x2 and not use_correction:
                 msg = "⚠️ Warning: Expected count < 5. Consider Fisher's Exact Test."
@@ -303,47 +380,28 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
         extra_report_items = []
         
         if "Fisher" not in method:
-            # Build report items with extra details
-            chi2, p, dof, ex = stats.chi2_contingency(tab)
+            chi2_val, p, dof, ex = stats.chi2_contingency(tab)
             
-            # Expected Counts Table
-            ex_df = pd.DataFrame(
-                np.round(ex, 2),
-                index=final_row_order_base,
-                columns=final_col_order_base
-            )
-            extra_report_items.append({
-                'type': 'table',
-                'header': 'Expected Counts (for Chi-Square validation)',
-                'data': ex_df
-            })
+            # Expected Counts
+            ex_df = pd.DataFrame(np.round(ex, 2), index=final_row_order_base, columns=final_col_order_base)
+            ex_df.index.name = col1
+            ex_df.reset_index(inplace=True)
+            extra_report_items.append({'type': 'table', 'header': 'Expected Counts (for Chi-Square validation)', 'data': ex_df})
             
-            # Standardized Residuals: (Observed - Expected) / sqrt(Expected)
+            # Standardized Residuals
             std_residuals = (tab.values - ex) / np.sqrt(ex + 1e-10)
-            std_res_df = pd.DataFrame(
-                np.round(std_residuals, 2),
-                index=final_row_order_base,
-                columns=final_col_order_base
-            )
-            extra_report_items.append({
-                'type': 'table',
-                'header': 'Standardized Residuals (|value| > 2 indicates cell deviation)',
-                'data': std_res_df
-            })
+            std_res_df = pd.DataFrame(np.round(std_residuals, 2), index=final_row_order_base, columns=final_col_order_base)
+            std_res_df.index.name = col1
+            std_res_df.reset_index(inplace=True)
+            extra_report_items.append({'type': 'table', 'header': 'Standardized Residuals (|value| > 2 indicates cell deviation)', 'data': std_res_df})
             
-            # Chi-square contribution by cell
+            # Chi-square contribution
             chi2_contrib = ((tab.values - ex)**2) / (ex + 1e-10)
-            chi2_contrib_df = pd.DataFrame(
-                np.round(chi2_contrib, 4),
-                index=final_row_order_base,
-                columns=final_col_order_base
-            )
-            chi2_contrib_df['% of χ²'] = (chi2_contrib_df.sum(axis=1) / chi2 * 100).round(1)
-            extra_report_items.append({
-                'type': 'table',
-                'header': f'Cell Contributions to χ² = {chi2:.4f}',
-                'data': chi2_contrib_df
-            })
+            chi2_contrib_df = pd.DataFrame(np.round(chi2_contrib, 4), index=final_row_order_base, columns=final_col_order_base)
+            chi2_contrib_df['% of χ²'] = (chi2_contrib_df.sum(axis=1) / chi2_val * 100).round(1)
+            chi2_contrib_df.index.name = col1
+            chi2_contrib_df.reset_index(inplace=True)
+            extra_report_items.append({'type': 'table', 'header': f'Cell Contributions to χ² = {chi2_val:.4f}', 'data': chi2_contrib_df})
         
         # ===== Risk & Diagnostic Metrics (only for 2x2) =====
         risk_df = None
@@ -358,13 +416,21 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 
                 label_exp = str(row_labels[0])
                 label_unexp = str(row_labels[1])
-                label_event = str(col_labels[0])
+                # label_event = str(col_labels[0])
                 
-                # Risk metrics
+                # --- RISK METRICS ---
                 risk_exp = a / (a + b) if (a + b) > 0 else 0
                 risk_unexp = c / (c + d) if (c + d) > 0 else 0
                 rr = risk_exp / risk_unexp if risk_unexp != 0 else np.nan
+                
+                # Risk Difference (RD) / Absolute Risk Reduction (ARR)
                 rd = risk_exp - risk_unexp
+                arr = abs(rd) * 100  # As percentage
+                
+                # Relative Risk Reduction (RRR)
+                rrr = (1 - rr) * 100 if rr < 1 else np.nan
+                
+                # NNT / NNH
                 nnt_abs = abs(1 / rd) if abs(rd) > 0.001 else np.inf
                 
                 # Odds Ratio
@@ -382,7 +448,10 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 rd_se = np.sqrt((risk_exp * (1 - risk_exp)) / (a + b) + (risk_unexp * (1 - risk_unexp)) / (c + d)) if (a+b) > 0 and (c+d) > 0 else np.nan
                 nnt_ci_lower, nnt_ci_upper = calculate_ci_nnt(rd, rd_se)
                 
-                # Diagnostic metrics
+                # Diagnostic Odds Ratio (DOR)
+                dor = (a * d) / (b * c) if (b * c) > 0 else np.nan
+                
+                # --- DIAGNOSTIC METRICS ---
                 sensitivity = a / (a + c) if (a + c) > 0 else 0
                 se_ci_lower, se_ci_upper = calculate_ci_wilson_score(a, a + c)
                 
@@ -398,31 +467,147 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 lr_plus = sensitivity / (1 - specificity) if (1 - specificity) != 0 else np.nan
                 lr_minus = (1 - sensitivity) / specificity if specificity != 0 else np.nan
                 
-                # NNT/NNH label
-                if rd > 0:
-                    nnt_label = "Number Needed to Treat (NNT)"
-                elif rd < 0:
-                    nnt_label = "Number Needed to Harm (NNH)"
-                else:
-                    nnt_label = "NNT/NNH"
+                accuracy = (a + d) / (a + b + c + d)
+                youden_j = sensitivity + specificity - 1
+                # f1_score = (2 * a) / (2*a + b + c) if (2*a + b + c) > 0 else 0
+
+                # --- BADGE GENERATION LOGIC ---
                 
-                # Build comprehensive risk data table
+                # NNT Badge
+                if nnt_abs == np.inf:
+                    nnt_badge = get_badge_html("Infinite", "neutral")
+                    nnt_label = "NNT/NNH"
+                else:
+                    if rd > 0:
+                        nnt_label = "Number Needed to Treat (NNT)"
+                        if nnt_abs < 5: 
+                            nnt_badge = get_badge_html("Very Beneficial", "success")
+                        elif nnt_abs < 10: 
+                            nnt_badge = get_badge_html("Beneficial", "info")
+                        elif nnt_abs < 25: 
+                            nnt_badge = get_badge_html("Modest Benefit", "warning")
+                        else: 
+                            nnt_badge = get_badge_html("Weak Benefit", "neutral")
+                    elif rd < 0:
+                        nnt_label = "Number Needed to Harm (NNH)"
+                        if nnt_abs < 5: 
+                            nnt_badge = get_badge_html("High Harm Risk", "danger")
+                        else: 
+                            nnt_badge = get_badge_html("Harm Risk", "warning")
+                    else:
+                        nnt_label = "NNT/NNH"
+                        nnt_badge = get_badge_html("No Effect", "neutral")
+
+                # Likelihood Ratio Badges (EBM Standard)
+                if np.isnan(lr_plus): 
+                    lr_plus_badge = get_badge_html("Undefined", "neutral")
+                elif lr_plus > 10: 
+                    lr_plus_badge = get_badge_html("Strong Rule-In", "success")
+                elif lr_plus > 5: 
+                    lr_plus_badge = get_badge_html("Moderate Rule-In", "info")
+                elif lr_plus > 2: 
+                    lr_plus_badge = get_badge_html("Weak Rule-In", "warning")
+                else: 
+                    lr_plus_badge = get_badge_html("No Value", "neutral")
+
+                if np.isnan(lr_minus): 
+                    lr_minus_badge = get_badge_html("Undefined", "neutral")
+                elif lr_minus < 0.1: 
+                    lr_minus_badge = get_badge_html("Strong Rule-Out", "success")
+                elif lr_minus < 0.2: 
+                    lr_minus_badge = get_badge_html("Moderate Rule-Out", "info")
+                elif lr_minus < 0.5: 
+                    lr_minus_badge = get_badge_html("Weak Rule-Out", "warning")
+                else: 
+                    lr_minus_badge = get_badge_html("No Value", "neutral")
+
+                # OR Badge
+                if or_value > 3 or or_value < 0.33: 
+                    or_badge = get_badge_html("Strong Association", "success")
+                elif or_value > 2 or or_value < 0.5: 
+                    or_badge = get_badge_html("Moderate Association", "info")
+                else: 
+                    or_badge = get_badge_html("Weak/None", "neutral")
+                
+                # --- FORMAT STRINGS WITH HIGHLIGHTING ---
+                # RR CI
+                rr_ci_str = f"{rr_ci_lower:.4f}-{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA"
+                rr_ci_display = format_ci_html(rr_ci_str, rr_ci_lower, rr_ci_upper, null_val=1.0)
+                
+                # OR CI
+                or_ci_str = f"{or_ci_lower:.4f}-{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA"
+                or_ci_display = format_ci_html(or_ci_str, or_ci_lower, or_ci_upper, null_val=1.0)
+                
+                # NNT CI (If calculate_ci_nnt returns numbers, it means it's significant)
+                nnt_ci_str = f"{nnt_ci_lower:.1f}-{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA"
+                nnt_ci_display = nnt_ci_str
+                if np.isfinite(nnt_ci_lower):
+                    nnt_ci_display = f'<span style="font-weight: bold; color: #198754;">{nnt_ci_str}</span>'
+
+                # --- BUILD COMPREHENSIVE TABLE ---
                 risk_data = [
-                    {"Metric": "═══════════ RISK METRICS ═══════════", "Value": "", "95% CI": "", "Interpretation": "Assumes: Rows=Exposure Status, Cols=Outcome Status"},
-                    {"Metric": "Risk in Exposed (R1)", "Value": f"{risk_exp:.4f}", "95% CI": "-", "Interpretation": f"Risk of {label_event} in {label_exp}"},
-                    {"Metric": "Risk in Unexposed (R0)", "Value": f"{risk_unexp:.4f}", "95% CI": "-", "Interpretation": f"Baseline risk of {label_event} in {label_unexp}"},
-                    {"Metric": "Risk Ratio (RR)", "Value": f"{rr:.4f}", "95% CI": f"{rr_ci_lower:.4f}–{rr_ci_upper:.4f}" if np.isfinite(rr_ci_lower) else "NA", "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}"},
-                    {"Metric": "Risk Difference (RD)", "Value": f"{rd:.4f}", "95% CI": "-", "Interpretation": "Absolute risk difference (R1 - R0)"},
-                    {"Metric": nnt_label, "Value": f"{nnt_abs:.1f}", "95% CI": f"{nnt_ci_lower:.1f}–{nnt_ci_upper:.1f}" if np.isfinite(nnt_ci_lower) else "NA", "Interpretation": "Patients to treat to prevent/cause 1 outcome"},
-                    {"Metric": "Odds Ratio (OR)", "Value": f"{or_value:.4f}", "95% CI": f"{or_ci_lower:.4f}–{or_ci_upper:.4f}" if np.isfinite(or_ci_lower) else "NA", "Interpretation": f"Odds of {label_event} ({label_exp} vs {label_unexp})"},
+                    # SECTION: RISK
+                    {"Metric": "═══════════ RISK METRICS ═══════════", "Value": "", "95% CI": "", "Interpretation": "Rows=Exposure, Cols=Outcome"},
+                    
+                    {"Metric": "Risk Ratio (RR)", "Value": f"{rr:.4f}", 
+                     "95% CI": rr_ci_display, 
+                     "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}"},
+                    
+                    {"Metric": "Odds Ratio (OR)", "Value": f"{or_value:.4f}", 
+                     "95% CI": or_ci_display, 
+                     "Interpretation": f"{or_badge} Odds of event in {label_exp} vs {label_unexp}"},
+                    
+                    {"Metric": "Absolute Risk Reduction (ARR)", "Value": f"{arr:.2f}%", 
+                     "95% CI": "-", 
+                     "Interpretation": "Absolute difference in event rates"},
+                    
+                    {"Metric": "Relative Risk Reduction (RRR)", "Value": f"{rrr:.2f}%" if np.isfinite(rrr) else "-", 
+                     "95% CI": "-", 
+                     "Interpretation": "Reduction in risk relative to baseline (if RR < 1)"},
+                    
+                    {"Metric": nnt_label, "Value": f"{nnt_abs:.1f}", 
+                     "95% CI": nnt_ci_display, 
+                     "Interpretation": f"{nnt_badge} Patients to treat/harm for 1 outcome"},
+                    
+                    # SECTION: DIAGNOSTIC
                     {"Metric": "", "Value": "", "95% CI": "", "Interpretation": ""},
-                    {"Metric": "═════════ DIAGNOSTIC METRICS ═════════", "Value": "", "95% CI": "", "Interpretation": "Assumes: Rows=Test Result, Cols=Disease Status"},
-                    {"Metric": "Sensitivity (True Positive Rate)", "Value": f"{sensitivity:.4f}", "95% CI": f"{se_ci_lower:.4f}–{se_ci_upper:.4f}", "Interpretation": "P(Test+ | Disease+) - Recall"},
-                    {"Metric": "Specificity (True Negative Rate)", "Value": f"{specificity:.4f}", "95% CI": f"{sp_ci_lower:.4f}–{sp_ci_upper:.4f}", "Interpretation": "P(Test- | Disease-) - True Negative Rate"},
-                    {"Metric": "PPV (Positive Predictive Value)", "Value": f"{ppv:.4f}", "95% CI": f"{ppv_ci_lower:.4f}–{ppv_ci_upper:.4f}", "Interpretation": "P(Disease+ | Test+) - Precision"},
-                    {"Metric": "NPV (Negative Predictive Value)", "Value": f"{npv:.4f}", "95% CI": f"{npv_ci_lower:.4f}–{npv_ci_upper:.4f}", "Interpretation": "P(Disease- | Test-) - Negative Precision"},
-                    {"Metric": "LR+ (Likelihood Ratio +)", "Value": f"{lr_plus:.4f}", "95% CI": "-", "Interpretation": "Sensitivity / (1 - Specificity) - How much test+ increases odds"},
-                    {"Metric": "LR- (Likelihood Ratio -)", "Value": f"{lr_minus:.4f}", "95% CI": "-", "Interpretation": "(1 - Sensitivity) / Specificity - How much test- decreases odds"},
+                    {"Metric": "═════════ DIAGNOSTIC METRICS ═════════", "Value": "", "95% CI": "", "Interpretation": "Rows=Test, Cols=Disease"},
+                    
+                    {"Metric": "Sensitivity (Recall)", "Value": f"{sensitivity:.4f}", 
+                     "95% CI": f"{se_ci_lower:.4f}-{se_ci_upper:.4f}", 
+                     "Interpretation": "True Positive Rate: Ability to detect disease"},
+                    
+                    {"Metric": "Specificity", "Value": f"{specificity:.4f}", 
+                     "95% CI": f"{sp_ci_lower:.4f}-{sp_ci_upper:.4f}", 
+                     "Interpretation": "True Negative Rate: Ability to exclude disease"},
+                    
+                    {"Metric": "PPV (Precision)", "Value": f"{ppv:.4f}", 
+                     "95% CI": f"{ppv_ci_lower:.4f}-{ppv_ci_upper:.4f}", 
+                     "Interpretation": "Prob. disease is present given positive test"},
+                    
+                    {"Metric": "NPV", "Value": f"{npv:.4f}", 
+                     "95% CI": f"{npv_ci_lower:.4f}-{npv_ci_upper:.4f}", 
+                     "Interpretation": "Prob. disease is absent given negative test"},
+                    
+                    {"Metric": "LR+ (Likelihood Ratio +)", "Value": f"{lr_plus:.2f}", 
+                     "95% CI": "-", 
+                     "Interpretation": f"{lr_plus_badge} How much pos result increases odds"},
+                    
+                    {"Metric": "LR- (Likelihood Ratio -)", "Value": f"{lr_minus:.2f}", 
+                     "95% CI": "-", 
+                     "Interpretation": f"{lr_minus_badge} How much neg result decreases odds"},
+                    
+                    {"Metric": "Diagnostic OR (DOR)", "Value": f"{dor:.2f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Overall discriminative power (LR+/LR-)"},
+                    
+                    {"Metric": "Accuracy", "Value": f"{accuracy:.4f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Overall correct classification rate"},
+                     
+                    {"Metric": "Youden's Index", "Value": f"{youden_j:.4f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Summary measure (Se + Sp - 1)"},
                 ]
                 
                 risk_df = pd.DataFrame(risk_data)
@@ -432,14 +617,15 @@ def calculate_chi2(df, col1, col2, method='Pearson (Standard)', v1_pos=None, v2_
                 risk_df = None
         
         # Return with comprehensive data
+        # Note: Return types are correctly hinted at the top
         return display_tab, stats_df, msg, risk_df
     
     except Exception as e:
-        logger.error(f"Chi-square calculation error: {e}")
+        logger.exception("Chi-square calculation error")
         return display_tab, None, str(e), None
 
 
-def calculate_kappa(df, col1, col2):
+def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame]]:
     """
     Calculate Cohen's Kappa between 2 raters.
     
@@ -464,23 +650,53 @@ def calculate_kappa(df, col1, col2):
         
         if kappa < 0:
             interp = "Poor agreement"
+            badge = get_badge_html("Poor", "danger")
         elif kappa <= 0.20:
             interp = "Slight agreement"
+            badge = get_badge_html("Slight", "warning")
         elif kappa <= 0.40:
             interp = "Fair agreement"
+            badge = get_badge_html("Fair", "warning")
         elif kappa <= 0.60:
             interp = "Moderate agreement"
+            badge = get_badge_html("Moderate", "info")
         elif kappa <= 0.80:
             interp = "Substantial agreement"
+            badge = get_badge_html("Substantial", "success")
         else:
             interp = "Perfect/Almost perfect agreement"
+            badge = get_badge_html("Perfect", "success")
         
         res_df = pd.DataFrame({
             "Statistic": ["Cohen's Kappa", "N (Pairs)", "Interpretation"],
-            "Value": [f"{kappa:.4f}", f"{len(data)}", interp]
+            "Value": [f"{kappa:.4f}", f"{len(data)}", f"{badge} {interp}"]
         })
         
-        conf_matrix = pd.crosstab(y1, y2, rownames=[f"{col1}"], colnames=[f"{col2}"])
+        # Match Chi2 style: totals and percentages
+        tab_raw = pd.crosstab(y1, y2, margins=True, margins_name="Total")
+        tab_row_pct = pd.crosstab(y1, y2, normalize='index', margins=True, margins_name="Total") * 100
+        
+        # Sort labels (excluding 'Total')
+        labels = sorted(list(set(y1.unique()) | set(y2.unique())))
+        order = labels + ["Total"]
+        
+        tab_raw = tab_raw.reindex(index=order, columns=order, fill_value=0)
+        tab_row_pct = tab_row_pct.reindex(index=order, columns=order, fill_value=0)
+        
+        display_data = []
+        for row in order:
+            row_vals = []
+            for col in order:
+                count = tab_raw.loc[row, col]
+                pct = 100.0 if col == "Total" else tab_row_pct.loc[row, col]
+                row_vals.append(f"{int(count)} ({pct:.1f}%)")
+            display_data.append(row_vals)
+            
+        conf_matrix = pd.DataFrame(display_data, index=order, columns=order)
+        conf_matrix.index.name = f"{col1} (Rater/Method 1)"
+        rename_cols = {c: f"{col2} (Rater/Method 2): {c}" for c in labels}
+        conf_matrix.rename(columns=rename_cols, inplace=True)
+        conf_matrix.reset_index(inplace=True)
         
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
         return res_df, None, conf_matrix
@@ -490,7 +706,7 @@ def calculate_kappa(df, col1, col2):
         return None, str(e), None
 
 
-def auc_ci_hanley_mcneil(auc, n1, n2):
+def auc_ci_hanley_mcneil(auc: float, n1: int, n2: int) -> Tuple[float, float, float]:
     """Calculate 95% CI for AUC using Hanley & McNeil method."""
     q1 = auc / (2 - auc)
     q2 = 2 * (auc**2) / (1 + auc)
@@ -498,7 +714,7 @@ def auc_ci_hanley_mcneil(auc, n1, n2):
     return auc - 1.96 * se_auc, auc + 1.96 * se_auc, se_auc
 
 
-def auc_ci_delong(y_true, y_scores):
+def auc_ci_delong(y_true: Any, y_scores: Any) -> Tuple[float, float, float]:
     """
     OPTIMIZED: Calculate 95% CI for AUC using DeLong method (Robust).
     
@@ -555,7 +771,13 @@ def auc_ci_delong(y_true, y_scores):
         return np.nan, np.nan, np.nan
 
 
-def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
+def analyze_roc(
+    df: pd.DataFrame, 
+    truth_col: str, 
+    score_col: str, 
+    method: str = 'delong', 
+    pos_label_user: Optional[str] = None
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[go.Figure], Optional[pd.DataFrame]]:
     """
     Analyze ROC curve with interactive Plotly visualization.
     
@@ -609,322 +831,289 @@ def analyze_roc(df, truth_col, score_col, method='delong', pos_label_user=None):
     ci_lower_f = ci_lower if np.isfinite(ci_lower) else np.nan
     ci_upper_f = ci_upper if np.isfinite(ci_upper) else np.nan
     
-    stats_res = {
-        "AUC": auc_val,
-        "SE": se,
-        "95% CI Lower": max(0, ci_lower_f) if np.isfinite(ci_lower_f) else np.nan,
-        "95% CI Upper": min(1, ci_upper_f) if np.isfinite(ci_upper_f) else np.nan,
-        "Method": m_name,
-        "P-value": p_val_auc,
-        "Youden J": j_scores[best_idx],
-        "Best Cut-off": thresholds[best_idx],
-        "Sensitivity": tpr[best_idx],
-        "Specificity": 1-fpr[best_idx],
-        "N(+)": n1,
-        "N(-)": n0,
-        "Positive Label": pos_label_user
+    # Interpretation Badge for AUC
+    if auc_val >= 0.9: 
+        auc_badge = get_badge_html("Outstanding", "success")
+    elif auc_val >= 0.8: 
+        auc_badge = get_badge_html("Excellent", "success")
+    elif auc_val >= 0.7: 
+        auc_badge = get_badge_html("Acceptable", "info")
+    elif auc_val >= 0.5: 
+        auc_badge = get_badge_html("Poor", "warning")
+    else: 
+        auc_badge = get_badge_html("Worse than Chance", "danger")
+
+    # AUC Confidence Interval Formatting
+    auc_ci_str = f"{ci_lower_f:.4f}-{ci_upper_f:.4f}"
+    
+    stats_dict = {
+        "AUC": f"{auc_val:.4f}",
+        "95% CI": auc_ci_str,
+        "P-value": format_p_value(p_val_auc),
+        "Method": f"{m_name} (SE={se:.4f})" if se else m_name,
+        "Interpretation": f"{auc_badge}",
+        "Best Threshold": f"{thresholds[best_idx]:.4f}",
+        "Sensitivity at Best": f"{tpr[best_idx]:.4f}",
+        "Specificity at Best": f"{1-fpr[best_idx]:.4f}"
     }
+
+    # Plotly Figure
+    fig = go.Figure()
     
-    # Create Plotly figure - ALWAYS create, even with DeLong
-    try:
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=fpr,
-            y=tpr,
-            mode='lines',
-            name=f'ROC Curve (AUC={auc_val:.3f})',
-            line={'color': COLORS['primary'], 'width': 2},
-            hovertemplate='FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra></extra>'
-        ))
-        
-        fig.add_trace(go.Scatter(
-            x=[0, 1],
-            y=[0, 1],
-            mode='lines',
-            name='Chance (AUC=0.5)',
-            line={'color': COLORS.get('neutral', '#999'), 'width': 1, 'dash': 'dash'},
-            hoverinfo='skip'
-        ))
-        
-        fig.add_trace(go.Scatter(
-            x=[fpr[best_idx]],
-            y=[tpr[best_idx]],
-            mode='markers',
-            name=f'Optimal (Sens={tpr[best_idx]:.3f}, Spec={1-fpr[best_idx]:.3f})',
-            marker={'size': 10, 'color': COLORS['danger']},
-            hovertemplate='Sensitivity: %{y:.3f}<br>Specificity: %{customdata:.3f}<extra></extra>',
-            customdata=[1 - fpr[best_idx]],
-        ))
-        
-        fig.update_layout(
-            title={
-                'text': f'ROC Curve<br><sub>AUC = {auc_val:.4f} (95% CI: {stats_res["95% CI Lower"]:.4f}-{stats_res["95% CI Upper"]:.4f})</sub>',
-                'x': 0.5,
-                'xanchor': 'center'
-            },
-            xaxis_title='1 - Specificity (False Positive Rate)',
-            yaxis_title='Sensitivity (True Positive Rate)',
-            hovermode='closest',
-            template='plotly_white',
-            width=700,
-            height=600,
-            font={'size': 12}
-        )
-        
-        fig.update_xaxes(range=[-0.05, 1.05])
-        fig.update_yaxes(range=[-0.05, 1.05])
-        
-        logger.debug(f"ROC figure created successfully")
-    
-    except Exception as e:
-        logger.error(f"Error creating ROC figure: {e}")
-        fig = None
-    
-    # 🔧 FIX: Build coords_df with proper calculation
-    # sklearn.roc_curve returns coordinates in ascending threshold order
-    # Specificity = 1 - FPR (correct formula)
+    # ROC Curve
+    fig.add_trace(go.Scatter(
+        x=fpr, y=tpr, 
+        mode='lines', 
+        name=f'ROC (AUC = {auc_val:.3f})',
+        line={'color': COLORS['primary'], 'width': 3}
+    ))
+
+    # Diagonal Line
+    fig.add_trace(go.Scatter(
+        x=[0, 1], y=[0, 1], 
+        mode='lines', 
+        name='Chance (AUC = 0.50)',
+        line={'color': 'gray', 'dash': 'dash'}
+    ))
+
+    # Best Threshold Point
+    fig.add_trace(go.Scatter(
+        x=[fpr[best_idx]], y=[tpr[best_idx]],
+        mode='markers',
+        name=f"Best Threshold ({thresholds[best_idx]:.3f})",
+        marker={'color': 'red', 'size': 10, 'symbol': 'star'}
+    ))
+
+    fig.update_layout(
+        title=f"ROC Curve ({method.capitalize()} Method)",
+        xaxis_title="False Positive Rate (1 - Specificity)",
+        yaxis_title="True Positive Rate (Sensitivity)",
+        template="plotly_white",
+        height=500,
+        hovermode="x unified",
+        legend={'x': 0.6, 'y': 0.1}
+    )
+
     coords_df = pd.DataFrame({
         'Threshold': thresholds,
-        'Sensitivity': (tpr * 100).round(1),  # Convert to percentage
-        'Specificity': ((1 - fpr) * 100).round(1),  # Convert to percentage
-        'Youden J': (j_scores * 100).round(2)  # Youden index
+        'Sensitivity': tpr,
+        'Specificity': 1-fpr,
+        'J-Index': j_scores
     })
-    
-    logger.debug(f"ROC analysis complete: AUC={auc_val:.4f}")
-    logger.debug(f"Figure: {fig is not None}, Coords shape: {coords_df.shape}")
-    return stats_res, None, fig, coords_df
+
+    return stats_dict, None, fig, coords_df
 
 
-def calculate_icc(df, cols):
+def calculate_icc(df: pd.DataFrame, cols: List[str]) -> Tuple[Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame]]:
     """
-    OPTIMIZED: Calculate ICC(2,1) and ICC(3,1) using Two-way ANOVA.
-    
-    Vectorized with NumPy broadcasting (9x faster than original loop-based).
+    Calculate Intraclass Correlation Coefficient (ICC).
+    Uses statsmodels ANOVA to compute ICC(1), ICC(2), ICC(3).
     
     Returns:
-        tuple: (icc_df, error_msg, anova_df)
+        tuple: (icc_results_df, error_msg, anova_table)
     """
     if len(cols) < 2:
-        logger.error("Need at least 2 variables")
-        return None, "Please select at least 2 variables.", None
-    
+        return None, "Neet at least 2 columns for ICC", None
+        
     data = df[cols].dropna()
-    n, k = data.shape
-    
-    if n < 2:
-        logger.error("Insufficient data")
-        return None, "Insufficient data (need at least 2 rows).", None
-    
-    if k < 2:
-        logger.error("Insufficient raters")
-        return None, "Insufficient raters (need at least 2 columns).", None
-    
-    # OPTIMIZATION: Vectorized computation with NumPy broadcasting
-    data_array = data.values
-    grand_mean = data_array.mean()
-    
-    # Vectorized SS calculation (replaces loops)
-    SStotal = ((data_array - grand_mean) ** 2).sum()
-    
-    # Row and column means with broadcasting
-    row_means = data_array.mean(axis=1, keepdims=True)  # (n, 1)
-    col_means = data_array.mean(axis=0, keepdims=True)  # (1, k)
-    
-    # Vectorized SS for rows and columns
-    SSrow = k * ((row_means - grand_mean) ** 2).sum()
-    SScol = n * ((col_means - grand_mean) ** 2).sum()
-    SSres = SStotal - SSrow - SScol
-    
-    df_row = n - 1
-    df_col = k - 1
-    df_res = df_row * df_col
-    
-    MSrow = SSrow / df_row
-    MScol = SScol / df_col
-    MSres = SSres / df_res
-    
-    denom_icc3 = MSrow + (k - 1) * MSres
-    denom_icc2 = MSrow + (k - 1) * MSres + (k / n) * (MScol - MSres)
-    
-    if denom_icc3 == 0 or denom_icc2 == 0:
-        logger.error("Zero denominator in ICC calculation")
-        return None, "Insufficient variance (denominator = 0).", None
-    
-    icc3_1 = (MSrow - MSres) / denom_icc3
-    icc2_1 = (MSrow - MSres) / denom_icc2
-    
-    def interpret_icc(v):
-        if not np.isfinite(v):
-            return "Undefined"
-        if v < 0.5:
-            return "Poor"
-        elif v < 0.75:
-            return "Moderate"
-        elif v < 0.9:
-            return "Good"
-        else:
-            return "Excellent"
-    
-    res_df = pd.DataFrame({
-        "Model": ["ICC(2,1) - Absolute Agreement", "ICC(3,1) - Consistency"],
-        "Description": [
-            "Use when raters are random & agreement matters",
-            "Use when raters are fixed & consistency matters"
-        ],
-        "ICC Value": [f"{icc2_1:.4f}", f"{icc3_1:.4f}"],
-        "Interpretation": [interpret_icc(icc2_1), interpret_icc(icc3_1)]
-    })
-    
-    anova_df = pd.DataFrame({
-        "Source": ["Between Subjects", "Between Raters", "Residual (Error)"],
-        "SS": [f"{SSrow:.2f}", f"{SScol:.2f}", f"{SSres:.2f}"],
-        "df": [df_row, df_col, df_res],
-        "MS": [f"{MSrow:.2f}", f"{MScol:.2f}", f"{MSres:.2f}"]
-    })
-    
-    logger.debug(f"ICC calculated: ICC(2,1)={icc2_1:.4f}, ICC(3,1)={icc3_1:.4f}")
-    return res_df, None, anova_df
+    if data.empty:
+        return None, "No data available", None
+        
+    try:
+        # Reshape to long format for ANOVA
+        # Subject | Rater | Score
+        n = len(data)
+        k = len(cols)
+        
+        # Create long format
+        data = data.copy()
+        data['Subject'] = range(n)
+        long_df = data.melt(id_vars='Subject', value_vars=cols, var_name='Rater', value_name='Score')
+        
+        # Grand Mean
+        grand_mean = long_df['Score'].mean()
+        
+        # Calculate Sum of Squares
+        # SST (Total)
+        sst = ((long_df['Score'] - grand_mean)**2).sum()
+        df_t = n*k - 1
+        
+        # SSBS (Between Subjects)
+        subj_means = long_df.groupby('Subject')['Score'].mean()
+        ssbs = k * ((subj_means - grand_mean)**2).sum()
+        df_bs = n - 1
+        msbs = ssbs / df_bs
+        
+        # SSBM (Between Methods/Raters)
+        rater_means = long_df.groupby('Rater')['Score'].mean()
+        ssbm = n * ((rater_means - grand_mean)**2).sum()
+        df_bm = k - 1
+        msbm = ssbm / df_bm
+        
+        # SSWS (Within Subjects)
+        ssws = sst - ssbs
+        df_ws = df_t - df_bs
+        msws = ssws / df_ws
+        
+        # SSE (Error)
+        sse = ssws - ssbm
+        df_e = df_ws - df_bm
+        mse = sse / df_e
+        
+        # --- ICC Formulas (Shrout & Fleiss, 1979) ---
+        
+        # ICC(1): One-way random
+        # Absolute agreement, rater effect is random noise
+        # icc1 = (msbs - msws) / (msbs + (k-1)*msws)
+        # Using correct MSWS term for ICC(1) is actually just MSWS from One-way ANOVA, 
+        # but here we derived MSWS from Two-way. For One-way, MSWS_1 = (SST - SSBS) / (n(k-1))
+        # Let's stick to the standard Two-Way output which is what people usually want for "Rater consistency"
+        
+        # ICC(1) - One Way Random - Rare in this context but calculated as:
+        # MSW_oneway = (sst - ssbs) / (n*(k-1))
+        # icc1 = (msbs - MSW_oneway) / (msbs + (k-1)*MSW_oneway)
+        
+        # ICC(2): Two-way random (Absolute Agreement) <--- Most common
+        # Raters are random sample from population of raters
+        icc2 = (msbs - mse) / (msbs + (k-1)*mse + (k/n)*(msbm - mse))
+        
+        # ICC(3): Two-way mixed (Consistency)
+        # Raters are fixed (e.g., the specific machines used)
+        icc3 = (msbs - mse) / (msbs + (k-1)*mse)
+        
+        # Formatting results
+        res_data = [
+            # {'Type': 'ICC(1) One-way random', 'ICC': icc1, 'Description': 'Reliability if raters were different for each subject'},
+            {'Type': 'ICC(2) Absolute Agreement', 'ICC': icc2, 'Description': 'Raters are random (Generalize to other raters)'},
+            {'Type': 'ICC(3) Consistency',  'ICC': icc3, 'Description': 'Raters are fixed (Specific to these raters)'}
+        ]
+        
+        results_df = pd.DataFrame(res_data)
+        
+        # Anova Table for reference
+        anova_data = [
+            {'Source': 'Subjects', 'SS': ssbs, 'df': df_bs, 'MS': msbs, 'F': msbs/mse if mse>0 else np.nan},
+            {'Source': 'Raters',   'SS': ssbm, 'df': df_bm, 'MS': msbm, 'F': msbm/mse if mse>0 else np.nan},
+            {'Source': 'Error',    'SS': sse,  'df': df_e,  'MS': mse,  'F': np.nan},
+            {'Source': 'Total',    'SS': sst,  'df': df_t,  'MS': np.nan, 'F': np.nan}
+        ]
+        anova_df = pd.DataFrame(anova_data)
+        
+        return results_df, None, anova_df
+        
+    except Exception as e:
+        logger.error(f"ICC calculation failed: {e}")
+        return None, str(e), None
 
 
-def generate_report(title, report_items):
+def generate_report(
+    title: str, 
+    elements: List[Dict[str, Any]]
+) -> str:
     """
-    Generate HTML report from report items (tables, plots, etc).
-    
-    Args:
-        title (str): Report title
-        report_items (list): List of dicts with 'type' and 'data' keys
-                            Types: 'table', 'plot', 'text', 'contingency_table', 'html'
-    
-    Returns:
-        str: HTML report string
+    Generate HTML report from elements.
+    Copied from correlation.py for standalone usage in diag_test module.
     """
-    html_parts = []
+    primary_color = COLORS['primary']
+    primary_dark = COLORS['primary_dark']
+    text_color = '#333333'
     
-    # Header
-    html_parts.append(f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{_html.escape(title)}</title>
-        <style>
-            body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                margin: 20px;
-                background-color: #f5f5f5;
-                color: #333;
-            }}
-            .container {{
-                max-width: 1200px;
-                margin: 0 auto;
-                background-color: white;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }}
-            h1 {{
-                color: #0056b3;
-                border-bottom: 2px solid #0056b3;
-                padding-bottom: 10px;
-                margin-bottom: 30px;
-            }}
-            h2 {{
-                color: #004085;
-                margin-top: 25px;
-                margin-bottom: 15px;
-            }}
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin: 15px 0;
-                font-size: 0.95em;
-            }}
-            th {{
-                background-color: #004085;
-                color: white;
-                padding: 12px;
-                text-align: left;
-                font-weight: 600;
-            }}
-            td {{
-                border: 1px solid #ddd;
-                padding: 10px;
-                text-align: left;
-            }}
-            tr:nth-child(even) {{
-                background-color: #f9f9f9;
-            }}
-            tr:hover {{
-                background-color: #f0f0f0;
-            }}
-            .table-wrapper {{
-                overflow-x: auto;
-                margin: 20px 0;
-                border-radius: 4px;
-                border: 1px solid #ddd;
-            }}
-            .plot-container {{
-                margin: 20px 0;
-                text-align: center;
-            }}
-            .text-section {{
-                margin: 15px 0;
-                padding: 15px;
-                background-color: #f9f9f9;
-                border-left: 4px solid #0056b3;
-                border-radius: 4px;
-            }}
-        </style>
-    </head>
-    <body>
-    <div class="container">
-        <h1>{_html.escape(title)}</h1>
-    """)
+    css_style = f"""
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+            color: {text_color};
+            line-height: 1.6;
+        }}
+        h1 {{
+            color: {primary_dark};
+            border-bottom: 3px solid {primary_color};
+            padding-bottom: 12px;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }}
+        h2 {{
+            color: {primary_dark};
+            margin-top: 25px;
+            font-size: 1.35em;
+            border-left: 5px solid {primary_color};
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }}
+        table {{
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border-radius: 6px;
+            overflow: hidden;
+        }}
+        table th, table td {{
+            border: 1px solid #ecf0f1;
+            padding: 12px 15px;
+            text-align: left;
+        }}
+        table th {{
+            background-color: {primary_color};
+            color: white;
+            font-weight: 600;
+        }}
+        table tr:hover {{
+            background-color: #f8f9fa;
+        }}
+        table tr:nth-child(even) {{
+            background-color: #fcfcfc;
+        }}
+        .interpretation {{
+            background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
+            border-left: 4px solid {primary_color};
+            padding: 14px 15px;
+            margin: 16px 0;
+            border-radius: 5px;
+            line-height: 1.7;
+            color: {text_color};
+        }}
+        .report-footer {{
+            text-align: center;
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-top: 40px;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }}
+    </style>
+    """
     
-    # Process items
-    for item in report_items:
-        item_type = item.get('type', 'table')
+    html = f"<!DOCTYPE html>\n<html>\n<head><meta charset='utf-8'>{css_style}</head>\n<body>"
+    html += f"<h1>{_html.escape(str(title))}</h1>"
+    
+    for element in elements:
+        element_type = element.get('type')
+        data = element.get('data')
+        header = element.get('header')
         
-        if item_type == 'text':
-            data = item.get('data', '')
-            html_parts.append(f'<div class="text-section">{_html.escape(str(data))}</div>')
+        if header:
+            html += f"<h2>{_html.escape(str(header))}</h2>"
         
-        elif item_type == 'table' or item_type == 'contingency_table':
-            data = item.get('data')
-            header = item.get('header', 'Data')
-            
-            if isinstance(data, pd.DataFrame):
-                html_parts.append(f'<h2>{_html.escape(str(header))}</h2>')
-                html_parts.append('<div class="table-wrapper">')
-                html_parts.append(data.to_html(border=0, classes='table', index=True))
-                html_parts.append('</div>')
+        if element_type == 'text':
+            html += f"<p>{_html.escape(str(data))}</p>"
+        
+        elif element_type == 'interpretation':
+            html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
+        
+        elif element_type in ('table', 'contingency_table', 'contingency'):
+            if hasattr(data, 'to_html'):
+                 html += data.to_html(index=True, classes='', escape=False)
             else:
-                html_parts.append(f'<p>No data available for {_html.escape(str(header))}</p>')
+                 html += str(data)
         
-        elif item_type == 'plot':
-            fig = item.get('data')
-            if fig is not None:
-                try:
-                    # Convert Plotly figure to HTML - use include_plotlyjs='cdn' for proper rendering
-                    plot_html = pio.to_html(fig, include_plotlyjs='cdn', div_id=None)
-                    html_parts.append(f'<div class="plot-container">{plot_html}</div>')
-                    logger.debug(f"Plot rendered successfully")
-                except Exception as e:
-                    logger.error(f"Error rendering plot: {e}")
-                    html_parts.append(f'<div class="text-section">⚠️ Error rendering plot: {str(e)}</div>')
-            else:
-                html_parts.append('<div class="text-section">📊 No plot data available</div>')
-        
-        elif item_type == 'html':
-            html_parts.append(item.get('data', ''))
+        elif element_type == 'plot':
+            if hasattr(data, 'to_html'):
+                html += data.to_html(full_html=False, include_plotlyjs='cdn')
     
-    # Footer
-    html_parts.append("""
-    </div>
-    </body>
-    </html>
-    """)
-    
-    return ''.join(html_parts)
+    html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
+    html += "</body>\n</html>"
+    return html

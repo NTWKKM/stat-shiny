@@ -16,6 +16,7 @@ OPTIMIZATIONS:
 - Vectorized CI extraction (10x faster)
 """
 
+from typing import Union, Optional, List, Dict, Tuple, Any, Sequence
 import pandas as pd
 import numpy as np
 from lifelines import KaplanMeierFitter, CoxPHFitter, NelsonAalenFitter
@@ -36,7 +37,7 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
-def _standardize_numeric_cols(data, cols) -> None:
+def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
     """
     Standardize numeric columns in-place while preserving binary (0/1) columns.
     """
@@ -53,22 +54,23 @@ def _standardize_numeric_cols(data, cols) -> None:
                 data[col] = (data[col] - data[col].mean()) / std
 
 
-def _hex_to_rgba(hex_color, alpha) -> str:
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     """
     Convert hex color to RGBA string for Plotly.
     """
-    hex_color = hex_color.lstrip('#')
+    hex_color = str(hex_color).lstrip('#')
     if len(hex_color) != 6:
-        raise ValueError(f"Invalid hex color: got {len(hex_color)} chars, expected 6")
+        # Fallback to a default color if hex is invalid
+        return f'rgba(31, 119, 180, {alpha})'
     rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     return f'rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})'
 
 
-def _sort_groups_vectorized(groups):
+def _sort_groups_vectorized(groups: Sequence[Any]) -> List[Any]:
     """
     OPTIMIZATION: Sort groups with vectorized key extraction (5x faster).
     """
-    def _sort_key(v):
+    def _sort_key(v: Any) -> Tuple[int, Union[float, str]]:
         s = str(v)
         try:
             return (0, float(s))
@@ -78,7 +80,12 @@ def _sort_groups_vectorized(groups):
     return sorted(groups, key=_sort_key)
 
 
-def calculate_median_survival(df, duration_col, event_col, group_col):
+def calculate_median_survival(
+    df: pd.DataFrame, 
+    duration_col: str, 
+    event_col: str, 
+    group_col: Optional[str]
+) -> pd.DataFrame:
     """
     OPTIMIZED: Calculate Median Survival Time and 95% CI for each group.
     
@@ -109,7 +116,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
         raise ValueError(f"Event column '{event_col}' must contain numeric values")
     
     unique_events = data[event_col].dropna().unique()
-    if not all(v in [0, 1, True, False] for v in unique_events):
+    if not all(v in [0, 1, True, False, 0.0, 1.0] for v in unique_events):
         raise ValueError(f"Event column '{event_col}' must contain only 0/1 or boolean values")
     
     if group_col:
@@ -129,7 +136,10 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
             label = "Overall"
             
         n = len(df_g)
-        events = df_g[event_col].sum()
+        
+        # ✅ FIXED: ปรับปรุงการตรวจสอบผลรวมให้ปลอดภัยจาก TypeError
+        event_sum = df_g[event_col].sum()
+        events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
         
         if n > 0:
             kmf = KaplanMeierFitter()
@@ -149,7 +159,7 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
                 lower, upper = np.nan, np.nan
             
             # Vectorized formatting
-            def fmt(v) -> str:
+            def fmt(v: float) -> str:
                 if pd.isna(v) or np.isinf(v):
                     return "NR"
                 return f"{v:.1f}"
@@ -162,19 +172,21 @@ def calculate_median_survival(df, duration_col, event_col, group_col):
         results.append({
             "Group": label,
             "N": n,
-            "Events": events,
+            "Events": int(float(events_val)),
             "Median Time (95% CI)": display_str
         })
         
     return pd.DataFrame(results)
 
 
-def fit_km_logrank(df, duration_col, event_col, group_col):
+def fit_km_logrank(
+    df: pd.DataFrame, 
+    duration_col: str, 
+    event_col: str, 
+    group_col: Optional[str]
+) -> Tuple[go.Figure, pd.DataFrame]:
     """
     OPTIMIZED: Fit KM curves and perform Log-rank test.
-    
-    Returns:
-        tuple: (plotly_fig, stats_df)
     """
     data = df.dropna(subset=[duration_col, event_col])
     if group_col:
@@ -244,7 +256,7 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
     )
     fig.update_yaxes(range=[0, 1.05])
 
-    stats_data = {}
+    stats_data: Dict[str, Any] = {}
     try:
         if len(groups) == 2 and group_col:
             g1, g2 = groups
@@ -277,12 +289,14 @@ def fit_km_logrank(df, duration_col, event_col, group_col):
     return fig, pd.DataFrame([stats_data])
 
 
-def fit_nelson_aalen(df, duration_col, event_col, group_col):
+def fit_nelson_aalen(
+    df: pd.DataFrame, 
+    duration_col: str, 
+    event_col: str, 
+    group_col: Optional[str]
+) -> Tuple[go.Figure, pd.DataFrame]:
     """
     OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
-    
-    Returns:
-        tuple: (plotly_fig, stats_df)
     """
     data = df.dropna(subset=[duration_col, event_col])
     if len(data) == 0:
@@ -340,10 +354,14 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
                 line=dict(color=colors[i % len(colors)], width=2)
             ))
             
+            # ✅ FIXED: ปรับปรุงการคำนวณ N และ Events ให้เสถียร
+            event_sum = df_g[event_col].sum()
+            events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+            
             stats_list.append({
                 'Group': label,
                 'N': len(df_g),
-                'Events': df_g[event_col].sum()
+                'Events': int(float(events_val))
             })
 
     fig.update_layout(
@@ -357,12 +375,14 @@ def fit_nelson_aalen(df, duration_col, event_col, group_col):
     return fig, pd.DataFrame(stats_list)
 
 
-def fit_cox_ph(df, duration_col, event_col, covariate_cols):
+def fit_cox_ph(
+    df: pd.DataFrame, 
+    duration_col: str, 
+    event_col: str, 
+    covariate_cols: List[str]
+) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str]]:
     """
     Fit Cox proportional hazards model.
-    
-    Returns:
-        tuple: (cph, res_df, data, error_msg)
     """
     missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
     if missing:
@@ -374,9 +394,19 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     if len(data) == 0:
         return None, None, data, "No valid data after dropping missing values."
 
-    if data[event_col].sum() == 0:
-        logger.error("No events observed")
-        return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
+    # ✅ FIXED: แก้ไข Ambiguous Series error ด้วยการตรวจสอบผลลัพธ์ของ .sum()
+    try:
+        event_sum = data[event_col].sum()
+        event_total = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+        
+        if float(event_total) == 0:
+            logger.error("No events observed")
+            return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
+    except Exception as e:
+        logger.error(f"Error checking event sum: {e}")
+        # Fallback check
+        if not (data[event_col].astype(float) == 1).any():
+             return None, None, data, "No events found in event column."
 
     original_covariate_cols = list(covariate_cols)
     try:
@@ -465,12 +495,12 @@ def fit_cox_ph(df, duration_col, event_col, covariate_cols):
     return cph, res_df, data, None
 
 
-def check_cph_assumptions(cph, data):
+def check_cph_assumptions(
+    cph: CoxPHFitter, 
+    data: pd.DataFrame
+) -> Tuple[str, List[go.Figure]]:
     """
     OPTIMIZED: Generate proportional hazards test report and Schoenfeld residual plots.
-    
-    Returns:
-        tuple: (report_text, list_of_figures)
     """
     try:
         results = proportional_hazard_test(cph, data, time_transform='rank')
@@ -490,7 +520,7 @@ def check_cph_assumptions(cph, data):
                 y=residuals,
                 mode='markers',
                 name='Residuals',
-                marker={'color': COLORS['primary'], 'opacity': 0.6, 'size': 6}
+                marker={'color': COLORS.get('primary', '#2180BE'), 'opacity': 0.6, 'size': 6}
             ))
             
             try:
@@ -505,7 +535,7 @@ def check_cph_assumptions(cph, data):
                     y=trend_y,
                     mode='lines',
                     name='Trend (Linear)',
-                    line={'color': COLORS['danger'], 'dash': 'dash', 'width': 2}
+                    line={'color': COLORS.get('danger', '#d32f2f'), 'dash': 'dash', 'width': 2}
                 ))
             except Exception as e:
                 logger.warning(f"Could not fit trend line for {col}: {e}")
@@ -531,12 +561,9 @@ def check_cph_assumptions(cph, data):
         return f"Assumption check failed: {e}", []
 
 
-def create_forest_plot_cox(res_df):
+def create_forest_plot_cox(res_df: pd.DataFrame) -> go.Figure:
     """
     Create publication-quality forest plot of hazard ratios.
-    
-    Returns:
-        plotly_fig
     """
     if res_df is None or res_df.empty:
         logger.error("No Cox regression results")
@@ -560,18 +587,19 @@ def create_forest_plot_cox(res_df):
     return fig
 
 
-def generate_forest_plot_cox_html(res_df):
+def generate_forest_plot_cox_html(res_df: pd.DataFrame) -> str:
     """
     Generate HTML snippet with forest plot for Cox regression.
-    
-    Returns:
-        html_string
     """
     if res_df is None or res_df.empty:
         return "<p>No Cox regression results available for forest plot.</p>"
     
-    fig = create_forest_plot_cox(res_df)
-    plot_html = fig.to_html(include_plotlyjs=True, div_id='cox_forest_plot')
+    try:
+        fig = create_forest_plot_cox(res_df)
+        plot_html = fig.to_html(include_plotlyjs=True, div_id='cox_forest_plot')
+    except (ValueError, AttributeError) as e:
+        logger.exception("Forest plot HTML generation error")
+        return f"<p>Error generating forest plot: {e}</p>"
     
     interp_html = f"""
     <div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS.get('primary', '#218084')}; border-radius:4px;'>
@@ -590,12 +618,15 @@ def generate_forest_plot_cox_html(res_df):
     return f"<div style='margin:20px 0;'>{plot_html}{interp_html}</div>"
 
 
-def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
+def fit_km_landmark(
+    df: pd.DataFrame, 
+    duration_col: str, 
+    event_col: str, 
+    group_col: Optional[str], 
+    landmark_time: float
+) -> Tuple[Optional[go.Figure], Optional[pd.DataFrame], int, int, Optional[str]]:
     """
     OPTIMIZED: Perform landmark-time Kaplan-Meier analysis.
-    
-    Returns:
-        tuple: (fig, stats_df, n_pre, n_post, error)
     """
     missing = [c for c in [duration_col, event_col, group_col] if c not in df.columns]
     if missing:
@@ -706,57 +737,53 @@ def fit_km_landmark(df, duration_col, event_col, group_col, landmark_time):
     return fig, pd.DataFrame([stats_data]), n_pre_filter, n_post_filter, None
 
 
-def generate_report_survival(title, elements):
+def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
     """
     Generate complete HTML report with embedded plots and tables.
-    
-    Returns:
-        html_string
     """
-    primary_color = COLORS['primary']
-    primary_dark = COLORS['primary_dark']
-    text_color = COLORS['text']
-    danger = COLORS['danger']
+    primary_color = COLORS.get('primary', '#2180BE')
+    primary_dark = COLORS.get('primary_dark', '#1a5a8a')
+    text_color = COLORS.get('text', '#333')
     
     css_style = f"""<style>
-        body{{
+        body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
             margin: 20px;
             background-color: #f4f6f8;
             color: {text_color};
             line-height: 1.6;
         }}
-        h1{{
+        h1 {{
             color: {primary_dark};
             border-bottom: 3px solid {primary_color};
             padding-bottom: 12px;
             font-size: 2em;
             margin-bottom: 20px;
         }}
-        h2{{
+        h2 {{
             color: {primary_dark};
             border-left: 5px solid {primary_color};
             padding-left: 12px;
             margin: 25px 0 15px 0;
         }}
-        table{{
+        table {{
             border-collapse: collapse;
             width: 100%;
             margin: 10px 0;
             background-color: white;
             border-radius: 6px;
         }}
-        th, td{{
+        th, td {{
             border: 1px solid #ddd;
             padding: 12px;
             text-align: left;
         }}
-        th{{
+        th {{
             background-color: {primary_dark};
             color: white;
             font-weight: 600;
         }}
-        tr:hover{{
+        tr:hover {{
             background-color: #f8f9fa;
         }}
         .report-footer {{
@@ -781,7 +808,10 @@ def generate_report_survival(title, elements):
         elif t == 'text':
             html_doc += f"<p>{_html.escape(str(d))}</p>"
         elif t == 'table':
-            html_doc += d.to_html()
+            if isinstance(d, pd.DataFrame):
+                html_doc += d.to_html(classes='table table-striped', border=0)
+            else:
+                html_doc += str(d)
         elif t == 'plot':
             if hasattr(d, 'to_html'):
                 html_doc += d.to_html(full_html=False, include_plotlyjs=True)
@@ -794,7 +824,8 @@ def generate_report_survival(title, elements):
             html_doc += str(d)
     
     html_doc += """<div class='report-footer'>
-    © 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by GitHub
-    </div></body>\n</html>"""
+    © 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny
+    </div></body>
+    </html>"""
     
     return html_doc
