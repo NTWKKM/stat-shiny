@@ -43,7 +43,9 @@ class ForestPlot:
         Initialize ForestPlot with validated data.
         """
         if data.empty:
-            raise ValueError("DataFrame cannot be empty")
+            logger.warning("ForestPlot: DataFrame is empty") # เปลี่ยนจาก raise เป็น warning
+            self.data = pd.DataFrame()
+            return
         
         required_cols = {estimate_col, ci_low_col, ci_high_col, label_col}
         if pval_col:
@@ -51,20 +53,28 @@ class ForestPlot:
 
         missing = required_cols - set(data.columns)
         if missing:
-            raise ValueError(f"Missing required columns: {missing}")
+            logger.error(f"Missing required columns: {missing}")
+            self.data = pd.DataFrame()
+            return
         
         self.data = data.copy()
 
+        # 1. แปลงเป็นตัวเลข (Coerce จะทำให้ค่าที่เป็น string เช่น "Ref." กลายเป็น NaN)
         numeric_cols = [estimate_col, ci_low_col, ci_high_col]
         for col in numeric_cols:
             self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
         
-        self.data = self.data.dropna(subset=numeric_cols)
+        # 2. กรองเฉพาะแถวที่สามารถวาดกราฟได้จริงๆ (ต้องมีเลขครบ 3 ช่อง)
+        # เราจะไม่ลบทั้ง DataFrame แต่จะเลือกเฉพาะแถวที่วาดได้
+        valid_mask = self.data[numeric_cols].notna().all(axis=1)
+        plot_data = self.data[valid_mask].copy()
         
-        if self.data.empty:
-            raise ValueError("No valid data after removing NaN values")
+        if plot_data.empty:
+            logger.warning("No valid numeric data to plot (might be all 'Ref.' or NaN)")
+            self.data = pd.DataFrame()
+            return
         
-        self.data = self.data.iloc[::-1].reset_index(drop=True)
+        self.data = plot_data.iloc[::-1].reset_index(drop=True)
         
         self.estimate_col = estimate_col
         self.ci_low_col = ci_low_col
@@ -235,6 +245,11 @@ class ForestPlot:
         """
         OPTIMIZED: Build interactive forest plot with vectorized operations.
         """
+        if self.data.empty:
+            # คืนค่ากราฟเปล่าที่มีข้อความแจ้งเตือน
+            fig = go.Figure()
+            fig.add_annotation(text="No valid data to display in Forest Plot", showarrow=False)
+            return fig
         if color is None:
             color = COLORS['primary']
         
