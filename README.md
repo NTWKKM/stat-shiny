@@ -45,6 +45,7 @@ Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
 
 ### ⚙️ Settings
 Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
+
 ## 🛠️ Installation & Usage
 
 ### Option 1: Run Locally (Python)
