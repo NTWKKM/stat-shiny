@@ -11,6 +11,66 @@ pinned: false
 [Hugging Face Space](https://huggingface.co/spaces/ntwkkm/shinystat)
 
 [--- REPOSITORY-TREE-START ---]
+
+📂 Repository Contents (File Structure)
+
+This content reflects the repository structure (updated by GitHub Actions):
+
+```text
+|-- Dockerfile
+|-- app.py
+|-- config.py
+|-- correlation.py
+|-- diag_test.py
+|-- forest_plot_lib.py
+|-- interaction_lib.py
+|-- logger.py
+|-- logic.py
+|-- md /
+|   |-- CACHE_INTEGRATION_GUIDE.md
+|   |-- CHANGELOG_UI_ENHANCEMENT.md
+|   |-- DEBUGGING_ANALYSIS.md
+|   |-- DEPLOYMENT_SUMMARY.md
+|   |-- FIX_COMPLETE.md
+|   |-- HF_OPTIMIZATION_README.md
+|   |-- IMPLEMENTATION_STATUS.md
+|   |-- MedStat_Detailed_Review.md
+|   |-- OPTIMIZATION.md
+|   |-- QUICK_START_STYLING.md
+|   |-- STYLING_EXAMPLES.md
+|   |-- UI_ENHANCEMENT_GUIDE.md
+|   |-- UI_STYLING_GUIDE.md
+|   `-- UNICODE_FIX_ANALYSIS.md
+|-- poisson_lib.py
+|-- psm_lib.py
+|-- requirements.txt
+|-- subgroup_analysis_module.py
+|-- survival_lib.py
+|-- table_one.py
+|-- tabs /
+|   |-- __init__.py
+|   |-- _common.py
+|   |-- _styling.py
+|   |-- tab_baseline_matching.py
+|   |-- tab_corr.py
+|   |-- tab_data.py
+|   |-- tab_diag.py
+|   |-- tab_logit.py
+|   |-- tab_settings.py
+|   `-- tab_survival.py
+|-- tests /
+|   |-- test_color_palette.py
+|   |-- verify_additional.py
+|   `-- verify_changes.py
+|-- utils /
+|   |-- __init__.py
+|   |-- data_cleaning.py
+|   `-- formatting.py
+|-- verify_fix.py
+`-- wakeup coderabbitai
+```
+
+
 [--- REPOSITORY-TREE-END ---]
 
 # 🏥 Medical Statistical Tool (Shiny for Python)
