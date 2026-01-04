@@ -273,7 +273,7 @@ def generate_interaction_html_table(results, model_type='logit'):
     effect_col = "OR" if model_type == 'logit' else "IRR"
     
     rows = []
-    for int_name, res in results.items():
+    for _int_name, res in results.items():
         effect_val = res.get('or' if model_type == 'logit' else 'irr')
         sig_marker = "✓" if res['significant'] else ""
         
