@@ -28,12 +28,26 @@ COLORS = {
 
 # Try to import Firth regression
 try:
-    from firthmodels import FirthLogisticRegression  
+    from firthmodels import FirthLogisticRegression   
+    if not hasattr(FirthLogisticRegression, "_validate_data"):
+        from sklearn.utils.validation import check_X_y, check_array
+        
+        logger.info("Applying sklearn compatibility patch to FirthLogisticRegression")
+        
+        def _validate_data_patch(self, X, y=None, reset=True, validate_separately=False, **check_params):
+            """Compatibility shim for sklearn >= 1.6."""
+            if y is None:
+                return check_array(X, **check_params)
+            else:
+                return check_X_y(X, y, **check_params)
+        
+        FirthLogisticRegression._validate_data = _validate_data_patch
+        logger.info("Patch applied successfully")
+        
     HAS_FIRTH = True
-    logger.info("firthmodels loaded successfully") # เพิ่ม log เพื่อความแน่ใจ
 except (ImportError, AttributeError):
     HAS_FIRTH = False
-    logger.warning("firthmodels not available") # เปลี่ยนชื่อให้ตรงกับ library ที่ใช้
+    logger.warning("firthlogist not available")
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
@@ -113,7 +127,7 @@ def run_binary_logit(y, X, method='default'):
         
         if method == 'firth':
             if not HAS_FIRTH:
-                return None, None, None, "firthmodels not installed", stats_metrics
+                return None, None, None, "firthlogist not installed", stats_metrics
             
             fl = FirthLogisticRegression(fit_intercept=False)
             fl.fit(X_const, y)
@@ -123,18 +137,13 @@ def run_binary_logit(y, X, method='default'):
                 return None, None, None, "Firth output shape mismatch", stats_metrics
             
             params = pd.Series(coef, index=X_const.columns)
-            
-            # แก้ไขตรงนี้: ใช้ pvalues_ ตามโครงสร้าง library firthmodels
-            p_raw = getattr(fl, "pvalues_", getattr(fl, "pvals_", np.full(len(X_const.columns), np.nan)))
-            pvalues = pd.Series(p_raw, index=X_const.columns)
-            
-            # ปรับปรุงตรงนี้: ตรวจสอบ ci ให้ชัวร์ก่อนสร้าง DataFrame
+            pvalues = pd.Series(getattr(fl, "pvals_", np.full(len(X_const.columns), np.nan)), index=X_const.columns)
             ci = getattr(fl, "ci_", None)
-            if ci is not None and len(ci) == len(X_const.columns):
-                conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
-            else:
-                conf_int = pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
-                
+            conf_int = (
+                pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
+                if ci is not None
+                else pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
+            )
             return params, conf_int, pvalues, "OK", stats_metrics
         
         elif method == 'bfgs':
@@ -160,6 +169,7 @@ def run_binary_logit(y, X, method='default'):
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
     
     except Exception as e:
+        # ✅ NEW: Friendly Error Messaging for Technical Jargon
         err_msg = str(e)
         if "Singular matrix" in err_msg or "LinAlgError" in err_msg:
             err_msg = "Model fitting failed: data may have perfect separation or too much collinearity."
@@ -369,7 +379,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                                 coef_lines.append(f"{coef:.3f}")
                                 or_lines.append(f"{odd:.2f} ({ci_l:.2f}-{ci_h:.2f})")
                                 p_lines.append(fmt_p_with_styling(pv))
-                                # บังคับเก็บเป็น 'p_value' เพื่อให้ Library กราฟดึงไปใช้ง่ายๆ
                                 or_results[f"{col}: {lvl}"] = {'or': odd, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
                             else:
                                 or_lines.append("-")
@@ -419,7 +428,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                     res['coef'] = f"{coef:.3f}"
                     res['or'] = f"{odd:.2f} ({ci_l:.2f}-{ci_h:.2f})"
                     res['p_or'] = pv
-                    # บังคับเก็บเป็น 'p_value' เพื่อให้ Library กราฟดึงไปใช้ง่ายๆ
                     or_results[col] = {'or': odd, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
                 else:
                     res['or'] = f"<span style='color:red; font-size:0.8em'>{status}</span>"
@@ -495,7 +503,6 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                                 ci_low, ci_high = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
                                 pv = pvals[d_name]
                                 aor_entries.append({'lvl': lvl, 'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv})
-                                # บังคับเก็บเป็น 'p_value'
                                 aor_results[f"{var}: {lvl}"] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
                         results_db[var]['multi_res'] = aor_entries
                     else:
@@ -505,9 +512,9 @@ def analyze_outcome(outcome_name, df, var_meta=None, method='auto'):
                             ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(conf.loc[var][1])
                             pv = pvals[var]
                             results_db[var]['multi_res'] = {'coef': coef, 'aor': aor, 'l': ci_low, 'h': ci_high, 'p': pv}
-                            # บังคับเก็บเป็น 'p_value'
                             aor_results[var] = {'aor': aor, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv}
             else:
+                # Log multivariate failure
                 mv_metrics_text = f"<span style='color:red'>Adjustment Failed: {status}</span>"
     
     # Build HTML
@@ -621,7 +628,6 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots:
     if or_results:
         df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_results.items()])
         if not df_crude.empty:
-            # ใช้ p_value เป็นคอลัมน์อ้างอิงเสมอ
             fig = create_forest_plot(df_crude, 'or', 'ci_low', 'ci_high', 'variable', 'p_value',
                                     "<b>Univariable: Crude OR</b>", "Odds Ratio", 1.0)
             html_parts.append(fig.to_html(full_html=False, include_plotlyjs=True))
@@ -630,7 +636,6 @@ def generate_forest_plot_html(or_results, aor_results, plot_title="Forest Plots:
     if aor_results:
         df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_results.items()])
         if not df_adj.empty:
-            # ใช้ p_value เป็นคอลัมน์อ้างอิงเสมอ
             fig = create_forest_plot(df_adj, 'aor', 'ci_low', 'ci_high', 'variable', 'p_value',
                                     "<b>Multivariable: Adjusted OR</b>", "Adjusted OR", 1.0)
             html_parts.append(fig.to_html(full_html=False, include_plotlyjs=False))
