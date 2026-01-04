@@ -2,7 +2,7 @@
 # ✅ Security support until Oct 2026 (Python 3.10 EOL)
 # ✅ Compatible with firthlogist (requires Python <3.11)
 # ✅ Smaller container vs full Python image
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 # ตั้งค่า Working Directory
 WORKDIR /code

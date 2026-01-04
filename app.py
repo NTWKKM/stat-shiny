@@ -1,11 +1,15 @@
-from shiny import App, ui, reactive, Session
+from shiny import App, ui, reactive, Session, Inputs, Outputs
+from shiny.types import FileInfo
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
 # Import Config/Logger
 from config import CONFIG
 from logger import get_logger, LoggerFactory
+from logic import HAS_FIRTH
 
 # Import Tabs Modules
-from tabs import tab_data           # 🟢 Data Module (NEW)
+from tabs import tab_data           # 🟢 Data Module
 from tabs import tab_baseline_matching
 from tabs import tab_diag
 from tabs import tab_logit
@@ -14,6 +18,7 @@ from tabs import tab_survival
 from tabs import tab_settings
 
 from tabs._styling import get_shiny_css
+from tabs._common import wrap_with_container
 
 # Initialize Logger
 LoggerFactory.configure()
@@ -24,46 +29,64 @@ logger = get_logger(__name__)
 # ==========================================
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
-    tab_data.data_ui("data"),
-    
+    ui.nav_panel(
+        "📁 Data Management",
+        wrap_with_container(
+            tab_data.data_ui("data")
+        )
+    ),
+
     # --- 2. Table 1 & Matching Module ---
     ui.nav_panel("📋 Table 1 & Matching", 
-        tab_baseline_matching.baseline_matching_ui("bm")
+        wrap_with_container(
+            tab_baseline_matching.baseline_matching_ui("bm")
+        )
     ),
 
     # --- 3. Diagnostic Tests Module ---
     ui.nav_panel("🧪 Diagnostic Tests", 
-        tab_diag.diag_ui("diag")
+        wrap_with_container(
+            tab_diag.diag_ui("diag")
+        )
     ),
 
     # --- 4. Logistic Regression Module ---
     ui.nav_panel("📊 Risk Factors", 
-        tab_logit.logit_ui("logit")
+        wrap_with_container(
+            tab_logit.logit_ui("logit")
+        )
     ),
 
     # --- 5. Correlation & ICC Module ---
     ui.nav_panel("📈 Correlation & ICC", 
-        tab_corr.corr_ui("corr")
+        wrap_with_container(
+            tab_corr.corr_ui("corr")
+        )
     ),
 
     # --- 6. Survival Analysis Module ---
     ui.nav_panel("⏳ Survival Analysis", 
-        tab_survival.survival_ui("survival")
+        wrap_with_container(
+            # ✅ เรียกใช้ survival_ui โดยระบุแค่ ID (Namespace) เท่านั้น
+            tab_survival.survival_ui("survival")
+        )
     ),
 
     # --- 7. Settings Module ---
     ui.nav_panel("⚙️ Settings", 
-        tab_settings.settings_ui("settings")
+        wrap_with_container(
+            tab_settings.settings_ui("settings")
+        )
     ),
 
     title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
     id="main_navbar",
     window_title="Medical Stat Tool",
     
-    # ✅ Enhancement: Set inverse=True to make text and menu buttons white for dark background
-    inverse=True,
-
-    # ⬇⬇⬇ inject teal theme CSS
+    # 🟢 แก้ไข: ลบ inverse=True ออก (Deprecated)
+    navbar_options=ui.navbar_options(),
+    
+    # ⬇⬇⬇ inject theme CSS
     header=ui.tags.head(
         ui.HTML(get_shiny_css())
     ),
@@ -72,70 +95,69 @@ app_ui = ui.page_navbar(
 # ==========================================
 # 2. SERVER LOGIC
 # ==========================================
-def server(input, output, session: Session):
+def server(input: Inputs, output: Outputs, session: Session) -> None:
     logger.info("📱 Shiny app session started")
 
     # --- Reactive State (Global) ---
-    # These values are shared across all tabs
-    df = reactive.Value(None)
-    var_meta = reactive.Value({})
-    uploaded_file_info = reactive.Value(None)
+    
+    # Type hints added for better clarity, though specific DataFrame type isn't enforceble at runtime
+    df: reactive.Value[Optional[Any]] = reactive.Value(None)
+    var_meta: reactive.Value[Dict[str, Any]] = reactive.Value({})
+    uploaded_file_info: reactive.Value[Optional[List[FileInfo]]] = reactive.Value(None)
     
     # Matched data state (Shared across tabs)
-    df_matched = reactive.Value(None)
-    is_matched = reactive.Value(False)
-    matched_treatment_col = reactive.Value(None)
-    matched_covariates = reactive.Value([])
+    df_matched: reactive.Value[Optional[Any]] = reactive.Value(None)
+    is_matched: reactive.Value[bool] = reactive.Value(False)
+    matched_treatment_col: reactive.Value[Optional[str]] = reactive.Value(None)
+    matched_covariates: reactive.Value[List[str]] = reactive.Value([])
 
     # --- Helper: Check Dependencies ---
-    def check_optional_deps():
-        deps_status = {}
-        try:
-            import firthlogist
-            deps_status['firth'] = {'installed': True, 'msg': '✅ Firth regression enabled'}
-        except ImportError:
-            deps_status['firth'] = {'installed': False, 'msg': '⚠️ Firth regression unavailable'}
-        
-        logger.info("Optional dependencies: firth=%s", deps_status['firth']['installed'])
-        if not deps_status['firth']['installed']:
-            ui.notification_show(deps_status['firth']['msg'], type="warning")
-            
-    # Run check on start
+    def check_optional_deps() -> None:
+        # เช็คจากตัวแปร HAS_FIRTH ที่ logic.py เตรียมไว้ให้แล้ว
+        if HAS_FIRTH:
+            logger.info("Optional dependencies: firth=True")
+        else:
+            logger.warning("Optional dependencies: firth=False")
+            ui.notification_show("⚠️ Firth regression unavailable", type="warning")
+
+
     check_optional_deps()
 
     # ==========================================
     # 3. CALL MODULES SERVER
     # ==========================================
     
-    # --- 1. Data Management Module ---
-    # ส่ง Global Reactive Values เข้าไปจัดการข้างใน
-    tab_data.data_server("data",
+    # --- 1. Data Management ---
+    
+    tab_data.data_server("data", 
         df, var_meta, uploaded_file_info,
         df_matched, is_matched, matched_treatment_col, matched_covariates
     )
-
-    # --- 2. Table 1 & Matching Module ---
+    
+    # --- 2. Table 1 & Matching ---
     tab_baseline_matching.baseline_matching_server("bm", 
         df, var_meta, df_matched, is_matched, 
         matched_treatment_col, matched_covariates
     )
 
-    # --- 3. Diagnostic Tests Module ---
+    # --- 3. Diagnostic Tests ---
     tab_diag.diag_server("diag", 
         df, var_meta, df_matched, is_matched
     )
 
-    # --- 4. Logistic Regression Module ---
+    # --- 4. Logistic Regression ---
     tab_logit.logit_server("logit",
         df, var_meta, df_matched, is_matched
     )
 
-    # --- 5. Correlation & ICC Module ---
-    tab_corr.corr_server("corr",
+    # --- 5. Correlation & ICC ---
+    tab_corr.corr_server("corr", 
         df, var_meta, df_matched, is_matched
     )
 
     # --- 6. Survival Analysis Module ---
+    # ✅ แก้ไขตรงนี้: ไม่ต้องส่ง input, output, session เข้าไปเองแล้ว
+    # เพราะ @module.server จะดึงค่าเหล่านั้นจาก ID "survival" ให้โดยอัตโนมัติ
     tab_survival.survival_server("survival",
         df, var_meta, df_matched, is_matched
     )

@@ -18,6 +18,7 @@ from plotly.subplots import make_subplots
 from logger import get_logger
 from tabs._common import get_color_palette
 import warnings
+from typing import Union, Optional, List, Dict, Tuple, Any
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -37,7 +38,7 @@ class ForestPlot:
         ci_low_col: str,
         ci_high_col: str,
         label_col: str,
-        pval_col: str = None,
+        pval_col: Optional[str] = None,
     ):
         """
         Initialize ForestPlot with validated data.
@@ -80,7 +81,7 @@ class ForestPlot:
             logger.warning(f"Could not log estimate range: {e}")
     
     @staticmethod
-    def _vectorized_significance_stars(p_series):
+    def _vectorized_significance_stars(p_series: pd.Series) -> pd.Series:
         """
         OPTIMIZED: Vectorize p-value to stars conversion (10x faster).
         
@@ -101,7 +102,7 @@ class ForestPlot:
         return stars
     
     @staticmethod
-    def _vectorized_format_pvalues(p_series):
+    def _vectorized_format_pvalues(p_series: pd.Series) -> pd.Series:
         """
         OPTIMIZED: Vectorize p-value formatting (10x faster).
         
@@ -120,7 +121,7 @@ class ForestPlot:
         return result
     
     @staticmethod
-    def _vectorized_pvalue_colors(p_series):
+    def _vectorized_pvalue_colors(p_series: pd.Series) -> List[str]:
         """
         OPTIMIZED: Vectorize p-value color assignment (10x faster).
         
@@ -137,7 +138,7 @@ class ForestPlot:
         
         return colors.tolist()
     
-    def _get_ci_width_colors(self, base_color: str) -> list:
+    def _get_ci_width_colors(self, base_color: str) -> Tuple[List[str], np.ndarray]:
         """
         OPTIMIZED: Pre-compute CI widths in single operation (5x faster).
         
@@ -181,7 +182,7 @@ class ForestPlot:
         
         return marker_colors, ci_normalized
     
-    def get_summary_stats(self, ref_line: float = 1.0):
+    def get_summary_stats(self, ref_line: float = 1.0) -> Dict[str, Union[int, float, None]]:
         """
         OPTIMIZED: Vectorized summary statistics computation.
         """
@@ -229,8 +230,8 @@ class ForestPlot:
         show_sig_stars: bool = True,
         show_ci_width_colors: bool = True,
         show_sig_divider: bool = True,
-        height: int = None,
-        color: str = None,
+        height: Optional[int] = None,
+        color: Optional[str] = None,
     ) -> go.Figure:
         """
         OPTIMIZED: Build interactive forest plot with vectorized operations.
@@ -360,9 +361,17 @@ class ForestPlot:
 
 
 def create_forest_plot(
-    data: pd.DataFrame, estimate_col: str, ci_low_col: str, ci_high_col: str, label_col: str,
-    pval_col: str = None, title: str = "Forest Plot", x_label: str = "Effect Size (95% CI)",
-    ref_line: float = 1.0, height: int = None, **kwargs
+    data: pd.DataFrame, 
+    estimate_col: str, 
+    ci_low_col: str, 
+    ci_high_col: str, 
+    label_col: str,
+    pval_col: Optional[str] = None, 
+    title: str = "Forest Plot", 
+    x_label: str = "Effect Size (95% CI)",
+    ref_line: float = 1.0, 
+    height: Optional[int] = None, 
+    **kwargs: Any
 ) -> go.Figure:
     """
     Create forest plot from DataFrame.

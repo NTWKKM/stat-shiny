@@ -1,119 +1,89 @@
-name: Test Color Palette
+name: Test UI Styling System
 
-# เมื่อไหร่จะรัน?
 on:
-  push:           # ทุกครั้ง push code
+  push:
     branches:
       - p4
       - main
       - develop
-  pull_request:   # ทุกครั้ง create PR
+  pull_request:
     branches:
       - p4
       - main
       - develop
 
 jobs:
-  test-colors:
-    name: Test Color Palette System
+  test-styling:
+    name: Test UI Styling System
     runs-on: ubuntu-latest
     
     steps:
-      # Step 1: Download repository code
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
-      # Step 2: Set up Python environment
       - name: Set up Python 3.9
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'  # Cache pip packages
+          cache: 'pip'
       
-      # Step 3: Install dependencies (including streamlit!)
-      - name: Install dependencies
+      # Use Composite Action for environment setup
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
+      
+      - name: Verify Styling System integrity
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest pandas numpy streamlit
+          MISSING=0
+          if [ ! -f "tabs/_common.py" ]; then echo "❌ tabs/_common.py missing"; MISSING=1; fi
+          if [ ! -f "tabs/_styling.py" ]; then echo "❌ tabs/_styling.py missing"; MISSING=1; fi
+          if [ $MISSING -eq 1 ]; then exit 1; fi
+          echo "✅ All Styling System files found"
       
-      # Step 4: Run color palette tests (standalone mode)
-      - name: Run Color Palette Tests
-        run: python tests/test_color_palette.py
-        continue-on-error: false
-      
-      # Step 5: Run with pytest for more detail (optional)
-      - name: Run Color Palette Tests (pytest)
-        run: pytest tests/test_color_palette.py -v --tb=short
-        continue-on-error: true  # Warning only
-      
-      # Step 6: Verify tabs/_common.py exists
-      - name: Check color palette file
-        run: |
-          if [ ! -f "tabs/_common.py" ]; then
-            echo "❌ Error: tabs/_common.py not found"
-            exit 1
-          fi
-          echo "✅ Color palette file found"
-      
-      # Step 7: Report results
-      - name: Test Summary
-        if: success()
-        run: echo "✅ All color palette tests passed!"
-      
-      - name: Test Failed
-        if: failure()
-        run: |
-          echo "❌ Color palette tests failed!"
-          echo "Please check logs above for details."
-          exit 1
+      - name: Run UI Styling Tests
+        run: pytest tests/test_color_palette.py -v
 
-  # Optional: Run on multiple Python versions
   test-multi-version:
-    name: Test on Python ${{ matrix.python-version }}
+    name: Compatibility Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-      fail-fast: false  # Continue even if one fails
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+      fail-fast: false
     
     steps:
-      - uses: actions/checkout@v3
-      
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-      
-      - name: Install dependencies (including streamlit)
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest pandas numpy streamlit
-      
-      - name: Run tests
-        run: python tests/test_color_palette.py
+          
+      # เรียกใช้ Composite Action แทนบล็อกเดิม
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
 
-  # Optional: Code quality check
+      - name: Run tests
+        run: pytest tests/test_color_palette.py
+
   code-quality:
-    name: Code Quality Check
+    name: Styling Code Quality
     runs-on: ubuntu-latest
-    
     steps:
-      - uses: actions/checkout@v3
-      
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-      
+          
+      # ติดตั้ง linter เพิ่มเติม (ส่วน dependencies หลักถูกดึงผ่าน action)
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
+        
       - name: Install linters
-        run: |
-          pip install flake8 black streamlit
-      
-      - name: Check code style with flake8
-        run: flake8 tests/test_color_palette.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        continue-on-error: true
-      
-      - name: Check code formatting with black
-        run: black --check tests/test_color_palette.py
+        run: pip install flake8 black
+        
+      - name: Check code style (flake8)
+        run: flake8 tabs/_common.py tabs/_styling.py tests/test_color_palette.py --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Check formatting (black)
+        run: black --check tabs/_common.py tabs/_styling.py tests/test_color_palette.py
         continue-on-error: true
