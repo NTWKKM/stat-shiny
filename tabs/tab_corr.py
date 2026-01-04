@@ -7,8 +7,7 @@ Provides UI and server logic for:
 - Interactive reporting and HTML export
 """
 
-from shiny import ui, reactive, render, req
-from shiny.session import get_current_session  # Import to get the current session
+from shiny import ui, reactive, render, req, module
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
@@ -46,10 +45,11 @@ def _auto_detect_icc_vars(cols: list) -> list:
     return detected
 
 
-def corr_ui(namespace: str) -> ui.TagChild:
+def corr_ui(id: str) -> ui.TagChild:
     """
     Create the UI for correlation analysis tab.
     """
+    ns = ui.NS(id)
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
         ui.nav_panel(
@@ -59,18 +59,18 @@ def corr_ui(namespace: str) -> ui.TagChild:
 
                 ui.layout_columns(
                     ui.input_select(
-                        f"{namespace}_coeff_type",
+                        ns("coeff_type"),
                         "Correlation Coefficient:",
                         choices={"pearson": "Pearson", "spearman": "Spearman"},
                         selected="pearson"
                     ),
                     ui.input_select(
-                        f"{namespace}_cv1",
+                        ns("cv1"),
                         "Variable 1 (X-axis):",
                         choices=["Select..."]
                     ),
                     ui.input_select(
-                        f"{namespace}_cv2",
+                        ns("cv2"),
                         "Variable 2 (Y-axis):",
                         choices=["Select..."]
                     ),
@@ -79,13 +79,13 @@ def corr_ui(namespace: str) -> ui.TagChild:
 
                 ui.layout_columns(
                     ui.input_action_button(
-                        f"{namespace}_btn_run_corr",
+                        ns("btn_run_corr"),
                         "📈 Analyze Correlation",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        f"{namespace}_btn_dl_corr",
+                        ns("btn_dl_corr"),
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -93,7 +93,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
 
-                ui.output_ui(f"{namespace}_out_corr_result"),
+                ui.output_ui(ns("out_corr_result")),
 
                 full_screen=True
             )
@@ -105,10 +105,10 @@ def corr_ui(namespace: str) -> ui.TagChild:
             ui.card(
                 ui.card_header("📍 Intraclass Correlation Coefficient"),
 
-                ui.output_ui(f"{namespace}_out_icc_note"),
+                ui.output_ui(ns("out_icc_note")),
 
                 ui.input_selectize(
-                    f"{namespace}_icc_vars",
+                    ns("icc_vars"),
                     "Select Variables (Raters/Methods) - Select 2+:",
                     choices=["Select..."],
                     multiple=True,
@@ -117,13 +117,13 @@ def corr_ui(namespace: str) -> ui.TagChild:
 
                 ui.layout_columns(
                     ui.input_action_button(
-                        f"{namespace}_btn_run_icc",
+                        ns("btn_run_icc"),
                         "📍 Calculate ICC",
                         class_="btn-primary",
                         width="100%"
                     ),
                     ui.input_action_button(
-                        f"{namespace}_btn_dl_icc",
+                        ns("btn_dl_icc"),
                         "📥 Download Report",
                         class_="btn-secondary",
                         width="100%"
@@ -131,7 +131,7 @@ def corr_ui(namespace: str) -> ui.TagChild:
                     col_widths=[6, 6]
                 ),
 
-                ui.output_ui(f"{namespace}_out_icc_result"),
+                ui.output_ui(ns("out_icc_result")),
 
                 full_screen=True
             )
@@ -212,27 +212,13 @@ can be "significant". **Focus on r-value magnitude** for clinical relevance.
     )
 
 
-def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value, 
+@module
+def corr_server(input, output, session, df: reactive.Value, var_meta: reactive.Value, 
                 df_matched: reactive.Value, is_matched: reactive.Value):
     """
-    Server logic for correlation analysis module.
+    Server logic for correlation analysis module using @module decorator.
     """
-    # === FIX: Get session and input manually ===
-    session = get_current_session()
-    input = session.input
-
     COLORS = get_color_palette()
-
-    # ==================== FIX: HELPER FOR NAMESPACE OUTPUTS ====================
-    # Shiny decorators use function name as ID. Since we use dynamic namespace,
-    # we need to manually set the function name before decorating.
-    def render_with_id(renderer, output_suffix):
-        def decorator(func):
-            # Force function name to match the UI ID pattern
-            func.__name__ = f"{namespace}_{output_suffix}"
-            return renderer(func)
-        return decorator
-    # ===========================================================================
     
     # ==================== REACTIVE STATES ====================
 
@@ -253,8 +239,8 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
 
             # Update UI selects
             if cols:
-                ui.update_select(f"{namespace}_cv1", choices=cols, selected=cols[0])
-                ui.update_select(f"{namespace}_cv2", 
+                ui.update_select("cv1", choices=cols, selected=cols[0])
+                ui.update_select("cv2", 
                                choices=cols, 
                                selected=cols[1] if len(cols) > 1 else cols[0])
 
@@ -263,7 +249,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
 
                 # Update selectize with all numeric cols
                 ui.update_selectize(
-                    f"{namespace}_icc_vars",
+                    "icc_vars",
                     choices=cols,
                     selected=icc_vars  # Pre-select auto-detected ones
                 )
@@ -272,8 +258,8 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
 
     # ==================== ICC SELECTION INFO ====================
 
-    @render_with_id(render.ui, "out_icc_note") # ID: {namespace}_out_icc_note
-    def ui_icc_note():
+    @render.ui
+    def out_icc_note():
         """Display info about auto-detected ICC variables."""
         data = df.get()
         if data is None:
@@ -294,7 +280,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     # ==================== CORRELATION ANALYSIS ====================
 
     @reactive.Effect
-    @reactive.event(lambda: input[f"{namespace}_btn_run_corr"]())
+    @reactive.event(input.btn_run_corr)
     def _run_correlation():
         """Run correlation analysis when button clicked."""
         # 1. Get Data (Matched or Original)
@@ -305,9 +291,9 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             return
 
         # 2. Get Inputs
-        col1 = input[f"{namespace}_cv1"]()
-        col2 = input[f"{namespace}_cv2"]()
-        method = input[f"{namespace}_coeff_type"]()
+        col1 = input.cv1()
+        col2 = input.cv2()
+        method = input.coeff_type()
 
         if not col1 or not col2:
             ui.notification_show("Please select two variables", type="warning")
@@ -342,7 +328,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             })
             ui.notification_show("Correlation analysis complete", type="default")
 
-    @render_with_id(render.ui, "out_corr_result") # ID: {namespace}_out_corr_result
+    @render.ui
     def out_corr_result():
         """Display correlation analysis results."""
         result = corr_result.get()
@@ -355,13 +341,13 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             ui.markdown(f"**Data Source:** {result['data_label']}"),
             ui.markdown(f"**Method:** {result['method'].title()}"),
 
-            ui.output_data_frame(f"{namespace}_out_corr_table"),
+            ui.output_data_frame("out_corr_table"),
 
             ui.card_header("Scatter Plot"),
-            ui.output_ui(f"{namespace}_out_corr_plot_html"), 
+            ui.output_ui("out_corr_plot_html"), 
         )
 
-    @render_with_id(render.data_frame, "out_corr_table") # ID: {namespace}_out_corr_table
+    @render.data_frame
     def out_corr_table():
         """Render correlation results table."""
         result = corr_result.get()
@@ -371,7 +357,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
         df_result = pd.DataFrame([result['stats']])
         return render.DataGrid(df_result)
 
-    @render_with_id(render.ui, "out_corr_plot_html") # ID: {namespace}_out_corr_plot_html
+    @render.ui
     def out_corr_plot_html():
         """Render scatter plot as HTML."""
         result = corr_result.get()
@@ -386,7 +372,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
     # ==================== ICC ANALYSIS ====================
 
     @reactive.Effect
-    @reactive.event(lambda: input[f"{namespace}_btn_run_icc"]())
+    @reactive.event(input.btn_run_icc)
     def _run_icc():
         """Run ICC analysis."""
         # 1. Get Data
@@ -397,7 +383,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             return
 
         # 2. Get Inputs
-        cols = input[f"{namespace}_icc_vars"]()
+        cols = input.icc_vars()
 
         if not cols or len(cols) < 2:
             ui.notification_show("Please select at least 2 variables for ICC", type="warning")
@@ -422,7 +408,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             })
             ui.notification_show("ICC analysis complete", type="default")
 
-    @render_with_id(render.ui, "out_icc_result") # ID: {namespace}_out_icc_result
+    @render.ui
     def out_icc_result():
         """Display ICC analysis results."""
         result = icc_result.get()
@@ -434,13 +420,13 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             ui.markdown(f"**Data Source:** {result['data_label']}"),
 
             ui.card_header("Single Measures ICC"),
-            ui.output_data_frame(f"{namespace}_out_icc_table"),
+            ui.output_data_frame("out_icc_table"),
 
             ui.card_header("ANOVA Table (Reference)"),
-            ui.output_data_frame(f"{namespace}_out_icc_anova_table"),
+            ui.output_data_frame("out_icc_anova_table"),
         )
 
-    @render_with_id(render.data_frame, "out_icc_table") # ID: {namespace}_out_icc_table
+    @render.data_frame
     def out_icc_table():
         """Render ICC results table."""
         result = icc_result.get()
@@ -448,7 +434,7 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
             return None
         return render.DataGrid(result['results_df'])
 
-    @render_with_id(render.data_frame, "out_icc_anova_table") # ID: {namespace}_out_icc_anova_table
+    @render.data_frame
     def out_icc_anova_table():
         """Render ANOVA table."""
         result = icc_result.get()
@@ -459,12 +445,12 @@ def corr_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
 
 # ==================== MODULE EXPORT ====================
 
-def correlation_ui(namespace: str) -> ui.TagChild:
-    """Wrapper for compatibility."""
-    return corr_ui(namespace)
+def correlation_ui(id: str) -> ui.TagChild:
+    """Wrapper for compatibility with existing app structure."""
+    return corr_ui(id)
 
 
-def correlation_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
+def correlation_server(id: str, df: reactive.Value, var_meta: reactive.Value,
                        df_matched: reactive.Value, is_matched: reactive.Value):
-    """Wrapper for compatibility."""
-    return corr_server(namespace, df, var_meta, df_matched, is_matched)
+    """Wrapper for calling the @module decorated server function."""
+    return corr_server(id, df, var_meta, df_matched, is_matched)
