@@ -33,7 +33,7 @@ except ImportError as e:
     print(f"❌ Import failed: {e}")
     sys.exit(1)
 
-def create_dummy_data(n=200):
+def create_dummy_data(n: int = 200) -> pd.DataFrame:
     np.random.seed(42)
     df = pd.DataFrame({
         'age': np.random.normal(50, 10, n),
