@@ -87,7 +87,7 @@ def check_count_outcome(series):
         # Check if mostly integers (allow some floating point for exposure-adjusted rates)
         non_integer_pct = (numeric_series != numeric_series.astype(int)).sum() / len(numeric_series)
         if non_integer_pct > 0.1:
-            logger.warning(f"More than 10% non-integer values in count outcome")
+            logger.warning("More than 10% non-integer values in count outcome")
         
         # Check for overdispersion indicators
         mean_val = numeric_series.mean()
