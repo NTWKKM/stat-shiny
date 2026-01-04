@@ -17,13 +17,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def get_styling_data():
     """Get color palette data from the actual source function."""
     try:
-        # ใน tabs/_common.py มีฟังก์ชัน get_color_palette
+        # Import get_color_palette from tabs/_common.py
         from tabs._common import get_color_palette
-
-        palette = get_color_palette()
-        return {"colors": palette, "fetcher": get_color_palette}
     except ImportError as e:
         pytest.skip(f"Could not import from tabs._common: {e}")
+    else:
+        palette = get_color_palette()
+        return {"colors": palette, "fetcher": get_color_palette}
 
 
 def test_styling_files_exist():
@@ -136,6 +136,7 @@ if __name__ == "__main__":
 
     passed = 0
     failed = 0
+    skipped = 0
 
     for test_func in test_functions:
         try:
@@ -144,7 +145,7 @@ if __name__ == "__main__":
             passed += 1
         except pytest.skip.Exception as e:
             print(f"⏭️  {test_func.__name__}: Skipped ({e})")
-            passed += 1  # นับเป็นผ่านเพื่อให้ Pipeline ไม่แดง
+            skipped += 1
         except AssertionError as e:
             print(f"❌ {test_func.__name__}: {e}")
             failed += 1
@@ -153,7 +154,8 @@ if __name__ == "__main__":
             failed += 1
 
     print(f"\n{'='*60}")
-    print(f"UI Test Results: {passed} passed, {failed} failed")
+    print(f"UI Test Results: {passed} passed, {skipped} skipped, {failed} failed")
     print(f"{'='*60}")
 
+    # Exit success if no failures (skips are acceptable)
     sys.exit(0 if failed == 0 else 1)
