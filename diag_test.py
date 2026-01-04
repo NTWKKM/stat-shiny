@@ -1082,7 +1082,7 @@ def generate_report(
         elif element_type == 'interpretation':
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
         
-        elif element_type == 'table':
+        elif element_type in ('table', 'contingency_table', 'contingency'):
             if hasattr(data, 'to_html'):
                  html += data.to_html(index=True, classes='', escape=False)
             else:
