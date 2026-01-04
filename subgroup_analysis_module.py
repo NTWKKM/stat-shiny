@@ -355,7 +355,7 @@ class SubgroupAnalysisCox:
         adjustment_cols: Optional[List[str]] = None, 
         min_subgroup_n: int = 5, 
         min_events: int = 2
-    ) -> Tuple[Optional[Dict[str, Any]], None, Optional[str]]:
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """Perform Cox subgroup analysis."""
         try:
             from lifelines import CoxPHFitter
