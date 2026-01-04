@@ -1,12 +1,23 @@
 """
-🎨 Shiny UI Styling Module
+🎨 Shiny UI Styling Module - Professional Navy Blue Medical Analytics Theme
 
-Provides CSS utilities, styled components, and helper functions for consistent
-UI styling across all Shiny modules using the professional Navy Blue theme.
+Provides comprehensive CSS utilities, styled components, and helper functions for consistent
+UI styling across all Shiny modules using a professional Navy Blue theme with enhanced
+visual hierarchy, spacing, and modern design patterns.
+
+Features:
+- Professional Navy Blue color palette with medical-grade aesthetics
+- Enhanced card designs with better shadows and hover effects
+- Modern button styles with improved accessibility
+- Refined form inputs with better focus states
+- Improved spacing and typography hierarchy
+- Responsive design optimizations
+- Better status indicators and badges
+- Enhanced table styling
 
 Usage:
-    from tabs._styling import get_shiny_css, style_card, style_button
-    
+    from tabs._styling import get_shiny_css, style_card_header, style_status_badge, style_alert
+
     ui.HTML(get_shiny_css())
 """
 
@@ -15,18 +26,29 @@ from tabs._common import get_color_palette
 
 def get_shiny_css():
     """
-    Returns global CSS for Shiny app styling with professional Navy Blue theme.
-    
+    Returns comprehensive CSS for Shiny app styling with professional Navy Blue theme.
+
+    Includes:
+    - Global styles and typography
+    - Card and container styling
+    - Button styles (primary, secondary, danger, success)
+    - Form input styling
+    - Navigation and tabs
+    - Tables and data displays
+    - Status indicators and badges
+    - Responsive design
+    - Accessibility features
+
     Usage:
         In your Shiny app UI:
         ui.tags.head(ui.HTML(get_shiny_css()))
     """
     COLORS = get_color_palette()
-    
+
     css = f"""
     <style>
         /* ===========================
-           GLOBAL STYLES
+           CSS VARIABLES & ROOT STYLES
            =========================== */
         
         :root {{
@@ -38,48 +60,193 @@ def get_shiny_css():
             --color-danger: {COLORS['danger']};
             --color-warning: {COLORS['warning']};
             --color-info: {COLORS['info']};
+            --color-neutral: {COLORS['neutral']};
             --color-text: {COLORS['text']};
             --color-text-secondary: {COLORS['text_secondary']};
             --color-border: {COLORS['border']};
             --color-background: {COLORS['background']};
             --color-surface: {COLORS['surface']};
+            
+            /* Spacing System */
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 12px;
+            --spacing-lg: 16px;
+            --spacing-xl: 24px;
+            --spacing-2xl: 32px;
+            
+            /* Border Radius */
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
+            --radius-xl: 12px;
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+            --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
+            --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.15);
+            
+            /* Transitions */
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* Typography */
+            --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            --font-family-mono: 'Courier New', monospace;
         }}
         
         * {{
             box-sizing: border-box;
         }}
         
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            background-color: {COLORS['background']};
-            color: {COLORS['text']};
+        /* ===========================
+           LAYOUT & CONTAINER
+           =========================== */
+        
+        /* Main app container - centered and max-width on larger screens */
+        .app-container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px 24px 32px;
+        }}
+        
+        /* Add top margin to app-container when it follows navbar */
+        .navbar ~ .app-container {{
+            margin-top: 8px;
+        }}
+        
+        /* Responsive padding on mobile */
+        @media (max-width: 768px) {{
+            .app-container {{
+                padding: 12px 16px 24px;
+            }}
         }}
         
         /* ===========================
-           SHINY CARDS
+           GLOBAL STYLES
+           =========================== */
+        
+        html {{
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }}
+        
+        body {{
+            font-family: var(--font-family-base);
+            background-color: {COLORS['background']};
+            color: {COLORS['text']};
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }}
+        
+        /* ===========================
+           TYPOGRAPHY
+           =========================== */
+        
+        h1 {{
+            font-size: 28px;
+            font-weight: 700;
+            margin: var(--spacing-lg) 0;
+            color: {COLORS['primary_dark']};
+            letter-spacing: -0.5px;
+        }}
+        
+        h2 {{
+            font-size: 24px;
+            font-weight: 600;
+            margin: var(--spacing-lg) 0 var(--spacing-md) 0;
+            color: {COLORS['primary_dark']};
+            letter-spacing: -0.3px;
+        }}
+        
+        h3 {{
+            font-size: 20px;
+            font-weight: 600;
+            margin: var(--spacing-md) 0;
+            color: {COLORS['primary']};
+        }}
+        
+        h4 {{
+            font-size: 17px;
+            font-weight: 600;
+            margin: var(--spacing-md) 0;
+            color: {COLORS['primary']};
+        }}
+        
+        h5 {{
+            font-size: 15px;
+            font-weight: 600;
+            margin: var(--spacing-sm) 0;
+            color: {COLORS['text']};
+        }}
+        
+        h6 {{
+            font-size: 13px;
+            font-weight: 600;
+            margin: var(--spacing-sm) 0;
+            color: {COLORS['text_secondary']};
+        }}
+        
+        p {{
+            margin: 0 0 var(--spacing-md) 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }}
+        
+        a {{
+            color: {COLORS['primary']};
+            text-decoration: none;
+            transition: color var(--transition-fast);
+            font-weight: 500;
+        }}
+        
+        a:hover {{
+            color: {COLORS['primary_dark']};
+            text-decoration: underline;
+        }}
+        
+        /* ===========================
+           SHINY CARDS & CONTAINERS
            =========================== */
         
         .bslib-card {{
             border: 1px solid {COLORS['border']};
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
-            transition: box-shadow 0.2s ease;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-normal);
+            background-color: {COLORS['surface']};
+            overflow: hidden;
+            margin-bottom: 12px;  /* Reduced vertical spacing between cards */
         }}
         
         .bslib-card:hover {{
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
+            box-shadow: var(--shadow-lg);
+            border-color: {COLORS['primary_light']};
         }}
         
         .bslib-card-header {{
-            background-color: {COLORS['primary_light']};
-            border-bottom: 2px solid {COLORS['primary']};
+            background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
+            border: none;
+            border-bottom: 2px solid {COLORS['primary_dark']};
             font-weight: 600;
-            color: {COLORS['primary_dark']};
-            padding: 14px 16px;
+            color: white;
+            padding: var(--spacing-lg) var(--spacing-lg);
+            font-size: 15px;
+            text-transform: none;
         }}
         
         .bslib-card-body {{
-            padding: 16px;
+            padding: 14px 16px;  /* Slightly tighter padding */
+            line-height: 1.6;
+        }}
+        
+        .bslib-card-footer {{
+            background-color: {COLORS['background']};
+            border-top: 1px solid {COLORS['border']};
+            padding: var(--spacing-md) var(--spacing-lg);
         }}
         
         /* ===========================
@@ -87,63 +254,114 @@ def get_shiny_css():
            =========================== */
         
         .btn {{
-            border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.2s ease;
             border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 13px;
+            padding: 10px 16px;
+            transition: all var(--transition-fast);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            white-space: nowrap;
+            user-select: none;
         }}
         
-        .btn-primary {{
-            background-color: {COLORS['primary']};
-            border-color: {COLORS['primary']};
-            color: white;
-        }}
-        
-        .btn-primary:hover {{
-            background-color: {COLORS['primary_dark']};
-            border-color: {COLORS['primary_dark']};
-            box-shadow: 0 4px 8px rgba(30, 58, 95, 0.3);
-        }}
-        
-        .btn-primary:focus,
-        .btn-primary:active {{
-            background-color: {COLORS['primary_dark']};
-            border-color: {COLORS['primary_dark']};
-            outline: 2px solid {COLORS['primary_light']};
+        .btn:focus {{
+            outline: 2px solid {COLORS['primary']};
             outline-offset: 2px;
         }}
         
+        .btn:disabled {{
+            opacity: 0.5;
+            cursor: not-allowed;
+        }}
+        
+        /* Primary Buttons */
+        .btn-primary {{
+            background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(30, 58, 95, 0.2);
+        }}
+        
+        .btn-primary:hover:not(:disabled) {{
+            background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary_dark']} 100%);
+            box-shadow: 0 4px 12px rgba(30, 58, 95, 0.35);
+            transform: translateY(-1px);
+        }}
+        
+        .btn-primary:active:not(:disabled) {{
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(30, 58, 95, 0.25);
+        }}
+        
+        /* Secondary Buttons */
+        .btn-secondary {{
+            background-color: {COLORS['primary_light']};
+            color: {COLORS['primary_dark']};
+            border: 1px solid {COLORS['primary']};
+        }}
+        
+        .btn-secondary:hover:not(:disabled) {{
+            background-color: {COLORS['primary']};
+            color: white;
+            box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
+        }}
+        
+        .btn-secondary:active:not(:disabled) {{
+            background-color: {COLORS['primary_dark']};
+        }}
+        
+        /* Success Buttons */
         .btn-success {{
             background-color: {COLORS['success']};
-            border-color: {COLORS['success']};
             color: white;
+            box-shadow: 0 2px 4px rgba(34, 167, 101, 0.2);
         }}
         
-        .btn-success:hover {{
+        .btn-success:hover:not(:disabled) {{
             filter: brightness(0.9);
-            box-shadow: 0 4px 8px rgba(34, 167, 101, 0.3);
+            box-shadow: 0 4px 12px rgba(34, 167, 101, 0.35);
+            transform: translateY(-1px);
         }}
         
+        /* Danger Buttons */
         .btn-danger {{
             background-color: {COLORS['danger']};
-            border-color: {COLORS['danger']};
             color: white;
+            box-shadow: 0 2px 4px rgba(231, 72, 86, 0.2);
         }}
         
-        .btn-danger:hover {{
+        .btn-danger:hover:not(:disabled) {{
             filter: brightness(0.9);
-            box-shadow: 0 4px 8px rgba(231, 72, 86, 0.3);
+            box-shadow: 0 4px 12px rgba(231, 72, 86, 0.35);
+            transform: translateY(-1px);
         }}
         
+        /* Warning Buttons */
         .btn-warning {{
             background-color: {COLORS['warning']};
-            border-color: {COLORS['warning']};
             color: #000;
+            box-shadow: 0 2px 4px rgba(255, 185, 0, 0.2);
         }}
         
-        .btn-warning:hover {{
-            filter: brightness(0.9);
-            box-shadow: 0 4px 8px rgba(255, 185, 0, 0.3);
+        .btn-warning:hover:not(:disabled) {{
+            filter: brightness(0.95);
+            box-shadow: 0 4px 12px rgba(255, 185, 0, 0.3);
+            transform: translateY(-1px);
+        }}
+        
+        /* Outline Buttons */
+        .btn-outline-primary {{
+            border: 2px solid {COLORS['primary']};
+            color: {COLORS['primary']};
+            background-color: transparent;
+        }}
+        
+        .btn-outline-primary:hover:not(:disabled) {{
+            background-color: {COLORS['primary_light']};
         }}
         
         /* ===========================
@@ -152,104 +370,160 @@ def get_shiny_css():
         
         .form-control {{
             border: 1px solid {COLORS['border']};
-            border-radius: 6px;
-            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm) var(--spacing-md);
             font-size: 14px;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            font-family: var(--font-family-base);
+            background-color: {COLORS['surface']};
+            color: {COLORS['text']};
+            transition: all var(--transition-fast);
+            line-height: 1.5;
         }}
         
         .form-control:focus {{
             border-color: {COLORS['primary']};
-            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15);
+            background-color: {COLORS['surface']};
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
             outline: none;
         }}
         
+        .form-control::placeholder {{
+            color: {COLORS['text_secondary']};
+            opacity: 0.7;
+        }}
+        
+        .form-control:disabled {{
+            background-color: {COLORS['background']};
+            opacity: 0.6;
+            cursor: not-allowed;
+        }}
+        
+        /* Select/Dropdown */
         .form-select {{
             border: 1px solid {COLORS['border']};
-            border-radius: 6px;
-            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm) var(--spacing-md);
             font-size: 14px;
+            background-color: {COLORS['surface']};
+            color: {COLORS['text']};
+            transition: all var(--transition-fast);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='{COLORS['primary_dark'].replace('#', '%23')}' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right var(--spacing-md) center;
+            background-size: 16px;
+            padding-right: 36px;
         }}
         
         .form-select:focus {{
             border-color: {COLORS['primary']};
-            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15);
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
             outline: none;
         }}
         
+        /* Form Label */
         .form-label {{
-            font-weight: 500;
-            color: {COLORS['text']};
-            margin-bottom: 6px;
+            font-weight: 600;
             font-size: 13px;
+            color: {COLORS['text']};
+            margin-bottom: var(--spacing-sm);
+            display: block;
+        }}
+        
+        .form-label.required::after {{
+            content: ' *';
+            color: {COLORS['danger']};
+        }}
+        
+        /* Form Group */
+        .form-group {{
+            margin-bottom: var(--spacing-lg);
+        }}
+        
+        /* Textarea */
+        textarea.form-control {{
+            resize: vertical;
+            min-height: 100px;
+            font-family: var(--font-family-base);
         }}
         
         /* ===========================
-           NAVIGATION & TABS
+           NAVIGATION & NAVBAR
            =========================== */
         
         .navbar {{
-            background-color: {COLORS['primary']} !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: {COLORS['smoke_white']} !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-bottom: 1px solid {COLORS['border']};
+            padding: var(--spacing-md) var(--spacing-lg);
         }}
         
         .navbar-brand {{
-            color: {COLORS['smoke_white']} !important;
-            font-weight: 600;
+            color: {COLORS['primary_dark']} !important;
+            font-weight: 700;
             font-size: 18px;
+            letter-spacing: -0.5px;
         }}
         
-        /* SIDEBAR NAVIGATION SPECIFIC FIXES */
-        /* Force text to be white in sidebar context */
-        .sidebar .nav-link, 
+        /* Navbar Text & Links */
+        .navbar .nav-link {{
+            color: {COLORS['text_secondary']} !important;
+            font-weight: 500;
+            font-size: 14px;
+            padding: var(--spacing-sm) var(--spacing-md) !important;
+            margin: 0 var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+        }}
+        
+        .navbar .nav-link:hover {{
+            color: {COLORS['primary']} !important;
+            background-color: rgba(30, 58, 95, 0.08);
+        }}
+        
+        .navbar .nav-link.active {{
+            color: {COLORS['primary_dark']} !important;
+            background-color: {COLORS['primary_light']};
+        }}
+        
+        /* Sidebar Navigation */
+        .sidebar .nav-link,
         .bslib-sidebar-layout .sidebar-content .nav-link {{
             color: rgba(255, 255, 255, 0.85) !important;
             font-weight: 500;
-            transition: all 0.2s ease;
+            padding: var(--spacing-md) var(--spacing-lg) !important;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+            margin: var(--spacing-xs) 0;
         }}
         
         .sidebar .nav-link:hover,
         .sidebar .nav-link.active,
-        .sidebar .nav-link:focus,
         .bslib-sidebar-layout .sidebar-content .nav-link:hover,
         .bslib-sidebar-layout .sidebar-content .nav-link.active {{
             color: #ffffff !important;
-            background-color: rgba(255, 255, 255, 0.1) !important;
-            border-radius: 4px;
-        }}
-
-        .sidebar .nav-link i,
-        .bslib-sidebar-layout .sidebar-content .nav-link i {{
-             color: rgba(255, 255, 255, 0.85) !important;
-        }}
-
-        /* GENERAL NAVBAR LINKS (Fallback) */
-        .navbar .nav-link {{
-            color: {COLORS['smoke_white']} !important;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }}
-        
-        .navbar .nav-link:hover,
-        .navbar .nav-link.active {{
-            color: {COLORS['smoke_white']} !important;
-            background-color: rgba(248, 249, 250, 0.15) !important;
-            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.15) !important;
         }}
         
         /* ===========================
-           MAIN TABS (Top Navigation)
+           TABS
            =========================== */
         
         .nav-tabs {{
             border-bottom: 2px solid {COLORS['border']};
+            margin-bottom: var(--spacing-lg);
         }}
         
         .nav-tabs .nav-link {{
             color: {COLORS['text_secondary']};
             border: none;
             border-bottom: 3px solid transparent;
-            font-weight: 500;
+            font-weight: 600;
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin-bottom: -2px;
+            transition: all var(--transition-fast);
+            font-size: 14px;
         }}
         
         .nav-tabs .nav-link:hover {{
@@ -258,34 +532,27 @@ def get_shiny_css():
         }}
         
         .nav-tabs .nav-link.active {{
-            color: {COLORS['primary']};
+            color: {COLORS['primary_dark']};
             background-color: transparent;
             border-bottom-color: {COLORS['primary']};
         }}
         
-        /* ===========================
-           SUBTABS (Inside Tabs)
-           TEXT COLOR FIX - Ensure visibility on both light and dark themes
-           =========================== */
-        
-        /* Default state: inactive subtabs */
+        /* Subtabs */
         .nav-item .nav-link[role="tab"]:not(.active) {{
-            /* Light theme: medium gray, Dark theme: lighter gray */
             color: {COLORS['text_secondary']} !important;
+            font-weight: 500;
+            padding: var(--spacing-sm) var(--spacing-md);
         }}
         
-        /* Hover state: inactive subtabs */
         .nav-item .nav-link[role="tab"]:not(.active):hover {{
-            /* Light theme: navy tint, Dark theme: lighter navy */
             color: {COLORS['primary']} !important;
-            border-bottom-color: {COLORS['primary_light']};
+            background-color: {COLORS['primary_light']};
         }}
         
-        /* Active state: always visible */
         .nav-item .nav-link[role="tab"].active {{
-            /* Light theme: dark navy, Dark theme: light navy */
-            color: {COLORS['primary']} !important;
-            border-bottom-color: {COLORS['primary']};
+            color: {COLORS['primary_dark']} !important;
+            background-color: {COLORS['primary_light']};
+            font-weight: 600;
         }}
         
         /* ===========================
@@ -293,31 +560,35 @@ def get_shiny_css():
            =========================== */
         
         .alert {{
-            border-radius: 6px;
-            border: 1px solid transparent;
-            padding: 12px 16px;
+            border-radius: var(--radius-lg);
+            border: 1px solid;
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-md);
         }}
         
         .alert-success {{
-            background-color: rgba(34, 167, 101, 0.1);
+            background-color: rgba(34, 167, 101, 0.08);
             border-color: {COLORS['success']};
             color: {COLORS['success']};
         }}
         
         .alert-danger {{
-            background-color: rgba(231, 72, 86, 0.1);
+            background-color: rgba(231, 72, 86, 0.08);
             border-color: {COLORS['danger']};
             color: {COLORS['danger']};
         }}
         
         .alert-warning {{
-            background-color: rgba(255, 185, 0, 0.1);
+            background-color: rgba(255, 185, 0, 0.08);
             border-color: {COLORS['warning']};
-            color: #000;
+            color: #856404;
         }}
         
         .alert-info {{
-            background-color: rgba(30, 58, 95, 0.1);
+            background-color: rgba(30, 58, 95, 0.08);
             border-color: {COLORS['primary']};
             color: {COLORS['primary_dark']};
         }}
@@ -329,24 +600,31 @@ def get_shiny_css():
         .table {{
             font-size: 13px;
             border-collapse: collapse;
+            margin-bottom: var(--spacing-lg);
         }}
         
         .table thead th {{
-            background-color: {COLORS['primary_dark']};
+            background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary']} 100%);
             color: white;
-            border-color: {COLORS['primary']};
+            border: none;
             font-weight: 600;
-            padding: 12px;
+            padding: var(--spacing-md);
+            text-align: left;
+            letter-spacing: 0.5px;
         }}
         
         .table tbody td {{
-            border-color: {COLORS['border']};
-            padding: 10px 12px;
+            border-bottom: 1px solid {COLORS['border']};
+            padding: var(--spacing-md);
             vertical-align: middle;
         }}
         
+        .table tbody tr {{
+            transition: background-color var(--transition-fast);
+        }}
+        
         .table tbody tr:nth-child(even) {{
-            background-color: {COLORS['primary_light']};
+            background-color: {COLORS['background']};
         }}
         
         .table tbody tr:hover {{
@@ -354,51 +632,18 @@ def get_shiny_css():
         }}
         
         /* ===========================
-           UTILITIES
-           =========================== */
-        
-        .text-primary {{
-            color: {COLORS['primary']} !important;
-        }}
-        
-        .text-success {{
-            color: {COLORS['success']} !important;
-        }}
-        
-        .text-danger {{
-            color: {COLORS['danger']} !important;
-        }}
-        
-        .text-warning {{
-            color: {COLORS['warning']} !important;
-        }}
-        
-        .text-info {{
-            color: {COLORS['info']} !important;
-        }}
-        
-        .bg-primary-light {{
-            background-color: {COLORS['primary_light']} !important;
-        }}
-        
-        .bg-surface {{
-            background-color: {COLORS['surface']} !important;
-        }}
-        
-        .border-primary {{
-            border: 1px solid {COLORS['primary']} !important;
-            border-radius: 6px;
-        }}
-        
-        /* ===========================
-           BADGES & INDICATORS
+           BADGES & STATUS INDICATORS
            =========================== */
         
         .badge {{
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             border-radius: 12px;
-            padding: 4px 12px;
+            padding: 4px 10px;
             font-size: 12px;
             font-weight: 600;
+            white-space: nowrap;
         }}
         
         .badge-primary {{
@@ -421,111 +666,325 @@ def get_shiny_css():
             color: #000;
         }}
         
-        /* ===========================
-           CUSTOM SHINY COMPONENTS
-           =========================== */
+        .badge-info {{
+            background-color: {COLORS['info']};
+            color: white;
+        }}
         
+        /* Status Badge (Custom) */
         .status-badge {{
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-weight: 500;
-            font-size: 13px;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            font-size: 12px;
+            border: 1px solid;
         }}
         
         .status-badge.matched {{
-            background-color: rgba(34, 167, 101, 0.15);
+            background-color: rgba(34, 167, 101, 0.1);
             color: {COLORS['success']};
-            border: 1px solid {COLORS['success']};
+            border-color: {COLORS['success']};
         }}
         
         .status-badge.unmatched {{
-            background-color: rgba(231, 72, 86, 0.15);
+            background-color: rgba(231, 72, 86, 0.1);
             color: {COLORS['danger']};
-            border: 1px solid {COLORS['danger']};
+            border-color: {COLORS['danger']};
+        }}
+        
+        .status-badge.warning {{
+            background-color: rgba(255, 185, 0, 0.1);
+            color: {COLORS['warning']};
+            border-color: {COLORS['warning']};
         }}
         
         /* ===========================
-           RESPONSIVE DESIGN
+           UTILITY CLASSES
+           =========================== */
+        
+        .text-primary {{
+            color: {COLORS['primary']} !important;
+        }}
+        
+        .text-primary-dark {{
+            color: {COLORS['primary_dark']} !important;
+        }}
+        
+        .text-success {{
+            color: {COLORS['success']} !important;
+        }}
+        
+        .text-danger {{
+            color: {COLORS['danger']} !important;
+        }}
+        
+        .text-warning {{
+            color: {COLORS['warning']} !important;
+        }}
+        
+        .text-info {{
+            color: {COLORS['info']} !important;
+        }}
+        
+        .text-secondary {{
+            color: {COLORS['text_secondary']} !important;
+        }}
+        
+        .text-muted {{
+            color: {COLORS['text_secondary']} !important;
+            opacity: 0.8;
+        }}
+        
+        .bg-primary {{
+            background-color: {COLORS['primary']} !important;
+            color: white;
+        }}
+        
+        .bg-primary-light {{
+            background-color: {COLORS['primary_light']} !important;
+        }}
+        
+        .bg-surface {{
+            background-color: {COLORS['surface']} !important;
+        }}
+        
+        .bg-background {{
+            background-color: {COLORS['background']} !important;
+        }}
+        
+        .border-primary {{
+            border: 1px solid {COLORS['primary']} !important;
+            border-radius: var(--radius-md);
+        }}
+        
+        .border-top {{
+            border-top: 2px solid {COLORS['border']} !important;
+            padding-top: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }}
+        
+        .divider {{
+            height: 1px;
+            background-color: {COLORS['border']};
+            margin: var(--spacing-lg) 0;
+        }}
+        
+        /* Spacing Utilities */
+        .mt-1 {{ margin-top: var(--spacing-xs); }}
+        .mt-2 {{ margin-top: var(--spacing-sm); }}
+        .mt-3 {{ margin-top: var(--spacing-md); }}
+        .mt-4 {{ margin-top: var(--spacing-lg); }}
+        .mt-5 {{ margin-top: var(--spacing-xl); }}
+        
+        .mb-1 {{ margin-bottom: var(--spacing-xs); }}
+        .mb-2 {{ margin-bottom: var(--spacing-sm); }}
+        .mb-3 {{ margin-bottom: var(--spacing-md); }}
+        .mb-4 {{ margin-bottom: var(--spacing-lg); }}
+        .mb-5 {{ margin-bottom: var(--spacing-xl); }}
+        
+        .p-2 {{ padding: var(--spacing-sm); }}
+        .p-3 {{ padding: var(--spacing-md); }}
+        .p-4 {{ padding: var(--spacing-lg); }}
+        .p-5 {{ padding: var(--spacing-xl); }}
+        
+        /* ===========================
+           CUSTOM COMPONENTS
+           =========================== */
+        
+        .stat-box {{
+            background-color: {COLORS['surface']};
+            border: 1px solid {COLORS['border']};
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-normal);
+        }}
+        
+        .stat-box:hover {{
+            box-shadow: var(--shadow-md);
+            border-color: {COLORS['primary_light']};
+        }}
+        
+        .stat-box-label {{
+            font-size: 12px;
+            font-weight: 600;
+            color: {COLORS['text_secondary']};
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--spacing-sm);
+        }}
+        
+        .stat-box-value {{
+            font-size: 28px;
+            font-weight: 700;
+            color: {COLORS['primary_dark']};
+            line-height: 1;
+        }}
+        
+        .stat-box-subtext {{
+            font-size: 12px;
+            color: {COLORS['text_secondary']};
+            margin-top: var(--spacing-sm);
+        }}
+        
+        /* Info Box / Panel */
+        .info-panel {{
+            background-color: {COLORS['primary_light']};
+            border-left: 4px solid {COLORS['primary']};
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }}
+        
+        .info-panel.success {{
+            background-color: rgba(34, 167, 101, 0.1);
+            border-left-color: {COLORS['success']};
+        }}
+        
+        .info-panel.danger {{
+            background-color: rgba(231, 72, 86, 0.1);
+            border-left-color: {COLORS['danger']};
+        }}
+        
+        .info-panel.warning {{
+            background-color: rgba(255, 185, 0, 0.1);
+            border-left-color: {COLORS['warning']};
+        }}
+        
+        /* Data Grid Container */
+        .data-grid {{
+            overflow-x: auto;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }}
+        
+        /* ===========================
+           RESPONSIVENESS
            =========================== */
         
         @media (max-width: 768px) {{
+            :root {{
+                --spacing-lg: 12px;
+                --spacing-xl: 16px;
+            }}
+            
             .bslib-card-body {{
-                padding: 12px;
+                padding: 12px 14px;
             }}
             
             .btn {{
-                font-size: 13px;
+                font-size: 12px;
                 padding: 8px 12px;
             }}
             
             .form-control,
             .form-select {{
                 font-size: 16px; /* Prevents zoom on iOS */
+                padding: 12px;
+            }}
+            
+            h1 {{ font-size: 24px; }}
+            h2 {{ font-size: 20px; }}
+            h3 {{ font-size: 18px; }}
+            
+            .stat-box-value {{
+                font-size: 24px;
+            }}
+            
+            .table {{
+                font-size: 12px;
+            }}
+            
+            .table thead th,
+            .table tbody td {{
+                padding: var(--spacing-sm);
+            }}
+        }}
+        
+        @media (max-width: 480px) {{
+            .navbar {{
+                padding: var(--spacing-sm) var(--spacing-md);
+            }}
+            
+            .navbar-brand {{
+                font-size: 16px;
+            }}
+            
+            .btn {{
+                width: 100%;
+                margin-bottom: var(--spacing-sm);
             }}
         }}
     </style>
     """
-    
+
     return css
 
 
 def style_card_header(title: str, icon: str = "") -> str:
     """
     Generate styled card header HTML.
-    
+
     Args:
         title: Header text
         icon: Optional emoji or icon
-        
+
     Returns:
         HTML string for card header
     """
     COLORS = get_color_palette()
     return f"""
     <div style="
-        background-color: {COLORS['primary_light']};
-        border-bottom: 2px solid {COLORS['primary']};
+        background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
+        border-bottom: 2px solid {COLORS['primary_dark']};
         padding: 14px 16px;
         font-weight: 600;
-        color: {COLORS['primary_dark']};
+        color: white;
         border-radius: 6px 6px 0 0;
+        font-size: 15px;
     ">
         {icon} {title}
     </div>
     """
 
+
 def _hex_to_rgb(hex_color: str) -> str:
     """Convert hex color to RGB values for rgba()."""
-    hex_color = hex_color.lstrip('#')
-    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) != 6:
+        return "0, 0, 0"  # Fallback for invalid input
+    try:
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    except ValueError:
+        return "0, 0, 0"  # Fallback for non-hex characters
     return f"{r}, {g}, {b}"
 
 
 def style_status_badge(status: str, text: str) -> str:
     """
     Generate styled status badge.
-    
+
     Args:
         status: 'success', 'danger', 'warning', 'info'
         text: Badge text
-        
+
     Returns:
         HTML string for status badge
     """
     COLORS = get_color_palette()
     color_map = {
-        'success': COLORS['success'],
-        'danger': COLORS['danger'],
-        'warning': COLORS['warning'],
-        'info': COLORS['info'],
+        "success": COLORS["success"],
+        "danger": COLORS["danger"],
+        "warning": COLORS["warning"],
+        "info": COLORS["info"],
     }
-    color = color_map.get(status, COLORS['info'])
-    opacity = '0.15' if status != 'warning' else '0.1'
-    text_color = '#000' if status == 'warning' else color
-    
+    color = color_map.get(status, COLORS["info"])
+    text_color = "#000" if status == "warning" else color
+
     return f"""
     <span style="
         display: inline-flex;
@@ -533,11 +992,11 @@ def style_status_badge(status: str, text: str) -> str:
         gap: 6px;
         padding: 6px 12px;
         border-radius: 6px;
-        background-color: rgba({_hex_to_rgb(color)}, {opacity});
+        background-color: rgba({_hex_to_rgb(color)}, 0.1);
         color: {text_color};
         border: 1px solid {color};
         font-weight: 600;
-        font-size: 13px;
+        font-size: 12px;
     ">
         {text}
     </span>
@@ -547,33 +1006,33 @@ def style_status_badge(status: str, text: str) -> str:
 def style_alert(alert_type: str, message: str, title: str = "") -> str:
     """
     Generate styled alert/notification box.
-    
+
     Args:
         alert_type: 'success', 'danger', 'warning', 'info'
         message: Alert message
         title: Optional alert title
-        
+
     Returns:
         HTML string for alert
     """
     COLORS = get_color_palette()
     color_map = {
-        'success': COLORS['success'],
-        'danger': COLORS['danger'],
-        'warning': COLORS['warning'],
-        'info': COLORS['primary'],
+        "success": COLORS["success"],
+        "danger": COLORS["danger"],
+        "warning": COLORS["warning"],
+        "info": COLORS["primary"],
     }
-    color = color_map.get(alert_type, COLORS['info'])
+    color = color_map.get(alert_type, COLORS["info"])
     icon_map = {
-        'success': '✅',
-        'danger': '❌',
-        'warning': '⚠️',
-        'info': 'ℹ️',
+        "success": "✅",
+        "danger": "❌",
+        "warning": "⚠️",
+        "info": "ℹ️",
     }
-    icon = icon_map.get(alert_type, '')
-    
+    icon = icon_map.get(alert_type, "")
+
     title_html = f"<strong>{title}</strong><br>" if title else ""
-    
+
     return f"""
     <div style="
         background-color: rgba({_hex_to_rgb(color)}, 0.1);
@@ -581,6 +1040,7 @@ def style_alert(alert_type: str, message: str, title: str = "") -> str:
         border-radius: 6px;
         padding: 12px 16px;
         color: {color};
+        margin-bottom: 16px;
     ">
         {icon} {title_html}{message}
     </div>
@@ -590,12 +1050,12 @@ def style_alert(alert_type: str, message: str, title: str = "") -> str:
 def get_color_code(color_name: str) -> str:
     """
     Get hex color code by name.
-    
+
     Args:
         color_name: Color name (e.g., 'primary', 'success')
-        
+
     Returns:
         Hex color code
     """
     colors = get_color_palette()
-    return colors.get(color_name, '#1E3A5F')
+    return colors.get(color_name, "#1E3A5F")

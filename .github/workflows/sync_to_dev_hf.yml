@@ -18,7 +18,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_USERNAME: ntwkkm 
-          SPACE_NAME: dev-shiny
+          SPACE_NAME: betastat
         run: |
           # 1. ตั้งค่า Git User
           git config --global user.email "github-actions[bot]@users.noreply.github.com"

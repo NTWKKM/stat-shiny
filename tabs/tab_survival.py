@@ -1,5 +1,5 @@
 """
-⛳ Survival Analysis Module (Shiny)
+⛳ Survival Analysis Module (Shiny) - MODERN MODULE PATTERN
 
 Provides UI and server logic for:
 - Kaplan-Meier curves with log-rank tests
@@ -7,505 +7,806 @@ Provides UI and server logic for:
 - Landmark analysis for late endpoints
 - Cox proportional hazards regression
 - Subgroup analysis for treatment heterogeneity
+
+Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
+for automatic namespace scoping and cleaner code organization.
 """
 
-from shiny import ui, reactive, render, Session
+from shiny import ui, module, reactive, render, req
+from shinywidgets import output_widget, render_widget  # type: ignore
 import pandas as pd
 import numpy as np
 import survival_lib
-from subgroup_analysis_module import SubgroupAnalysisCox
+from typing import Optional, List, Dict, Any, Tuple, Union, cast
+
+try:
+    from subgroup_analysis_module import SubgroupAnalysisCox
+except ImportError:
+    SubgroupAnalysisCox = None  # type: ignore
+    
 from logger import get_logger
-import json
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()
 
-
-def _get_dataset_for_survival(df: pd.DataFrame, df_matched: reactive.Value, is_matched: reactive.Value) -> tuple[pd.DataFrame, str]:
-    """
-    Choose between original and matched datasets for survival analysis.
-    
-    Args:
-        df: Original dataset
-        df_matched: Reactive value containing matched data
-        is_matched: Reactive value indicating if matching has been done
+# ==============================================================================
+# UI Definition - Modern Module Pattern
+# ==============================================================================
+@module.ui
+def survival_ui() -> ui.TagChild:
+    """Modern Shiny UI module - no namespace argument needed."""
+    return ui.div(
+        # Title + Data Summary inline
+        ui.output_ui("ui_title_with_summary"),
         
-    Returns:
-        Tuple of (selected_dataframe, label_string)
-    """
-    if is_matched.get() and df_matched.get() is not None:
-        return df_matched.get().copy(), f"✅ Matched Data ({len(df_matched.get())} rows)"
-    else:
-        return df, f"📊 Original Data ({len(df)} rows)"
-
-
-def surv_ui(namespace: str) -> ui.TagChild:
-    """
-    Create the UI for survival analysis tab.
-    
-    Args:
-        namespace: Shiny module namespace ID
+        # Dataset Info Box
+        ui.output_ui("ui_matched_info"),
+        ui.br(),
         
-    Returns:
-        UI elements for the survival tab
-    """
-    return ui.navset_tab(
-        # TAB 1: Survival Curves (KM & Nelson-Aalen)
-        ui.nav_panel(
-            "📈 Survival Curves",
-            ui.card(
-                ui.card_header("Kaplan-Meier & Nelson-Aalen Curves"),
-                
-                ui.layout_columns(
-                    ui.input_select(
-                        f"{namespace}_surv_time",
-                        "⛳ Time Variable:",
-                        choices=["Select..."]
-                    ),
-                    ui.input_select(
-                        f"{namespace}_surv_event",
-                        "🗣️ Event Variable (1=Event):",
-                        choices=["Select..."]
-                    ),
-                    ui.input_select(
-                        f"{namespace}_surv_group",
-                        "Compare Groups (Optional):",
-                        choices=["None"]
-                    ),
-                    col_widths=[4, 4, 4]
-                ),
-                
-                ui.input_radio_buttons(
-                    f"{namespace}_plot_type",
-                    "Select Plot Type:",
-                    choices={
-                        "km": "Kaplan-Meier (Survival Function)",
-                        "na": "Nelson-Aalen (Cumulative Hazard)"
-                    },
-                    selected="km",
-                    inline=True
-                ),
-                
-                ui.layout_columns(
-                    ui.input_action_button(
-                        f"{namespace}_btn_run_curves",
-                        "🚀 Generate Curve",
-                        class_="btn-primary",
-                        width="100%"
-                    ),
-                    ui.input_action_button(
-                        f"{namespace}_btn_dl_curves",
-                        "📥 Download Report",
-                        class_="btn-secondary",
-                        width="100%"
-                    ),
-                    col_widths=[6, 6]
-                ),
-                
-                ui.output_ui(f"{namespace}_out_curves_result"),
-                
-                full_screen=True
-            )
-        ),
+        # Dataset Selector
+        ui.output_ui("ui_dataset_selector"),
+        ui.br(),
         
-        # TAB 2: Landmark Analysis
-        ui.nav_panel(
-            "📊 Landmark Analysis",
-            ui.card(
-                ui.card_header("Landmark Analysis for Late Endpoints"),
-                
-                ui.markdown("**Principle:** Exclude patients with event/censoring before landmark time."),
-                
-                ui.input_slider(
-                    f"{namespace}_landmark_t",
-                    "Landmark Time (t):",
-                    min=0, max=100, value=10, step=1
-                ),
-                
-                ui.input_select(
-                    f"{namespace}_landmark_group",
-                    "Compare Group:",
-                    choices=["Select..."]
-                ),
-                
-                ui.layout_columns(
-                    ui.input_action_button(
-                        f"{namespace}_btn_run_landmark",
-                        "🚀 Run Landmark Analysis",
-                        class_="btn-primary",
-                        width="100%"
+        # Main Analysis Tabs
+        ui.navset_tab(
+            # TAB 1: Survival Curves (KM & Nelson-Aalen)
+            ui.nav_panel(
+                "📈 Survival Curves",
+                ui.card(
+                    ui.card_header("Kaplan-Meier & Nelson-Aalen Curves"),
+                    
+                    ui.layout_columns(
+                        ui.input_select(
+                            "surv_time",
+                            "⛳ Time Variable:",
+                            choices=["Select..."]
+                        ),
+                        ui.input_select(
+                            "surv_event",
+                            "🗣️ Event Variable (1=Event):",
+                            choices=["Select..."]
+                        ),
+                        ui.input_select(
+                            "surv_group",
+                            "Compare Groups (Optional):",
+                            choices=["None"]
+                        ),
+                        col_widths=[4, 4, 4]
                     ),
-                    ui.input_action_button(
-                        f"{namespace}_btn_dl_landmark",
-                        "📥 Download Report",
-                        class_="btn-secondary",
-                        width="100%"
+                    
+                    ui.input_radio_buttons(
+                        "plot_type",
+                        "Select Plot Type:",
+                        choices={
+                            "km": "Kaplan-Meier (Survival Function)",
+                            "na": "Nelson-Aalen (Cumulative Hazard)"
+                        },
+                        selected="km",
+                        inline=True
                     ),
-                    col_widths=[6, 6]
-                ),
-                
-                ui.output_ui(f"{namespace}_out_landmark_result"),
-                
-                full_screen=True
-            )
-        ),
-        
-        # TAB 3: Cox Regression
-        ui.nav_panel(
-            "📈 Cox Regression",
-            ui.card(
-                ui.card_header("Cox Proportional Hazards Regression"),
-                
-                ui.input_checkbox_group(
-                    f"{namespace}_cox_covariates",
-                    "Select Covariates (Predictors):",
-                    choices=[],
-                    selected=[]
-                ),
-                
-                ui.layout_columns(
-                    ui.input_action_button(
-                        f"{namespace}_btn_run_cox",
-                        "🚀 Run Cox Model",
-                        class_="btn-primary",
-                        width="100%"
+                    
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_curves",
+                            "🚀 Generate Curve",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.input_action_button(
+                            "btn_dl_curves",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6]
                     ),
-                    ui.input_action_button(
-                        f"{namespace}_btn_dl_cox",
-                        "📥 Download Report",
-                        class_="btn-secondary",
-                        width="100%"
-                    ),
-                    col_widths=[6, 6]
-                ),
-                
-                ui.output_ui(f"{namespace}_out_cox_result"),
-                
-                full_screen=True
-            )
-        ),
-        
-        # TAB 4: Subgroup Analysis
-        ui.nav_panel(
-            "📛 Subgroup Analysis",
-            ui.card(
-                ui.card_header("Cox Subgroup Analysis - Treatment Heterogeneity"),
-                
-                ui.layout_columns(
-                    ui.input_select(
-                        f"{namespace}_sg_time",
-                        "Follow-up Time:",
-                        choices=["Select..."]
-                    ),
-                    ui.input_select(
-                        f"{namespace}_sg_event",
-                        "Event Indicator (Binary):",
-                        choices=["Select..."]
-                    ),
-                    ui.input_select(
-                        f"{namespace}_sg_treatment",
-                        "Treatment/Exposure:",
-                        choices=["Select..."]
-                    ),
-                    col_widths=[4, 4, 4]
-                ),
-                
-                ui.layout_columns(
-                    ui.input_select(
-                        f"{namespace}_sg_subgroup",
-                        "📌 Stratify By:",
-                        choices=["Select..."]
-                    ),
-                    ui.input_checkbox_group(
-                        f"{namespace}_sg_adjust",
-                        "Adjustment Variables:",
-                        choices=[]
-                    ),
-                    col_widths=[4, 8]
-                ),
-                
-                # FIXED: Changed ui.details to ui.tags.details
-                ui.tags.details(
-                    ui.tags.summary("⚠️ Advanced Settings"),
-                    ui.input_numeric(
-                        f"{namespace}_sg_min_n",
-                        "Min N per subgroup:",
-                        value=5, min=2, max=50
-                    ),
-                    ui.input_numeric(
-                        f"{namespace}_sg_min_events",
-                        "Min events per subgroup:",
-                        value=2, min=1, max=50
-                    )
-                ),
-                
-                ui.input_action_button(
-                    f"{namespace}_btn_run_sg",
-                    "🚀 Run Subgroup Analysis",
-                    class_="btn-primary",
-                    width="100%"
-                ),
-                
-                ui.output_ui(f"{namespace}_out_sg_result"),
-                
-                full_screen=True
-            )
-        ),
-        
-        # TAB 5: Reference & Interpretation
-        ui.nav_panel(
-            "ℹ️ Reference",
-            ui.card(
-                ui.card_header("📚 Quick Reference: Survival Analysis"),
-                
-                ui.markdown("""
-                ### 🎲 When to Use What:
-                
-                | Method | Purpose | Output |
-                |--------|---------|--------|
-                | **KM Curves** | Visualize time-to-event by group | Survival %, median, p-value |
-                | **Nelson-Aalen** | Cumulative hazard over time | H(t) curve, risk accumulation |
-                | **Landmark** | Late/surrogate endpoints | Filtered KM, immortal time removed |
-                | **Cox** | Multiple predictors of survival | HR, CI, p-value per variable + forest plot |
-                | **Subgroup Analysis** | Treatment effect heterogeneity | HR by subgroup, interaction test |
-                """)
+                    
+                    ui.output_ui("out_curves_result"),
+                    full_screen=True
+                )
             ),
-            ui.layout_columns(
+            
+            # TAB 2: Landmark Analysis
+            ui.nav_panel(
+                "📊 Landmark Analysis",
                 ui.card(
-                    ui.card_header("Kaplan-Meier (KM) Curves"),
-                    ui.markdown("""
-                    **When to Use:**
-                    - Time-to-event analysis (survival, recurrence)
-                    - Comparing survival between groups
-                    - Estimating survival at fixed times
+                    ui.card_header("Landmark Analysis for Late Endpoints"),
+                    ui.markdown("**Principle:** Exclude patients with event/censoring before landmark time."),
                     
-                    **Interpretation:**
-                    - Y-axis = % surviving
-                    - X-axis = time
-                    - Step down = event occurred
-                    - Median survival = 50% point
+                    ui.input_slider(
+                        "landmark_t",
+                        "Landmark Time (t):",
+                        min=0, max=100, value=10, step=1
+                    ),
                     
-                    **Log-Rank Test:**
-                    - p < 0.05: Curves differ ✅
-                    - p ≥ 0.05: No difference ⚠️
-                    """)
-                ),
+                    ui.input_select(
+                        "landmark_group",
+                        "Compare Group:",
+                        choices=["Select..."]
+                    ),
+                    
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_landmark",
+                            "🚀 Run Landmark Analysis",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.input_action_button(
+                            "btn_dl_landmark",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6]
+                    ),
+                    
+                    ui.output_ui("out_landmark_result"),
+                    full_screen=True
+                )
+            ),
+            
+            # TAB 3: Cox Regression
+            ui.nav_panel(
+                "📈 Cox Regression",
                 ui.card(
-                    ui.card_header("Nelson-Aalen Curves"),
+                    ui.card_header("Cox Proportional Hazards Regression"),
+                    
+                    ui.input_checkbox_group(
+                        "cox_covariates",
+                        "Select Covariates (Predictors):",
+                        choices=[],
+                        selected=[]
+                    ),
+                    
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_cox",
+                            "🚀 Run Cox Model",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.input_action_button(
+                            "btn_dl_cox",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6]
+                    ),
+                    
+                    ui.output_ui("out_cox_result"),
+                    full_screen=True
+                )
+            ),
+            
+            # TAB 4: Subgroup Analysis
+            ui.nav_panel(
+                "🔛 Subgroup Analysis",
+                ui.card(
+                    ui.card_header("Cox Subgroup Analysis - Treatment Heterogeneity"),
+                    
+                    ui.layout_columns(
+                        ui.input_select(
+                            "sg_time", "Follow-up Time:", choices=["Select..."]
+                        ),
+                        ui.input_select(
+                            "sg_event", "Event Indicator (Binary):", choices=["Select..."]
+                        ),
+                        ui.input_select(
+                            "sg_treatment", "Treatment/Exposure:", choices=["Select..."]
+                        ),
+                        col_widths=[4, 4, 4]
+                    ),
+                    
+                    ui.layout_columns(
+                        ui.input_select(
+                            "sg_subgroup", "📌 Stratify By:", choices=["Select..."]
+                        ),
+                        ui.input_checkbox_group(
+                            "sg_adjust", "Adjustment Variables:", choices=[]
+                        ),
+                        col_widths=[4, 8]
+                    ),
+                    
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "⚠️ Advanced Settings",
+                            ui.input_numeric(
+                                "sg_min_n", "Min N per subgroup:", value=5, min=2, max=50
+                            ),
+                            ui.input_numeric(
+                                "sg_min_events", "Min events per subgroup:", value=2, min=1, max=50
+                            )
+                        ),
+                        open=False
+                    ),
+                    
+                    ui.input_action_button(
+                        "btn_run_sg",
+                        "🚀 Run Subgroup Analysis",
+                        class_="btn-primary w-100"
+                    ),
+                    
+                    ui.output_ui("out_sg_result"),
+                    full_screen=True
+                )
+            ),
+            
+            # TAB 5: Reference & Interpretation
+            ui.nav_panel(
+                "ℹ️ Reference",
+                ui.card(
+                    ui.card_header("📚 Quick Reference: Survival Analysis"),
                     ui.markdown("""
-                    **When to Use:**
-                    - Estimate cumulative hazard function H(t)
-                    - Compare risk accumulation between groups
-                    - Assess hazard rate over time
+                    ### 🎲 When to Use What:
                     
-                    **Interpretation:**
-                    - Y-axis = cumulative hazard
-                    - X-axis = time
-                    - Steeper slope = higher hazard
-                    - Useful for checking PH assumption
-                    
-                    **vs KM:**
-                    - NA is more direct from hazard
-                    - KM shows 1 - S(t)
+                    | Method | Purpose | Output |
+                    |--------|---------|--------|
+                    | **KM Curves** | Visualize time-to-event by group | Survival %, median, p-value |
+                    | **Nelson-Aalen** | Cumulative hazard over time | H(t) curve, risk accumulation |
+                    | **Landmark** | Late/surrogate endpoints | Filtered KM, immortal time removed |
+                    | **Cox** | Multiple predictors of survival | HR, CI, p-value per variable + forest plot |
+                    | **Subgroup Analysis** | Treatment effect heterogeneity | HR by subgroup, interaction test |
                     """)
-                ),
-                col_widths=[6, 6]
+                )
             )
         )
     )
 
-
-def surv_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
-               df_matched: reactive.Value, is_matched: reactive.Value):
-    """
-    Server logic for survival analysis module.
+# ==============================================================================
+# Server Logic - Modern Module Pattern
+# ==============================================================================
+@module.server
+def survival_server(
+    input: Any, 
+    output: Any, 
+    session: Any, 
+    df: reactive.Value[Optional[pd.DataFrame]], 
+    var_meta: reactive.Value[Dict[str, Any]],
+    df_matched: reactive.Value[Optional[pd.DataFrame]], 
+    is_matched: reactive.Value[bool]
+) -> None:
+    """Modern Shiny server module - automatic namespace scoping via decorator."""
     
-    Args:
-        namespace: Module namespace ID
-        df: Reactive value with original dataframe
-        var_meta: Reactive value with variable metadata
-        df_matched: Reactive value with matched dataframe
-        is_matched: Reactive value indicating if matching completed
-    """
+    # ==================== REACTIVE VALUES ====================
+    curves_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    landmark_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    cox_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    sg_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
     
-    # ==================== REACTIVE STATES ====================
-    
-    surv_df_current = reactive.Value(None)  # Current dataset (original or matched)
-    curves_result = reactive.Value(None)    # KM/NA analysis result
-    landmark_result = reactive.Value(None)  # Landmark analysis result
-    cox_result = reactive.Value(None)       # Cox regression result
-    
-    # ==================== UPDATE DATASETS ====================
-    
-    @reactive.Effect
-    def _update_current_dataset():
-        """Update current dataset when data or matching status changes."""
-        data = df.get()
-        if data is not None:
-            selected_df, _ = _get_dataset_for_survival(data, df_matched, is_matched)
-            surv_df_current.set(selected_df)
-            
-            # Update variable selects
-            cols = data.columns.tolist()
-            numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
-            
-            ui.update_select(f"{namespace}_surv_time", choices=numeric_cols)
-            ui.update_select(f"{namespace}_surv_event", choices=cols)
-            ui.update_select(f"{namespace}_surv_group", choices=["None"] + cols)
-            ui.update_select(f"{namespace}_sg_time", choices=numeric_cols)
-            ui.update_select(f"{namespace}_sg_event", choices=cols)
-            ui.update_select(f"{namespace}_sg_treatment", choices=cols)
-            ui.update_select(f"{namespace}_sg_subgroup", choices=cols)
-            ui.update_checkbox_group(f"{namespace}_sg_adjust", choices=cols)
-            ui.update_checkbox_group(f"{namespace}_cox_covariates", choices=cols)
-            ui.update_select(f"{namespace}_landmark_group", choices=cols)
-    
-    # ==================== CURVES (KM/NA) ====================
+    # ==================== DATASET SELECTION LOGIC ====================
+    @reactive.Calc
+    def current_df() -> Optional[pd.DataFrame]:
+        """Select between original and matched dataset based on user preference."""
+        if is_matched.get() and input.radio_survival_source() == "matched":
+            return df_matched.get()
+        return df.get()
     
     @render.ui
+    def ui_title_with_summary():
+        """Display title with dataset summary."""
+        d = current_df()
+        if d is not None:
+            return ui.div(
+                ui.h3("⛳ Survival Analysis"),
+                ui.p(
+                    f"{len(d):,} rows | {len(d.columns)} columns",
+                    class_="text-secondary mb-3"
+                )
+            )
+        return ui.h3("⛳ Survival Analysis")
+    
+    @render.ui
+    def ui_matched_info():
+        """Display matched dataset availability info."""
+        if is_matched.get():
+            return ui.div(
+                ui.tags.div(
+                    "✅ **Matched Dataset Available** - You can select it below for analysis",
+                    class_="alert alert-info"
+                )
+            )
+        return None
+    
+    @render.ui
+    def ui_dataset_selector():
+        """Render dataset selector radio buttons."""
+        if is_matched.get():
+            original = df.get()
+            matched = df_matched.get()
+            original_len = len(original) if original is not None else 0
+            matched_len = len(matched) if matched is not None else 0
+            return ui.input_radio_buttons(
+                "radio_survival_source",
+                "📊 Select Dataset:",
+                {
+                    "original": f"📊 Original Data ({original_len:,} rows)",
+                    "matched": f"✅ Matched Data ({matched_len:,} rows)"
+                },
+                selected="matched",
+                inline=True
+            )
+        return None
+    
+    # ==================== LABEL MAPPING LOGIC ====================
+    @reactive.Calc
+    def label_map() -> Dict[str, str]:
+        """Build a dictionary mapping raw column names to user-friendly labels from var_meta."""
+        meta = var_meta.get()
+        if not meta:
+            return {}
+        try:
+            return {item.get('name', k): item.get('label', k) for k, item in meta.items()}
+        except (AttributeError, TypeError, KeyError):
+            return {}
+
+    def get_label(col_name: str) -> str:
+        """Helper to get label for a column, falling back to column name."""
+        return label_map().get(col_name, col_name)
+
+    # ==================== DATASET UPDATES ====================
+    @reactive.Effect
+    def _update_current_dataset():
+        """Update current dataset and refresh all input choices."""
+        data = current_df()
+        if data is None:
+            return
+            
+        # Update Dropdowns
+        cols = data.columns.tolist()
+        numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+
+        # --- AUTO-DETECTION LOGIC WITH PRIORITY ---
+        
+        # 1. Detect Time Variables
+        time_keywords = ['time', 'day', 'month', 'year', 'range', 'followup', 'fu']
+        default_time = "Select..."
+        
+        for kw in time_keywords:
+            matched = [c for c in numeric_cols if kw in c.lower()]
+            if matched:
+                default_time = matched[0]
+                break
+        
+        if default_time == "Select..." and numeric_cols:
+            default_time = numeric_cols[0]
+
+        # 2. Detect Event Variables
+        event_keywords = ['status', 'event', 'death', 'cure', 'survive', 'died', 'outcome']
+        default_event = "Select..."
+        
+        for kw in event_keywords:
+            matched = [c for c in cols if kw in c.lower()]
+            if matched:
+                default_event = matched[0]
+                break
+        
+        if default_event == "Select..." and cols:
+            default_event = cols[0]
+            
+        # 3. Detect compare Variables
+        compare_keywords = ['treatment', 'group', 'comorbid', 'comorb', 'dz', 'lab', 'diag', 'sex', 'age']
+        default_compare = "Select..."
+        
+        for kw in compare_keywords:
+            matched = [c for c in cols if kw in c.lower()]
+            if matched:
+                default_compare = matched[0]
+                break
+        
+        if default_compare == "Select..." and cols:
+            default_compare = cols[0]
+
+        # 4. Detect treatment Variables
+        tx_keywords = ['treatment', 'tx', 'group', 'drug', 'give']
+        default_tx = "Select..."
+        
+        for kw in tx_keywords:
+            matched = [c for c in cols if kw in c.lower()]
+            if matched:
+                default_tx = matched[0]
+                break
+        
+        if default_tx == "Select..." and cols:
+            default_tx = cols[0]
+
+        # 5. Detect subgroup Variables
+        subgr_keywords = ['comorbid', 'comorb', 'group', 'control', 'contr', 'ctr', 'dz', 'lab', 'diag', 'sex', 'age']
+        default_subgr = "Select..."
+        
+        for kw in subgr_keywords:
+            matched = [c for c in cols if kw in c.lower()]
+            if matched:
+                default_subgr = matched[0]
+                break
+        
+        if default_subgr == "Select..." and cols:
+            default_subgr = cols[0]
+            
+        # Update UI choices with labels if available
+        choices_with_labels = {c: get_label(c) for c in cols}
+        num_choices_with_labels = {c: get_label(c) for c in numeric_cols}
+
+        # KM Curves
+        ui.update_select("surv_time", choices=num_choices_with_labels, selected=default_time)
+        ui.update_select("surv_event", choices=choices_with_labels, selected=default_event)
+        ui.update_select("surv_group", choices={"None": "None", **choices_with_labels})
+        
+        # Landmark Analysis
+        ui.update_select("landmark_group", choices=choices_with_labels, selected=default_compare)
+        
+        # Cox Regression
+        ui.update_checkbox_group("cox_covariates", choices=choices_with_labels)
+        
+        # Subgroup Analysis
+        ui.update_select("sg_time", choices=num_choices_with_labels, selected=default_time)
+        ui.update_select("sg_event", choices=choices_with_labels, selected=default_event)
+        ui.update_select("sg_treatment", choices=choices_with_labels, selected=default_tx)
+        ui.update_select("sg_subgroup", choices=choices_with_labels, selected=default_subgr)
+        ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
+
+    # ==================== 1. CURVES LOGIC (KM/NA) ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_curves)
+    def _run_curves():
+        """Run Kaplan-Meier or Nelson-Aalen curves."""
+        data = current_df()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+        group_col = input.surv_group()
+        plot_type = input.plot_type()
+        
+        if data is None or time_col == "Select..." or event_col == "Select...":
+            ui.notification_show("Please select Time and Event variables", type="warning")
+            return
+            
+        if group_col == "None": 
+            group_col = None
+        
+        try:
+            ui.notification_show("Generating curves...", duration=None, id="run_curves")
+            
+            if plot_type == "km":
+                fig, stats = survival_lib.fit_km_logrank(data, time_col, event_col, group_col)
+                medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col)
+                
+                # Merge stats and medians if possible, or just concat
+                if 'Group' in stats.columns and 'Group' in medians.columns:
+                    stats = stats.merge(medians, on='Group', how='outer')
+                else:
+                    overlapping = set(stats.columns) & set(medians.columns)
+                    if overlapping:
+                        medians = medians.rename(columns={c: f"{c}_median" for c in overlapping})
+                    stats = pd.concat([stats, medians], axis=1)
+            else:
+                fig, stats = survival_lib.fit_nelson_aalen(data, time_col, event_col, group_col)
+            
+            curves_result.set({'fig': fig, 'stats': stats})
+            ui.notification_remove("run_curves")
+            
+        except Exception as e:
+            ui.notification_remove("run_curves")
+            ui.notification_show(f"Error: {e}", type="error")
+            logger.exception("Curve error")
+
+    @render.ui
     def out_curves_result():
-        """Display curves analysis results."""
-        result = curves_result.get()
-        if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Generate Curve'*")
+        """Render curves results."""
+        res = curves_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("*Results will appear here...*"),
+                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;"
+            )
         
         return ui.card(
-            ui.card_header("📈 Results"),
-            ui.output_plot(f"{namespace}_out_curves_plot"),
+            ui.card_header("📈 Plot"),
+            output_widget("out_curves_plot"),
             ui.card_header("📄 Statistics"),
-            ui.output_data_frame(f"{namespace}_out_curves_table")
+            ui.output_data_frame("out_curves_table")
         )
-    
-    @render.plot
+
+    @render_widget
     def out_curves_plot():
-        """Render curves plot."""
-        result = curves_result.get()
-        if result is None or result['fig'] is None:
-            return None
-        return result['fig']
-    
+        """Render Kaplan-Meier or Nelson-Aalen plot."""
+        res = curves_result.get()
+        return res['fig'] if res else None
+
     @render.data_frame
     def out_curves_table():
         """Render curves statistics table."""
-        result = curves_result.get()
-        if result is None or result['stats'] is None:
-            return None
-        return render.DataGrid(result['stats'])
+        res = curves_result.get()
+        return render.DataGrid(res['stats']) if res else None
     
-    # ==================== LANDMARK ANALYSIS ====================
-    
+    @render.download(filename="survival_report.html")
+    def btn_dl_curves():
+        """Download survival curves report."""
+        res = curves_result.get()
+        if not res:
+            ui.notification_show("No results to download. Run analysis first.", type="warning")
+            return
+        
+        elements = [
+            {'type': 'header', 'data': 'Survival Analysis Report'},
+            {'type': 'plot', 'data': res['fig']},
+            {'type': 'header', 'data': 'Statistics'},
+            {'type': 'table', 'data': res['stats']}
+        ]
+        yield survival_lib.generate_report_survival("Survival Analysis", elements)
+
+    # ==================== 2. LANDMARK LOGIC ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_landmark)
+    def _run_landmark():
+        """Run landmark analysis."""
+        data = current_df()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+        group_col = input.landmark_group()
+        t = input.landmark_t()
+        
+        if data is None or group_col == "Select...":
+            ui.notification_show("Please configure variables properly", type="warning")
+            return
+
+        try:
+            ui.notification_show("Running Landmark Analysis...", duration=None, id="run_landmark")
+            fig, stats, n_pre, n_post, err = survival_lib.fit_km_landmark(data, time_col, event_col, group_col, t)
+            
+            if err:
+                ui.notification_show(err, type="error")
+            else:
+                landmark_result.set({'fig': fig, 'stats': stats, 'n_pre': n_pre, 'n_post': n_post, 't': t})
+            
+            ui.notification_remove("run_landmark")
+        except Exception as e:
+            ui.notification_remove("run_landmark")
+            logger.exception("Landmark error")
+            ui.notification_show(f"Landmark analysis error: {e}", type="error")
+
     @render.ui
     def out_landmark_result():
-        """Display landmark analysis results."""
-        result = landmark_result.get()
-        if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Run Landmark Analysis'*")
-        
+        """Render landmark analysis results."""
+        res = landmark_result.get()
+        if res is None: 
+            return None
         return ui.card(
-            ui.card_header("📈 Landmark Results"),
-            ui.markdown(f"""
-            **Total N before filter:** {result['n_pre']}
-            **N Included (Survived >= {result['t']:.2f}):** {result['n_post']}
-            **N Excluded:** {result['n_pre'] - result['n_post']}
-            """),
-            ui.output_plot(f"{namespace}_out_landmark_plot"),
-            ui.card_header("📄 Log-Rank Test"),
-            ui.output_data_frame(f"{namespace}_out_landmark_table")
+            ui.card_header("📈 Landmark Plot"),
+            ui.div(
+                ui.markdown(f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"),
+                style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};"
+            ),
+            output_widget("out_landmark_plot"),
+            ui.output_data_frame("out_landmark_table")
         )
-    
-    @render.plot
+
+    @render_widget
     def out_landmark_plot():
         """Render landmark analysis plot."""
-        result = landmark_result.get()
-        if result is None or result['fig'] is None:
-            return None
-        return result['fig']
-    
+        res = landmark_result.get()
+        return res['fig'] if res else None
+
     @render.data_frame
     def out_landmark_table():
-        """Render landmark statistics table."""
-        result = landmark_result.get()
-        if result is None or result['stats'] is None:
-            return None
-        return render.DataGrid(result['stats'])
-    
-    # ==================== COX REGRESSION ====================
-    
+        """Render landmark analysis table."""
+        res = landmark_result.get()
+        return render.DataGrid(res['stats']) if res else None
+
+    @render.download(filename="landmark_report.html")
+    def btn_dl_landmark():
+        """Download landmark analysis report."""
+        res = landmark_result.get()
+        if res:
+            elements = [
+                {'type': 'header', 'data': f'Landmark Analysis (t={res["t"]})'},
+                {'type': 'plot', 'data': res['fig']},
+                {'type': 'header', 'data': 'Statistics'},
+                {'type': 'table', 'data': res['stats']}
+            ]
+            yield survival_lib.generate_report_survival("Landmark Analysis", elements)
+
+    # ==================== 3. COX REGRESSION LOGIC ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_cox)
+    def _run_cox():
+        """Run Cox proportional hazards regression."""
+        data = current_df()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+        covars = input.cox_covariates()
+        
+        if not covars:
+            ui.notification_show("Select at least one covariate", type="warning")
+            return
+            
+        try:
+            ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
+            
+            # 1. Fit Model
+            cph, res_df, clean_data, err = survival_lib.fit_cox_ph(data, time_col, event_col, list(covars))
+            
+            if err:
+                ui.notification_show(err, type="error")
+                ui.notification_remove("run_cox")
+                return
+            
+            # 2. Forest Plot
+            forest_fig = survival_lib.create_forest_plot_cox(res_df)
+            
+            # 3. Check Assumptions (Schoenfeld)
+            assump_text, assump_plots = survival_lib.check_cph_assumptions(cph, clean_data)
+            
+            cox_result.set({
+                'results_df': res_df,
+                'forest_fig': forest_fig,
+                'assumptions_text': assump_text,
+                'assumptions_plots': assump_plots
+            })
+            
+            ui.notification_remove("run_cox")
+            
+        except Exception as e:
+            ui.notification_remove("run_cox")
+            ui.notification_show(f"Cox error: {e}", type="error")
+            logger.exception("Cox Error")
+
     @render.ui
     def out_cox_result():
-        """Display cox regression results."""
-        result = cox_result.get()
-        if result is None:
-            return ui.markdown("*Results will appear here after clicking 'Run Cox Model'*")
+        """Render Cox regression results."""
+        res = cox_result.get()
+        if res is None: 
+            return None
         
         return ui.card(
-            ui.card_header("📄 Cox Model Results"),
-            ui.output_data_frame(f"{namespace}_out_cox_table"),
-            ui.card_header("🌳 Forest Plot (Hazard Ratios)"),
-            ui.output_plot(f"{namespace}_out_cox_forest"),
-            ui.card_header("🔍 PH Assumption Check"),
-            ui.output_ui(f"{namespace}_out_cox_assumptions")
+            ui.card_header("📄 Cox Results"),
+            ui.output_data_frame("out_cox_table"),
+            
+            ui.card_header("🌳 Forest Plot"),
+            output_widget("out_cox_forest"),
+            
+            ui.card_header("🔍 PH Assumption (Schoenfeld Residuals)"),
+            ui.output_ui("out_cox_assumptions_ui")
         )
-    
+
     @render.data_frame
     def out_cox_table():
-        """Render cox results table."""
-        result = cox_result.get()
-        if result is None or result['results_df'] is None:
-            return None
-        return render.DataGrid(result['results_df'])
-    
-    @render.plot
+        """Render Cox results table."""
+        res = cox_result.get()
+        return render.DataGrid(res['results_df']) if res else None
+
+    @render_widget
     def out_cox_forest():
-        """Render forest plot."""
-        result = cox_result.get()
-        if result is None or result['forest_fig'] is None:
-            return None
-        return result['forest_fig']
-    
+        """Render Cox forest plot."""
+        res = cox_result.get()
+        return res['forest_fig'] if res else None
+
     @render.ui
-    def out_cox_assumptions():
-        """Display assumptions checking results."""
-        result = cox_result.get()
-        if result is None:
+    def out_cox_assumptions_ui():
+        """Render Cox assumptions diagnostics."""
+        res = cox_result.get()
+        if not res: 
             return None
         
-        ui_elements = []
-        
-        if result.get('assumptions_text'):
-            ui_elements.append(
-                # FIXED: Changed ui.details to ui.tags.details
-                ui.tags.details(
-                    ui.tags.summary("View Assumption Advice (Text)"),
-                    ui.markdown(f"```\n{result['assumptions_text']}\n```")
-                )
+        # Display Text Report
+        elements = [
+            ui.div(
+                ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}"),
+                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};"
             )
+        ]
         
-        if result.get('assumptions_plots'):
-            ui_elements.append(ui.markdown("**Schoenfeld Residuals Plots:**"))
-            for fig in result['assumptions_plots']:
-                ui_elements.append(ui.output_plot(f"{namespace}_out_assumption_plot_{id(fig)}"))
+        # Display Plots
+        if res['assumptions_plots']:
+            html_plots = ""
+            for i, fig in enumerate(res['assumptions_plots']):
+                include_js = 'cdn' if i == 0 else False
+                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
+            
+            elements.append(ui.HTML(html_plots))
+            
+        return ui.div(*elements)
+
+    @render.download(filename="cox_report.html")
+    def btn_dl_cox():
+        """Download Cox regression report."""
+        res = cox_result.get()
+        if res:
+            elements = [
+                {'type': 'header', 'data': 'Cox Proportional Hazards Regression'},
+                {'type': 'table', 'data': res['results_df']},
+                {'type': 'plot', 'data': res['forest_fig']},
+                {'type': 'header', 'data': 'PH Assumptions'},
+                {'type': 'text', 'data': res['assumptions_text']}
+            ]
+            yield survival_lib.generate_report_survival("Cox Regression", elements)
+
+    # ==================== 4. SUBGROUP LOGIC ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_sg)
+    def _run_sg():
+        """Run subgroup analysis."""
+        if SubgroupAnalysisCox is None:
+            ui.notification_show("Subgroup module not found", type="error")
+            return
+            
+        data = current_df()
+        time = input.sg_time()
+        event = input.sg_event()
+        treat = input.sg_treatment()
+        subgroup = input.sg_subgroup()
+        adjust = input.sg_adjust()
         
-        return ui.card(*ui_elements) if ui_elements else None
-    
-    # ==================== SUBGROUP ANALYSIS ====================
-    
+        if any(x == "Select..." for x in [time, event, treat, subgroup]):
+            ui.notification_show("Please select all required variables", type="warning")
+            return
+            
+        try:
+            ui.notification_show("Running Subgroup Analysis...", duration=None, id="run_sg")
+            
+            # Ensure SubgroupAnalysisCox is treated as a class we can instantiate
+            analyzer = SubgroupAnalysisCox(data) # type: ignore
+            result, _, error = analyzer.analyze(
+                duration_col=time,
+                event_col=event,
+                treatment_col=treat,
+                subgroup_col=subgroup,
+                adjustment_cols=list(adjust) if adjust else None,
+                min_subgroup_n=input.sg_min_n(),
+                min_events=input.sg_min_events()
+            )
+            if error:
+                ui.notification_show(error, type="error")
+                ui.notification_remove("run_sg")
+                return
+            
+            # Generate forest plot
+            forest_fig = analyzer.create_forest_plot()
+            result['forest_plot'] = forest_fig
+            result['interaction_table'] = analyzer.results
+            sg_result.set(result)
+            
+            ui.notification_remove("run_sg")
+        except Exception as e:
+            ui.notification_remove("run_sg")
+            ui.notification_show(f"Error: {e}", type="error")
+            logger.exception("Subgroup analysis error")
+
     @render.ui
     def out_sg_result():
-        """Display subgroup analysis results."""
-        # This will be rendered after analysis completes
-        return ui.card(
-            ui.markdown("*Subgroup analysis results will appear here*")
-        )
+        """Render subgroup analysis results."""
+        res = sg_result.get()
+        if res is None: 
+            return None
+        
+        elements = []
+        if 'forest_plot' in res:
+            elements.append(ui.card_header("🌳 Subgroup Forest Plot"))
+            elements.append(output_widget("out_sg_forest"))
+            
+        if 'interaction_table' in res:
+            elements.append(ui.card_header("📄 Interaction Analysis"))
+            elements.append(ui.output_data_frame("out_sg_table"))
+            
+        return ui.card(*elements)
 
+    @render_widget
+    def out_sg_forest():
+        """Render subgroup forest plot."""
+        res = sg_result.get()
+        return res.get('forest_plot') if res else None
+        
+    @render.data_frame
+    def out_sg_table():
+        """Render subgroup interaction table."""
+        res = sg_result.get()
+        return render.DataGrid(res.get('interaction_table')) if res else None
 
-# ==================== MODULE EXPORT ====================
-
-def survival_ui(namespace: str) -> ui.TagChild:
-    """Wrapper for compatibility."""
-    return surv_ui(namespace)
-
-
-def survival_server(namespace: str, df: reactive.Value, var_meta: reactive.Value,
-                   df_matched: reactive.Value, is_matched: reactive.Value):
-    """Wrapper for compatibility."""
-    return surv_server(namespace, df, var_meta, df_matched, is_matched)
+    @render.download(filename="subgroup_report.html")
+    def btn_dl_sg():
+        """Download subgroup analysis report."""
+        res = sg_result.get()
+        if res:
+            elements = [
+                {'type': 'header', 'data': 'Cox Subgroup Analysis'},
+                {'type': 'plot', 'data': res.get('forest_plot')},
+                {'type': 'header', 'data': 'Results'},
+                {'type': 'table', 'data': res.get('interaction_table')}
+            ]
+            elements = [e for e in elements if e.get('data') is not None]
+            yield survival_lib.generate_report_survival("Subgroup Analysis", elements)

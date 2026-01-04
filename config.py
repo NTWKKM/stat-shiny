@@ -8,7 +8,7 @@ Usage:
     from config import CONFIG
     
     # Access config
-    print(CONFIG['analysis']['logit_method'])
+    print(CONFIG.get('analysis.logit_method'))
     
     # Update config (runtime)
     CONFIG.update('analysis.logit_method', 'firth')
@@ -20,7 +20,7 @@ Usage:
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Tuple, List, cast
 import warnings
 from logger import get_logger
 
@@ -39,14 +39,14 @@ class ConfigManager:
     - Runtime updates
     """
     
-    def __init__(self, config_dict: Optional[Dict] = None):
+    def __init__(self, config_dict: Optional[Dict[str, Any]] = None) -> None:
         """
         Create a ConfigManager populated with the given configuration or the module defaults and apply environment variable overrides.
         
         Parameters:
             config_dict (dict | None): Optional initial configuration dictionary to use instead of the built-in defaults. If None, the manager is initialized from the default configuration.
         """
-        self._config = config_dict or self._get_default_config()
+        self._config: Dict[str, Any] = config_dict or self._get_default_config()
         self._env_prefix = "MEDSTAT_"
         self._load_env_overrides()
     
@@ -61,7 +61,6 @@ class ConfigManager:
             their corresponding default settings.
         """
         return {
-
             # ========== ANALYSIS SETTINGS ==========
             "analysis": {
                 # Logistic Regression
@@ -80,6 +79,7 @@ class ConfigManager:
                 "pvalue_clip_tolerance": 0.00001,  # tighter tolerance for extreme p
                 "pvalue_format_small": "<0.001",
                 "pvalue_format_large": ">0.999",
+                "significance_level": 0.05,        # Added for utils/formatting.py
     
                 # Survival Analysis
                 "survival_method": "kaplan-meier",  # 'kaplan-meier', 'weibull'
@@ -106,6 +106,12 @@ class ConfigManager:
                 "table_pagination": True,
                 "table_decimal_places": 3,
                 
+                # Styles (Added for utils/formatting.py to centralize CSS)
+                "styles": {
+                    "sig_p_value": "font-weight: bold; color: #d63384;",
+                    "sig_ci": "font-weight: bold; color: #198754;"
+                },
+                
                 # Plots
                 "plot_width": 10,
                 "plot_height": 6,
@@ -130,10 +136,6 @@ class ConfigManager:
                 # Console Logging
                 "console_enabled": True,
                 "console_level": "INFO",
-                
-                # Streamlit Logging
-                "streamlit_enabled": True,
-                "streamlit_level": "WARNING",
                 
                 # What to Log
                 "log_file_operations": True,
@@ -171,22 +173,14 @@ class ConfigManager:
     def _load_env_overrides(self) -> None:
         """
         Apply configuration overrides from environment variables that start with the MEDSTAT_ prefix.
-        
-        Environment variables must follow the form MEDSTAT_<SECTION>_<KEY>=value; the portion after the prefix is lowercased and split on underscores, where the first segment is treated as the section and the remaining segments are joined with underscores to form the dot-notated key within that section (e.g., MEDSTAT_LOGGING_LEVEL -> logging.level). Variables without at least a section and key are ignored. If applying an override fails (e.g., type or key errors), a warning is emitted and the override is skipped.
         """
         for key, value in os.environ.items():
             if key.startswith(self._env_prefix):
-                # Parse environment variable
-                # MEDSTAT_LOGGING_LEVEL -> ['logging', 'level']
                 parts = key[len(self._env_prefix):].lower().split('_')
-                
                 if len(parts) < 2:
                     continue
-                
                 section = parts[0]
                 key_name = '_'.join(parts[1:])
-                
-                # Try to set the value
                 try:
                     self.update(f"{section}.{key_name}", value)
                 except (KeyError, ValueError, TypeError) as e:
@@ -195,65 +189,37 @@ class ConfigManager:
     def get(self, key: str, default: Any = None) -> Any:
         """
         Retrieve a configuration value using a dot-separated key path.
-        
-        Parameters:
-            key (str): Dot-separated path to a nested configuration value (e.g., "logging.level").
-            default: Value to return if the specified path does not exist.
-        
-        Returns:
-            The configuration value at the given path, or `default` if the path is not found.
         """
         keys = key.split('.')
-        value = self._config
-        
+        value: Any = self._config
         for k in keys:
             if isinstance(value, dict) and k in value:
                 value = value[k]
             else:
                 return default
-        
         return value
     
     def update(self, key: str, value: Any) -> None:
         """
         Set an existing configuration value identified by a dot-separated path.
-        
-        Parameters:
-            key (str): Dot-separated path to an existing configuration entry (e.g., "logging.level").
-            value (Any): Value to assign to the configuration entry.
-        
-        Raises:
-            KeyError: If any intermediate path segment or the final key does not exist in the configuration.
         """
         keys = key.split('.')
         config = self._config
-        
-        # Navigate to parent key
         for k in keys[:-1]:
             if k not in config:
                 raise KeyError(f"Config path '{'.'.join(keys[:-1])}' does not exist")
             config = config[k]
-        
-        # Set final key
         final_key = keys[-1]
         if final_key not in config:
             raise KeyError(f"Config key '{key}' does not exist")
-        
         config[final_key] = value
     
     def set_nested(self, key: str, value: Any, create: bool = False) -> None:
         """
         Set a value in the configuration using a dot-separated path, optionally creating missing intermediate dictionaries.
-        
-        Parameters:
-            key (str): Dot-separated path to the configuration key (e.g., "section.sub.key").
-            value (Any): Value to assign to the final key.
-            create (bool): If True, create missing intermediate dictionaries along the path; if False and a path segment is missing, a KeyError is raised.
         """
         keys = key.split('.')
         config = self._config
-        
-        # Navigate/create path to parent
         for k in keys[:-1]:
             if k not in config:
                 if create:
@@ -261,19 +227,11 @@ class ConfigManager:
                 else:
                     raise KeyError(f"Config path '{k}' does not exist")
             config = config[k]
-        
-        # Set final key
         config[keys[-1]] = value
     
     def get_section(self, section: str) -> Dict[str, Any]:
         """
         Return a deep copy of a top-level configuration section.
-        
-        Parameters:
-            section (str): Top-level section name (e.g., "logging").
-        
-        Returns:
-            dict or Any: A deep copy of the section dictionary if the section is a dict; otherwise the section value as-is.
         """
         import copy
         result = self.get(section, {})
@@ -282,9 +240,6 @@ class ConfigManager:
     def to_dict(self) -> Dict[str, Any]:
         """
         Get a deep copy of the entire configuration dictionary.
-        
-        Returns:
-            dict: A deep copy of the full configuration that can be modified without affecting the manager's internal state.
         """
         import copy
         return copy.deepcopy(self._config)
@@ -292,73 +247,44 @@ class ConfigManager:
     def to_json(self, filepath: Optional[str] = None, pretty: bool = True) -> str:
         """
         Serialize the current configuration to a JSON string.
-        
-        Parameters:
-            filepath (str | None): Optional filesystem path to write the JSON output; when provided, the file is overwritten.
-            pretty (bool): If True, format the JSON with indentation for readability; if False, produce compact JSON.
-        
-        Returns:
-            str: The configuration serialized as a JSON-formatted string.
         """
         try:
             json_str = json.dumps(self._config, indent=2 if pretty else None)
         except (TypeError, ValueError) as e:
             logger.exception("Failed to serialize config to JSON")
             json_str = "{}"
-        
         if filepath:
             try:
                 Path(filepath).write_text(json_str)
             except OSError:
                 logger.exception("Failed to write config to %s", filepath)
-        
         return json_str
     
-    def validate(self) -> tuple[bool, list[str]]:
+    def validate(self) -> Tuple[bool, List[str]]:
         """
         Validate key configuration constraints and collect any violations.
-        
-        Performs a set of sanity checks on configuration values and records any problems found:
-        - Ensures `analysis.logit_screening_p` is greater than 0 and less than 1.
-        - Ensures `analysis.pvalue_bounds_lower` is less than `analysis.pvalue_bounds_upper`.
-        - Ensures `logging.level` is one of `['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']`.
-        - Ensures `analysis.logit_method` is one of `['auto', 'firth', 'bfgs', 'default']`.
-        
-        Returns:
-            tuple: (is_valid, errors) where `is_valid` is `True` if no validation errors were found, `False` otherwise; `errors` is a list of human-readable error messages.
         """
         errors = []
-        
-        # Validate analysis settings
-        screening_p = self.get('analysis.logit_screening_p')
+        screening_p = cast(Optional[float], self.get('analysis.logit_screening_p'))
         if screening_p is None or not (0 < screening_p < 1):
             errors.append("analysis.logit_screening_p must be between 0 and 1")
         
-        # Validate p-value bounds
-        lower = self.get('analysis.pvalue_bounds_lower')
-        upper = self.get('analysis.pvalue_bounds_upper')
+        lower = cast(Optional[float], self.get('analysis.pvalue_bounds_lower'))
+        upper = cast(Optional[float], self.get('analysis.pvalue_bounds_upper'))
         if lower is None or upper is None or not (lower < upper):
             errors.append("pvalue_bounds_lower must be < pvalue_bounds_upper")
         
-        # Validate logging
         valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
         if self.get('logging.level') not in valid_levels:
             errors.append(f"logging.level must be one of {valid_levels}")
         
-        # Validate analysis method
         valid_methods = ['auto', 'firth', 'bfgs', 'default']
         if self.get('analysis.logit_method') not in valid_methods:
             errors.append(f"analysis.logit_method must be one of {valid_methods}")
-        
+            
         return len(errors) == 0, errors
     
     def __repr__(self) -> str:
-        """
-        Return a concise representation of the ConfigManager showing how many top-level sections it contains.
-        
-        Returns:
-            str: A string in the form "ConfigManager(<N> sections)" where <N> is the number of top-level configuration sections.
-        """
         return f"ConfigManager({len(self._config)} sections)"
 
 
@@ -399,18 +325,18 @@ if __name__ == "__main__":
     
     # Test 5: Validate
     print("\n[Test 5] Validating configuration:")
-    is_valid, errors = CONFIG.validate()
+    is_valid, validation_errors = CONFIG.validate()
     print(f"  Valid: {is_valid}")
-    if errors:
-        for err in errors:
+    if validation_errors:
+        for err in validation_errors:
             print(f"    ✗ {err}")
     else:
         print("    ✓ No errors found")
     
     # Test 6: Export to JSON
     print("\n[Test 6] Exporting configuration:")
-    json_str = CONFIG.to_json(pretty=False)
-    print(f"  JSON length: {len(json_str)} characters")
+    json_output = CONFIG.to_json(pretty=False)
+    print(f"  JSON length: {len(json_output)} characters")
     
     print("\n" + "="*60)
     print("All tests completed!")
