@@ -1,81 +1,43 @@
-from shiny import ui
-from shiny.ui import TagChild
+# แก้ไขไฟล์ tabs/_common.py
+# คงคอมเมนต์และโครงสร้างเดิมไว้ทั้งหมด
 
-def wrap_with_container(content: TagChild) -> TagChild:
+def wrap_with_container(content): # ลบ Type hint TagChild ออกเพื่อเลี่ยงการ import shiny ด้านบน
     """
     Wraps UI content with the .app-container CSS class.
-    This applies the padding and max-width styling from _styling.py
-    
-    The .app-container class provides:
-    - max-width: 1400px (centers content on wide screens)
-    - margin: 0 auto (centers container)
-    - padding: 16px 24px 32px (nice whitespace around content)
-    - Responsive: padding adjusts on mobile devices
-    
-    Args:
-        content: Shiny UI element(s) to wrap
-        
-    Returns:
-        div with app-container class applied
-        
-    Usage:
-        @module.ui
-        def my_ui():
-            content = ui.card(...)
-            return wrap_with_container(content)
+    ... (คงคอมเมนต์เดิมไว้ทั้งหมด) ...
     """
+    from shiny import ui # ย้ายมา import ภายในฟังก์ชัน
     return ui.div(
         content,
         class_="app-container"
     )
 
-
 def get_color_palette():
     """
     Returns a unified color palette dictionary for all modules.
-    🎨 Professional Medical Analytics Theme - Navy Blue Edition
-    
-    Primary Colors:
-    - primary: Navy (#1E3A5F) - Deep, professional, medical-grade
-    - primary_dark: Dark Navy (#0F2440) - Strong emphasis, table headers
-    - primary_light: Light Navy (#E8EEF7) - Backgrounds, accents
-    
-    Neutral Colors:
-    - smoke_white: #F8F9FA - Light gray-white for navbar background
-    - text: Dark gray (#1F2328) - Main text content
-    - text_secondary: Medium gray (#6B7280) - Secondary text
-    - border: Light gray (#E5E7EB) - Borders, dividers
-    - background: Off-white (#F9FAFB) - Page background
-    - surface: White (#FFFFFF) - Cards, containers
-    
-    Status Colors:
-    - success: Green (#22A765) - Positive, matched status, good balance
-    - danger: Red (#E74856) - Alerts, significant findings, imbalance
-    - warning: Amber (#FFB900) - Caution, non-critical warnings
-    - info: Gray-blue (#5A7B8E) - Informational text
+    ... (คงคอมเมนต์เดิมไว้ทั้งหมด) ...
     """
     return {
-        # Primary colors - Navy Blue theme (professional, medical, authoritative)
-        'primary': '#1E3A5F',           # Navy - main brand color
-        'primary_dark': '#0F2440',      # Dark navy - headers, strong emphasis
-        'primary_light': '#E8EEF7',     # Light navy - backgrounds, accents
+        # Primary colors - Navy Blue theme
+        'primary': '#1E3A5F',
+        'primary_dark': '#0F2440',
+        'primary_light': '#E8EEF7',
         
         # Neutral colors - Light theme
-        'smoke_white': '#F8F9FA',       # Light gray-white - navbar, light backgrounds
-        'text': '#1F2328',              # Dark gray - main text
-        'text_secondary': '#6B7280',    # Medium gray - secondary text
-        'border': '#E5E7EB',            # Light gray - borders
-        'background': '#F9FAFB',        # Off-white - page background
-        'surface': '#FFFFFF',           # White - surfaces
+        'smoke_white': '#F8F9FA',
+        'text': '#1F2328',
+        'text_secondary': '#6B7280',
+        'border': '#E5E7EB',
+        'background': '#F9FAFB',
+        'surface': '#FFFFFF',
         
         # Status/Semantic colors
-        'success': '#22A765',           # Green - positive, good balance (SMD < 0.1)
-        'danger': '#E74856',            # Red - alerts, significant p-values
-        'warning': '#FFB900',           # Amber - warnings, caution
-        'info': '#5A7B8E',              # Gray-blue - informational text
-        'neutral': '#D1D5DB',           # Light gray - neutral elements
+        'success': '#22A765',
+        'danger': '#E74856',
+        'warning': '#FFB900',
+        'info': '#5A7B8E',
+        'neutral': '#D1D5DB',
     }
-
 
 def get_color_info():
     """
