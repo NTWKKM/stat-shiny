@@ -78,8 +78,9 @@ def test_styling_injector_integration():
     try:
         # ตรวจสอบว่ามี shiny ติดตั้งอยู่หรือไม่ก่อนรัน test นี้
         import importlib.util
+
         shiny_spec = importlib.util.find_spec("shiny")
-        
+
         if shiny_spec is None:
             pytest.skip("Module 'shiny' not found. Skipping CSS integration test.")
 
@@ -143,7 +144,7 @@ if __name__ == "__main__":
             passed += 1
         except pytest.skip.Exception as e:
             print(f"⏭️  {test_func.__name__}: Skipped ({e})")
-            passed += 1 # นับเป็นผ่านเพื่อให้ Pipeline ไม่แดง
+            passed += 1  # นับเป็นผ่านเพื่อให้ Pipeline ไม่แดง
         except AssertionError as e:
             print(f"❌ {test_func.__name__}: {e}")
             failed += 1
