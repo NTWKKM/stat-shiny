@@ -407,8 +407,11 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
                 if 'Group' in stats.columns and 'Group' in medians.columns:
                     stats = stats.merge(medians, on='Group', how='outer')
                 else:
+                    # Avoid column name collisions by suffixing
+                    overlapping = set(stats.columns) & set(medians.columns)
+                    if overlapping:
+                        medians = medians.rename(columns={c: f"{c}_median" for c in overlapping})
                     stats = pd.concat([stats, medians], axis=1)
-                    stats = stats.loc[:, ~stats.columns.duplicated()]
             else:
                 fig, stats = survival_lib.fit_nelson_aalen(data, time_col, event_col, group_col)
             
@@ -453,7 +456,10 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
     def btn_dl_curves():
         """Download survival curves report."""
         res = curves_result.get()
-        if res:
+        if not res:
+            ui.notification_show("No results to download. Run analysis first.", type="warning")
+            return
+        else:
             elements = [
                 {'type': 'header', 'data': 'Survival Analysis Report'},
                 {'type': 'plot', 'data': res['fig']},
@@ -687,6 +693,7 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
             )
             if error:
                 ui.notification_show(error, type="error")
+                ui.notification_remove("run_sg")
                 return
             
             # Generate forest plot
@@ -736,10 +743,16 @@ def survival_server(input, output, session, df: reactive.Value, var_meta: reacti
         """Download subgroup analysis report."""
         res = sg_result.get()
         if res:
+            # สร้างรายการ elements เริ่มต้น
             elements = [
                 {'type': 'header', 'data': 'Cox Subgroup Analysis'},
                 {'type': 'plot', 'data': res.get('forest_plot')},
                 {'type': 'header', 'data': 'Results'},
                 {'type': 'table', 'data': res.get('interaction_table')}
             ]
+            
+            # ปรับปรุง: กรองเอาเฉพาะ element ที่ data ไม่เป็น None เพื่อป้องกัน "None" ปรากฏใน report
+            # และป้องกัน Error ในกรณีที่ plot หรือ table ไม่ถูกสร้างขึ้น
+            elements = [e for e in elements if e.get('data') is not None]
+            
             yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
