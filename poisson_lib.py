@@ -377,7 +377,7 @@ def analyze_poisson_outcome(
                 multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                 logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
             except Exception as e:
-                logger.error(f"Failed to create interaction terms: {e}")
+                logger.exception("Failed to create interaction terms")
         
         multi_data = multi_df.dropna()
         final_n_multi = len(multi_data)
