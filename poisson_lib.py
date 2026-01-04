@@ -355,7 +355,8 @@ def analyze_poisson_outcome(
     
     cand_valid = [c for c in candidates if _is_candidate_valid(c)]
     
-    if len(cand_valid) > 0:
+    # ✅ FIX: Run multivariate analysis if there are candidates OR interaction pairs
+    if len(cand_valid) > 0 or interaction_pairs:
         multi_df = pd.DataFrame({'y': y})
         
         # Add main effects
@@ -439,6 +440,16 @@ def analyze_poisson_outcome(
                     try:
                         interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'poisson')
                         logger.info(f"✅ Formatted {len(interaction_results)} Poisson interaction results")
+                        
+                        # ✅ FIX: Merge interaction results into airr_results for forest plot inclusion
+                        for int_name, int_res in interaction_results.items():
+                             label = f"🔗 {int_res.get('label', int_name)}"
+                             airr_results[label] = {
+                                 'airr': int_res.get('irr'), 
+                                 'ci_low': int_res.get('ci_low'), 
+                                 'ci_high': int_res.get('ci_high'), 
+                                 'p_value': int_res.get('p_value')
+                             }
                     except Exception as e:
                         logger.error(f"Failed to format interaction results: {e}")
     
