@@ -111,8 +111,8 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
             if (ct == 0).any().any():
                 logger.debug(f"Perfect separation detected in variable: {col}")
                 # We don't block this, but we log it to use Firth later
-        except Exception:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Could not check separation for {col}: {e}")
 
     if issues:
         return False, "; ".join(issues)
@@ -537,8 +537,10 @@ def analyze_outcome(
                 from interaction_lib import create_interaction_terms
                 multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                 logger.info(f"✅ Added {len(int_meta)} interaction terms to logistic multivariate model")
-            except Exception as e:
-                logger.error(f"Failed to create interaction terms: {e}")
+            except ImportError:
+                logger.warning("interaction_lib not available, skipping interaction terms")
+            except (ValueError, KeyError) as e:
+                logger.exception("Failed to create interaction terms")
         
         multi_data = multi_df.dropna()
         final_n_multi = len(multi_data)
