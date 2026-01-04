@@ -53,9 +53,6 @@ Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
 Ensure you have Python 3.9+ installed.
 
 1. **Clone the repository:**
-```bash
-git clone [https://github.com/NTWKKM/stat-shiny.git](https://github.com/your-username/stat-shiny.git)
-cd stat-shiny
 
 ```
 
