@@ -50,8 +50,9 @@ def corr_ui(id: str) -> ui.TagChild:
     Create the UI for correlation analysis tab.
     """
     # ✅ FIX: Manual namespace function for Shiny for Python
+    # ⚠️ ใช้ underscore (_) แทน dash (-) เพราะ Shiny ID ไม่รับ dash
     def ns(input_id: str) -> str:
-        return f"{id}-{input_id}"
+        return f"{id}_{input_id}"
     
     return ui.navset_tab(
         # TAB 1: Pearson/Spearman Correlation
