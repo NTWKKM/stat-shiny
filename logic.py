@@ -29,11 +29,11 @@ COLORS = {
 # Try to import Firth regression
 try:
     from firthmodels import FirthLogisticRegression  
-    
     HAS_FIRTH = True
+    logger.info("firthmodels loaded successfully") # เพิ่ม log เพื่อความแน่ใจ
 except (ImportError, AttributeError):
     HAS_FIRTH = False
-    logger.warning("firthlogist not available")
+    logger.warning("firthmodels not available") # เปลี่ยนชื่อให้ตรงกับ library ที่ใช้
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
@@ -113,7 +113,7 @@ def run_binary_logit(y, X, method='default'):
         
         if method == 'firth':
             if not HAS_FIRTH:
-                return None, None, None, "firthlogist not installed", stats_metrics
+                return None, None, None, "firthmodels not installed", stats_metrics
             
             fl = FirthLogisticRegression(fit_intercept=False)
             fl.fit(X_const, y)
