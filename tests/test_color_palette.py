@@ -64,7 +64,7 @@ def test_color_format_validity():
 
     import re
 
-    # รองรับทั้ง #RGB และ #RRGGBB
+    # Supports both #RGB and #RRGGBB formats
     hex_regex = re.compile(r"^#([A-Fa-f0-9]{3}){1,2}$")
 
     for key, hex_val in palette.items():
@@ -76,7 +76,7 @@ def test_color_format_validity():
 def test_styling_injector_integration():
     """Test if tabs/_styling.py can correctly generate CSS using colors."""
     try:
-        # ตรวจสอบว่ามี shiny ติดตั้งอยู่หรือไม่ก่อนรัน test นี้
+        # Check shiny installed
         import importlib.util
 
         shiny_spec = importlib.util.find_spec("shiny")
@@ -84,7 +84,6 @@ def test_styling_injector_integration():
         if shiny_spec is None:
             pytest.skip("Module 'shiny' not found. Skipping CSS integration test.")
 
-        # ใน tabs/_styling.py ใช้ฟังก์ชัน get_shiny_css
         from tabs._styling import get_shiny_css
 
         # Test that the function exists
@@ -103,7 +102,7 @@ def test_styling_injector_integration():
         ), "Generated CSS does not contain the primary color from _common.py"
 
     except ImportError as e:
-        # หากเกิด ImportError เกี่ยวกับ shiny ให้ skip แทนการ fail เพื่อให้ pipeline ผ่าน
+        # if ImportError shiny choose skip instead of fail for pass pipeline
         if "shiny" in str(e):
             pytest.skip(f"Skipping test due to missing optional dependency: {e}")
         else:
@@ -115,7 +114,7 @@ def test_no_hardcoded_old_colors():
     data = get_styling_data()
     palette = data["colors"]
 
-    # เช็คว่าไม่มี key เก่าที่เลิกใช้ไปแล้ว
+    # Check old key
     old_keys = ["text_primary", "bg_main"]
     for old_key in old_keys:
         assert (
