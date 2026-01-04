@@ -433,7 +433,8 @@ def diag_server(
     def ui_chi_v1_pos():
         v1_col = input.sel_chi_v1()
         d = current_df()
-        if d is None: return None
+        if d is None: 
+            return None
         v1_uv, v1_idx = get_pos_label_settings(d, v1_col)
         if not v1_uv:
             return ui.div(
