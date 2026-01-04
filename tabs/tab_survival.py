@@ -521,14 +521,14 @@ def survival_server(
         if not res:
             ui.notification_show("No results to download. Run analysis first.", type="warning")
             return
-        else:
-            elements = [
-                {'type': 'header', 'data': 'Survival Analysis Report'},
-                {'type': 'plot', 'data': res['fig']},
-                {'type': 'header', 'data': 'Statistics'},
-                {'type': 'table', 'data': res['stats']}
-            ]
-            yield survival_lib.generate_report_survival("Survival Analysis", elements)
+        
+        elements = [
+            {'type': 'header', 'data': 'Survival Analysis Report'},
+            {'type': 'plot', 'data': res['fig']},
+            {'type': 'header', 'data': 'Statistics'},
+            {'type': 'table', 'data': res['stats']}
+        ]
+        yield survival_lib.generate_report_survival("Survival Analysis", elements)
 
     # ==================== 2. LANDMARK LOGIC ====================
     @reactive.Effect
