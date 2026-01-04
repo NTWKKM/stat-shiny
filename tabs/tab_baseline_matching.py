@@ -853,9 +853,21 @@ def baseline_matching_server(input, output, session, df, var_meta, df_matched, i
     def out_smd_table():
         res = psm_results.get()
         if not res: return None
+    
+        # 1. รวมข้อมูล
         merged = res['smd_pre'].merge(res['smd_post'], on='Variable', suffixes=('_before', '_after'))
-        merged['Improvement %'] = ((merged['SMD_before'] - merged['SMD_after']) / merged['SMD_before'].replace(0, np.nan) * 100).round(1).fillna(0)
-        return render.DataGrid(merged.style.format({'SMD_before': '{:.4f}', 'SMD_after': '{:.4f}', 'Improvement %': '{:.1f}%'}))
+    
+        # 2. คำนวณส่วนต่าง
+        merged['Improvement %'] = ((merged['SMD_before'] - merged['SMD_after']) / 
+                               merged['SMD_before'].replace(0, np.nan) * 100).fillna(0)
+    
+        # 3. ปัดเศษตัวเลขใน DataFrame แทนการใช้ .style
+        merged['SMD_before'] = merged['SMD_before'].round(4)
+        merged['SMD_after'] = merged['SMD_after'].round(4)
+        merged['Improvement %'] = merged['Improvement %'].round(1)
+    
+        # ✅ คืนค่าเป็น DataFrame เปล่าๆ เข้า DataGrid
+        return render.DataGrid(merged)
 
     @render.data_frame
     def out_group_comparison_table():
