@@ -103,7 +103,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # Type hints added for better clarity, though specific DataFrame type isn't enforceble at runtime
     df: reactive.Value[Optional[Any]] = reactive.Value(None)
     var_meta: reactive.Value[Dict[str, Any]] = reactive.Value({})
-    uploaded_file_info: reactive.Value[Optional[List[FileInfo]]] = reactive.Value(None)
+    uploaded_file_info: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
     
     # Matched data state (Shared across tabs)
     df_matched: reactive.Value[Optional[Any]] = reactive.Value(None)
