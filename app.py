@@ -17,7 +17,7 @@ from tabs import tab_corr
 from tabs import tab_survival
 from tabs import tab_settings
 
-from tabs._styling import get_shiny_css
+# from tabs._styling import get_shiny_css  # DEPRECATED: Now using external CSS file
 from tabs._common import wrap_with_container
 
 # Initialize Logger
@@ -86,9 +86,16 @@ app_ui = ui.page_navbar(
     # 🟢 แก้ไข: ลบ inverse=True ออก (Deprecated)
     navbar_options=ui.navbar_options(),
     
-    # ⬇⬇⬇ inject theme CSS
+    # ⬇⬇⬇ inject theme CSS (EXTERNAL - Optimized for performance)
     header=ui.tags.head(
-        ui.HTML(get_shiny_css())
+        ui.tags.meta(charset="utf-8"),
+        ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
+        
+        # ✅ Preload CSS for faster loading
+        ui.tags.link(rel="preload", href="/static/styles.min.css", as_="style"),
+        
+        # ✅ Link to external CSS file (minified)
+        ui.tags.link(rel="stylesheet", href="/static/styles.min.css"),
     ),
 )
 
@@ -168,4 +175,9 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 # ==========================================
 # 4. APP LAUNCHER
 # ==========================================
-app = App(app_ui, server)
+# ✅ Configure static file serving for external CSS
+app = App(
+    app_ui,
+    server,
+    static_dir=Path(__file__).parent / "static"
+)
