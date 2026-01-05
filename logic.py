@@ -596,10 +596,10 @@ def analyze_outcome(
                         for int_name, int_res in interaction_results.items():
                              label = f"🔗 {int_res.get('label', int_name)}"
                              aor_results[label] = {
-                                 'aor': int_res.get('or'), 
-                                 'ci_low': int_res.get('ci_low'), 
-                                 'ci_high': int_res.get('ci_high'), 
-                                 'p_value': int_res.get('p_value')
+                                 'aor': int_res.get('or', np.nan), 
+                                 'ci_low': int_res.get('ci_low', np.nan), 
+                                 'ci_high': int_res.get('ci_high', np.nan), 
+                                 'p_value': int_res.get('p_value', np.nan)
                              }
                     except Exception as e:
                         logger.error(f"Failed to format interaction results: {e}")
