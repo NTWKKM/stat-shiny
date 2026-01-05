@@ -22,6 +22,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- config.py
 |-- correlation.py
 |-- diag_test.py
+|-- firthmodels.md
 |-- forest_plot_lib.py
 |-- interaction_lib.py
 |-- logger.py
@@ -66,7 +67,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- __init__.py
 |   |-- data_cleaning.py
 |   `-- formatting.py
-|-- verify_fix.py
 `-- wakeup coderabbitai
 ```
 
