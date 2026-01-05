@@ -1023,7 +1023,7 @@ def calculate_icc(df: pd.DataFrame, cols: List[str]) -> Tuple[Optional[pd.DataFr
         return None, str(e), None
 
 
-def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, col_var_name: str) -> str:
+def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, _col_var_name: str = '') -> str:
     """
     Render contingency table with proper 2-row header with rowspan/colspan.
     
@@ -1032,7 +1032,6 @@ def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, col_var_n
     - Index: row categories + 'Total'
     - Index name: row_var_name
     """
-    primary_dark = COLORS['primary_dark']
     
     # Extract data
     col_level_0 = [col[0] for col in df.columns]
@@ -1050,7 +1049,7 @@ def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, col_var_n
     group_count = 0
     col_groups = []
     
-    for i, (l0, l1) in enumerate(zip(col_level_0, col_level_1)):
+    for l0, _ in zip(col_level_0, col_level_1, strict=True):
         if l0 != current_group:
             if current_group is not None:
                 col_groups.append((current_group, group_count))
@@ -1064,7 +1063,7 @@ def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, col_var_n
     # Add column variable headers
     for group_name, count in col_groups:
         if group_name == 'Total':
-            header_row_1 += f'<th rowspan="2" style="vertical-align: middle;">Total</th>'
+            header_row_1 += '<th rowspan="2" style="vertical-align: middle;">Total</th>'
         else:
             header_row_1 += f'<th colspan="{count}">{_html.escape(str(group_name))}</th>'
     
@@ -1072,7 +1071,7 @@ def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, col_var_n
     
     # Row 2: Category labels (only for non-Total columns)
     header_row_2 = '<tr>'
-    for l0, l1 in zip(col_level_0, col_level_1):
+    for l0, l1 in zip(col_level_0, col_level_1, strict=True):
         if l0 != 'Total' and l1 != '':  # Skip Total (already rowspan) and empty
             header_row_2 += f'<th>{_html.escape(str(l1))}</th>'
     header_row_2 += '</tr>'
