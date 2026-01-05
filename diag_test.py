@@ -610,7 +610,10 @@ def calculate_chi2(
                     {"Metric": "Accuracy", "Value": f"{accuracy:.4f}", 
                      "95% CI": "-", 
                      "Interpretation": "Overall correct classification rate"},
-                      
+                    {"Metric": "Accuracy", "Value": f"{accuracy:.4f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Overall correct classification rate"},
+
                     {"Metric": "Youden's Index", "Value": f"{youden_j:.4f}", 
                      "95% CI": "-", 
                      "Interpretation": "Summary measure (Se + Sp - 1)"},
