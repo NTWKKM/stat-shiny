@@ -1023,6 +1023,87 @@ def calculate_icc(df: pd.DataFrame, cols: List[str]) -> Tuple[Optional[pd.DataFr
         return None, str(e), None
 
 
+def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, col_var_name: str) -> str:
+    """
+    Render contingency table with proper 2-row header with rowspan/colspan.
+    
+    Expected DataFrame structure:
+    - MultiIndex columns: (col_var_name or 'Total', category)
+    - Index: row categories + 'Total'
+    - Index name: row_var_name
+    """
+    primary_dark = COLORS['primary_dark']
+    
+    # Extract data
+    col_level_0 = [col[0] for col in df.columns]
+    col_level_1 = [col[1] for col in df.columns]
+    
+    # Build header HTML
+    # Row 1: Variable name spans, with merged cells
+    header_row_1 = '<tr>'
+    
+    # First cell: row variable name (rowspan=2)
+    header_row_1 += f'<th rowspan="2" style="vertical-align: middle;">{_html.escape(row_var_name)}</th>'
+    
+    # Group columns by level 0 to create colspan
+    current_group = None
+    group_count = 0
+    col_groups = []
+    
+    for i, (l0, l1) in enumerate(zip(col_level_0, col_level_1)):
+        if l0 != current_group:
+            if current_group is not None:
+                col_groups.append((current_group, group_count))
+            current_group = l0
+            group_count = 1
+        else:
+            group_count += 1
+    if current_group is not None:
+        col_groups.append((current_group, group_count))
+    
+    # Add column variable headers
+    for group_name, count in col_groups:
+        if group_name == 'Total':
+            header_row_1 += f'<th rowspan="2" style="vertical-align: middle;">Total</th>'
+        else:
+            header_row_1 += f'<th colspan="{count}">{_html.escape(str(group_name))}</th>'
+    
+    header_row_1 += '</tr>'
+    
+    # Row 2: Category labels (only for non-Total columns)
+    header_row_2 = '<tr>'
+    for l0, l1 in zip(col_level_0, col_level_1):
+        if l0 != 'Total' and l1 != '':  # Skip Total (already rowspan) and empty
+            header_row_2 += f'<th>{_html.escape(str(l1))}</th>'
+    header_row_2 += '</tr>'
+    
+    # Build body HTML
+    body_html = ''
+    for idx in df.index:
+        body_html += '<tr>'
+        # Row header
+        body_html += f'<th>{_html.escape(str(idx))}</th>'
+        # Data cells
+        for val in df.loc[idx]:
+            body_html += f'<td>{val}</td>'
+        body_html += '</tr>'
+    
+    # Combine into full table
+    table_html = f'''
+    <table class="contingency-table">
+        <thead>
+            {header_row_1}
+            {header_row_2}
+        </thead>
+        <tbody>
+            {body_html}
+        </tbody>
+    </table>
+    '''
+    
+    return table_html
+
+
 def generate_report(
     title: str, 
     elements: List[Dict[str, Any]]
@@ -1103,11 +1184,6 @@ def generate_report(
             border: 1px solid rgba(255, 255, 255, 0.1);
             vertical-align: middle;
         }}
-
-        /* HACK: Hide top border for empty cells in header to simulate rowspan for 'Total' */
-        .contingency-table thead tr:last-child th:empty {{
-            border-top: none !important;
-        }}
         
         /* Row Headers (Index - Variable 1 Categories) */
         .contingency-table tbody th {{
@@ -1174,11 +1250,27 @@ def generate_report(
         elif element_type == 'interpretation':
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
         
-        elif element_type in ('table', 'contingency_table', 'contingency'):
+        elif element_type in ('contingency_table', 'contingency'):
+            # Use custom renderer for contingency tables
+            if hasattr(data, 'index') and hasattr(data, 'columns'):
+                row_var = data.index.name or 'Row Variable'
+                # Extract col var from MultiIndex
+                if isinstance(data.columns, pd.MultiIndex):
+                    col_var = data.columns.levels[0][0] if len(data.columns.levels[0]) > 0 else 'Column Variable'
+                    # Find the actual variable name (not 'Total')
+                    for name in data.columns.get_level_values(0).unique():
+                        if name != 'Total':
+                            col_var = name
+                            break
+                else:
+                    col_var = 'Column Variable'
+                html += render_contingency_table_html(data, row_var, col_var)
+            else:
+                html += str(data)
+        
+        elif element_type == 'table':
             if hasattr(data, 'to_html'):
-                 # Apply the specific Navy Blue class
-                 classes = 'contingency-table' if element_type in ('contingency_table', 'contingency') else ''
-                 html += data.to_html(index=True, classes=classes, escape=False)
+                 html += data.to_html(index=True, classes='', escape=False)
             else:
                  html += str(data)
         
@@ -1189,3 +1281,4 @@ def generate_report(
     html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
     html += "</body>\n</html>"
     return html
+
