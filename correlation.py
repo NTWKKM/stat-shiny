@@ -458,10 +458,10 @@ def generate_report(
         
         elif element_type in ('table', 'contingency_table', 'contingency'):
             if hasattr(data, 'to_html'):
-                 classes = 'contingency-table' if element_type in ('contingency_table', 'contingency') else ''
-                 html += data.to_html(index=True, classes=classes, escape=True)
+                classes = 'contingency-table' if element_type in ('contingency_table', 'contingency') else ''
+                html += data.to_html(index=True, classes=classes, escape=True)
             else:
-                 html += str(data)
+                html += str(data)
         
         elif element_type == 'plot':
             if hasattr(data, 'to_html'):
