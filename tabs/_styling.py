@@ -27,21 +27,7 @@ from tabs._common import get_color_palette
 def get_shiny_css():
     """
     Returns comprehensive CSS for Shiny app styling with professional Navy Blue theme.
-
-    Includes:
-    - Global styles and typography
-    - Card and container styling
-    - Button styles (primary, secondary, danger, success)
-    - Form input styling
-    - Navigation and tabs
-    - Tables and data displays
-    - Status indicators and badges
-    - Responsive design
-    - Accessibility features
-
-    Usage:
-        In your Shiny app UI:
-        ui.tags.head(ui.HTML(get_shiny_css()))
+    Updated to target standard Bootstrap classes used by Shiny (.card, .card-header, etc.)
     """
     COLORS = get_color_palette()
 
@@ -210,9 +196,10 @@ def get_shiny_css():
         
         /* ===========================
            SHINY CARDS & CONTAINERS
+           (Updated to standard Bootstrap .card classes)
            =========================== */
         
-        .bslib-card {{
+        .card {{
             border: 1px solid {COLORS['border']};
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
@@ -222,12 +209,12 @@ def get_shiny_css():
             margin-bottom: 12px;  /* Reduced vertical spacing between cards */
         }}
         
-        .bslib-card:hover {{
+        .card:hover {{
             box-shadow: var(--shadow-lg);
             border-color: {COLORS['primary_light']};
         }}
         
-        .bslib-card-header {{
+        .card-header {{
             background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
             border: none;
             border-bottom: 2px solid {COLORS['primary_dark']};
@@ -238,12 +225,12 @@ def get_shiny_css():
             text-transform: none;
         }}
         
-        .bslib-card-body {{
+        .card-body {{
             padding: 14px 16px;  /* Slightly tighter padding */
             line-height: 1.6;
         }}
         
-        .bslib-card-footer {{
+        .card-footer {{
             background-color: {COLORS['background']};
             border-top: 1px solid {COLORS['border']};
             padding: var(--spacing-md) var(--spacing-lg);
@@ -872,7 +859,7 @@ def get_shiny_css():
                 --spacing-xl: 16px;
             }}
             
-            .bslib-card-body {{
+            .card-body {{
                 padding: 12px 14px;
             }}
             
