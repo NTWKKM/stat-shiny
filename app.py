@@ -92,10 +92,10 @@ app_ui = ui.page_navbar(
         ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
         
         # ✅ Preload CSS for faster loading
-        ui.tags.link(rel="preload", href="/static/styles.min.css", as_="style"),
+        ui.tags.link(rel="preload", href="/static/styles.css", as_="style"),
         
-        # ✅ Link to external CSS file (minified)
-        ui.tags.link(rel="stylesheet", href="/static/styles.min.css"),
+        # ✅ Link to external CSS file
+        ui.tags.link(rel="stylesheet", href="/static/styles.css"),
     ),
 )
 
@@ -179,5 +179,6 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 app = App(
     app_ui,
     server,
-    static_dir=Path(__file__).parent / "static"
+    # แก้ไขจาก static_dir เป็น static_assets
+    static_assets=Path(__file__).parent / "static"
 )
