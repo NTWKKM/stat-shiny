@@ -126,7 +126,17 @@ def calculate_chi2(
             row_data.append(cell_content)
         display_data.append(row_data)
     
-    display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
+    # Format display table with MultiIndex for hierarchical header
+    col_tuples = []
+    for c in final_col_order:
+        if c == 'Total':
+            col_tuples.append(('Total', ''))
+        else:
+            col_tuples.append((col2, str(c)))
+    
+    multi_cols = pd.MultiIndex.from_tuples(col_tuples)
+    
+    display_tab = pd.DataFrame(display_data, columns=multi_cols, index=final_row_order)
     display_tab.index.name = col1
     
     # 3. Statistical tests
@@ -336,22 +346,51 @@ def generate_report(
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             border-radius: 6px;
             overflow: hidden;
+            border: 1px solid #dee2e6;
         }}
         table th, table td {{
-            border: 1px solid #ecf0f1;
             padding: 12px 15px;
-            text-align: left;
+            text-align: center;
+            border: 1px solid #dee2e6;
         }}
         table th {{
             background-color: {primary_color};
             color: white;
             font-weight: 600;
         }}
-        table tr:hover {{
-            background-color: #f8f9fa;
+        /* Contingency Table Specific Styling - Clean Dark Navy Theme */
+        .contingency-table {{
+            border: 1px solid #dee2e6;
+            margin: 24px 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }}
-        table tr:nth-child(even) {{
-            background-color: #fcfcfc;
+        .contingency-table th, .contingency-table thead th {{
+            background-color: {primary_dark};
+            color: white !important;
+            font-weight: 600;
+            text-align: center;
+            vertical-align: middle;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px 18px;
+        }}
+        /* Index cells (first column) */
+        .contingency-table tbody th {{
+            background-color: {primary_dark};
+            color: white !important;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }}
+        /* Data cells */
+        .contingency-table td {{
+            background-color: white;
+            color: {text_color};
+            text-align: center;
+            padding: 12px 18px;
+            border: 1px solid #dee2e6;
+            font-variant-numeric: tabular-nums;
+        }}
+        .contingency-table tr:hover td {{
+            background-color: #f1f5f9;
         }}
         .metric-text {{
             font-size: 1.02em;
@@ -419,9 +458,10 @@ def generate_report(
         
         elif element_type in ('table', 'contingency_table', 'contingency'):
             if hasattr(data, 'to_html'):
-                 html += data.to_html(index=True, classes='', escape=True)
+                classes = 'contingency-table' if element_type in ('contingency_table', 'contingency') else ''
+                html += data.to_html(index=True, classes=classes, escape=True)
             else:
-                 html += str(data)
+                html += str(data)
         
         elif element_type == 'plot':
             if hasattr(data, 'to_html'):

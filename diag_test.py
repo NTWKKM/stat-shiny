@@ -304,20 +304,26 @@ def calculate_chi2(
                     pct = 100.0
                 else:
                     pct = tab_row_pct.loc[row_name, col_name]
-                cell_content = f"{int(count)} ({pct:.1f}%)"
+                cell_content = f"{int(count)}<br><small style='color:#666'>({pct:.1f}%)</small>"
             except KeyError:
-                cell_content = "0 (0.0%)"
+                cell_content = "0<br><small>(0.0%)</small>"
             row_data.append(cell_content)
         display_data.append(row_data)
     
-    # 2x2 Clarity structure
-    display_tab = pd.DataFrame(display_data, columns=final_col_order, index=final_row_order)
+    # --- CONSTRUCT MULTI-INDEX FOR 2-ROW HEADER LAYOUT ---
+    col_tuples = []
+    for c in final_col_order:
+        if c == 'Total':
+            # Use empty string for second level to create vertical merge effect
+            # Tuple: (Level 1 Header, Level 2 Header)
+            col_tuples.append(('Total', '')) 
+        else:
+            col_tuples.append((col2, str(c)))
     
-    rename_cols = {c: f"{col2} (Outcome/Col): {c}" for c in final_col_order if c != 'Total'}
-    display_tab.rename(columns=rename_cols, inplace=True)
+    multi_cols = pd.MultiIndex.from_tuples(col_tuples)
     
-    display_tab.index.name = f"{col1} (Exposure/Row)"
-    display_tab.reset_index(inplace=True)
+    display_tab = pd.DataFrame(display_data, columns=multi_cols, index=final_row_order)
+    display_tab.index.name = col1  # This ensures the first column (Index) has the correct name
     
     msg = ""
     try:
@@ -333,7 +339,7 @@ def calculate_chi2(
             stats_res = {
                 "Test": method_name,
                 "Statistic (OR)": f"{odds_ratio:.4f}",
-                "P-value": format_p_value(p_value), # Highlighting applied
+                "P-value": format_p_value(p_value), 
                 "Degrees of Freedom": "-",
                 "N": len(data)
             }
@@ -347,7 +353,7 @@ def calculate_chi2(
             stats_res = {
                 "Test": method_name,
                 "Statistic (χ²)": f"{chi2_val:.4f}",
-                "P-value": format_p_value(p), # Highlighting applied
+                "P-value": format_p_value(p), 
                 "Degrees of Freedom": f"{dof}",
                 "N": len(data)
             }
@@ -604,7 +610,10 @@ def calculate_chi2(
                     {"Metric": "Accuracy", "Value": f"{accuracy:.4f}", 
                      "95% CI": "-", 
                      "Interpretation": "Overall correct classification rate"},
-                     
+                    {"Metric": "Accuracy", "Value": f"{accuracy:.4f}", 
+                     "95% CI": "-", 
+                     "Interpretation": "Overall correct classification rate"},
+
                     {"Metric": "Youden's Index", "Value": f"{youden_j:.4f}", 
                      "95% CI": "-", 
                      "Interpretation": "Summary measure (Se + Sp - 1)"},
@@ -688,15 +697,26 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
             row_vals = []
             for col in order:
                 count = tab_raw.loc[row, col]
-                pct = 100.0 if col == "Total" else tab_row_pct.loc[row, col]
-                row_vals.append(f"{int(count)} ({pct:.1f}%)")
+                if col == "Total":
+                    pct = 100.0
+                else:
+                    pct = tab_row_pct.loc[row, col]
+                # HTML formatted cell for Contingency Table style
+                row_vals.append(f"{int(count)}<br><small style='color:#666'>({pct:.1f}%)</small>")
             display_data.append(row_vals)
             
-        conf_matrix = pd.DataFrame(display_data, index=order, columns=order)
-        conf_matrix.index.name = f"{col1} (Rater/Method 1)"
-        rename_cols = {c: f"{col2} (Rater/Method 2): {c}" for c in labels}
-        conf_matrix.rename(columns=rename_cols, inplace=True)
-        conf_matrix.reset_index(inplace=True)
+        # --- CONSTRUCT MULTI-INDEX FOR KAPPA TABLE ---
+        col_tuples = []
+        for c in order:
+            if c == "Total":
+                col_tuples.append(("Total", ""))
+            else:
+                col_tuples.append((col2, str(c)))
+        
+        multi_cols = pd.MultiIndex.from_tuples(col_tuples)
+        
+        conf_matrix = pd.DataFrame(display_data, index=order, columns=multi_cols)
+        conf_matrix.index.name = col1
         
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
         return res_df, None, conf_matrix
@@ -1006,6 +1026,86 @@ def calculate_icc(df: pd.DataFrame, cols: List[str]) -> Tuple[Optional[pd.DataFr
         return None, str(e), None
 
 
+def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, _col_var_name: str = '') -> str:
+    """
+    Render contingency table with proper 2-row header with rowspan/colspan.
+    
+    Expected DataFrame structure:
+    - MultiIndex columns: (col_var_name or 'Total', category)
+    - Index: row categories + 'Total'
+    - Index name: row_var_name
+    """
+    
+    # Extract data
+    col_level_0 = [col[0] for col in df.columns]
+    col_level_1 = [col[1] for col in df.columns]
+    
+    # Build header HTML
+    # Row 1: Variable name spans, with merged cells
+    header_row_1 = '<tr>'
+    
+    # First cell: row variable name (rowspan=2)
+    header_row_1 += f'<th rowspan="2" style="vertical-align: middle;">{_html.escape(row_var_name)}</th>'
+    
+    # Group columns by level 0 to create colspan
+    current_group = None
+    group_count = 0
+    col_groups = []
+    
+    for l0, _ in zip(col_level_0, col_level_1, strict=True):
+        if l0 != current_group:
+            if current_group is not None:
+                col_groups.append((current_group, group_count))
+            current_group = l0
+            group_count = 1
+        else:
+            group_count += 1
+    if current_group is not None:
+        col_groups.append((current_group, group_count))
+    
+    # Add column variable headers
+    for group_name, count in col_groups:
+        if group_name == 'Total':
+            header_row_1 += '<th rowspan="2" style="vertical-align: middle;">Total</th>'
+        else:
+            header_row_1 += f'<th colspan="{count}">{_html.escape(str(group_name))}</th>'
+    
+    header_row_1 += '</tr>'
+    
+    # Row 2: Category labels (only for non-Total columns)
+    header_row_2 = '<tr>'
+    for l0, l1 in zip(col_level_0, col_level_1, strict=True):
+        if l0 != 'Total' and l1 != '':  # Skip Total (already rowspan) and empty
+            header_row_2 += f'<th>{_html.escape(str(l1))}</th>'
+    header_row_2 += '</tr>'
+    
+    # Build body HTML
+    body_html = ''
+    for idx in df.index:
+        body_html += '<tr>'
+        # Row header
+        body_html += f'<th>{_html.escape(str(idx))}</th>'
+        # Data cells
+        for val in df.loc[idx]:
+            body_html += f'<td>{val}</td>'
+        body_html += '</tr>'
+    
+    # Combine into full table
+    table_html = f'''
+    <table class="contingency-table">
+        <thead>
+            {header_row_1}
+            {header_row_2}
+        </thead>
+        <tbody>
+            {body_html}
+        </tbody>
+    </table>
+    '''
+    
+    return table_html
+
+
 def generate_report(
     title: str, 
     elements: List[Dict[str, Any]]
@@ -1050,23 +1150,71 @@ def generate_report(
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             border-radius: 6px;
             overflow: hidden;
+            border: 1px solid #dee2e6;
         }}
         table th, table td {{
-            border: 1px solid #ecf0f1;
             padding: 12px 15px;
-            text-align: left;
+            text-align: center;
+            border: 1px solid #dee2e6;
         }}
         table th {{
             background-color: {primary_color};
             color: white;
             font-weight: 600;
         }}
-        table tr:hover {{
-            background-color: #f8f9fa;
+        
+        /* 🎨 Navy Blue Contingency Table Theme */
+        .contingency-table {{
+            width: 100%;
+            border-collapse: separate !important;
+            border-spacing: 0;
+            border: 1px solid #d1d9e6;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin: 24px 0;
+            font-family: 'Segoe UI', sans-serif;
         }}
-        table tr:nth-child(even) {{
-            background-color: #fcfcfc;
+        
+        /* Header Rows (Variable Names & Categories) */
+        .contingency-table thead tr th {{
+            background: linear-gradient(135deg, {primary_dark} 0%, #004080 100%) !important;
+            color: white !important;
+            font-weight: 600;
+            text-align: center;
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            vertical-align: middle;
         }}
+        
+        /* Row Headers (Index - Variable 1 Categories) */
+        .contingency-table tbody th {{
+            background-color: #f1f8ff !important;
+            color: {primary_dark} !important;
+            font-weight: bold;
+            text-align: center;
+            border-right: 2px solid #d1d9e6;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: middle;
+        }}
+        
+        /* Data Cells */
+        .contingency-table tbody td {{
+            background-color: #ffffff;
+            color: #2c3e50;
+            text-align: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            border-right: 1px solid #f0f0f0;
+            font-variant-numeric: tabular-nums;
+        }}
+        
+        /* Hover Effect for Rows */
+        .contingency-table tbody tr:hover td {{
+            background-color: #e6f3ff !important;
+            transition: background-color 0.2s ease;
+        }}
+        
         .interpretation {{
             background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
             border-left: 4px solid {primary_color};
@@ -1104,7 +1252,25 @@ def generate_report(
         elif element_type == 'interpretation':
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
         
-        elif element_type in ('table', 'contingency_table', 'contingency'):
+        elif element_type in ('contingency_table', 'contingency'):
+            # Use custom renderer for contingency tables
+            if hasattr(data, 'index') and hasattr(data, 'columns'):
+                row_var = data.index.name or 'Row Variable'
+                # Extract col var from MultiIndex
+                if isinstance(data.columns, pd.MultiIndex):
+                    col_var = data.columns.levels[0][0] if len(data.columns.levels[0]) > 0 else 'Column Variable'
+                    # Find the actual variable name (not 'Total')
+                    for name in data.columns.get_level_values(0).unique():
+                        if name != 'Total':
+                            col_var = name
+                            break
+                else:
+                    col_var = 'Column Variable'
+                html += render_contingency_table_html(data, row_var, col_var)
+            else:
+                html += str(data)
+        
+        elif element_type == 'table':
             if hasattr(data, 'to_html'):
                  html += data.to_html(index=True, classes='', escape=False)
             else:
@@ -1117,3 +1283,4 @@ def generate_report(
     html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
     html += "</body>\n</html>"
     return html
+
