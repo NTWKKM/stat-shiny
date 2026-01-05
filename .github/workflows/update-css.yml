@@ -12,6 +12,8 @@ on:
 jobs:
   update-css:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,10 +35,21 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          
+          # Check for any uncommitted changes before proceeding
+          if ! git diff --quiet; then
+            echo "Error: Working directory has uncommitted changes"
+            git status
+            exit 1
+          fi
+          
           git add static/styles.css
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: auto-update static CSS from _styling.py"
-            git push
+            git commit -m "chore: auto-update static CSS from _styling.py [skip ci]"
+            git push || {
+              echo "Error: Failed to push changes. Check branch protection rules."
+              exit 1
+            }
           fi
