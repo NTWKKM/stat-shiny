@@ -46,8 +46,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- psm_lib.py
 |-- requirements.txt
 |-- static /
-|   |-- styles.css
-|   `-- styles.min.css
+|   `-- styles.css
 |-- subgroup_analysis_module.py
 |-- survival_lib.py
 |-- table_one.py
@@ -69,7 +68,8 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- utils /
 |   |-- __init__.py
 |   |-- data_cleaning.py
-|   `-- formatting.py
+|   |-- formatting.py
+|   `-- update_css.py
 `-- wakeup coderabbitai
 ```
 
