@@ -45,6 +45,9 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- poisson_lib.py
 |-- psm_lib.py
 |-- requirements.txt
+|-- static /
+|   |-- styles.css
+|   `-- styles.min.css
 |-- subgroup_analysis_module.py
 |-- survival_lib.py
 |-- table_one.py
