@@ -13,9 +13,43 @@ def wrap_with_container(content: "TagChild") -> "TagChild":
     Returns:
         A shiny.ui.div element with class='app-container'.
     """
-    from shiny import ui  # Import inside function to avoid circular imports if any
+    from shiny import ui  # Import inside function to avoid circular imports
 
     return ui.div(content, class_="app-container")
+
+
+def simple_card(title: str, *args: "TagChild", footer: Optional["TagChild"] = None, **kwargs: Any) -> "TagChild":
+    """
+    Creates a Standard Bootstrap Card (Compatible with new CSS).
+    Automatically wraps content in .card, .card-header, and .card-body.
+
+    Args:
+        title: The text for the card header.
+        *args: Content to go inside the card body.
+        footer: Optional content for the card footer.
+        **kwargs: Additional arguments for ui.card (e.g., height, full_screen).
+
+    Returns:
+        A shiny.ui.card component.
+    """
+    from shiny import ui
+
+    # Note: shiny.ui.card automatically generates the '.card' class
+    # shiny.ui.card_header generates '.card-header'
+    # shiny.ui.card_body (if used) generates '.card-body'
+    
+    components = [
+        ui.card_header(title),
+        ui.card_body(*args) # Wrap content in card-body for proper padding
+    ]
+    
+    if footer is not None:
+        components.append(ui.card_footer(footer))
+
+    return ui.card(
+        *components,
+        **kwargs
+    )
 
 
 def get_color_palette() -> Dict[str, str]:
