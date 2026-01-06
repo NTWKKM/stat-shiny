@@ -2,11 +2,11 @@
 🔗 Integration Tests for Logic Module Pipeline
 File: tests/integration/test_logic_pipeline.py
 
-Tests the complete flow of functions from logic.py:
+Tests the complete flow of functions from logic.py AND visualization:
 1. Data loading and validation
 2. Numeric cleaning
 3. Model execution (run_binary_logit)
-4. Output verification
+4. Integration with Forest Plot (forest_plot_lib)
 """
 
 import sys
@@ -18,7 +18,8 @@ import numpy as np
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from logic import validate_logit_data, clean_numeric_value, run_binary_logit
+from logic import validate_logit_data, clean_numeric_value, run_binary_logit, analyze_outcome
+from forest_plot_lib import create_forest_plot  # Import forest plot lib
 
 # Mark as integration test
 pytestmark = pytest.mark.integration
@@ -82,6 +83,63 @@ class TestLogicPipeline:
         assert isinstance(metrics, dict)
         assert 'mcfadden' in metrics
         assert 'p_value' in metrics
+
+    def test_logic_to_forest_plot_integration(self, sample_medical_data):
+        """
+        🌲 Test Integration: Logic Results -> Forest Plot
+        Verifies that logistic regression output can be visualized as a Forest Plot
+        """
+        df, y = sample_medical_data
+        
+        # 1. Run Logistic Regression via analyze_outcome (which returns structured results)
+        # analyze_outcome combines run_binary_logit and formatting
+        full_df = df.copy()
+        full_df['disease'] = y
+        
+        # Use analyze_outcome to get Odds Ratios (OR) and Confidence Intervals
+        html_table, or_results, aor_results, int_results = analyze_outcome(
+            'disease', 
+            full_df
+        )
+        
+        # 2. Prepare Data for Forest Plot
+        # We need to convert the dictionary results into a DataFrame expected by create_forest_plot
+        forest_data = []
+        
+        # Using Multivariate results (AOR) if available, otherwise Univariate (OR)
+        results_to_plot = aor_results if aor_results else or_results
+        
+        for var_name, stats in results_to_plot.items():
+            # Example stats string: "1.05 (1.01-1.09)"
+            # Note: analyze_outcome returns formatted strings, we might need to parse or use raw params
+            # For this test, we simulate extracting from raw params which is more robust
+            pass
+
+        # Rerun raw logit to get numerical values for plotting
+        params, conf, pvals, status, metrics = run_binary_logit(y, df)
+        
+        # Construct DataFrame for Forest Plot
+        plot_df = pd.DataFrame({
+            'Subgroup': params.index,
+            'Level': [''] * len(params), # No levels for continuous
+            'Est': np.exp(params.values), # Odds Ratio
+            'Lower': np.exp(conf[0].values),
+            'Upper': np.exp(conf[1].values),
+            'P-value': pvals.values
+        })
+        
+        # 3. Create Forest Plot
+        fig = create_forest_plot(
+            plot_df,
+            title="Logistic Regression Results (Forest Plot)",
+            xlabel="Odds Ratio (95% CI)"
+        )
+        
+        assert fig is not None
+        assert hasattr(fig, 'layout')
+        assert "Logistic Regression" in fig.layout.title.text
+        # Verify data points are plotted
+        assert len(fig.data) > 0
 
     def test_data_flow_with_numeric_cleaning(self, sample_medical_data):
         """🧹 Test data flow with numeric value cleaning"""
