@@ -26,7 +26,7 @@ def diag_ui() -> ui.TagChild:
         ui.br(),
 
         # Tabs for different analyses
-        ui.navset_card_tab(
+        ui.navset_tab(
             # TAB 1: ROC Curve & AUC
             ui.nav_panel(
                 "📈 ROC Curve & AUC",
