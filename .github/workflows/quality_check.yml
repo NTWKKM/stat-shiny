@@ -71,7 +71,6 @@ jobs:
         run: |
           pytest tests/e2e/ -v --tb=short -m e2e
         env:
-          # Set environment variables if needed
           PYTHONUNBUFFERED: '1'
         timeout-minutes: 10
       
@@ -107,9 +106,9 @@ jobs:
           pip install pytest
       
       - name: Run Integration Tests
+        # Removed continue-on-error to properly flag failures
         run: |
           pytest tests/integration/ -v --tb=short
-        continue-on-error: true
 
   # ==========================================
   # Code Quality Checks
@@ -152,7 +151,8 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, e2e-tests]
+    # Added integration-tests and code-quality to needs
+    needs: [unit-tests, e2e-tests, integration-tests, code-quality]
     if: always()
     
     steps:
@@ -161,14 +161,22 @@ jobs:
           echo "==========================================="
           echo "📊 Test Summary"
           echo "==========================================="
-          echo "✅ Unit Tests: ${{ needs.unit-tests.result }}"
-          echo "✅ E2E Tests:  ${{ needs.e2e-tests.result }}"
+          echo "✅ Unit Tests:        ${{ needs.unit-tests.result }}"
+          echo "✅ E2E Tests:         ${{ needs.e2e-tests.result }}"
+          echo "✅ Integration Tests: ${{ needs.integration-tests.result }}"
+          echo "✅ Code Quality:      ${{ needs.code-quality.result }}"
           echo "==========================================="
           
-          # Fail the job if any test job failed
-          if [ "${{ needs.unit-tests.result }}" = "failure" ] || [ "${{ needs.e2e-tests.result }}" = "failure" ]; then
-            echo "❌ Some tests failed"
+          # Fail the job if any CRITICAL test job failed (Unit, E2E, Integration)
+          if [ "${{ needs.unit-tests.result }}" = "failure" ] || \
+             [ "${{ needs.e2e-tests.result }}" = "failure" ] || \
+             [ "${{ needs.integration-tests.result }}" = "failure" ]; then
+            echo "❌ CRITICAL: One or more test suites failed."
             exit 1
+          elif [ "${{ needs.code-quality.result }}" = "failure" ]; then
+            echo "⚠️ WARNING: Code quality checks failed, but tests passed."
+            # Optional: exit 0 to allow merge if only linting fails, or exit 1 to enforce strict quality
+            exit 0
           else
-            echo "✅ All tests passed!"
+            echo "✅ All checks passed successfully!"
           fi
