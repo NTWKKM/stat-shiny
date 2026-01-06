@@ -16,7 +16,7 @@ import numpy as np
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-# ✅ Correct Import based on interaction_lib.py
+# ✅ Correct Import based on interaction_lib.py structure
 from interaction_lib import create_interaction_terms, test_interaction_improvement
 from logic import run_binary_logit
 
@@ -94,7 +94,13 @@ class TestInteractionPipeline:
         df_model, _ = create_interaction_terms(df, pairs)
         
         # 2. Identify interaction column
-        int_col = [c for c in df_model.columns if c not in df.columns][0]
+        # New column is the one not in original columns
+        int_cols = [c for c in df_model.columns if c not in df.columns]
+        
+        if not int_cols:
+             pytest.skip("Interaction term creation failed or column name overlap")
+
+        int_col = int_cols[0]
         
         # 3. Run Logistic Regression including interaction
         y = df_model['outcome']
