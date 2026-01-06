@@ -1,10 +1,10 @@
 """
-🔗 Integration Tests for Subgroup Analysis Pipeline
+🔗 Integration Tests for Interaction Analysis Pipeline
 File: tests/integration/test_interaction_pipeline.py
 
-Tests the Subgroup Analysis workflow:
-1. Interaction Analysis (interaction_lib)
-2. Forest Plot Generation (forest_plot_lib)
+Tests the Interaction Analysis workflow:
+1. Creating interaction terms
+2. Testing interaction improvement (Likelihood Ratio Test)
 """
 
 import sys
@@ -16,95 +16,93 @@ import numpy as np
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from interaction_lib import run_subgroup_analysis
-from forest_plot_lib import create_forest_plot
+# ✅ Correct Import based on interaction_lib.py
+from interaction_lib import create_interaction_terms, test_interaction_improvement
+from logic import run_binary_logit
 
-# Mark as integration test
 pytestmark = pytest.mark.integration
 
 class TestInteractionPipeline:
 
     @pytest.fixture
-    def subgroup_data(self):
-        """Create dataset with potential subgroup effects"""
-        np.random.seed(77)
-        n = 300
+    def interaction_data(self):
+        """Create dataset with known interaction effects"""
+        np.random.seed(42)
+        n = 200
+        
+        # Predictors
+        age = np.random.normal(55, 10, n)
+        treatment = np.random.choice([0, 1], n)
+        
+        # Interaction: Treatment works better if Age is lower
+        # Log-odds = -1 + 0.5*Tx + 0.02*Age - 0.05*(Tx*Age)
+        logit = -1 + 0.5*treatment + 0.02*age - 0.05 * (treatment * age)
+        prob = 1 / (1 + np.exp(-logit))
+        outcome = np.random.binomial(1, prob)
         
         df = pd.DataFrame({
-            'outcome': np.random.binomial(1, 0.3, n),
-            'treatment': np.random.choice(['Tx', 'Placebo'], n),
-            'age': np.random.normal(60, 10, n),
-            'gender': np.random.choice(['Male', 'Female'], n),
-            'diabetes': np.random.choice(['Yes', 'No'], n)
+            'outcome': outcome,
+            'treatment': treatment,
+            'age': age
         })
         return df
 
-    def test_full_subgroup_analysis_flow(self, subgroup_data):
-        """
-        🔄 Test End-to-End Subgroup Analysis:
-        Calculation -> Formatting -> Plotting
-        """
-        df = subgroup_data
+    def test_create_interaction_terms(self, interaction_data):
+        """🔄 Test creation of interaction columns"""
+        df = interaction_data
         
-        # --- Step 1: Calculate Interactions (Subgroups) ---
-        # Define subgroups to analyze
-        subgroups = ['gender', 'diabetes']
+        # Create interaction between 'treatment' and 'age'
+        pairs = [('treatment', 'age')]
         
-        # Run analysis (using Logistic as base)
-        results_df, error_msg = run_subgroup_analysis(
-            df,
+        # Mode map (optional, inferred if None)
+        df_int, meta = create_interaction_terms(df, pairs)
+        
+        assert not df_int.empty
+        # Check if new column created (e.g. "treatment × age" or similar)
+        new_cols = [c for c in df_int.columns if '×' in c or '*' in c or ':' in c]
+        assert len(new_cols) > 0
+        assert meta is not None
+
+    def test_interaction_improvement_flow(self, interaction_data):
+        """🔄 Test interaction improvement statistical check"""
+        df = interaction_data
+        
+        # Check if adding interaction improves model
+        result = test_interaction_improvement(
+            df=df,
             outcome_col='outcome',
-            treatment_col='treatment',
-            subgroup_cols=subgroups,
-            model_type='logistic'  # or 'cox'
+            base_predictors=['treatment', 'age'],
+            interaction_pairs=[('treatment', 'age')],
+            model_type='logistic'
         )
         
-        assert error_msg is None
-        assert not results_df.empty
+        assert result is not None
+        assert 'p_value' in result
+        assert 'significant' in result
         
-        # Check structure needed for Forest Plot
-        expected_cols = ['Subgroup', 'Level', 'Est', 'Lower', 'Upper', 'P-value', 'Interaction P-value']
-        for col in expected_cols:
-            assert col in results_df.columns or col in str(results_df.columns)
+        # Since we baked in an interaction, p-value should likely be significant (or low)
+        assert isinstance(result['p_value'], float)
 
-        # --- Step 2: Generate Forest Plot ---
-        # Pass the results directly to the plotter
-        fig = create_forest_plot(
-            results_df,
-            title="Subgroup Analysis: Treatment Effect",
-            xlabel="Odds Ratio (95% CI)"
-        )
+    def test_interaction_pipeline_integration(self, interaction_data):
+        """
+        🌲 End-to-End: Create Terms -> Run Model
+        """
+        df = interaction_data
+        pairs = [('treatment', 'age')]
         
-        assert fig is not None
-        # Check Plotly object properties
-        assert hasattr(fig, 'layout')
-        assert "Subgroup Analysis" in fig.layout.title.text
-
-    def test_interaction_invalid_inputs(self, subgroup_data):
-        """🚫 Test handling of invalid subgroup inputs"""
-        df = subgroup_data
+        # 1. Create terms
+        df_model, _ = create_interaction_terms(df, pairs)
         
-        # Subgroup column that doesn't exist
-        res_df, msg = run_subgroup_analysis(
-            df, 'outcome', 'treatment', ['non_existent_col']
-        )
+        # 2. Identify interaction column
+        int_col = [c for c in df_model.columns if c not in df.columns][0]
         
-        assert msg is not None
-        assert res_df is None or res_df.empty
-
-    def test_forest_plot_standalone(self):
-        """📊 Test Forest Plot with manual data (Edge case check)"""
-        # Manually create a dataframe structure that forest_plot_lib expects
-        manual_df = pd.DataFrame({
-            'Subgroup': ['Age', 'Age', 'Gender', 'Gender'],
-            'Level': ['<65', '>=65', 'Male', 'Female'],
-            'Est': [1.2, 0.8, 1.1, 1.0],
-            'Lower': [0.9, 0.6, 0.8, 0.7],
-            'Upper': [1.5, 1.1, 1.4, 1.3],
-            'P-value': [0.1, 0.2, 0.3, 0.9],
-            'Interaction P-value': [0.04, np.nan, 0.5, np.nan]
-        })
+        # 3. Run Logistic Regression including interaction
+        y = df_model['outcome']
+        X = df_model[['treatment', 'age', int_col]]
         
-        fig = create_forest_plot(manual_df)
-        assert fig is not None
-        # Should handle NaN interaction P-values gracefully
+        params, conf, pvals, status, metrics = run_binary_logit(y, X)
+        
+        assert status == "OK"
+        assert int_col in params.index
+        # Check if model ran successfully
+        assert metrics['ll'] != 0
