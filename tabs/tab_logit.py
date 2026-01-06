@@ -131,7 +131,7 @@ def logit_ui() -> ui.TagChild:
 
                 # Content section (bottom)
                 ui.output_ui("out_logit_status"),
-                ui.navset_card_underline(
+                ui.navset_tab(
                     ui.nav_panel(
                         "🌳 Forest Plots",
                         ui.output_ui("ui_forest_tabs")
