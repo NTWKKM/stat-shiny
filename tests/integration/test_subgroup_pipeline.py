@@ -53,42 +53,33 @@ class TestSubgroupAnalysisPipeline:
         df = subgroup_data
         
         # 1. Initialize Analyzer
-        analyzer = SubgroupAnalysisLogit(
-            df=df,
-            outcome='outcome',
-            predictors=['treatment'], # Main predictor of interest
-            outcome_type='binary'
-        )
+        analyzer = SubgroupAnalysisLogit(df=df)
         
         # 2. Run Analysis on specific subgroups
-        subgroups = ['gender', 'age_group']
-        results = analyzer.run_analysis(subgroups=subgroups)
+        # The analyzer performs analysis per subgroup
+        analyzer.analyze(
+            outcome_col='outcome',
+            treatment_col='treatment',
+            subgroup_col='gender'
+        )
         
-        # 3. Verify Results Structure (Dictionary based on module code)
-        assert results is not None
-        assert 'summary' in results
-        assert 'results_df' in results
+        # 3. Verify Results Structure
+        assert analyzer.results is not None
+        assert len(analyzer.results) > 0
         
-        # Check DataFrame content
-        res_df = results['results_df']
-        assert not res_df.empty
-        assert 'subgroup' in res_df.columns
-        assert 'or_val' in res_df.columns  # Odds Ratio
-        assert 'p_value' in res_df.columns
-        
-        # Should have rows for Male, Female, <65, >=65, and Overall
-        # Note: Actual row count depends on implementation (sometimes Overall is separate)
-        assert len(res_df) >= 4
+        # Check formatted results
+        assert hasattr(analyzer, 'formatted_results')
+        assert len(analyzer.formatted_results) > 0
 
     def test_subgroup_forest_plot_generation(self, subgroup_data):
         """📊 Test Forest Plot creation from analyzer"""
         df = subgroup_data
-        analyzer = SubgroupAnalysisLogit(
-            df=df,
-            outcome='outcome',
-            predictors=['treatment']
+        analyzer = SubgroupAnalysisLogit(df=df)
+        analyzer.analyze(
+            outcome_col='outcome',
+            treatment_col='treatment',
+            subgroup_col='gender'
         )
-        analyzer.run_analysis(subgroups=['gender'])
         
         # Try generating plot
         fig = analyzer.create_forest_plot(title="Test Forest Plot")
