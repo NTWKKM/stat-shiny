@@ -13,6 +13,11 @@ from pathlib import Path
 # Add parent directory to path to allow importing from 'tabs'
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# ============================================================================
+# Mark all tests in this file as unit tests
+# ============================================================================
+pytestmark = pytest.mark.unit
+
 
 def get_styling_data():
     """Get color palette data from the actual source function."""
