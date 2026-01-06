@@ -202,7 +202,7 @@ def logit_ui() -> ui.TagChild:
 
                 # Content section (bottom)
                 ui.output_ui("out_poisson_status"),
-                ui.navset_card_underline(
+                ui.navset_tab(
                     ui.nav_panel(
                         "🌳 Forest Plots",
                         ui.output_ui("ui_poisson_forest_tabs")
@@ -278,7 +278,7 @@ def logit_ui() -> ui.TagChild:
                 
                 # Content section (bottom)
                 ui.output_ui("out_subgroup_status"),
-                ui.navset_card_underline(
+                ui.navset_tab(
                     ui.nav_panel(
                         "🌳 Forest Plot",
                         output_widget("out_sg_forest_plot"),
