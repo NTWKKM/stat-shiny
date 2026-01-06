@@ -1,10 +1,10 @@
 """
-📋 Correlation & Statistical Association Module (Shiny Compatible)
+📋 Correlation & Statistical Association Module (Shiny Compatible) - UPDATED
 
 Provides functions for:
-- Pearson/Spearman correlation analysis
+- Pearson/Spearman correlation analysis (Pairwise & Matrix)
 - Chi-square and Fisher's exact tests for categorical data
-- Interactive Plotly visualizations
+- Interactive Plotly visualizations (Scatter Plots & Heatmaps)
 - HTML report generation
 
 Note: Removed Streamlit dependencies, now Shiny-compatible
@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import plotly.graph_objects as go
+import plotly.figure_factory as ff # For annotated heatmaps if needed, but go.Heatmap is faster
 import html as _html
 from typing import Union, Optional, List, Dict, Tuple, Any
 from tabs._common import get_color_palette
@@ -196,7 +197,7 @@ def calculate_correlation(
     method: str = 'pearson'
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[go.Figure]]:
     """
-    OPTIMIZED: Compute correlation between two numeric variables.
+    OPTIMIZED: Compute correlation between two numeric variables (Pairwise).
     
     Optimizations:
     - Batch numeric conversion (2x faster)
@@ -293,22 +294,80 @@ def calculate_correlation(
     return {"Method": name, "Coefficient": corr, "P-value": p, "N": len(data_numeric)}, None, fig
 
 
+def compute_correlation_matrix(
+    df: pd.DataFrame, 
+    cols: List[str], 
+    method: str = 'pearson'
+) -> Tuple[Optional[pd.DataFrame], Optional[go.Figure]]:
+    """
+    NEW: Compute correlation matrix and generate heatmap.
+    
+    Args:
+        df (pd.DataFrame): Source dataframe
+        cols (list): List of column names to include
+        method (str): 'pearson' or 'spearman'
+        
+    Returns:
+        tuple: (corr_matrix, heatmap_figure)
+    """
+    if not cols or len(cols) < 2:
+        return None, None
+        
+    # Filter and convert to numeric
+    data = df[cols].apply(pd.to_numeric, errors='coerce')
+    
+    # Calculate correlation matrix
+    corr_matrix = data.corr(method=method)
+    
+    # Round for display
+    corr_matrix_rounded = corr_matrix.round(3)
+    
+    # Create Heatmap
+    # Using red-white-blue scale (Red=Positive, Blue=Negative)
+    colorscale = [
+        [0.0, 'rgb(49, 54, 149)'],
+        [0.5, 'rgb(255, 255, 255)'],
+        [1.0, 'rgb(165, 0, 38)']
+    ]
+    
+    # Prepare text for heatmap cells
+    text_values = corr_matrix_rounded.values.astype(str)
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_matrix.values,
+        x=cols,
+        y=cols,
+        colorscale=colorscale,
+        zmin=-1,
+        zmax=1,
+        text=text_values,
+        texttemplate="%{text}",
+        textfont={"size": 10},
+        hoverongaps=False,
+        hovertemplate='X: %{x}<br>Y: %{y}<br>Corr: %{z:.3f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title={
+            'text': f'{method.title()} Correlation Matrix',
+            'x': 0.5,
+            'xanchor': 'center'
+        },
+        height=600,
+        width=700,
+        xaxis={'side': 'bottom'},
+        yaxis={'autorange': 'reversed'} # To match matrix layout (top-left is [0,0])
+    )
+    
+    return corr_matrix_rounded, fig
+
+
 def generate_report(
     title: str, 
     elements: List[Dict[str, Any]]
 ) -> str:
     """
     Generate HTML report from elements.
-    
-    Args:
-        title (str): Report title
-        elements (list[dict]): List of report elements
-            - type: 'text', 'table', 'interpretation', 'plot'
-            - data: Content
-            - header: Optional section header
-            
-    Returns:
-        str: Complete HTML document
     """
     primary_color = COLORS['primary']
     primary_dark = COLORS['primary_dark']
