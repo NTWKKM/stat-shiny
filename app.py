@@ -179,6 +179,6 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 app = App(
     app_ui,
     server,
-    # แก้ไขจาก static_dir เป็น static_assets
-    static_assets=Path(__file__).parent / "static"
+    # ✅ FIXED: Use static_dir (correct parameter) instead of static_assets
+    static_dir=Path(__file__).parent / "static"
 )
