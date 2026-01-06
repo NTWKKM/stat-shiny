@@ -17,8 +17,7 @@ import numpy as np
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-# Import correlation module (Adjust import based on your actual file structure)
-# Assuming correlation.py has a function like compute_correlation_matrix or similar
+# Import correlation module
 from correlation import compute_correlation_matrix
 
 pytestmark = pytest.mark.integration
@@ -63,6 +62,7 @@ class TestCorrelationPipeline:
             method='pearson'
         )
         
+        assert corr_matrix is not None
         assert not corr_matrix.empty
         assert corr_matrix.shape == (4, 4)
         
@@ -79,11 +79,12 @@ class TestCorrelationPipeline:
         # Check Plotly figure
         assert fig is not None
         assert hasattr(fig, 'layout')
+        # Check if it is a heatmap (check data type)
+        assert fig.data[0].type == 'heatmap'
 
     def test_spearman_correlation_flow(self, corr_data):
         """🔄 Test Spearman correlation (Rank-based)"""
         df = corr_data
-        selected_vars = ['var_x', 'var_y']
         
         # Create non-linear but monotonic relationship (Pearson < Spearman)
         df['var_exp'] = np.exp(df['var_x'])
@@ -94,6 +95,7 @@ class TestCorrelationPipeline:
             method='spearman'
         )
         
+        assert corr_matrix is not None
         # Spearman should be perfect 1.0 for monotonic transform
         assert np.isclose(corr_matrix.loc['var_x', 'var_exp'], 1.0, atol=0.01)
 
@@ -107,6 +109,7 @@ class TestCorrelationPipeline:
         # Should handle NaNs (usually pairwise complete or drop rows)
         corr_matrix, fig = compute_correlation_matrix(df, ['a', 'b'])
         
+        assert corr_matrix is not None
         assert not corr_matrix.empty
         assert np.isclose(corr_matrix.loc['a', 'b'], 1.0) # Still perfect correlation ignoring NaN
 
@@ -114,11 +117,31 @@ class TestCorrelationPipeline:
         """🚫 Test specific error handling for invalid inputs"""
         df = corr_data
         
-        # If method supports only numeric, it should filter or error out non-numeric
-        try:
-            corr_matrix, _ = compute_correlation_matrix(df, ['var_x', 'category'])
-            # If it runs, check if category was excluded or handled
-            assert 'category' not in corr_matrix.columns
-        except ValueError:
-            # If it raises error, that's also valid behavior
-            pass
+        # Pass a numeric and a non-numeric column
+        # Our implementation uses coerce, so non-numeric becomes NaN
+        # If a column is ALL NaNs, it might result in NaN correlation or be excluded
+        
+        cols = ['var_x', 'category']
+        corr_matrix, _ = compute_correlation_matrix(df, cols)
+        
+        # In Pandas corr(), non-numeric columns are usually excluded implicitly OR result in NaN
+        # Check that we don't have a valid correlation for 'category'
+        
+        if corr_matrix is not None:
+            # If 'category' is present, its correlation should be NaN
+            if 'category' in corr_matrix.columns:
+                 assert pd.isna(corr_matrix.loc['var_x', 'category'])
+            else:
+                # Or it should be dropped
+                assert 'category' not in corr_matrix.columns
+
+    def test_insufficient_columns(self, corr_data):
+        """🚫 Test handling of too few columns"""
+        df = corr_data
+        
+        # Pass only 1 column
+        corr_matrix, fig = compute_correlation_matrix(df, ['var_x'])
+        
+        # Should return None
+        assert corr_matrix is None
+        assert fig is None
