@@ -63,7 +63,7 @@ def logit_ui() -> ui.TagChild:
         ui.br(),
         
         # Main Analysis Tabs
-        ui.navset_card_tab(
+        ui.navset_tab(
             # =====================================================================
             # TAB 1: Binary Logistic Regression
             # =====================================================================
