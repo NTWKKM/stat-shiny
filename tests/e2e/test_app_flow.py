@@ -18,4 +18,5 @@ def test_navigation_to_survival(page: Page, app):
     page.get_by_role("tab", name="Survival Analysis").click()
     
     # ตรวจสอบว่ามี element เฉพาะของหน้านั้นโผล่มาไหม
-    expect(page.get_by_text("Kaplan-Meier")).to_be_visible()
+    # Fixed: use .first to resolve strict mode error (matches 4 elements)
+    expect(page.get_by_text("Kaplan-Meier").first).to_be_visible()
