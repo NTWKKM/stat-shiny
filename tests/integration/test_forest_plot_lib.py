@@ -40,6 +40,10 @@ class TestForestPlotLib:
         """📊 Test generating a standard forest plot"""
         fig = create_forest_plot(
             ready_to_plot_df,
+            'Est',
+            'Lower',
+            'Upper',
+            'Subgroup',
             title="Test Forest Plot",
             xlabel="Odds Ratio"
         )
@@ -64,9 +68,10 @@ class TestForestPlotLib:
         
         fig = create_forest_plot(
             df_custom,
-            estimate_col='HazardRatio',
-            ci_low_col='CI_L',
-            ci_high_col='CI_U',
+            'HazardRatio',
+            'CI_L',
+            'CI_U',
+            'Subgroup',
             title="Custom Cox Plot",
             colors=['blue', 'red'] # If supported
         )
@@ -79,7 +84,7 @@ class TestForestPlotLib:
         df_no_int = ready_to_plot_df.drop(columns=['Interaction P-value'])
         
         # Should still work, just not display interaction p-values
-        fig = create_forest_plot(df_no_int)
+        fig = create_forest_plot(df_no_int, 'Est', 'Lower', 'Upper', 'Subgroup')
         
         assert fig is not None
 

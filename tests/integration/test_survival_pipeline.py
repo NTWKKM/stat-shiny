@@ -85,7 +85,7 @@ class TestSurvivalPipeline:
         
         # Verify Cox results structure
         assert 'HR' in res_df.columns  # Hazard Ratio
-        assert 'p' in res_df.columns   # P-value
+        assert 'P-value' in res_df.columns   # P-value
         assert 'age' in res_df.index
         assert 'treatment' in res_df.index
 
@@ -114,7 +114,7 @@ class TestSurvivalPipeline:
             # Note: fit_cox_ph outputs '95% CI Lower' and '95% CI Upper'
             'Lower': res_df['95% CI Lower'],
             'Upper': res_df['95% CI Upper'],
-            'P-value': res_df['p']
+            'P-value': res_df['P-value']
         })
         
         # 3. Create Forest Plot

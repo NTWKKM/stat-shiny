@@ -93,4 +93,4 @@ class TestInteractionPipeline:
         assert status == "OK"
         assert int_col in params.index
         # Check if model ran successfully
-        assert metrics['ll'] != 0
+        assert metrics['mcfadden'] is not None

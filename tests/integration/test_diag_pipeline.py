@@ -54,7 +54,7 @@ class TestDiagnosticPipeline:
         
         # Check Risk Metrics (OR/RR)
         if risk_df is not None:
-            assert 'Odds Ratio' in risk_df['Metric'].values or 'Risk Ratio' in risk_df['Metric'].values
+            assert 'Odds Ratio (OR)' in risk_df['Metric'].values or 'Risk Ratio (RR)' in risk_df['Metric'].values
 
     def test_roc_analysis_flow(self, diagnostic_data):
         """🔄 Test ROC Curve & AUC calculation"""
