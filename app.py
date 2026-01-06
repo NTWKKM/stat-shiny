@@ -87,6 +87,8 @@ app_ui = ui.page_navbar(
     navbar_options=ui.navbar_options(),
     
     # ⬇⬇⬇ inject theme CSS (EXTERNAL - Optimized for performance)
+    # ✅ CSS is loaded from /static/styles.css (served by WSGI server)
+    # ✅ Browser will cache the CSS file for better performance
     header=ui.tags.head(
         ui.tags.meta(charset="utf-8"),
         ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
@@ -175,10 +177,11 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 # ==========================================
 # 4. APP LAUNCHER
 # ==========================================
-# ✅ Configure static file serving for external CSS
+# ✅ Create Shiny app instance
+# Note: Static files (./static/) are served by the WSGI server (uvicorn/gunicorn)
+#       Shiny for Python doesn't have static_dir parameter in App()
+#       The server will automatically serve files from ./static/ directory
 app = App(
     app_ui,
     server,
-    # ✅ FIXED: Use static_dir (correct parameter) instead of static_assets
-    static_dir=Path(__file__).parent / "static"
 )
