@@ -1,6 +1,5 @@
-# ใช้ Python 3.10-slim Image เป็นฐาน
-# ✅ Security support until Oct 2026 (Python 3.10 EOL)
-# ✅ Compatible with firthlogist (requires Python <3.11)
+# ใช้ Python 3.12-slim Image เป็นฐาน
+# ✅ Security support and latest features
 # ✅ Smaller container vs full Python image
 FROM python:3.12-slim
 
@@ -30,5 +29,6 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD python -c "import requests; requests.get('http://localhost:7860', timeout=2)" || exit 1
 
-# คำสั่งรัน App
-CMD ["shiny", "run", "app.py", "--host", "0.0.0.0", "--port", "7860"]
+# ✅ UPDATED: Use ASGI wrapper for proper static file serving
+# This ensures /static/styles.css is properly served alongside the Shiny app
+CMD ["python", "-m", "uvicorn", "asgi:app", "--host", "0.0.0.0", "--port", "7860"]
