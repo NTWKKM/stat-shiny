@@ -11,13 +11,16 @@ Fixtures:
 - page: Playwright page object (auto-provided by shiny.pytest)
 """
 
-import subprocess
-import time
-import sys
 import os
+import subprocess
+import sys
+import time
+
+from pathlib import Path
+
 import pytest
 import requests
-from pathlib import Path
+
 
 # ============================================================================
 # 🚀 Session-Scoped Fixture: Start Shiny Server
@@ -100,7 +103,7 @@ def start_shiny_server():
             f"❌ Failed to start Shiny server subprocess\n"
             f"   Error: {e}\n"
             f"   Command: python -m shiny run --host 0.0.0.0 --port 8000 {app_path}"
-        )
+        ) from e
     
     # ────────────────────────────────────────────────────────────────────
     # Step 3: Wait for server to be ready (max 60 seconds)
@@ -120,7 +123,7 @@ def start_shiny_server():
                 timeout=2
             )
             # Accept any response code - just need to confirm server is running
-            if response.status_code in [200, 304, 404, 500]:
+            if response.status_code in [200, 304]:
                 server_ready = True
                 elapsed = time.time() - start_time
                 print(f"\r✅ Server ready after {elapsed:.1f}s")

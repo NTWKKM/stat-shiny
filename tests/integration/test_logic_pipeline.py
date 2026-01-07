@@ -9,11 +9,12 @@ Tests the complete flow of functions from logic.py AND visualization:
 4. Integration with Forest Plot (forest_plot_lib)
 """
 
-import sys
 import os
-import pytest
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -72,7 +73,7 @@ class TestLogicPipeline:
         assert valid is True, f"Data validation failed: {msg}"
         
         # Step 2: Run logistic regression
-        params, conf, pvals, status, metrics = run_binary_logit(y, df)
+        params, _conf, _pvals, status, _metrics = run_binary_logit(y, df)
         
         # Step 3: Verify output
         assert status == "OK", f"Logit regression failed: {status}"
@@ -97,23 +98,13 @@ class TestLogicPipeline:
         full_df['disease'] = y
         
         # Use analyze_outcome to get Odds Ratios (OR) and Confidence Intervals
-        html_table, or_results, aor_results, int_results = analyze_outcome(
+        _html_table, or_results, aor_results, _int_results = analyze_outcome(
             'disease', 
             full_df
         )
         
-        # 2. Prepare Data for Forest Plot
-        # We need to convert the dictionary results into a DataFrame expected by create_forest_plot
-        forest_data = []
-        
-        # Using Multivariate results (AOR) if available, otherwise Univariate (OR)
-        results_to_plot = aor_results if aor_results else or_results
-        
-        for var_name, stats in results_to_plot.items():
-            # Example stats string: "1.05 (1.01-1.09)"
-            # Note: analyze_outcome returns formatted strings, we might need to parse or use raw params
-            # For this test, we simulate extracting from raw params which is more robust
-            pass
+        # Verify analyze_outcome returned results
+        assert or_results is not None or aor_results is not None
 
         # Rerun raw logit to get numerical values for plotting
         params, conf, pvals, status, metrics = run_binary_logit(y, df)
@@ -174,7 +165,7 @@ class TestLogicPipeline:
         
         assert status == "OK"
         assert len(params) == 4  # age, sbp, cholesterol + const
-        assert len(pvals) == 3
+        assert len(pvals) == 4
         assert metrics['mcfadden'] > 0
 
     def test_pipeline_robustness_with_subset(self, sample_medical_data):

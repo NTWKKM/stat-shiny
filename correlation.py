@@ -15,7 +15,6 @@ import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import plotly.graph_objects as go
-import plotly.figure_factory as ff # For annotated heatmaps if needed, but go.Heatmap is faster
 import html as _html
 from typing import Union, Optional, List, Dict, Tuple, Any
 from tabs._common import get_color_palette

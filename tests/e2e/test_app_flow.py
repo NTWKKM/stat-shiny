@@ -15,9 +15,8 @@ Usage:
     pytest tests/e2e/test_app_flow.py -v --slowmo=500        # Slow motion (debug)
 """
 
-from playwright.sync_api import Page, expect
 import pytest
-
+from playwright.sync_api import Page, expect
 # ============================================================================
 # Configuration
 # ============================================================================
@@ -112,12 +111,8 @@ class TestAppFlow:
         # Click the Data Management tab
         page.get_by_role("tab", name="Data Management").click()
         
-        # Verify file upload controls are visible
-        # The upload button might be labeled as "Choose File" or "Upload CSV"
-        upload_button = page.get_by_role("button").filter(has_text="Upload")
-        
         # If upload button not found by text, check for file input
-        # This is more flexible for different button labels
+        # This is flexible for different implementations
         elements = page.query_selector_all("input[type='file']")
         assert len(elements) > 0, "File upload input not found on Data Management tab"
 
@@ -144,6 +139,7 @@ def test_page_not_404(page: Page):
     Checks that page loads successfully (doesn't show 404 error)
     """
     response = page.goto(BASE_URL)
+    assert response is not None, "page.goto returned None"
     assert response.status == 200 or response.status == 304, \
         f"Expected 200 or 304, got {response.status}"
 

@@ -8,8 +8,9 @@ Tests the correlation analysis workflow:
 3. Output format verification
 """
 
-import sys
 import os
+import sys
+
 import pytest
 import pandas as pd
 import numpy as np
@@ -89,7 +90,7 @@ class TestCorrelationPipeline:
         # Create non-linear but monotonic relationship (Pearson < Spearman)
         df['var_exp'] = np.exp(df['var_x'])
         
-        corr_matrix, fig = compute_correlation_matrix(
+        corr_matrix, _fig = compute_correlation_matrix(
             df, 
             ['var_x', 'var_exp'],
             method='spearman'
@@ -107,7 +108,7 @@ class TestCorrelationPipeline:
         })
         
         # Should handle NaNs (usually pairwise complete or drop rows)
-        corr_matrix, fig = compute_correlation_matrix(df, ['a', 'b'])
+        corr_matrix, _fig = compute_correlation_matrix(df, ['a', 'b'])
         
         assert corr_matrix is not None
         assert not corr_matrix.empty
@@ -130,7 +131,7 @@ class TestCorrelationPipeline:
         if corr_matrix is not None:
             # If 'category' is present, its correlation should be NaN
             if 'category' in corr_matrix.columns:
-                 assert pd.isna(corr_matrix.loc['var_x', 'category'])
+                assert pd.isna(corr_matrix.loc['var_x', 'category'])
             else:
                 # Or it should be dropped
                 assert 'category' not in corr_matrix.columns

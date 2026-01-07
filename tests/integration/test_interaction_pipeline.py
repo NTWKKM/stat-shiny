@@ -6,9 +6,9 @@ Tests the Interaction Analysis workflow:
 1. Creating interaction terms
 2. End-to-end integration with Logistic Regression
 """
-
-import sys
 import os
+import sys
+
 import pytest
 import pandas as pd
 import numpy as np
@@ -80,7 +80,7 @@ class TestInteractionPipeline:
         int_cols = [c for c in df_model.columns if c not in df.columns]
         
         if not int_cols:
-             pytest.skip("Interaction term creation failed or column name overlap")
+            pytest.skip("Interaction term creation failed or column name overlap")
 
         int_col = int_cols[0]
         
@@ -88,9 +88,9 @@ class TestInteractionPipeline:
         y = df_model['outcome']
         X = df_model[['treatment', 'age', int_col]]
         
-        params, conf, pvals, status, metrics = run_binary_logit(y, X)
+        params, _conf, _pvals, status, metrics = run_binary_logit(y, X)
         
         assert status == "OK"
         assert int_col in params.index
         # Check if model ran successfully
-        assert metrics['mcfadden'] is not None
+        assert not np.isnan(metrics['mcfadden'])

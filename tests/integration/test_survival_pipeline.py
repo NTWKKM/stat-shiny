@@ -3,11 +3,12 @@
 Tests the flow of survival analysis using real calculations (no mocks).
 """
 
-import sys
 import os
-import pytest
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Setup path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -75,7 +76,7 @@ class TestSurvivalPipeline:
         assert 0 <= p_val <= 1
         
         # --- Step 3: Cox Regression ---
-        cph, res_df, data, err = fit_cox_ph(
+        cph, res_df, _data, err = fit_cox_ph(
             df, 'time', 'event', ['age', 'treatment', 'severity']
         )
         
@@ -97,7 +98,7 @@ class TestSurvivalPipeline:
         df = survival_data
         
         # 1. Fit Cox Model
-        cph, res_df, data, err = fit_cox_ph(
+        _cph, res_df, _data, err = fit_cox_ph(
             df, 'time', 'event', ['age', 'treatment', 'severity']
         )
         

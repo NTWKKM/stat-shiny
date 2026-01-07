@@ -8,11 +8,12 @@ Tests the visualization capabilities:
 3. Handling of missing/invalid data
 """
 
-import sys
 import os
-import pytest
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -92,13 +93,6 @@ class TestForestPlotLib:
         """🚫 Test handling of empty input"""
         df_empty = pd.DataFrame(columns=['Subgroup', 'Level', 'Est', 'Lower', 'Upper'])
         
-        # Depending on implementation, might return None or Empty Fig
-        # Assuming it handles gracefully
-        try:
-            fig = create_forest_plot(df_empty)
-            # If it returns a figure, it should probably be empty
-            if fig is not None:
-                assert len(fig.data) == 0
-        except Exception:
-            # If it raises error for empty DF, that's also an acceptable behavior to catch
-            pass
+        # Verify that empty DataFrame raises ValueError
+        with pytest.raises(ValueError, match="empty|no data"):
+            create_forest_plot(df_empty)

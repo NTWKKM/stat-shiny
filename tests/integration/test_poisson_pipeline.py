@@ -8,8 +8,9 @@ Tests the flow of count data analysis:
 3. Rate Ratio (RR) output verification
 """
 
-import sys
 import os
+import sys
+
 import pytest
 import pandas as pd
 import numpy as np
@@ -58,7 +59,7 @@ class TestPoissonPipeline:
         df = count_data
         
         # Run Poisson Model
-        params, conf_int, pvalues, status_msg, stats_dict = run_poisson_regression(
+        params, _conf_int, _pvalues, status_msg, _stats_dict = run_poisson_regression(
             df['event_count'],
             df[['exposure', 'age']],
             offset=df['time_at_risk']
@@ -73,19 +74,32 @@ class TestPoissonPipeline:
         assert params['exposure'] != 0
 
     def test_negative_binomial_flow(self, count_data):
-        """🔄 Test Negative Binomial Regression (Alternative model)"""
-        # Note: Poisson lib current implementation might not support 'model_type' in run_poisson_regression
-        # If it doesn't, we just test the standard flow for now or skip if not available
+        """🔄 Test Negative Binomial Regression for overdispersed data"""
         df = count_data
-        
-        params, conf_int, pvalues, status_msg, stats_dict = run_poisson_regression(
-            df['event_count'],
-            df[['exposure', 'age']],
-            offset=df['time_at_risk']
+    
+        # Introduce overdispersion by adding extra variability
+        np.random.seed(56)
+        overdispersed_counts = df['event_count'] + np.random.negative_binomial(2, 0.3, len(df))
+        df_overdispersed = df.copy()
+        df_overdispersed['event_count'] = overdispersed_counts
+    
+        # Run Negative Binomial Model
+        params, conf_int, pvalues, status_msg, stats_dict = run_negative_binomial_regression(
+            df_overdispersed['event_count'],
+            df_overdispersed[['exposure', 'age']],
+            offset=df_overdispersed['time_at_risk']
         )
-        
-        assert status_msg == "OK"
-        assert params is not None
+    
+        assert status_msg == "OK", f"NB regression failed: {status_msg}"
+        assert params is not None, "NB params should not be None"
+        assert 'exposure' in params.index, "Exposure parameter missing"
+    
+        # Check that alpha (dispersion) parameter exists and is meaningful
+        assert 'alpha' in stats_dict, "Dispersion parameter missing"
+        assert pd.notna(stats_dict['alpha']), "Alpha should not be NaN"
+    
+        # Compare AICs: NB should fit better for overdispersed data
+        # (Optional: compare with Poisson AIC if you want to verify NB is better)
 
     def test_zero_inflation_handling(self):
         """⚠️ Test handling of data with no events"""
