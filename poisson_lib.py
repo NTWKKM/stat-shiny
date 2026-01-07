@@ -336,7 +336,55 @@ def analyze_poisson_outcome(
         p_screen = res.get('p_comp', np.nan)
         if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
             candidates.append(col)
+
+#Binomial regression
+def run_negative_binomial_regression(
+    y: Union[pd.Series, np.ndarray],
+    X: pd.DataFrame,
+    offset: Optional[Union[pd.Series, np.ndarray]] = None
+) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
+    """
+    Fit Negative Binomial regression model (handles overdispersion better than Poisson).
     
+    Args:
+        y: Count outcome variable
+        X: Predictor variables (DataFrame)
+        offset: Exposure offset (optional, for rate calculations)
+    
+    Returns:
+        tuple: (params, conf_int, pvalues, status_msg, stats_dict)
+    """
+    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan, "alpha": np.nan}
+    
+    try:
+        X_const = sm.add_constant(X, has_constant='add')
+        
+        # Fit Negative Binomial GLM
+        if offset is not None:
+            model = sm.GLM(y, X_const, family=sm.families.NegativeBinomial(), offset=offset)
+        else:
+            model = sm.GLM(y, X_const, family=sm.families.NegativeBinomial())
+        
+        result = model.fit(disp=0)
+        
+        # Calculate fit statistics including dispersion parameter
+        try:
+            stats_metrics = {
+                "deviance": result.deviance,
+                "pearson_chi2": result.pearson_chi2,
+                "aic": result.aic,
+                "bic": result.bic,
+                "alpha": result.scale  # Dispersion parameter
+            }
+        except (AttributeError, ZeroDivisionError) as e:
+            logger.debug(f"Failed to calculate NB fit stats: {e}")
+        
+        return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
+    
+    except Exception as e:
+        logger.exception("Negative Binomial regression failed")
+        return None, None, None, str(e), stats_metrics
+
     # ===================================================================
     # 🔗 MULTIVARIATE ANALYSIS WITH INTERACTIONS
     # ===================================================================
