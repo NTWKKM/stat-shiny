@@ -8,11 +8,12 @@ Tests Propensity Score Matching flow:
 3. Balance Assessment (SMD Calculation)
 """
 
-import sys
 import os
-import pytest
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -106,9 +107,8 @@ class TestPSMPipeline:
         # We just check the calculation ran correctly
         assert isinstance(avg_smd_post, float)
 
-    def test_love_plot_generation(self, psm_data):
+    def test_love_plot_generation(self):
         """📊 Test Love Plot generation"""
-        df = psm_data
         covariates = ['age', 'severity']
         
         # Generate dummy SMD data

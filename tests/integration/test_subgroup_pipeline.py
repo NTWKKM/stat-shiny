@@ -5,11 +5,12 @@ File: tests/integration/test_subgroup_pipeline.py
 Tests subgroup analysis using the SubgroupAnalysisLogit class.
 """
 
-import sys
 import os
-import pytest
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -67,9 +68,9 @@ class TestSubgroupAnalysisPipeline:
         assert analyzer.results is not None
         assert len(analyzer.results) > 0
         
-        # Check formatted results
-        assert hasattr(analyzer, 'formatted_results')
-        assert len(analyzer.formatted_results) > 0
+        # Check stats computed from results
+        assert analyzer.stats is not None
+        assert 'n_overall' in analyzer.stats
 
     def test_subgroup_forest_plot_generation(self, subgroup_data):
         """📊 Test Forest Plot creation from analyzer"""
@@ -92,11 +93,11 @@ class TestSubgroupAnalysisPipeline:
         """🚫 Test handling of invalid columns"""
         df = subgroup_data
         
-        # Non-existent outcome
-        with pytest.raises(Exception): # Assuming it raises error or handles it
-            analyzer = SubgroupAnalysisLogit(
-                df=df,
-                outcome='non_existent',
-                predictors=['treatment']
+        # Non-existent columns should raise ValueError
+        analyzer = SubgroupAnalysisLogit(df=df)
+        with pytest.raises(ValueError, match="Missing columns"):
+            analyzer.analyze(
+                outcome_col='non_existent',
+                treatment_col='treatment',
+                subgroup_col='gender'
             )
-            analyzer.run_analysis(['gender'])

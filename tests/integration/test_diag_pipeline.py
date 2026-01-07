@@ -3,20 +3,21 @@
 Tests Chi-square, ROC, and Reliability analysis flow.
 """
 
-import sys
 import os
-import pytest
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Setup path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from diag_test import (
-    calculate_chi2,
     analyze_roc,
-    calculate_kappa,
-    calculate_icc
+    calculate_chi2,
+    calculate_icc,
+    calculate_kappa
 )
 
 pytestmark = pytest.mark.integration
@@ -32,12 +33,22 @@ class TestDiagnosticPipeline:
             'disease_status': np.random.choice([0, 1], n, p=[0.7, 0.3]),
             'risk_group': np.random.choice(['Low', 'High'], n),
             'test_score': np.random.normal(0, 1, n),
-            # Raters for agreement
+            # Raters for agreement (binary)
             'doctor_A': np.random.choice([0, 1], n),
-            'doctor_B': np.random.choice([0, 1], n)
+            'doctor_B': np.random.choice([0, 1], n),
+            # Raters for ICC (continuous ratings)
+            'rater_1': np.random.uniform(1, 5, n),
+            'rater_2': np.random.uniform(1, 5, n),
+            'rater_3': np.random.uniform(1, 5, n)
         })
         # Add correlation for ROC
         df.loc[df['disease_status'] == 1, 'test_score'] += 1.5
+        # Add some correlation between raters for ICC
+        df['rater_2'] = df['rater_1'] + np.random.normal(0, 0.5, n)
+        df['rater_3'] = df['rater_1'] + np.random.normal(0, 0.7, n)
+        # Clip to valid range
+        df['rater_2'] = df['rater_2'].clip(1, 5)
+        df['rater_3'] = df['rater_3'].clip(1, 5)
         return df
 
     def test_chi_square_flow(self, diagnostic_data):
@@ -84,3 +95,18 @@ class TestDiagnosticPipeline:
         assert err is None
         assert stats_df is not None
         assert "Cohen's Kappa" in stats_df['Statistic'].values
+
+    def test_icc_flow(self, diagnostic_data):
+        """🔄 Test Intraclass Correlation Coefficient (ICC)"""
+        df = diagnostic_data
+        
+        # Select continuous rating columns for ICC
+        rater_cols = ['rater_1', 'rater_2', 'rater_3']
+        
+        stats_df, err = calculate_icc(df, rater_cols)
+        
+        assert err is None
+        assert stats_df is not None
+        assert not stats_df.empty
+        # Check that ICC statistic is present in results
+        assert any('ICC' in str(val) for val in stats_df.values.flatten())

@@ -389,7 +389,7 @@ def corr_server(
 
     @reactive.Effect
     @reactive.event(input.btn_run_corr)
-    def _run_correlation():
+    def _run_correlation() -> None:
         """Run pairwise correlation analysis."""
         data = current_df()
 
@@ -478,7 +478,7 @@ def corr_server(
     
     @reactive.Effect
     @reactive.event(input.btn_run_matrix)
-    def _run_matrix():
+    def _run_matrix() -> None:
         """Run correlation matrix and heatmap generation."""
         data = current_df()
         
@@ -507,15 +507,16 @@ def corr_server(
             })
             ui.notification_show("Heatmap generated!", type="default")
         else:
-             ui.notification_show("Failed to generate matrix", type="error")
+            matrix_result.set(None)
+            ui.notification_show("Failed to generate matrix", type="error")
 
     @render.ui
     def out_matrix_result():
         """Display matrix/heatmap results."""
         result = matrix_result.get()
         if result is None:
-             return ui.markdown("*Results will appear here after clicking '🎨 Generate Heatmap'*")
-             
+            return ui.markdown("*Results will appear here after clicking '🎨 Generate Heatmap'*")
+
         return ui.card(
             ui.card_header("Heatmap"),
             ui.output_ui("out_heatmap_html"),
