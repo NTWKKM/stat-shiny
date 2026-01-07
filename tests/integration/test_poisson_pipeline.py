@@ -18,7 +18,7 @@ import numpy as np
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from poisson_lib import run_poisson_regression
+from poisson_lib import run_poisson_regression, run_negative_binomial_regression
 
 # Mark as integration test
 pytestmark = pytest.mark.integration

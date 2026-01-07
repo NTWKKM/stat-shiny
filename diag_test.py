@@ -1019,11 +1019,11 @@ def calculate_icc(df: pd.DataFrame, cols: List[str]) -> Tuple[Optional[pd.DataFr
         ]
         anova_df = pd.DataFrame(anova_data)
         
-        return results_df, None, anova_df
+        return results_df, "OK"
         
     except Exception as e:
         logger.error(f"ICC calculation failed: {e}")
-        return None, str(e), None
+        return None, str(e)
 
 
 def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, _col_var_name: str = '') -> str:
