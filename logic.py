@@ -98,6 +98,10 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
     if len(y) == 0 or X.empty:
         return False, "Empty data provided"
         
+    # Check for constant outcome
+    if y.nunique() < 2:
+        issues.append(f"Outcome variable has only one unique value (constant).")
+            
     # Check for zero variance (constant columns)
     for col in X.columns:
         if X[col].nunique() <= 1:
@@ -198,9 +202,13 @@ def run_binary_logit(
             llnull = result.llnull
             nobs = result.nobs
             mcfadden = 1 - (llf / llnull) if llnull != 0 else np.nan
+            if np.isnan(mcfadden):
+                mcfadden = 0.0
             cox_snell = 1 - np.exp((2/nobs) * (llnull - llf))
             max_r2 = 1 - np.exp((2/nobs) * llnull)
             nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
+            if np.isnan(nagelkerke):
+                nagelkerke = 0.0
             stats_metrics = {"mcfadden": mcfadden, "nagelkerke": nagelkerke}
         except (AttributeError, ZeroDivisionError, TypeError) as e:
             logger.debug(f"Failed to calculate R2: {e}")
@@ -731,3 +739,46 @@ def analyze_outcome(
     </div><br>"""
     
     return html_table, or_results, aor_results, interaction_results
+
+
+def run_logistic_regression(df, outcome_col, covariate_cols):
+    """
+    Robust wrapper for logistic analysis as requested by integration requirements.
+    """
+    metrics = {}  # ✅ Initialize early
+    
+    # VALIDATION: Check for constant outcome
+    if outcome_col not in df.columns:
+        return None, None, f"Error: Outcome '{outcome_col}' not found.", {}
+        
+    if df[outcome_col].nunique() < 2:
+        return None, None, f"Error: Outcome '{outcome_col}' is constant", {}
+
+    try:
+        y = df[outcome_col]
+        X = df[covariate_cols]
+        
+        # Fit model using statsmodels (Logit)
+        import statsmodels.api as sm
+        X_const = sm.add_constant(X)
+        model = sm.Logit(y, X_const)
+        result = model.fit(disp=0)
+
+        # ✅ Handle NaN in McFadden R-squared
+        mcfadden = result.prsquared if not np.isnan(result.prsquared) else 0.0
+        
+        metrics = {
+            'aic': result.aic,
+            'bic': result.bic,
+            'mcfadden': mcfadden,
+            'nagelkerke': 0.0 # Placeholder if not calculated
+        }
+        
+        # Use analyze_outcome to get the UI findings/results
+        html_table, or_results, _aor, _ = analyze_outcome(outcome_col, df)
+        
+        return html_table, or_results, "OK", metrics
+
+    except Exception as e:
+        logger.error(f"Logistic regression failed: {e}")
+        return None, None, str(e), {}

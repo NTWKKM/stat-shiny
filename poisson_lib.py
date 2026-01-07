@@ -344,22 +344,15 @@ def run_negative_binomial_regression(
     offset: Optional[Union[pd.Series, np.ndarray]] = None
 ) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
     """
-    Fit Negative Binomial regression model (handles overdispersion better than Poisson).
-    
-    Args:
-        y: Count outcome variable
-        X: Predictor variables (DataFrame)
-        offset: Exposure offset (optional, for rate calculations)
-    
-    Returns:
-        tuple: (params, conf_int, pvalues, status_msg, stats_dict)
+    Fit Negative Binomial regression (alternative to Poisson for overdispersed data).
     """
-    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan, "alpha": np.nan}
+    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan}
     
     try:
+        import statsmodels.api as sm
         X_const = sm.add_constant(X, has_constant='add')
         
-        # Fit Negative Binomial GLM
+        # Use NegativeBinomial family
         if offset is not None:
             model = sm.GLM(y, X_const, family=sm.families.NegativeBinomial(), offset=offset)
         else:
@@ -367,17 +360,12 @@ def run_negative_binomial_regression(
         
         result = model.fit(disp=0)
         
-        # Calculate fit statistics including dispersion parameter
-        try:
-            stats_metrics = {
-                "deviance": result.deviance,
-                "pearson_chi2": result.pearson_chi2,
-                "aic": result.aic,
-                "bic": result.bic,
-                "alpha": result.scale  # Dispersion parameter
-            }
-        except (AttributeError, ZeroDivisionError) as e:
-            logger.debug(f"Failed to calculate NB fit stats: {e}")
+        stats_metrics = {
+            "deviance": result.deviance,
+            "pearson_chi2": result.pearson_chi2,
+            "aic": result.aic,
+            "bic": result.bic if hasattr(result, 'bic') else np.nan
+        }
         
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
     
@@ -782,3 +770,5 @@ def run_negative_binomial_regression(
     </div><br>"""
     
     return html_table, irr_results, airr_results, interaction_results
+# Alias for backward compatibility or different naming conventions
+run_negative_binomial = run_negative_binomial_regression

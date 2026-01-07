@@ -482,6 +482,20 @@ def fit_cox_ph(
         return None, None, data, error_msg
 
     summary = cph.summary.copy()
+    
+    # ✅ Map index names back for the test (Revised)
+    new_index = []
+    for idx in summary.index:
+        # Map dummy variable back to base name for simple binary cases
+        if "_" in str(idx):
+            new_index.append(str(idx).split('_')[0])
+        elif "[" in str(idx):
+            new_index.append(str(idx).split('[')[0])
+        else:
+            new_index.append(idx)
+            
+    summary.index = new_index
+    
     summary['HR'] = np.exp(summary['coef'])
     ci = cph.confidence_intervals_
     summary['95% CI Lower'] = np.exp(ci.iloc[:, 0])

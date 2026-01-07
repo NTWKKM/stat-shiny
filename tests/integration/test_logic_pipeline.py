@@ -73,7 +73,7 @@ class TestLogicPipeline:
         assert valid is True, f"Data validation failed: {msg}"
         
         # Step 2: Run logistic regression
-        params, _conf, _pvals, status, _metrics = run_binary_logit(y, df)
+        params, _conf, _pvals, status, metrics = run_binary_logit(y, df)
         
         # Step 3: Verify output
         assert status == "OK", f"Logit regression failed: {status}"
