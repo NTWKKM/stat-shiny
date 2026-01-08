@@ -770,16 +770,16 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
         model = sm.Logit(y, X_const)
         result = model.fit(disp=0)
         
-        mcfadden = result.prsquared if not np.isnan(result.prsquared) else 0.0
+        mcfadden = result.prsquared if not np.isnan(result.prsquared) else np.nan
         metrics = {
             'aic': result.aic,
             'bic': result.bic,
             'mcfadden': mcfadden,
-            'nagelkerke': 0.0
+            'nagelkerke': np.nan
         }
         
         return html_table, or_results, "OK", metrics
         
     except Exception as e:
-        logger.exception(f"Logistic regression failed")  # Use logger.exception
+        logger.exception("Logistic regression failed")
         return None, None, str(e), {}
