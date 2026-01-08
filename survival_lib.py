@@ -482,6 +482,18 @@ def fit_cox_ph(
         return None, None, data, error_msg
 
     summary = cph.summary.copy()
+    
+    # ✅ Map index names back for the test (Revised)
+    new_index = []
+    for idx in summary.index:
+        # Only strip statsmodels categorical encoding suffix [T.xxx]
+        if "[T." in str(idx) and str(idx).endswith("]"):
+            new_index.append(str(idx).split('[')[0])
+        else:
+            new_index.append(idx)
+    
+    summary.index = new_index
+    
     summary['HR'] = np.exp(summary['coef'])
     ci = cph.confidence_intervals_
     summary['95% CI Lower'] = np.exp(ci.iloc[:, 0])

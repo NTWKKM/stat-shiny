@@ -336,7 +336,43 @@ def analyze_poisson_outcome(
         p_screen = res.get('p_comp', np.nan)
         if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
             candidates.append(col)
+
+#Binomial regression
+def run_negative_binomial_regression(
+    y: Union[pd.Series, np.ndarray],
+    X: pd.DataFrame,
+    offset: Optional[Union[pd.Series, np.ndarray]] = None
+) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
+    """
+    Fit Negative Binomial regression (alternative to Poisson for overdispersed data).
+    """
+    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan}
     
+    try:
+        import statsmodels.api as sm
+        X_const = sm.add_constant(X, has_constant='add')
+        
+        # Use NegativeBinomial family
+        if offset is not None:
+            model = sm.GLM(y, X_const, family=sm.families.NegativeBinomial(), offset=offset)
+        else:
+            model = sm.GLM(y, X_const, family=sm.families.NegativeBinomial())
+        
+        result = model.fit(disp=0)
+        
+        stats_metrics = {
+            "deviance": result.deviance,
+            "pearson_chi2": result.pearson_chi2,
+            "aic": result.aic,
+            "bic": result.bic if hasattr(result, 'bic') else np.nan
+        }
+        
+        return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
+    
+    except Exception as e:
+        logger.exception("Negative Binomial regression failed")
+        return None, None, None, str(e), stats_metrics
+
     # ===================================================================
     # 🔗 MULTIVARIATE ANALYSIS WITH INTERACTIONS
     # ===================================================================
@@ -734,3 +770,5 @@ def analyze_poisson_outcome(
     </div><br>"""
     
     return html_table, irr_results, airr_results, interaction_results
+# Alias for backward compatibility or different naming conventions
+run_negative_binomial = run_negative_binomial_regression
