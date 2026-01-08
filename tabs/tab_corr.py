@@ -11,6 +11,7 @@ Updated: Uses dataset selector pattern like tab_diag.py
 """
 
 from shiny import ui, reactive, render, req, module
+from shinywidgets import output_widget, render_widget  # ✅ Import shinywidgets
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
@@ -493,7 +494,7 @@ def corr_server(
             ui.HTML(interp_html),
 
             ui.card_header("Scatter Plot"),
-            ui.output_ui("out_corr_plot_html"), 
+            output_widget("out_corr_plot_widget"),  # ✅ FIX: Use output_widget instead of ui.output_ui
         )
 
     @render.data_frame
@@ -531,16 +532,14 @@ def corr_server(
         df_display = pd.DataFrame(display_data)
         return render.DataGrid(df_display, width="100%")
 
-    @render.ui
-    def out_corr_plot_html():
-        """Render scatter plot as HTML."""
+    @render_widget  # ✅ FIX: Use @render_widget
+    def out_corr_plot_widget():
+        """Render scatter plot as Widget."""
         result = corr_result.get()
         if result is None or result['figure'] is None:
             return None
 
-        fig = result['figure']
-        html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
-        return ui.HTML(html_str)
+        return result['figure']  # ✅ Return figure directly
     
     @reactive.Effect
     @reactive.event(input.btn_dl_corr)
@@ -681,23 +680,21 @@ def corr_server(
             ui.HTML(summary_html),
             
             ui.card_header("Heatmap"),
-            ui.output_ui("out_heatmap_html"),
+            output_widget("out_heatmap_widget"),  # ✅ FIX: Use output_widget
             
             ui.card_header("Correlation Table"),
             ui.markdown("*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"),
             ui.output_data_frame("out_matrix_table")
         )
         
-    @render.ui
-    def out_heatmap_html():
+    @render_widget  # ✅ FIX: Use @render_widget
+    def out_heatmap_widget():
         """Render heatmap plot."""
         result = matrix_result.get()
         if result is None or result['figure'] is None:
             return None
         
-        fig = result['figure']
-        html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
-        return ui.HTML(html_str)
+        return result['figure']  # ✅ Return figure directly
         
     @render.data_frame
     def out_matrix_table():
