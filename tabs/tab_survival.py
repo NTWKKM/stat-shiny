@@ -1,15 +1,15 @@
 """
-⛳ Survival Analysis Module (Shiny) - MODERN MODULE PATTERN
+⛳ Survival Analysis Module (Shiny) - MODERN MODULE PATTERN (UPDATED)
 
 Provides UI and server logic for:
-- Kaplan-Meier curves with log-rank tests
+- Kaplan-Meier curves with log-rank tests (Enhanced)
 - Nelson-Aalen cumulative hazard curves
+- Survival Probabilities at specific time points (New)
 - Landmark analysis for late endpoints
-- Cox proportional hazards regression
+- Cox proportional hazards regression (with Model Stats)
 - Subgroup analysis for treatment heterogeneity
 
 Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
-for automatic namespace scoping and cleaner code organization.
 """
 
 from shiny import ui, module, reactive, render, req
@@ -75,15 +75,24 @@ def survival_ui() -> ui.TagChild:
                         col_widths=[4, 4, 4]
                     ),
                     
-                    ui.input_radio_buttons(
-                        "plot_type",
-                        "Select Plot Type:",
-                        choices={
-                            "km": "Kaplan-Meier (Survival Function)",
-                            "na": "Nelson-Aalen (Cumulative Hazard)"
-                        },
-                        selected="km",
-                        inline=True
+                    # ✅ NEW: Input for specific time points
+                    ui.layout_columns(
+                        ui.input_radio_buttons(
+                            "plot_type",
+                            "Select Plot Type:",
+                            choices={
+                                "km": "Kaplan-Meier (Survival Function)",
+                                "na": "Nelson-Aalen (Cumulative Hazard)"
+                            },
+                            selected="km",
+                            inline=True
+                        ),
+                        ui.input_text(
+                            "surv_time_points", 
+                            "🕰️ Survival Probability at (comma separated):", 
+                            placeholder="e.g. 12, 36, 60"
+                        ),
+                        col_widths=[6, 6]
                     ),
                     
                     ui.layout_columns(
@@ -92,7 +101,8 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Generate Curve",
                             class_="btn-primary w-100",
                         ),
-                        ui.input_action_button(
+                        # ✅ FIXED: Use download_button
+                        ui.download_button(
                             "btn_dl_curves",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
@@ -130,7 +140,8 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Run Landmark Analysis",
                             class_="btn-primary w-100",
                         ),
-                        ui.input_action_button(
+                        # ✅ FIXED: Use download_button
+                        ui.download_button(
                             "btn_dl_landmark",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
@@ -162,7 +173,8 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Run Cox Model",
                             class_="btn-primary w-100",
                         ),
-                        ui.input_action_button(
+                        # ✅ FIXED: Use download_button
+                        ui.download_button(
                             "btn_dl_cox",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
@@ -217,10 +229,19 @@ def survival_ui() -> ui.TagChild:
                         open=False
                     ),
                     
-                    ui.input_action_button(
-                        "btn_run_sg",
-                        "🚀 Run Subgroup Analysis",
-                        class_="btn-primary w-100"
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_sg",
+                            "🚀 Run Subgroup Analysis",
+                            class_="btn-primary w-100"
+                        ),
+                        # ✅ FIXED: Use download_button
+                        ui.download_button(
+                            "btn_dl_sg",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100"
+                        ),
+                        col_widths=[6, 6]
                     ),
                     
                     ui.output_ui("out_sg_result"),
@@ -352,72 +373,45 @@ def survival_server(
         cols = data.columns.tolist()
         numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
 
-        # --- AUTO-DETECTION LOGIC WITH PRIORITY ---
-        
-        # 1. Detect Time Variables
+        # --- AUTO-DETECTION LOGIC ---
+        # (Same detection logic as before)
         time_keywords = ['time', 'day', 'month', 'year', 'range', 'followup', 'fu']
         default_time = "Select..."
-        
         for kw in time_keywords:
             matched = [c for c in numeric_cols if kw in c.lower()]
             if matched:
                 default_time = matched[0]
                 break
-        
         if default_time == "Select..." and numeric_cols:
             default_time = numeric_cols[0]
 
-        # 2. Detect Event Variables
         event_keywords = ['status', 'event', 'death', 'cure', 'survive', 'died', 'outcome']
         default_event = "Select..."
-        
         for kw in event_keywords:
             matched = [c for c in cols if kw in c.lower()]
             if matched:
                 default_event = matched[0]
                 break
-        
         if default_event == "Select..." and cols:
             default_event = cols[0]
             
-        # 3. Detect compare Variables
+        # Detect groups
         compare_keywords = ['treatment', 'group', 'comorbid', 'comorb', 'dz', 'lab', 'diag', 'sex', 'age']
         default_compare = "Select..."
-        
         for kw in compare_keywords:
             matched = [c for c in cols if kw in c.lower()]
             if matched:
                 default_compare = matched[0]
                 break
         
-        if default_compare == "Select..." and cols:
-            default_compare = cols[0]
-
-        # 4. Detect treatment Variables
-        tx_keywords = ['treatment', 'tx', 'group', 'drug', 'give']
-        default_tx = "Select..."
-        
-        for kw in tx_keywords:
-            matched = [c for c in cols if kw in c.lower()]
-            if matched:
-                default_tx = matched[0]
-                break
-        
-        if default_tx == "Select..." and cols:
-            default_tx = cols[0]
-
-        # 5. Detect subgroup Variables
+        # Detect Subgroup
         subgr_keywords = ['comorbid', 'comorb', 'group', 'control', 'contr', 'ctr', 'dz', 'lab', 'diag', 'sex', 'age']
         default_subgr = "Select..."
-        
         for kw in subgr_keywords:
             matched = [c for c in cols if kw in c.lower()]
             if matched:
                 default_subgr = matched[0]
                 break
-        
-        if default_subgr == "Select..." and cols:
-            default_subgr = cols[0]
             
         # Update UI choices with labels if available
         choices_with_labels = {c: get_label(c) for c in cols}
@@ -437,7 +431,7 @@ def survival_server(
         # Subgroup Analysis
         ui.update_select("sg_time", choices=num_choices_with_labels, selected=default_time)
         ui.update_select("sg_event", choices=choices_with_labels, selected=default_event)
-        ui.update_select("sg_treatment", choices=choices_with_labels, selected=default_tx)
+        ui.update_select("sg_treatment", choices=choices_with_labels, selected=default_compare)
         ui.update_select("sg_subgroup", choices=choices_with_labels, selected=default_subgr)
         ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
 
@@ -458,26 +452,50 @@ def survival_server(
             
         if group_col == "None": 
             group_col = None
+            
+        # ✅ NEW: Parse time points
+        time_points = []
+        if input.surv_time_points():
+            try:
+                parts = input.surv_time_points().split(',')
+                time_points = [float(p.strip()) for p in parts if p.strip()]
+            except ValueError:
+                ui.notification_show("Invalid format for time points (use numbers separated by comma)", type="warning")
         
         try:
             ui.notification_show("Generating curves...", duration=None, id="run_curves")
+            
+            # ✅ NEW: Calculate survival at fixed times if requested
+            surv_at_times_df = None
+            if time_points:
+                surv_at_times_df = survival_lib.calculate_survival_at_times(
+                    data, time_col, event_col, group_col, time_points
+                )
             
             if plot_type == "km":
                 fig, stats = survival_lib.fit_km_logrank(data, time_col, event_col, group_col)
                 medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col)
                 
-                # Merge stats and medians if possible, or just concat
+                # Merge stats and medians
                 if 'Group' in stats.columns and 'Group' in medians.columns:
-                    stats = stats.merge(medians, on='Group', how='outer')
+                    # Rename N and Events to avoid collision or verify they are same
+                    stats = stats.merge(medians, on='Group', how='outer', suffixes=('', '_med'))
+                    # Cleanup duplicate columns if needed
+                    for c in ['N_med', 'Events_med']:
+                        if c in stats.columns:
+                            stats = stats.drop(columns=[c])
                 else:
-                    overlapping = set(stats.columns) & set(medians.columns)
-                    if overlapping:
-                        medians = medians.rename(columns={c: f"{c}_median" for c in overlapping})
+                    # Fallback
                     stats = pd.concat([stats, medians], axis=1)
             else:
                 fig, stats = survival_lib.fit_nelson_aalen(data, time_col, event_col, group_col)
             
-            curves_result.set({'fig': fig, 'stats': stats})
+            curves_result.set({
+                'fig': fig, 
+                'stats': stats, 
+                'surv_at_times': surv_at_times_df,
+                'plot_type': plot_type
+            })
             ui.notification_remove("run_curves")
             
         except Exception as e:
@@ -495,39 +513,54 @@ def survival_server(
                 style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;"
             )
         
-        return ui.card(
+        elements = [
             ui.card_header("📈 Plot"),
             output_widget("out_curves_plot"),
-            ui.card_header("📄 Statistics"),
+            ui.card_header("📄 Summary Statistics"),
             ui.output_data_frame("out_curves_table")
-        )
+        ]
+        
+        # ✅ NEW: Add table for survival at specific times
+        if res.get('surv_at_times') is not None:
+            elements.append(ui.card_header("🕰️ Survival Probability at Specific Times"))
+            elements.append(ui.output_data_frame("out_surv_times_table"))
+            
+        return ui.card(*elements)
 
     @render_widget
     def out_curves_plot():
-        """Render Kaplan-Meier or Nelson-Aalen plot."""
         res = curves_result.get()
         return res['fig'] if res else None
 
     @render.data_frame
     def out_curves_table():
-        """Render curves statistics table."""
         res = curves_result.get()
         return render.DataGrid(res['stats']) if res else None
+
+    @render.data_frame
+    def out_surv_times_table():
+        res = curves_result.get()
+        return render.DataGrid(res['surv_at_times']) if res and res.get('surv_at_times') is not None else None
     
     @render.download(filename="survival_report.html")
     def btn_dl_curves():
         """Download survival curves report."""
         res = curves_result.get()
         if not res:
-            ui.notification_show("No results to download. Run analysis first.", type="warning")
+            yield "No results".encode('utf-8')
             return
         
         elements = [
-            {'type': 'header', 'data': 'Survival Analysis Report'},
+            {'type': 'header', 'data': f"Survival Analysis ({'Kaplan-Meier' if res['plot_type']=='km' else 'Nelson-Aalen'})"},
             {'type': 'plot', 'data': res['fig']},
             {'type': 'header', 'data': 'Statistics'},
             {'type': 'table', 'data': res['stats']}
         ]
+        
+        if res.get('surv_at_times') is not None:
+            elements.append({'type': 'header', 'data': 'Survival Probability at Fixed Times'})
+            elements.append({'type': 'table', 'data': res['surv_at_times']})
+            
         yield survival_lib.generate_report_survival("Survival Analysis", elements)
 
     # ==================== 2. LANDMARK LOGIC ====================
@@ -578,13 +611,11 @@ def survival_server(
 
     @render_widget
     def out_landmark_plot():
-        """Render landmark analysis plot."""
         res = landmark_result.get()
         return res['fig'] if res else None
 
     @render.data_frame
     def out_landmark_table():
-        """Render landmark analysis table."""
         res = landmark_result.get()
         return render.DataGrid(res['stats']) if res else None
 
@@ -592,14 +623,17 @@ def survival_server(
     def btn_dl_landmark():
         """Download landmark analysis report."""
         res = landmark_result.get()
-        if res:
-            elements = [
-                {'type': 'header', 'data': f'Landmark Analysis (t={res["t"]})'},
-                {'type': 'plot', 'data': res['fig']},
-                {'type': 'header', 'data': 'Statistics'},
-                {'type': 'table', 'data': res['stats']}
-            ]
-            yield survival_lib.generate_report_survival("Landmark Analysis", elements)
+        if not res:
+            yield "No results".encode('utf-8')
+            return
+            
+        elements = [
+            {'type': 'header', 'data': f'Landmark Analysis (t={res["t"]})'},
+            {'type': 'plot', 'data': res['fig']},
+            {'type': 'header', 'data': 'Statistics'},
+            {'type': 'table', 'data': res['stats']}
+        ]
+        yield survival_lib.generate_report_survival("Landmark Analysis", elements)
 
     # ==================== 3. COX REGRESSION LOGIC ====================
     @reactive.Effect
@@ -618,8 +652,8 @@ def survival_server(
         try:
             ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
             
-            # 1. Fit Model
-            cph, res_df, clean_data, err = survival_lib.fit_cox_ph(data, time_col, event_col, list(covars))
+            # ✅ NEW: Capture model_stats
+            cph, res_df, clean_data, err, model_stats = survival_lib.fit_cox_ph(data, time_col, event_col, list(covars))
             
             if err:
                 ui.notification_show(err, type="error")
@@ -636,7 +670,8 @@ def survival_server(
                 'results_df': res_df,
                 'forest_fig': forest_fig,
                 'assumptions_text': assump_text,
-                'assumptions_plots': assump_plots
+                'assumptions_plots': assump_plots,
+                'model_stats': model_stats # ✅ NEW
             })
             
             ui.notification_remove("run_cox")
@@ -653,8 +688,21 @@ def survival_server(
         if res is None: 
             return None
         
+        # ✅ NEW: Format Model Stats HTML
+        stats_html = ""
+        if res.get('model_stats'):
+            s = res['model_stats']
+            stats_html = f"""
+            <div style='display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;'>
+                <div><strong>C-index:</strong> {s.get('Concordance Index (C-index)', '-')}</div>
+                <div><strong>AIC:</strong> {s.get('AIC', '-')}</div>
+                <div><strong>Events:</strong> {s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}</div>
+            </div>
+            """
+        
         return ui.card(
             ui.card_header("📄 Cox Results"),
+            ui.HTML(stats_html), # Display stats
             ui.output_data_frame("out_cox_table"),
             
             ui.card_header("🌳 Forest Plot"),
@@ -666,19 +714,16 @@ def survival_server(
 
     @render.data_frame
     def out_cox_table():
-        """Render Cox results table."""
         res = cox_result.get()
         return render.DataGrid(res['results_df']) if res else None
 
     @render_widget
     def out_cox_forest():
-        """Render Cox forest plot."""
         res = cox_result.get()
         return res['forest_fig'] if res else None
 
     @render.ui
     def out_cox_assumptions_ui():
-        """Render Cox assumptions diagnostics."""
         res = cox_result.get()
         if not res: 
             return None
@@ -706,15 +751,27 @@ def survival_server(
     def btn_dl_cox():
         """Download Cox regression report."""
         res = cox_result.get()
-        if res:
-            elements = [
-                {'type': 'header', 'data': 'Cox Proportional Hazards Regression'},
-                {'type': 'table', 'data': res['results_df']},
-                {'type': 'plot', 'data': res['forest_fig']},
-                {'type': 'header', 'data': 'PH Assumptions'},
-                {'type': 'text', 'data': res['assumptions_text']}
-            ]
-            yield survival_lib.generate_report_survival("Cox Regression", elements)
+        if not res:
+            yield "No results".encode('utf-8')
+            return
+
+        elements = [
+            {'type': 'header', 'data': 'Cox Proportional Hazards Regression'},
+        ]
+        
+        # Add model stats to report
+        if res.get('model_stats'):
+            s = res['model_stats']
+            stats_text = f"C-index: {s.get('Concordance Index (C-index)')}, AIC: {s.get('AIC')}, Events: {s.get('Number of Events')}"
+            elements.append({'type': 'text', 'data': stats_text})
+
+        elements.extend([
+            {'type': 'table', 'data': res['results_df']},
+            {'type': 'plot', 'data': res['forest_fig']},
+            {'type': 'header', 'data': 'PH Assumptions'},
+            {'type': 'text', 'data': res['assumptions_text']}
+        ])
+        yield survival_lib.generate_report_survival("Cox Regression", elements)
 
     # ==================== 4. SUBGROUP LOGIC ====================
     @reactive.Effect
@@ -787,13 +844,11 @@ def survival_server(
 
     @render_widget
     def out_sg_forest():
-        """Render subgroup forest plot."""
         res = sg_result.get()
         return res.get('forest_plot') if res else None
         
     @render.data_frame
     def out_sg_table():
-        """Render subgroup interaction table."""
         res = sg_result.get()
         return render.DataGrid(res.get('interaction_table')) if res else None
 
@@ -801,12 +856,15 @@ def survival_server(
     def btn_dl_sg():
         """Download subgroup analysis report."""
         res = sg_result.get()
-        if res:
-            elements = [
-                {'type': 'header', 'data': 'Cox Subgroup Analysis'},
-                {'type': 'plot', 'data': res.get('forest_plot')},
-                {'type': 'header', 'data': 'Results'},
-                {'type': 'table', 'data': res.get('interaction_table')}
-            ]
-            elements = [e for e in elements if e.get('data') is not None]
-            yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
+        if not res:
+            yield "No results".encode('utf-8')
+            return
+            
+        elements = [
+            {'type': 'header', 'data': 'Cox Subgroup Analysis'},
+            {'type': 'plot', 'data': res.get('forest_plot')},
+            {'type': 'header', 'data': 'Results'},
+            {'type': 'table', 'data': res.get('interaction_table')}
+        ]
+        elements = [e for e in elements if e.get('data') is not None]
+        yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
