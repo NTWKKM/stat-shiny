@@ -130,7 +130,7 @@ class SubgroupAnalysisLogit:
             if not param_key:
                 logger.warning(f"Treatment variable '{treatment_col}' dropped from model.")
                 # Depending on requirement, either skip or raise. For integration, let's keep it safe.
-                return []
+                return {}  # Return empty dict to match return type
 
             or_overall = float(np.exp(model_overall.params[param_key]))
             ci_overall = np.exp(model_overall.conf_int().loc[param_key])

@@ -151,10 +151,10 @@ class TestLogicPipeline:
             df_clean[col] = df_clean[col].apply(clean_numeric_value)
         
         # Run pipeline with cleaned data
-        valid, msg = validate_logit_data(y, df_clean)
+        valid, _msg = validate_logit_data(y, df_clean)
         assert valid is True
         
-        params, conf, pvals, status, metrics = run_binary_logit(y, df_clean)
+        _params, _conf, _pvals, status, _metrics = run_binary_logit(y, df_clean)
         assert status == "OK"
 
     def test_pipeline_with_multiple_covariates(self, sample_medical_data):
@@ -181,10 +181,10 @@ class TestLogicPipeline:
         for subset_vars in subsets:
             df_subset = df[subset_vars]
             
-            valid, msg = validate_logit_data(y, df_subset)
+            valid, _msg = validate_logit_data(y, df_subset)
             assert valid is True
             
-            params, conf, pvals, status, metrics = run_binary_logit(y, df_subset)
+            params, _conf, _pvals, status, _metrics = run_binary_logit(y, df_subset)
             assert status == "OK"
             assert len(params) == len(subset_vars) + 1  # Including 'const'
 
@@ -195,7 +195,7 @@ class TestLogicPipeline:
         unique_values = y.unique()
         assert len(unique_values) <= 2
         
-        params, conf, pvals, status, metrics = run_binary_logit(y, df)
+        _params, _conf, _pvals, status, _metrics = run_binary_logit(y, df)
         # run_binary_logit doesn't return n_obs in metrics anymore
         assert status == "OK"
 
@@ -207,7 +207,7 @@ class TestLogicPipeline:
         })
         y = pd.Series([0, 1, 0, 1, 0])
         
-        valid, msg = validate_logit_data(y, df)
+        valid, _msg = validate_logit_data(y, df)
         # Just ensure it doesn't crash and returns valid boolean
         assert isinstance(valid, bool)
 

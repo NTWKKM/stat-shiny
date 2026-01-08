@@ -367,7 +367,7 @@ def create_forest_plot(
     ci_high_col: str = "CI_Upper",
     label_col: str = "Label",
     pval_col: Optional[str] = None,
-    **kwargs
+    **kwargs: Any
 ) -> go.Figure:
     """
     Wrapper for ForestPlot class to maintain compatibility with existing tests.
