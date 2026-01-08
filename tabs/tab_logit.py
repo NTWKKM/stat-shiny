@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import json
 import plotly.graph_objects as go
+import html as html_module  # Add at top if not imported
 from htmltools import HTML, div
 import gc
 from typing import Optional, List, Dict, Any, Tuple, Union, cast
@@ -549,6 +550,7 @@ def logit_server(
 
             try:
                 # Run Logic from logic.py
+                # Note: updated logic.py returns 4 values and html_rep typically includes the plot + css
                 html_rep, or_res, aor_res, interaction_res = analyze_outcome(
                     target, final_df, var_meta=var_meta.get(), method=method,
                     interaction_pairs=interaction_pairs
@@ -558,7 +560,7 @@ def logit_server(
                 logger.exception("Logistic regression error")
                 return
 
-            # Generate Forest Plots using library
+            # Generate Forest Plots using library (for interactive widgets)
             fig_adj = None
             fig_crude = None
 
@@ -579,6 +581,7 @@ def logit_server(
                     )
 
             # Store Results
+            # html_rep from logic.py should be complete with CSS and embedded plot
             logit_res.set({
                 "html": html_rep,
                 "fig_adj": fig_adj,
@@ -687,6 +690,8 @@ def logit_server(
             p.set(message="Running Poisson Regression...", detail="Calculating...")
 
             try:
+                # Run Poisson Logic
+                # Expecting 4 values from the updated poisson_lib.py
                 html_rep, irr_res, airr_res, interaction_res = analyze_poisson_outcome(
                     target, final_df, var_meta=var_meta.get(),
                     offset_col=offset, interaction_pairs=interaction_pairs
@@ -716,9 +721,44 @@ def logit_server(
                         title="<b>Univariable: Crude IRR</b>", x_label="Crude IRR"
                     )
 
+            # --- MANUALLY CONSTRUCT COMPLETE REPORT (Combined Table + Plot) ---
+            # Unlike logic.py, poisson_lib might return just the table HTML.
+            # We inject CSS and append the Forest Plot HTML here to match the requested format.
+            
+            css_link = "<link rel='stylesheet' href='static/styles.css'>"
+            full_poisson_html = f"{css_link}\n{html_rep}"
+            
+            # Append Adjusted Plot if available, else Crude
+            plot_html = ""
+            if fig_adj:
+                plot_html = fig_adj.to_html(full_html=False, include_plotlyjs='cdn')
+                full_poisson_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+            elif fig_crude:
+                plot_html = fig_crude.to_html(full_html=False, include_plotlyjs='cdn')
+                full_poisson_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+
+            # Wrap in standard HTML structure for standalone download correctness
+            # Use a separate variable for the wrapper
+            wrapped_html = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Poisson Regression Report: {html_module.escape(target)}</title>
+            </head>
+            <body>
+                <div class="report-container">
+                    {full_poisson_html}
+                </div>
+            </body>
+            </html>
+            """
+            full_poisson_html = wrapped_html
+
             # Store Results
             poisson_res.set({
-                "html": html_rep,
+                "html": full_poisson_html,
                 "fig_adj": fig_adj,
                 "fig_crude": fig_crude
             })
