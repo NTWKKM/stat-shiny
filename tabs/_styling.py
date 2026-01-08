@@ -619,8 +619,8 @@ def get_shiny_css():
         }}
 
         .shiny-table th, table.dataframe th {{
-            background-color: #f0f2f5 !important; /* สีพื้นหลังเทาอ่อน */
-            color: #1f2328 !important;            /* สีตัวอักษรเข้ม */
+            background-color: #f0f2f5 !important;
+            color: #1f2328 !important;
             font-weight: 600;
         }}
         
