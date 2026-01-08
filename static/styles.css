@@ -589,8 +589,8 @@
         }
 
         .shiny-table th, table.dataframe th {
-            background-color: #f0f2f5 !important;
-            color: #1f2328 !important;
+            background-color: #F9FAFB !important;
+            color: #1F2328 !important;
             font-weight: 600;
         }
         
