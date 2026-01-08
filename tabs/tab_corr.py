@@ -397,8 +397,6 @@ def corr_server(
                     selected=icc_vars # ✅ Auto-selects ICC vars directly
                 )
 
-                logger.info("Auto-detected ICC/Rater variables: %s", icc_vars)
-
     # ❌ REMOVED: out_icc_note function as requested
 
     # ==================== PAIRWISE CORRELATION ====================
