@@ -738,8 +738,24 @@ def generate_table(
             else: 
                 p_val, test_name = calculate_p_continuous(group_vals_list)
             
+            p_val_raw = p_val
+            p_class = "p-not-significant"
+            
+            # ✅ Robust P-value check
+            try:
+                if isinstance(p_val_raw, str):
+                    # Handle "<0.001"
+                    p_float = float(p_val_raw.replace('<', '').strip())
+                else:
+                    p_float = float(p_val_raw)
+                    
+                if p_float < 0.05:
+                    p_class = "p-significant"
+            except (ValueError, TypeError):
+                pass # Keep default
+                
             p_str = format_p(p_val)
-            if isinstance(p_val, float) and p_val < 0.05:
+            if p_class == "p-significant":
                 p_str = f"<span class='p-significant'>{p_str}*</span>"
             else:
                 p_str = f"<span class='p-not-significant'>{p_str}</span>"
