@@ -15,10 +15,9 @@ import numpy as np
 import sys
 import os
 from unittest.mock import MagicMock, PropertyMock
-from poisson_lib import run_poisson_regression, run_negative_binomial_regression
 
 # ============================================================================
-# PATH SETUP & MOCKING
+# PATH SETUP & MOCKING (ย้ายขึ้นมาบนสุด)
 # ============================================================================
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
@@ -99,7 +98,11 @@ sys.modules['sklearn'] = mock_sklearn
 sys.modules['sklearn.metrics'] = mock_metrics
 sys.modules['sklearn.linear_model'] = MagicMock()
 
-# Import modules under test
+# ============================================================================
+# IMPORT MODULES UNDER TEST (Import หลังจากตั้งค่า sys.path และ Mocks แล้ว)
+# ============================================================================
+from poisson_lib import run_poisson_regression, run_negative_binomial_regression
+
 from logic import (
     validate_logit_data, 
     clean_numeric_value, 
