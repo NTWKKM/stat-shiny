@@ -1,11 +1,11 @@
 """
-📈 Correlation & ICC Analysis Module (Enhanced) - UPDATED VERSION
+📈 Correlation & ICC Analysis Module (Enhanced) - FIXED INTERPRETATION
 
 Enhanced Features:
 - Comprehensive statistics (CI, R², effect size)
 - Matrix summary statistics
 - HTML report download for all analyses
-- Detailed interpretations
+- Detailed interpretations (Fixed ICC display issue)
 
 Updated: Uses dataset selector pattern like tab_diag.py
 """
@@ -161,8 +161,6 @@ def corr_ui() -> ui.TagChild:
                 "🔍 Reliability (ICC)",
                 ui.card(
                     ui.card_header("🔍 Intraclass Correlation Coefficient"),
-
-                    # ❌ REMOVED: ui.output_ui("out_icc_note") as requested
 
                     ui.input_selectize(
                         "icc_vars",
@@ -396,8 +394,6 @@ def corr_server(
                     choices=cols,
                     selected=icc_vars # ✅ Auto-selects ICC vars directly
                 )
-
-    # ❌ REMOVED: out_icc_note function as requested
 
     # ==================== PAIRWISE CORRELATION ====================
 
@@ -755,7 +751,7 @@ def corr_server(
         
         yield html_content.encode('utf-8')
 
-    # ==================== ICC ANALYSIS ====================
+    # ==================== ICC ANALYSIS (FIXED INTERPRETATION) ====================
 
     @reactive.Effect
     @reactive.event(input.btn_run_icc)
@@ -802,50 +798,46 @@ def corr_server(
         if result is None:
             return ui.markdown("*Results will appear here after clicking '🔍 Calculate ICC'*")
 
-        # Add interpretation
         res_df = result['results_df']
+        interp_parts = []
         
-        # Extract ICC values for interpretation
-        icc_values = res_df[res_df['Type'].str.contains('ICC', na=False)]['ICC'].values
-        
-        if len(icc_values) > 0:
-            # Get the most common ICC types
-            icc_21 = res_df[res_df['Type'] == 'ICC(2,1)']['ICC'].values
-            icc_31 = res_df[res_df['Type'] == 'ICC(3,1)']['ICC'].values
+        # ✅ FIX: Iterate through all rows to ensure we capture whatever ICC types are returned
+        # This handles cases where column names might be 'ICC1', 'ICC2', 'ICC(2,1)', etc.
+        for i, row in res_df.iterrows():
+            icc_type = str(row.get('Type', 'Unknown'))
+            icc_val = row.get('ICC', 0)
             
-            interp_parts = []
-            if len(icc_21) > 0:
-                icc_val = icc_21[0]
-                if icc_val > 0.90:
-                    strength = "Excellent"
-                    icon = "✅"
-                elif icc_val > 0.75:
-                    strength = "Good"
-                    icon = "👍"
-                elif icc_val > 0.50:
-                    strength = "Moderate"
-                    icon = "⚠️"
-                else:
-                    strength = "Poor"
-                    icon = "❌"
-                interp_parts.append(f"{icon} ICC(2,1) = {icc_val:.3f}: {strength} absolute agreement")
+            # Skip if ICC is NaN
+            if pd.isna(icc_val):
+                continue
+                
+            # Determine strength
+            if icc_val > 0.90:
+                strength = "Excellent"
+                icon = "✅"
+            elif icc_val > 0.75:
+                strength = "Good"
+                icon = "👍"
+            elif icc_val > 0.50:
+                strength = "Moderate"
+                icon = "⚠️"
+            else:
+                strength = "Poor"
+                icon = "❌"
+                
+            # Determine context based on Type name for clearer reading
+            context = ""
+            type_upper = icc_type.upper()
+            if "ICC(2,1)" in icc_type or "ICC2" == type_upper:
+                context = "(Absolute Agreement)"
+            elif "ICC(3,1)" in icc_type or "ICC3" == type_upper:
+                context = "(Consistency)"
+            elif "K" in type_upper:
+                context = "(Average Measures)"
+                
+            interp_parts.append(f"{icon} <strong>{icc_type}</strong> = {icc_val:.3f}: {strength} reliability {context}")
             
-            if len(icc_31) > 0:
-                icc_val = icc_31[0]
-                if icc_val > 0.90:
-                    strength = "Excellent"
-                    icon = "✅"
-                elif icc_val > 0.75:
-                    strength = "Good"
-                    icon = "👍"
-                elif icc_val > 0.50:
-                    strength = "Moderate"
-                    icon = "⚠️"
-                else:
-                    strength = "Poor"
-                    icon = "❌"
-                interp_parts.append(f"{icon} ICC(3,1) = {icc_val:.3f}: {strength} consistency")
-            
+        if interp_parts:
             interp_html = f"""
             <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
                         border-left: 4px solid {COLORS['primary']}; 
@@ -909,33 +901,19 @@ def corr_server(
         
         # Add ICC interpretation
         res_df = result['results_df']
-        icc_21 = res_df[res_df['Type'] == 'ICC(2,1)']['ICC'].values
-        icc_31 = res_df[res_df['Type'] == 'ICC(3,1)']['ICC'].values
-        
         interp_text = []
-        if len(icc_21) > 0:
-            icc_val = icc_21[0]
-            if icc_val > 0.90:
-                strength = "Excellent"
-            elif icc_val > 0.75:
-                strength = "Good"
-            elif icc_val > 0.50:
-                strength = "Moderate"
-            else:
-                strength = "Poor"
-            interp_text.append(f"ICC(2,1) = {icc_val:.3f}: {strength} absolute agreement between raters/methods")
         
-        if len(icc_31) > 0:
-            icc_val = icc_31[0]
-            if icc_val > 0.90:
-                strength = "Excellent"
-            elif icc_val > 0.75:
-                strength = "Good"
-            elif icc_val > 0.50:
-                strength = "Moderate"
-            else:
-                strength = "Poor"
-            interp_text.append(f"ICC(3,1) = {icc_val:.3f}: {strength} consistency in ranking between raters/methods")
+        for i, row in res_df.iterrows():
+            icc_type = str(row.get('Type', 'Unknown'))
+            icc_val = row.get('ICC', 0)
+            if pd.isna(icc_val): continue
+            
+            if icc_val > 0.90: strength = "Excellent"
+            elif icc_val > 0.75: strength = "Good"
+            elif icc_val > 0.50: strength = "Moderate"
+            else: strength = "Poor"
+            
+            interp_text.append(f"{icc_type} = {icc_val:.3f} ({strength})")
         
         if interp_text:
             elements.append({
