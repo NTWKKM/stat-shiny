@@ -1,14 +1,18 @@
 """
-📋 Correlation & Statistical Association Module (Shiny Compatible) - UPDATED
+📋 Correlation & Statistical Association Module (Enhanced) - UPDATED
 
 Provides functions for:
-- Pearson/Spearman correlation analysis (Pairwise & Matrix)
+- Pearson/Spearman correlation analysis with enhanced statistics
+- Correlation Matrix with summary statistics
 - Chi-square and Fisher's exact tests for categorical data
 - Interactive Plotly visualizations (Scatter Plots & Heatmaps)
-- HTML report generation
+- Comprehensive HTML report generation
 
-Note: Removed Streamlit dependencies, now Shiny-compatible
-OPTIMIZATIONS: Batch numeric conversion (2x), single crosstab reuse (4x)
+Enhanced Features:
+- Confidence intervals for correlations
+- R-squared and effect size
+- Matrix summary statistics
+- Detailed interpretations
 """
 
 import pandas as pd
@@ -21,6 +25,67 @@ from tabs._common import get_color_palette
 
 # Get unified color palette
 COLORS = get_color_palette()
+
+
+def _compute_correlation_ci(r: float, n: int, confidence: float = 0.95) -> Tuple[float, float]:
+    """
+    Compute confidence interval for correlation coefficient using Fisher's Z transformation.
+    
+    Args:
+        r: Correlation coefficient
+        n: Sample size
+        confidence: Confidence level (default 0.95)
+        
+    Returns:
+        tuple: (lower_ci, upper_ci)
+    """
+    if abs(r) >= 1.0 or n < 4:
+        return (np.nan, np.nan)
+    
+    # Fisher's Z transformation
+    z = 0.5 * np.log((1 + r) / (1 - r))
+    se = 1 / np.sqrt(n - 3)
+    
+    # Z critical value
+    z_crit = stats.norm.ppf((1 + confidence) / 2)
+    
+    # CI in Z space
+    z_lower = z - z_crit * se
+    z_upper = z + z_crit * se
+    
+    # Transform back to r space
+    r_lower = (np.exp(2 * z_lower) - 1) / (np.exp(2 * z_lower) + 1)
+    r_upper = (np.exp(2 * z_upper) - 1) / (np.exp(2 * z_upper) + 1)
+    
+    return (r_lower, r_upper)
+
+
+def _interpret_correlation(r: float) -> str:
+    """
+    Interpret correlation strength.
+    
+    Args:
+        r: Correlation coefficient
+        
+    Returns:
+        str: Interpretation
+    """
+    abs_r = abs(r)
+    
+    if abs_r >= 0.9:
+        strength = "Very Strong"
+    elif abs_r >= 0.7:
+        strength = "Strong"
+    elif abs_r >= 0.5:
+        strength = "Moderate"
+    elif abs_r >= 0.3:
+        strength = "Weak"
+    else:
+        strength = "Very Weak/Negligible"
+    
+    direction = "Positive" if r >= 0 else "Negative"
+    
+    return f"{strength} {direction}"
 
 
 def calculate_chi2(
@@ -196,11 +261,13 @@ def calculate_correlation(
     method: str = 'pearson'
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[go.Figure]]:
     """
-    OPTIMIZED: Compute correlation between two numeric variables (Pairwise).
+    ENHANCED: Compute correlation with comprehensive statistics.
     
-    Optimizations:
-    - Batch numeric conversion (2x faster)
-    - Vectorized operations
+    New Features:
+    - Confidence intervals (95%)
+    - R-squared (coefficient of determination)
+    - Effect size interpretation
+    - Sample size assessment
     
     Args:
         df (pd.DataFrame): Source dataframe
@@ -210,7 +277,7 @@ def calculate_correlation(
         
     Returns:
         tuple: (result_dict, error_msg, plotly_figure)
-            - result_dict: Dict with Method, Coefficient, P-value, N
+            - result_dict: Enhanced statistics dictionary
             - error_msg: Error message or None
             - plotly_figure: Interactive scatter plot or None
     """
@@ -226,6 +293,7 @@ def calculate_correlation(
     
     v1 = data_numeric[col1]
     v2 = data_numeric[col2]
+    n = len(data_numeric)
     
     if method == 'pearson':
         corr, p = stats.pearsonr(v1, v2)
@@ -233,6 +301,19 @@ def calculate_correlation(
     else:
         corr, p = stats.spearmanr(v1, v2)
         name = "Spearman"
+    
+    # Calculate additional statistics
+    ci_lower, ci_upper = _compute_correlation_ci(corr, n)
+    r_squared = corr ** 2
+    interpretation = _interpret_correlation(corr)
+    
+    # Sample size assessment
+    if n < 30:
+        sample_note = "Small sample (n<30) - interpret with caution"
+    elif n < 100:
+        sample_note = "Moderate sample size"
+    else:
+        sample_note = "Large sample size - results are reliable"
     
     # Create Plotly figure
     fig = go.Figure()
@@ -273,7 +354,7 @@ def calculate_correlation(
     # Update layout
     fig.update_layout(
         title={
-            'text': f'{col1} vs {col2}<br><sub>{name} correlation (r={corr:.3f}, p={p:.4f})</sub>',
+            'text': f'{col1} vs {col2}<br><sub>{name} r={corr:.3f} (95% CI: [{ci_lower:.3f}, {ci_upper:.3f}]), p={p:.4f}</sub>',
             'x': 0.5,
             'xanchor': 'center'
         },
@@ -290,16 +371,34 @@ def calculate_correlation(
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     
-    return {"Method": name, "Coefficient": corr, "P-value": p, "N": len(data_numeric)}, None, fig
+    # Return enhanced results
+    result = {
+        "Method": name,
+        "Coefficient (r)": corr,
+        "95% CI Lower": ci_lower,
+        "95% CI Upper": ci_upper,
+        "R-squared (R²)": r_squared,
+        "P-value": p,
+        "N": n,
+        "Interpretation": interpretation,
+        "Sample Note": sample_note
+    }
+    
+    return result, None, fig
 
 
 def compute_correlation_matrix(
     df: pd.DataFrame, 
     cols: List[str], 
     method: str = 'pearson'
-) -> Tuple[Optional[pd.DataFrame], Optional[go.Figure]]:
+) -> Tuple[Optional[pd.DataFrame], Optional[go.Figure], Optional[Dict[str, Any]]]:
     """
-    NEW: Compute correlation matrix and generate heatmap.
+    ENHANCED: Compute correlation matrix with summary statistics.
+    
+    New Features:
+    - Summary statistics (mean, max, min correlations)
+    - Count of significant correlations
+    - Strongest/weakest pairs identification
     
     Args:
         df (pd.DataFrame): Source dataframe
@@ -307,10 +406,10 @@ def compute_correlation_matrix(
         method (str): 'pearson' or 'spearman'
         
     Returns:
-        tuple: (corr_matrix, heatmap_figure)
+        tuple: (corr_matrix, heatmap_figure, summary_stats)
     """
     if not cols or len(cols) < 2:
-        return None, None
+        return None, None, None
         
     # Filter and convert to numeric
     data = df[cols].apply(pd.to_numeric, errors='coerce')
@@ -321,16 +420,83 @@ def compute_correlation_matrix(
     # Round for display
     corr_matrix_rounded = corr_matrix.round(3)
     
-    # Create Heatmap
-    # Using red-white-blue scale (Red=Positive, Blue=Negative)
+    # Calculate p-values for all pairs
+    n = len(data.dropna())
+    p_values = pd.DataFrame(index=cols, columns=cols, dtype=float)
+    
+    for i, col_i in enumerate(cols):
+        for j, col_j in enumerate(cols):
+            if i == j:
+                p_values.iloc[i, j] = 1.0  # Diagonal is always 1
+            elif i > j:
+                # Use symmetric property
+                p_values.iloc[i, j] = p_values.iloc[j, i]
+            else:
+                # Calculate p-value
+                data_pair = data[[col_i, col_j]].dropna()
+                if len(data_pair) >= 3:
+                    if method == 'pearson':
+                        _, p = stats.pearsonr(data_pair[col_i], data_pair[col_j])
+                    else:
+                        _, p = stats.spearmanr(data_pair[col_i], data_pair[col_j])
+                    p_values.iloc[i, j] = p
+                else:
+                    p_values.iloc[i, j] = np.nan
+    
+    # Compute summary statistics (excluding diagonal)
+    # Get upper triangle excluding diagonal
+    mask = np.triu(np.ones_like(corr_matrix, dtype=bool), k=1)
+    upper_triangle = corr_matrix.where(mask)
+    upper_triangle_flat = upper_triangle.values[mask]
+    
+    # P-values for upper triangle
+    p_upper_triangle = p_values.where(mask)
+    p_flat = p_upper_triangle.values[mask]
+    
+    # Summary statistics
+    summary = {
+        "n_variables": len(cols),
+        "n_correlations": len(upper_triangle_flat),
+        "mean_correlation": float(np.mean(np.abs(upper_triangle_flat))),
+        "max_correlation": float(np.max(np.abs(upper_triangle_flat))),
+        "min_correlation": float(np.min(np.abs(upper_triangle_flat))),
+        "n_significant": int(np.sum(p_flat < 0.05)),
+        "pct_significant": float(np.sum(p_flat < 0.05) / len(p_flat) * 100)
+    }
+    
+    # Find strongest positive and negative
+    max_idx = np.unravel_index(np.argmax(upper_triangle.values, axis=None), upper_triangle.shape)
+    min_idx = np.unravel_index(np.argmin(upper_triangle.values, axis=None), upper_triangle.shape)
+    
+    summary["strongest_positive"] = f"{cols[max_idx[0]]} ↔ {cols[max_idx[1]]} (r={corr_matrix.iloc[max_idx]:.3f})"
+    summary["strongest_negative"] = f"{cols[min_idx[0]]} ↔ {cols[min_idx[1]]} (r={corr_matrix.iloc[min_idx]:.3f})"
+    
+    # Create Heatmap with significance markers
     colorscale = [
         [0.0, 'rgb(49, 54, 149)'],
         [0.5, 'rgb(255, 255, 255)'],
         [1.0, 'rgb(165, 0, 38)']
     ]
     
-    # Prepare text for heatmap cells
-    text_values = corr_matrix_rounded.values.astype(str)
+    # Prepare text with significance markers
+    text_values = []
+    for i in range(len(cols)):
+        row_text = []
+        for j in range(len(cols)):
+            r_val = corr_matrix_rounded.iloc[i, j]
+            p_val = p_values.iloc[i, j]
+            
+            if i == j:
+                row_text.append(f"{r_val}")
+            elif p_val < 0.001:
+                row_text.append(f"{r_val}***")
+            elif p_val < 0.01:
+                row_text.append(f"{r_val}**")
+            elif p_val < 0.05:
+                row_text.append(f"{r_val}*")
+            else:
+                row_text.append(f"{r_val}")
+        text_values.append(row_text)
     
     fig = go.Figure(data=go.Heatmap(
         z=corr_matrix.values,
@@ -343,22 +509,27 @@ def compute_correlation_matrix(
         texttemplate="%{text}",
         textfont={"size": 10},
         hoverongaps=False,
-        hovertemplate='X: %{x}<br>Y: %{y}<br>Corr: %{z:.3f}<extra></extra>'
+        hovertemplate='X: %{x}<br>Y: %{y}<br>Corr: %{z:.3f}<extra></extra>',
+        colorbar=dict(
+            title="Correlation",
+            tickvals=[-1, -0.5, 0, 0.5, 1],
+            ticktext=["-1.0", "-0.5", "0", "0.5", "1.0"]
+        )
     ))
     
     fig.update_layout(
         title={
-            'text': f'{method.title()} Correlation Matrix',
+            'text': f'{method.title()} Correlation Matrix<br><sub>* p<0.05, ** p<0.01, *** p<0.001</sub>',
             'x': 0.5,
             'xanchor': 'center'
         },
         height=600,
         width=700,
         xaxis={'side': 'bottom'},
-        yaxis={'autorange': 'reversed'} # To match matrix layout (top-left is [0,0])
+        yaxis={'autorange': 'reversed'}
     )
     
-    return corr_matrix_rounded, fig
+    return corr_matrix_rounded, fig, summary
 
 
 def generate_report(
@@ -366,7 +537,14 @@ def generate_report(
     elements: List[Dict[str, Any]]
 ) -> str:
     """
-    Generate HTML report from elements.
+    Generate comprehensive HTML report from elements.
+    
+    Args:
+        title (str): Report title
+        elements (list): List of report elements with 'type', 'data', 'header'
+        
+    Returns:
+        str: Complete HTML document
     """
     primary_color = COLORS['primary']
     primary_dark = COLORS['primary_dark']
@@ -416,7 +594,9 @@ def generate_report(
             color: white;
             font-weight: 600;
         }}
-        /* Contingency Table Specific Styling - Clean Dark Navy Theme */
+        table tr:hover td {{
+            background-color: #f8f9fa;
+        }}
         .contingency-table {{
             border: 1px solid #dee2e6;
             margin: 24px 0;
@@ -431,14 +611,12 @@ def generate_report(
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 12px 18px;
         }}
-        /* Index cells (first column) */
         .contingency-table tbody th {{
             background-color: {primary_dark};
             color: white !important;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }}
-        /* Data cells */
         .contingency-table td {{
             background-color: white;
             color: {text_color};
@@ -471,13 +649,33 @@ def generate_report(
             border-radius: 4px;
         }}
         .interpretation {{
-            background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
+            background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%);
             border-left: 4px solid {primary_color};
             padding: 14px 15px;
             margin: 16px 0;
             border-radius: 5px;
             line-height: 1.7;
             color: {text_color};
+            font-weight: 500;
+        }}
+        .summary-box {{
+            background: linear-gradient(135deg, #fff3e0 0%, #f8f9fa 100%);
+            border: 2px solid #ff9800;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }}
+        .summary-box h3 {{
+            color: #e65100;
+            margin-top: 0;
+            font-size: 1.2em;
+        }}
+        .note-box {{
+            background-color: #fff9e6;
+            border-left: 4px solid #ffc107;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
         }}
         .report-footer {{
             text-align: center;
@@ -512,7 +710,13 @@ def generate_report(
                 html += f"<p>{_html.escape(text_str)}</p>"
         
         elif element_type == 'interpretation':
-            html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
+            html += f"<div class='interpretation'>📊 {_html.escape(str(data))}</div>"
+        
+        elif element_type == 'summary':
+            html += f"<div class='summary-box'>{str(data)}</div>"
+        
+        elif element_type == 'note':
+            html += f"<div class='note-box'>💡 {_html.escape(str(data))}</div>"
         
         elif element_type in ('table', 'contingency_table', 'contingency'):
             if hasattr(data, 'to_html'):
@@ -525,6 +729,6 @@ def generate_report(
             if hasattr(data, 'to_html'):
                 html += data.to_html(full_html=False, include_plotlyjs='cdn')
     
-    html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
+    html += "<div class='report-footer'>© 2025 Statistical Analysis Report | Generated by Enhanced Correlation Module</div>"
     html += "</body>\n</html>"
     return html
