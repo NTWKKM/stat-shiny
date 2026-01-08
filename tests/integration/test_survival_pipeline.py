@@ -6,20 +6,21 @@ Tests the flow of survival analysis using real calculations (no mocks).
 import os
 import sys
 
+# Setup path before local imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import numpy as np
 import pandas as pd
 import pytest
-
-# Setup path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from survival_lib import (
     calculate_median_survival,
     fit_km_logrank,
     fit_cox_ph,
-    fit_nelson_aalen
+    fit_nelson_aalen,
 )
-from forest_plot_lib import create_forest_plot  # Import forest plot lib for integration
+
+from forest_plot_lib import create_forest_plot
 
 pytestmark = pytest.mark.integration
 
@@ -127,7 +128,9 @@ class TestSurvivalPipeline:
         
         assert fig is not None
         assert hasattr(fig, 'layout')
-        assert "Cox Regression" in fig.layout.title.text
+        title = fig.layout.title
+        title_text = title.text if hasattr(title, 'text') else str(title)
+        assert "Cox Regression" in title_text
         
         # Verify data points are plotted (traces exist)
         assert len(fig.data) > 0
@@ -151,7 +154,9 @@ class TestSurvivalPipeline:
     
         # Verify stats DataFrame structure
         assert not stats_df.empty
-        assert 'Group' in stats_df.columns or len(stats_df.columns) > 0
+        assert 'Group' in stats_df.columns
+        assert 'N' in stats_df.columns
+        assert 'Events' in stats_df.columns
     
         # Test without grouping (overall)
         fig_overall, stats_overall = fit_nelson_aalen(df, 'time', 'event', None)
