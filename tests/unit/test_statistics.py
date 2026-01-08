@@ -58,6 +58,10 @@ type(mock_kmf.return_value).confidence_interval_ = PropertyMock(return_value=moc
 mock_cph = MagicMock()
 mock_cph_inst = mock_cph.return_value
 
+# --- FIX: Error #2 - Define concordance_index_ as a float for format string ---
+mock_cph_inst.concordance_index_ = 0.85 
+# ----------------------------------------------------------------------------
+
 # Mock summary DataFrame
 mock_cph_inst.summary = pd.DataFrame({
     'coef': [0.5, 0.2], 
@@ -809,10 +813,19 @@ class TestCoxRegression:
     
     def test_fit_cox_ph_basic(self, dummy_df):
         """✅ Test Cox regression."""
-        cph, res_df, data, err = fit_cox_ph(
+        # --- FIX: Adjusted to accept 5 return values (using *rest to be safe) ---
+        # Original: cph, res_df, data, err = fit_cox_ph(...)
+        # New: Using unpacking to handle potential 5th value
+        result = fit_cox_ph(
             dummy_df, 'time', 'event', ['age', 'exposure']
         )
         
+        if len(result) == 4:
+            cph, res_df, data, err = result
+        else:
+             # Assuming 5 values based on user requirement
+            cph, res_df, data, err, _ = result
+
         if cph is not None:
             if res_df is not None:
                 assert isinstance(res_df, pd.DataFrame)
@@ -825,9 +838,17 @@ class TestCoxRegression:
         df = dummy_df.copy()
         df['event'] = 0  # All censored
         
-        cph, res_df, data, err = fit_cox_ph(
+        # --- FIX: unpack flexibly ---
+        result = fit_cox_ph(
             df, 'time', 'event', ['age', 'exposure']
         )
+        
+        # We expect this to fail (cph is None), so we just check the error message
+        # But we must unpack safely to check the values
+        if len(result) == 4:
+            cph, res_df, data, err = result
+        else:
+            cph, res_df, data, err, _ = result
         
         assert cph is None
         assert err is not None
@@ -835,9 +856,15 @@ class TestCoxRegression:
     
     def test_fit_cox_ph_missing_columns(self, dummy_df):
         """✅ Test Cox with missing columns."""
-        cph, res_df, data, err = fit_cox_ph(
+        # --- FIX: unpack flexibly ---
+        result = fit_cox_ph(
             dummy_df, 'nonexistent_time', 'event', ['age']
         )
+        
+        if len(result) == 4:
+            cph, res_df, data, err = result
+        else:
+            cph, res_df, data, err, _ = result
         
         assert cph is None
         assert err is not None
@@ -920,9 +947,16 @@ class TestIntegrationScenarios:
         assert stats is not None
         
         # Step 3: Cox regression
-        cph, res_df, _, err = fit_cox_ph(
+        # --- FIX: unpack flexibly ---
+        result = fit_cox_ph(
             dummy_df, 'time', 'event', ['age', 'exposure']
         )
+        
+        if len(result) == 4:
+            cph, res_df, _, err = result
+        else:
+            cph, res_df, _, err, _ = result
+
         assert cph is not None or err is not None
     
     def test_full_logistic_workflow(self, dummy_df):
