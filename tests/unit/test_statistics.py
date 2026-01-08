@@ -9,14 +9,16 @@ Tests all core statistical functions across:
 Run with: pytest tests/unit/test_statistics.py -v
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-import sys
 import os
+import sys
 import warnings
-from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 from unittest.mock import MagicMock, PropertyMock
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 
 # ============================================================================
 # PATH SETUP & MOCKING (ย้ายขึ้นมาบนสุด)
