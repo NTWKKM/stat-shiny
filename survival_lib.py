@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 from lifelines import KaplanMeierFitter, CoxPHFitter, NelsonAalenFitter
 from lifelines.statistics import logrank_test, multivariate_logrank_test, proportional_hazard_test
-from lifelines.utils import median_survival_times 
+from lifelines.utils import median_survival_times
 import plotly.graph_objects as go
 import plotly.express as px
 import warnings
@@ -45,7 +45,8 @@ def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
     for col in cols:
         if pd.api.types.is_numeric_dtype(data[col]):
             unique_vals = data[col].dropna().unique()
-            if len(unique_vals) <= 2 and set(unique_vals).issubset({0, 1}):
+            # Preserve binary columns (0/1) or (-1/1)
+            if len(unique_vals) <= 2 and set(unique_vals).issubset({0, 1, 0.0, 1.0, -1, -1.0}):
                 continue
             
             std = data[col].std()
@@ -58,11 +59,16 @@ def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
 def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     """
     Convert hex color to RGBA string for Plotly.
+    Handles both 6-digit (#RRGGBB) and 3-digit (#RGB) hex codes.
     """
     hex_color = str(hex_color).lstrip('#')
+    if len(hex_color) == 3:
+        hex_color = "".join([c*2 for c in hex_color])
+        
     if len(hex_color) != 6:
         # Fallback to a default color if hex is invalid
         return f'rgba(31, 119, 180, {alpha})'
+        
     rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     return f'rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})'
 
@@ -115,7 +121,8 @@ def calculate_survival_at_times(
         kmf = KaplanMeierFitter()
         try:
             kmf.fit(df_g[duration_col], df_g[event_col], label=label)
-            max_time = df_g[duration_col].max()
+            if kmf.survival_function_.empty:
+                continue
         except Exception:
             continue
         
@@ -127,7 +134,6 @@ def calculate_survival_at_times(
             upper = np.nan
             
             # Check if time t is within reasonable bounds (or slightly after)
-            # If t is way beyond max follow-up, prediction is unreliable but usually carries forward the last value
             try:
                 # 1. Get Survival Probability
                 surv_prob = kmf.predict(float(t))
@@ -144,12 +150,14 @@ def calculate_survival_at_times(
                         lower, upper = 1.0, 1.0 # Before study starts, everyone alive
                     else:
                         # Find index closest to t
-                        idx = ci_df.index.get_indexer([t], method='pad')[0]
-                        if idx == -1: # Should not happen if t >= min
-                             lower, upper = np.nan, np.nan
+                        idx_arr = ci_df.index.get_indexer([t], method='pad')
+                        if len(idx_arr) > 0 and idx_arr[0] != -1:
+                            idx = idx_arr[0]
+                            lower = ci_df.iloc[idx, 0]
+                            upper = ci_df.iloc[idx, 1]
                         else:
-                             lower = ci_df.iloc[idx, 0]
-                             upper = ci_df.iloc[idx, 1]
+                            # Fallback if indexer fails
+                            lower, upper = np.nan, np.nan
                 except Exception:
                      # Fallback mechanism if indexing fails
                      lower, upper = np.nan, np.nan
@@ -237,9 +245,14 @@ def calculate_median_survival(
             
         n = len(df_g)
         
-        # ✅ FIXED: ปรับปรุงการตรวจสอบผลรวมให้ปลอดภัยจาก TypeError
+        # ✅ FIXED: ปรับปรุงการตรวจสอบผลรวมให้ปลอดภัยจาก TypeError และ Ambiguous Series
         event_sum = df_g[event_col].sum()
-        events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+        if hasattr(event_sum, 'item'):
+            events_val = event_sum.item()
+        elif hasattr(event_sum, 'iloc'):
+             events_val = event_sum.iloc[0]
+        else:
+             events_val = event_sum
         
         if n > 0:
             kmf = KaplanMeierFitter()
@@ -458,7 +471,12 @@ def fit_nelson_aalen(
             
             # ✅ FIXED: ปรับปรุงการคำนวณ N และ Events ให้เสถียร
             event_sum = df_g[event_col].sum()
-            events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+            if hasattr(event_sum, 'item'):
+                events_val = event_sum.item()
+            elif hasattr(event_sum, 'iloc'):
+                events_val = event_sum.iloc[0]
+            else:
+                events_val = event_sum
             
             stats_list.append({
                 'Group': label,
@@ -486,6 +504,7 @@ def fit_cox_ph(
     """
     Fit Cox proportional hazards model.
     ✅ ENHANCED: Returns model performance statistics (AIC, C-index).
+    ✅ IMPROVED: Better handling of boolean types and scalar extraction.
     """
     missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
     if missing:
@@ -497,23 +516,33 @@ def fit_cox_ph(
     if len(data) == 0:
         return None, None, data, "No valid data after dropping missing values.", None
 
-    # ✅ FIXED: แก้ไข Ambiguous Series error ด้วยการตรวจสอบผลลัพธ์ของ .sum()
+    # ✅ FIXED: Explicitly convert Boolean columns to Integers to prevent issues with lifelines/pandas
+    bool_cols = data.select_dtypes(include=['bool']).columns
+    for col in bool_cols:
+        data[col] = data[col].astype(int)
+
+    # ✅ FIXED: Check event sum safely
     try:
         event_sum = data[event_col].sum()
-        event_total = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+        if hasattr(event_sum, 'item'):
+            event_total = event_sum.item()
+        elif hasattr(event_sum, 'iloc'):
+             event_total = event_sum.iloc[0]
+        else:
+             event_total = event_sum
         
         if float(event_total) == 0:
             logger.error("No events observed")
             return None, None, data, "No events observed (all censored). CoxPH requires at least one event.", None
     except Exception as e:
         logger.error(f"Error checking event sum: {e}")
-        # Fallback check
         if not (data[event_col].astype(float) == 1).any():
              return None, None, data, "No events found in event column.", None
 
     original_covariate_cols = list(covariate_cols)
     try:
         covars_only = data[covariate_cols]
+        # Identify categorical columns (excluding the ones we just converted from bool to int)
         cat_cols = [c for c in covariate_cols if not pd.api.types.is_numeric_dtype(data[c])]
         
         if cat_cols:
