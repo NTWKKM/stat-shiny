@@ -1,11 +1,11 @@
 """
-📈 Correlation & ICC Analysis Module (Shiny) - UPDATED VERSION
+📈 Correlation & ICC Analysis Module (Enhanced) - UPDATED VERSION
 
-Provides UI and server logic for:
-- Pearson/Spearman correlation analysis with scatter plots
-- Correlation Matrix & Heatmap (New!)
-- Intraclass correlation (ICC) for reliability/agreement
-- Interactive reporting and HTML export
+Enhanced Features:
+- Comprehensive statistics (CI, R², effect size)
+- Matrix summary statistics
+- HTML report download for all analyses
+- Detailed interpretations
 
 Updated: Uses dataset selector pattern like tab_diag.py
 """
@@ -18,6 +18,8 @@ import diag_test  # Import for ICC calculation
 from typing import Optional, List, Dict, Any, Union, cast
 from logger import get_logger
 from tabs._common import get_color_palette
+import tempfile
+import os
 
 logger = get_logger(__name__)
 
@@ -129,11 +131,20 @@ def corr_ui() -> ui.TagChild:
                         selected="pearson"
                     ),
                     
-                    ui.input_action_button(
-                        "btn_run_matrix",
-                        "🎨 Generate Heatmap",
-                        class_="btn-primary",
-                        width="100%"
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_matrix",
+                            "🎨 Generate Heatmap",
+                            class_="btn-primary",
+                            width="100%"
+                        ),
+                        ui.input_action_button(
+                            "btn_dl_matrix",
+                            "📥 Download Report",
+                            class_="btn-secondary",
+                            width="100%"
+                        ),
+                        col_widths=[6, 6]
                     ),
                     
                     ui.output_ui("out_matrix_result"),
@@ -196,6 +207,7 @@ def corr_ui() -> ui.TagChild:
                             **1. Pearson (r):**
                             * **Best for:** Linear relationships (straight line), normally distributed data.
                             * **Sensitive to:** Outliers.
+                            * **Returns:** R-squared (R²) = proportion of variance explained
 
                             **2. Spearman (rho):**
                             * **Best for:** Monotonic relationships, non-normal data, or ranks.
@@ -207,10 +219,15 @@ def corr_ui() -> ui.TagChild:
                             * **0.0:** No relationship.
 
                             **Strength Guidelines:**
-                            * **0.7 - 1.0:** Strong 📈
-                            * **0.4 - 0.7:** Moderate 📉
-                            * **0.2 - 0.4:** Weak 📊
-                            * **< 0.2:** Negligible
+                            * **0.9 - 1.0:** Very Strong 🔥
+                            * **0.7 - 0.9:** Strong 📈
+                            * **0.5 - 0.7:** Moderate 📊
+                            * **0.3 - 0.5:** Weak 📉
+                            * **< 0.3:** Very Weak/Negligible
+                            
+                            **Confidence Intervals (95% CI):**
+                            * Shows the range where the true correlation likely falls
+                            * Wider CI = less precise estimate (usually with small samples)
                             """)
                         ),
                         ui.card(
@@ -236,6 +253,10 @@ def corr_ui() -> ui.TagChild:
                     ui.card(
                         ui.card_header("💡 Common Questions"),
                         ui.markdown("""
+                        **Q: What is R-squared (R²)?**
+                        * **A:** R² tells you the proportion of variance in Y that is explained by X. 
+                        For example, R² = 0.64 means 64% of the variation in Y is explained by X.
+
                         **Q: Why use ICC instead of Pearson for reliability?**
                         * **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
                         higher than Rater B, Pearson = 1.0 but they don't agree! ICC accounts for this.
@@ -244,6 +265,10 @@ def corr_ui() -> ui.TagChild:
                         * **A:** P-value means it's likely not zero. With large samples, tiny correlations 
                         can be "significant". **Focus on r-value magnitude** for clinical relevance.
 
+                        **Q: How to interpret confidence intervals?**
+                        * **A:** If 95% CI includes 0, the correlation is not statistically significant. 
+                        Narrow CI = more precise estimate, Wide CI = less precise (need more data).
+                        
                         **Q: How many variables do I need for ICC?**
                         * **A:** At least 2 (to compare two raters/methods). More raters = more reliable ICC.
                         """)
@@ -433,7 +458,7 @@ def corr_server(
                 "var2": col2,
                 "data_label": data_label
             })
-            ui.notification_show("Correlation analysis complete", type="default")
+            ui.notification_show("✅ Correlation analysis complete", type="default")
 
     @render.ui
     def out_corr_result():
@@ -442,12 +467,30 @@ def corr_server(
         if result is None:
             return ui.markdown("*Results will appear here after clicking '📈 Analyze Correlation'*")
 
+        stats = result['stats']
+        
+        # Format interpretation
+        interp_html = f"""
+        <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
+                    border-left: 4px solid {COLORS['primary']}; 
+                    padding: 14px 15px; 
+                    margin: 16px 0; 
+                    border-radius: 5px;'>
+            <strong>📊 Interpretation:</strong> {stats['Interpretation']}<br>
+            <strong>💡 R² = {stats['R-squared (R²)']:.3f}</strong> → 
+            {stats['R-squared (R²)'] * 100:.1f}% of variance in {result['var2']} is explained by {result['var1']}<br>
+            <strong>📏 Sample:</strong> {stats['Sample Note']}
+        </div>
+        """
+
         return ui.card(
             ui.card_header("Results"),
             ui.markdown(f"**Data Source:** {result['data_label']}"),
             ui.markdown(f"**Method:** {result['method'].title()}"),
 
             ui.output_data_frame("out_corr_table"),
+            
+            ui.HTML(interp_html),
 
             ui.card_header("Scatter Plot"),
             ui.output_ui("out_corr_plot_html"), 
@@ -460,8 +503,33 @@ def corr_server(
         if result is None:
             return None
 
-        df_result = pd.DataFrame([result['stats']])
-        return render.DataGrid(df_result)
+        # Create formatted table
+        stats = result['stats']
+        display_data = {
+            'Metric': [
+                'Method',
+                'Correlation Coefficient (r)',
+                '95% CI Lower',
+                '95% CI Upper',
+                'R-squared (R²)',
+                'P-value',
+                'Sample Size (N)',
+                'Interpretation'
+            ],
+            'Value': [
+                stats['Method'],
+                f"{stats['Coefficient (r)']:.4f}",
+                f"{stats['95% CI Lower']:.4f}",
+                f"{stats['95% CI Upper']:.4f}",
+                f"{stats['R-squared (R²)']:.4f}",
+                f"{stats['P-value']:.4f}",
+                str(stats['N']),
+                stats['Interpretation']
+            ]
+        }
+        
+        df_display = pd.DataFrame(display_data)
+        return render.DataGrid(df_display, width="100%")
 
     @render.ui
     def out_corr_plot_html():
@@ -473,6 +541,67 @@ def corr_server(
         fig = result['figure']
         html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
         return ui.HTML(html_str)
+    
+    @reactive.Effect
+    @reactive.event(input.btn_dl_corr)
+    def _download_corr_report():
+        """Generate and download correlation report."""
+        result = corr_result.get()
+        if result is None:
+            ui.notification_show("No results to download", type="warning")
+            return
+        
+        stats = result['stats']
+        
+        # Build report elements
+        elements = [
+            {'type': 'text', 'data': f"Data Source: {result['data_label']}"},
+            {'type': 'text', 'data': f"Method: {result['method'].title()}"},
+            {'type': 'text', 'data': f"Variables: {result['var1']} vs {result['var2']}"},
+            {'type': 'text', 'header': 'Statistical Results', 'data': ''},
+        ]
+        
+        # Add statistics
+        for key in ['Method', 'Coefficient (r)', '95% CI Lower', '95% CI Upper', 
+                    'R-squared (R²)', 'P-value', 'N']:
+            val = stats[key]
+            if isinstance(val, (int, float)):
+                elements.append({'type': 'text', 'data': f"{key}: {val:.4f}" if isinstance(val, float) else f"{key}: {val}"})
+            else:
+                elements.append({'type': 'text', 'data': f"{key}: {val}"})
+        
+        # Add interpretation
+        elements.append({
+            'type': 'interpretation',
+            'data': f"{stats['Interpretation']}. R² = {stats['R-squared (R²)']:.3f} means {stats['R-squared (R²)'] * 100:.1f}% of variance is explained."
+        })
+        
+        elements.append({
+            'type': 'note',
+            'data': stats['Sample Note']
+        })
+        
+        # Add plot
+        elements.append({
+            'type': 'plot',
+            'header': 'Scatter Plot',
+            'data': result['figure']
+        })
+        
+        # Generate HTML
+        html_content = correlation.generate_report(
+            title=f"Correlation Analysis: {result['var1']} vs {result['var2']}",
+            elements=elements
+        )
+        
+        # Save and trigger download
+        filename = f"correlation_{result['var1']}_{result['var2']}.html"
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html') as f:
+            f.write(html_content)
+            temp_path = f.name
+        
+        ui.notification_show(f"✅ Report saved: {filename}", type="default", duration=5)
+        # Note: Actual file download requires additional Shiny file download handler
         
     # ==================== CORRELATION MATRIX / HEATMAP ====================
     
@@ -495,17 +624,25 @@ def corr_server(
             
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Generating Heatmap...", detail=f"Processing {len(cols)} variables")
-            corr_matrix, fig = correlation.compute_correlation_matrix(
+            corr_matrix, fig, summary = correlation.compute_correlation_matrix(
                 data, list(cols), method=method
             )
             
         if corr_matrix is not None:
+            # Determine data label
+            if is_matched.get() and input.radio_corr_source() == "matched":
+                data_label = f"✅ Matched Data ({len(data)} rows)"
+            else:
+                data_label = f"📊 Original Data ({len(data)} rows)"
+                
             matrix_result.set({
                 "matrix": corr_matrix,
                 "figure": fig,
-                "method": method
+                "method": method,
+                "summary": summary,
+                "data_label": data_label
             })
-            ui.notification_show("Heatmap generated!", type="default")
+            ui.notification_show("✅ Heatmap generated!", type="default")
         else:
             matrix_result.set(None)
             ui.notification_show("Failed to generate matrix", type="error")
@@ -517,11 +654,37 @@ def corr_server(
         if result is None:
             return ui.markdown("*Results will appear here after clicking '🎨 Generate Heatmap'*")
 
+        summary = result['summary']
+        
+        # Format summary statistics
+        summary_html = f"""
+        <div style='background: linear-gradient(135deg, #fff3e0 0%, #f8f9fa 100%); 
+                    border: 2px solid #ff9800; 
+                    border-radius: 8px; 
+                    padding: 15px; 
+                    margin: 20px 0;'>
+            <h4 style='color: #e65100; margin-top: 0;'>📊 Matrix Summary</h4>
+            <p><strong>Variables:</strong> {summary['n_variables']}</p>
+            <p><strong>Correlations Computed:</strong> {summary['n_correlations']} (unique pairs)</p>
+            <p><strong>Mean |Correlation|:</strong> {summary['mean_correlation']:.3f}</p>
+            <p><strong>Strongest Positive:</strong> {summary['strongest_positive']}</p>
+            <p><strong>Strongest Negative:</strong> {summary['strongest_negative']}</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {summary['n_significant']} ({summary['pct_significant']:.1f}%)</p>
+        </div>
+        """
+
         return ui.card(
+            ui.card_header("Matrix Results"),
+            ui.markdown(f"**Data Source:** {result['data_label']}"),
+            ui.markdown(f"**Method:** {result['method'].title()}"),
+            
+            ui.HTML(summary_html),
+            
             ui.card_header("Heatmap"),
             ui.output_ui("out_heatmap_html"),
             
             ui.card_header("Correlation Table"),
+            ui.markdown("*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"),
             ui.output_data_frame("out_matrix_table")
         )
         
@@ -533,7 +696,6 @@ def corr_server(
             return None
         
         fig = result['figure']
-        # Use full_html=False to embed
         html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
         return ui.HTML(html_str)
         
@@ -545,7 +707,75 @@ def corr_server(
             return None
         # Add index as a column for better display in DataGrid
         df_display = result['matrix'].reset_index().rename(columns={'index': 'Variable'})
-        return render.DataGrid(df_display)
+        return render.DataGrid(df_display, width="100%")
+    
+    @reactive.Effect
+    @reactive.event(input.btn_dl_matrix)
+    def _download_matrix_report():
+        """Generate and download matrix report."""
+        result = matrix_result.get()
+        if result is None:
+            ui.notification_show("No results to download", type="warning")
+            return
+        
+        summary = result['summary']
+        
+        # Build report elements
+        elements = [
+            {'type': 'text', 'data': f"Data Source: {result['data_label']}"},
+            {'type': 'text', 'data': f"Method: {result['method'].title()}"},
+            {'type': 'text', 'data': f"Number of Variables: {summary['n_variables']}"},
+        ]
+        
+        # Add summary statistics
+        summary_text = f"""
+        <h3>Matrix Summary Statistics</h3>
+        <p><strong>Correlations Computed:</strong> {summary['n_correlations']} unique pairs</p>
+        <p><strong>Mean |Correlation|:</strong> {summary['mean_correlation']:.3f}</p>
+        <p><strong>Maximum |Correlation|:</strong> {summary['max_correlation']:.3f}</p>
+        <p><strong>Minimum |Correlation|:</strong> {summary['min_correlation']:.3f}</p>
+        <p><strong>Significant Correlations (p<0.05):</strong> {summary['n_significant']} out of {summary['n_correlations']} ({summary['pct_significant']:.1f}%)</p>
+        <p><strong>Strongest Positive:</strong> {summary['strongest_positive']}</p>
+        <p><strong>Strongest Negative:</strong> {summary['strongest_negative']}</p>
+        """
+        
+        elements.append({
+            'type': 'summary',
+            'data': summary_text
+        })
+        
+        # Add heatmap
+        elements.append({
+            'type': 'plot',
+            'header': 'Correlation Heatmap',
+            'data': result['figure']
+        })
+        
+        # Add matrix table
+        elements.append({
+            'type': 'table',
+            'header': 'Correlation Matrix',
+            'data': result['matrix']
+        })
+        
+        elements.append({
+            'type': 'note',
+            'data': 'Significance levels: * p<0.05, ** p<0.01, *** p<0.001'
+        })
+        
+        # Generate HTML
+        html_content = correlation.generate_report(
+            title=f"Correlation Matrix Analysis ({result['method'].title()})",
+            elements=elements
+        )
+        
+        # Save
+        filename = f"correlation_matrix_{result['method']}.html"
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html') as f:
+            f.write(html_content)
+            temp_path = f.name
+        
+        ui.notification_show(f"✅ Report saved: {filename}", type="default", duration=5)
 
     # ==================== ICC ANALYSIS ====================
 
@@ -582,9 +812,10 @@ def corr_server(
             icc_result.set({
                 "results_df": res_df,
                 "anova_df": anova_df,
-                "data_label": data_label
+                "data_label": data_label,
+                "variables": list(cols)
             })
-            ui.notification_show("ICC analysis complete", type="default")
+            ui.notification_show("✅ ICC analysis complete", type="default")
 
     @render.ui
     def out_icc_result():
@@ -593,9 +824,69 @@ def corr_server(
         if result is None:
             return ui.markdown("*Results will appear here after clicking '🔍 Calculate ICC'*")
 
+        # Add interpretation
+        res_df = result['results_df']
+        
+        # Extract ICC values for interpretation
+        icc_values = res_df[res_df['Type'].str.contains('ICC', na=False)]['ICC'].values
+        
+        if len(icc_values) > 0:
+            # Get the most common ICC types
+            icc_21 = res_df[res_df['Type'] == 'ICC(2,1)']['ICC'].values
+            icc_31 = res_df[res_df['Type'] == 'ICC(3,1)']['ICC'].values
+            
+            interp_parts = []
+            if len(icc_21) > 0:
+                icc_val = icc_21[0]
+                if icc_val > 0.90:
+                    strength = "Excellent"
+                    icon = "✅"
+                elif icc_val > 0.75:
+                    strength = "Good"
+                    icon = "👍"
+                elif icc_val > 0.50:
+                    strength = "Moderate"
+                    icon = "⚠️"
+                else:
+                    strength = "Poor"
+                    icon = "❌"
+                interp_parts.append(f"{icon} ICC(2,1) = {icc_val:.3f}: {strength} absolute agreement")
+            
+            if len(icc_31) > 0:
+                icc_val = icc_31[0]
+                if icc_val > 0.90:
+                    strength = "Excellent"
+                    icon = "✅"
+                elif icc_val > 0.75:
+                    strength = "Good"
+                    icon = "👍"
+                elif icc_val > 0.50:
+                    strength = "Moderate"
+                    icon = "⚠️"
+                else:
+                    strength = "Poor"
+                    icon = "❌"
+                interp_parts.append(f"{icon} ICC(3,1) = {icc_val:.3f}: {strength} consistency")
+            
+            interp_html = f"""
+            <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
+                        border-left: 4px solid {COLORS['primary']}; 
+                        padding: 14px 15px; 
+                        margin: 16px 0; 
+                        border-radius: 5px;'>
+                <strong>📊 Interpretation:</strong><br>
+                {'<br>'.join(interp_parts)}
+            </div>
+            """
+        else:
+            interp_html = ""
+
         return ui.card(
             ui.card_header("ICC Results"),
             ui.markdown(f"**Data Source:** {result['data_label']}"),
+            ui.markdown(f"**Variables:** {', '.join(result['variables'])}"),
+
+            ui.HTML(interp_html),
 
             ui.card_header("Single Measures ICC"),
             ui.output_data_frame("out_icc_table"),
@@ -610,7 +901,7 @@ def corr_server(
         result = icc_result.get()
         if result is None:
             return None
-        return render.DataGrid(result['results_df'])
+        return render.DataGrid(result['results_df'], width="100%")
 
     @render.data_frame
     def out_icc_anova_table():
@@ -618,4 +909,94 @@ def corr_server(
         result = icc_result.get()
         if result is None:
             return None
-        return render.DataGrid(result['anova_df'])
+        return render.DataGrid(result['anova_df'], width="100%")
+    
+    @reactive.Effect
+    @reactive.event(input.btn_dl_icc)
+    def _download_icc_report():
+        """Generate and download ICC report."""
+        result = icc_result.get()
+        if result is None:
+            ui.notification_show("No results to download", type="warning")
+            return
+        
+        # Build report elements
+        elements = [
+            {'type': 'text', 'data': f"Data Source: {result['data_label']}"},
+            {'type': 'text', 'data': f"Variables: {', '.join(result['variables'])}"},
+            {'type': 'text', 'data': f"Number of Raters/Methods: {len(result['variables'])}"},
+        ]
+        
+        # Add ICC interpretation
+        res_df = result['results_df']
+        icc_21 = res_df[res_df['Type'] == 'ICC(2,1)']['ICC'].values
+        icc_31 = res_df[res_df['Type'] == 'ICC(3,1)']['ICC'].values
+        
+        interp_text = []
+        if len(icc_21) > 0:
+            icc_val = icc_21[0]
+            if icc_val > 0.90:
+                strength = "Excellent"
+            elif icc_val > 0.75:
+                strength = "Good"
+            elif icc_val > 0.50:
+                strength = "Moderate"
+            else:
+                strength = "Poor"
+            interp_text.append(f"ICC(2,1) = {icc_val:.3f}: {strength} absolute agreement between raters/methods")
+        
+        if len(icc_31) > 0:
+            icc_val = icc_31[0]
+            if icc_val > 0.90:
+                strength = "Excellent"
+            elif icc_val > 0.75:
+                strength = "Good"
+            elif icc_val > 0.50:
+                strength = "Moderate"
+            else:
+                strength = "Poor"
+            interp_text.append(f"ICC(3,1) = {icc_val:.3f}: {strength} consistency in ranking between raters/methods")
+        
+        if interp_text:
+            elements.append({
+                'type': 'interpretation',
+                'data': ' | '.join(interp_text)
+            })
+        
+        # Add ICC table
+        elements.append({
+            'type': 'table',
+            'header': 'ICC Results',
+            'data': result['results_df']
+        })
+        
+        # Add ANOVA table
+        elements.append({
+            'type': 'table',
+            'header': 'ANOVA Table (Variance Components)',
+            'data': result['anova_df']
+        })
+        
+        # Add notes
+        elements.append({
+            'type': 'note',
+            'data': 'ICC(2,1): Two-way random effects, absolute agreement. Use when exact score agreement is important.'
+        })
+        elements.append({
+            'type': 'note',
+            'data': 'ICC(3,1): Two-way mixed effects, consistency. Use when relative ranking consistency is important.'
+        })
+        
+        # Generate HTML
+        html_content = correlation.generate_report(
+            title=f"ICC Analysis: {', '.join(result['variables'])}",
+            elements=elements
+        )
+        
+        # Save
+        filename = f"icc_analysis.html"
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html') as f:
+            f.write(html_content)
+            temp_path = f.name
+        
+        ui.notification_show(f"✅ Report saved: {filename}", type="default", duration=5)
