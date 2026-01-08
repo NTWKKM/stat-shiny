@@ -38,6 +38,10 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
+# ==========================================
+# HELPER FUNCTIONS (Internal)
+# ==========================================
+
 def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
     """
     Standardize numeric columns in-place while preserving binary (0/1) columns.
@@ -86,6 +90,48 @@ def _sort_groups_vectorized(groups: Sequence[Any]) -> List[Any]:
     
     return sorted(groups, key=_sort_key)
 
+
+def _extract_scalar(val: Any) -> float:
+    """
+    Helper to safely extract scalar value from likely 0-dim array or Series.
+    """
+    if hasattr(val, 'item'):
+        return val.item()
+    elif hasattr(val, 'iloc'):
+        return val.iloc[0]
+    return val
+
+
+def _add_ci_trace(fig: go.Figure, 
+                  times: np.ndarray, 
+                  lower: np.ndarray, 
+                  upper: np.ndarray, 
+                  label: str, 
+                  color_hex: str) -> None:
+    """
+    Helper to add a Confidence Interval trace to a Plotly figure.
+    """
+    rgba_color = _hex_to_rgba(color_hex, 0.2)
+    
+    # Vectorized concatenation for polygon shape
+    x_poly = np.concatenate([times, times[::-1]])
+    y_poly = np.concatenate([lower, upper[::-1]])
+    
+    fig.add_trace(go.Scatter(
+        x=x_poly,
+        y=y_poly,
+        fill='toself',
+        fillcolor=rgba_color,
+        line=dict(color='rgba(255,255,255,0)'),
+        hoverinfo="skip", 
+        name=f'{label} 95% CI',
+        showlegend=False
+    ))
+
+
+# ==========================================
+# MAIN FUNCTIONS
+# ==========================================
 
 def calculate_survival_at_times(
     df: pd.DataFrame, 
@@ -149,6 +195,10 @@ def calculate_survival_at_times(
                     if t < ci_df.index.min():
                         lower, upper = 1.0, 1.0 # Before study starts, everyone alive
                     else:
+                        # Ensure sorted index for padding
+                        if not ci_df.index.is_monotonic_increasing:
+                            ci_df = ci_df.sort_index()
+                            
                         # Find index closest to t
                         idx_arr = ci_df.index.get_indexer([t], method='pad')
                         if len(idx_arr) > 0 and idx_arr[0] != -1:
@@ -245,14 +295,8 @@ def calculate_median_survival(
             
         n = len(df_g)
         
-        # ✅ FIXED: ปรับปรุงการตรวจสอบผลรวมให้ปลอดภัยจาก TypeError และ Ambiguous Series
-        event_sum = df_g[event_col].sum()
-        if hasattr(event_sum, 'item'):
-            events_val = event_sum.item()
-        elif hasattr(event_sum, 'iloc'):
-             events_val = event_sum.iloc[0]
-        else:
-             events_val = event_sum
+        # ✅ FIXED: Use helper to extract scalar safely
+        events_val = _extract_scalar(df_g[event_col].sum())
         
         if n > 0:
             kmf = KaplanMeierFitter()
@@ -329,34 +373,27 @@ def fit_km_logrank(
             kmf = KaplanMeierFitter()
             kmf.fit(df_g[duration_col], df_g[event_col], label=label)
 
-            # OPTIMIZATION: Vectorized CI extraction
+            # OPTIMIZATION: Vectorized CI extraction & Plotting using Helper
             ci_exists = hasattr(kmf, 'confidence_interval_') and not kmf.confidence_interval_.empty
             
-            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
-                ci_lower = kmf.confidence_interval_.iloc[:, 0].values
-                ci_upper = kmf.confidence_interval_.iloc[:, 1].values
-                ci_times = kmf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
+            current_color = colors[i % len(colors)]
 
-                # Vectorized CI trace
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]),
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]),
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'),
-                    hoverinfo="skip", 
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
+                _add_ci_trace(
+                    fig=fig,
+                    times=kmf.confidence_interval_.index.values,
+                    lower=kmf.confidence_interval_.iloc[:, 0].values,
+                    upper=kmf.confidence_interval_.iloc[:, 1].values,
+                    label=label,
+                    color_hex=current_color
+                )
             
             fig.add_trace(go.Scatter(
                 x=kmf.survival_function_.index,
                 y=kmf.survival_function_.iloc[:, 0],
                 mode='lines',
                 name=label,
-                line=dict(color=colors[i % len(colors)], width=2),
+                line=dict(color=current_color, width=2),
                 hovertemplate=f'{label}<br>Time: %{{x:.1f}}<br>Surv: %{{y:.3f}}<extra></extra>'
             ))
 
@@ -440,43 +477,30 @@ def fit_nelson_aalen(
             naf = NelsonAalenFitter()
             naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
             
-            # OPTIMIZATION: Vectorized CI extraction
+            # OPTIMIZATION: Vectorized CI extraction & Plotting using Helper
             ci_exists = hasattr(naf, 'confidence_interval_') and not naf.confidence_interval_.empty
+            current_color = colors[i % len(colors)]
 
             if ci_exists and naf.confidence_interval_.shape[1] >= 2:
-                ci_lower = naf.confidence_interval_.iloc[:, 0].values
-                ci_upper = naf.confidence_interval_.iloc[:, 1].values
-                ci_times = naf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
-
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]), 
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]), 
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'), 
-                    hoverinfo="skip", 
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+                _add_ci_trace(
+                    fig=fig,
+                    times=naf.confidence_interval_.index.values,
+                    lower=naf.confidence_interval_.iloc[:, 0].values,
+                    upper=naf.confidence_interval_.iloc[:, 1].values,
+                    label=label,
+                    color_hex=current_color
+                )
 
             fig.add_trace(go.Scatter(
                 x=naf.cumulative_hazard_.index,
                 y=naf.cumulative_hazard_.iloc[:, 0],
                 mode='lines',
                 name=label,
-                line=dict(color=colors[i % len(colors)], width=2)
+                line=dict(color=current_color, width=2)
             ))
             
-            # ✅ FIXED: ปรับปรุงการคำนวณ N และ Events ให้เสถียร
-            event_sum = df_g[event_col].sum()
-            if hasattr(event_sum, 'item'):
-                events_val = event_sum.item()
-            elif hasattr(event_sum, 'iloc'):
-                events_val = event_sum.iloc[0]
-            else:
-                events_val = event_sum
+            # ✅ FIXED: Use helper to extract scalar safely
+            events_val = _extract_scalar(df_g[event_col].sum())
             
             stats_list.append({
                 'Group': label,
@@ -521,15 +545,9 @@ def fit_cox_ph(
     for col in bool_cols:
         data[col] = data[col].astype(int)
 
-    # ✅ FIXED: Check event sum safely
+    # ✅ FIXED: Check event sum safely using helper
     try:
-        event_sum = data[event_col].sum()
-        if hasattr(event_sum, 'item'):
-            event_total = event_sum.item()
-        elif hasattr(event_sum, 'iloc'):
-             event_total = event_sum.iloc[0]
-        else:
-             event_total = event_sum
+        event_total = _extract_scalar(data[event_col].sum())
         
         if float(event_total) == 0:
             logger.error("No events observed")
@@ -810,33 +828,26 @@ def fit_km_landmark(
             kmf = KaplanMeierFitter()
             kmf.fit(df_g[_adj_duration], df_g[event_col], label=label)
 
-            # OPTIMIZATION: Vectorized CI extraction
+            # OPTIMIZATION: Vectorized CI extraction & Plotting using Helper
             ci_exists = hasattr(kmf, 'confidence_interval_') and not kmf.confidence_interval_.empty
-            
-            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
-                ci_lower = kmf.confidence_interval_.iloc[:, 0].values
-                ci_upper = kmf.confidence_interval_.iloc[:, 1].values
-                ci_times = kmf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
+            current_color = colors[i % len(colors)]
 
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]),
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]),
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'),
-                    hoverinfo="skip",
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
+                _add_ci_trace(
+                    fig=fig,
+                    times=kmf.confidence_interval_.index.values,
+                    lower=kmf.confidence_interval_.iloc[:, 0].values,
+                    upper=kmf.confidence_interval_.iloc[:, 1].values,
+                    label=label,
+                    color_hex=current_color
+                )
             
             fig.add_trace(go.Scatter(
                 x=kmf.survival_function_.index,
                 y=kmf.survival_function_.iloc[:, 0],
                 mode='lines',
                 name=label,
-                line=dict(color=colors[i % len(colors)], width=2),
+                line=dict(color=current_color, width=2),
                 hovertemplate=f'{label}<br>Time: %{{x:.1f}}<br>Surv: %{{y:.3f}}<extra></extra>'
             ))
 
