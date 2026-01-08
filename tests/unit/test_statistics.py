@@ -15,7 +15,7 @@ import numpy as np
 import sys
 import os
 import warnings
-rom statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
+from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 from unittest.mock import MagicMock, PropertyMock
 
 # ============================================================================
