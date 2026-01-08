@@ -9,6 +9,9 @@ Tests the complete flow of functions from logic.py AND visualization:
 4. Integration with Forest Plot (forest_plot_lib)
 """
 
+import os
+import sys
+
 import numpy as np
 import pandas as pd
 import pytest
