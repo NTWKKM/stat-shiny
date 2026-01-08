@@ -494,7 +494,7 @@ def analyze_poisson_outcome(
                                      'p_value': int_res.get('p_value')
                                  }
                         except Exception as e:
-                            logger.exception("Failed to format interaction results")
+                            logger.error(f"Failed to format interaction results: {e}")
         
         # ===================================================================
         # 🎨 STYLED HTML GENERATION (WITH INTERACTIONS)
