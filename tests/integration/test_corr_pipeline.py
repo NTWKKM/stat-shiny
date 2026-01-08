@@ -5,7 +5,7 @@ File: tests/integration/test_corr_pipeline.py
 Tests the correlation analysis workflow:
 1. Pearson/Spearman correlation calculation
 2. Handling of non-numeric data
-3. Output format verification
+3. Output format verification (including Summary Stats)
 """
 
 import os
@@ -56,13 +56,14 @@ class TestCorrelationPipeline:
         df = corr_data
         selected_vars = ['var_x', 'var_y', 'var_z', 'var_w']
         
-        # Run calculation
-        corr_matrix, fig = compute_correlation_matrix(
+        # Run calculation - Updated to unpack 3 values (matrix, fig, summary)
+        corr_matrix, fig, summary = compute_correlation_matrix(
             df, 
             selected_vars,
             method='pearson'
         )
         
+        # Check Matrix
         assert corr_matrix is not None
         assert not corr_matrix.empty
         assert corr_matrix.shape == (4, 4)
@@ -83,6 +84,13 @@ class TestCorrelationPipeline:
         # Check if it is a heatmap (check data type)
         assert fig.data[0].type == 'heatmap'
 
+        # Check Summary Stats (New Feature)
+        assert summary is not None
+        assert "n_variables" in summary
+        assert summary["n_variables"] == 4
+        assert "mean_correlation" in summary
+        assert "strongest_positive" in summary
+
     def test_spearman_correlation_flow(self, corr_data):
         """🔄 Test Spearman correlation (Rank-based)"""
         df = corr_data
@@ -90,7 +98,8 @@ class TestCorrelationPipeline:
         # Create non-linear but monotonic relationship (Pearson < Spearman)
         df['var_exp'] = np.exp(df['var_x'])
         
-        corr_matrix, _fig = compute_correlation_matrix(
+        # Updated to unpack 3 values
+        corr_matrix, _fig, _summary = compute_correlation_matrix(
             df, 
             ['var_x', 'var_exp'],
             method='spearman'
@@ -108,7 +117,8 @@ class TestCorrelationPipeline:
         })
         
         # Should handle NaNs (usually pairwise complete or drop rows)
-        corr_matrix, _fig = compute_correlation_matrix(df, ['a', 'b'])
+        # Updated to unpack 3 values
+        corr_matrix, _fig, _summary = compute_correlation_matrix(df, ['a', 'b'])
         
         assert corr_matrix is not None
         assert not corr_matrix.empty
@@ -120,13 +130,12 @@ class TestCorrelationPipeline:
         
         # Pass a numeric and a non-numeric column
         # Our implementation uses coerce, so non-numeric becomes NaN
-        # If a column is ALL NaNs, it might result in NaN correlation or be excluded
         
         cols = ['var_x', 'category']
-        corr_matrix, _ = compute_correlation_matrix(df, cols)
+        # Updated to unpack 3 values
+        corr_matrix, _, _ = compute_correlation_matrix(df, cols)
         
         # In Pandas corr(), non-numeric columns are usually excluded implicitly OR result in NaN
-        # Check that we don't have a valid correlation for 'category'
         
         if corr_matrix is not None:
             # If 'category' is present, its correlation should be NaN
@@ -141,8 +150,10 @@ class TestCorrelationPipeline:
         df = corr_data
         
         # Pass only 1 column
-        corr_matrix, fig = compute_correlation_matrix(df, ['var_x'])
+        # Updated to unpack 3 values
+        corr_matrix, fig, summary = compute_correlation_matrix(df, ['var_x'])
         
-        # Should return None
+        # Should return None for all
         assert corr_matrix is None
         assert fig is None
+        assert summary is None
