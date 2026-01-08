@@ -5,7 +5,7 @@ File: tests/integration/test_poisson_pipeline.py
 Tests the flow of count data analysis:
 1. Poisson Regression
 2. Negative Binomial Regression (for overdispersion)
-3. Rate Ratio (RR) output verification
+3. Edge case handling (zero-inflation)
 """
 
 import os

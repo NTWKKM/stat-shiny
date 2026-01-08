@@ -745,46 +745,37 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
     """
     Robust wrapper for logistic analysis as requested by integration requirements.
     """
-    metrics = {}  # ✅ Initialize early
-    
-    # VALIDATION: Check for constant outcome
+    # Validate outcome
     if outcome_col not in df.columns:
         return None, None, f"Error: Outcome '{outcome_col}' not found.", {}
         
     if df[outcome_col].nunique() < 2:
         return None, None, f"Error: Outcome '{outcome_col}' is constant", {}
-
+    
     try:
+        # Reuse analyze_outcome which handles all the complexity
+        html_table, or_results, aor_results, _ = analyze_outcome(
+            outcome_col,
+            df[covariate_cols + [outcome_col]].copy()
+        )
+        
+        # Extract metrics by fitting minimal model for metrics only
         y = df[outcome_col]
         X = df[covariate_cols]
-        
         X_const = sm.add_constant(X)
         model = sm.Logit(y, X_const)
         result = model.fit(disp=0)
-
-        # ✅ Handle NaN in McFadden R-squared
-        mcfadden = result.prsquared if not np.isnan(result.prsquared) else 0.0
         
+        mcfadden = result.prsquared if not np.isnan(result.prsquared) else 0.0
         metrics = {
             'aic': result.aic,
             'bic': result.bic,
             'mcfadden': mcfadden,
-            'nagelkerke': 0.0  # Placeholder if not calculated
+            'nagelkerke': 0.0
         }
         
-        # Build OR results from fitted model
-        or_results = {}
-        for col in covariate_cols:
-            if col in result.params.index:
-                or_results[col] = {
-                    'or': np.exp(result.params[col]),
-                    'ci_low': np.exp(result.conf_int().loc[col, 0]),
-                    'ci_high': np.exp(result.conf_int().loc[col, 1]),
-                    'p_value': result.pvalues[col]
-                }
+        return html_table, or_results, "OK", metrics
         
-        return None, or_results, "OK", metrics  # html_table optional
-
     except Exception as e:
-        logger.error(f"Logistic regression failed: {e}")
+        logger.exception(f"Logistic regression failed")  # Use logger.exception
         return None, None, str(e), {}
