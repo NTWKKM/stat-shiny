@@ -619,8 +619,8 @@ def get_shiny_css():
         }}
 
         .shiny-table th, table.dataframe th {{
-            background-color: #f0f2f5 !important;
-            color: #1f2328 !important;
+            background-color: {COLORS['background']} !important;
+            color: {COLORS['text']} !important;
             font-weight: 600;
         }}
         
