@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import json
 import plotly.graph_objects as go
+import html as html_module  # Add at top if not imported
 from htmltools import HTML, div
 import gc
 from typing import Optional, List, Dict, Any, Tuple, Union, cast
@@ -737,13 +738,14 @@ def logit_server(
                 full_poisson_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Wrap in standard HTML structure for standalone download correctness
-            full_poisson_html = f"""
+            # Use a separate variable for the wrapper
+            wrapped_html = f"""
             <!DOCTYPE html>
             <html lang="en">
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Poisson Regression Report: {target}</title>
+                <title>Poisson Regression Report: {html_module.escape(target)}</title>
             </head>
             <body>
                 <div class="report-container">
@@ -752,6 +754,7 @@ def logit_server(
             </body>
             </html>
             """
+            full_poisson_html = wrapped_html
 
             # Store Results
             poisson_res.set({
