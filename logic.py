@@ -819,7 +819,7 @@ def analyze_outcome(
                  forest_plot_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
                  # Wrap in container
                  forest_plot_html = f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Forest Plot</h3>{forest_plot_html}</div>"
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to generate forest plot")
         forest_plot_html = ""
     # --- END FIX ---
