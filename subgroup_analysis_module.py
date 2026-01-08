@@ -116,9 +116,25 @@ class SubgroupAnalysisLogit:
             logger.info("Computing overall model...")
             model_overall = logit(formula_base, data=df_clean).fit(disp=0)
             
-            or_overall = float(np.exp(model_overall.params[treatment_col]))
-            ci_overall = np.exp(model_overall.conf_int().loc[treatment_col])
-            p_overall = float(model_overall.pvalues[treatment_col])
+            # Robust parameter lookup for treatment
+            # Statsmodels might rename treatment to treatment[T.1] etc.
+            param_key = None
+            if treatment_col in model_overall.params:
+                param_key = treatment_col
+            else:
+                for k in model_overall.params.index:
+                    if k.startswith(f"{treatment_col}["):
+                        param_key = k
+                        break
+            
+            if not param_key:
+                logger.warning(f"Treatment variable '{treatment_col}' dropped from model.")
+                # Depending on requirement, either skip or raise. For integration, let's keep it safe.
+                return {}  # Return empty dict to match return type
+
+            or_overall = float(np.exp(model_overall.params[param_key]))
+            ci_overall = np.exp(model_overall.conf_int().loc[param_key])
+            p_overall = float(model_overall.pvalues[param_key])
             
             results_list.append({
                 'group': f'Overall (N={len(df_clean)})',

@@ -7,6 +7,7 @@ No Streamlit dependencies - pure statistical functions.
 from typing import TypedDict, Literal, Any, cast, Union, Optional
 import pandas as pd
 import numpy as np
+import re
 import scipy.stats as stats
 import statsmodels.api as sm
 import warnings
@@ -60,6 +61,7 @@ MethodType = Literal["default", "bfgs", "firth", "auto"]
 class StatsMetrics(TypedDict):
     mcfadden: float
     nagelkerke: float
+    p_value: Optional[float]
 
 # Functional syntax for TypedDict to support 'or' as a key
 ORResult = TypedDict("ORResult", {
@@ -98,6 +100,10 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
     if len(y) == 0 or X.empty:
         return False, "Empty data provided"
         
+    # Check for constant outcome
+    if y.nunique() < 2:
+        issues.append("Outcome variable has only one unique value (constant).")
+            
     # Check for zero variance (constant columns)
     for col in X.columns:
         if X[col].nunique() <= 1:
@@ -119,16 +125,38 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
     return True, "OK"
 
 
-def clean_numeric_value(val: Any) -> float:
-    """Convert value to float, removing common non-numeric characters."""
-    if pd.isna(val):
+def clean_numeric_value(val):
+    """
+    Cleans numeric values, handling strings, commas, and comparison operators.
+    Examples:
+        "1,000" -> 1000.0
+        "<0.001" -> 0.001
+        "> 50" -> 50.0
+    """
+    if pd.isna(val) or val == "":
         return np.nan
-    s = str(val).strip()
-    s = s.replace('>', '').replace('<', '').replace(',', '')
-    try:
-        return float(s)
-    except (TypeError, ValueError):
-        return np.nan
+    
+    if isinstance(val, (int, float)):
+        return float(val)
+        
+    if isinstance(val, str):
+        # ลบช่องว่างและคอมม่าออกก่อน
+        val = val.strip().replace(',', '')
+        
+        # ถ้าเป็นตัวเลขอยู่แล้ว แปลงเลย
+        try:
+            return float(val)
+        except ValueError:
+            # ถ้าแปลงไม่ได้ (เช่นติดเครื่องหมาย <, >) ให้ใช้ Regex ดึงเฉพาะตัวเลข (รวมจุดทศนิยม)
+            match = re.search(r"[-+]?\d*\.\d+|\d+", val)
+            if match:
+                try:
+                    return float(match.group())
+                except ValueError:
+                    return np.nan
+            return np.nan
+            
+    return np.nan
 
 
 def _robust_sort_key(x: Any) -> tuple[int, Union[float, str]]:
@@ -201,7 +229,11 @@ def run_binary_logit(
             cox_snell = 1 - np.exp((2/nobs) * (llnull - llf))
             max_r2 = 1 - np.exp((2/nobs) * llnull)
             nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
-            stats_metrics = {"mcfadden": mcfadden, "nagelkerke": nagelkerke}
+            stats_metrics = {
+                "mcfadden": mcfadden, 
+                "nagelkerke": nagelkerke,
+                "p_value": getattr(result, 'llr_pvalue', np.nan)
+            }
         except (AttributeError, ZeroDivisionError, TypeError) as e:
             logger.debug(f"Failed to calculate R2: {e}")
         
@@ -731,3 +763,52 @@ def analyze_outcome(
     </div><br>"""
     
     return html_table, or_results, aor_results, interaction_results
+
+
+def run_logistic_regression(df, outcome_col, covariate_cols):
+    """
+    Robust wrapper for logistic analysis as requested by integration requirements.
+    """
+    # Validate outcome
+    if outcome_col not in df.columns:
+        return None, None, f"Error: Outcome '{outcome_col}' not found.", {}
+        
+    if df[outcome_col].nunique() < 2:
+        return None, None, f"Error: Outcome '{outcome_col}' is constant", {}
+      
+    # Validate covariates
+    missing_cols = [col for col in covariate_cols if col not in df.columns]
+    if missing_cols:
+        return None, None, f"Error: Covariates not found: {', '.join(missing_cols)}", {}
+    
+    if not covariate_cols:
+        return None, None, "Error: No covariates provided", {}
+    
+    try:
+        # Reuse analyze_outcome which handles all the complexity
+        html_table, or_results, _aor_results, _ = analyze_outcome(
+            outcome_col,
+            df[[*covariate_cols, outcome_col]].copy()
+        )
+        
+        # Extract metrics by fitting minimal model for metrics only
+        y = df[outcome_col]
+        X = df[covariate_cols]
+        X_const = sm.add_constant(X)
+        model = sm.Logit(y, X_const)
+        result = model.fit(disp=0)
+        
+        mcfadden = result.prsquared if not np.isnan(result.prsquared) else np.nan
+        metrics = {
+            'aic': result.aic,
+            'bic': result.bic,
+            'mcfadden': mcfadden,
+            'nagelkerke': np.nan,
+            'p_value': getattr(result, 'llr_pvalue', np.nan)
+        }
+        
+        return html_table, or_results, "OK", metrics
+        
+    except Exception as e:
+        logger.exception("Logistic regression failed")
+        return None, None, str(e), {}

@@ -3,6 +3,7 @@
 
 Provides UI and server logic for:
 - Pearson/Spearman correlation analysis with scatter plots
+- Correlation Matrix & Heatmap (New!)
 - Intraclass correlation (ICC) for reliability/agreement
 - Interactive reporting and HTML export
 
@@ -59,9 +60,9 @@ def corr_ui() -> ui.TagChild:
         
         # Main Analysis Tabs
         ui.navset_tab(
-            # TAB 1: Pearson/Spearman Correlation
+            # TAB 1: Pearson/Spearman Correlation (Pairwise)
             ui.nav_panel(
-                "📈 Pearson/Spearman",
+                "📈 Pairwise Correlation",
                 ui.card(
                     ui.card_header("📈 Continuous Correlation Analysis"),
 
@@ -107,7 +108,41 @@ def corr_ui() -> ui.TagChild:
                 )
             ),
 
-            # TAB 2: ICC (Reliability)
+            # TAB 2: Matrix/Heatmap (New!)
+            ui.nav_panel(
+                "📊 Matrix/Heatmap",
+                ui.card(
+                    ui.card_header("📊 Correlation Matrix & Heatmap"),
+                    
+                    ui.input_selectize(
+                        "matrix_vars",
+                        "Select Variables (Multi-select):",
+                        choices=["Select..."],
+                        multiple=True,
+                        selected=[]
+                    ),
+                    
+                    ui.input_select(
+                        "matrix_method",
+                        "Correlation Method:",
+                        choices={"pearson": "Pearson", "spearman": "Spearman"},
+                        selected="pearson"
+                    ),
+                    
+                    ui.input_action_button(
+                        "btn_run_matrix",
+                        "🎨 Generate Heatmap",
+                        class_="btn-primary",
+                        width="100%"
+                    ),
+                    
+                    ui.output_ui("out_matrix_result"),
+                    
+                    full_screen=True
+                )
+            ),
+
+            # TAB 3: ICC (Reliability)
             ui.nav_panel(
                 "🔍 Reliability (ICC)",
                 ui.card(
@@ -145,7 +180,7 @@ def corr_ui() -> ui.TagChild:
                 )
             ),
 
-            # TAB 3: Reference & Interpretation
+            # TAB 4: Reference & Interpretation
             ui.nav_panel(
                 "📖 Reference",
                 ui.card(
@@ -239,8 +274,9 @@ def corr_server(
     
     # ==================== REACTIVE STATES ====================
 
-    corr_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)  # Stores result from correlation analysis
-    icc_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)   # Stores result from ICC analysis
+    corr_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)  # Pairwise result
+    matrix_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None) # Matrix result
+    icc_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)   # ICC result
     numeric_cols_list: reactive.Value[List[str]] = reactive.Value([])  # List of numeric columns
 
     # ==================== DATASET SELECTION LOGIC ====================
@@ -309,14 +345,17 @@ def corr_server(
             numeric_cols_list.set(cols)
 
             if cols:
-                # ✅ Use input ID directly (no ns needed in @module.server)
+                # Pairwise selectors
                 ui.update_select("cv1", choices=cols, selected=cols[0])
                 ui.update_select("cv2", 
                                 choices=cols, 
                                 selected=cols[1] if len(cols) > 1 else cols[0])
 
-                icc_vars = _auto_detect_icc_vars(cols)
+                # Matrix selector
+                ui.update_selectize("matrix_vars", choices=cols, selected=cols[:5]) # Default first 5
 
+                # ICC selector
+                icc_vars = _auto_detect_icc_vars(cols)
                 ui.update_selectize(
                     "icc_vars",
                     choices=cols,
@@ -346,12 +385,12 @@ def corr_server(
             )
         return None
 
-    # ==================== CORRELATION ANALYSIS ====================
+    # ==================== PAIRWISE CORRELATION ====================
 
     @reactive.Effect
     @reactive.event(input.btn_run_corr)
-    def _run_correlation():
-        """Run correlation analysis when button clicked."""
+    def _run_correlation() -> None:
+        """Run pairwise correlation analysis."""
         data = current_df()
 
         if data is None:
@@ -398,7 +437,7 @@ def corr_server(
 
     @render.ui
     def out_corr_result():
-        """Display correlation analysis results."""
+        """Display pairwise correlation results."""
         result = corr_result.get()
         if result is None:
             return ui.markdown("*Results will appear here after clicking '📈 Analyze Correlation'*")
@@ -434,6 +473,79 @@ def corr_server(
         fig = result['figure']
         html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
         return ui.HTML(html_str)
+        
+    # ==================== CORRELATION MATRIX / HEATMAP ====================
+    
+    @reactive.Effect
+    @reactive.event(input.btn_run_matrix)
+    def _run_matrix() -> None:
+        """Run correlation matrix and heatmap generation."""
+        data = current_df()
+        
+        if data is None:
+            ui.notification_show("No data available", type="error")
+            return
+            
+        cols = input.matrix_vars()
+        method = input.matrix_method()
+        
+        if not cols or len(cols) < 2:
+            ui.notification_show("Please select at least 2 variables", type="warning")
+            return
+            
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message="Generating Heatmap...", detail=f"Processing {len(cols)} variables")
+            corr_matrix, fig = correlation.compute_correlation_matrix(
+                data, list(cols), method=method
+            )
+            
+        if corr_matrix is not None:
+            matrix_result.set({
+                "matrix": corr_matrix,
+                "figure": fig,
+                "method": method
+            })
+            ui.notification_show("Heatmap generated!", type="default")
+        else:
+            matrix_result.set(None)
+            ui.notification_show("Failed to generate matrix", type="error")
+
+    @render.ui
+    def out_matrix_result():
+        """Display matrix/heatmap results."""
+        result = matrix_result.get()
+        if result is None:
+            return ui.markdown("*Results will appear here after clicking '🎨 Generate Heatmap'*")
+
+        return ui.card(
+            ui.card_header("Heatmap"),
+            ui.output_ui("out_heatmap_html"),
+            
+            ui.card_header("Correlation Table"),
+            ui.output_data_frame("out_matrix_table")
+        )
+        
+    @render.ui
+    def out_heatmap_html():
+        """Render heatmap plot."""
+        result = matrix_result.get()
+        if result is None or result['figure'] is None:
+            return None
+        
+        fig = result['figure']
+        # Use full_html=False to embed
+        html_str = fig.to_html(full_html=False, include_plotlyjs='cdn')
+        return ui.HTML(html_str)
+        
+    @render.data_frame
+    def out_matrix_table():
+        """Render matrix table."""
+        result = matrix_result.get()
+        if result is None:
+            return None
+        # Add index as a column for better display in DataGrid
+        df_display = result['matrix'].reset_index().rename(columns={'index': 'Variable'})
+        return render.DataGrid(df_display)
 
     # ==================== ICC ANALYSIS ====================
 

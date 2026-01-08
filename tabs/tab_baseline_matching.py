@@ -70,7 +70,7 @@ def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: L
 # ==============================================================================
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
-    return ui.navset_card_tab(
+    return ui.navset_tab(
 
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
         ui.nav_panel(
