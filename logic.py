@@ -202,13 +202,9 @@ def run_binary_logit(
             llnull = result.llnull
             nobs = result.nobs
             mcfadden = 1 - (llf / llnull) if llnull != 0 else np.nan
-            if np.isnan(mcfadden):
-                mcfadden = 0.0
             cox_snell = 1 - np.exp((2/nobs) * (llnull - llf))
             max_r2 = 1 - np.exp((2/nobs) * llnull)
             nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
-            if np.isnan(nagelkerke):
-                nagelkerke = 0.0
             stats_metrics = {"mcfadden": mcfadden, "nagelkerke": nagelkerke}
         except (AttributeError, ZeroDivisionError, TypeError) as e:
             logger.debug(f"Failed to calculate R2: {e}")
@@ -751,12 +747,20 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
         
     if df[outcome_col].nunique() < 2:
         return None, None, f"Error: Outcome '{outcome_col}' is constant", {}
+      
+    # Validate covariates
+    missing_cols = [col for col in covariate_cols if col not in df.columns]
+    if missing_cols:
+        return None, None, f"Error: Covariates not found: {', '.join(missing_cols)}", {}
+    
+    if not covariate_cols:
+        return None, None, "Error: No covariates provided", {}
     
     try:
         # Reuse analyze_outcome which handles all the complexity
-        html_table, or_results, aor_results, _ = analyze_outcome(
+        html_table, or_results, _aor_results, _ = analyze_outcome(
             outcome_col,
-            df[covariate_cols + [outcome_col]].copy()
+            df[[*covariate_cols, outcome_col]].copy()
         )
         
         # Extract metrics by fitting minimal model for metrics only
