@@ -162,7 +162,7 @@ def corr_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("🔍 Intraclass Correlation Coefficient"),
 
-                    ui.output_ui("out_icc_note"),
+                    # ❌ REMOVED: ui.output_ui("out_icc_note") as requested
 
                     ui.input_selectize(
                         "icc_vars",
@@ -374,45 +374,32 @@ def corr_server(
             numeric_cols_list.set(cols)
 
             if cols:
-                # Pairwise selectors
-                ui.update_select("cv1", choices=cols, selected=cols[0])
-                ui.update_select("cv2", 
-                                choices=cols, 
-                                selected=cols[1] if len(cols) > 1 else cols[0])
+                # ✅ FILTER: Filter columns starting with 'lab', 'value', 'values'
+                filtered_cols = [c for c in cols if c.lower().startswith(('lab', 'value', 'values'))]
+                
+                # If no columns match, fallback to all numeric columns
+                final_cols = filtered_cols if filtered_cols else cols
 
-                # Matrix selector
-                ui.update_selectize("matrix_vars", choices=cols, selected=cols[:5]) # Default first 5
+                # Pairwise selectors
+                ui.update_select("cv1", choices=final_cols, selected=final_cols[0])
+                ui.update_select("cv2", 
+                                choices=final_cols, 
+                                selected=final_cols[1] if len(final_cols) > 1 else final_cols[0])
+
+                # Matrix selector (Use all cols or filtered? Usually matrix uses all, but let's default to filtered if available)
+                ui.update_selectize("matrix_vars", choices=cols, selected=cols[:5]) 
 
                 # ICC selector
                 icc_vars = _auto_detect_icc_vars(cols)
                 ui.update_selectize(
                     "icc_vars",
                     choices=cols,
-                    selected=icc_vars 
+                    selected=icc_vars # ✅ Auto-selects ICC vars directly
                 )
 
                 logger.info("Auto-detected ICC/Rater variables: %s", icc_vars)
 
-    # ==================== ICC SELECTION INFO ====================
-
-    @render.ui
-    def out_icc_note():
-        """Display info about auto-detected ICC variables."""
-        data = current_df()
-        if data is None:
-            return None
-
-        cols = data.select_dtypes(include=[np.number]).columns.tolist()
-        icc_vars = _auto_detect_icc_vars(cols)
-
-        if icc_vars:
-            return ui.div(
-                ui.p(
-                    f"👋 Auto-detected variables: {', '.join(icc_vars)}",
-                    style=f"background-color: {COLORS['primary_light']}; padding: 10px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px; font-size: 0.9em;"
-                )
-            )
-        return None
+    # ❌ REMOVED: out_icc_note function as requested
 
     # ==================== PAIRWISE CORRELATION ====================
 
