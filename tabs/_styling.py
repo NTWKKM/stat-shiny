@@ -617,6 +617,12 @@ def get_shiny_css():
         .table tbody tr:hover {{
             background-color: {COLORS['primary_light']};
         }}
+
+        .shiny-table th, table.dataframe th {{
+            background-color: #f0f2f5 !important; /* สีพื้นหลังเทาอ่อน */
+            color: #1f2328 !important;            /* สีตัวอักษรเข้ม */
+            font-weight: 600;
+        }}
         
         /* ===========================
            BADGES & STATUS INDICATORS
