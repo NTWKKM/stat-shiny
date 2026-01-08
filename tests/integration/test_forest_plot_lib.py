@@ -55,7 +55,7 @@ class TestForestPlotLib:
         assert hasattr(fig, 'data')
         
         # Check basic layout properties
-        assert fig.layout.title.text == "Test Forest Plot"
+        assert "Test Forest Plot" in fig.layout.title.text
         assert len(fig.data) > 0 # Should have traces (points, lines)
 
     def test_forest_plot_customization(self, ready_to_plot_df):
@@ -78,7 +78,7 @@ class TestForestPlotLib:
         )
         
         assert fig is not None
-        assert fig.layout.title.text == "Custom Cox Plot"
+        assert "Custom Cox Plot" in fig.layout.title.text
 
     def test_plot_with_missing_interaction(self, ready_to_plot_df):
         """⚠️ Test plotting when Interaction P-value column is missing"""

@@ -54,7 +54,11 @@ class TestLogicPipeline:
         # Binary outcome: disease status (0=no disease, 1=disease)
         prob = 1 / (1 + np.exp(-(0.05 * age + 0.01 * cholesterol - 10)))
         outcome = np.random.binomial(1, prob)
-        
+        # Ensure at least one of each class for model stability
+        if len(np.unique(outcome)) < 2:
+            outcome[0] = 0
+            outcome[1] = 1
+            
         # Create DataFrame
         df = pd.DataFrame({
             'age': age,

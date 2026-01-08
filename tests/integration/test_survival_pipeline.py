@@ -88,7 +88,7 @@ class TestSurvivalPipeline:
         assert 'HR' in res_df.columns  # Hazard Ratio
         assert 'P-value' in res_df.columns   # P-value
         assert 'age' in res_df.index
-        assert 'treatment' in res_df.index
+        assert 'treatment_B' in res_df.index
 
     def test_cox_to_forest_plot_integration(self, survival_data):
         """
@@ -108,13 +108,13 @@ class TestSurvivalPipeline:
         # 2. Prepare Data for Forest Plot
         # fit_cox_ph creates specific column names for CIs
         # We need to map these to what create_forest_plot expects
+        # Rename columns to what ForestPlot module expects (OR/CI_Lower/CI_Upper)
         plot_df = pd.DataFrame({
-            'Subgroup': res_df.index,
-            'Level': [''] * len(res_df),  # Continuous/Binary vars often have no level label in simple Cox
-            'Est': res_df['HR'],
-            # Note: fit_cox_ph outputs '95% CI Lower' and '95% CI Upper'
-            'Lower': res_df['95% CI Lower'],
-            'Upper': res_df['95% CI Upper'],
+            'Label': res_df.index,
+            'Level': [''] * len(res_df),
+            'OR': res_df['HR'],
+            'CI_Lower': res_df['95% CI Lower'],
+            'CI_Upper': res_df['95% CI Upper'],
             'P-value': res_df['P-value']
         })
         

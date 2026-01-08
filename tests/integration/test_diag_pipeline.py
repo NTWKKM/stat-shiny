@@ -103,7 +103,7 @@ class TestDiagnosticPipeline:
         # Select continuous rating columns for ICC
         rater_cols = ['rater_1', 'rater_2', 'rater_3']
         
-        stats_df, err = calculate_icc(df, rater_cols)
+        stats_df, err, *_ = calculate_icc(df, rater_cols)
         
         assert err is None
         assert stats_df is not None

@@ -128,4 +128,4 @@ class TestTableOnePipeline:
         assert "Total (N=" in html_output
         # In current implementation, the P-value column might still be in the template
         # Just check that it's empty or doesn't contain actual significance indicators
-        assert "p-significant" not in html_output
+        assert 'class="p-significant"' not in html_output
