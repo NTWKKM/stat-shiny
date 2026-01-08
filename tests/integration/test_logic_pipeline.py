@@ -9,9 +9,6 @@ Tests the complete flow of functions from logic.py AND visualization:
 4. Integration with Forest Plot (forest_plot_lib)
 """
 
-import os
-import sys
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -111,7 +108,7 @@ class TestLogicPipeline:
         assert or_results is not None or aor_results is not None
 
         # Rerun raw logit to get numerical values for plotting
-        params, conf, pvals, status, metrics = run_binary_logit(y, df)
+        params, conf, pvals, _status, _metrics = run_binary_logit(y, df)
         
         # Construct DataFrame for Forest Plot
         plot_df = pd.DataFrame({
@@ -165,7 +162,7 @@ class TestLogicPipeline:
         """📊 Test pipeline with multiple covariates"""
         df, y = sample_medical_data
         
-        params, conf, pvals, status, metrics = run_binary_logit(y, df)
+        params, _conf, pvals, status, metrics = run_binary_logit(y, df)
         
         assert status == "OK"
         assert len(params) == 4  # age, sbp, cholesterol + const

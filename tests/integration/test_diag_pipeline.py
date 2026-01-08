@@ -55,7 +55,7 @@ class TestDiagnosticPipeline:
         """🔄 Test Contingency Table & Chi-square"""
         df = diagnostic_data
         
-        display_tab, stats_df, msg, risk_df = calculate_chi2(
+        _display_tab, stats_df, _msg, risk_df = calculate_chi2(
             df, 'risk_group', 'disease_status'
         )
         
@@ -72,7 +72,7 @@ class TestDiagnosticPipeline:
         df = diagnostic_data
         
         # Use string for pos_label as per UI input
-        stats, err, fig, coords = analyze_roc(
+        stats, err, _fig, _coords = analyze_roc(
             df, 'disease_status', 'test_score', pos_label_user='1'
         )
         
@@ -88,7 +88,7 @@ class TestDiagnosticPipeline:
         """🔄 Test Cohen's Kappa Agreement"""
         df = diagnostic_data
         
-        stats_df, err, conf_matrix = calculate_kappa(
+        stats_df, err, _conf_matrix = calculate_kappa(
             df, 'doctor_A', 'doctor_B'
         )
         
