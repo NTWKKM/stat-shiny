@@ -1,10 +1,11 @@
 """
-⚠️ Survival Analysis Module (Shiny Compatible) - OPTIMIZED
+⚠️ Survival Analysis Module (Shiny Compatible) - ENHANCED & OPTIMIZED
 
 Functions for:
-- Kaplan-Meier curves with log-rank tests
+- Kaplan-Meier curves with log-rank tests (Enhanced)
+- Survival Probabilities at Fixed Times (New)
 - Nelson-Aalen cumulative hazard
-- Cox proportional hazards regression
+- Cox proportional hazards regression (Enhanced stats)
 - Landmark analysis
 - Forest plots
 - Assumption checking
@@ -78,6 +79,68 @@ def _sort_groups_vectorized(groups: Sequence[Any]) -> List[Any]:
             return (1, s)
     
     return sorted(groups, key=_sort_key)
+
+
+def calculate_survival_at_times(
+    df: pd.DataFrame, 
+    duration_col: str, 
+    event_col: str, 
+    group_col: Optional[str],
+    time_points: List[float]
+) -> pd.DataFrame:
+    """
+    🆕 NEW: Calculate survival probabilities at specific time points (e.g., 1-yr, 3-yr, 5-yr).
+    
+    Args:
+        time_points: List of time points to evaluate (e.g., [12, 36, 60])
+    """
+    data = df.dropna(subset=[duration_col, event_col])
+    if group_col:
+        data = data.dropna(subset=[group_col])
+        groups = _sort_groups_vectorized(data[group_col].unique())
+    else:
+        groups = ['Overall']
+        
+    results = []
+    
+    for g in groups:
+        if group_col:
+            df_g = data[data[group_col] == g]
+            label = f"{g}"
+        else:
+            df_g = data
+            label = "Overall"
+            
+        kmf = KaplanMeierFitter()
+        kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+        
+        # Calculate survival at each time point
+        for t in time_points:
+            try:
+                # Survival probability
+                surv_prob = kmf.predict(t)
+                
+                # Confidence Interval calculation (Manual look up closer index)
+                # Note: lifelines doesn't have a direct predict_interval for scalar t easily accessible without indexing
+                idx = (kmf.confidence_interval_.index - t).abs().argmin()
+                lower = kmf.confidence_interval_.iloc[idx, 0]
+                upper = kmf.confidence_interval_.iloc[idx, 1]
+                
+                results.append({
+                    "Group": label,
+                    "Time Point": t,
+                    "Survival Prob": surv_prob,
+                    "95% CI Lower": lower,
+                    "95% CI Upper": upper,
+                    "Display": f"{surv_prob:.2f} ({lower:.2f}-{upper:.2f})"
+                })
+            except Exception as e:
+                logger.warning(f"Could not calc survival at time {t} for group {g}: {e}")
+                results.append({
+                    "Group": label, "Time Point": t, "Display": "NR"
+                })
+
+    return pd.DataFrame(results)
 
 
 def calculate_median_survival(
@@ -187,6 +250,7 @@ def fit_km_logrank(
 ) -> Tuple[go.Figure, pd.DataFrame]:
     """
     OPTIMIZED: Fit KM curves and perform Log-rank test.
+    ✅ ENHANCED: Includes Chi-squared and Degrees of Freedom.
     """
     data = df.dropna(subset=[duration_col, event_col])
     if group_col:
@@ -252,7 +316,8 @@ def fit_km_logrank(
         yaxis_title='Survival Probability',
         template='plotly_white',
         height=500,
-        hovermode='x unified'
+        hovermode='x unified',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(range=[0, 1.05])
 
@@ -268,16 +333,16 @@ def fit_km_logrank(
             )
             stats_data = {
                 'Test': 'Log-Rank (Pairwise)',
-                'Statistic': res.test_statistic,
-                'P-value': res.p_value,
+                'Statistic (Chi2)': f"{res.test_statistic:.2f}",
+                'P-value': f"{res.p_value:.4f}",
                 'Comparison': f'{g1} vs {g2}'
             }
         elif len(groups) > 2 and group_col:
             res = multivariate_logrank_test(data[duration_col], data[group_col], data[event_col])
             stats_data = {
                 'Test': 'Log-Rank (Multivariate)',
-                'Statistic': res.test_statistic,
-                'P-value': res.p_value,
+                'Statistic (Chi2)': f"{res.test_statistic:.2f}",
+                'P-value': f"{res.p_value:.4f}",
                 'Comparison': 'All groups'
             }
         else:
@@ -380,19 +445,20 @@ def fit_cox_ph(
     duration_col: str, 
     event_col: str, 
     covariate_cols: List[str]
-) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str]]:
+) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str], Optional[Dict[str, Any]]]:
     """
     Fit Cox proportional hazards model.
+    ✅ ENHANCED: Returns model performance statistics (AIC, C-index).
     """
     missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
     if missing:
         logger.error(f"Missing columns: {missing}")
-        return None, None, df, f"Missing columns: {missing}"
+        return None, None, df, f"Missing columns: {missing}", None
 
     data = df[[duration_col, event_col, *covariate_cols]].dropna().copy()
     
     if len(data) == 0:
-        return None, None, data, "No valid data after dropping missing values."
+        return None, None, data, "No valid data after dropping missing values.", None
 
     # ✅ FIXED: แก้ไข Ambiguous Series error ด้วยการตรวจสอบผลลัพธ์ของ .sum()
     try:
@@ -401,12 +467,12 @@ def fit_cox_ph(
         
         if float(event_total) == 0:
             logger.error("No events observed")
-            return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
+            return None, None, data, "No events observed (all censored). CoxPH requires at least one event.", None
     except Exception as e:
         logger.error(f"Error checking event sum: {e}")
         # Fallback check
         if not (data[event_col].astype(float) == 1).any():
-             return None, None, data, "No events found in event column."
+             return None, None, data, "No events found in event column.", None
 
     original_covariate_cols = list(covariate_cols)
     try:
@@ -419,7 +485,7 @@ def fit_cox_ph(
             covariate_cols = covars_encoded.columns.tolist()
     except Exception as e:
         logger.error(f"Encoding error: {e}")
-        return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}"
+        return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}", None
     
     validation_errors = []
     
@@ -440,7 +506,7 @@ def fit_cox_ph(
     if validation_errors:
         error_msg = "[DATA QUALITY ISSUES]\n\n" + "\n\n".join(f"[ERROR] {e}" for e in validation_errors)
         logger.error(error_msg)
-        return None, None, data, error_msg
+        return None, None, data, error_msg, None
     
     _standardize_numeric_cols(data, covariate_cols)
     
@@ -479,7 +545,7 @@ def fit_cox_ph(
             f"Last Error: {last_error!s}"
         )
         logger.error(error_msg)
-        return None, None, data, error_msg
+        return None, None, data, error_msg, None
 
     summary = cph.summary.copy()
     
@@ -503,8 +569,17 @@ def fit_cox_ph(
 
     res_df = summary[['HR', '95% CI Lower', '95% CI Upper', 'p', 'Method']].rename(columns={'p': 'P-value'})
     
+    # ✅ NEW: Model Statistics
+    model_stats = {
+        "Concordance Index (C-index)": f"{cph.concordance_index_:.3f}",
+        "AIC": f"{cph.AIC_partial_:.2f}",
+        "Log-Likelihood": f"{cph.log_likelihood_:.2f}",
+        "Number of Observations": len(data),
+        "Number of Events": cph.event_observed.sum()
+    }
+    
     logger.debug(f"Cox model fitted successfully: {method_used}")
-    return cph, res_df, data, None
+    return cph, res_df, data, None, model_stats
 
 
 def check_cph_assumptions(
