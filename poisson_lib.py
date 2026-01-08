@@ -208,16 +208,16 @@ def analyze_poisson_outcome(
             if pd.isna(val):
                 return "-"
             try:
-                val = float(val)
-                val = max(0, min(1, val))
+                val_f = float(val)
+                val_f = max(0, min(1, val_f))
             except (ValueError, TypeError):
                 return "-"
             else:
-                if val < 0.001:
+                if val_f < 0.001:
                     return "<0.001"
-                if val > 0.999:
+                if val_f > 0.999:
                     return ">0.999"
-                return f"{val:.3f}"
+                return f"{val_f:.3f}"
         
         irr_results = {}
         
@@ -490,7 +490,7 @@ def analyze_poisson_outcome(
                             
                             # ✅ FIX: Merge interaction results into airr_results for forest plot inclusion
                             for int_name, int_res in interaction_results.items():
-                                 label = f"🔗 {int_res.get('label', int_name)}"
+                                label = f"🔗 {int_res.get('label', int_name)}"
                                 airr_results[label] = {
                                     'airr': int_res.get('irr'), 
                                     'ci_low': int_res.get('ci_low'), 
@@ -738,10 +738,13 @@ def analyze_poisson_outcome(
         
         interaction_info = ""
         if interaction_pairs:
-            from interaction_lib import interpret_interaction
             interaction_info = f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs"
             if interaction_results:
-                interaction_info += interpret_interaction(interaction_results, 'poisson')
+                try:
+                    from interaction_lib import interpret_interaction
+                    interaction_info += interpret_interaction(interaction_results, 'poisson')
+                except ImportError:
+                    logger.warning("interaction_lib not available for interpretation")
         
         # Offset information
         offset_info = f" | Offset: {offset_col}" if offset_col else ""
