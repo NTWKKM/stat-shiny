@@ -60,6 +60,7 @@ MethodType = Literal["default", "bfgs", "firth", "auto"]
 class StatsMetrics(TypedDict):
     mcfadden: float
     nagelkerke: float
+    p_value: Optional[float]
 
 # Functional syntax for TypedDict to support 'or' as a key
 ORResult = TypedDict("ORResult", {
@@ -205,7 +206,11 @@ def run_binary_logit(
             cox_snell = 1 - np.exp((2/nobs) * (llnull - llf))
             max_r2 = 1 - np.exp((2/nobs) * llnull)
             nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
-            stats_metrics = {"mcfadden": mcfadden, "nagelkerke": nagelkerke}
+            stats_metrics = {
+                "mcfadden": mcfadden, 
+                "nagelkerke": nagelkerke,
+                "p_value": getattr(result, 'llr_pvalue', np.nan)
+            }
         except (AttributeError, ZeroDivisionError, TypeError) as e:
             logger.debug(f"Failed to calculate R2: {e}")
         
@@ -775,7 +780,8 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
             'aic': result.aic,
             'bic': result.bic,
             'mcfadden': mcfadden,
-            'nagelkerke': np.nan
+            'nagelkerke': np.nan,
+            'p_value': getattr(result, 'llr_pvalue', np.nan)
         }
         
         return html_table, or_results, "OK", metrics

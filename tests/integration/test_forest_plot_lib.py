@@ -94,5 +94,5 @@ class TestForestPlotLib:
         df_empty = pd.DataFrame(columns=['Subgroup', 'Level', 'Est', 'Lower', 'Upper'])
         
         # Verify that empty DataFrame raises ValueError
-        with pytest.raises(ValueError, match="empty|no data"):
+        with pytest.raises(ValueError, match=r"empty|no data"):
             create_forest_plot(df_empty)

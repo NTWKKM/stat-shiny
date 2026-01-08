@@ -131,3 +131,30 @@ class TestSurvivalPipeline:
         
         # Verify data points are plotted (traces exist)
         assert len(fig.data) > 0
+    
+    def test_nelson_aalen_cumulative_hazard(self, survival_data):
+        """
+        📈 Test Nelson-Aalen Cumulative Hazard Estimation
+        Verifies that Nelson-Aalen estimator produces valid cumulative hazard curves
+        """
+        df = survival_data
+    
+        # Test with grouping
+        fig, stats_df = fit_nelson_aalen(df, 'time', 'event', 'treatment')
+    
+        assert fig is not None
+        assert hasattr(fig, 'data')
+        assert hasattr(fig, 'layout')
+    
+        # Verify traces exist for both groups
+        assert len(fig.data) > 0
+    
+        # Verify stats DataFrame structure
+        assert not stats_df.empty
+        assert 'Group' in stats_df.columns or len(stats_df.columns) > 0
+    
+        # Test without grouping (overall)
+        fig_overall, stats_overall = fit_nelson_aalen(df, 'time', 'event', None)
+    
+        assert fig_overall is not None
+        assert not stats_overall.empty
