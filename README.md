@@ -19,6 +19,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 ```text
 |-- Dockerfile
 |-- app.py
+|-- asgi.py
 |-- config.py
 |-- correlation.py
 |-- diag_test.py
@@ -44,6 +45,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   `-- UNICODE_FIX_ANALYSIS.md
 |-- poisson_lib.py
 |-- psm_lib.py
+|-- pytest.ini
 |-- requirements.txt
 |-- static /
 |   `-- styles.css
@@ -62,9 +64,24 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- tab_settings.py
 |   `-- tab_survival.py
 |-- tests /
+|   |-- .DS_Store
+|   |-- conftest.py
+|   |-- e2e /
+|   |   `-- test_app_flow.py
+|   |-- integration /
+|   |   |-- test_corr_pipeline.py
+|   |   |-- test_diag_pipeline.py
+|   |   |-- test_forest_plot_lib.py
+|   |   |-- test_interaction_pipeline.py
+|   |   |-- test_logic_pipeline.py
+|   |   |-- test_poisson_pipeline.py
+|   |   |-- test_psm_pipeline.py
+|   |   |-- test_subgroup_pipeline.py
+|   |   |-- test_survival_pipeline.py
+|   |   `-- test_table_one_pipeline.py
 |   |-- test_color_palette.py
-|   |-- verify_additional.py
-|   `-- verify_changes.py
+|   `-- unit /
+|       `-- test_statistics.py
 |-- utils /
 |   |-- __init__.py
 |   |-- data_cleaning.py
