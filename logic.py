@@ -100,7 +100,7 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
         
     # Check for constant outcome
     if y.nunique() < 2:
-        issues.append(f"Outcome variable has only one unique value (constant).")
+        issues.append("Outcome variable has only one unique value (constant).")
             
     # Check for zero variance (constant columns)
     for col in X.columns:
@@ -758,8 +758,6 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
         y = df[outcome_col]
         X = df[covariate_cols]
         
-        # Fit model using statsmodels (Logit)
-        import statsmodels.api as sm
         X_const = sm.add_constant(X)
         model = sm.Logit(y, X_const)
         result = model.fit(disp=0)
@@ -771,13 +769,21 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
             'aic': result.aic,
             'bic': result.bic,
             'mcfadden': mcfadden,
-            'nagelkerke': 0.0 # Placeholder if not calculated
+            'nagelkerke': 0.0  # Placeholder if not calculated
         }
         
-        # Use analyze_outcome to get the UI findings/results
-        html_table, or_results, _aor, _ = analyze_outcome(outcome_col, df)
+        # Build OR results from fitted model
+        or_results = {}
+        for col in covariate_cols:
+            if col in result.params.index:
+                or_results[col] = {
+                    'or': np.exp(result.params[col]),
+                    'ci_low': np.exp(result.conf_int().loc[col, 0]),
+                    'ci_high': np.exp(result.conf_int().loc[col, 1]),
+                    'p_value': result.pvalues[col]
+                }
         
-        return html_table, or_results, "OK", metrics
+        return None, or_results, "OK", metrics  # html_table optional
 
     except Exception as e:
         logger.error(f"Logistic regression failed: {e}")
