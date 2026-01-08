@@ -93,12 +93,15 @@ def run_negative_binomial_regression(
         
         result = model.fit(disp=0)
         
-        stats_metrics = {
-            "deviance": result.deviance,
-            "pearson_chi2": result.pearson_chi2,
-            "aic": result.aic,
-            "bic": result.bic if hasattr(result, 'bic') else np.nan
-        }
+        try:
+            stats_metrics = {
+                "deviance": result.deviance,
+                "pearson_chi2": result.pearson_chi2,
+                "aic": result.aic,
+                "bic": result.bic if hasattr(result, 'bic') else np.nan
+            }
+        except (AttributeError, ZeroDivisionError) as e:
+            logger.debug(f"Failed to calculate NB fit stats: {e}")
         
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
     
@@ -207,13 +210,14 @@ def analyze_poisson_outcome(
             try:
                 val = float(val)
                 val = max(0, min(1, val))
+            except (ValueError, TypeError):
+                return "-"
+            else:
                 if val < 0.001:
                     return "<0.001"
                 if val > 0.999:
                     return ">0.999"
                 return f"{val:.3f}"
-            except (ValueError, TypeError):
-                return "-"
         
         irr_results = {}
         
@@ -421,8 +425,8 @@ def analyze_poisson_outcome(
                     from interaction_lib import create_interaction_terms, format_interaction_results
                     multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                     logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
-                except Exception as e:
-                    logger.exception(f"Failed to create interaction terms: {e}")
+                except Exception:
+                    logger.exception("Failed to create interaction terms")
             
             multi_data = multi_df.dropna()
             final_n_multi = len(multi_data)
@@ -487,14 +491,14 @@ def analyze_poisson_outcome(
                             # ✅ FIX: Merge interaction results into airr_results for forest plot inclusion
                             for int_name, int_res in interaction_results.items():
                                  label = f"🔗 {int_res.get('label', int_name)}"
-                                 airr_results[label] = {
-                                     'airr': int_res.get('irr'), 
-                                     'ci_low': int_res.get('ci_low'), 
-                                     'ci_high': int_res.get('ci_high'), 
-                                     'p_value': int_res.get('p_value')
-                                 }
-                        except Exception as e:
-                            logger.error(f"Failed to format interaction results: {e}")
+                                airr_results[label] = {
+                                    'airr': int_res.get('irr'), 
+                                    'ci_low': int_res.get('ci_low'), 
+                                    'ci_high': int_res.get('ci_high'), 
+                                    'p_value': int_res.get('p_value')
+                                }
+                        except Exception:
+                            logger.exception("Failed to format interaction results")
         
         # ===================================================================
         # 🎨 STYLED HTML GENERATION (WITH INTERACTIONS)
@@ -781,7 +785,7 @@ def analyze_poisson_outcome(
     except Exception as e:
         logger.exception("Unexpected error in Poisson analysis")
         # ✅ FIX: ALWAYS return 4 elements to prevent "cannot unpack" error
-        return f"<div class='alert alert-danger'>Analysis failed: {str(e)}</div>", {}, {}, {}
-
+        return f"<div class='alert alert-danger'>Analysis failed: {html.escape(str(e))}</div>", {}, {}, {}
+        
 # Alias for backward compatibility or different naming conventions
 run_negative_binomial = run_negative_binomial_regression
