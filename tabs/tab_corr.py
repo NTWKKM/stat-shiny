@@ -96,7 +96,8 @@ def corr_ui() -> ui.TagChild:
                             class_="btn-primary",
                             width="100%"
                         ),
-                        ui.input_action_button(
+                        # ✅ CHANGED: Use download_button
+                        ui.download_button(
                             "btn_dl_corr",
                             "📥 Download Report",
                             class_="btn-secondary",
@@ -139,7 +140,8 @@ def corr_ui() -> ui.TagChild:
                             class_="btn-primary",
                             width="100%"
                         ),
-                        ui.input_action_button(
+                        # ✅ CHANGED: Use download_button
+                        ui.download_button(
                             "btn_dl_matrix",
                             "📥 Download Report",
                             class_="btn-secondary",
@@ -177,7 +179,8 @@ def corr_ui() -> ui.TagChild:
                             class_="btn-primary",
                             width="100%"
                         ),
-                        ui.input_action_button(
+                        # ✅ CHANGED: Use download_button
+                        ui.download_button(
                             "btn_dl_icc",
                             "📥 Download Report",
                             class_="btn-secondary",
@@ -541,14 +544,17 @@ def corr_server(
 
         return result['figure']  # ✅ Return figure directly
     
-    @reactive.Effect
-    @reactive.event(input.btn_dl_corr)
-    def _download_corr_report():
+    # ✅ CHANGED: Logic for downloading file
+    @render.download(
+        filename=lambda: f"correlation_{corr_result.get()['var1']}_{corr_result.get()['var2']}.html" 
+        if corr_result.get() else "correlation_report.html"
+    )
+    def btn_dl_corr():
         """Generate and download correlation report."""
         result = corr_result.get()
         if result is None:
-            ui.notification_show("No results to download", type="warning")
-            return
+             yield "No results available".encode('utf-8')
+             return
         
         stats = result['stats']
         
@@ -593,14 +599,7 @@ def corr_server(
             elements=elements
         )
         
-        # Save and trigger download
-        filename = f"correlation_{result['var1']}_{result['var2']}.html"
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html') as f:
-            f.write(html_content)
-            temp_path = f.name
-        
-        ui.notification_show(f"✅ Report saved: {filename}", type="default", duration=5)
-        # Note: Actual file download requires additional Shiny file download handler
+        yield html_content.encode('utf-8')
         
     # ==================== CORRELATION MATRIX / HEATMAP ====================
     
@@ -706,13 +705,16 @@ def corr_server(
         df_display = result['matrix'].reset_index().rename(columns={'index': 'Variable'})
         return render.DataGrid(df_display, width="100%")
     
-    @reactive.Effect
-    @reactive.event(input.btn_dl_matrix)
-    def _download_matrix_report():
+    # ✅ CHANGED: Logic for downloading file
+    @render.download(
+        filename=lambda: f"correlation_matrix_{matrix_result.get()['method']}.html" 
+        if matrix_result.get() else "correlation_matrix.html"
+    )
+    def btn_dl_matrix():
         """Generate and download matrix report."""
         result = matrix_result.get()
         if result is None:
-            ui.notification_show("No results to download", type="warning")
+            yield "No results available".encode('utf-8')
             return
         
         summary = result['summary']
@@ -766,13 +768,7 @@ def corr_server(
             elements=elements
         )
         
-        # Save
-        filename = f"correlation_matrix_{result['method']}.html"
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html') as f:
-            f.write(html_content)
-            temp_path = f.name
-        
-        ui.notification_show(f"✅ Report saved: {filename}", type="default", duration=5)
+        yield html_content.encode('utf-8')
 
     # ==================== ICC ANALYSIS ====================
 
@@ -908,13 +904,15 @@ def corr_server(
             return None
         return render.DataGrid(result['anova_df'], width="100%")
     
-    @reactive.Effect
-    @reactive.event(input.btn_dl_icc)
-    def _download_icc_report():
+    # ✅ CHANGED: Logic for downloading file
+    @render.download(
+        filename=lambda: f"icc_analysis.html"
+    )
+    def btn_dl_icc():
         """Generate and download ICC report."""
         result = icc_result.get()
         if result is None:
-            ui.notification_show("No results to download", type="warning")
+            yield "No results available".encode('utf-8')
             return
         
         # Build report elements
@@ -990,10 +988,4 @@ def corr_server(
             elements=elements
         )
         
-        # Save
-        filename = f"icc_analysis.html"
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html') as f:
-            f.write(html_content)
-            temp_path = f.name
-        
-        ui.notification_show(f"✅ Report saved: {filename}", type="default", duration=5)
+        yield html_content.encode('utf-8')
