@@ -7,6 +7,7 @@ No Streamlit dependencies - pure statistical functions.
 from typing import TypedDict, Literal, Any, cast, Union, Optional
 import pandas as pd
 import numpy as np
+import re
 import scipy.stats as stats
 import statsmodels.api as sm
 import warnings
@@ -124,16 +125,38 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
     return True, "OK"
 
 
-def clean_numeric_value(val: Any) -> float:
-    """Convert value to float, removing common non-numeric characters."""
-    if pd.isna(val):
+def clean_numeric_value(val):
+    """
+    Cleans numeric values, handling strings, commas, and comparison operators.
+    Examples:
+        "1,000" -> 1000.0
+        "<0.001" -> 0.001
+        "> 50" -> 50.0
+    """
+    if pd.isna(val) or val == "":
         return np.nan
-    s = str(val).strip()
-    s = s.replace('>', '').replace('<', '').replace(',', '')
-    try:
-        return float(s)
-    except (TypeError, ValueError):
-        return np.nan
+    
+    if isinstance(val, (int, float)):
+        return float(val)
+        
+    if isinstance(val, str):
+        # ลบช่องว่างและคอมม่าออกก่อน
+        val = val.strip().replace(',', '')
+        
+        # ถ้าเป็นตัวเลขอยู่แล้ว แปลงเลย
+        try:
+            return float(val)
+        except ValueError:
+            # ถ้าแปลงไม่ได้ (เช่นติดเครื่องหมาย <, >) ให้ใช้ Regex ดึงเฉพาะตัวเลข (รวมจุดทศนิยม)
+            match = re.search(r"[-+]?\d*\.\d+|\d+", val)
+            if match:
+                try:
+                    return float(match.group())
+                except ValueError:
+                    return np.nan
+            return np.nan
+            
+    return np.nan
 
 
 def _robust_sort_key(x: Any) -> tuple[int, Union[float, str]]:
