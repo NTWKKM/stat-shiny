@@ -12,12 +12,12 @@ Tests the complete flow of functions from logic.py AND visualization:
 import os
 import sys
 
+# Add parent directory to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import numpy as np
 import pandas as pd
 import pytest
-
-# Add parent directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from logic import validate_logit_data, clean_numeric_value, run_binary_logit, analyze_outcome
 from forest_plot_lib import create_forest_plot  # Import forest plot lib
