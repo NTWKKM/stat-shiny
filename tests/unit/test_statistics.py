@@ -382,7 +382,7 @@ class TestAnalyzeOutcome:
     
     def test_analyze_outcome_missing_column(self, dummy_df):
         """✅ Test with non-existent outcome."""
-        html, or_results, aor_results, int_results = analyze_outcome(
+        html, or_results, aor_results, _int_results = analyze_outcome(
             'nonexistent_outcome',
             dummy_df
         )
@@ -888,10 +888,10 @@ class TestIntegrationScenarios:
         dummy_df_roc['disease_binary'] = dummy_df_roc['disease'].astype(int)
         dummy_df_roc['score_values'] = np.random.uniform(0, 1, len(dummy_df_roc))
         
-        roc_stats, _, _, _ = analyze_roc(
+        roc_stats, error_msg, _, _ = analyze_roc(
             dummy_df_roc, 'disease_binary', 'score_values', pos_label_user='1'
         )
-        assert roc_stats is not None or _ is not None
+        assert roc_stats is not None or error_msg is not None
     
     def test_full_survival_workflow(self, dummy_df):
         """✅ Test complete survival analysis pipeline."""
@@ -1062,6 +1062,7 @@ def test_suite_completeness():
         'calculate_icc',
         'format_p_value',
         'calculate_ci_wilson_score',
+        'auc_ci_delong',
         
         # survival_lib.py
         'calculate_median_survival',
