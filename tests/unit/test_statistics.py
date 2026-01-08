@@ -799,7 +799,7 @@ class TestNelsonAalen:
         assert fig is not None
         assert stats_df is not None
         assert isinstance(stats_df, pd.DataFrame)
-    
+        
         assert 'N' in stats_df.columns
         assert 'Events' in stats_df.columns
 
