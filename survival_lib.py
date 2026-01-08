@@ -89,10 +89,7 @@ def calculate_survival_at_times(
     time_points: List[float]
 ) -> pd.DataFrame:
     """
-    🆕 NEW: Calculate survival probabilities at specific time points (e.g., 1-yr, 3-yr, 5-yr).
-    
-    Args:
-        time_points: List of time points to evaluate (e.g., [12, 36, 60])
+    🆕 NEW: Calculate survival probabilities at specific time points (Robust Version)
     """
     data = df.dropna(subset=[duration_col, event_col])
     if group_col:
@@ -110,35 +107,75 @@ def calculate_survival_at_times(
         else:
             df_g = data
             label = "Overall"
-            
+        
+        # Check if we have data
+        if len(df_g) == 0:
+            continue
+
         kmf = KaplanMeierFitter()
-        kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+        try:
+            kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+            max_time = df_g[duration_col].max()
+        except Exception:
+            continue
         
         # Calculate survival at each time point
         for t in time_points:
+            display_val = "NR"
+            surv_prob = np.nan
+            lower = np.nan
+            upper = np.nan
+            
+            # Check if time t is within reasonable bounds (or slightly after)
+            # If t is way beyond max follow-up, prediction is unreliable but usually carries forward the last value
             try:
-                # Survival probability
-                surv_prob = kmf.predict(t)
+                # 1. Get Survival Probability
+                surv_prob = kmf.predict(float(t))
                 
-                # Confidence Interval calculation (Manual look up closer index)
-                # Note: lifelines doesn't have a direct predict_interval for scalar t easily accessible without indexing
-                idx = (kmf.confidence_interval_.index - t).abs().argmin()
-                lower = kmf.confidence_interval_.iloc[idx, 0]
-                upper = kmf.confidence_interval_.iloc[idx, 1]
+                # 2. Get Confidence Interval
+                # Use interpolation to handle times that aren't exact event times
+                ci_df = kmf.confidence_interval_survival_function_
                 
-                results.append({
-                    "Group": label,
-                    "Time Point": t,
-                    "Survival Prob": surv_prob,
-                    "95% CI Lower": lower,
-                    "95% CI Upper": upper,
-                    "Display": f"{surv_prob:.2f} ({lower:.2f}-{upper:.2f})"
-                })
+                # Find the closest index prior to t (or exactly t)
+                # We use 'pad' (forward fill) because survival stays constant between events
+                try:
+                    # Check if t is before the first event
+                    if t < ci_df.index.min():
+                        lower, upper = 1.0, 1.0 # Before study starts, everyone alive
+                    else:
+                        # Find index closest to t
+                        idx = ci_df.index.get_indexer([t], method='pad')[0]
+                        if idx == -1: # Should not happen if t >= min
+                             lower, upper = np.nan, np.nan
+                        else:
+                             lower = ci_df.iloc[idx, 0]
+                             upper = ci_df.iloc[idx, 1]
+                except Exception:
+                     # Fallback mechanism if indexing fails
+                     lower, upper = np.nan, np.nan
+
+                # Format Display
+                if pd.isna(surv_prob):
+                     display_val = "NR"
+                else:
+                    surv_str = f"{surv_prob:.2f}"
+                    if not pd.isna(lower) and not pd.isna(upper):
+                        display_val = f"{surv_str} ({lower:.2f}-{upper:.2f})"
+                    else:
+                        display_val = f"{surv_str}"
+
             except Exception as e:
-                logger.warning(f"Could not calc survival at time {t} for group {g}: {e}")
-                results.append({
-                    "Group": label, "Time Point": t, "Display": "NR"
-                })
+                logger.warning(f"Calc error at time {t} for {label}: {e}")
+                display_val = "NR"
+
+            results.append({
+                "Group": label,
+                "Time Point": t,
+                "Survival Prob": surv_prob if not pd.isna(surv_prob) else None,
+                "95% CI Lower": lower if not pd.isna(lower) else None,
+                "95% CI Upper": upper if not pd.isna(upper) else None,
+                "Display": display_val
+            })
 
     return pd.DataFrame(results)
 
