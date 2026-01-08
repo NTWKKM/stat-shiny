@@ -14,6 +14,8 @@ import pandas as pd
 import numpy as np
 import sys
 import os
+import warnings
+rom statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 from unittest.mock import MagicMock, PropertyMock
 
 # ============================================================================
@@ -199,7 +201,7 @@ class TestDataValidation:
         assert clean_numeric_value("1000") == 1000.0
         assert clean_numeric_value(1000) == 1000.0
     
-    @pytest.mark.xfail(reason="Feature currently not implemented in logic.py, returns NaN for symbols")
+    #@pytest.mark.xfail(reason="Feature currently not implemented in logic.py, returns NaN for symbols")
     def test_clean_numeric_value_comparison_symbols(self):
         """✅ Test removal of comparison operators."""
         assert clean_numeric_value("<0.001") == 0.001
@@ -306,8 +308,14 @@ class TestLogisticRegression:
         y = perfect_separation_df['outcome']
         X = perfect_separation_df[['predictor']]
         
-        # Default method should fail gracefully
-        _params, _conf, _pvals, status, _metrics = run_binary_logit(y, X, method='default')
+        # ใช้ context manager เพื่อ ignore warnings เฉพาะในบล็อกนี้
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=PerfectSeparationWarning)
+            warnings.simplefilter("ignore", category=ConvergenceWarning)
+            warnings.simplefilter("ignore", category=RuntimeWarning) # อาจมี runtime warning ด้วย
+            
+            # Default method should fail gracefully
+            _params, _conf, _pvals, status, _metrics = run_binary_logit(y, X, method='default')
         
         # Should either succeed or return informative error
         if status != "OK":
