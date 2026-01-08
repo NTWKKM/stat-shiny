@@ -772,20 +772,22 @@ def analyze_outcome(
         
         for label, metrics in source_results.items():
             # Skip rows without proper data
-            if not isinstance(metrics, dict): continue
+            if not isinstance(metrics, dict): 
+                logger.warning(f"Skipping row {label} due to invalid metrics: {metrics}")
+                continue
 
             # Extract values (support both 'aor' and 'or' keys)
             val = metrics.get('aor', metrics.get('or'))
-            l = metrics.get('ci_low')
-            h = metrics.get('ci_high')
+            ci_low = metrics.get('ci_low')
+            ci_high = metrics.get('ci_high')
             p = metrics.get('p_value')
             
-            if pd.notna(val) and pd.notna(l) and pd.notna(h):
+            if pd.notna(val) and pd.notna(ci_low) and pd.notna(ci_high):
                 plot_data.append({
                     'var': label,
                     'or': val,
-                    'low': l,
-                    'high': h,
+                    'low': ci_low,
+                    'high': ci_high,
                     'p': p,
                     'group': title_prefix
                 })
@@ -794,9 +796,22 @@ def analyze_outcome(
             df_plot = pd.DataFrame(plot_data)
             # Create figure using the imported library
             # Assuming create_forest_plot accepts a dataframe and outcome name
+            
+            # ---------------------------------------------------------
+            # FIX: Correctly map columns and call create_forest_plot
+            # ---------------------------------------------------------
+            # We explicitly constructed df_plot with keys: 'var', 'or', 'low', 'high', 'p'
+            # Now we pass these column names to the library function.
+            
             fig = create_forest_plot(
-                df_plot, 
-                outcome_label=f"{title_prefix} Odds Ratios - {outcome_name}"
+                data=df_plot,
+                estimate_col='or',
+                ci_low_col='low',
+                ci_high_col='high',
+                label_col='var',
+                pval_col='p',
+                title=f"{title_prefix} Odds Ratios - {outcome_name}",
+                x_label="Odds Ratio"
             )
             
             # Convert to HTML
@@ -805,8 +820,8 @@ def analyze_outcome(
                  # Wrap in container
                  forest_plot_html = f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Forest Plot</h3>{forest_plot_html}</div>"
     except Exception as e:
-        logger.error(f"Failed to generate forest plot: {e}")
-        forest_plot_html = f""
+        logger.exception("Failed to generate forest plot")
+        forest_plot_html = ""
     # --- END FIX ---
 
     # --- START FIX: CSS & Combined Report ---

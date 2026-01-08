@@ -183,7 +183,7 @@ def analyze_poisson_outcome(
         
         y = pd.to_numeric(df[outcome_name], errors='coerce').dropna()
         if len(y) == 0:
-             return f"<div class='alert'>⚠️ No valid data rows available.</div>", {}, {}, {}
+            return "<div class='alert'>⚠️ No valid data rows available.</div>", {}, {}, {}
 
         df_aligned = df.loc[y.index]
         total_n = len(y)
@@ -422,7 +422,7 @@ def analyze_poisson_outcome(
                     multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                     logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
                 except Exception as e:
-                    logger.exception("Failed to create interaction terms")
+                    logger.exception(f"Failed to create interaction terms: {e}")
             
             multi_data = multi_df.dropna()
             final_n_multi = len(multi_data)
@@ -494,7 +494,7 @@ def analyze_poisson_outcome(
                                      'p_value': int_res.get('p_value')
                                  }
                         except Exception as e:
-                            logger.error(f"Failed to format interaction results: {e}")
+                            logger.exception("Failed to format interaction results")
         
         # ===================================================================
         # 🎨 STYLED HTML GENERATION (WITH INTERACTIONS)
