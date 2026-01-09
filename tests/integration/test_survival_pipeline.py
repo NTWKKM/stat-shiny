@@ -74,7 +74,15 @@ class TestSurvivalPipeline:
         assert not stats_df.empty
         assert 'P-value' in stats_df.columns
         p_val = stats_df['P-value'].iloc[0]
-        assert 0 <= p_val <= 1
+        try:
+            p_val_num = float(p_val)
+        except ValueError:
+            if "<" in str(p_val):
+                p_val_num = 0.0
+            else:
+                raise
+
+        assert 0 <= p_val_num <= 1
         
         # --- Step 3: Cox Regression ---
         cph, res_df, _data, err = fit_cox_ph(
@@ -99,7 +107,7 @@ class TestSurvivalPipeline:
         df = survival_data
         
         # 1. Fit Cox Model
-        _cph, res_df, _data, err = fit_cox_ph(
+        _cph, res_df, _data, err, *_ = fit_cox_ph(
             df, 'time', 'event', ['age', 'treatment', 'severity']
         )
         
