@@ -468,12 +468,18 @@ def compute_correlation_matrix(
         "pct_significant": float(np.nansum(p_flat < 0.05) / np.sum(~np.isnan(p_flat)) * 100) if np.sum(~np.isnan(p_flat)) > 0 else 0.0
     }
     
-    # Use nanargmax/nanargmin to handle NaN values in masked positions
-    max_idx = np.unravel_index(np.nanargmax(upper_triangle.values), upper_triangle.shape)
-    min_idx = np.unravel_index(np.nanargmin(upper_triangle.values), upper_triangle.shape)
-    
-    summary["strongest_positive"] = f"{cols[max_idx[0]]} ↔ {cols[max_idx[1]]} (r={corr_matrix.iloc[max_idx]:.3f})"
-    summary["strongest_negative"] = f"{cols[min_idx[0]]} ↔ {cols[min_idx[1]]} (r={corr_matrix.iloc[min_idx]:.3f})"
+    # Check if we have valid data before calling argmax/argmin to avoid All-NaN slice error
+    if len(upper_triangle_flat) > 0 and not np.all(np.isnan(upper_triangle_flat)):
+        # Use nanargmax/nanargmin to handle NaN values in masked positions
+        max_idx = np.unravel_index(np.nanargmax(upper_triangle.values), upper_triangle.shape)
+        min_idx = np.unravel_index(np.nanargmin(upper_triangle.values), upper_triangle.shape)
+        
+        summary["strongest_positive"] = f"{cols[max_idx[0]]} ↔ {cols[max_idx[1]]} (r={corr_matrix.iloc[max_idx]:.3f})"
+        summary["strongest_negative"] = f"{cols[min_idx[0]]} ↔ {cols[min_idx[1]]} (r={corr_matrix.iloc[min_idx]:.3f})"
+    else:
+        # Fallback if no valid correlations exist
+        summary["strongest_positive"] = "N/A"
+        summary["strongest_negative"] = "N/A"
     
     # Create Heatmap with significance markers
     colorscale = [
@@ -492,6 +498,8 @@ def compute_correlation_matrix(
             
             if i == j:
                 row_text.append(f"{r_val}")
+            elif pd.isna(r_val):
+                 row_text.append("NaN")
             elif p_val < 0.001:
                 row_text.append(f"{r_val}***")
             elif p_val < 0.01:
