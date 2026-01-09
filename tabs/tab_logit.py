@@ -725,20 +725,21 @@ def logit_server(
             # Unlike logic.py, poisson_lib might return just the table HTML.
             # We inject CSS and append the Forest Plot HTML here to match the requested format.
             
-            css_link = "<link rel='stylesheet' href='static/styles.css'>"
-            full_poisson_html = f"{css_link}\n{html_rep}"
+            # Keep a fragment for in-app rendering
+            poisson_fragment_html = html_rep
             
             # Append Adjusted Plot if available, else Crude
             plot_html = ""
             if fig_adj:
                 plot_html = fig_adj.to_html(full_html=False, include_plotlyjs='cdn')
-                full_poisson_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+                poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
             elif fig_crude:
                 plot_html = fig_crude.to_html(full_html=False, include_plotlyjs='cdn')
-                full_poisson_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+                poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Wrap in standard HTML structure for standalone download correctness
             # Use a separate variable for the wrapper
+            css_link = "<link rel='stylesheet' href='static/styles.css'>"
             wrapped_html = f"""
             <!DOCTYPE html>
             <html lang="en">
@@ -746,10 +747,11 @@ def logit_server(
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Poisson Regression Report: {html_module.escape(target)}</title>
+                {css_link}
             </head>
             <body>
                 <div class="report-container">
-                    {full_poisson_html}
+                    {poisson_fragment_html}
                 </div>
             </body>
             </html>
@@ -758,6 +760,8 @@ def logit_server(
 
             # Store Results
             poisson_res.set({
+                # Consider storing both if you want UI fragment rendering:
+                # "html_fragment": poisson_fragment_html,
                 "html": full_poisson_html,
                 "fig_adj": fig_adj,
                 "fig_crude": fig_crude

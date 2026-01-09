@@ -79,26 +79,47 @@ def run_negative_binomial_regression(
 ) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
     """
     Fit Negative Binomial regression (alternative to Poisson for overdispersed data).
+    
+    Uses sm.NegativeBinomial (discrete model) to estimate the dispersion parameter (alpha) via MLE,
+    instead of sm.GLM with fixed alpha.
     """
-    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan}
+    # Initialize metrics with alpha
+    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan, "aic": np.nan, "bic": np.nan, "alpha": np.nan}
     
     try:
         X_const = sm.add_constant(X, has_constant='add')
         
-        # Use NegativeBinomial family
+        # Use discrete NegativeBinomial model to estimate alpha
+        # Note: For discrete models, offset is passed to the constructor, not fit()
         if offset is not None:
-            model = sm.GLM(y, X_const, family=sm.families.NegativeBinomial(), offset=offset)
+            # sm.NegativeBinomial corresponds to sm.discrete.discrete_model.NegativeBinomial
+            model = sm.NegativeBinomial(y, X_const, offset=offset)
         else:
-            model = sm.GLM(y, X_const, family=sm.families.NegativeBinomial())
+            model = sm.NegativeBinomial(y, X_const)
         
+        # Fit model (disp=0 suppresses convergence output)
         result = model.fit(disp=0)
         
+        # Extract alpha (dispersion parameter)
+        # In discrete NegativeBinomial (NB2), alpha is estimated and included in params.
+        # It is typically named 'alpha' in the results or is the last parameter.
+        alpha_val = np.nan
+        if hasattr(result, 'params'):
+            if isinstance(result.params, pd.Series) and 'alpha' in result.params.index:
+                alpha_val = result.params['alpha']
+            else:
+                # Fallback: alpha is typically the last parameter for NB2
+                alpha_val = result.params[-1]
+
         try:
+            # Note: DiscreteResult (MLE) does not have 'deviance' or 'pearson_chi2' attributes 
+            # like GLMResults. We provide AIC, BIC, and Alpha.
             stats_metrics = {
-                "deviance": result.deviance,
-                "pearson_chi2": result.pearson_chi2,
+                "deviance": np.nan, # Not directly available in discrete MLE results
+                "pearson_chi2": np.nan,
                 "aic": result.aic,
-                "bic": result.bic if hasattr(result, 'bic') else np.nan
+                "bic": result.bic,
+                "alpha": alpha_val
             }
         except (AttributeError, ZeroDivisionError) as e:
             logger.debug(f"Failed to calculate NB fit stats: {e}")
@@ -194,8 +215,14 @@ def analyze_poisson_outcome(
         # Handle offset if provided
         offset = None
         if offset_col and offset_col in df_aligned.columns:
-            offset = np.log(pd.to_numeric(df_aligned[offset_col], errors='coerce').fillna(1))
-            logger.info(f"Using offset column: {offset_col}")
+            raw_offset = pd.to_numeric(df_aligned[offset_col], errors="coerce")
+            if (raw_offset <= 0).any():
+                return (
+                    f"<div class='alert'>⚠️ Offset '{html.escape(str(offset_col))}' must be > 0 for log-offset.</div>",
+                    {}, {}, {}
+                )
+            offset = np.log(raw_offset)
+            logger.info("Using offset column: %s", offset_col)
         
         candidates = []
         results_db = {}
@@ -789,6 +816,6 @@ def analyze_poisson_outcome(
         logger.exception("Unexpected error in Poisson analysis")
         # ✅ FIX: ALWAYS return 4 elements to prevent "cannot unpack" error
         return f"<div class='alert alert-danger'>Analysis failed: {html.escape(str(e))}</div>", {}, {}, {}
-        
+
 # Alias for backward compatibility or different naming conventions
 run_negative_binomial = run_negative_binomial_regression
