@@ -421,7 +421,6 @@ def compute_correlation_matrix(
     corr_matrix_rounded = corr_matrix.round(3)
     
     # Calculate p-values for all pairs
-    n = len(data.dropna())
     p_values = pd.DataFrame(index=cols, columns=cols, dtype=float)
     
     for i, col_i in enumerate(cols):
@@ -457,16 +456,16 @@ def compute_correlation_matrix(
     summary = {
         "n_variables": len(cols),
         "n_correlations": len(upper_triangle_flat),
-        "mean_correlation": float(np.mean(np.abs(upper_triangle_flat))),
-        "max_correlation": float(np.max(np.abs(upper_triangle_flat))),
-        "min_correlation": float(np.min(np.abs(upper_triangle_flat))),
+        "mean_correlation": float(np.nanmean(np.abs(upper_triangle_flat))),
+        "max_correlation": float(np.nanmax(np.abs(upper_triangle_flat))),
+        "min_correlation": float(np.nanmin(np.abs(upper_triangle_flat))),
         "n_significant": int(np.sum(p_flat < 0.05)),
-        "pct_significant": float(np.sum(p_flat < 0.05) / len(p_flat) * 100)
+        "pct_significant": float(np.nansum(p_flat < 0.05) / np.sum(~np.isnan(p_flat)) * 100) if np.sum(~np.isnan(p_flat)) > 0 else 0.0
     }
     
-    # Find strongest positive and negative
-    max_idx = np.unravel_index(np.argmax(upper_triangle.values, axis=None), upper_triangle.shape)
-    min_idx = np.unravel_index(np.argmin(upper_triangle.values, axis=None), upper_triangle.shape)
+    # Use nanargmax/nanargmin to handle NaN values in masked positions
+    max_idx = np.unravel_index(np.nanargmax(upper_triangle.values), upper_triangle.shape)
+    min_idx = np.unravel_index(np.nanargmin(upper_triangle.values), upper_triangle.shape)
     
     summary["strongest_positive"] = f"{cols[max_idx[0]]} ↔ {cols[max_idx[1]]} (r={corr_matrix.iloc[max_idx]:.3f})"
     summary["strongest_negative"] = f"{cols[min_idx[0]]} ↔ {cols[min_idx[1]]} (r={corr_matrix.iloc[min_idx]:.3f})"
@@ -510,11 +509,11 @@ def compute_correlation_matrix(
         textfont={"size": 10},
         hoverongaps=False,
         hovertemplate='X: %{x}<br>Y: %{y}<br>Corr: %{z:.3f}<extra></extra>',
-        colorbar=dict(
-            title="Correlation",
-            tickvals=[-1, -0.5, 0, 0.5, 1],
-            ticktext=["-1.0", "-0.5", "0", "0.5", "1.0"]
-        )
+        colorbar={
+            'title': "Correlation",
+            'tickvals': [-1, -0.5, 0, 0.5, 1],
+            'ticktext': ["-1.0", "-0.5", "0", "0.5", "1.0"]
+        }
     ))
     
     fig.update_layout(

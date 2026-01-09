@@ -527,15 +527,17 @@ def corr_server(
     
     # ✅ CHANGED: Logic for downloading file
     @render.download(
-        filename=lambda: f"correlation_{corr_result.get()['var1']}_{corr_result.get()['var2']}.html" 
-        if corr_result.get() else "correlation_report.html"
+        filename=lambda: (
+            f"correlation_{corr_result.get()['var1']}_{corr_result.get()['var2']}.html"
+            if corr_result.get() is not None else "correlation_report.html"
+        )
     )
     def btn_dl_corr():
         """Generate and download correlation report."""
         result = corr_result.get()
         if result is None:
-             yield "No results available".encode('utf-8')
-             return
+            yield b"No results available"
+            return
         
         stats = result['stats']
         
@@ -803,7 +805,7 @@ def corr_server(
         
         # ✅ FIX: Iterate through all rows to ensure we capture whatever ICC types are returned
         # This handles cases where column names might be 'ICC1', 'ICC2', 'ICC(2,1)', etc.
-        for i, row in res_df.iterrows():
+        for _idx, row in res_df.iterrows():
             icc_type = str(row.get('Type', 'Unknown'))
             icc_val = row.get('ICC', 0)
             
@@ -883,7 +885,7 @@ def corr_server(
     
     # ✅ CHANGED: Logic for downloading file
     @render.download(
-        filename=lambda: f"icc_analysis.html"
+        filename=lambda: "icc_analysis.html"
     )
     def btn_dl_icc():
         """Generate and download ICC report."""
@@ -903,15 +905,20 @@ def corr_server(
         res_df = result['results_df']
         interp_text = []
         
-        for i, row in res_df.iterrows():
+        for _idx, row in res_df.iterrows():
             icc_type = str(row.get('Type', 'Unknown'))
             icc_val = row.get('ICC', 0)
-            if pd.isna(icc_val): continue
+            if pd.isna(icc_val): 
+                continue
             
-            if icc_val > 0.90: strength = "Excellent"
-            elif icc_val > 0.75: strength = "Good"
-            elif icc_val > 0.50: strength = "Moderate"
-            else: strength = "Poor"
+            if icc_val > 0.90: 
+                strength = "Excellent"
+            elif icc_val > 0.75: 
+                strength = "Good"
+            elif icc_val > 0.50: 
+                strength = "Moderate"
+            else: 
+                strength = "Poor"
             
             interp_text.append(f"{icc_type} = {icc_val:.3f} ({strength})")
         
