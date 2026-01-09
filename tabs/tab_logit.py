@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import json
 import plotly.graph_objects as go
-import html as html_module  # Add at top if not imported
+import html
 from htmltools import HTML, div
 import gc
 from typing import Optional, List, Dict, Any, Tuple, Union, cast
@@ -738,16 +738,22 @@ def logit_server(
                 poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Wrap in standard HTML structure for standalone download correctness
-            # Use a separate variable for the wrapper
-            css_link = "<link rel='stylesheet' href='static/styles.css'>"
+            # INLINE CSS FIX: Read static/styles.css and embed directly so downloads look right
+            try:
+                with open('static/styles.css', 'r', encoding='utf-8') as f:
+                    css_content = f.read()
+                css_tag = f"<style>{css_content}</style>"
+            except (FileNotFoundError, IOError):
+                css_tag = "<style>/* static/styles.css not found */</style>"
+
             wrapped_html = f"""
             <!DOCTYPE html>
             <html lang="en">
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Poisson Regression Report: {html_module.escape(target)}</title>
-                {css_link}
+                <title>Poisson Regression Report: {html.escape(target)}</title>
+                {css_tag}
             </head>
             <body>
                 <div class="report-container">
@@ -760,9 +766,8 @@ def logit_server(
 
             # Store Results
             poisson_res.set({
-                # Consider storing both if you want UI fragment rendering:
-                # "html_fragment": poisson_fragment_html,
-                "html": full_poisson_html,
+                "html_fragment": poisson_fragment_html,  # For UI rendering
+                "html_full": full_poisson_html,          # For downloads
                 "fig_adj": fig_adj,
                 "fig_crude": fig_crude
             })
@@ -786,7 +791,7 @@ def logit_server(
         if res:
             return ui.card(
                 ui.card_header("📋 Poisson Regression Report"),
-                ui.HTML(res['html'])
+                ui.HTML(res['html_fragment'])
             )
         return ui.card(
             ui.card_header("📋 Poisson Regression Report"),
@@ -830,7 +835,7 @@ def logit_server(
     @render.download(filename="poisson_report.html")
     def btn_dl_poisson_report():
         res = poisson_res.get()
-        if res: yield res['html']
+        if res: yield res['html_full']
 
     # ==========================================================================
     # LOGIC: Subgroup Analysis
