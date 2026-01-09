@@ -107,7 +107,7 @@ class TestSurvivalPipeline:
         df = survival_data
         
         # 1. Fit Cox Model
-        _cph, res_df, _data, err, *_ = fit_cox_ph(
+        cph, res_df, _data, err, *_ = fit_cox_ph(
             df, 'time', 'event', ['age', 'treatment', 'severity']
         )
         
