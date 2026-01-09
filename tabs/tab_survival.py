@@ -454,11 +454,13 @@ def survival_server(
             group_col = None
             
         # ✅ NEW: Parse time points
-        time_points = []
+        time_points: list[float] = []
         if input.surv_time_points():
             try:
                 parts = input.surv_time_points().split(',')
-                time_points = [float(p.strip()) for p in parts if p.strip()]
+                parsed = [float(p.strip()) for p in parts if p.strip()]
+                parsed = [t for t in parsed if t >= 0]
+                time_points = sorted(set(parsed))
             except ValueError:
                 ui.notification_show("Invalid format for time points (use numbers separated by comma)", type="warning")
         
