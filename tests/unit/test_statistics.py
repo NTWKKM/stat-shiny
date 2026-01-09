@@ -79,7 +79,19 @@ mock_lifelines.CoxPHFitter = mock_cph
 mock_lifelines.NelsonAalenFitter = MagicMock()
 
 sys.modules['lifelines'] = mock_lifelines
-sys.modules['lifelines.statistics'] = MagicMock()
+
+# --- FIX START: Configure statistics mock with concrete float values ---
+mock_stats = MagicMock()
+mock_test_result = MagicMock()
+# Important: p_value must be a float to allow f-string formatting (e.g. :.3f)
+mock_test_result.p_value = 0.045
+mock_test_result.test_statistic = 4.0
+mock_stats.logrank_test.return_value = mock_test_result
+mock_stats.multivariate_logrank_test.return_value = mock_test_result
+
+sys.modules['lifelines.statistics'] = mock_stats
+# --- FIX END ---
+
 sys.modules['lifelines.utils'] = MagicMock()
 
 # 4. Mock Sklearn with float return values for metrics
@@ -799,7 +811,7 @@ class TestNelsonAalen:
         assert fig is not None
         assert stats_df is not None
         assert isinstance(stats_df, pd.DataFrame)
-    
+        
         assert 'N' in stats_df.columns
         assert 'Events' in stats_df.columns
 
