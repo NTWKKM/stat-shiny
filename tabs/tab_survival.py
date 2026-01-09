@@ -89,8 +89,8 @@ def survival_ui() -> ui.TagChild:
                         ),
                         ui.input_text(
                             "surv_time_points", 
-                            "🕰️ Survival Probability at (comma separated):", 
-                            placeholder="e.g. 12, 36, 60"
+                            "🕰️ Survival Probability at (time units, comma separated):", 
+                            placeholder="e.g. 12, 36, 60 (Non-negative numbers only)"
                         ),
                         col_widths=[6, 6]
                     ),
@@ -453,16 +453,41 @@ def survival_server(
         if group_col == "None": 
             group_col = None
             
-        # ✅ NEW: Parse time points
+        # ✅ NEW: Parse and validate time points
         time_points: list[float] = []
-        if input.surv_time_points():
+        raw_tp = input.surv_time_points()
+        if raw_tp:
             try:
-                parts = input.surv_time_points().split(',')
-                parsed = [float(p.strip()) for p in parts if p.strip()]
-                parsed = [t for t in parsed if t >= 0]
-                time_points = sorted(set(parsed))
-            except ValueError:
-                ui.notification_show("Invalid format for time points (use numbers separated by comma)", type="warning")
+                # 1. Split and clean input
+                parts = [p.strip() for p in raw_tp.split(',') if p.strip()]
+                parsed_values = []
+                
+                # 2. Strict validation loop
+                for p in parts:
+                    try:
+                        val = float(p)
+                    except ValueError:
+                        # Validation for non-numeric input
+                        raise ValueError(f"Non-numeric value detected: '{p}'. Please enter numbers only.")
+                    
+                    if val < 0:
+                        # Validation for negative numbers
+                        raise ValueError(f"Time points must be non-negative. Found: {val}")
+                    
+                    parsed_values.append(val)
+                
+                # 3. Check for duplicates
+                unique_points = sorted(list(set(parsed_values)))
+                if len(unique_points) < len(parsed_values):
+                    # Surface notification for duplication, but proceed with cleanup
+                    ui.notification_show("⚠️ Duplicate time points were found and removed.", type="warning")
+                
+                time_points = unique_points
+                
+            except ValueError as e:
+                # Stop execution if validation fails
+                ui.notification_show(f"Input Error: {str(e)}", type="error")
+                return 
         
         try:
             ui.notification_show("Generating curves...", duration=None, id="run_curves")
@@ -549,11 +574,11 @@ def survival_server(
         """Download survival curves report."""
         res = curves_result.get()
         if not res:
-            yield "No results".encode('utf-8')
+            yield b"No results"
             return
         
         elements = [
-            {'type': 'header', 'data': f"Survival Analysis ({'Kaplan-Meier' if res['plot_type']=='km' else 'Nelson-Aalen'})"},
+            {'type': 'header', 'data': f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km')=='km' else 'Nelson-Aalen'})"},
             {'type': 'plot', 'data': res['fig']},
             {'type': 'header', 'data': 'Statistics'},
             {'type': 'table', 'data': res['stats']}
@@ -626,7 +651,7 @@ def survival_server(
         """Download landmark analysis report."""
         res = landmark_result.get()
         if not res:
-            yield "No results".encode('utf-8')
+            yield b"No results"
             return
             
         elements = [
@@ -859,7 +884,7 @@ def survival_server(
         """Download subgroup analysis report."""
         res = sg_result.get()
         if not res:
-            yield "No results".encode('utf-8')
+            yield b"No results"
             return
             
         elements = [

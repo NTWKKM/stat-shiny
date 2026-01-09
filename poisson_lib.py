@@ -73,10 +73,10 @@ def run_poisson_regression(
 
 
 def run_negative_binomial_regression(
-    y: Union[pd.Series, np.ndarray],
+    y: pd.Series | np.ndarray,
     X: pd.DataFrame,
-    offset: Optional[Union[pd.Series, np.ndarray]] = None
-) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
+    offset: pd.Series | np.ndarray | None = None
+) -> tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
     """
     Fit Negative Binomial regression (alternative to Poisson for overdispersed data).
     
@@ -216,7 +216,8 @@ def analyze_poisson_outcome(
         offset = None
         if offset_col and offset_col in df_aligned.columns:
             raw_offset = pd.to_numeric(df_aligned[offset_col], errors="coerce")
-            if (raw_offset <= 0).any():
+            valid_offset = raw_offset.dropna()
+            if len(valid_offset) == 0 or (valid_offset <= 0).any():
                 return (
                     f"<div class='alert'>⚠️ Offset '{html.escape(str(offset_col))}' must be > 0 for log-offset.</div>",
                     {}, {}, {}
@@ -297,7 +298,11 @@ def analyze_poisson_outcome(
                 desc_tot = [f"n={n_used}", f"Mean count: {mean_y:.2f}"]
                 
                 for lvl in levels:
-                    lbl_txt = str(int(float(lvl))) if str(lvl).endswith('.0') else str(lvl)
+                    try:
+                        float_val = float(lvl)
+                        lbl_txt = str(int(float_val)) if float_val.is_integer() else str(lvl)
+                    except (ValueError, TypeError):
+                        lbl_txt = str(lvl)
                     mask = X_raw.astype(str) == lbl_txt
                     count = mask.sum()
                     mean_count = y[mask].mean() if count > 0 else 0

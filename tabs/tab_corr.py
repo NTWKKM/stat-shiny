@@ -21,6 +21,13 @@ from logger import get_logger
 from tabs._common import get_color_palette
 import tempfile
 import os
+import re
+import html
+import html as _html
+
+def _safe_filename_part(s: str) -> str:
+    s = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(s).strip())
+    return s[:80] or "value"
 
 logger = get_logger(__name__)
 
@@ -455,16 +462,21 @@ def corr_server(
         stats = result['stats']
         
         # Format interpretation
+        var1 = _html.escape(str(result["var1"]))
+        var2 = _html.escape(str(result["var2"]))
+        interpretation = _html.escape(str(stats.get("Interpretation", "")))
+        sample_note = _html.escape(str(stats.get("Sample Note", "")))
+        r2 = float(stats["R-squared (R²)"])
         interp_html = f"""
         <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
                     border-left: 4px solid {COLORS['primary']}; 
                     padding: 14px 15px; 
                     margin: 16px 0; 
                     border-radius: 5px;'>
-            <strong>📊 Interpretation:</strong> {stats['Interpretation']}<br>
-            <strong>💡 R² = {stats['R-squared (R²)']:.3f}</strong> → 
-            {stats['R-squared (R²)'] * 100:.1f}% of variance in {result['var2']} is explained by {result['var1']}<br>
-            <strong>📏 Sample:</strong> {stats['Sample Note']}
+            <strong>Interpretation:</strong> {interpretation}<br>
+            <strong>R² = {r2:.3f}</strong> →
+            {r2 * 100:.1f}% of variance in {var2} is explained by {var1}<br>
+            <strong>Sample:</strong> {sample_note}
         </div>
         """
 
@@ -528,9 +540,10 @@ def corr_server(
     # ✅ CHANGED: Logic for downloading file
     @render.download(
         filename=lambda: (
-            f"correlation_{corr_result.get()['var1']}_{corr_result.get()['var2']}.html"
-            if corr_result.get() is not None else "correlation_report.html"
-        )
+            (lambda r: f"correlation_{_safe_filename_part(r['var1'])}_{_safe_filename_part(r['var2'])}.html")(corr_result.get())
+            if corr_result.get() is not None
+            else "correlation_report.html"
+        ),
     )
     def btn_dl_corr():
         """Generate and download correlation report."""
@@ -638,6 +651,9 @@ def corr_server(
         summary = result['summary']
         
         # Format summary statistics
+        # Escape summary strings that include column names
+        strongest_pos = _html.escape(str(summary["strongest_positive"]))
+        strongest_neg = _html.escape(str(summary["strongest_negative"]))
         summary_html = f"""
         <div style='background: linear-gradient(135deg, #fff3e0 0%, #f8f9fa 100%); 
                     border: 2px solid #ff9800; 
@@ -648,8 +664,8 @@ def corr_server(
             <p><strong>Variables:</strong> {summary['n_variables']}</p>
             <p><strong>Correlations Computed:</strong> {summary['n_correlations']} (unique pairs)</p>
             <p><strong>Mean |Correlation|:</strong> {summary['mean_correlation']:.3f}</p>
-            <p><strong>Strongest Positive:</strong> {summary['strongest_positive']}</p>
-            <p><strong>Strongest Negative:</strong> {summary['strongest_negative']}</p>
+            <p><strong>Strongest Positive:</strong> {strongest_pos}</p>
+            <p><strong>Strongest Negative:</strong> {strongest_neg}</p>
             <p><strong>Significant Correlations (p<0.05):</strong> {summary['n_significant']} ({summary['pct_significant']:.1f}%)</p>
         </div>
         """
@@ -690,14 +706,17 @@ def corr_server(
     
     # ✅ CHANGED: Logic for downloading file
     @render.download(
-        filename=lambda: f"correlation_matrix_{matrix_result.get()['method']}.html" 
-        if matrix_result.get() else "correlation_matrix.html"
+        filename=lambda: (
+            (lambda r: f"correlation_matrix_{_safe_filename_part(r['method'])}.html")(matrix_result.get())
+            if matrix_result.get() is not None
+            else "correlation_matrix.html"
+        ),
     )
     def btn_dl_matrix():
         """Generate and download matrix report."""
         result = matrix_result.get()
         if result is None:
-            yield "No results available".encode('utf-8')
+            yield b"No results available"
             return
         
         summary = result['summary']
@@ -712,8 +731,8 @@ def corr_server(
         # Add summary statistics
         summary_text = f"""
         <h3>Matrix Summary Statistics</h3>
-        <p><strong>Correlations Computed:</strong> {summary['n_correlations']} unique pairs</p>
-        <p><strong>Mean |Correlation|:</strong> {summary['mean_correlation']:.3f}</p>
+        <p><strong>Correlations Computed:</strong> {html.escape(str(summary['n_correlations']))} unique pairs</p>
+        <p><strong>Mean |Correlation|:</strong> {html.escape(str(summary['mean_correlation']))}</p>
         <p><strong>Maximum |Correlation|:</strong> {summary['max_correlation']:.3f}</p>
         <p><strong>Minimum |Correlation|:</strong> {summary['min_correlation']:.3f}</p>
         <p><strong>Significant Correlations (p<0.05):</strong> {summary['n_significant']} out of {summary['n_correlations']} ({summary['pct_significant']:.1f}%)</p>
@@ -891,7 +910,7 @@ def corr_server(
         """Generate and download ICC report."""
         result = icc_result.get()
         if result is None:
-            yield "No results available".encode('utf-8')
+            yield b"No results available"
             return
         
         # Build report elements
