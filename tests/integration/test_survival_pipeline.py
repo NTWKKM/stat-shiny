@@ -85,7 +85,8 @@ class TestSurvivalPipeline:
         assert 0 <= p_val_num <= 1
         
         # --- Step 3: Cox Regression ---
-        cph, res_df, _data, err = fit_cox_ph(
+        # ✅ FIX: เพิ่ม *_ เพื่อรับค่าส่วนเกิน (model_stats ฯลฯ)
+        cph, res_df, _data, err, *_ = fit_cox_ph(
             df, 'time', 'event', ['age', 'treatment', 'severity']
         )
         
@@ -107,6 +108,7 @@ class TestSurvivalPipeline:
         df = survival_data
         
         # 1. Fit Cox Model
+        # ✅ FIX: (อันนี้ถูกแล้ว) มี *_ เพื่อรับค่าส่วนเกิน
         cph, res_df, _data, err, *_ = fit_cox_ph(
             df, 'time', 'event', ['age', 'treatment', 'severity']
         )
