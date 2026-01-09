@@ -39,8 +39,13 @@ def _compute_correlation_ci(r: float, n: int, confidence: float = 0.95) -> Tuple
     Returns:
         tuple: (lower_ci, upper_ci)
     """
-    if abs(r) >= 1.0 or n < 4:
+    # Check for non-finite correlation (NaN/Inf) or small sample size
+    if not np.isfinite(r) or n < 4:
         return (np.nan, np.nan)
+    
+    # Clamp r to a safe range to avoid log/overflow issues in Fisher's Z transform
+    eps = 1e-12
+    r = np.clip(r, -1 + eps, 1 - eps)
     
     # Fisher's Z transformation
     z = 0.5 * np.log((1 + r) / (1 - r))

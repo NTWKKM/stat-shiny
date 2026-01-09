@@ -168,8 +168,11 @@ def calculate_survival_at_times(
         try:
             kmf.fit(df_g[duration_col], df_g[event_col], label=label)
             if kmf.survival_function_.empty:
+                logger.debug(f"KM fit resulted in empty survival function for group {label}")
                 continue
-        except Exception:
+        except Exception as e:
+            # CHANGED: Log the exception with context instead of silent swallow
+            logger.debug(f"Failed to fit KM for group {label}: {e}")
             continue
         
         # Calculate survival at each time point
@@ -208,8 +211,9 @@ def calculate_survival_at_times(
                         else:
                             # Fallback if indexer fails
                             lower, upper = np.nan, np.nan
-                except Exception:
-                     # Fallback mechanism if indexing fails
+                except Exception as e:
+                     # CHANGED: Log detailed exception for inner block failure
+                     logger.debug(f"CI indexing failed for group {label} at time {t}: {e}")
                      lower, upper = np.nan, np.nan
 
                 # Format Display
@@ -223,6 +227,7 @@ def calculate_survival_at_times(
                         display_val = f"{surv_str}"
 
             except Exception as e:
+                # Log full context for debugging
                 logger.warning(f"Calc error at time {t} for {label}: {e}")
                 display_val = "NR"
 
