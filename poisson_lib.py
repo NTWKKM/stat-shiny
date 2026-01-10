@@ -109,8 +109,9 @@ def run_negative_binomial_regression(
                 alpha_val = result.params['alpha']
             else:
                 # Fallback: alpha is typically the last parameter for NB2
-                logger.debug("Alpha not found by name, using last parameter as fallback")
-                alpha_val = result.params[-1]
+                logger.debug("Alpha not found by name, using last parameter (index %d) as fallback", 
+                             len(result.params) - 1)
+                alpha_val = result.params.iloc[-1] if isinstance(result.params, pd.Series) else result.params[-1]
 
         try:
             # Note: DiscreteResult (MLE) does not have 'deviance' or 'pearson_chi2' attributes 
