@@ -1095,6 +1095,172 @@ def test_module_imports():
 
 
 # ============================================================================
+# ============================================================================
+# VIF COLLINEARITY DIAGNOSTICS TESTS
+# ============================================================================
+
+class TestCollinearityDiagnostics:
+    """Test VIF (Variance Inflation Factor) calculation functions."""
+    
+    def test_vif_calculation_independent_predictors(self):
+        """Test VIF calculation with independent predictors (VIF ≈ 1)."""
+        from collinearity_check import calculate_vif
+        
+        np.random.seed(42)
+        n = 100
+        X = pd.DataFrame({
+            'x1': np.random.normal(0, 1, n),
+            'x2': np.random.normal(0, 1, n),
+            'x3': np.random.normal(0, 1, n)
+        })
+        
+        vif_df = calculate_vif(X)
+        
+        # Should return DataFrame
+        assert isinstance(vif_df, pd.DataFrame)
+        # Should have 3 rows
+        assert len(vif_df) == 3
+        # Should have required columns
+        assert 'Variable' in vif_df.columns
+        assert 'VIF' in vif_df.columns
+        assert 'Flag' in vif_df.columns
+        assert 'Interpretation' in vif_df.columns
+        # VIF values should be close to 1 for independent predictors
+        assert all(vif_df['VIF'] < 5)
+        # No severe flags
+        assert not any('SEVERE' in str(f) for f in vif_df['Flag'])
+    
+    def test_vif_calculation_perfect_collinearity(self):
+        """Test VIF calculation with highly correlated predictors."""
+        from collinearity_check import calculate_vif
+        
+        np.random.seed(42)
+        n = 100
+        x1_vals = np.random.normal(0, 1, n)
+        X = pd.DataFrame({
+            'x1': x1_vals,
+            'x2': np.random.normal(0, 1, n),
+            'x3': x1_vals * 2 + np.random.normal(0, 0.01, n)  # Highly correlated with x1
+        })
+        
+        vif_df = calculate_vif(X)
+        
+        # x3 should have higher VIF than x2
+        x3_vif = vif_df[vif_df['Variable'] == 'x3']['VIF'].values[0]
+        x2_vif = vif_df[vif_df['Variable'] == 'x2']['VIF'].values[0]
+        
+        # x3 should have higher VIF due to correlation with x1
+        assert x3_vif > x2_vif
+        # x3 should have high VIF (> 10)
+        assert x3_vif > 10
+    
+    def test_vif_calculation_high_collinearity(self):
+        """Test VIF calculation with highly correlated predictors."""
+        from collinearity_check import calculate_vif
+        
+        np.random.seed(42)
+        n = 100
+        base = np.random.normal(0, 1, n)
+        X = pd.DataFrame({
+            'x1': base,
+            'x2': base + np.random.normal(0, 0.1, n),  # Highly correlated with x1
+            'x3': np.random.normal(0, 1, n)
+        })
+        
+        vif_df = calculate_vif(X)
+        
+        # x2 should have higher VIF than x3
+        x2_vif = vif_df[vif_df['Variable'] == 'x2']['VIF'].values[0]
+        x3_vif = vif_df[vif_df['Variable'] == 'x3']['VIF'].values[0]
+        
+        assert x2_vif > x3_vif
+        # x2 should have at least moderate collinearity
+        assert x2_vif > 5
+    
+    def test_vif_with_categorical_variables(self):
+        """Test VIF calculation with categorical variables (should be encoded)."""
+        from collinearity_check import calculate_vif
+        
+        np.random.seed(42)
+        n = 200  # Increase sample size to ensure enough data for VIF calculation
+        X = pd.DataFrame({
+            'x1': np.random.normal(0, 1, n),
+            'cat1': np.random.choice(['A', 'B', 'C'], n),
+            'cat2': np.random.choice(['X', 'Y'], n)
+        })
+        
+        vif_df = calculate_vif(X)
+        
+        # Should successfully encode categoricals and return results
+        assert isinstance(vif_df, pd.DataFrame)
+        assert len(vif_df) > 0
+        # After one-hot encoding with drop_first, we should have x1 + (3-1) + (2-1) = 4 columns
+        # or just check that we have more than just x1
+        assert len(vif_df) > 1
+        # Check that x1 is in the results
+        assert 'x1' in vif_df['Variable'].values
+    
+    def test_vif_no_numeric_columns(self):
+        """Test VIF calculation with only categorical variables (should encode them)."""
+        from collinearity_check import calculate_vif
+        
+        # Create enough data for VIF calculation
+        n = 50
+        X = pd.DataFrame({
+            'cat1': ['A', 'B', 'C'] * (n // 3),
+            'cat2': ['X', 'Y', 'Z'] * (n // 3)
+        })
+        
+        # After encoding, we should have numeric columns
+        vif_df = calculate_vif(X)
+        assert isinstance(vif_df, pd.DataFrame)
+        # Should have successfully encoded the categoricals
+        assert len(vif_df) > 0
+    
+    def test_vif_empty_dataframe(self):
+        """Test VIF calculation with empty DataFrame."""
+        from collinearity_check import calculate_vif
+        
+        X = pd.DataFrame()
+        
+        with pytest.raises(ValueError, match="No numeric columns found"):
+            calculate_vif(X)
+    
+    def test_vif_interpretation_function(self):
+        """Test the VIF interpretation helper function."""
+        from collinearity_check import _interpret_vif
+        
+        assert _interpret_vif(1.0) == "Independent predictor"
+        assert _interpret_vif(3.5) == "Acceptable level of collinearity"
+        assert _interpret_vif(7.0) == "Moderate collinearity - consider removing if possible"
+        assert _interpret_vif(15.0) == "Severe collinearity - strongly recommend removal"
+        assert _interpret_vif(np.nan) == "Cannot calculate (may indicate perfect collinearity)"
+        assert _interpret_vif(np.inf) == "Cannot calculate (may indicate perfect collinearity)"
+    
+    def test_vif_report_html_generation(self):
+        """Test HTML report generation for VIF results."""
+        from collinearity_check import calculate_vif, generate_vif_report_html
+        
+        np.random.seed(42)
+        n = 100
+        X = pd.DataFrame({
+            'x1': np.random.normal(0, 1, n),
+            'x2': np.random.normal(0, 1, n),
+            'x3': np.random.normal(0, 1, n)
+        })
+        
+        vif_df = calculate_vif(X)
+        html_report = generate_vif_report_html(vif_df)
+        
+        # Should return HTML string
+        assert isinstance(html_report, str)
+        # Should contain key HTML elements
+        assert '<!DOCTYPE html>' in html_report
+        assert 'Collinearity Diagnostic Report' in html_report
+        assert 'VIF' in html_report
+        assert 'Recommendations' in html_report
+
+
 # TEST SUITE SUMMARY
 # ============================================================================
 

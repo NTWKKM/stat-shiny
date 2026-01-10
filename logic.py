@@ -16,6 +16,7 @@ from pathlib import Path
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
 from tabs._common import get_color_palette
+from collinearity_check import calculate_vif, generate_vif_report_html
 
 logger = get_logger(__name__)
 
@@ -616,7 +617,19 @@ def analyze_outcome(
         if not multi_data.empty and final_n_multi > 10 and len(predictors) > 0:
             params, conf, pvals, status, mv_stats = run_binary_logit(multi_data['y'], multi_data[predictors], method=preferred_method)
             
+            # Initialize VIF report variable
+            vif_report = ""
+            
             if status == "OK":
+                # Calculate VIF for collinearity diagnostics
+                try:
+                    vif_df = calculate_vif(multi_data[predictors])
+                    vif_report = generate_vif_report_html(vif_df)
+                    logger.info("VIF collinearity diagnostics calculated successfully")
+                except Exception as e:
+                    logger.warning(f"Could not calculate VIF: {e}")
+                    vif_report = ""
+                
                 r2_parts = []
                 mcf = mv_stats.get('mcfadden')
                 nag = mv_stats.get('nagelkerke')
@@ -888,7 +901,10 @@ def analyze_outcome(
     # --- END FIX ---
 
     # Return fragment with embedded styles (No <html> wrapper)
+    # Append VIF collinearity diagnostics report if available
     final_output = html_table + forest_plot_html
+    if vif_report:
+        final_output += f'<div style="margin-top: 30px;">{vif_report}</div>'
 
     return final_output, or_results, aor_results, interaction_results
 
