@@ -241,7 +241,7 @@ def analyze_poisson_outcome(
         mode_map = {}
         cat_levels_map = {}
         
-        def fmt_p(val: Union[float, str]) -> str:
+        def fmt_p(val: float | str) -> str:
             """Plain p-value formatting (non-styled)"""
             if pd.isna(val):
                 return "-"
@@ -476,7 +476,7 @@ def analyze_poisson_outcome(
                     # Now multi_df has the raw columns, so create_interaction_terms will work correctly
                     multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                     logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
-                except Exception:
+                except (ImportError, ValueError, TypeError, KeyError) as e:
                     logger.exception("Failed to create interaction terms")
             
             # 🧹 CLEANUP: Remove raw categorical columns before passing to statsmodels

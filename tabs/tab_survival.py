@@ -477,7 +477,7 @@ def survival_server(
                     parsed_values.append(val)
                 
                 # 3. Check for duplicates
-                unique_points = sorted(list(set(parsed_values)))
+                unique_points = sorted(set(parsed_values))
                 if len(unique_points) < len(parsed_values):
                     # Surface notification for duplication, but proceed with cleanup
                     ui.notification_show("⚠️ Duplicate time points were found and removed.", type="warning")
