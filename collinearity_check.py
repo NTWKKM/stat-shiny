@@ -1,6 +1,27 @@
 """
 Collinearity Detection Module for stat-shiny
-Calculates VIF (Variance Inflation Factor) for each covariate
+Calculates VIF (Variance Inflation Factor) for each covariate to detect multicollinearity.
+
+USAGE:
+    from collinearity_check import calculate_vif, generate_vif_report_html
+    
+    # Calculate VIF for your predictors
+    vif_df = calculate_vif(X)
+    
+    # Generate HTML report
+    html_report = generate_vif_report_html(vif_df)
+
+VIF INTERPRETATION:
+    - VIF = 1: No correlation with other predictors ✅
+    - VIF = 1-5: Mild correlation (usually acceptable)
+    - VIF > 10: Problematic collinearity ⚠️ (consider removing)
+    - VIF > 30: Severe collinearity ❌ (definitely remove one)
+
+RECOMMENDATIONS:
+    - If VIF > 10: Consider removing the variable with highest VIF
+    - Repeat analysis after removal to check VIF improvements
+    - Consult domain expertise - sometimes collinearity is unavoidable
+    - Consider: Ridge regression or elastic net if multicollinearity severe
 """
 
 import pandas as pd
@@ -11,6 +32,14 @@ def calculate_vif(X: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate VIF for each numeric covariate.
     
+    VIF measures how much a predictor's variance is inflated due to collinearity 
+    with other predictors. Higher values indicate more problematic multicollinearity.
+    
+    This function automatically:
+    - Encodes categorical variables using one-hot encoding (drop_first=True)
+    - Handles mixed data types (numeric and categorical)
+    - Returns sorted results with interpretation flags
+    
     VIF Interpretation:
     - VIF = 1: No correlation with other predictors ✅
     - VIF = 1-5: Mild correlation (usually acceptable)
@@ -18,10 +47,21 @@ def calculate_vif(X: pd.DataFrame) -> pd.DataFrame:
     - VIF > 30: Severe collinearity ❌ (definitely remove one)
     
     Args:
-        X: DataFrame of numeric predictors (no intercept)
+        X: DataFrame of predictors (can include numeric and categorical variables)
     
     Returns:
-        DataFrame with columns: ['Variable', 'VIF', 'Flag']
+        DataFrame with columns: ['Variable', 'VIF', 'Flag', 'Interpretation']
+        Sorted by VIF in descending order
+    
+    Raises:
+        ValueError: If no numeric columns found or insufficient data for VIF calculation
+    
+    Example:
+        >>> import pandas as pd
+        >>> from collinearity_check import calculate_vif
+        >>> X = pd.DataFrame({'age': [25,30,35,40], 'height': [170,175,180,185], 'weight': [70,75,80,85]})
+        >>> vif_df = calculate_vif(X)
+        >>> print(vif_df)
     """
     from logger import get_logger
     logger = get_logger(__name__)

@@ -110,6 +110,13 @@ Calculate sensitivity, specificity, PPV, NPV, and visualize ROC curves.
 - Run Univariable and Multivariable Logistic Regression.
 - Visualize results with Forest Plots.
 - Supports **Firth's Regression** for rare events (if dependencies are met).
+- **NEW**: Automatic **Collinearity Diagnostics** (VIF) to detect multicollinearity.
+  - Variance Inflation Factor (VIF) calculated for all predictors
+  - Plain-English interpretation and actionable recommendations
+  - Automatic categorical variable encoding
+- **NEW**: **Multiple Comparison Corrections** for interaction terms.
+  - Bonferroni, Holm, and Benjamini-Hochberg methods
+  - HTML reports with method comparisons
 
 ### 📈 Correlation & ICC
 
@@ -119,6 +126,10 @@ Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
 
 - Kaplan-Meier survival curves.
 - Cox Proportional Hazards modeling.
+- **NEW**: Multiple **Landmark Time** analysis with automatic correction.
+  - Compare survival at multiple time points
+  - Bonferroni, Holm, or Benjamini-Hochberg corrections applied automatically
+  - Statistical significance thresholds adjusted for multiple testing
 
 ### ⚙️ Settings
 

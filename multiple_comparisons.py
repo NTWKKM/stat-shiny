@@ -1,6 +1,40 @@
 """
-Multiple Comparison Correction Methods
-For landmark survival analysis, subgroup analyses, etc.
+Multiple Comparison Correction Methods for stat-shiny
+Controls family-wise error rate and false discovery rate when conducting multiple tests.
+
+USAGE:
+    from multiple_comparisons import MultipleComparisonCorrection, generate_mcc_report_html
+    
+    mcc = MultipleComparisonCorrection()
+    
+    # Bonferroni correction (conservative)
+    results, threshold = mcc.bonferroni(p_values=[0.01, 0.03, 0.05])
+    
+    # Holm correction (less conservative, recommended)
+    results, threshold = mcc.holm(p_values=[0.01, 0.03, 0.05])
+    
+    # Benjamini-Hochberg (FDR control, more powerful)
+    results, threshold = mcc.benjamini_hochberg(p_values=[0.01, 0.03, 0.05])
+    
+    # Generate HTML report
+    html = generate_mcc_report_html("Holm", results)
+
+METHOD COMPARISON:
+    - Bonferroni: Conservative, most protective against false positives
+      * Recommended when: n_tests < 10
+      * Controls: Family-wise error rate (FWER)
+      * Drawback: Can be too conservative, may miss true effects
+    
+    - Holm: Less conservative than Bonferroni, still strong control
+      * Recommended when: Most applications (default choice)
+      * Controls: Family-wise error rate (FWER)
+      * Advantage: More powerful while maintaining strong control
+    
+    - Benjamini-Hochberg: Controls False Discovery Rate (FDR), more powerful
+      * Recommended when: Exploratory analyses, many tests
+      * Controls: False Discovery Rate (FDR)
+      * Interpretation: ~5% of significant results are expected to be false positives
+      * Advantage: Most powerful, good for large-scale testing
 """
 
 import numpy as np
@@ -9,7 +43,17 @@ from scipy.stats import norm
 
 class MultipleComparisonCorrection:
     """
-    Implements Bonferroni, Holm, Benjamini-Hochberg corrections.
+    Implements multiple comparison correction methods to control for false positives
+    when conducting multiple statistical tests.
+    
+    When running multiple tests, the chance of finding at least one false positive
+    increases with the number of tests. These corrections adjust the significance
+    threshold to control this inflation.
+    
+    Available Methods:
+        - bonferroni: Conservative correction (n_tests < 10)
+        - holm: Sequential correction (recommended for most applications)
+        - benjamini_hochberg: FDR control (exploratory analyses, many tests)
     """
     
     @staticmethod

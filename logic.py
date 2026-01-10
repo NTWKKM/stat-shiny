@@ -336,7 +336,29 @@ def analyze_outcome(
     interaction_pairs: Optional[list[tuple[str, str]]] = None
 ) -> tuple[str, dict[str, ORResult], dict[str, ORResult], dict[str, InteractionResult]]:
     """
-    Perform logistic regression analysis for binary outcome.
+    Perform comprehensive logistic regression analysis for binary outcome.
+    
+    STATISTICAL ASSUMPTIONS & LIMITATIONS:
+    - Outcome must be binary (0/1 or False/True)
+    - Uses listwise deletion for missing data (assumes MCAR)
+    - Univariate screening threshold: p < 0.20 (arbitrary, see Bursac et al. 2008)
+    - Firth regression used automatically if: perfect separation, n < 50, or <20 events
+    - Interaction terms tested only if explicitly specified in interaction_pairs
+    
+    INTERPRETATION GUIDE:
+    - OR > 1: Increased odds of outcome
+    - OR < 1: Decreased odds of outcome  
+    - 95% CI contains 1.0: Not statistically significant (p ≥ 0.05)
+    - aOR: Adjusted for all variables in multivariate model
+    
+    COLLINEARITY:
+    - Check VIF output before interpreting coefficients
+    - VIF > 10 indicates problematic multicollinearity
+    - Consider removing high-VIF variables
+    
+    MULTIPLE COMPARISONS:
+    - If testing >1 interaction: Apply Bonferroni or Holm correction
+    - Unadjusted p-values have inflation
     
     Args:
         outcome_name: Name of binary outcome column
@@ -347,6 +369,11 @@ def analyze_outcome(
     
     Returns:
         tuple: (html_table, or_results, aor_results, interaction_results)
+        
+    Example:
+        >>> df = pd.DataFrame({'outcome': [0,1,0,1], 'age': [25,30,35,40], 'sex': ['M','F','M','F']})
+        >>> html, or_res, aor_res, int_res = analyze_outcome('outcome', df)
+        >>> print(html)  # Returns HTML table with ORs, aORs, and VIF diagnostics
     """
     logger.info(f"Starting logistic analysis for outcome: {outcome_name}")
     
