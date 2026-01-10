@@ -740,10 +740,11 @@ def logit_server(
             # Wrap in standard HTML structure for standalone download correctness
             # INLINE CSS FIX: Read static/styles.css and embed directly so downloads look right
             try:
-                with open('static/styles.css', 'r', encoding='utf-8') as f:
+                css_path = Path(__file__).resolve().parents[1] / "static" / "styles.css"
+                with css_path.open('r', encoding='utf-8') as f:
                     css_content = f.read()
                 css_tag = f"<style>{css_content}</style>"
-            except (FileNotFoundError, IOError):
+            except OSError:
                 css_tag = "<style>/* static/styles.css not found */</style>"
 
             wrapped_html = f"""

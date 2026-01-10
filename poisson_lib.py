@@ -124,7 +124,17 @@ def run_negative_binomial_regression(
         except (AttributeError, ZeroDivisionError) as e:
             logger.debug(f"Failed to calculate NB fit stats: {e}")
         
-        return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
+        params = result.params
+        conf = result.conf_int()
+        pvals = result.pvalues
+
+        # Remove alpha from coefficient outputs (keep only in stats_metrics)
+        if isinstance(params, pd.Series) and "alpha" in params.index:
+            params = params.drop(index=["alpha"])
+            conf = conf.drop(index=["alpha"], errors="ignore")
+            pvals = pvals.drop(index=["alpha"], errors="ignore")
+
+        return params, conf, pvals, "OK", stats_metrics
     
     except Exception as e:
         logger.exception("Negative Binomial regression failed")
@@ -303,7 +313,7 @@ def analyze_poisson_outcome(
                         lbl_txt = str(int(float_val)) if float_val.is_integer() else str(lvl)
                     except (ValueError, TypeError):
                         lbl_txt = str(lvl)
-                    mask = X_raw.astype(str) == lbl_txt
+                    mask = X_raw.astype(str) == str(lvl)
                     count = mask.sum()
                     mean_count = y[mask].mean() if count > 0 else 0
                     desc_tot.append(f"{lbl_txt}: n={count}, mean={mean_count:.2f}")
@@ -438,10 +448,18 @@ def analyze_poisson_outcome(
         if len(cand_valid) > 0 or interaction_pairs:
             multi_df = pd.DataFrame({'y': y})
             
-            # Add main effects
+            # Track raw categorical columns to drop later
+            raw_cat_cols_to_drop = []
+
+            # Add main effects (Include Raw for interactions AND Dummies for regression)
             for c in cand_valid:
                 mode = mode_map.get(c, 'linear')
                 if mode == 'categorical':
+                    # 1. Add RAW column so interaction_lib can find it (CodeRabbit Fix)
+                    multi_df[c] = df_aligned[c]
+                    raw_cat_cols_to_drop.append(c)
+
+                    # 2. Add Dummy columns for the regression model
                     levels = cat_levels_map.get(c, [])
                     raw_vals = df_aligned[c]
                     if len(levels) > 1:
@@ -455,11 +473,17 @@ def analyze_poisson_outcome(
             if interaction_pairs:
                 try:
                     from interaction_lib import create_interaction_terms, format_interaction_results
+                    # Now multi_df has the raw columns, so create_interaction_terms will work correctly
                     multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                     logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
                 except Exception:
                     logger.exception("Failed to create interaction terms")
             
+            # 🧹 CLEANUP: Remove raw categorical columns before passing to statsmodels
+            # Statsmodels GLM with formula expects numeric dummies in design matrix (if not using formula API)
+            if raw_cat_cols_to_drop:
+                multi_df = multi_df.drop(columns=raw_cat_cols_to_drop, errors='ignore')
+
             multi_data = multi_df.dropna()
             final_n_multi = len(multi_data)
             predictors = [col for col in multi_data.columns if col != 'y']
@@ -698,7 +722,7 @@ def analyze_poisson_outcome(
             if mode == 'categorical':
                 p_col_display = res.get('p_irr', '-')
             else:
-                p_col_display = fmt_p_with_styling(res.get('p_comp', np.nan))
+                p_col_display = fmt_p_with_styling(res.get('p_irr', np.nan))
             
             # Multivariate results
             airr_s, acoef_s, ap_s = "-", "-", "-"

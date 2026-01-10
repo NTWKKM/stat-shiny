@@ -499,27 +499,22 @@ def survival_server(
                     data, time_col, event_col, group_col, time_points
                 )
             
+            medians = None # Initialize medians
+            
             if plot_type == "km":
                 fig, stats = survival_lib.fit_km_logrank(data, time_col, event_col, group_col)
                 medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col)
                 
-                # Merge stats and medians
-                if 'Group' in stats.columns and 'Group' in medians.columns:
-                    # Rename N and Events to avoid collision or verify they are same
-                    stats = stats.merge(medians, on='Group', how='outer', suffixes=('', '_med'))
-                    # Cleanup duplicate columns if needed
-                    for c in ['N_med', 'Events_med']:
-                        if c in stats.columns:
-                            stats = stats.drop(columns=[c])
-                else:
-                    # Fallback
-                    stats = pd.concat([stats, medians], axis=1)
+                # ✅ FIXED: Do NOT merge stats (single row test result) and medians (per-group result)
+                # Storing them separately prevents NaN and shape misalignment issues
+                
             else:
                 fig, stats = survival_lib.fit_nelson_aalen(data, time_col, event_col, group_col)
             
             curves_result.set({
                 'fig': fig, 
                 'stats': stats, 
+                'medians': medians, # ✅ Store medians separately in dict
                 'surv_at_times': surv_at_times_df,
                 'plot_type': plot_type
             })
@@ -543,9 +538,14 @@ def survival_server(
         elements = [
             ui.card_header("📈 Plot"),
             output_widget("out_curves_plot"),
-            ui.card_header("📄 Summary Statistics"),
+            ui.card_header("📄 Log-Rank Test / Summary Statistics"), # Update header title
             ui.output_data_frame("out_curves_table")
         ]
+        
+        # ✅ NEW: Render Medians Table separately if it exists
+        if res.get('medians') is not None:
+             elements.append(ui.card_header("⏱️ Median Survival Time"))
+             elements.append(ui.output_data_frame("out_medians_table"))
         
         # ✅ NEW: Add table for survival at specific times
         if res.get('surv_at_times') is not None:
@@ -563,6 +563,12 @@ def survival_server(
     def out_curves_table():
         res = curves_result.get()
         return render.DataGrid(res['stats']) if res else None
+
+    # ✅ NEW: Renderer for Medians Table
+    @render.data_frame
+    def out_medians_table():
+        res = curves_result.get()
+        return render.DataGrid(res['medians']) if res and res.get('medians') is not None else None
 
     @render.data_frame
     def out_surv_times_table():
@@ -583,6 +589,11 @@ def survival_server(
             {'type': 'header', 'data': 'Statistics'},
             {'type': 'table', 'data': res['stats']}
         ]
+        
+        # ✅ NEW: Add Medians to download report
+        if res.get('medians') is not None:
+            elements.append({'type': 'header', 'data': 'Median Survival Time'})
+            elements.append({'type': 'table', 'data': res['medians']})
         
         if res.get('surv_at_times') is not None:
             elements.append({'type': 'header', 'data': 'Survival Probability at Fixed Times'})
