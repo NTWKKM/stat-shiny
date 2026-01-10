@@ -4,9 +4,11 @@ import pandas as pd
 import numpy as np
 import json
 import plotly.graph_objects as go
+import html
 from htmltools import HTML, div
 import gc
-from typing import Optional, List, Dict, Any, Tuple, Union, cast
+# Use built-in list/dict/tuple for Python 3.9+ and typing for complex types
+from typing import Optional, Any, Union, cast
 
 # Import internal modules
 from logic import analyze_outcome
@@ -22,9 +24,9 @@ COLORS = get_color_palette()
 # ==============================================================================
 # Helper Functions (Pure Logic)
 # ==============================================================================
-def check_perfect_separation(df: pd.DataFrame, target_col: str) -> List[str]:
+def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
     """Identify columns causing perfect separation."""
-    risky_vars: List[str] = []
+    risky_vars: list[str] = []
     try:
         y = pd.to_numeric(df[target_col], errors='coerce').dropna()
         if y.nunique() < 2: 
@@ -374,7 +376,7 @@ def logit_server(
     output: Any, 
     session: Any, 
     df: reactive.Value[Optional[pd.DataFrame]], 
-    var_meta: reactive.Value[Dict[str, Any]], 
+    var_meta: reactive.Value[dict[str, Any]], 
     df_matched: reactive.Value[Optional[pd.DataFrame]], 
     is_matched: reactive.Value[bool]
 ) -> None:
@@ -535,7 +537,7 @@ def logit_server(
         final_df = d.drop(columns=exclude, errors='ignore')
         
         # Parse interaction pairs from "var1 × var2" format
-        interaction_pairs: Optional[List[Tuple[str, str]]] = None
+        interaction_pairs: Optional[list[tuple[str, str]]] = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:
@@ -549,6 +551,7 @@ def logit_server(
 
             try:
                 # Run Logic from logic.py
+                # Note: updated logic.py returns 4 values and html_rep typically includes the plot + css
                 html_rep, or_res, aor_res, interaction_res = analyze_outcome(
                     target, final_df, var_meta=var_meta.get(), method=method,
                     interaction_pairs=interaction_pairs
@@ -558,7 +561,7 @@ def logit_server(
                 logger.exception("Logistic regression error")
                 return
 
-            # Generate Forest Plots using library
+            # Generate Forest Plots using library (for interactive widgets)
             fig_adj = None
             fig_crude = None
 
@@ -579,6 +582,7 @@ def logit_server(
                     )
 
             # Store Results
+            # html_rep from logic.py should be complete with CSS and embedded plot
             logit_res.set({
                 "html": html_rep,
                 "fig_adj": fig_adj,
@@ -674,7 +678,7 @@ def logit_server(
         offset = offset_col if offset_col != "None" else None
         
         # Parse interaction pairs
-        interaction_pairs: Optional[List[Tuple[str, str]]] = None
+        interaction_pairs: Optional[list[tuple[str, str]]] = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:
@@ -687,6 +691,8 @@ def logit_server(
             p.set(message="Running Poisson Regression...", detail="Calculating...")
 
             try:
+                # Run Poisson Logic
+                # Expecting 4 values from the updated poisson_lib.py
                 html_rep, irr_res, airr_res, interaction_res = analyze_poisson_outcome(
                     target, final_df, var_meta=var_meta.get(),
                     offset_col=offset, interaction_pairs=interaction_pairs
@@ -716,9 +722,44 @@ def logit_server(
                         title="<b>Univariable: Crude IRR</b>", x_label="Crude IRR"
                     )
 
+            # --- MANUALLY CONSTRUCT COMPLETE REPORT (Combined Table + Plot) ---
+            # Unlike logic.py, poisson_lib might return just the table HTML.
+            # We inject CSS and append the Forest Plot HTML here to match the requested format.
+            
+            # Keep a fragment for in-app rendering
+            poisson_fragment_html = html_rep
+            
+            # Append Adjusted Plot if available, else Crude
+            plot_html = ""
+            if fig_adj:
+                plot_html = fig_adj.to_html(full_html=False, include_plotlyjs='cdn')
+                poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+            elif fig_crude:
+                plot_html = fig_crude.to_html(full_html=False, include_plotlyjs='cdn')
+                poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+
+            # Wrap in standard HTML structure for standalone download correctness
+            wrapped_html = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Poisson Regression Report: {html.escape(target)}</title>
+            </head>
+            <body>
+                <div class="report-container">
+                    {poisson_fragment_html}
+                </div>
+            </body>
+            </html>
+            """
+            full_poisson_html = wrapped_html
+
             # Store Results
             poisson_res.set({
-                "html": html_rep,
+                "html_fragment": poisson_fragment_html,  # For UI rendering
+                "html_full": full_poisson_html,          # For downloads
                 "fig_adj": fig_adj,
                 "fig_crude": fig_crude
             })
@@ -742,7 +783,7 @@ def logit_server(
         if res:
             return ui.card(
                 ui.card_header("📋 Poisson Regression Report"),
-                ui.HTML(res['html'])
+                ui.HTML(res['html_fragment'])
             )
         return ui.card(
             ui.card_header("📋 Poisson Regression Report"),
@@ -786,7 +827,8 @@ def logit_server(
     @render.download(filename="poisson_report.html")
     def btn_dl_poisson_report():
         res = poisson_res.get()
-        if res: yield res['html']
+        if res: 
+            yield res['html_full']
 
     # ==========================================================================
     # LOGIC: Subgroup Analysis

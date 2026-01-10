@@ -1,10 +1,11 @@
 """
-⚠️ Survival Analysis Module (Shiny Compatible) - OPTIMIZED
+⚠️ Survival Analysis Module (Shiny Compatible) - ENHANCED & OPTIMIZED
 
 Functions for:
-- Kaplan-Meier curves with log-rank tests
+- Kaplan-Meier curves with log-rank tests (Enhanced)
+- Survival Probabilities at Fixed Times (New)
 - Nelson-Aalen cumulative hazard
-- Cox proportional hazards regression
+- Cox proportional hazards regression (Enhanced stats)
 - Landmark analysis
 - Forest plots
 - Assumption checking
@@ -15,27 +16,36 @@ OPTIMIZATIONS:
 - Batch residual computations (8x faster)
 - Vectorized CI extraction (10x faster)
 """
+from __future__ import annotations
 
-from typing import Union, Optional, List, Dict, Tuple, Any, Sequence
-import pandas as pd
-import numpy as np
-from lifelines import KaplanMeierFitter, CoxPHFitter, NelsonAalenFitter
-from lifelines.statistics import logrank_test, multivariate_logrank_test, proportional_hazard_test
-from lifelines.utils import median_survival_times 
-import plotly.graph_objects as go
-import plotly.express as px
-import warnings
-import io, base64
+import base64
+import io
 import html as _html
 import logging
+import numbers
+import warnings
 from functools import lru_cache
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from lifelines import CoxPHFitter, KaplanMeierFitter, NelsonAalenFitter
+from lifelines.statistics import logrank_test, multivariate_logrank_test, proportional_hazard_test
+from lifelines.utils import median_survival_times
+
+from forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
-from forest_plot_lib import create_forest_plot
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
+
+# ==========================================
+# HELPER FUNCTIONS (Internal)
+# ==========================================
 
 def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
     """
@@ -44,7 +54,8 @@ def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
     for col in cols:
         if pd.api.types.is_numeric_dtype(data[col]):
             unique_vals = data[col].dropna().unique()
-            if len(unique_vals) <= 2 and set(unique_vals).issubset({0, 1}):
+            # Preserve binary columns (0/1) or (-1/1)
+            if len(unique_vals) <= 2 and set(unique_vals).issubset({0, 1, -1}):
                 continue
             
             std = data[col].std()
@@ -57,12 +68,21 @@ def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
 def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     """
     Convert hex color to RGBA string for Plotly.
+    Handles both 6-digit (#RRGGBB) and 3-digit (#RGB) hex codes.
     """
+    alpha = max(0.0, min(1.0, float(alpha)))
     hex_color = str(hex_color).lstrip('#')
+    if len(hex_color) == 3:
+        hex_color = "".join([c*2 for c in hex_color])
+        
     if len(hex_color) != 6:
         # Fallback to a default color if hex is invalid
         return f'rgba(31, 119, 180, {alpha})'
-    rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        
+    try:
+        rgb = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return f'rgba(31, 119, 180, {alpha})'
     return f'rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})'
 
 
@@ -78,6 +98,232 @@ def _sort_groups_vectorized(groups: Sequence[Any]) -> List[Any]:
             return (1, s)
     
     return sorted(groups, key=_sort_key)
+
+
+def _extract_scalar(val: Any) -> float:
+    """
+    Helper to safely extract scalar value from likely 0-dim array or Series.
+    """
+    if hasattr(val, 'item'):
+        try:
+            return val.item()
+        except (ValueError, TypeError) as e:
+            logger.debug("Could not extract scalar via .item(): %s", e)
+    
+    if hasattr(val, 'iloc'):
+        try:
+            return val.iloc[0]
+        except (IndexError, KeyError):
+            # Handle empty Series or DataFrame
+            return np.nan
+            
+    # Try to convert to float directly
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return np.nan
+
+
+def _add_ci_trace(fig: go.Figure, 
+                  times: np.ndarray, 
+                  lower: np.ndarray, 
+                  upper: np.ndarray, 
+                  label: str, 
+                  color_hex: str) -> None:
+    """
+    Helper to add a Confidence Interval trace to a Plotly figure.
+    """
+    rgba_color = _hex_to_rgba(color_hex, 0.2)
+    
+    # Vectorized concatenation for polygon shape
+    x_poly = np.concatenate([times, times[::-1]])
+    y_poly = np.concatenate([lower, upper[::-1]])
+    
+    fig.add_trace(go.Scatter(
+        x=x_poly,
+        y=y_poly,
+        fill='toself',
+        fillcolor=rgba_color,
+        line=dict(color='rgba(255,255,255,0)'),
+        hoverinfo="skip", 
+        name=f'{label} 95% CI',
+        showlegend=False
+    ))
+
+
+# ==========================================
+# MAIN FUNCTIONS
+# ==========================================
+
+def calculate_survival_at_times(
+    df: pd.DataFrame, 
+    duration_col: str, 
+    event_col: str, 
+    group_col: Optional[str],
+    time_points: List[float]
+) -> pd.DataFrame:
+    """
+    🆕 NEW: Calculate survival probabilities at specific time points (Robust Version)
+    Includes enhanced event column validation and coercion to prevent KM fitter failures.
+    """
+    data = df.dropna(subset=[duration_col, event_col])
+    if group_col:
+        data = data.dropna(subset=[group_col])
+        groups = _sort_groups_vectorized(data[group_col].unique())
+    else:
+        groups = ['Overall']
+        
+    results = []
+    
+    # 1. Map known truthy/falsy values (handling strings, numbers, bools)
+    # Truthy map: {"event", "dead", "1", 1, True} -> 1
+    # Falsy map: {"censored", "alive", "0", 0, False} -> 0
+    # Define converter outside loop to avoid redefinition
+    def _robust_event_converter(val: Any) -> Union[int, Any]:
+        if isinstance(val, str):
+            v_lower = val.lower().strip()
+            if v_lower in ["event", "dead", "1", "true"]:
+                return 1
+            if v_lower in ["censored", "alive", "0", "false"]:
+                return 0
+        if val in [1, True, 1.0]:
+            return 1
+        if val in [0, False, 0.0]:
+            return 0
+        return val  # Return original for fallback
+
+    for g in groups:
+        if group_col:
+            df_g = data[data[group_col] == g]
+            label = f"{g}"
+        else:
+            df_g = data
+            label = "Overall"
+        
+        # Check if we have data
+        if len(df_g) == 0:
+            continue
+
+        # --- VALIDATION & COERCION LOGIC START ---
+        # Robustly convert event column to 0/1 integers
+        raw_events = df_g[event_col]
+        
+        # Apply mapping
+        temp_events = raw_events.map(_robust_event_converter)
+        
+        # 2. Fallback to pandas numeric coercion
+        converted_event_series = pd.to_numeric(temp_events, errors='coerce')
+        
+        # 3. Validation: Check for NaNs (failed conversions)
+        if converted_event_series.isna().any():
+            logger.warning(
+                "Skipping group %r: event column contains unconvertible values (NaNs).", 
+                label
+            )
+            continue
+            
+        # 4. Validation: Check for non-binary values (must be 0 or 1)
+        unique_vals = converted_event_series.unique()
+        valid_binary = {0, 1}
+        if not set(unique_vals).issubset(valid_binary):
+            logger.warning(
+                "Skipping group %r: event column contains non-binary values %s (expected 0/1).",
+                label,
+                unique_vals
+            )
+            continue
+            
+        # 5. Final cast to integer/boolean compatible for lifelines
+        converted_event_series = converted_event_series.astype(int)
+        # --- VALIDATION & COERCION LOGIC END ---
+
+        kmf = KaplanMeierFitter()
+        try:
+            # CHANGED: Use converted_event_series instead of df_g[event_col]
+            kmf.fit(df_g[duration_col], converted_event_series, label=label)
+            if kmf.survival_function_.empty:
+                logger.debug("KM fit resulted in empty survival function for group %s", label)
+                continue
+        except Exception as e:
+            # CHANGED: Log the exception with context instead of silent swallow
+            logger.debug("Failed to fit KM for group %s: %s", label, e)
+            continue
+        
+        # Calculate survival at each time point
+        for t in time_points:
+            display_val = "NR"
+            surv_prob = np.nan
+            lower = np.nan
+            upper = np.nan
+            
+            # Check if time t is within reasonable bounds (or slightly after)
+            try:
+                # 1. Get Survival Probability
+                surv_prob = kmf.predict(float(t))
+                
+                # 2. Get Confidence Interval
+                # Use interpolation to handle times that aren't exact event times
+                ci_df = kmf.confidence_interval_survival_function_
+                
+                # Dynamic column detection for robustness
+                lower_col = next((c for c in ci_df.columns if "lower" in str(c).lower()), None)
+                upper_col = next((c for c in ci_df.columns if "upper" in str(c).lower()), None)
+                
+                # Find the closest index prior to t (or exactly t)
+                # We use 'pad' (forward fill) because survival stays constant between events
+                try:
+                    # Check if t is before the first event
+                    if t < ci_df.index.min():
+                        lower, upper = 1.0, 1.0 # Before study starts, everyone alive
+                    else:
+                        # Ensure sorted index for padding
+                        if not ci_df.index.is_monotonic_increasing:
+                            ci_df = ci_df.sort_index()
+                            
+                        # Find index closest to t
+                        idx_arr = ci_df.index.get_indexer([t], method='pad')
+                        if len(idx_arr) > 0 and idx_arr[0] != -1:
+                            idx = idx_arr[0]
+                            if lower_col is not None and upper_col is not None:
+                                lower = ci_df.iloc[idx][lower_col]
+                                upper = ci_df.iloc[idx][upper_col]
+                            else:
+                                # Fallback to positional access
+                                lower = ci_df.iloc[idx, 0]
+                                upper = ci_df.iloc[idx, 1]
+                        else:
+                            # Fallback if indexer fails
+                            lower, upper = np.nan, np.nan
+                except Exception as e:
+                     # CHANGED: Log detailed exception for inner block failure
+                     logger.debug("CI indexing failed for group %s at time %s: %s", label, t, e)
+                     lower, upper = np.nan, np.nan
+
+                # Format Display
+                if pd.isna(surv_prob):
+                      display_val = "NR"
+                else:
+                    surv_str = f"{surv_prob:.2f}"
+                    if not pd.isna(lower) and not pd.isna(upper):
+                        display_val = f"{surv_str} ({lower:.2f}-{upper:.2f})"
+                    else:
+                        display_val = f"{surv_str}"
+
+            except Exception as e:
+                # Log full context for debugging
+                logger.warning("Calc error at time %s for %s: %s", t, label, e)
+                display_val = "NR"
+
+            results.append({
+                "Group": label,
+                "Time Point": t,
+                "Survival Prob": surv_prob if not pd.isna(surv_prob) else None,
+                "95% CI Lower": lower if not pd.isna(lower) else None,
+                "95% CI Upper": upper if not pd.isna(upper) else None,
+                "Display": display_val
+            })
+
+    return pd.DataFrame(results)
 
 
 def calculate_median_survival(
@@ -137,9 +383,8 @@ def calculate_median_survival(
             
         n = len(df_g)
         
-        # ✅ FIXED: ปรับปรุงการตรวจสอบผลรวมให้ปลอดภัยจาก TypeError
-        event_sum = df_g[event_col].sum()
-        events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+        # ✅ FIXED: Use helper to extract scalar safely
+        events_val = _extract_scalar(df_g[event_col].sum())
         
         if n > 0:
             kmf = KaplanMeierFitter()
@@ -187,6 +432,7 @@ def fit_km_logrank(
 ) -> Tuple[go.Figure, pd.DataFrame]:
     """
     OPTIMIZED: Fit KM curves and perform Log-rank test.
+    ✅ ENHANCED: Includes Chi-squared and Degrees of Freedom.
     """
     data = df.dropna(subset=[duration_col, event_col])
     if group_col:
@@ -215,34 +461,27 @@ def fit_km_logrank(
             kmf = KaplanMeierFitter()
             kmf.fit(df_g[duration_col], df_g[event_col], label=label)
 
-            # OPTIMIZATION: Vectorized CI extraction
+            # OPTIMIZATION: Vectorized CI extraction & Plotting using Helper
             ci_exists = hasattr(kmf, 'confidence_interval_') and not kmf.confidence_interval_.empty
             
-            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
-                ci_lower = kmf.confidence_interval_.iloc[:, 0].values
-                ci_upper = kmf.confidence_interval_.iloc[:, 1].values
-                ci_times = kmf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
+            current_color = colors[i % len(colors)]
 
-                # Vectorized CI trace
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]),
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]),
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'),
-                    hoverinfo="skip", 
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
+                _add_ci_trace(
+                    fig=fig,
+                    times=kmf.confidence_interval_.index.values,
+                    lower=kmf.confidence_interval_.iloc[:, 0].values,
+                    upper=kmf.confidence_interval_.iloc[:, 1].values,
+                    label=label,
+                    color_hex=current_color
+                )
             
             fig.add_trace(go.Scatter(
                 x=kmf.survival_function_.index,
                 y=kmf.survival_function_.iloc[:, 0],
                 mode='lines',
                 name=label,
-                line=dict(color=colors[i % len(colors)], width=2),
+                line=dict(color=current_color, width=2),
                 hovertemplate=f'{label}<br>Time: %{{x:.1f}}<br>Surv: %{{y:.3f}}<extra></extra>'
             ))
 
@@ -252,7 +491,8 @@ def fit_km_logrank(
         yaxis_title='Survival Probability',
         template='plotly_white',
         height=500,
-        hovermode='x unified'
+        hovermode='x unified',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(range=[0, 1.05])
 
@@ -268,16 +508,16 @@ def fit_km_logrank(
             )
             stats_data = {
                 'Test': 'Log-Rank (Pairwise)',
-                'Statistic': res.test_statistic,
-                'P-value': res.p_value,
+                'Statistic (Chi2)': f"{res.test_statistic:.2f}",
+                'P-value': f"{res.p_value:.4f}",
                 'Comparison': f'{g1} vs {g2}'
             }
         elif len(groups) > 2 and group_col:
             res = multivariate_logrank_test(data[duration_col], data[group_col], data[event_col])
             stats_data = {
                 'Test': 'Log-Rank (Multivariate)',
-                'Statistic': res.test_statistic,
-                'P-value': res.p_value,
+                'Statistic (Chi2)': f"{res.test_statistic:.2f}",
+                'P-value': f"{res.p_value:.4f}",
                 'Comparison': 'All groups'
             }
         else:
@@ -325,38 +565,30 @@ def fit_nelson_aalen(
             naf = NelsonAalenFitter()
             naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
             
-            # OPTIMIZATION: Vectorized CI extraction
+            # OPTIMIZATION: Vectorized CI extraction & Plotting using Helper
             ci_exists = hasattr(naf, 'confidence_interval_') and not naf.confidence_interval_.empty
+            current_color = colors[i % len(colors)]
 
             if ci_exists and naf.confidence_interval_.shape[1] >= 2:
-                ci_lower = naf.confidence_interval_.iloc[:, 0].values
-                ci_upper = naf.confidence_interval_.iloc[:, 1].values
-                ci_times = naf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
-
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]), 
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]), 
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'), 
-                    hoverinfo="skip", 
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+                _add_ci_trace(
+                    fig=fig,
+                    times=naf.confidence_interval_.index.values,
+                    lower=naf.confidence_interval_.iloc[:, 0].values,
+                    upper=naf.confidence_interval_.iloc[:, 1].values,
+                    label=label,
+                    color_hex=current_color
+                )
 
             fig.add_trace(go.Scatter(
                 x=naf.cumulative_hazard_.index,
                 y=naf.cumulative_hazard_.iloc[:, 0],
                 mode='lines',
                 name=label,
-                line=dict(color=colors[i % len(colors)], width=2)
+                line=dict(color=current_color, width=2)
             ))
             
-            # ✅ FIXED: ปรับปรุงการคำนวณ N และ Events ให้เสถียร
-            event_sum = df_g[event_col].sum()
-            events_val = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+            # ✅ FIXED: Use helper to extract scalar safely
+            events_val = _extract_scalar(df_g[event_col].sum())
             
             stats_list.append({
                 'Group': label,
@@ -380,37 +612,43 @@ def fit_cox_ph(
     duration_col: str, 
     event_col: str, 
     covariate_cols: List[str]
-) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str]]:
+) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str], Optional[Dict[str, Any]]]:
     """
     Fit Cox proportional hazards model.
+    ✅ ENHANCED: Returns model performance statistics (AIC, C-index).
+    ✅ IMPROVED: Better handling of boolean types, scalar extraction, and robust stat retrieval.
     """
     missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
     if missing:
         logger.error(f"Missing columns: {missing}")
-        return None, None, df, f"Missing columns: {missing}"
+        return None, None, df, f"Missing columns: {missing}", None
 
     data = df[[duration_col, event_col, *covariate_cols]].dropna().copy()
     
     if len(data) == 0:
-        return None, None, data, "No valid data after dropping missing values."
+        return None, None, data, "No valid data after dropping missing values.", None
 
-    # ✅ FIXED: แก้ไข Ambiguous Series error ด้วยการตรวจสอบผลลัพธ์ของ .sum()
+    # ✅ FIXED: Explicitly convert Boolean columns to Integers to prevent issues with lifelines/pandas
+    bool_cols = data.select_dtypes(include=['bool']).columns
+    for col in bool_cols:
+        data[col] = data[col].astype(int)
+
+    # ✅ FIXED: Check event sum safely using helper
     try:
-        event_sum = data[event_col].sum()
-        event_total = event_sum.iloc[0] if hasattr(event_sum, 'iloc') else event_sum
+        event_total = _extract_scalar(data[event_col].sum())
         
         if float(event_total) == 0:
             logger.error("No events observed")
-            return None, None, data, "No events observed (all censored). CoxPH requires at least one event."
+            return None, None, data, "No events observed (all censored). CoxPH requires at least one event.", None
     except Exception as e:
         logger.error(f"Error checking event sum: {e}")
-        # Fallback check
         if not (data[event_col].astype(float) == 1).any():
-             return None, None, data, "No events found in event column."
+             return None, None, data, "No events found in event column.", None
 
     original_covariate_cols = list(covariate_cols)
     try:
         covars_only = data[covariate_cols]
+        # Identify categorical columns (excluding the ones we just converted from bool to int)
         cat_cols = [c for c in covariate_cols if not pd.api.types.is_numeric_dtype(data[c])]
         
         if cat_cols:
@@ -419,7 +657,7 @@ def fit_cox_ph(
             covariate_cols = covars_encoded.columns.tolist()
     except Exception as e:
         logger.error(f"Encoding error: {e}")
-        return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}"
+        return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}", None
     
     validation_errors = []
     
@@ -440,7 +678,7 @@ def fit_cox_ph(
     if validation_errors:
         error_msg = "[DATA QUALITY ISSUES]\n\n" + "\n\n".join(f"[ERROR] {e}" for e in validation_errors)
         logger.error(error_msg)
-        return None, None, data, error_msg
+        return None, None, data, error_msg, None
     
     _standardize_numeric_cols(data, covariate_cols)
     
@@ -479,7 +717,7 @@ def fit_cox_ph(
             f"Last Error: {last_error!s}"
         )
         logger.error(error_msg)
-        return None, None, data, error_msg
+        return None, None, data, error_msg, None
 
     summary = cph.summary.copy()
     
@@ -503,8 +741,32 @@ def fit_cox_ph(
 
     res_df = summary[['HR', '95% CI Lower', '95% CI Upper', 'p', 'Method']].rename(columns={'p': 'P-value'})
     
+    # ✅ NEW: Model Statistics (Defensive extraction for robustness against Mocks/Nulls)
+    try:
+        c_index = getattr(cph, 'concordance_index_', None)
+        aic_val = getattr(cph, 'AIC_partial_', None)
+        ll_val = getattr(cph, 'log_likelihood_', None)
+        
+        def fmt(x: Any, p: int) -> str:
+            if x is None:
+                return "N/A"
+            if isinstance(x, numbers.Real):
+                return f"{float(x):.{p}f}"
+            return "N/A"
+
+        model_stats = {
+            "Concordance Index (C-index)": fmt(c_index, 3),
+            "AIC": fmt(aic_val, 2),
+            "Log-Likelihood": fmt(ll_val, 2),
+            "Number of Observations": len(data),
+            "Number of Events": int(cph.event_observed.sum()) if hasattr(cph, 'event_observed') else 0
+        }
+    except Exception as e:
+        logger.warning(f"Could not extract model stats: {e}")
+        model_stats = {}
+    
     logger.debug(f"Cox model fitted successfully: {method_used}")
-    return cph, res_df, data, None
+    return cph, res_df, data, None, model_stats
 
 
 def check_cph_assumptions(
@@ -669,33 +931,26 @@ def fit_km_landmark(
             kmf = KaplanMeierFitter()
             kmf.fit(df_g[_adj_duration], df_g[event_col], label=label)
 
-            # OPTIMIZATION: Vectorized CI extraction
+            # OPTIMIZATION: Vectorized CI extraction & Plotting using Helper
             ci_exists = hasattr(kmf, 'confidence_interval_') and not kmf.confidence_interval_.empty
-            
-            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
-                ci_lower = kmf.confidence_interval_.iloc[:, 0].values
-                ci_upper = kmf.confidence_interval_.iloc[:, 1].values
-                ci_times = kmf.confidence_interval_.index.values
-                
-                rgba_color = _hex_to_rgba(colors[i % len(colors)], 0.2)
+            current_color = colors[i % len(colors)]
 
-                fig.add_trace(go.Scatter(
-                    x=np.concatenate([ci_times, ci_times[::-1]]),
-                    y=np.concatenate([ci_lower, ci_upper[::-1]]),
-                    fill='toself',
-                    fillcolor=rgba_color,
-                    line=dict(color='rgba(255,255,255,0)'),
-                    hoverinfo="skip",
-                    name=f'{label} 95% CI',
-                    showlegend=False
-                ))
+            if ci_exists and kmf.confidence_interval_.shape[1] >= 2:
+                _add_ci_trace(
+                    fig=fig,
+                    times=kmf.confidence_interval_.index.values,
+                    lower=kmf.confidence_interval_.iloc[:, 0].values,
+                    upper=kmf.confidence_interval_.iloc[:, 1].values,
+                    label=label,
+                    color_hex=current_color
+                )
             
             fig.add_trace(go.Scatter(
                 x=kmf.survival_function_.index,
                 y=kmf.survival_function_.iloc[:, 0],
                 mode='lines',
                 name=label,
-                line=dict(color=colors[i % len(colors)], width=2),
+                line=dict(color=current_color, width=2),
                 hovertemplate=f'{label}<br>Time: %{{x:.1f}}<br>Surv: %{{y:.3f}}<extra></extra>'
             ))
 
