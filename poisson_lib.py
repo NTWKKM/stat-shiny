@@ -9,12 +9,13 @@ OPTIMIZED for Python 3.12 with strict type hints.
 """
 import html
 import warnings
-from typing import Union, Optional, List, Dict, Tuple, Any
+from typing import Any, Optional, Union
 
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import statsmodels.api as sm
+
 from logger import get_logger
 from tabs._common import get_color_palette
 
