@@ -19,24 +19,20 @@ OPTIMIZATIONS:
 from __future__ import annotations
 
 import base64
-import html as _html
 import io
+import html as _html
 import logging
 import numbers
 import warnings
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from lifelines import CoxPHFitter, KaplanMeierFitter, NelsonAalenFitter
-from lifelines.statistics import (
-    logrank_test,
-    multivariate_logrank_test,
-    proportional_hazard_test,
-)
+from lifelines.statistics import logrank_test, multivariate_logrank_test, proportional_hazard_test
 from lifelines.utils import median_survival_times
 
 from forest_plot_lib import create_forest_plot
