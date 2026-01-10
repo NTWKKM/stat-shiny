@@ -12,6 +12,7 @@ import scipy.stats as stats
 import statsmodels.api as sm
 import warnings
 import html
+from pathlib import Path
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
 from tabs._common import get_color_palette
@@ -23,14 +24,18 @@ _PALETTE = get_color_palette()
 COLORS = {
     'primary': _PALETTE.get('primary', '#1E3A5F'),
     'primary_dark': _PALETTE.get('primary_dark', '#0F2440'), 
+    'primary_light': _PALETTE.get('primary_light', '#EBF5FF'),
     'danger': _PALETTE.get('danger', '#E74856'),
+    'text': _PALETTE.get('text', '#1F2937'),
     'text_secondary': _PALETTE.get('text_secondary', '#6B7280'),
-    'border': _PALETTE.get('border', '#E5E7EB')
+    'border': _PALETTE.get('border', '#E5E7EB'),
+    'background': _PALETTE.get('background', '#F9FAFB'),
+    'surface': _PALETTE.get('surface', '#FFFFFF')
 }
 
 # Try to import Firth regression
 try:
-    from firthmodels import FirthLogisticRegression   
+    from firthmodels import FirthLogisticRegression    
     if not hasattr(FirthLogisticRegression, "_validate_data"):
         from sklearn.utils.validation import check_X_y, check_array
         
@@ -88,6 +93,23 @@ InteractionResult = TypedDict("InteractionResult", {
     "p_value": float,
     "label": str
 })
+
+# ✅ NEW: Helper function to load static CSS
+def load_static_css() -> str:
+    """Reads the content of static/styles.css to embed in reports."""
+    try:
+        # Assumes logic.py is in the root or same level as static folder
+        css_path = Path(__file__).parent / "static" / "styles.css"
+        
+        if css_path.exists():
+            with open(css_path, encoding="utf-8") as f:
+                return f.read()
+        else:
+            logger.warning(f"CSS file not found at: {css_path}")
+            return ""
+    except Exception as e:
+        logger.exception("Failed to load static CSS")
+        return ""
 
 def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
     """
@@ -181,7 +203,7 @@ def run_binary_logit(
     Returns:
         tuple: (params, conf_int, pvalues, status_msg, stats_dict)
     """
-    stats_metrics: StatsMetrics = {"mcfadden": np.nan, "nagelkerke": np.nan}
+    stats_metrics: StatsMetrics = {"mcfadden": np.nan, "nagelkerke": np.nan, "p_value": np.nan}
     
     # ✅ NEW: Initial Validation
     is_valid, msg = validate_logit_data(y, X)
@@ -271,26 +293,38 @@ def get_label(col_name: str, var_meta: Optional[dict[str, Any]]) -> str:
         return f"<b>{safe_name}</b>"
 
 
-def fmt_p_with_styling(val: Union[float, str, None]) -> str:
-    """Format p-value with red highlighting if significant (p < 0.05)."""
+def fmt_p(val: Union[float, str, None]) -> str:
+    """Format p-value as string (e.g. '<0.001', '0.042')."""
     if pd.isna(val):
         return "-"
     try:
         val_f = float(val)
         val_f = max(0.0, min(1.0, val_f))
         if val_f < 0.001:
-            p_str = "<0.001"
-        elif val_f > 0.999:
-            p_str = ">0.999"
-        else:
-            p_str = f"{val_f:.3f}"
-        
-        if val_f < 0.05:
-            return f"<span class='sig-p'>{p_str}</span>"
-        else:
-            return p_str
+            return "<0.001"
+        if val_f > 0.999:
+            return ">0.999"
+        return f"{val_f:.3f}"
     except (ValueError, TypeError):
         return "-"
+
+
+def fmt_p_with_styling(val: Union[float, str, None]) -> str:
+    """Format p-value with red highlighting if significant (p < 0.05)."""
+    p_str = fmt_p(val)
+    if p_str == "-":
+        return "-"
+    
+    # Check numeric value for styling
+    try:
+        val_f = float(val)
+        if val_f < 0.05:
+            return f"<span class='sig-p'>{p_str}</span>"
+    except (ValueError, TypeError):
+        if "<" in p_str: # Handles <0.001
+             return f"<span class='sig-p'>{p_str}</span>"
+             
+    return p_str
 
 
 def analyze_outcome(
@@ -655,7 +689,7 @@ def analyze_outcome(
         lbl = get_label(col, var_meta)
         mode_badge = {'categorical': '📊 (All Levels)', 'linear': '📉 (Trend)'}
         if mode in mode_badge:
-            lbl += f"<br><span style='font-size:0.8em; color:#888'>{mode_badge[mode]}</span>"
+            lbl += f"<br><span style='font-size:0.8em; color:{COLORS['text_secondary']}'>{mode_badge[mode]}</span>"
         
         or_s = res.get('or', '-')
         coef_s = res.get('coef', '-')
@@ -711,8 +745,8 @@ def analyze_outcome(
                 int_or = "-"
             int_p = fmt_p_with_styling(res.get('p_value', 1))
             
-            html_rows.append(f"""<tr style='background-color: #fff9f0;'>
-                <td><b>🔗 {int_label}</b><br><small style='color: #666;'>(Interaction)</small></td>
+            html_rows.append(f"""<tr style='background-color: {COLORS['primary_light']};'>
+                <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
@@ -729,9 +763,42 @@ def analyze_outcome(
     
     model_fit_html = ""
     if mv_metrics_text:
-        model_fit_html = f"<div style='margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; color: {COLORS['primary_dark']};'><b>Model Fit:</b> {mv_metrics_text}</div>"
+        model_fit_html = f"<div style='margin-top: 8px; padding-top: 8px; border-top: 1px dashed {COLORS['border']}; color: {COLORS['primary_dark']};'><b>Model Fit:</b> {mv_metrics_text}</div>"
     
-    html_table = f"""<div id='{outcome_name}' class='table-container'>
+    # --- START FIX: CSS Integration & Fragment Generation ---
+    css_content = load_static_css()
+    
+    # Fallback to hardcoded style if file load fails or is empty
+    if not css_content:
+        css_content = f"""
+        body {{
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            padding: 20px;
+            background-color: {COLORS['background']};
+            color: {COLORS['text']};
+            line-height: 1.6;
+        }}
+        .table-container {{
+            background: {COLORS['surface']};
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            overflow-x: auto;
+            margin-bottom: 16px;
+            border: 1px solid {COLORS['border']};
+        }}
+        table {{ width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }}
+        th {{ background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary']} 100%); color: white; padding: 12px; }}
+        td {{ padding: 12px; border-bottom: 1px solid {COLORS['border']}; }}
+        .outcome-title {{ background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; }}
+        .summary-box {{ background-color: {COLORS['primary_light']}; padding: 14px; border-radius: 0 0 8px 8px; }}
+        .sig-p {{ color: #fff; background-color: {COLORS['danger']}; padding: 2px 6px; border-radius: 3px; }}
+        .alert {{ background-color: rgba(231, 72, 86, 0.08); border: 1px solid {COLORS['danger']}; padding: 12px; color: {COLORS['danger']}; }}
+        """
+
+    css_styles = f"<style>{css_content}</style>"
+    
+    html_table = f"""{css_styles}
+    <div id='{outcome_name}' class='table-container'>
     <div class='outcome-title'>Outcome: {outcome_name} (n={total_n})</div>
     <table>
         <thead>
@@ -753,8 +820,8 @@ def analyze_outcome(
     </table>
     <div class='summary-box'>
         <b>Method:</b> {preferred_method.capitalize()} Logit<br>
-        <div style='margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 0.9em; color: #666;'>
-            <b>Selection:</b> Variables with Crude P < 0.20 (n={final_n_multi})<br>
+        <div style='margin-top: 8px; padding-top: 8px; border-top: 1px solid {COLORS['border']}; font-size: 0.9em; color: {COLORS['text_secondary']};'>
+            <b>Selection:</b> Variables with Crude P &lt; 0.20 (n={final_n_multi})<br>
             <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)
             {model_fit_html}
             {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}
@@ -762,7 +829,68 @@ def analyze_outcome(
     </div>
     </div><br>"""
     
-    return html_table, or_results, aor_results, interaction_results
+    # --- START FIX: Forest Plot Generation ---
+    forest_plot_html = ""
+    try:
+        # Determine which results to plot (Priority: AOR > OR)
+        plot_data = []
+        source_results = aor_results if aor_results else or_results
+        title_prefix = "Adjusted" if aor_results else "Crude"
+        
+        for label, metrics in source_results.items():
+            # Skip rows without proper data
+            if not isinstance(metrics, dict): 
+                logger.warning(f"Skipping row {label} due to invalid metrics: {metrics}")
+                continue
+
+            # Extract values (support both 'aor' and 'or' keys)
+            val = metrics.get('aor', metrics.get('or'))
+            ci_low = metrics.get('ci_low')
+            ci_high = metrics.get('ci_high')
+            p = metrics.get('p_value')
+            
+            if pd.notna(val) and pd.notna(ci_low) and pd.notna(ci_high):
+                plot_data.append({
+                    'var': label,
+                    'or': val,
+                    'low': ci_low,
+                    'high': ci_high,
+                    'p': p,
+                    'group': title_prefix
+                })
+        
+        if plot_data:
+            df_plot = pd.DataFrame(plot_data)
+            
+            fig = create_forest_plot(
+                data=df_plot,
+                estimate_col='or',
+                ci_low_col='low',
+                ci_high_col='high',
+                label_col='var',
+                pval_col='p',
+                title=f"{title_prefix} Odds Ratios - {outcome_name}",
+                x_label="Odds Ratio"
+            )
+            
+            # Convert to HTML
+            if fig:
+                 forest_html_snippet = fig.to_html(full_html=False, include_plotlyjs='cdn')
+                 # Wrap in container with styling
+                 forest_plot_html = f"""
+                 <div class='table-container forest-plot-section' style='padding: 20px;'>
+                    <h3 style='color:{COLORS['primary_dark']}; margin-top:0;'>🌲 Forest Plot</h3>
+                    {forest_html_snippet}
+                 </div>"""
+    except Exception:
+        logger.exception("Failed to generate forest plot")
+        forest_plot_html = ""
+    # --- END FIX ---
+
+    # Return fragment with embedded styles (No <html> wrapper)
+    final_output = html_table + forest_plot_html
+
+    return final_output, or_results, aor_results, interaction_results
 
 
 def run_logistic_regression(df, outcome_col, covariate_cols):
