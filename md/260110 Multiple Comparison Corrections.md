@@ -25,5 +25,5 @@
 **สรุปสั้น ๆ วางใน stat-shiny แบบนี้น่าจะลงตัวที่สุด**
 
 - **Multiple Comparison Corrections** →
-    - ถ้าผูกกับ survival/landmark → อยู่ใน **Survival / Landmark / Subgroup tab**
-    - ถ้าทำ generic correction tool → เพิ่ม **Advanced / Multiple Testing tab** แยก
+  - ถ้าผูกกับ survival/landmark → อยู่ใน **Survival / Landmark / Subgroup tab**
+  - ถ้าทำ generic correction tool → เพิ่ม **Advanced / Multiple Testing tab** แยก
