@@ -1,5 +1,5 @@
+# Multiple Comparison Corrections (Bonferroni, Holm, BH)
 
-**Multiple Comparison Corrections** (Bonferroni, Holm, BH)
     - ใช้กับการรันหลาย test พร้อมกัน เช่น:
         - หลาย landmark times
         - หลาย subgroup / interaction
