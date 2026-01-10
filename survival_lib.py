@@ -29,6 +29,7 @@ import warnings
 import io, base64
 import html as _html
 import logging
+import numbers
 from functools import lru_cache
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -96,7 +97,10 @@ def _extract_scalar(val: Any) -> float:
     Helper to safely extract scalar value from likely 0-dim array or Series.
     """
     if hasattr(val, 'item'):
-        return val.item()
+        try:
+            return val.item()
+        except Exception:
+            pass
     elif hasattr(val, 'iloc'):
         return val.iloc[0]
     return val
@@ -142,6 +146,7 @@ def calculate_survival_at_times(
 ) -> pd.DataFrame:
     """
     🆕 NEW: Calculate survival probabilities at specific time points (Robust Version)
+    Includes enhanced event column validation and coercion to prevent KM fitter failures.
     """
     data = df.dropna(subset=[duration_col, event_col])
     if group_col:
@@ -164,9 +169,48 @@ def calculate_survival_at_times(
         if len(df_g) == 0:
             continue
 
+        # --- VALIDATION & COERCION LOGIC START ---
+        # Robustly convert event column to 0/1 integers
+        raw_events = df_g[event_col]
+        
+        # 1. Map known truthy/falsy values (handling strings, numbers, bools)
+        # Truthy map: {"event", "dead", "1", 1, True} -> 1
+        # Falsy map: {"censored", "alive", "0", 0, False} -> 0
+        def _robust_event_converter(val):
+            if isinstance(val, str):
+                v_lower = val.lower().strip()
+                if v_lower in ["event", "dead", "1", "true"]: return 1
+                if v_lower in ["censored", "alive", "0", "false"]: return 0
+            if val in [1, True, 1.0]: return 1
+            if val in [0, False, 0.0]: return 0
+            return val # Return original for fallback
+        
+        # Apply mapping
+        temp_events = raw_events.map(_robust_event_converter)
+        
+        # 2. Fallback to pandas numeric coercion
+        converted_event_series = pd.to_numeric(temp_events, errors='coerce')
+        
+        # 3. Validation: Check for NaNs (failed conversions)
+        if converted_event_series.isna().any():
+            logger.warning(f"Skipping group '{label}': Event column contains unconvertible values (NaNs).")
+            continue
+            
+        # 4. Validation: Check for non-binary values (must be 0 or 1)
+        unique_vals = converted_event_series.unique()
+        valid_binary = {0, 1, 0.0, 1.0}
+        if not set(unique_vals).issubset(valid_binary):
+            logger.warning(f"Skipping group '{label}': Event column contains non-binary values {unique_vals} (Expected 0/1).")
+            continue
+            
+        # 5. Final cast to integer/boolean compatible for lifelines
+        converted_event_series = converted_event_series.astype(int)
+        # --- VALIDATION & COERCION LOGIC END ---
+
         kmf = KaplanMeierFitter()
         try:
-            kmf.fit(df_g[duration_col], df_g[event_col], label=label)
+            # CHANGED: Use converted_event_series instead of df_g[event_col]
+            kmf.fit(df_g[duration_col], converted_event_series, label=label)
             if kmf.survival_function_.empty:
                 logger.debug(f"KM fit resulted in empty survival function for group {label}")
                 continue
@@ -664,8 +708,12 @@ def fit_cox_ph(
         aic_val = getattr(cph, 'AIC_partial_', None)
         ll_val = getattr(cph, 'log_likelihood_', None)
         
-        # Helper for formatting safe strings
-        fmt = lambda x, p: f"{x:.{p}f}" if (x is not None and isinstance(x, (int, float))) else "N/A"
+        def fmt(x, p):
+            if x is None:
+                return "N/A"
+            if isinstance(x, numbers.Real):
+                return f"{float(x):.{p}f}"
+            return "N/A"
 
         model_stats = {
             "Concordance Index (C-index)": fmt(c_index, 3),

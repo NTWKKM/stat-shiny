@@ -76,8 +76,9 @@ class TestPoissonPipeline:
         # Check numeric validity
         # stats_dict might have AIC if implemented, but let's check params
         assert 'exposure' in params.index
-        # We can't strictly assert != 0 due to randomness, but it should be close
+        # Verify parameter is numeric and finite (value may vary with random data)
         assert params['exposure'] is not None
+        assert np.isfinite(params['exposure']), "Exposure parameter should be finite"
 
     def test_negative_binomial_flow(self, count_data):
         """🔄 Test Negative Binomial Regression for overdispersed data"""
