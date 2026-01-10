@@ -580,7 +580,8 @@ def survival_server(
         """Download survival curves report."""
         res = curves_result.get()
         if not res:
-            yield b"No results"
+            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
+            yield "No results"
             return
         
         elements = [
@@ -662,7 +663,8 @@ def survival_server(
         """Download landmark analysis report."""
         res = landmark_result.get()
         if not res:
-            yield b"No results"
+            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
+            yield "No results"
             return
             
         elements = [
@@ -682,6 +684,10 @@ def survival_server(
         time_col = input.surv_time()
         event_col = input.surv_event()
         covars = input.cox_covariates()
+
+        if data is None or time_col == "Select..." or event_col == "Select...":
+            ui.notification_show("Please select Time and Event variables", type="warning")
+            return
         
         if not covars:
             ui.notification_show("Select at least one covariate", type="warning")
@@ -726,21 +732,20 @@ def survival_server(
         if res is None: 
             return None
         
-        # ✅ NEW: Format Model Stats HTML
-        stats_html = ""
+        # ✅ NEW: Format Model Stats using Shiny Tag Helpers instead of raw HTML (Safe interpolation)
+        stats_ui = None
         if res.get('model_stats'):
             s = res['model_stats']
-            stats_html = f"""
-            <div style='display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;'>
-                <div><strong>C-index:</strong> {s.get('Concordance Index (C-index)', '-')}</div>
-                <div><strong>AIC:</strong> {s.get('AIC', '-')}</div>
-                <div><strong>Events:</strong> {s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}</div>
-            </div>
-            """
+            stats_ui = ui.div(
+                ui.div(ui.strong("C-index: "), str(s.get('Concordance Index (C-index)', '-'))),
+                ui.div(ui.strong("AIC: "), str(s.get('AIC', '-'))),
+                ui.div(ui.strong("Events: "), f"{s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}" ),
+                style='display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;'
+            )
         
         return ui.card(
             ui.card_header("📄 Cox Results"),
-            ui.HTML(stats_html), # Display stats
+            stats_ui, # Display stats using safe tag object
             ui.output_data_frame("out_cox_table"),
             
             ui.card_header("🌳 Forest Plot"),
@@ -790,7 +795,8 @@ def survival_server(
         """Download Cox regression report."""
         res = cox_result.get()
         if not res:
-            yield b"No results"
+            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
+            yield "No results"
             return
 
         elements = [
@@ -895,7 +901,8 @@ def survival_server(
         """Download subgroup analysis report."""
         res = sg_result.get()
         if not res:
-            yield b"No results"
+            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
+            yield "No results"
             return
             
         elements = [

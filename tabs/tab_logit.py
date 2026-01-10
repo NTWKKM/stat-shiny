@@ -1,14 +1,15 @@
 from shiny import ui, module, reactive, render, req
 from shinywidgets import output_widget, render_widget  # type: ignore
-import pandas as pd
-import numpy as np
-import json
-import plotly.graph_objects as go
-import html
-from htmltools import HTML, div
 import gc
+import html
+import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Union, cast
+
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from htmltools import HTML, div
 
 # Import internal modules
 from logic import analyze_outcome
@@ -747,7 +748,13 @@ def logit_server(
                 css_tag = f"<style>{css_content}</style>"
             except OSError:
                 logger.warning("Could not load static/styles.css for Poisson report")
-                css_tag = "<style>/* static/styles.css not found */</style>"
+                # Provide minimal essential styling as fallback
+                css_tag = """<style>
+                    body { font-family: sans-serif; padding: 20px; }
+                    table { border-collapse: collapse; width: 100%; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #1a365d; color: white; }
+                </style>"""
 
             wrapped_html = f"""
             <!DOCTYPE html>
@@ -838,7 +845,7 @@ def logit_server(
     @render.download(filename="poisson_report.html")
     def btn_dl_poisson_report():
         res = poisson_res.get()
-        if res:
+        if res and res.get('html_full'):
             yield res['html_full']
 
     # ==========================================================================

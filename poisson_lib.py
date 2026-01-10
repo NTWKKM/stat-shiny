@@ -7,16 +7,16 @@ Returns Incidence Rate Ratios (IRR) instead of Odds Ratios (OR)
 ✅ Now supports Interaction Terms Analysis
 OPTIMIZED for Python 3.12 with strict type hints.
 """
+import html
+import warnings
+from typing import Union, Optional, List, Dict, Tuple, Any
 
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import statsmodels.api as sm
-import warnings
-import html
 from logger import get_logger
 from tabs._common import get_color_palette
-from typing import Union, Optional, List, Dict, Tuple, Any
 
 logger = get_logger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
@@ -200,8 +200,9 @@ def analyze_poisson_outcome(
     """
     # ✅ FIX: Wrap entire function in try-except to prevent None return crashes
     try:
+        # ✅ Consolidated fmt_p import: Use logic.py's centralized formatting
         from logic import (clean_numeric_value, _robust_sort_key, get_label, 
-                           fmt_p_with_styling)
+                           fmt_p, fmt_p_with_styling)
         
         logger.info(f"Starting Poisson analysis for outcome: {outcome_name}")
         
@@ -242,21 +243,8 @@ def analyze_poisson_outcome(
         mode_map = {}
         cat_levels_map = {}
         
-        def fmt_p(val: float | str) -> str:
-            """Plain p-value formatting (non-styled)"""
-            if pd.isna(val):
-                return "-"
-            try:
-                val_f = float(val)
-                val_f = max(0, min(1, val_f))
-            except (ValueError, TypeError):
-                return "-"
-            else:
-                if val_f < 0.001:
-                    return "<0.001"
-                if val_f > 0.999:
-                    return ">0.999"
-                return f"{val_f:.3f}"
+        # 🧹 CLEANUP: Removed local fmt_p definition. 
+        # Logic is now centralized in logic.py (fmt_p / fmt_p_with_styling).
         
         irr_results = {}
         
@@ -773,8 +761,8 @@ def analyze_poisson_outcome(
                 html_rows.append(f"""<tr style='background-color: #fff9f0;'>
                     <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
                     <td>-</td>
-                    <td>{int_coef}</td>
-                    <td><b>{int_irr}</b></td>
+                    <td>-</td>
+                    <td>-</td>
                     <td>Interaction</td>
                     <td>-</td>
                     <td>{int_coef}</td>

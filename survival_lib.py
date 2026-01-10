@@ -16,24 +16,32 @@ OPTIMIZATIONS:
 - Batch residual computations (8x faster)
 - Vectorized CI extraction (10x faster)
 """
+from __future__ import annotations
 
-from typing import Union, Optional, List, Dict, Tuple, Any, Sequence
-import pandas as pd
-import numpy as np
-from lifelines import KaplanMeierFitter, CoxPHFitter, NelsonAalenFitter
-from lifelines.statistics import logrank_test, multivariate_logrank_test, proportional_hazard_test
-from lifelines.utils import median_survival_times
-import plotly.graph_objects as go
-import plotly.express as px
-import warnings
-import io, base64
+import base64
 import html as _html
+import io
 import logging
 import numbers
+import warnings
 from functools import lru_cache
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from lifelines import CoxPHFitter, KaplanMeierFitter, NelsonAalenFitter
+from lifelines.statistics import (
+    logrank_test,
+    multivariate_logrank_test,
+    proportional_hazard_test,
+)
+from lifelines.utils import median_survival_times
+
+from forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
-from forest_plot_lib import create_forest_plot
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -66,6 +74,7 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     Convert hex color to RGBA string for Plotly.
     Handles both 6-digit (#RRGGBB) and 3-digit (#RGB) hex codes.
     """
+    alpha = max(0.0, min(1.0, float(alpha)))
     hex_color = str(hex_color).lstrip('#')
     if len(hex_color) == 3:
         hex_color = "".join([c*2 for c in hex_color])
@@ -74,7 +83,10 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
         # Fallback to a default color if hex is invalid
         return f'rgba(31, 119, 180, {alpha})'
         
-    rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    try:
+        rgb = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return f'rgba(31, 119, 180, {alpha})'
     return f'rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})'
 
 
@@ -101,9 +113,19 @@ def _extract_scalar(val: Any) -> float:
             return val.item()
         except (ValueError, TypeError) as e:
             logger.debug("Could not extract scalar via .item(): %s", e)
-    elif hasattr(val, 'iloc'):
-        return val.iloc[0]
-    return val
+    
+    if hasattr(val, 'iloc'):
+        try:
+            return val.iloc[0]
+        except (IndexError, KeyError):
+            # Handle empty Series or DataFrame
+            return np.nan
+            
+    # Try to convert to float directly
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return np.nan
 
 
 def _add_ci_trace(fig: go.Figure, 
@@ -157,6 +179,23 @@ def calculate_survival_at_times(
         
     results = []
     
+    # 1. Map known truthy/falsy values (handling strings, numbers, bools)
+    # Truthy map: {"event", "dead", "1", 1, True} -> 1
+    # Falsy map: {"censored", "alive", "0", 0, False} -> 0
+    # Define converter outside loop to avoid redefinition
+    def _robust_event_converter(val: Any) -> Union[int, Any]:
+        if isinstance(val, str):
+            v_lower = val.lower().strip()
+            if v_lower in ["event", "dead", "1", "true"]:
+                return 1
+            if v_lower in ["censored", "alive", "0", "false"]:
+                return 0
+        if val in [1, True, 1.0]:
+            return 1
+        if val in [0, False, 0.0]:
+            return 0
+        return val  # Return original for fallback
+
     for g in groups:
         if group_col:
             df_g = data[data[group_col] == g]
@@ -173,22 +212,6 @@ def calculate_survival_at_times(
         # Robustly convert event column to 0/1 integers
         raw_events = df_g[event_col]
         
-        # 1. Map known truthy/falsy values (handling strings, numbers, bools)
-        # Truthy map: {"event", "dead", "1", 1, True} -> 1
-        # Falsy map: {"censored", "alive", "0", 0, False} -> 0
-        def _robust_event_converter(val: Any) -> int | Any:
-            if isinstance(val, str):
-                v_lower = val.lower().strip()
-                if v_lower in ["event", "dead", "1", "true"]:
-                    return 1
-                if v_lower in ["censored", "alive", "0", "false"]:
-                    return 0
-            if val in [1, True, 1.0]:
-                return 1
-            if val in [0, False, 0.0]:
-                return 0
-            return val  # Return original for fallback
-        
         # Apply mapping
         temp_events = raw_events.map(_robust_event_converter)
         
@@ -197,14 +220,21 @@ def calculate_survival_at_times(
         
         # 3. Validation: Check for NaNs (failed conversions)
         if converted_event_series.isna().any():
-            logger.warning(f"Skipping group '{label}': Event column contains unconvertible values (NaNs).")
+            logger.warning(
+                "Skipping group %r: event column contains unconvertible values (NaNs).", 
+                label
+            )
             continue
             
         # 4. Validation: Check for non-binary values (must be 0 or 1)
         unique_vals = converted_event_series.unique()
         valid_binary = {0, 1}
         if not set(unique_vals).issubset(valid_binary):
-            logger.warning(f"Skipping group '{label}': Event column contains non-binary values {unique_vals} (Expected 0/1).")
+            logger.warning(
+                "Skipping group %r: event column contains non-binary values %s (expected 0/1).",
+                label,
+                unique_vals
+            )
             continue
             
         # 5. Final cast to integer/boolean compatible for lifelines
@@ -216,11 +246,11 @@ def calculate_survival_at_times(
             # CHANGED: Use converted_event_series instead of df_g[event_col]
             kmf.fit(df_g[duration_col], converted_event_series, label=label)
             if kmf.survival_function_.empty:
-                logger.debug(f"KM fit resulted in empty survival function for group {label}")
+                logger.debug("KM fit resulted in empty survival function for group %s", label)
                 continue
         except Exception as e:
             # CHANGED: Log the exception with context instead of silent swallow
-            logger.debug(f"Failed to fit KM for group {label}: {e}")
+            logger.debug("Failed to fit KM for group %s: %s", label, e)
             continue
         
         # Calculate survival at each time point
@@ -239,6 +269,10 @@ def calculate_survival_at_times(
                 # Use interpolation to handle times that aren't exact event times
                 ci_df = kmf.confidence_interval_survival_function_
                 
+                # Dynamic column detection for robustness
+                lower_col = next((c for c in ci_df.columns if "lower" in str(c).lower()), None)
+                upper_col = next((c for c in ci_df.columns if "upper" in str(c).lower()), None)
+                
                 # Find the closest index prior to t (or exactly t)
                 # We use 'pad' (forward fill) because survival stays constant between events
                 try:
@@ -254,14 +288,19 @@ def calculate_survival_at_times(
                         idx_arr = ci_df.index.get_indexer([t], method='pad')
                         if len(idx_arr) > 0 and idx_arr[0] != -1:
                             idx = idx_arr[0]
-                            lower = ci_df.iloc[idx, 0]
-                            upper = ci_df.iloc[idx, 1]
+                            if lower_col is not None and upper_col is not None:
+                                lower = ci_df.iloc[idx][lower_col]
+                                upper = ci_df.iloc[idx][upper_col]
+                            else:
+                                # Fallback to positional access
+                                lower = ci_df.iloc[idx, 0]
+                                upper = ci_df.iloc[idx, 1]
                         else:
                             # Fallback if indexer fails
                             lower, upper = np.nan, np.nan
                 except Exception as e:
                      # CHANGED: Log detailed exception for inner block failure
-                     logger.debug(f"CI indexing failed for group {label} at time {t}: {e}")
+                     logger.debug("CI indexing failed for group %s at time %s: %s", label, t, e)
                      lower, upper = np.nan, np.nan
 
                 # Format Display
@@ -276,7 +315,7 @@ def calculate_survival_at_times(
 
             except Exception as e:
                 # Log full context for debugging
-                logger.warning(f"Calc error at time {t} for {label}: {e}")
+                logger.warning("Calc error at time %s for %s: %s", t, label, e)
                 display_val = "NR"
 
             results.append({
