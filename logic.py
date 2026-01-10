@@ -599,7 +599,7 @@ def analyze_outcome(
     int_meta = {}
     final_n_multi = 0
     mv_metrics_text = ""
-    vif_report = ""  # ✅ FIX: Initialize vif_report OUTSIDE the multivariate block
+    vif_report = ""  # ✅ FIX: Initialize vif_report BEFORE multivariate block
     
     def _is_candidate_valid(col):
         mode = mode_map.get(col, "linear")
