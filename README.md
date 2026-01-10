@@ -29,20 +29,11 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- logger.py
 |-- logic.py
 |-- md /
+|   |-- 260110executive-summary.md
+|   |-- 260110implementation-guide.md
+|   |-- 260110stat-shiny-review.md
 |   |-- CACHE_INTEGRATION_GUIDE.md
-|   |-- CHANGELOG_UI_ENHANCEMENT.md
-|   |-- DEBUGGING_ANALYSIS.md
-|   |-- DEPLOYMENT_SUMMARY.md
-|   |-- FIX_COMPLETE.md
-|   |-- HF_OPTIMIZATION_README.md
-|   |-- IMPLEMENTATION_STATUS.md
-|   |-- MedStat_Detailed_Review.md
-|   |-- OPTIMIZATION.md
-|   |-- QUICK_START_STYLING.md
-|   |-- STYLING_EXAMPLES.md
-|   |-- UI_ENHANCEMENT_GUIDE.md
-|   |-- UI_STYLING_GUIDE.md
-|   `-- UNICODE_FIX_ANALYSIS.md
+|   `-- OPTIMIZATION.md
 |-- poisson_lib.py
 |-- psm_lib.py
 |-- pytest.ini
