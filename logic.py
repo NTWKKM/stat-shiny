@@ -1,4 +1,3 @@
-"""
 🧮 Logistic Regression Core Logic (Shiny Compatible)
 
 No Streamlit dependencies - pure statistical functions.
@@ -600,6 +599,7 @@ def analyze_outcome(
     int_meta = {}
     final_n_multi = 0
     mv_metrics_text = ""
+    vif_report = ""  # ✅ FIX: Initialize vif_report OUTSIDE the multivariate block
     
     def _is_candidate_valid(col):
         mode = mode_map.get(col, "linear")
@@ -643,9 +643,6 @@ def analyze_outcome(
         
         if not multi_data.empty and final_n_multi > 10 and len(predictors) > 0:
             params, conf, pvals, status, mv_stats = run_binary_logit(multi_data['y'], multi_data[predictors], method=preferred_method)
-            
-            # Initialize VIF report variable
-            vif_report = ""
             
             if status == "OK":
                 # Calculate VIF for collinearity diagnostics
@@ -902,28 +899,32 @@ def analyze_outcome(
         if plot_data:
             df_plot = pd.DataFrame(plot_data)
             
-            fig = create_forest_plot(
-                data=df_plot,
-                estimate_col='or',
-                ci_low_col='low',
-                ci_high_col='high',
-                label_col='var',
-                pval_col='p',
-                title=f"{title_prefix} Odds Ratios - {outcome_name}",
-                x_label="Odds Ratio"
-            )
-            
-            # Convert to HTML
-            if fig:
-                 forest_html_snippet = fig.to_html(full_html=False, include_plotlyjs='cdn')
-                 # Wrap in container with styling
-                 forest_plot_html = f"""
-                 <div class='table-container forest-plot-section' style='padding: 20px;'>
-                    <h3 style='color:{COLORS['primary_dark']}; margin-top:0;'>🌲 Forest Plot</h3>
-                    {forest_html_snippet}
-                 </div>"""
-    except Exception:
-        logger.exception("Failed to generate forest plot")
+            try:
+                fig = create_forest_plot(
+                    data=df_plot,
+                    estimate_col='or',
+                    ci_low_col='low',
+                    ci_high_col='high',
+                    label_col='var',
+                    pval_col='p',
+                    title=f"{title_prefix} Odds Ratios - {outcome_name}",
+                    x_label="Odds Ratio"
+                )
+                
+                # Convert to HTML
+                if fig:
+                    forest_html_snippet = fig.to_html(full_html=False, include_plotlyjs='cdn')
+                    # Wrap in container with styling
+                    forest_plot_html = f"""
+                    <div class='table-container forest-plot-section' style='padding: 20px;'>
+                       <h3 style='color:{COLORS['primary_dark']}; margin-top:0;'>🌲 Forest Plot</h3>
+                       {forest_html_snippet}
+                    </div>"""
+            except Exception as e:
+                logger.debug(f"Forest plot generation failed: {e}")
+                forest_plot_html = ""
+    except Exception as e:
+        logger.debug(f"Forest plot data preparation failed: {e}")
         forest_plot_html = ""
     # --- END FIX ---
 
