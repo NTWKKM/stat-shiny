@@ -1,15 +1,15 @@
-from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget  # type: ignore
 import gc
 import html
 import json
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple, Union, cast
+from typing import Any, Optional, Union, cast
 
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from htmltools import HTML, div
+from shiny import module, reactive, render, req, ui
+from shinywidgets import output_widget, render_widget  # type: ignore
 
 # Import internal modules
 from logic import analyze_outcome
