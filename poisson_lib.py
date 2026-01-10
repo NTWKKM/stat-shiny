@@ -109,6 +109,7 @@ def run_negative_binomial_regression(
                 alpha_val = result.params['alpha']
             else:
                 # Fallback: alpha is typically the last parameter for NB2
+                logger.debug("Alpha not found by name, using last parameter as fallback")
                 alpha_val = result.params[-1]
 
         try:
@@ -476,7 +477,7 @@ def analyze_poisson_outcome(
                     # Now multi_df has the raw columns, so create_interaction_terms will work correctly
                     multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                     logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
-                except (ImportError, ValueError, TypeError, KeyError) as e:
+                except (ImportError, ValueError, TypeError, KeyError):
                     logger.exception("Failed to create interaction terms")
             
             # 🧹 CLEANUP: Remove raw categorical columns before passing to statsmodels

@@ -202,7 +202,7 @@ def calculate_survival_at_times(
             
         # 4. Validation: Check for non-binary values (must be 0 or 1)
         unique_vals = converted_event_series.unique()
-        valid_binary = {0, 1, 0.0, 1.0}
+        valid_binary = {0, 1}
         if not set(unique_vals).issubset(valid_binary):
             logger.warning(f"Skipping group '{label}': Event column contains non-binary values {unique_vals} (Expected 0/1).")
             continue

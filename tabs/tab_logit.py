@@ -746,6 +746,7 @@ def logit_server(
                     css_content = f.read()
                 css_tag = f"<style>{css_content}</style>"
             except OSError:
+                logger.warning("Could not load static/styles.css for Poisson report")
                 css_tag = "<style>/* static/styles.css not found */</style>"
 
             wrapped_html = f"""

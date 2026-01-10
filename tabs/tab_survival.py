@@ -468,8 +468,8 @@ def survival_server(
                         val = float(p)
                     except ValueError:
                         # Validation for non-numeric input
-                        raise ValueError(f"Non-numeric value detected: '{p}'. Please enter numbers only.")
-                    
+                        raise ValueError(f"Non-numeric value detected: '{p}'. Please enter numbers only.") from None
+                        
                     if val < 0:
                         # Validation for negative numbers
                         raise ValueError(f"Time points must be non-negative. Found: {val}")
@@ -790,7 +790,7 @@ def survival_server(
         """Download Cox regression report."""
         res = cox_result.get()
         if not res:
-            yield "No results".encode('utf-8')
+            yield b"No results"
             return
 
         elements = [
