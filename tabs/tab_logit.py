@@ -739,7 +739,6 @@ def logit_server(
                 poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Wrap in standard HTML structure for standalone download correctness
-            css_link = "<link rel='stylesheet' href='static/styles.css'>"
             wrapped_html = f"""
             <!DOCTYPE html>
             <html lang="en">
@@ -747,7 +746,6 @@ def logit_server(
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Poisson Regression Report: {html.escape(target)}</title>
-                {css_link}
             </head>
             <body>
                 <div class="report-container">
@@ -829,7 +827,8 @@ def logit_server(
     @render.download(filename="poisson_report.html")
     def btn_dl_poisson_report():
         res = poisson_res.get()
-        if res: yield res['html_full']
+        if res: 
+            yield res['html_full']
 
     # ==========================================================================
     # LOGIC: Subgroup Analysis
