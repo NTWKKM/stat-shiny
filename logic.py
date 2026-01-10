@@ -102,13 +102,13 @@ def load_static_css() -> str:
         css_path = Path(__file__).parent / "static" / "styles.css"
         
         if css_path.exists():
-            with open(css_path, "r", encoding="utf-8") as f:
+            with open(css_path, encoding="utf-8") as f:
                 return f.read()
         else:
             logger.warning(f"CSS file not found at: {css_path}")
             return ""
     except Exception as e:
-        logger.error(f"Failed to load static CSS: {e}")
+        logger.exception("Failed to load static CSS")
         return ""
 
 def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:

@@ -12,7 +12,7 @@ from shiny import module, reactive, render, req, ui
 from shinywidgets import output_widget, render_widget  # type: ignore
 
 # Import internal modules
-from logic import analyze_outcome
+from logic import analyze_outcome, load_static_css
 from poisson_lib import analyze_poisson_outcome
 from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
@@ -741,20 +741,13 @@ def logit_server(
 
             # Wrap in standard HTML structure for standalone download correctness
             # INLINE CSS FIX: Read static/styles.css and embed directly so downloads look right
-            try:
-                css_path = Path(__file__).resolve().parents[1] / "static" / "styles.css"
-                with css_path.open('r', encoding='utf-8') as f:
-                    css_content = f.read()
-                css_tag = f"<style>{css_content}</style>"
-            except OSError:
-                logger.warning("Could not load static/styles.css for Poisson report")
-                # Provide minimal essential styling as fallback
-                css_tag = """<style>
-                    body { font-family: sans-serif; padding: 20px; }
+            css_content = load_static_css()
+            if not css_content:
+                css_content = """body { font-family: sans-serif; padding: 20px; }
                     table { border-collapse: collapse; width: 100%; }
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #1a365d; color: white; }
-                </style>"""
+                    th { background-color: #1a365d; color: white; }"""
+            css_tag = f"<style>{css_content}</style>"
 
             wrapped_html = f"""
             <!DOCTYPE html>
