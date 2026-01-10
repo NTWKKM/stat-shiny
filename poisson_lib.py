@@ -9,13 +9,13 @@ OPTIMIZED for Python 3.12 with strict type hints.
 """
 import html
 import warnings
-from typing import Any, Optional, Union
+# ✅ FIX: Added 'Tuple' to imports
+from typing import Union, Optional, List, Dict, Tuple, Any
 
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import statsmodels.api as sm
-
 from logger import get_logger
 from tabs._common import get_color_palette
 
@@ -243,9 +243,6 @@ def analyze_poisson_outcome(
         sorted_cols = sorted(df.columns.astype(str))
         mode_map = {}
         cat_levels_map = {}
-        
-        # 🧹 CLEANUP: Removed local fmt_p definition. 
-        # Logic is now centralized in logic.py (fmt_p / fmt_p_with_styling).
         
         irr_results = {}
         
