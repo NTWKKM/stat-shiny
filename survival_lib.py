@@ -25,7 +25,7 @@ import logging
 import numbers
 import warnings
 from functools import lru_cache
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
