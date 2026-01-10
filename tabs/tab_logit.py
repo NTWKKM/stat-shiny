@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import html
 from htmltools import HTML, div
 import gc
+from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Union, cast
 
 # Import internal modules
@@ -836,7 +837,8 @@ def logit_server(
     @render.download(filename="poisson_report.html")
     def btn_dl_poisson_report():
         res = poisson_res.get()
-        if res: yield res['html_full']
+        if res:
+            yield res['html_full']
 
     # ==========================================================================
     # LOGIC: Subgroup Analysis

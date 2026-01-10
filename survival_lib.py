@@ -51,7 +51,7 @@ def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
         if pd.api.types.is_numeric_dtype(data[col]):
             unique_vals = data[col].dropna().unique()
             # Preserve binary columns (0/1) or (-1/1)
-            if len(unique_vals) <= 2 and set(unique_vals).issubset({0, 1, 0.0, 1.0, -1, -1.0}):
+            if len(unique_vals) <= 2 and set(unique_vals).issubset({0, 1, -1}):
                 continue
             
             std = data[col].std()
@@ -99,8 +99,8 @@ def _extract_scalar(val: Any) -> float:
     if hasattr(val, 'item'):
         try:
             return val.item()
-        except Exception:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug("Could not extract scalar via .item(): %s", e)
     elif hasattr(val, 'iloc'):
         return val.iloc[0]
     return val
@@ -176,14 +176,18 @@ def calculate_survival_at_times(
         # 1. Map known truthy/falsy values (handling strings, numbers, bools)
         # Truthy map: {"event", "dead", "1", 1, True} -> 1
         # Falsy map: {"censored", "alive", "0", 0, False} -> 0
-        def _robust_event_converter(val):
+        def _robust_event_converter(val: Any) -> int | Any:
             if isinstance(val, str):
                 v_lower = val.lower().strip()
-                if v_lower in ["event", "dead", "1", "true"]: return 1
-                if v_lower in ["censored", "alive", "0", "false"]: return 0
-            if val in [1, True, 1.0]: return 1
-            if val in [0, False, 0.0]: return 0
-            return val # Return original for fallback
+                if v_lower in ["event", "dead", "1", "true"]:
+                    return 1
+                if v_lower in ["censored", "alive", "0", "false"]:
+                    return 0
+            if val in [1, True, 1.0]:
+                return 1
+            if val in [0, False, 0.0]:
+                return 0
+            return val  # Return original for fallback
         
         # Apply mapping
         temp_events = raw_events.map(_robust_event_converter)
@@ -708,7 +712,7 @@ def fit_cox_ph(
         aic_val = getattr(cph, 'AIC_partial_', None)
         ll_val = getattr(cph, 'log_likelihood_', None)
         
-        def fmt(x, p):
+        def fmt(x: Any, p: int) -> str:
             if x is None:
                 return "N/A"
             if isinstance(x, numbers.Real):

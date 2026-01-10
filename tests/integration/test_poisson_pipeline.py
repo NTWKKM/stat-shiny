@@ -140,9 +140,6 @@ class TestPoissonPipeline:
         nb_aic = stats_dict['aic']
         poisson_aic = poisson_stats['aic']
         
-        # Add a small tolerance or log check, but generally NB < Poisson for this data
-        print(f"DEBUG: NB AIC={nb_aic}, Poisson AIC={poisson_aic}")
-        
         assert nb_aic < poisson_aic, (
             f"Negative Binomial should fit better (lower AIC) for overdispersed data: "
             f"NB AIC={nb_aic:.2f} vs Poisson AIC={poisson_aic:.2f}"
