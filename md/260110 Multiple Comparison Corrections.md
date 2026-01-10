@@ -22,7 +22,7 @@
 
 ***
 
-**สรุปสั้น ๆ วางใน stat-shiny แบบนี้น่าจะลงตัวที่สุด**
+## สรุปสั้น ๆ วางใน stat-shiny แบบนี้น่าจะลงตัวที่สุด
 
 - **Multiple Comparison Corrections** →
   - ถ้าผูกกับ survival/landmark → อยู่ใน **Survival / Landmark / Subgroup tab**
