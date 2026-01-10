@@ -1099,6 +1099,137 @@ def test_module_imports():
 # VIF COLLINEARITY DIAGNOSTICS TESTS
 # ============================================================================
 
+class TestMultipleComparisonCorrections:
+    """Test multiple comparison correction methods."""
+    
+    def test_bonferroni_correction(self):
+        """Test Bonferroni correction for multiple comparisons."""
+        from multiple_comparisons import MultipleComparisonCorrection
+        
+        p_values = [0.01, 0.03, 0.05, 0.10, 0.15]
+        mcc = MultipleComparisonCorrection()
+        results_df, threshold = mcc.bonferroni(p_values)
+        
+        # Check results structure
+        assert isinstance(results_df, pd.DataFrame)
+        assert len(results_df) == 5
+        assert 'Test #' in results_df.columns
+        assert 'P-value' in results_df.columns
+        assert 'Adjusted P' in results_df.columns
+        assert 'Significant (α=0.05)' in results_df.columns
+        
+        # Check threshold calculation: 0.05 / 5 = 0.01
+        assert threshold == 0.01
+        
+        # Check adjusted p-values (should be p * n_tests)
+        expected_adjusted = [min(p * 5, 1.0) for p in p_values]
+        actual_adjusted = results_df['Adjusted P'].values
+        np.testing.assert_array_almost_equal(actual_adjusted, expected_adjusted)
+        
+        # Check significance: only p_values < 0.01 should be significant
+        expected_significant = [p < 0.01 for p in p_values]
+        actual_significant = results_df['Significant (α=0.05)'].values
+        assert np.array_equal(actual_significant, expected_significant)
+    
+    def test_holm_correction(self):
+        """Test Holm-Bonferroni correction for multiple comparisons."""
+        from multiple_comparisons import MultipleComparisonCorrection
+        
+        p_values = [0.01, 0.03, 0.05, 0.10, 0.15]
+        mcc = MultipleComparisonCorrection()
+        results_df, threshold = mcc.holm(p_values)
+        
+        # Check results structure
+        assert isinstance(results_df, pd.DataFrame)
+        assert len(results_df) == 5
+        assert 'Test #' in results_df.columns
+        assert 'P-value' in results_df.columns
+        assert 'Adjusted P (Holm)' in results_df.columns
+        assert 'Significant (α=0.05)' in results_df.columns
+        
+        # Holm should be less conservative than Bonferroni
+        bonf_results, _ = mcc.bonferroni(p_values)
+        # At least some Holm adjusted p-values should be <= Bonferroni adjusted p-values
+        holm_adjusted = results_df['Adjusted P (Holm)'].values
+        bonf_adjusted = bonf_results['Adjusted P'].values
+        # Sort by original p-value for fair comparison
+        sorted_indices = np.argsort(p_values)
+        assert np.any(holm_adjusted[sorted_indices] <= bonf_adjusted[sorted_indices])
+    
+    def test_benjamini_hochberg_correction(self):
+        """Test Benjamini-Hochberg FDR correction for multiple comparisons."""
+        from multiple_comparisons import MultipleComparisonCorrection
+        
+        p_values = [0.01, 0.03, 0.05, 0.10, 0.15]
+        mcc = MultipleComparisonCorrection()
+        results_df, threshold = mcc.benjamini_hochberg(p_values, fdr=0.05)
+        
+        # Check results structure
+        assert isinstance(results_df, pd.DataFrame)
+        assert len(results_df) == 5
+        assert 'Test #' in results_df.columns
+        assert 'P-value' in results_df.columns
+        assert 'Threshold' in results_df.columns
+        assert 'Significant (FDR=0.05)' in results_df.columns
+        
+        # BH should be more powerful than Bonferroni
+        bonf_results, _ = mcc.bonferroni(p_values)
+        bh_significant_count = results_df['Significant (FDR=0.05)'].sum()
+        bonf_significant_count = bonf_results['Significant (α=0.05)'].sum()
+        assert bh_significant_count >= bonf_significant_count
+    
+    def test_edge_case_single_test(self):
+        """Test correction with a single test (should work without modification)."""
+        from multiple_comparisons import MultipleComparisonCorrection
+        
+        p_values = [0.03]
+        mcc = MultipleComparisonCorrection()
+        
+        # All methods should work with a single test
+        bonf_results, bonf_threshold = mcc.bonferroni(p_values)
+        holm_results, holm_threshold = mcc.holm(p_values)
+        bh_results, bh_threshold = mcc.benjamini_hochberg(p_values)
+        
+        # With single test, adjusted p should equal original p
+        assert bonf_results['Adjusted P'].values[0] == 0.03
+        assert holm_results['Adjusted P (Holm)'].values[0] == 0.03
+        
+        # Bonferroni threshold: 0.05 / 1 = 0.05
+        assert bonf_threshold == 0.05
+    
+    def test_edge_case_extreme_p_values(self):
+        """Test correction with extreme p-values (very small and large)."""
+        from multiple_comparisons import MultipleComparisonCorrection
+        
+        p_values = [1e-10, 0.001, 0.5, 0.999, 1.0]
+        mcc = MultipleComparisonCorrection()
+        results_df, threshold = mcc.bonferroni(p_values)
+        
+        # Check that very small p-values are capped at 1.0
+        assert all(results_df['Adjusted P'].values <= 1.0)
+        # 1e-10 * 5 = 5e-10, which is still < 1.0, so it won't be capped
+        # But very large values like 1.0 should remain 1.0
+        assert results_df['Adjusted P'].values[-1] == 1.0
+    
+    def test_generate_mcc_report_html(self):
+        """Test HTML report generation for multiple comparison corrections."""
+        from multiple_comparisons import MultipleComparisonCorrection, generate_mcc_report_html
+        
+        p_values = [0.01, 0.03, 0.05, 0.10, 0.15]
+        mcc = MultipleComparisonCorrection()
+        results_df, threshold = mcc.bonferroni(p_values)
+        
+        html_report = generate_mcc_report_html("Bonferroni", results_df)
+        
+        # Should return HTML string
+        assert isinstance(html_report, str)
+        # Should contain key HTML elements
+        assert '<!DOCTYPE html>' in html_report
+        assert 'Multiple Comparison Correction Results' in html_report
+        assert 'Bonferroni' in html_report
+        assert 'Method Comparison' in html_report
+
+
 class TestCollinearityDiagnostics:
     """Test VIF (Variance Inflation Factor) calculation functions."""
     

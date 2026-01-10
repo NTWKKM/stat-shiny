@@ -1096,3 +1096,114 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
     </html>"""
     
     return html_doc
+
+def fit_km_multiple_landmarks(
+    df: pd.DataFrame,
+    duration_col: str,
+    event_col: str,
+    group_col: Optional[str],
+    landmark_times: List[float],
+    correction_method: str = 'holm'
+) -> Tuple[List[go.Figure], pd.DataFrame, str]:
+    """
+    Perform landmark-time Kaplan-Meier analysis at multiple time points
+    with multiple comparison correction.
+    
+    Args:
+        df: Input DataFrame
+        duration_col: Column name for duration/time
+        event_col: Column name for event indicator
+        group_col: Column name for grouping variable
+        landmark_times: List of landmark time points to analyze
+        correction_method: Method for multiple comparison correction ('bonferroni', 'holm', 'bh')
+    
+    Returns:
+        Tuple containing:
+        - List of Plotly figures (one per landmark time)
+        - DataFrame with combined statistics and correction results
+        - HTML report with correction details
+    """
+    from multiple_comparisons import MultipleComparisonCorrection, generate_mcc_report_html
+    
+    n_landmarks = len(landmark_times)
+    if n_landmarks == 0:
+        return [], pd.DataFrame(), "No landmark times provided"
+    
+    if n_landmarks == 1:
+        # Single landmark - no correction needed
+        fig, stats_df, n_pre, n_post, err = fit_km_landmark(
+            df, duration_col, event_col, group_col, landmark_times[0]
+        )
+        return [fig] if fig else [], stats_df if stats_df is not None else pd.DataFrame(), ""
+    
+    # Multiple landmarks - collect p-values and apply correction
+    p_values = []
+    results = []
+    figures = []
+    
+    for t in landmark_times:
+        fig, stats_df, n_pre, n_post, err = fit_km_landmark(
+            df, duration_col, event_col, group_col, t
+        )
+        
+        if fig is not None and stats_df is not None and err is None:
+            figures.append(fig)
+            
+            # Extract p-value if available
+            p_val = stats_df.get('P-value', pd.Series([None])).iloc[0] if not stats_df.empty else None
+            p_values.append(p_val)
+            
+            # Store results with landmark info
+            result_row = stats_df.iloc[0].to_dict() if not stats_df.empty else {}
+            result_row['Landmark Time'] = t
+            result_row['N (Pre-Filter)'] = n_pre
+            result_row['N (Post-Filter)'] = n_post
+            results.append(result_row)
+        else:
+            logger.warning(f"Landmark analysis failed at time {t}: {err}")
+            p_values.append(1.0)  # Default to non-significant
+    
+    # Apply multiple comparison correction
+    correction_results = None
+    correction_html = ""
+    
+    if len(p_values) > 1 and any(pv is not None for pv in p_values):
+        # Replace None values with 1.0 (non-significant)
+        p_values_clean = [pv if pv is not None else 1.0 for pv in p_values]
+        
+        mcc = MultipleComparisonCorrection()
+        
+        try:
+            if correction_method == 'bonferroni':
+                corrected_df, threshold = mcc.bonferroni(p_values_clean)
+            elif correction_method == 'holm':
+                corrected_df, threshold = mcc.holm(p_values_clean)
+            elif correction_method == 'bh':
+                corrected_df, threshold = mcc.benjamini_hochberg(p_values_clean)
+            else:
+                logger.warning(f"Unknown correction method: {correction_method}, using holm")
+                corrected_df, threshold = mcc.holm(p_values_clean)
+            
+            # Add corrected p-values to results
+            for i, result in enumerate(results):
+                if i < len(corrected_df):
+                    result['Method'] = correction_method
+                    if 'Adjusted P' in corrected_df.columns:
+                        result['Adjusted P-value'] = corrected_df.iloc[i]['Adjusted P']
+                    elif 'Adjusted P (Holm)' in corrected_df.columns:
+                        result['Adjusted P-value'] = corrected_df.iloc[i]['Adjusted P (Holm)']
+                    result['Significant (α=0.05)'] = corrected_df.iloc[i].get('Significant (α=0.05)', False) or corrected_df.iloc[i].get(f'Significant (FDR={0.05})', False)
+            
+            correction_results = corrected_df
+            correction_html = generate_mcc_report_html(f"{correction_method.upper()} Correction", corrected_df)
+            
+            logger.info(f"Multiple landmark times detected ({n_landmarks} tests). Applied {correction_method} correction.")
+            logger.warning(f"Recommended significance threshold: {threshold:.4f}")
+            
+        except Exception as e:
+            logger.error(f"Failed to apply multiple comparison correction: {e}")
+    
+    # Combine results into DataFrame
+    combined_stats = pd.DataFrame(results) if results else pd.DataFrame()
+    
+    return figures, combined_stats, correction_html
