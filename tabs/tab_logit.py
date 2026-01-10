@@ -1,18 +1,17 @@
-import gc
-import html
-import json
-from pathlib import Path
-from typing import Any, Optional, Union, cast
-
+from shiny import ui, module, reactive, render, req
+from shinywidgets import output_widget, render_widget  # type: ignore
 import pandas as pd
 import numpy as np
+import json
 import plotly.graph_objects as go
+import html
 from htmltools import HTML, div
-from shiny import module, reactive, render, req, ui
-from shinywidgets import output_widget, render_widget  # type: ignore
+import gc
+# Use built-in list/dict/tuple for Python 3.9+ and typing for complex types
+from typing import Optional, Any, Union, cast
 
 # Import internal modules
-from logic import analyze_outcome, load_static_css
+from logic import analyze_outcome
 from poisson_lib import analyze_poisson_outcome
 from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
@@ -25,9 +24,9 @@ COLORS = get_color_palette()
 # ==============================================================================
 # Helper Functions (Pure Logic)
 # ==============================================================================
-def check_perfect_separation(df: pd.DataFrame, target_col: str) -> List[str]:
+def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
     """Identify columns causing perfect separation."""
-    risky_vars: List[str] = []
+    risky_vars: list[str] = []
     try:
         y = pd.to_numeric(df[target_col], errors='coerce').dropna()
         if y.nunique() < 2: 
@@ -377,7 +376,7 @@ def logit_server(
     output: Any, 
     session: Any, 
     df: reactive.Value[Optional[pd.DataFrame]], 
-    var_meta: reactive.Value[Dict[str, Any]], 
+    var_meta: reactive.Value[dict[str, Any]], 
     df_matched: reactive.Value[Optional[pd.DataFrame]], 
     is_matched: reactive.Value[bool]
 ) -> None:
@@ -538,7 +537,7 @@ def logit_server(
         final_df = d.drop(columns=exclude, errors='ignore')
         
         # Parse interaction pairs from "var1 × var2" format
-        interaction_pairs: Optional[List[Tuple[str, str]]] = None
+        interaction_pairs: Optional[list[tuple[str, str]]] = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:
@@ -679,7 +678,7 @@ def logit_server(
         offset = offset_col if offset_col != "None" else None
         
         # Parse interaction pairs
-        interaction_pairs: Optional[List[Tuple[str, str]]] = None
+        interaction_pairs: Optional[list[tuple[str, str]]] = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:
@@ -740,15 +739,7 @@ def logit_server(
                 poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Wrap in standard HTML structure for standalone download correctness
-            # INLINE CSS FIX: Read static/styles.css and embed directly so downloads look right
-            css_content = load_static_css()
-            if not css_content:
-                css_content = """body { font-family: sans-serif; padding: 20px; }
-                    table { border-collapse: collapse; width: 100%; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #1a365d; color: white; }"""
-            css_tag = f"<style>{css_content}</style>"
-
+            css_link = "<link rel='stylesheet' href='static/styles.css'>"
             wrapped_html = f"""
             <!DOCTYPE html>
             <html lang="en">
@@ -756,7 +747,7 @@ def logit_server(
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Poisson Regression Report: {html.escape(target)}</title>
-                {css_tag}
+                {css_link}
             </head>
             <body>
                 <div class="report-container">
@@ -838,8 +829,7 @@ def logit_server(
     @render.download(filename="poisson_report.html")
     def btn_dl_poisson_report():
         res = poisson_res.get()
-        if res and res.get('html_full'):
-            yield res['html_full']
+        if res: yield res['html_full']
 
     # ==========================================================================
     # LOGIC: Subgroup Analysis
