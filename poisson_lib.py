@@ -9,7 +9,7 @@ OPTIMIZED for Python 3.12 with strict type hints.
 """
 import html
 import warnings
-from typing import Union, Optional, List, Dict, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import numpy as np
@@ -828,7 +828,7 @@ def analyze_poisson_outcome(
         return html_table, irr_results, airr_results, interaction_results
 
     except Exception as e:
-        logger.exception("Unexpected error in Poisson analysis")
+        logger.exception("Unexpected error in Poisson analysis for outcome: %s", outcome_name)
         # ✅ FIX: ALWAYS return 4 elements to prevent "cannot unpack" error
         return f"<div class='alert alert-danger'>Analysis failed: {html.escape(str(e))}</div>", {}, {}, {}
 
