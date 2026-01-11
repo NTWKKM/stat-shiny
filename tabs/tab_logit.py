@@ -587,12 +587,12 @@ def logit_server(
             
             # Append Adjusted Plot if available
             if fig_adj:
-                plot_html = plotly_figure_to_html(fig_adj, full_html=False, include_plotlyjs='cdn')
+                plot_html = plotly_figure_to_html(fig_adj, include_plotlyjs='cdn')
                 logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
             
             # Append Crude Plot if available
             if fig_crude:
-                plot_html = plotly_figure_to_html(fig_crude, full_html=False, include_plotlyjs='cdn')
+                plot_html = plotly_figure_to_html(fig_crude, include_plotlyjs='cdn')
                 logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # 2. Create Full HTML for Download (Wrapped)
