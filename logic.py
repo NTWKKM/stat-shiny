@@ -16,6 +16,7 @@ from pathlib import Path
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
 from tabs._common import get_color_palette
+from utils.advanced_stats_lib import apply_mcc, calculate_vif
 
 logger = get_logger(__name__)
 
@@ -332,7 +333,8 @@ def analyze_outcome(
     df: pd.DataFrame, 
     var_meta: Optional[dict[str, Any]] = None, 
     method: MethodType = 'auto', 
-    interaction_pairs: Optional[list[tuple[str, str]]] = None
+    interaction_pairs: Optional[list[tuple[str, str]]] = None,
+    adv_stats: Optional[dict[str, Any]] = None
 ) -> tuple[str, dict[str, ORResult], dict[str, ORResult], dict[str, InteractionResult]]:
     """
     Perform logistic regression analysis for binary outcome.
@@ -343,11 +345,19 @@ def analyze_outcome(
         var_meta: Variable metadata dictionary
         method: 'auto', 'default', 'bfgs', or 'firth'
         interaction_pairs: List of tuples for interactions [(var1, var2), ...]
+        adv_stats: Dictionary containing advanced stats settings (MCC, VIF, etc.)
     
     Returns:
         tuple: (html_table, or_results, aor_results, interaction_results)
     """
-    logger.info(f"Starting logistic analysis for outcome: {outcome_name}")
+    # Extract Advanced Stats Settings
+    mcc_enable = adv_stats.get('stats.mcc_enable', False) if adv_stats else False
+    mcc_method = adv_stats.get('stats.mcc_method', 'fdr_bh') if adv_stats else 'fdr_bh'
+    
+    vif_enable = adv_stats.get('stats.vif_enable', False) if adv_stats else False
+    vif_threshold = adv_stats.get('stats.vif_threshold', 10) if adv_stats else 10
+
+    logger.info(f"Starting logistic analysis for outcome: {outcome_name}. MCC={mcc_enable}, VIF={vif_enable}")
     
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
@@ -566,6 +576,32 @@ def analyze_outcome(
         if isinstance(p_screen, (int, float)) and pd.notna(p_screen) and p_screen < 0.20:
             candidates.append(col)
     
+    # ✅ MCC APPLICATION (UNIVARIATE)
+    if mcc_enable:
+        # Collect p-values where available
+        uni_p_vals = []
+        uni_keys = []
+        for col, res in results_db.items():
+            # Prioritize p_or (Categorical/Linear Logit) over p_comp (Test)
+            # The logic usually puts p_comp for Cat (Chi2) and p_or for Linear (or Cat specific levels)
+            # Simplification: Use p_comp if available (overall test), else p_or
+            p = res.get('p_comp', np.nan)
+            # If p_comp is nan, maybe check for 'p_or' if linear?
+            if pd.isna(p):
+                 # For linear, results_db[col] has 'p_or' inside 'or_results' logic? 
+                 # Wait, logic is complex. 'p_or' key exists in 'res' for linear.
+                 if 'p_or' in res and isinstance(res['p_or'], (float, int)):
+                     p = res['p_or']
+            
+            if pd.notna(p) and isinstance(p, (float, int)):
+                uni_p_vals.append(p)
+                uni_keys.append(col)
+        
+        if uni_p_vals:
+            adj_p = apply_mcc(uni_p_vals, method=mcc_method)
+            for k, p_adj in zip(uni_keys, adj_p):
+                results_db[k]['p_adj'] = p_adj
+    
     # Multivariate analysis
     aor_results: dict[str, ORResult] = {}
     interaction_results: dict[str, InteractionResult] = {}
@@ -672,7 +708,48 @@ def analyze_outcome(
             else:
                 # Log multivariate failure
                 mv_metrics_text = f"<span style='color:red'>Adjustment Failed: {status}</span>"
+        
+        # ✅ MCC APPLICATION (MULTIVARIATE)
+        if mcc_enable and aor_results:
+            mv_p_vals = []
+            mv_keys = []
+            for k, v in aor_results.items():
+                p = v.get('p_value')
+                if pd.notna(p):
+                     mv_p_vals.append(p)
+                     mv_keys.append(k)
+            
+            if mv_p_vals:
+                adj_p = apply_mcc(mv_p_vals, method=mcc_method)
+                for k, p_adj in zip(mv_keys, adj_p):
+                    aor_results[k]['p_adj'] = p_adj
     
+    # ✅ VIF CALCULATION
+    vif_html = ""
+    if vif_enable and final_n_multi > 10 and len(predictors) > 1:
+        try:
+            # multi_data[predictors] contains numeric/one-hot data used in regression
+            vif_df = calculate_vif(multi_data[predictors])
+            # Filter high VIF
+            high_vif = vif_df[vif_df['VIF'] > vif_threshold]
+            
+            if not high_vif.empty:
+                vif_rows = []
+                for _, row in high_vif.iterrows():
+                    feat = row['feature'].replace('::', ': ') # clean up
+                    val = row['VIF']
+                    vif_rows.append(f"<li><b>{feat}</b>: {val:.1f}</li>")
+                
+                vif_list = "".join(vif_rows)
+                vif_html = f"""
+                <div style='margin-top: 10px; padding: 10px; background-color: #fff3f3; border: 1px solid #ffcccc; border-radius: 4px;'>
+                    <b style='color: #cc0000;'>⚠️ High Collinearity Detected (VIF > {vif_threshold}):</b>
+                    <ul style='margin: 5px 0 0 20px; color: #cc0000;'>{vif_list}</ul>
+                </div>
+                """
+        except Exception as e:
+            logger.warning(f"VIF calculation failed: {e}")
+
     # Build HTML
     html_rows = []
     current_sheet = ""
@@ -719,6 +796,32 @@ def analyze_outcome(
                 aor_s = f"{multi_res['aor']:.2f} ({multi_res['l']:.2f}-{multi_res['h']:.2f})"
                 ap_s = fmt_p_with_styling(multi_res['p'])
         
+        # Format Adjusted P-values for Table
+        p_adj_uni_s = "-"
+        if mcc_enable and 'p_adj' in res:
+             p_adj_uni_s = fmt_p_with_styling(res['p_adj'])
+        
+        ap_adj_s = "-"
+        # For Categorical Multi: Each level has its own adjusted p?
+        # MCC logic above iterated AOR keys (which are per-level for cat).
+        # We need to reconstruct the string stack for display.
+        if mcc_enable:
+             if multi_res:
+                if isinstance(multi_res, list):
+                    ap_adj_lines = ["-"] # Ref
+                    for item in multi_res:
+                        # Find the key in aor_results to get p_adj
+                        # Key format: "var: lvl"
+                        key = f"{col}: {item['lvl']}" 
+                        val = aor_results.get(key, {}).get('p_adj')
+                        ap_adj_lines.append(fmt_p_with_styling(val))
+                    ap_adj_s = "<br>".join(ap_adj_lines)
+                else:
+                    # Linear
+                    val = aor_results.get(col, {}).get('p_adj')
+                    ap_adj_s = fmt_p_with_styling(val)
+
+        
         html_rows.append(f"""<tr>
             <td>{lbl}</td>
             <td>{res.get('desc_total','')}</td>
@@ -728,9 +831,11 @@ def analyze_outcome(
             <td>{or_s}</td>
             <td>{res.get('test_name', '-')}</td>
             <td>{p_col_display}</td>
+            {f"<td>{p_adj_uni_s}</td>" if mcc_enable else ""}
             <td>{acoef_s}</td>
             <td>{aor_s}</td>
             <td>{ap_s}</td>
+            {f"<td>{ap_adj_s}</td>" if mcc_enable else ""}
         </tr>""")
     
     # ✅ NEW: Add interaction terms to HTML table
@@ -745,6 +850,13 @@ def analyze_outcome(
                 int_or = "-"
             int_p = fmt_p_with_styling(res.get('p_value', 1))
             
+            int_p_adj = "-"
+            if mcc_enable:
+                 pk = f"🔗 {int_label}" # Key used in AOR results
+                 # Note: Interaction result keys in aor_results include emoji
+                 val = aor_results.get(pk, {}).get('p_adj')
+                 int_p_adj = fmt_p_with_styling(val)
+
             html_rows.append(f"""<tr style='background-color: {COLORS['primary_light']};'>
                 <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
                 <td>-</td>
@@ -754,9 +866,11 @@ def analyze_outcome(
                 <td><b>{int_or}</b></td>
                 <td>Interaction</td>
                 <td>-</td>
+                {f"<td>-</td>" if mcc_enable else ""}
                 <td>{int_coef}</td>
                 <td><b>{int_or}</b></td>
                 <td>{int_p}</td>
+                {f"<td>{int_p_adj}</td>" if mcc_enable else ""}
             </tr>""")
     
     logger.info(f"Logistic analysis complete. Multivariate n={final_n_multi}, Interactions={len(interaction_results)}")
@@ -811,9 +925,11 @@ def analyze_outcome(
                 <th>Crude OR (95% CI)</th>
                 <th>Test</th>
                 <th>P-value</th>
+                {f"<th>Adj. P ({mcc_method})</th>" if mcc_enable else ""}
                 <th>Adj. Coef.</th>
                 <th>aOR (95% CI)</th>
                 <th>aP-value</th>
+                {f"<th>Adj. aP ({mcc_method})</th>" if mcc_enable else ""}
             </tr>
         </thead>
         <tbody>{chr(10).join(html_rows)}</tbody>
@@ -824,6 +940,7 @@ def analyze_outcome(
             <b>Selection:</b> Variables with Crude P &lt; 0.20 (n={final_n_multi})<br>
             <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)
             {model_fit_html}
+            {vif_html}
             {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}
         </div>
     </div>

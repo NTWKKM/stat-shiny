@@ -18,6 +18,7 @@ from shiny.session import get_current_session
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
+from tabs import tab_advanced_stats
 from typing import Optional, List, Dict, Any, Union
 
 logger = get_logger(__name__)
@@ -460,7 +461,15 @@ def settings_ui(id: str) -> ui.TagChild:
         ),
 
         # ==========================================
-        # 5. ADVANCED TAB
+        # 5. ADVANCED STATISTICS TAB
+        # ==========================================
+        ui.nav_panel(
+            "📈 Advanced Stats",
+            tab_advanced_stats.advanced_stats_ui(f"{id}_adv_stats")
+        ),
+
+        # ==========================================
+        # 6. APP ADVANCED SETTINGS TAB
         # ==========================================
         ui.nav_panel(
             "🛠️ Advanced",
@@ -678,6 +687,11 @@ def settings_server(id: str, config: Any) -> None:
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error saving performance settings")
             ui.notification_show(f"❌ Error: {e}", type="error")
+
+    # ==========================================
+    # ADVANCED STATS MODULE
+    # ==========================================
+    tab_advanced_stats.advanced_stats_server(f"{id}_adv_stats", config)
 
     # ==========================================
     # ADVANCED SETTINGS SAVE
