@@ -97,14 +97,13 @@ InteractionResult = TypedDict("InteractionResult", {
 })
 
 # ✅ NEW: TypedDict for Adjusted OR results
-AORResult = TypedDict("AORResult", {
-    "aor": float,
-    "ci_low": float,
-    "ci_high": float,
-    "p_value": float,
-    "p_adj": Optional[float],
-    "label": Optional[str] # Added for flexible labeling
-})
+class AORResult(TypedDict):
+    aor: float
+    ci_low: float
+    ci_high: float
+    p_value: float
+    p_adj: Optional[float]
+    label: Optional[str]  # Added for flexible labeling
 
 # ✅ NEW: Helper function to load static CSS
 def load_static_css() -> str:
@@ -694,7 +693,7 @@ def analyze_outcome(
             
             # Map back to results
             # uni_keys contains keys for or_results (e.g. "age", "grade: 2")
-            for k, p_adj in zip(uni_keys, adj_p):
+            for k, p_adj in zip(uni_keys, adj_p, strict=True):
                 # Update or_results (per-level)
                 if k in or_results:
                     or_results[k]['p_adj'] = p_adj
@@ -768,7 +767,7 @@ def analyze_outcome(
                 # Estimate N params (Intercept + Predictors)
                 n_params_mv = len(predictors_for_vif) + 1
                 ci_config = get_ci_configuration(ci_method, final_n_multi, y.sum(), n_params_mv)
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.warning("CI configuration failed, falling back to auto: %s", e)
                 # Fallback
                 ci_config = {'method': 'wald', 'note': 'Fallback due to config error'}
@@ -856,7 +855,7 @@ def analyze_outcome(
             
             if mv_p_vals:
                 adj_p = apply_mcc(mv_p_vals, method=mcc_method, alpha=mcc_alpha)
-                for k, p_adj in zip(mv_keys, adj_p):
+                for k, p_adj in zip(mv_keys, adj_p, strict=True):
                     aor_results[k]['p_adj'] = p_adj
     
     # ✅ VIF CALCULATION (Expanded Reporting)

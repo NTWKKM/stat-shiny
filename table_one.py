@@ -139,7 +139,7 @@ def get_stats_categorical_str(
     
     pcts = (counts / total * 100) if total > 0 else pd.Series([0] * len(counts))
     res = [f"{_html.escape(str(cat))}: {int(count)} ({pct:.1f}%)" 
-           for cat, (count, pct) in zip(counts.index, zip(counts.values, pcts.values))]
+           for cat, (count, pct) in zip(counts.index, zip(counts.values, pcts.values, strict=True))]
     return "<br>".join(res)
 
 

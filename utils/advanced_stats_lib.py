@@ -1,4 +1,3 @@
-from __future__ import annotations
 """
 Advanced Statistics Library for stat-shiny.
 
@@ -7,11 +6,13 @@ This module provides utility functions for:
 2. Collinearity Diagnostics (VIF)
 3. Confidence Interval Configuration (Helpers)
 """
+from __future__ import annotations
+
+from typing import Union
 
 import numpy as np
 import pandas as pd
 import statsmodels.stats.multitest as smt
-from typing import Union
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from logger import get_logger
@@ -105,7 +106,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
     # Drop constant predictors (VIF undefined / can explode)
     variances = df_numeric.var()
-    const_predictors = variances[variances == 0].index.tolist()
+    const_predictors = variances[variances < 1e-10].index.tolist()
     if const_predictors:
         df_numeric = df_numeric.drop(columns=const_predictors, errors="ignore")
 
