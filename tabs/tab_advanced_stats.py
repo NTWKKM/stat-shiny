@@ -60,13 +60,29 @@ def advanced_stats_ui() -> ui.TagChild:
             # Section 3: CI Method
             ui.h6("🔹 Confidence Intervals"),
             ui.input_radio_buttons(
-                "ci_method", "Method",
+                "ci_method", "Select CI Method:",
                 choices={
-                    "wald": "Wald",
-                    "profile": "Profile Likelihood",
-                    "exact": "Exact (where applicable)"
+                    "auto": "🎯 Auto (Recommended)",
+                    "wald": "⚡ Wald (Fast)",
+                    "profile": "🎓 Profile Likelihood (Accurate)"
                 },
-                selected=CONFIG.get('stats.ci_method', 'wald')
+                selected=CONFIG.get('stats.ci_method', 'auto')
+            ),
+            ui.panel_conditional(
+                "input.ci_method == 'auto'",
+                ui.markdown(
+                    """
+                    <small style='color: #666;'>
+                    <b>🎯 Auto Recommendation:</b><br>
+                    The optimal CI method will be selected automatically based on:
+                    <ul style='padding-left: 15px; margin-top: 5px;'>
+                        <li>Sample size to parameter ratio</li>
+                        <li>Event rate (for logistic/Cox)</li>
+                        <li>Model type</li>
+                    </ul>
+                    </small>
+                    """
+                )
             ),
             
             ui.br(),
