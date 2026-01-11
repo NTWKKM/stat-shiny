@@ -12,6 +12,12 @@ Tests the plotly_figure_to_html function for:
 
 import pytest
 import re
+import sys
+import os
+
+# Add project root to path (one level up from tests/)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
 from utils.plotly_html_renderer import (
     plotly_figure_to_html,
     _sanitize_div_id,
