@@ -6,6 +6,7 @@ on:
       - p4
       - main
       - develop
+      - patch
   pull_request:
     branches:
       - p4
