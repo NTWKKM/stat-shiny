@@ -75,7 +75,7 @@ app_ui = ui.page_navbar(
     # --- 6. Survival Analysis Module ---
     ui.nav_panel("⏳ Survival Analysis", 
         wrap_with_container(
-            # ✅ เรียกใช้ survival_ui โดยระบุแค่ ID (Namespace) เท่านั้น
+            # ✅ Call survival_ui specifying only the ID (Namespace)
             tab_survival.survival_ui("survival")
         )
     ),
@@ -91,10 +91,10 @@ app_ui = ui.page_navbar(
     id="main_navbar",
     window_title="Medical Stat Tool",
     
-    # 🟢 เพิ่ม Footer ตรงนี้ (จะแสดงผลท้ายหน้าในทุก Tab)
+    # 🟢 Add Footer here (will appear at the bottom of every Tab)
     footer=footer_ui,
 
-    # 🟢 แก้ไข: ลบ inverse=True ออก (Deprecated)
+    # 🟢 Fix: Remove inverse=True (Deprecated)
     navbar_options=ui.navbar_options(),
     
     # ⬇⬇⬇ inject theme CSS (EXTERNAL - Optimized for performance)
@@ -105,10 +105,12 @@ app_ui = ui.page_navbar(
         ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
         
         # ✅ Preload CSS for faster loading
-        ui.tags.link(rel="preload", href="/static/styles.css", as_="style"),
+        # 🟢 Fix: Remove leading / to make it a relative path (supports Posit Connect subpath)
+        ui.tags.link(rel="preload", href="static/styles.css", as_="style"),
         
         # ✅ Link to external CSS file
-        ui.tags.link(rel="stylesheet", href="/static/styles.css"),
+        # 🟢 Fix: Remove leading / here as well
+        ui.tags.link(rel="stylesheet", href="static/styles.css"),
     ),
 )
 
@@ -133,7 +135,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:
-        # เช็คจากตัวแปร HAS_FIRTH ที่ logic.py เตรียมไว้ให้แล้ว
+        # Check from HAS_FIRTH variable prepared in logic.py
         if HAS_FIRTH:
             logger.info("Optional dependencies: firth=True")
         else:
@@ -176,8 +178,8 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     )
 
     # --- 6. Survival Analysis Module ---
-    # ✅ แก้ไขตรงนี้: ไม่ต้องส่ง input, output, session เข้าไปเองแล้ว
-    # เพราะ @module.server จะดึงค่าเหล่านั้นจาก ID "survival" ให้โดยอัตโนมัติ
+    # ✅ Fix here: No need to pass input, output, session manually anymore
+    # Because @module.server will automatically retrieve those values from ID "survival"
     tab_survival.survival_server("survival",
         df, var_meta, df_matched, is_matched
     )
@@ -189,13 +191,15 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 # 4. APP LAUNCHER
 # ==========================================
 
-# กำหนด Path ไปยังโฟลเดอร์ static ให้ชัดเจน
+# Define explicit path to static folder
 static_assets_path = Path(__file__).parent / "static"
 
 # ✅ Create Shiny app instance
-# ระบุ static_assets เพื่อให้ /static/styles.css ใช้งานได้บน Cloud
+# Specify static_assets so /static/styles.css works on Cloud
 app = App(
     app_ui, 
     server, 
-    static_assets=str(static_assets_path)
+    # 🟢 Fix: Change to Dictionary to correctly mount path "/static"
+    # If only path is provided, content goes to root (/), causing /static/styles.css not found
+    static_assets={"/static": str(static_assets_path)}
 )
