@@ -129,15 +129,54 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
 # --- Confidence Interval Configuration (Helper/Placeholder) ---
 
-def get_ci_method_params(method_name: str) -> dict[str, str]:
+def determine_best_ci_method(
+    n_samples: int,
+    n_events: Union[int, None] = None,
+    n_params: int = 1,
+    model_type: str = 'logistic'
+) -> str:
     """
-    laceholder for CI method configuration.
+    Determine optimal CI method based on data characteristics.
     
-    **IMPORTANT**: This function is currently a no-op placeholder and should not be
-    used in production code. Planned for implementation in Issue #XYZ.
+    Rules:
+    1. If events per variable (EPV) < 10 -> Suggest 'profile' (or 'firth' contextually)
+    2. If sample size < 50 -> Suggest 'profile'
+    3. Otherwise -> 'wald'
     
-    Future implementation will map CI method names to statsmodels-compatible
-    parameter dictionaries for confidence interval calculation.
+    Args:
+        n_samples: Total number of observations
+        n_events: Number of events (for binary/survival), None for continuous
+        n_params: Number of model parameters (coefficients)
+        model_type: 'logistic', 'linear', 'cox'
+        
+    Returns:
+        str: Recommended method ('wald', 'profile')
     """
-    # This can be expanded later if we wrap statsmodels conf_int logic centrally.
-    raise NotImplementedError("CI method configuration is not yet implemented")
+    recommended = 'wald'
+    
+    if model_type in ['logistic', 'cox'] and n_events is not None:
+        epv = n_events / max(1, n_params)
+        if epv < 10:
+            recommended = 'profile'
+    
+    if n_samples < 50:
+        recommended = 'profile'
+        
+    return recommended
+
+def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1) -> dict[str, str]:
+    """
+    Get CI configuration parameters, resolving 'auto' mode.
+    """
+    selected_method = method
+    note = ""
+    
+    if method == 'auto':
+        selected_method = determine_best_ci_method(n_samples, n_events, n_params, 'logistic')
+        note = f"Auto-selected {selected_method.title()} based on sample size/events."
+        
+    return {
+        "method": selected_method,
+        "note": note
+    }
+

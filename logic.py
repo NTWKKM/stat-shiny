@@ -16,7 +16,7 @@ from pathlib import Path
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
 from tabs._common import get_color_palette
-from utils.advanced_stats_lib import apply_mcc, calculate_vif
+from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
 
 logger = get_logger(__name__)
 
@@ -782,6 +782,13 @@ def analyze_outcome(
     valid_cols_for_html = [c for c in sorted_cols if c in results_db]
     grouped_cols = sorted(valid_cols_for_html, key=lambda x: (x.split('_')[0] if '_' in x else "Variables", x))
     
+    # Resolve CI Method for reporting
+    n_events_total = y.sum()
+    n_params_est = len(grouped_cols) + 1 # rough estimate
+    ci_config = get_ci_configuration(ci_method, total_n, n_events_total, n_params_est)
+    effective_ci_method = ci_config['method']
+    ci_note = ci_config['note']
+    
     for col in grouped_cols:
         if col == outcome_name:
             continue
@@ -964,7 +971,8 @@ def analyze_outcome(
         <b>Method:</b> {preferred_method.capitalize()} Logit<br>
         <div style='margin-top: 8px; padding-top: 8px; border-top: 1px solid {COLORS['border']}; font-size: 0.9em; color: {COLORS['text_secondary']};'>
             <b>Selection:</b> Variables with Crude P &lt; 0.20 (n={final_n_multi})<br>
-            <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)
+            <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)<br>
+            <b>CI Method:</b> {effective_ci_method.capitalize()} {f"({ci_note})" if ci_note else ""}
             {model_fit_html}
             {vif_html}
             {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}

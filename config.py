@@ -91,12 +91,12 @@ class ConfigManager:
             },
             # ========== ADVANCED STATS SETTINGS ==========
             "stats": {
-                "mcc_enable": False,
+                "mcc_enable": True,
                 "mcc_method": "fdr_bh",
                 "mcc_alpha": 0.05,
-                "vif_enable": False,
+                "vif_enable": True,
                 "vif_threshold": 10,
-                "ci_method": "wald",
+                "ci_method": "auto",
             },
             # ========== UI & DISPLAY SETTINGS ==========
             "ui": {
