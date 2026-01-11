@@ -837,7 +837,7 @@ def analyze_outcome(
                                  'p_adj': None,
                                  'label': label_display # Added for display
                              }
-                    except Exception as e:
+                    except Exception:
                         logger.exception("Failed to format interaction results")
             else:
                 # Log multivariate failure
