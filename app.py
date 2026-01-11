@@ -177,11 +177,14 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 # ==========================================
 # 4. APP LAUNCHER
 # ==========================================
+
+# กำหนด Path ไปยังโฟลเดอร์ static ให้ชัดเจน
+static_assets_path = Path(__file__).parent / "static"
+
 # ✅ Create Shiny app instance
-# Note: Static files (./static/) are served by the WSGI server (uvicorn/gunicorn)
-#       Shiny for Python doesn't have static_dir parameter in App()
-#       The server will automatically serve files from ./static/ directory
+# ระบุ static_assets เพื่อให้ /static/styles.css ใช้งานได้บน Cloud
 app = App(
-    app_ui,
-    server,
+    app_ui, 
+    server, 
+    static_assets=str(static_assets_path)
 )

@@ -74,4 +74,3 @@ pylint>=3.0.0
 # ipython>=8.0.0
 # jupyter>=1.0.0
 # notebook>=7.0.0
-
