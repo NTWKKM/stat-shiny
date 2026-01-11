@@ -5,22 +5,15 @@ This conftest.py sets up fixtures for the entire test suite:
 - Automatically starts Shiny server before E2E tests
 - Provides Playwright page fixture (from shiny.pytest)
 - Handles cleanup after tests
-
-Fixtures:
-- start_shiny_server: Session-scoped fixture that starts the app
-- page: Playwright page object (auto-provided by shiny.pytest)
 """
 
 import os
 import subprocess
 import sys
 import time
-
 from pathlib import Path
-
 import pytest
 import requests
-
 
 # ============================================================================
 # 🚀 Session-Scoped Fixture: Start Shiny Server
@@ -29,193 +22,124 @@ import requests
 @pytest.fixture(scope="session", autouse=True)
 def start_shiny_server(request):
     """
-    Start a Shiny app server for the test session and ensure it is reachable for E2E tests.
-    
-    This session-scoped pytest fixture launches the project's app.py on http://localhost:8000, waits up to 60 seconds for the server to respond, yields control so tests run against the running server, and shuts the server down after the test session. If all collected tests are marked with @pytest.mark.unit, the fixture yields immediately and does not start the server.
-    
-    Parameters:
-        request: pytest request object used to inspect collected test markers and determine whether to start the server.
-    
-    Raises:
-        FileNotFoundError: If app.py cannot be found at the expected project root.
-        RuntimeError: If the server subprocess fails to start or the server does not become ready within 60 seconds.
+    Start a Shiny app server for the test session.
+    Skips startup if only unit tests are being run.
     """
     
-    # Check if this is a unit test run - skip server startup
-    # This is triggered when running with -m unit or when all tests are unit tests
+    # ────────────────────────────────────────────────────────────────────
+    # Step 0: Check if we need the server
+    # ────────────────────────────────────────────────────────────────────
     collected_items = getattr(request.session, 'items', [])
-    if collected_items and all(
-        any(mark.name == 'unit' for mark in getattr(item, 'iter_markers', list)())
+    
+    # Check if there's any test that is NOT a unit test
+    # (i.e., we have e2e or integration tests)
+    has_e2e_tests = any(
+        not any(mark.name == 'unit' for mark in getattr(item, 'iter_markers', list)())
         for item in collected_items
-    ):
-        print("\n⏭️  Unit tests only - skipping server startup")
+    )
+    
+    # Also check if we are explicitly running tests in the unit directory
+    is_unit_dir = all("tests/unit" in str(getattr(item, 'fspath', '')) for item in collected_items)
+
+    if not has_e2e_tests or is_unit_dir:
+        print("\n⏭️  Unit tests detected - skipping server startup to save time")
         yield
         return
-    
+
     # ────────────────────────────────────────────────────────────────────
     # Step 1: Find app.py
     # ────────────────────────────────────────────────────────────────────
-    
     project_root = Path(__file__).parent.parent
     app_path = project_root / "app.py"
     
-    # Validate app.py exists
     if not app_path.exists():
-        raise FileNotFoundError(
-            f"❌ app.py not found at {app_path}\n"
-            f"   Expected path: {app_path}\n"
-            f"   Project root: {project_root}"
-        )
-    
+        raise FileNotFoundError(f"❌ app.py not found at {app_path}")
+
     print(f"\n{'='*70}")
     print(f"🚀 Starting Shiny Server for E2E Tests")
-    print(f"{'='*70}")
-    print(f"📂 Project root: {project_root}")
-    print(f"📂 App path:     {app_path}")
-    print(f"🌐 Server URL:   http://localhost:8000")
     print(f"{'='*70}")
     
     # ────────────────────────────────────────────────────────────────────
     # Step 2: Start Shiny server in subprocess
     # ────────────────────────────────────────────────────────────────────
-    
     env = os.environ.copy()
-    env['PYTHONUNBUFFERED'] = '1'  # Real-time output (no buffering)
+    env['PYTHONUNBUFFERED'] = '1'
     
     try:
-        # Use 'python -m shiny run' instead of 'shiny run'
-        # This is more reliable across different Python installations
+        # Fixed: Redirect output to DEVNULL or stdout to prevent buffer-fill deadlock
         process = subprocess.Popen(
             [
                 sys.executable, "-m", "shiny", "run",
-                "--host", "0.0.0.0",
+                "--host", "127.0.0.1",
                 "--port", "8000",
                 str(app_path)
             ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL, # หรือใช้ sys.stdout ถ้าต้องการดู log
+            stderr=subprocess.STDOUT,
             env=env,
             cwd=str(project_root),
             text=True
         )
         print(f"✅ Subprocess started (PID: {process.pid})")
     except Exception as e:
-        raise RuntimeError(
-            f"❌ Failed to start Shiny server subprocess\n"
-            f"   Error: {e}\n"
-            f"   Command: python -m shiny run --host 0.0.0.0 --port 8000 {app_path}"
-        ) from e
-    
+        raise RuntimeError(f"❌ Failed to start Shiny server: {e}")
+
     # ────────────────────────────────────────────────────────────────────
-    # Step 3: Wait for server to be ready (max 60 seconds)
+    # Step 3: Wait for server to be ready
     # ────────────────────────────────────────────────────────────────────
-    
     server_ready = False
     start_time = time.time()
-    elapsed = 0
     
-    print("\n⏳ Waiting for server to start...", end="", flush=True)
+    print("⏳ Waiting for server (max 60s)...", end="", flush=True)
     
-    while elapsed < 60:
+    while time.time() - start_time < 60:
+        if process.poll() is not None:
+            # Server crashed early
+            stdout, _ = process.communicate()
+            raise RuntimeError(f"❌ Server crashed on startup. Error: {stdout}")
+            
         try:
-            # Try to connect to server
-            response = requests.get(
-                "http://localhost:8000",
-                timeout=2
-            )
-            # Accept any response code - just need to confirm server is running
+            response = requests.get("http://127.0.0.1:8000", timeout=2)
             if response.status_code in [200, 304]:
                 server_ready = True
-                elapsed = time.time() - start_time
-                print(f"\r✅ Server ready after {elapsed:.1f}s")
+                print(f" ✅ Ready!")
                 break
         except (requests.ConnectionError, requests.Timeout):
-            # Server not ready yet, wait a bit more
-            elapsed = time.time() - start_time
             print(".", end="", flush=True)
-            time.sleep(0.5)
+            time.sleep(1)
     
     if not server_ready:
         process.terminate()
-        raise RuntimeError(
-            f"❌ Shiny server failed to start within 60 seconds\n"
-            f"   Check that:\n"
-            f"   1. Port 8000 is available\n"
-            f"   2. All dependencies are installed\n"
-            f"   3. app.py has no syntax errors"
-        )
-    
-    print(f"🌐 Server running at http://localhost:8000")
-    print(f"{'='*70}\n")
-    
+        raise RuntimeError("❌ Timeout: Shiny server failed to start within 60s")
+
+    yield
+
     # ────────────────────────────────────────────────────────────────────
-    # Step 4: Yield control to tests
+    # Step 5: Cleanup
     # ────────────────────────────────────────────────────────────────────
-    
-    yield  # ← TESTS RUN HERE
-    
-    # ────────────────────────────────────────────────────────────────────
-    # Step 5: Cleanup - Stop server
-    # ────────────────────────────────────────────────────────────────────
-    
-    print(f"\n{'='*70}")
-    print(f"🛑 Stopping Shiny Server")
-    print(f"{'='*70}")
-    
-    # Try graceful termination first
+    print(f"\n🛑 Stopping Shiny Server (PID: {process.pid})...")
     process.terminate()
     try:
         process.wait(timeout=5)
-        print("✅ Server stopped gracefully")
     except subprocess.TimeoutExpired:
-        # If graceful stop fails, force kill
-        print("⚠️  Server didn't stop gracefully, force killing...")
         process.kill()
-        process.wait()
-        print("✅ Server force killed")
-    
-    print(f"{'='*70}\n")
-
+    print("✅ Server stopped")
 
 # ============================================================================
-# 🎨 Optional: Add markers for test organization
+# 🎨 Pytest Configuration & Markers
 # ============================================================================
 
 def pytest_configure(config):
-    """
-    Register custom pytest markers
-    
-    This allows you to:
-    - Mark tests: @pytest.mark.e2e
-    - Run specific tests: pytest -m e2e
-    """
-    config.addinivalue_line(
-        "markers",
-        "e2e: marks tests as E2E tests (require running server)"
-    )
-    config.addinivalue_line(
-        "markers",
-        "unit: marks tests as unit tests (fast, no server needed)"
-    )
-    config.addinivalue_line(
-        "markers",
-        "integration: marks tests as integration tests"
-    )
-
-
-# ============================================================================
-# 🔧 Optional: Pytest hooks for better logging
-# ============================================================================
+    config.addinivalue_line("markers", "e2e: marks tests as E2E tests")
+    config.addinivalue_line("markers", "unit: marks tests as unit tests")
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
 
 def pytest_sessionstart(session):
-    """Called at the very start of test session"""
     print("\n" + "="*70)
     print("📊 Starting Test Session")
     print("="*70)
 
-
 def pytest_sessionfinish(session, exitstatus):
-    """Called at the very end of test session"""
     print("\n" + "="*70)
     print("✅ Test Session Complete")
     print("="*70)
