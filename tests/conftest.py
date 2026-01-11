@@ -26,7 +26,7 @@ import requests
 # 🚀 Session-Scoped Fixture: Start Shiny Server
 # ============================================================================
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def start_shiny_server(request):
     """
     🚀 Start Shiny server before running E2E tests

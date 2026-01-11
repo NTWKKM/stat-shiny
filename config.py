@@ -89,6 +89,16 @@ class ConfigManager:
                 "missing_strategy": "complete-case",  # 'complete-case', 'drop'
                 "missing_threshold_pct": 50,  # Flag if >X% missing in a column
             },
+
+            # ========== ADVANCED STATS SETTINGS ==========
+            "stats": {
+                "mcc_enable": True,
+                "mcc_method": "fdr_bh",  # Benjamini-Hochberg
+                "mcc_alpha": 0.05,
+                "vif_enable": True,
+                "vif_threshold": 10,
+                "ci_method": "wald",
+            },
             
             # ========== UI & DISPLAY SETTINGS ==========
             "ui": {
