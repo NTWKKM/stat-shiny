@@ -34,6 +34,8 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- 260110implementation-guide.md
 |   |-- 260110stat-shiny-review.md
 |   |-- CACHE_INTEGRATION_GUIDE.md
+|   |-- MIGRATION_NOTES.md
+|   |-- Migration from shinywidgets to HTML-Plotly.md
 |   `-- OPTIMIZATION.md
 |-- poisson_lib.py
 |-- psm_lib.py
@@ -48,6 +50,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- __init__.py
 |   |-- _common.py
 |   |-- _styling.py
+|   |-- tab_advanced_stats.py
 |   |-- tab_baseline_matching.py
 |   |-- tab_corr.py
 |   |-- tab_data.py
@@ -72,15 +75,20 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |   |-- test_survival_pipeline.py
 |   |   `-- test_table_one_pipeline.py
 |   |-- test_color_palette.py
+|   |-- test_plotly_html_rendering.py
 |   `-- unit /
+|       |-- test_advanced_stats.py
 |       `-- test_statistics.py
 |-- utils /
 |   |-- __init__.py
+|   |-- advanced_stats_lib.py
 |   |-- data_cleaning.py
 |   |-- formatting.py
+|   |-- plotly_html_renderer.py
 |   `-- update_css.py
 `-- wakeup coderabbitai
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
