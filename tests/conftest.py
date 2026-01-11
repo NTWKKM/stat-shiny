@@ -26,8 +26,8 @@ import requests
 # 🚀 Session-Scoped Fixture: Start Shiny Server
 # ============================================================================
 
-@pytest.fixture(scope="session", autouse=True)
-def start_shiny_server():
+@pytest.fixture(scope="session")
+def start_shiny_server(request):
     """
     🚀 Start Shiny server before running E2E tests
     
@@ -37,7 +37,7 @@ def start_shiny_server():
     - Stops the server after all tests complete
     
     Args:
-        None (autouse=True means it runs automatically)
+        request: Pytest request object
     
     Yields:
         None (tests run between start and stop)
@@ -47,9 +47,20 @@ def start_shiny_server():
     
     Notes:
         - scope="session" → Server runs ONCE for entire test session
-        - autouse=True → No need to request this fixture in tests
-        - This is the fastest approach for E2E tests
+        - Only runs when explicitly requested (e.g., for E2E tests)
+        - Unit tests marked with @pytest.mark.unit skip this fixture
     """
+    
+    # Check if this is a unit test run - skip server startup
+    # This is triggered when running with -m unit or when all tests are unit tests
+    collected_items = getattr(request.session, 'items', [])
+    if collected_items and all(
+        any(mark.name == 'unit' for mark in getattr(item, 'iter_markers', lambda: [])())
+        for item in collected_items
+    ):
+        print("\\n⏭️  Unit tests only - skipping server startup")
+        yield
+        return
     
     # ────────────────────────────────────────────────────────────────────
     # Step 1: Find app.py
