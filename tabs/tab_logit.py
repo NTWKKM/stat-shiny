@@ -1,5 +1,5 @@
 from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget  # type: ignore
+from utils.plotly_html_renderer import plotly_figure_to_html
 import pandas as pd
 import numpy as np
 import json
@@ -17,6 +17,7 @@ from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from logger import get_logger
 from tabs._common import get_color_palette
+from config import CONFIG
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -52,6 +53,15 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
 # ==============================================================================
 @module.ui
 def logit_ui() -> ui.TagChild:
+    """
+    Constructs the main UI for the regression module, providing controls and result panels for logistic, Poisson, and subgroup analyses.
+    
+    Returns:
+        ui.TagChild: A UI fragment containing dataset selectors and info, tabbed panels for
+        Binary Logistic Regression, Poisson Regression, Subgroup Analysis, and Reference,
+        each with controls (variable selection, method/settings, exclusions, interactions),
+        run/download actions, and result panels for forest plots and detailed reports.
+    """
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
@@ -283,7 +293,7 @@ def logit_ui() -> ui.TagChild:
                 ui.navset_tab(
                     ui.nav_panel(
                         "🌳 Forest Plot",
-                        output_widget("out_sg_forest_plot"),
+                        ui.output_ui("out_sg_forest_plot"),
                         ui.hr(),
                         ui.input_text("txt_edit_forest_title", "Edit Plot Title:", placeholder="Enter new title..."),
                         ui.input_action_button("btn_update_plot_title", "Update Title", class_="btn-sm"),
@@ -383,6 +393,25 @@ def logit_server(
 
     # --- State Management ---
     # Store main logit results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
+    """
+    Initialize server-side logic and reactive UI handlers for the logistic/poisson/subgroup analysis module.
+    
+    Sets up reactive state, input-driven effects, UI renderers, and download endpoints to:
+    - manage dataset selection (original vs matched) and dynamic input updates,
+    - run binary logistic regression and generate HTML report + forest plots,
+    - run Poisson regression and generate HTML report + forest plots,
+    - run subgroup analyses and produce forest plot, summary values, and exportable results,
+    - surface separation warnings, progress feedback, notifications, and memory cleanup after analyses.
+    
+    Parameters:
+        input: object providing UI input accessors (e.g., selected values, buttons).
+        output: UI output registry (unused directly but provided by framework).
+        session: current UI session object.
+        df: reactive.Value containing the primary pandas DataFrame or None.
+        var_meta: reactive.Value containing variable metadata dictionary.
+        df_matched: reactive.Value containing an optional matched pandas DataFrame.
+        is_matched: reactive.Value[bool] indicating whether a matched dataset is available/selected.
+    """
     logit_res = reactive.Value(None)     
     # Store Poisson results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
     poisson_res = reactive.Value(None)   
@@ -520,6 +549,11 @@ def logit_server(
     @reactive.Effect
     @reactive.event(input.btn_run_logit)
     def _run_logit():
+        """
+        Run the logistic regression analysis for the currently selected outcome and publish results for the UI and download.
+        
+        Prepares the analysis dataframe (applying exclusions), parses any interaction pairs, and invokes the analysis backend. If available, builds adjusted and crude forest plots and appends them to an HTML fragment used for in-UI display. Also wraps the fragment into a complete HTML document for download. On success, stores the following keys in `logit_res`: `"html_fragment"`, `"html_full"`, `"fig_adj"`, and `"fig_crude"`, and shows a completion notification. On error, logs the exception and shows an error notification.
+        """
         d = current_df()
         target = input.sel_outcome()
         exclude = input.sel_exclude()
@@ -554,7 +588,8 @@ def logit_server(
                 # Note: updated logic.py returns 4 values and html_rep typically includes the plot + css
                 html_rep, or_res, aor_res, interaction_res = analyze_outcome(
                     target, final_df, var_meta=var_meta.get(), method=method,
-                    interaction_pairs=interaction_pairs
+                    interaction_pairs=interaction_pairs,
+                    adv_stats=CONFIG
                 )
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
@@ -566,7 +601,7 @@ def logit_server(
             fig_crude = None
 
             if aor_res:
-                df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_res.items()])
+                df_adj = pd.DataFrame([{'variable': v.get('label', k), **v} for k, v in aor_res.items()])
                 if not df_adj.empty:
                     fig_adj = create_forest_plot(
                         df_adj, 'aor', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
@@ -574,17 +609,48 @@ def logit_server(
                     )
 
             if or_res:
-                df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()])
+                df_crude = pd.DataFrame([{'variable': v.get('label', k), **v} for k, v in or_res.items()])
                 if not df_crude.empty:
                     fig_crude = create_forest_plot(
                         df_crude, 'or', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
                         title="<b>Univariable: Crude OR</b>", x_label="Crude OR"
                     )
 
+            # --- MANUALLY CONSTRUCT COMPLETE REPORT (Table + Plots) ---
+            # 1. Create Fragment for UI (Table + Plots)
+            logit_fragment_html = html_rep
+            
+            # Append Adjusted Plot if available
+            if fig_adj:
+                plot_html = plotly_figure_to_html(fig_adj, include_plotlyjs='cdn')
+                logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+            
+            # Append Crude Plot if available
+            if fig_crude:
+                plot_html = plotly_figure_to_html(fig_crude, include_plotlyjs='cdn')
+                logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+
+            # 2. Create Full HTML for Download (Wrapped)
+            full_logit_html = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Logistic Regression Report: {html.escape(target)}</title>
+            </head>
+            <body>
+                <div class="report-container">
+                    {logit_fragment_html}
+                </div>
+            </body>
+            </html>
+            """
+
             # Store Results
-            # html_rep from logic.py should be complete with CSS and embedded plot
             logit_res.set({
-                "html": html_rep,
+                "html_fragment": logit_fragment_html, # For UI
+                "html_full": full_logit_html,         # For Download
                 "fig_adj": fig_adj,
                 "fig_crude": fig_crude
             })
@@ -604,11 +670,17 @@ def logit_server(
 
     @render.ui
     def out_html_report():
+        """
+        Render the "Detailed Report" card showing the latest logistic regression HTML fragment or a placeholder.
+        
+        Returns:
+            ui.card: A UI card containing the report HTML fragment when results are available; otherwise a card with a centered placeholder message prompting the user to run the analysis.
+        """
         res = logit_res.get()
         if res:
             return ui.card(
                 ui.card_header("📋 Detailed Report"),
-                ui.HTML(res['html'])
+                ui.HTML(res['html_fragment'])
             )
         return ui.card(
             ui.card_header("📋 Detailed Report"),
@@ -620,6 +692,14 @@ def logit_server(
 
     @render.ui
     def ui_forest_tabs():
+        """
+        Render tabbed forest plot panels for the most recent logistic regression results.
+        
+        Returns:
+            ui.Component: A UI element containing "Crude OR" and/or "Adjusted OR" tabs when corresponding forest figures are present.
+            If no analysis has been run, returns a centered placeholder prompting the user to run the analysis.
+            If analysis exists but no forest figures are available, returns a muted message indicating no plots are available.
+        """
         res = logit_res.get()
         if not res: 
             return ui.div(
@@ -629,30 +709,71 @@ def logit_server(
 
         tabs = []
         if res['fig_crude']:
-            tabs.append(ui.nav_panel("Crude OR", output_widget("out_forest_crude")))
+            tabs.append(ui.nav_panel("Crude OR", ui.output_ui("out_forest_crude")))
         if res['fig_adj']:
-            tabs.append(ui.nav_panel("Adjusted OR", output_widget("out_forest_adj")))
+            tabs.append(ui.nav_panel("Adjusted OR", ui.output_ui("out_forest_adj")))
 
         if not tabs: 
             return ui.div("No forest plots available.", class_="text-muted")
         return ui.navset_card_tab(*tabs)
 
-    @render_widget
+    @render.ui
     def out_forest_adj():
+        """
+        Render the adjusted forest plot panel for logistic regression results.
+        
+        Returns:
+            ui.Component: A UI HTML component containing the adjusted forest plot when available; otherwise a centered placeholder message indicating results are pending.
+        """
         res = logit_res.get()
-        if res and res['fig_adj']: return res['fig_adj']
-        return None
+        if res is None or not res.get('fig_adj'):
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig_adj'],
+            div_id="plot_logit_forest_adj",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
-    @render_widget
+    @render.ui
     def out_forest_crude():
+        """
+        Render the crude (unadjusted) forest plot UI for the current logistic regression results.
+        
+        Returns:
+            ui_component: A UI element containing the plot HTML when a crude figure is available; otherwise a centered placeholder message indicating results are pending.
+        """
         res = logit_res.get()
-        if res and res['fig_crude']: return res['fig_crude']
-        return None
+        if res is None or not res.get('fig_crude'):
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig_crude'],
+            div_id="plot_logit_forest_crude",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @render.download(filename="logit_report.html")
     def btn_dl_report():
+        """
+        Yield the complete HTML report for download when a logit analysis result is available.
+        
+        Yields the standalone HTML document stored in the current logistic regression result under the key "html_full".
+        
+        Returns:
+            str: An HTML string containing the full, download-ready report, yielded if present.
+        """
         res = logit_res.get()
-        if res: yield res['html']
+        if res: 
+            yield res['html_full']
 
     # ==========================================================================
     # LOGIC: Poisson Regression
@@ -795,6 +916,12 @@ def logit_server(
 
     @render.ui
     def ui_poisson_forest_tabs():
+        """
+        Render a tabbed UI containing Poisson regression forest plots when results are available.
+        
+        Returns:
+            ui.Component: A UI fragment showing one or both tabs ("Crude IRR", "Adjusted IRR") with embedded outputs, or an informational div if results or plots are not available.
+        """
         res = poisson_res.get()
         if not res:
             return ui.div(
@@ -804,28 +931,66 @@ def logit_server(
 
         tabs = []
         if res['fig_crude']:
-            tabs.append(ui.nav_panel("Crude IRR", output_widget("out_poisson_forest_crude")))
+            tabs.append(ui.nav_panel("Crude IRR", ui.output_ui("out_poisson_forest_crude")))
         if res['fig_adj']:
-            tabs.append(ui.nav_panel("Adjusted IRR", output_widget("out_poisson_forest_adj")))
+            tabs.append(ui.nav_panel("Adjusted IRR", ui.output_ui("out_poisson_forest_adj")))
 
         if not tabs:
             return ui.div("No forest plots available.", class_="text-muted")
         return ui.navset_card_tab(*tabs)
 
-    @render_widget
+    @render.ui
     def out_poisson_forest_adj():
+        """
+        Render the adjusted Poisson regression forest plot or a waiting placeholder if results are not ready.
+        
+        Returns:
+            A UI component containing the plot HTML when an adjusted figure is available; otherwise a centered placeholder div with a "Waiting for results..." message.
+        """
         res = poisson_res.get()
-        if res and res['fig_adj']: return res['fig_adj']
-        return None
+        if res is None or not res.get('fig_adj'):
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig_adj'],
+            div_id="plot_poisson_forest_adj",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
-    @render_widget
+    @render.ui
     def out_poisson_forest_crude():
+        """
+        Render the crude Poisson forest plot as a UI HTML component, or a waiting placeholder when results are not available.
+        
+        Returns:
+            ui.Element: An HTML-wrapped Plotly figure for the crude Poisson forest plot if present; otherwise a centered div containing a "Waiting for results..." message.
+        """
         res = poisson_res.get()
-        if res and res['fig_crude']: return res['fig_crude']
-        return None
+        if res is None or not res.get('fig_crude'):
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig_crude'],
+            div_id="plot_poisson_forest_crude",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @render.download(filename="poisson_report.html")
     def btn_dl_poisson_report():
+        """
+        Provide the complete Poisson regression report as a standalone HTML document for download.
+        
+        Returns:
+            str: Full HTML document containing the Poisson analysis report, or nothing if no results are available.
+        """
         res = poisson_res.get()
         if res: 
             yield res['html_full']
@@ -870,6 +1035,12 @@ def logit_server(
     # --- Render Subgroup Results ---
     @render.ui
     def out_subgroup_status():
+        """
+        Render a completion banner when subgroup analysis results are available.
+        
+        Returns:
+            ui.div: A success banner UI element indicating subgroup analysis is complete when results exist, `None` otherwise.
+        """
         res = subgroup_res.get()
         if res:
             return ui.div(
@@ -878,14 +1049,44 @@ def logit_server(
             )
         return None
 
-    @render_widget
+    @render.ui
     def out_sg_forest_plot():
+        """
+        Render the subgroup analysis forest plot as an HTML UI component.
+        
+        Generates a Plotly-based forest plot using the current SubgroupAnalysisLogit analyzer and returns it wrapped as a ui.HTML component for embedding in the UI. If the analyzer is not yet available, if plot creation raises a ValueError, or if no figure is produced, returns a styled placeholder ui.div with a short status or warning message instead.
+        
+        Returns:
+            A UI component: `ui.HTML` containing the plotly-generated HTML when a figure is available, or a `ui.div` placeholder message when results are waiting, missing, or plot creation fails.
+        """
         analyzer = subgroup_analyzer.get()
-        if analyzer:
-            # Use txt_edit_forest_title if provided, fallback to sg_title
-            title = input.txt_edit_forest_title() or input.sg_title() or None
-            return analyzer.create_forest_plot(title=title)
-        return None
+        if analyzer is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        # Use txt_edit_forest_title if provided, fallback to sg_title
+        title = input.txt_edit_forest_title() or input.sg_title() or None
+        try:
+            fig = analyzer.create_forest_plot(title=title)
+        except ValueError as e:
+            logger.warning("Forest plot creation failed: %s", e)
+            return ui.div(
+                ui.markdown("⚠️ *Run analysis first to generate forest plot.*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        if fig is None:
+            return ui.div(
+                ui.markdown("⏳ *No forest plot available...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            fig,
+            div_id="plot_logit_subgroup",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @reactive.Effect
     @reactive.event(input.btn_update_plot_title)

@@ -82,7 +82,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 `-- wakeup coderabbitai
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 # 🏥 Medical Statistical Tool (Shiny for Python)
@@ -129,7 +128,7 @@ Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
 
 ### Option 1: Run Locally (Python)
 
-Ensure you have Python 3.9+ installed.
+Ensure you have Python 3.10+ installed.
 
 1. **Clone the repository:**
 
@@ -145,13 +144,12 @@ pip install -r requirements.txt
 
 ```
 
+1. **Run the app:**
 
-3. **Run the app:**
 ```bash
 shiny run app.py
 
 ```
-
 
 The app will be available at `http://localhost:8000`.
 
@@ -160,28 +158,35 @@ The app will be available at `http://localhost:8000`.
 This project is containerized for easy deployment.
 
 1. **Build the image:**
+
 ```bash
 docker build -t medical-stat-tool .
 
 ```
 
+1. **Run the container:**
 
-2. **Run the container:**
 ```bash
 docker run -p 7860:7860 medical-stat-tool
 
 ```
 
-
 Access the app at `http://localhost:7860`.
 
 ## 💻 Tech Stack
 
-* **Framework**: [Shiny for Python](https://shiny.posit.co/py/)
-* **Data Processing**: Pandas, NumPy
-* **Statistics**: SciPy, Statsmodels, Scikit-learn, Lifelines
-* **Visualization**: Matplotlib, Seaborn, Plotly
-* **Deployment**: Docker / Hugging Face Spaces
+- **Framework**: [Shiny for Python](https://shiny.posit.co/py/)
+- **Data Processing**: Pandas, NumPy
+- **Statistics**: SciPy, Statsmodels, Scikit-learn, Lifelines
+- **Visualization**: Matplotlib, Seaborn, Plotly
+- **Deployment**: Docker / Hugging Face Spaces
+
+## ✅ Deployment Features
+
+This application is designed for enterprise and restricted environments:
+
+- **Compatible with restricted platforms** - Hugging Face Private Spaces, corporate networks
+- **Uses Plotly CDN for interactive visualization** - No local widget servers required
 
 ## 📝 License
 

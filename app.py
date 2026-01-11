@@ -27,6 +27,14 @@ logger = get_logger(__name__)
 # ==========================================
 # 1. UI DEFINITION
 # ==========================================
+
+# 🟢 Footer Definition
+footer_ui = ui.tags.div(
+    ui.HTML("""&copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by GitHub, Antigravity, Shiny"""),
+    class_="report-footer",
+    style="text-align: center; padding: 20px 0; border-top: 1px solid #e5e5e5; margin-top: 40px; color: #666;"
+)
+
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
     ui.nav_panel(
@@ -83,6 +91,9 @@ app_ui = ui.page_navbar(
     id="main_navbar",
     window_title="Medical Stat Tool",
     
+    # 🟢 เพิ่ม Footer ตรงนี้ (จะแสดงผลท้ายหน้าในทุก Tab)
+    footer=footer_ui,
+
     # 🟢 แก้ไข: ลบ inverse=True ออก (Deprecated)
     navbar_options=ui.navbar_options(),
     
@@ -177,11 +188,14 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 # ==========================================
 # 4. APP LAUNCHER
 # ==========================================
+
+# กำหนด Path ไปยังโฟลเดอร์ static ให้ชัดเจน
+static_assets_path = Path(__file__).parent / "static"
+
 # ✅ Create Shiny app instance
-# Note: Static files (./static/) are served by the WSGI server (uvicorn/gunicorn)
-#       Shiny for Python doesn't have static_dir parameter in App()
-#       The server will automatically serve files from ./static/ directory
+# ระบุ static_assets เพื่อให้ /static/styles.css ใช้งานได้บน Cloud
 app = App(
-    app_ui,
-    server,
+    app_ui, 
+    server, 
+    static_assets=str(static_assets_path)
 )
