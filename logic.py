@@ -777,7 +777,6 @@ def analyze_outcome(
 
     # Build HTML
     html_rows = []
-    current_sheet = ""
     valid_cols_for_html = [c for c in sorted_cols if c in results_db]
     grouped_cols = sorted(valid_cols_for_html, key=lambda x: (x.split('_')[0] if '_' in x else "Variables", x))
     
