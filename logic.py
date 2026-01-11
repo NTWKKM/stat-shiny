@@ -74,7 +74,8 @@ ORResult = TypedDict("ORResult", {
     "or": float,
     "ci_low": float,
     "ci_high": float,
-    "p_value": float
+    "p_value": float,
+    "p_adj": Optional[float]
 })
 
 class AORResultEntry(TypedDict):
@@ -676,7 +677,7 @@ def analyze_outcome(
                     results_db[k]['p_adj'] = p_adj
     
     # Multivariate analysis
-    aor_results: dict[str, ORResult] = {}
+    aor_results: dict[str, AORResult] = {}
     interaction_results: dict[str, InteractionResult] = {}
     int_meta = {}
     # Initialize multivariate analysis variables
@@ -702,10 +703,6 @@ def analyze_outcome(
         return series.apply(clean_numeric_value).notna().sum() > 5
     
     cand_valid = [c for c in candidates if _is_candidate_valid(c)]
-    
-    # Initialize variables that may be used later for VIF
-    predictors_for_vif = []
-    final_n_multi = 0
     
     # ✅ FIX: Run multivariate analysis if there are candidates OR interaction pairs
     if len(cand_valid) > 0 or interaction_pairs:
@@ -815,7 +812,7 @@ def analyze_outcome(
                                  'label': label_display # Added for display
                              }
                     except Exception as e:
-                        logger.error(f"Failed to format interaction results: {e}")
+                        logger.exception("Failed to format interaction results")
             else:
                 # Log multivariate failure
                 mv_metrics_text = f"<span style='color:red'>Adjustment Failed: {status}</span>"
@@ -990,7 +987,6 @@ def analyze_outcome(
                 int_or = "-"
             int_p = fmt_p_with_styling(res.get('p_value', 1))
             
-            int_p_adj = "-"
             int_p_adj = "-"
             if mcc_enable:
                  # Lookup using clean key (int_name)
