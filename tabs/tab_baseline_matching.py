@@ -1016,7 +1016,7 @@ def baseline_matching_server(
         var = input.sel_stat_var_tab3()
         treat = matched_treatment_col.get()
 
-        if d is None or not var or not treat:
+        if d is None or not var or not treat or var not in d.columns or treat not in d.columns:
             return ui.div(
                 ui.markdown("⏳ *Waiting for data...*"),
                 style="color: #999; text-align: center; padding: 20px;"

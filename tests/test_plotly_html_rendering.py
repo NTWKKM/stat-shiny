@@ -133,7 +133,9 @@ class TestPlotlyHtmlRenderer:
         
         # Script tags should NOT appear in output
         assert '<script>' not in result
-        assert 'alert' not in result or 'alert("xss")' not in result
+        assert 'alert("xss")' not in result
+        # Verify the malicious content was sanitized, not just removed
+        assert 'scriptalertxss' in result.lower() or 'script' not in result.lower()
         
     def test_fixed_dimensions(self):
         """

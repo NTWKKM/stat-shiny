@@ -27,10 +27,10 @@ COLORS = get_color_palette()
 
 
 def run_poisson_regression(
-    y: Union[pd.Series, np.ndarray],
+    y: pd.Series | np.ndarray,
     X: pd.DataFrame,
-    offset: Optional[Union[pd.Series, np.ndarray]] = None
-) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
+    offset: pd.Series | np.ndarray | None = None
+) -> tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
     """
     Fit Poisson regression model.
     
@@ -74,10 +74,10 @@ def run_poisson_regression(
 
 
 def run_negative_binomial_regression(
-    y: Union[pd.Series, np.ndarray],
+    y: pd.Series | np.ndarray,
     X: pd.DataFrame,
-    offset: Optional[Union[pd.Series, np.ndarray]] = None
-) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
+    offset: pd.Series | np.ndarray | None = None
+) -> tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
     """
     Fit Negative Binomial regression (alternative to Poisson for overdispersed data).
     

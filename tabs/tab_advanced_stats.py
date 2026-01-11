@@ -2,10 +2,14 @@ from shiny import ui, reactive, render, module
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
-from typing import Any
+from typing import Protocol
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
+
+class StatsConfig(Protocol):
+    def get(self, key: str, default=None): ...
+    def update(self, key: str, value) -> None: ...
 
 @module.ui
 def advanced_stats_ui() -> ui.TagChild:
@@ -99,13 +103,13 @@ def advanced_stats_ui() -> ui.TagChild:
     )
 
 @module.server
-def advanced_stats_server(input, output, session, config: Any):
+def advanced_stats_server(input, output, session, config: StatsConfig):  # noqa: ARG001
     """
     Server logic for Advanced Statistics Module.
     """
     
     @render.text
-    def txt_stats_summary():
+    def txt_stats_summary() -> str:
         mcc = "ON" if input.mcc_enable() else "OFF"
         vif = "ON" if input.vif_enable() else "OFF"
         return f"""
@@ -117,7 +121,7 @@ def advanced_stats_server(input, output, session, config: Any):
 
     @reactive.Effect
     @reactive.event(input.btn_save_stats)
-    def _save_stats_settings():
+    def _save_stats_settings() -> None:
         try:
             config.update('stats.mcc_enable', input.mcc_enable())
             config.update('stats.mcc_method', input.mcc_method())

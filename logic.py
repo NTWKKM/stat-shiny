@@ -600,7 +600,7 @@ def analyze_outcome(
         
         if uni_p_vals:
             adj_p = apply_mcc(uni_p_vals, method=mcc_method)
-            for k, p_adj in zip(uni_keys, adj_p):
+            for k, p_adj in zip(uni_keys, adj_p, strict=True):
                 results_db[k]['p_adj'] = p_adj
     
     # Multivariate analysis
@@ -722,13 +722,15 @@ def analyze_outcome(
             
             if mv_p_vals:
                 adj_p = apply_mcc(mv_p_vals, method=mcc_method)
-                for k, p_adj in zip(mv_keys, adj_p):
+                for k, p_adj in zip(mv_keys, adj_p, strict=True):
                     aor_results[k]['p_adj'] = p_adj
     
     # ✅ VIF CALCULATION
-    # ✅ VIF CALCULATION (Expanded Reporting)
+   # ✅ VIF CALCULATION (Expanded Reporting)
     vif_html = ""
-    if vif_enable and final_n_multi > 10 and len(predictors) > 1:
+    predictors_defined = 'predictors' in dir() or (len(cand_valid) > 0 or interaction_pairs)
+    
+    if vif_enable and final_n_multi > 10 and predictors_defined and len(predictors) > 1:
         try:
             # multi_data[predictors] contains numeric/one-hot data used in regression
             vif_df = calculate_vif(multi_data[predictors])
@@ -766,8 +768,8 @@ def analyze_outcome(
                     <small style='color: #666;'>Threshold: >{vif_threshold} indicates high collinearity.</small>
                 </div>
                 """
-        except Exception as e:
-            logger.warning(f"VIF calculation failed: {e}")
+        except (ValueError, np.linalg.LinAlgError) as e:
+            logger.warning("VIF calculation failed: %s", e)
 
     # Build HTML
     html_rows = []

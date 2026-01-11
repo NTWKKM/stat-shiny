@@ -55,10 +55,10 @@ def start_shiny_server(request):
     # This is triggered when running with -m unit or when all tests are unit tests
     collected_items = getattr(request.session, 'items', [])
     if collected_items and all(
-        any(mark.name == 'unit' for mark in getattr(item, 'iter_markers', lambda: [])())
+        any(mark.name == 'unit' for mark in getattr(item, 'iter_markers', list)())
         for item in collected_items
     ):
-        print("\\n⏭️  Unit tests only - skipping server startup")
+        print("\n⏭️  Unit tests only - skipping server startup")
         yield
         return
     
