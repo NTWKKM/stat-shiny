@@ -27,6 +27,14 @@ logger = get_logger(__name__)
 # ==========================================
 # 1. UI DEFINITION
 # ==========================================
+
+# 🟢 Footer Definition
+footer_ui = ui.tags.div(
+    ui.HTML("""&copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by GitHub, Antigravity, Shiny"""),
+    class_="report-footer",
+    style="text-align: center; padding: 20px 0; border-top: 1px solid #e5e5e5; margin-top: 40px; color: #666;"
+)
+
 app_ui = ui.page_navbar(
     # --- 1. Data Management Module ---
     ui.nav_panel(
@@ -83,6 +91,9 @@ app_ui = ui.page_navbar(
     id="main_navbar",
     window_title="Medical Stat Tool",
     
+    # 🟢 เพิ่ม Footer ตรงนี้ (จะแสดงผลท้ายหน้าในทุก Tab)
+    footer=footer_ui,
+
     # 🟢 แก้ไข: ลบ inverse=True ออก (Deprecated)
     navbar_options=ui.navbar_options(),
     
