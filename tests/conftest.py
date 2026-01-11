@@ -29,26 +29,16 @@ import requests
 @pytest.fixture(scope="session", autouse=True)
 def start_shiny_server(request):
     """
-    🚀 Start Shiny server before running E2E tests
+    Start a Shiny app server for the test session and ensure it is reachable for E2E tests.
     
-    This fixture:
-    - Starts the Shiny app in a subprocess (port 8000)
-    - Waits for the server to be ready (max 60 seconds)
-    - Stops the server after all tests complete
+    This session-scoped pytest fixture launches the project's app.py on http://localhost:8000, waits up to 60 seconds for the server to respond, yields control so tests run against the running server, and shuts the server down after the test session. If all collected tests are marked with @pytest.mark.unit, the fixture yields immediately and does not start the server.
     
-    Args:
-        request: Pytest request object
-    
-    Yields:
-        None (tests run between start and stop)
+    Parameters:
+        request: pytest request object used to inspect collected test markers and determine whether to start the server.
     
     Raises:
-        RuntimeError: If server fails to start within 60 seconds
-    
-    Notes:
-        - scope="session" → Server runs ONCE for entire test session
-        - Only runs when explicitly requested (e.g., for E2E tests)
-        - Unit tests marked with @pytest.mark.unit skip this fixture
+        FileNotFoundError: If app.py cannot be found at the expected project root.
+        RuntimeError: If the server subprocess fails to start or the server does not become ready within 60 seconds.
     """
     
     # Check if this is a unit test run - skip server startup

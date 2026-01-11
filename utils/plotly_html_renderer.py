@@ -38,41 +38,23 @@ def plotly_figure_to_html(
     responsive: bool = True
 ) -> str:
     """
-    Convert Plotly Figure to HTML string with CDN support.
+    Render a Plotly Figure to an embeddable HTML string.
     
-    This function provides a safe way to render Plotly figures as HTML strings,
-    suitable for environments where shinywidgets may not work due to firewall
-    restrictions or proxy issues.
+    Returns a sanitized HTML fragment suitable for embedding (e.g., in a UI). If the provided figure is None, Plotly is unavailable, the figure is invalid, or an error occurs during rendering, a styled placeholder HTML string is returned.
     
-    Args:
-        fig: Plotly Figure object. If None, returns a placeholder HTML.
-        div_id: Unique ID for the div element. If None, auto-generates a unique ID.
-                The ID is sanitized to prevent XSS attacks.
-        include_plotlyjs: How to include Plotly.js library:
-            - 'cdn' (default): Load from CDN - best for restricted environments
-            - True: Include full library inline (larger file size)
-            - False: Don't include (assumes already loaded)
-        height: Optional fixed height in pixels. If None, uses figure default.
-        width: Optional fixed width in pixels. If None, uses figure default.
-        responsive: If True, enables autosize for responsive layouts (default True).
+    Parameters:
+        fig (Optional[go.Figure]): Plotly Figure to render. If None, a placeholder is returned.
+        div_id (Optional[str]): Optional HTML id for the figure container. If provided it is sanitized to allow only letters, digits, underscores, and hyphens and to ensure it starts with a letter; if omitted a unique id is generated.
+        include_plotlyjs (Union[str, bool]): How to include Plotly.js:
+            - 'cdn' (default): Load Plotly.js from CDN.
+            - True: Inline the full Plotly.js library.
+            - False: Do not include Plotly.js (assumes it is already loaded).
+        height (Optional[int]): Fixed height in pixels to apply to the figure layout; if None the figure's existing height is used.
+        width (Optional[int]): Fixed width in pixels to apply to the figure layout; if None the figure's existing width is used.
+        responsive (bool): When True (default), enable autosize/responsive layout behavior.
     
     Returns:
-        HTML string ready for ui.HTML(). Returns a placeholder if fig is None.
-    
-    Examples:
-        Basic usage:
-        >>> fig = go.Figure(data=[go.Scatter(x=[1,2,3], y=[1,2,3])])
-        >>> html = plotly_figure_to_html(fig, div_id="my_plot")
-        >>> return ui.HTML(html)
-        
-        With fixed dimensions:
-        >>> html = plotly_figure_to_html(fig, height=400, width=600)
-        
-        Handle None gracefully:
-        >>> html = plotly_figure_to_html(None)  # Returns placeholder
-    
-    Raises:
-        No exceptions are raised. Errors are logged and a placeholder is returned.
+        str: HTML fragment containing the rendered Plotly figure, or a styled placeholder HTML string if rendering cannot be performed.
     """
     # Handle None or invalid figure
     if fig is None:
@@ -130,16 +112,13 @@ def plotly_figure_to_html(
 
 def _sanitize_div_id(div_id: str) -> str:
     """
-    Sanitize div_id to prevent XSS attacks.
+    Produce a safe HTML id by removing characters not allowed in IDs and ensuring it starts with a letter.
     
-    Only allows alphanumeric characters, underscores, and hyphens.
-    Removes any other characters and ensures the ID starts with a letter.
-    
-    Args:
-        div_id: The original div ID string.
+    Parameters:
+        div_id (str): Original div ID to sanitize.
     
     Returns:
-        A sanitized div ID safe for use in HTML.
+        str: A sanitized string safe for use as an HTML element id. If the result would be empty, returns a generated id beginning with "plot-".
     """
     # Remove any characters that aren't alphanumeric, underscore, or hyphen
     sanitized = re.sub(r'[^a-zA-Z0-9_-]', '', str(div_id))
@@ -157,13 +136,15 @@ def _sanitize_div_id(div_id: str) -> str:
 
 def _create_placeholder_html(message: str) -> str:
     """
-    Create a placeholder HTML div for when a figure is not available.
+    Create a styled placeholder HTML snippet displaying a message when a figure cannot be rendered.
     
-    Args:
-        message: The message to display in the placeholder.
+    The provided message is HTML-escaped to mitigate cross-site scripting (XSS) risks and inserted into a centered, lightly styled div suitable for use where a Plotly figure would otherwise appear.
+    
+    Parameters:
+        message (str): Text to display inside the placeholder; will be escaped before insertion.
     
     Returns:
-        HTML string for the placeholder div.
+        str: A HTML string containing the styled div with the escaped message.
     """
     # Escape the message to prevent XSS
     escaped_message = (

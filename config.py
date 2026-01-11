@@ -53,12 +53,11 @@ class ConfigManager:
     @staticmethod
     def _get_default_config() -> Dict[str, Any]:
         """
-        Provide the default nested configuration used by the application.
+        Return the module's default nested configuration for the application.
         
         Returns:
-            Dict[str, Any]: A dictionary with the default configuration sections
-            ('analysis', 'ui', 'logging', 'performance', 'validation', 'debug') and
-            their corresponding default settings.
+            Dict[str, Any]: Default configuration dictionary with top-level sections:
+            'analysis', 'stats', 'ui', 'logging', 'performance', 'validation', and 'debug'.
         """
         return {
             # ========== ANALYSIS SETTINGS ==========
