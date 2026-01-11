@@ -365,6 +365,20 @@ def fmt_p_with_styling(val: Union[float, str, None]) -> str:
     return p_str
 
 
+def fmt_or_with_styling(or_val: Optional[float], ci_low: float, ci_high: float) -> str:
+    """Format OR (95% CI) with bolding if significant (CI does not include 1.0)."""
+    if or_val is None or pd.isna(or_val) or pd.isna(ci_low) or pd.isna(ci_high):
+        return "-"
+    
+    ci_str = f"{or_val:.2f} ({ci_low:.2f}-{ci_high:.2f})"
+    
+    # Check significance: CI does not overlap 1.0
+    if (ci_low > 1.0) or (ci_high < 1.0):
+        return f"<b>{ci_str}</b>"
+    
+    return ci_str
+
+
 def analyze_outcome(
     outcome_name: str, 
     df: pd.DataFrame, 
@@ -582,9 +596,20 @@ def analyze_outcome(
                                 p_lines.append("-")
                                 coef_lines.append("-")
                         
-                        res['or'] = "<br>".join(or_lines)
-                        res['coef'] = "<br>".join(coef_lines)
+                        res['or_val'] = None # Multiple levels handled by string stack
                         res['p_or'] = "<br>".join(p_lines)
+                        # We also need to handle the specific display for categorical with multiple levels
+                        # categorical 'or' string is currently built manually, let's inject bolding there too
+                        or_lines_styled = ["Ref."]
+                        for lvl in levels[1:]:
+                            d_name = f"{col}::{lvl}"
+                            if d_name in params:
+                                odd = np.exp(params[d_name])
+                                ci_l, ci_h = np.exp(conf.loc[d_name][0]), np.exp(conf.loc[d_name][1])
+                                or_lines_styled.append(fmt_or_with_styling(odd, ci_l, ci_h))
+                            else:
+                                or_lines_styled.append("-")
+                        res['or'] = "<br>".join(or_lines_styled)
                     else:
                         res['or'] = f"<span style='color:red; font-size:0.8em'>{status}</span>"
                         res['coef'] = "-"
@@ -623,7 +648,9 @@ def analyze_outcome(
                     pv = pvals['x']
                     
                     res['coef'] = f"{coef:.3f}"
-                    res['or'] = f"{odd:.2f} ({ci_l:.2f}-{ci_h:.2f})"
+                    res['or_val'] = odd
+                    res['ci_low'] = ci_l
+                    res['ci_high'] = ci_h
                     res['p_or'] = pv
                     or_results[col] = {'or': odd, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
                 else:
@@ -667,7 +694,7 @@ def analyze_outcome(
             
             # Map back to results
             # uni_keys contains keys for or_results (e.g. "age", "grade: 2")
-            for k, p_adj in zip(uni_keys, adj_p, strict=True):
+            for k, p_adj in zip(uni_keys, adj_p):
                 # Update or_results (per-level)
                 if k in or_results:
                     or_results[k]['p_adj'] = p_adj
@@ -829,7 +856,7 @@ def analyze_outcome(
             
             if mv_p_vals:
                 adj_p = apply_mcc(mv_p_vals, method=mcc_method, alpha=mcc_alpha)
-                for k, p_adj in zip(mv_keys, adj_p, strict=True):
+                for k, p_adj in zip(mv_keys, adj_p):
                     aor_results[k]['p_adj'] = p_adj
     
     # ✅ VIF CALCULATION (Expanded Reporting)
@@ -905,7 +932,7 @@ def analyze_outcome(
         if mode in mode_badge:
             lbl += f"<br><span style='font-size:0.8em; color:{COLORS['text_secondary']}'>{mode_badge[mode]}</span>"
         
-        or_s = res.get('or', '-')
+        or_s = fmt_or_with_styling(res.get('or_val'), res.get('ci_low'), res.get('ci_high'))
         coef_s = res.get('coef', '-')
         
         if mode == 'categorical':
@@ -922,7 +949,7 @@ def analyze_outcome(
                 for item in multi_res:
                     p_txt = fmt_p_with_styling(item['p'])
                     acoef_lines.append(f"{item['coef']:.3f}")
-                    aor_lines.append(f"{item['aor']:.2f} ({item['l']:.2f}-{item['h']:.2f})")
+                    aor_lines.append(fmt_or_with_styling(item['aor'], item['l'], item['h']))
                     ap_lines.append(p_txt)
                 aor_s, acoef_s, ap_s = "<br>".join(aor_lines), "<br>".join(acoef_lines), "<br>".join(ap_lines)
             else:
@@ -930,7 +957,7 @@ def analyze_outcome(
                     acoef_s = f"{multi_res['coef']:.3f}"
                 else:
                     acoef_s = "-"
-                aor_s = f"{multi_res['aor']:.2f} ({multi_res['l']:.2f}-{multi_res['h']:.2f})"
+                aor_s = fmt_or_with_styling(multi_res['aor'], multi_res['l'], multi_res['h'])
                 ap_s = fmt_p_with_styling(multi_res['p'])
         
         # Format Adjusted P-values for Table

@@ -642,6 +642,14 @@ def get_shiny_css():
             background-color: {COLORS['primary_light']};
         }}
 
+        .sig-p {{
+            color: #fff;
+            background-color: {COLORS['danger']};
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }}
+
         .shiny-table th, table.dataframe th {{
             background-color: {COLORS['background']} !important;
             color: {COLORS['text']} !important;

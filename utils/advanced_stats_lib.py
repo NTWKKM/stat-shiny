@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Advanced Statistics Library for stat-shiny.
 
