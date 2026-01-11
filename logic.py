@@ -728,10 +728,14 @@ def analyze_outcome(
     # ✅ VIF CALCULATION
     # ✅ VIF CALCULATION (Expanded Reporting)
     vif_html = ""
-    # predictors is defined inside the multivariate block; check if it exists and has content
-    predictors_for_vif = locals().get('predictors', [])
+    # VIF only makes sense if we ran multivariate analysis
+    # predictors is defined around line 651 within the multivariate block
+    if 'predictors' not in locals():
+        predictors_for_vif = []
+    else:
+        predictors_for_vif = predictors
     
-    if vif_enable and final_n_multi > 10 and len(predictors_for_vif) > 1:
+    if vif_enable and final_n_multi > 10 and len(predictors_for_vif) > 1 and 'multi_data' in locals():
         try:
             # multi_data[predictors_for_vif] contains numeric/one-hot data used in regression
             vif_df = calculate_vif(multi_data[predictors_for_vif])
