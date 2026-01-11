@@ -89,30 +89,15 @@ class ConfigManager:
                 "missing_strategy": "complete-case",  # 'complete-case', 'drop'
                 "missing_threshold_pct": 50,  # Flag if >X% missing in a column
             },
-
-            valid_methods = ['auto', 'firth', 'bfgs', 'default']
-            if self.get('analysis.logit_method') not in valid_methods:
-                errors.append(f"analysis.logit_method must be one of {valid_methods}")
-    
-            # Validate stats section
-            mcc_alpha = cast(Optional[float], self.get('stats.mcc_alpha'))
-            if mcc_alpha is None or not (0 < mcc_alpha < 1):
-                errors.append("stats.mcc_alpha must be between 0 and 1")
-    
-            vif_threshold = cast(Optional[int], self.get('stats.vif_threshold'))
-            if vif_threshold is None or vif_threshold <= 0:
-                errors.append("stats.vif_threshold must be positive")
-    
-            valid_mcc_methods = ['bonferroni', 'holm', 'fdr_bh', 'sidak']
-            if self.get('stats.mcc_method') not in valid_mcc_methods:
-                errors.append(f"stats.mcc_method must be one of {valid_mcc_methods}")
-    
-            valid_ci_methods = ['wald', 'profile', 'exact']
-            if self.get('stats.ci_method') not in valid_ci_methods:
-                errors.append(f"stats.ci_method must be one of {valid_ci_methods}")
-         
-            return len(errors) == 0, errors
-            
+            # ========== ADVANCED STATS SETTINGS ==========
+            "stats": {
+                "mcc_enable": False,
+                "mcc_method": "fdr_bh",
+                "mcc_alpha": 0.05,
+                "vif_enable": False,
+                "vif_threshold": 10,
+                "ci_method": "wald",
+            },
             # ========== UI & DISPLAY SETTINGS ==========
             "ui": {
                 # Page Setup
