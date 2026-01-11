@@ -26,8 +26,12 @@ from tabs._common import get_color_palette
 
 def get_shiny_css():
     """
-    Returns comprehensive CSS for Shiny app styling with professional Navy Blue theme.
-    Updated to target standard Bootstrap classes used by Shiny (.card, .card-header, etc.)
+    Provide the full CSS stylesheet implementing the Navy Blue theme for Shiny apps.
+    
+    Includes root variables (colors, spacing, radii, shadows, transitions, typography), Bootstrap-compatible component styles (.card, .card-header, .btn, .form-control, .nav-tabs, etc.), utility classes, custom components, and responsive adjustments.
+    
+    Returns:
+        css (str): An HTML string containing a <style>...</style> block with the complete CSS for the theme.
     """
     COLORS = get_color_palette()
 
@@ -84,6 +88,26 @@ def get_shiny_css():
         
         * {{
             box-sizing: border-box;
+        }}
+        
+        .report-footer {{
+            text-align: center;
+            padding: var(--spacing-xl) 0;
+            margin-top: var(--spacing-2xl);
+            border-top: 1px solid {COLORS['border']};
+            color: {COLORS['text_secondary']};
+            font-size: 13px;
+            background-color: {COLORS['surface']};
+        }}
+        
+        .report-footer a {{
+            color: {COLORS['primary']};
+            text-decoration: none;
+            font-weight: 600;
+        }}
+        
+        .report-footer a:hover {{
+            text-decoration: underline;
         }}
         
         /* ===========================
@@ -616,6 +640,14 @@ def get_shiny_css():
         
         .table tbody tr:hover {{
             background-color: {COLORS['primary_light']};
+        }}
+
+        .sig-p {{
+            color: #fff;
+            background-color: {COLORS['danger']};
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
         }}
 
         .shiny-table th, table.dataframe th {{

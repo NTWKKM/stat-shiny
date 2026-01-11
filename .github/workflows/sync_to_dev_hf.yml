@@ -1,7 +1,7 @@
 name: Sync to Hugging Face (Dev)
 on:
   push:
-    branches: [fix]
+    branches: [patch]
   # อนุญาตให้กดรัน Manual ได้ด้วยเพื่อความสะดวก
   workflow_dispatch:
 
@@ -17,8 +17,8 @@ jobs:
       - name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_USERNAME: ntwkkm 
-          SPACE_NAME: betastat
+          HF_USERNAME: ntwkkm
+          SPACE_NAME: patchstat
         run: |
           # 1. ตั้งค่า Git User
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
