@@ -23,18 +23,18 @@ jobs:
       fail-fast: false # ถ้าเวอร์ชันหนึ่งพัง เวอร์ชันอื่นยังรันต่อ
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14-dev"]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          cache: "pip"
           allow-prereleases: true # อนุญาตให้ใช้ 3.14-dev
-      
+
       - name: Install Dependencies
         # 3.14 อาจยังไม่มี wheel สำหรับ numpy/pandas -> ให้ continue-on-error ถ้า install ไม่ผ่าน
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
@@ -42,12 +42,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-      
+
       - name: Run Unit Tests
         # ยอมให้ 3.14 พังได้ (Experimental) แต่เวอร์ชันอื่นต้องผ่าน
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
         run: |
           pytest tests/unit/ -v --tb=short
+          pytest tests/test_plotly_html_rendering.py -v --tb=short
 
   # ==========================================
   # E2E Tests (Stick to stable 3.12 to save resources)
@@ -55,35 +56,35 @@ jobs:
   e2e-tests:
     name: E2E Tests (Py 3.12)
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
-      
+          python-version: "3.12"
+          cache: "pip"
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-playwright
-          
+
       - name: Install Playwright Browsers
         run: |
           playwright install chromium
           playwright install-deps chromium
-      
+
       - name: Run E2E Tests
         run: |
           pytest tests/e2e/ -v --tb=short -m e2e
         env:
-          PYTHONUNBUFFERED: '1'
+          PYTHONUNBUFFERED: "1"
         timeout-minutes: 10
-      
+
       - name: Upload Playwright Report (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
@@ -102,25 +103,25 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14-dev"]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          cache: "pip"
           allow-prereleases: true
-      
+
       - name: Install Dependencies
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-      
+
       - name: Run Integration Tests
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
         run: |
@@ -132,31 +133,31 @@ jobs:
   code-quality:
     name: Code Quality Checks
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
-      
+          python-version: "3.12"
+          cache: "pip"
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install flake8 pylint black isort
-      
+
       - name: Check imports with isort
         run: isort --check-only . --skip venv
         continue-on-error: true
-      
+
       - name: Check formatting with black
         run: black --check . --exclude venv
         continue-on-error: true
-      
+
       - name: Lint with flake8
         run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         continue-on-error: true
@@ -170,7 +171,7 @@ jobs:
     # รอให้ทุก Job (รวมถึง Matrix ทั้งหมด) เสร็จก่อน
     needs: [unit-tests, e2e-tests, integration-tests, code-quality]
     if: always()
-    
+
     steps:
       - name: Check test results
         run: |
@@ -182,7 +183,7 @@ jobs:
           echo "✅ Integration Tests: ${{ needs.integration-tests.result }}"
           echo "✅ Code Quality:      ${{ needs.code-quality.result }}"
           echo "==========================================="
-          
+
           # Fail ถ้า Unit/E2E/Integration (ที่เป็นเวอร์ชันหลัก) พัง
           # หมายเหตุ: matrix ที่ตั้ง continue-on-error=true (เช่น 3.14) จะคืนค่า success แม้พัง
           # ดังนั้นบรรทัดนี้จะ fail เฉพาะถ้า 3.11-3.13 มีปัญหา
