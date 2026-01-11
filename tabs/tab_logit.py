@@ -705,7 +705,8 @@ def logit_server(
     @render.download(filename="logit_report.html")
     def btn_dl_report():
         res = logit_res.get()
-        if res: yield res['html_full']
+        if res: 
+            yield res['html_full']
 
     # ==========================================================================
     # LOGIC: Poisson Regression

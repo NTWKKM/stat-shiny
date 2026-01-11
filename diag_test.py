@@ -1052,7 +1052,7 @@ def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, _col_var_
     group_count = 0
     col_groups = []
     
-    for l0, _ in zip(col_level_0, col_level_1):
+    for l0, _ in zip(col_level_0, col_level_1, strict=True):
         if l0 != current_group:
             if current_group is not None:
                 col_groups.append((current_group, group_count))
@@ -1074,7 +1074,7 @@ def render_contingency_table_html(df: pd.DataFrame, row_var_name: str, _col_var_
     
     # Row 2: Category labels (only for non-Total columns)
     header_row_2 = '<tr>'
-    for l0, l1 in zip(col_level_0, col_level_1):
+    for l0, l1 in zip(col_level_0, col_level_1, strict=True):
         if l0 != 'Total' and l1 != '':  # Skip Total (already rowspan) and empty
             header_row_2 += f'<th>{_html.escape(str(l1))}</th>'
     header_row_2 += '</tr>'

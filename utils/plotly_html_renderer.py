@@ -19,7 +19,7 @@ Usage:
 import re
 import uuid
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 try:
     import plotly.graph_objects as go
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 def plotly_figure_to_html(
     fig: Optional["go.Figure"] = None,
     div_id: Optional[str] = None,
-    include_plotlyjs: str = 'cdn',
+    include_plotlyjs: Union[str, bool] = "cdn",
     height: Optional[int] = None,
     width: Optional[int] = None,
     responsive: bool = True
@@ -91,6 +91,9 @@ def plotly_figure_to_html(
         div_id = _sanitize_div_id(div_id)
     
     try:
+        # Avoid mutating caller's figure
+        fig = go.Figure(fig)
+
         # Update layout for responsiveness
         if responsive:
             fig.update_layout(autosize=True)
@@ -116,9 +119,9 @@ def plotly_figure_to_html(
         logger.debug(f"plotly_figure_to_html: Generated HTML for div_id='{div_id}'")
         return html_str
         
-    except Exception as e:
-        logger.error(f"plotly_figure_to_html: Error generating HTML - {e}")
-        return _create_placeholder_html(f"❌ Error rendering plot: {str(e)[:50]}")
+    except Exception:
+        logger.exception("plotly_figure_to_html: Error generating HTML")
+        return _create_placeholder_html("Error rendering plot")
 
 
 def _sanitize_div_id(div_id: str) -> str:

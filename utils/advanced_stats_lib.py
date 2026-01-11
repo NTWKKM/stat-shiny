@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 from typing import Union
 
-def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_bh', alpha: float = 0.05) -> pd.Series:
+def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', alpha: float = 0.05) -> pd.Series:
     """
     Apply Multiple Comparison Correction to a list of p-values.
 
@@ -48,7 +48,7 @@ def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_b
     p_vals_clean = p_vals_arr[mask]
     
     if len(p_vals_clean) == 0:
-         return pd.Series(p_vals_arr) # Return original (all NaNs/empty)
+        return pd.Series(p_vals_arr) # Return original (all NaNs/empty)
 
     try:
         # returns: reject, pvals_corrected, alphacSidak, alphacBonf
@@ -61,7 +61,7 @@ def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_b
         return pd.Series(result, index=p_values.index if isinstance(p_values, pd.Series) else None)
         
     except Exception as e:
-        logger.error(f"Error applying MCC method '{method}': {e}")
+        logger.exception("Error applying MCC method '%s'", method)
         # Fallback: return original p-values if correction fails widely
         return pd.Series(p_vals_arr, index=p_values.index if isinstance(p_values, pd.Series) else None)
 
@@ -90,14 +90,14 @@ def calculate_vif(df: pd.DataFrame, intercept: bool = True) -> pd.DataFrame:
     df_numeric = df.select_dtypes(include=[np.number]).dropna()
     
     if df_numeric.empty:
-         return pd.DataFrame(columns=['feature', 'VIF'])
+        return pd.DataFrame(columns=['feature', 'VIF'])
 
     if intercept:
         # Check if constant column exists (variance is 0)
         # If not, add constant
         if not np.any(df_numeric.var() == 0):
-             df_numeric = df_numeric.copy()
-             df_numeric['const'] = 1.0
+            df_numeric = df_numeric.copy()
+            df_numeric['const'] = 1.0
 
     vif_data = pd.DataFrame()
     vif_data["feature"] = df_numeric.columns
@@ -110,12 +110,12 @@ def calculate_vif(df: pd.DataFrame, intercept: bool = True) -> pd.DataFrame:
         
         # Filter out the constant 'const' row if we added it purely for calculation
         if 'const' in vif_data["feature"].values:
-             vif_data = vif_data[vif_data["feature"] != 'const']
+            vif_data = vif_data[vif_data["feature"] != 'const']
 
         return vif_data.sort_values(by='VIF', ascending=False)
         
     except Exception as e:
-        logger.error(f"Error calculating VIF: {e}")
+        logger.exception("Error calculating VIF")
         return pd.DataFrame(columns=['feature', 'VIF'])
 
 
