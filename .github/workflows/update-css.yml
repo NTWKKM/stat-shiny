@@ -8,6 +8,7 @@ on:
       - 'utils/update_css.py'
     branches:
       - main
+      - patch
   workflow_dispatch:
 
 jobs:
