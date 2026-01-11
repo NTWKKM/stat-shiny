@@ -27,13 +27,13 @@ COLORS = get_color_palette()
 
 def settings_ui(id: str) -> ui.TagChild:
     """
-    Create the UI for settings tab with configuration controls.
+    Construct the Settings tab UI containing six themed panels (Analysis, UI & Display, Logging, Performance, Advanced Stats, Advanced).
     
     Parameters:
-        id (str): Shiny module ID for namespacing
+        id (str): Module namespace prefix used for input/output element IDs.
     
     Returns:
-        ui.TagChild: Settings UI layout with tabs and controls
+        ui.TagChild: A navset tab UI element containing the complete settings layout.
     """
     return ui.navset_tab(
         # ==========================================
@@ -556,14 +556,13 @@ def settings_ui(id: str) -> ui.TagChild:
 
 def settings_server(id: str, config: Any) -> None:
     """
-    Server logic for settings tab with reactive configuration updates.
+    Wire server-side reactive handlers for the Settings UI and persist changes to the provided config.
+    
+    Registers a dynamic logging-status output, attaches save handlers for Analysis, UI, Logging, Performance, and Advanced settings that update corresponding config keys and emit user notifications on success or error, and initializes the Advanced Statistics submodule.
     
     Parameters:
-        id (str): Shiny module ID matching UI
-        config: CONFIG object for reading/updating settings
-    
-    Returns:
-        None
+        id (str): Module namespace used to build dynamic input/output IDs for the settings UI.
+        config: Mutable config-like object (expects `.get(key)` and `.update(key, value)`) used to read and persist settings.
     """
     session = get_current_session()
     if session is None:
@@ -675,7 +674,13 @@ def settings_server(id: str, config: Any) -> None:
     @reactive.Effect
     @reactive.event(input[f"{id}_btn_save_perf"])
     def _save_perf_settings() -> None:
-        """Save performance settings when button clicked."""
+        """
+        Persist performance-related settings into the application's configuration.
+        
+        Updates the following config keys from input values: 'performance.enable_caching', 'performance.cache_ttl',
+        'performance.enable_compression', and 'performance.num_threads'. On success logs an informational message
+        and displays a success notification; on failure logs the exception and displays an error notification.
+        """
         try:
             config.update('performance.enable_caching', bool(input[f"{id}_caching_enabled"]()))
             config.update('performance.cache_ttl', int(input[f"{id}_cache_ttl"]()))
