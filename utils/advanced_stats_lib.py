@@ -138,21 +138,18 @@ def determine_best_ci_method(
     model_type: str = 'logistic'
 ) -> str:
     """
-    Determine optimal CI method based on data characteristics.
+    Choose a preferred confidence-interval method ('wald' or 'profile') based on sample size, event count, and model type.
     
-    Rules:
-    1. If events per variable (EPV) < 10 -> Suggest 'profile' (or 'firth' contextually)
-    2. If sample size < 50 -> Suggest 'profile'
-    3. Otherwise -> 'wald'
+    When model_type is 'logistic' or 'cox' and n_events is provided, recommends 'profile' if events-per-variable (n_events / max(1, n_params)) is less than 10. Also recommends 'profile' if n_samples is less than 50. Otherwise recommends 'wald'.
     
-    Args:
-        n_samples: Total number of observations
-        n_events: Number of events (for binary/survival), None for continuous
-        n_params: Number of model parameters (coefficients)
-        model_type: 'logistic', 'linear', 'cox'
-        
+    Parameters:
+        n_samples (int): Total number of observations; must be non-negative.
+        n_events (int | None): Number of events for binary or survival models; ignored for continuous models when None.
+        n_params (int): Number of model parameters (coefficients); must be non-negative.
+        model_type (str): One of 'logistic', 'linear', or 'cox' that indicates the model family.
+    
     Returns:
-        str: Recommended method ('wald', 'profile')
+        str: The recommended CI method, either 'wald' or 'profile'.
     """
     if n_samples < 0 or n_params < 0:
         raise ValueError("n_samples and n_params must be non-negative")
@@ -172,7 +169,22 @@ def determine_best_ci_method(
 
 def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1, model_type: str = "logistic") -> dict[str, str]:
     """
-    Get CI configuration parameters, resolving 'auto' mode.
+    Resolve the confidence-interval method and return configuration details, resolving "auto" to a concrete choice based on sample/events.
+    
+    Parameters:
+        method (str): One of "auto", "wald", or "profile". If "auto", the function selects a method based on data characteristics.
+        n_samples (int): Number of observations used to inform automatic selection.
+        n_events (int): Number of events (for event-based models); used when applicable to compute events-per-variable.
+        n_params (int): Number of model parameters (used to compute events-per-variable when relevant).
+        model_type (str): Model family influencing selection logic (e.g., "logistic", "linear", "cox").
+    
+    Returns:
+        dict: A dictionary with keys:
+            "method" (str): The selected CI method ("wald" or "profile", or the provided method if not "auto").
+            "note" (str): Informational note about auto-selection when applicable, otherwise an empty string.
+    
+    Raises:
+        ValueError: If `method` is not one of "auto", "wald", or "profile".
     """
     if method not in {"auto", "wald", "profile"}:
         raise ValueError(f"Unsupported CI method: {method}")
@@ -187,4 +199,3 @@ def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_param
         "method": selected_method,
         "note": note
     }
-
