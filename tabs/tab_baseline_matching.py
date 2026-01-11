@@ -1,5 +1,5 @@
 from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget
+from utils.plotly_html_renderer import plotly_figure_to_html
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -70,6 +70,14 @@ def _calculate_categorical_smd(df: pd.DataFrame, treatment_col: str, cat_cols: L
 # ==============================================================================
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
+    """
+    Constructs the baseline matching user interface as a tabbed Shiny component.
+    
+    The UI contains four main subtabs: (1) Baseline Characteristics (Table 1) with controls to select grouping, variables, and generate/download the table; (2) Propensity Score Matching (PSM) with configuration, presets, advanced caliper settings, run controls, and results area; (3) Matched Data View with export, preview, summary statistics, and visualizations; and (4) Reference & Interpretation with guidance and workflow notes.
+    
+    Returns:
+        ui.TagChild: A Shiny tabset UI component containing the complete baseline matching interface (Table 1, PSM, Matched Data View, and Reference & Interpretation).
+    """
     return ui.navset_tab(
 
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
@@ -307,7 +315,7 @@ def baseline_matching_ui() -> ui.TagChild:
                     ),
                     ui.nav_panel(
                         "📉 Visualization",
-                        output_widget("out_matched_boxplot")
+                        ui.output_ui("out_matched_boxplot")
                     ),
                 )
             )
@@ -410,6 +418,26 @@ def baseline_matching_server(
     # -------------------------------------------------------------------------
     # SHARED REACTIVE VALUES
     # -------------------------------------------------------------------------
+    """
+    Set up server-side reactive logic and UI renderers for the Baseline Matching module.
+    
+    This function registers reactive computations, effects, UI render callbacks, and download handlers that implement:
+    - Table 1 generation and download,
+    - Propensity score matching (PSM) configuration, execution, result summaries, plots, and exports,
+    - Matched-data viewing, summaries, visualizations, and exports,
+    while updating provided reactive values to reflect matching results.
+    
+    Parameters:
+        input: Shiny input object for reading UI control values (not documented here).
+        output: Shiny output object for registering UI/data outputs (not documented here).
+        session: Shiny session object (not documented here).
+        df (reactive.Value[Optional[pd.DataFrame]]): Reactive source of the original dataset used for Table 1 and PSM.
+        var_meta (reactive.Value[Dict[str, Any]]): Reactive metadata for variables (labels, types, display hints) used when generating Table 1.
+        df_matched (reactive.Value[Optional[pd.DataFrame]]): Reactive holder for the matched dataset; set by the PSM routine and consumed by matched-data views and exports.
+        is_matched (reactive.Value[bool]): Reactive flag indicating whether matched data is available; updated once matching completes successfully.
+        matched_treatment_col (reactive.Value[Optional[str]]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
+        matched_covariates (reactive.Value[List[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
+    """
     psm_results: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
     html_content: reactive.Value[Optional[str]] = reactive.Value(None)
 
@@ -719,6 +747,12 @@ def baseline_matching_server(
 
     @render.ui
     def ui_psm_main_content():
+        """
+        Builds the main Propensity Score Matching (PSM) results UI, showing a prompt when results are absent or a tabbed results interface when available.
+        
+        Returns:
+        	A Shiny UI element: if no PSM results are present, a card prompting the user to run PSM; otherwise a tabbed card with two panels — Match Quality (summary metrics, balance alert, Love Plot, SMD table, and group comparison) and Export & Next Steps (CSV and HTML report download actions).
+        """
         res = psm_results.get()
 
         if res is None:
@@ -750,7 +784,7 @@ def baseline_matching_server(
                 ui.navset_card_underline(
                     ui.nav_panel(
                         "📉 Love Plot",
-                        output_widget("out_love_plot"),
+                        ui.output_ui("out_love_plot"),
                         ui.p("Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)", style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;")
                     ),
                     ui.nav_panel(
@@ -828,6 +862,15 @@ def baseline_matching_server(
 
     @render.ui
     def ui_balance_alert():
+        """
+        Render a balance status banner based on post-matching standardized mean differences.
+        
+        Displays a green success banner when all post-matching SMDs are below 0.1; otherwise displays a warning banner
+        indicating how many variables remain imbalanced. Returns None when no PSM results are available.
+        
+        Returns:
+            ui.Component or None: A Shiny UI element containing the status banner, or `None` if PSM results are not present.
+        """
         res = psm_results.get()
         if not res:
             return None
@@ -859,14 +902,52 @@ def baseline_matching_server(
                 )
             )
 
-    @render_widget
+    @render.ui
     def out_love_plot():
+        """
+        Render the Love plot showing standardized mean differences (SMD) before and after matching.
+        
+        If PSM results are not yet available or the plot could not be created, returns a centered placeholder message indicating waiting/no plot. Otherwise returns a UI HTML block containing the Plotly-rendered Love plot (responsive, Plotly JS loaded from CDN).
+        
+        Returns:
+            ui.UI: A Shiny UI element — either ui.HTML with the Love plot HTML or a ui.div placeholder message.
+        """
         res = psm_results.get()
-        if not res: return None
-        return psm_lib.plot_love_plot(res['smd_pre'], res['smd_post'])
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        fig = psm_lib.plot_love_plot(res['smd_pre'], res['smd_post'])
+        if fig is None:
+            return ui.div(
+                ui.markdown("⏳ *No plot available...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            fig,
+            div_id="plot_balance_love",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @render.data_frame
     def out_smd_table():
+        """
+        Render a table comparing standardized mean differences (SMD) before and after matching.
+        
+        The table merges pre- and post-matching SMDs by variable, computes percent improvement as
+        ((SMD_before - SMD_after) / SMD_before * 100) with divisions-by-zero treated as 0, and rounds
+        SMD values to 4 decimal places and improvement to 1 decimal place.
+        
+        Returns:
+            render.DataGrid: A DataGrid wrapping a DataFrame with columns:
+                - 'Variable': variable name
+                - 'SMD_before': SMD before matching (rounded)
+                - 'SMD_after': SMD after matching (rounded)
+                - 'Improvement %': percent improvement (rounded)
+        """
         res = psm_results.get()
         if not res: return None
     
@@ -986,6 +1067,14 @@ def baseline_matching_server(
 
     @render.data_frame
     def out_matched_stats():
+        """
+        Render a DataGrid of descriptive statistics for the selected variable grouped by the matched treatment column.
+        
+        If the matched dataset, selected statistic variable, or treatment column is missing or not present in the dataset, returns None.
+        
+        Returns:
+            render.DataGrid or None: A DataGrid containing group-wise describe() results (treatment column as the first column) when data and columns are available; otherwise None.
+        """
         d = df_matched.get()
         var = input.sel_stat_var_tab3()
         treat = matched_treatment_col.get()
@@ -994,15 +1083,31 @@ def baseline_matching_server(
             return render.DataGrid(d.groupby(treat)[var].describe().reset_index())
         return None
 
-    @render_widget
+    @render.ui
     def out_matched_boxplot():
+        """
+        Render a box plot of the selected variable by treatment for the matched dataset, or a waiting placeholder if data is unavailable.
+        
+        Returns:
+            ui element: An HTML UI element containing a Plotly box plot of the selected variable grouped by the treatment column, or a centered "Waiting for data..." placeholder `div` when matched data, the variable, or the treatment column is missing or invalid.
+        """
         d = df_matched.get()
         var = input.sel_stat_var_tab3()
         treat = matched_treatment_col.get()
 
-        if d is not None and var and treat:
-            return px.box(d, x=treat, y=var, title=f"{var} by {treat}")
-        return None
+        if d is None or not var or not treat or var not in d.columns or treat not in d.columns:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for data...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        fig = px.box(d, x=treat, y=var, title=f"{var} by {treat}")
+        html_str = plotly_figure_to_html(
+            fig,
+            div_id="plot_balance_boxplot",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @reactive.Effect
     @reactive.event(input.btn_clear_matched_tab3)
