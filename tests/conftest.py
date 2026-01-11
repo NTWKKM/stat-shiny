@@ -143,12 +143,12 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unit: marks tests as unit tests")
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
 
-def pytest_sessionstart(_session):
+def pytest_sessionstart(session): # แก้จาก _session เป็น session
     print("\n" + "="*70)
     print("📊 Starting Test Session")
     print("="*70)
 
-def pytest_sessionfinish(_session, _exitstatus):
+def pytest_sessionfinish(session, exitstatus): # แก้จาก (_session, _exitstatus) เป็น (session, exitstatus)
     print("\n" + "="*70)
     print("✅ Test Session Complete")
     print("="*70)
