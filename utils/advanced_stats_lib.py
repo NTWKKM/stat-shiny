@@ -12,13 +12,12 @@ import numpy as np
 import statsmodels.stats.multitest as smt
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from patsy import dmatrix
+from typing import Union
 import logging
 
 logger = logging.getLogger(__name__)
 
 # --- Multiple Comparison Corrections (MCC) ---
-
-from typing import Union
 
 def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', alpha: float = 0.05) -> pd.Series:
     """
@@ -99,8 +98,8 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
         df_numeric = df_numeric.drop(columns=const_predictors, errors="ignore")
 
     if intercept:
-        df_numeric = df_numeric.copy()
         if "const" not in df_numeric.columns:
+            df_numeric = df_numeric.copy()
             df_numeric["const"] = 1.0
 
     vif_data = pd.DataFrame()
@@ -124,7 +123,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
 # --- Confidence Interval Configuration (Helper/Placeholder) ---
 
-def get_ci_method_params(method_name: str):
+def get_ci_method_params(method_name: str) -> dict[str, str]:
     """
     Placeholder helper to return method-specific parameters for CI calculation.
     """
