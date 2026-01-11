@@ -202,12 +202,12 @@ def get_ci_configuration(
     Raises:
         ValueError: If `method` is not one of "auto", "wald", or "profile".
     """
-    if method not in {"auto", "wald", "profile"}:
-        raise ValueError(f"Unsupported CI method: {method}")
-    selected_method = method
+    if method_name not in {"auto", "wald", "profile"}:
+        raise ValueError(f"Unsupported CI method: {method_name}")
+    selected_method = method_name
     note = ""
     
-    if method == 'auto':
+    if method_name == 'auto':
         selected_method = determine_best_ci_method(n_samples, n_events, n_params, model_type)
         note = f"Auto-selected {selected_method.title()} based on sample size/events."
         
