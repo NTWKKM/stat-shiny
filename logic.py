@@ -107,7 +107,14 @@ AORResult = TypedDict("AORResult", {
 
 # ✅ NEW: Helper function to load static CSS
 def load_static_css() -> str:
-    """Reads the content of static/styles.css to embed in reports."""
+    """
+    Load the contents of static/styles.css for embedding in reports.
+    
+    Looks for a file named `styles.css` inside a `static` directory located next to this module.
+    
+    Returns:
+        str: The CSS file contents, or an empty string if the file is missing or cannot be read.
+    """
     try:
         # Assumes logic.py is in the root or same level as static folder
         css_path = Path(__file__).parent / "static" / "styles.css"
@@ -210,16 +217,21 @@ def run_binary_logit(
     ci_method: str = 'wald'
 ) -> tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], FitStatus, StatsMetrics]:
     """
-    Fit binary logistic regression.
+    Fit a binary logistic regression model and return coefficients, confidence intervals, p-values, status, and fit statistics.
     
-    Args:
-        y: Outcome series
-        X: Predictor dataframe
-        method: Optimization method (default, newton, bfgs, firth)
-        ci_method: Confidence Interval method (wald, profile)
-        
+    Parameters:
+        y (pd.Series): Binary outcome series aligned to X.
+        X (pd.DataFrame): Predictor variables (no constant required; one will be added).
+        method (MethodType): Optimization/fitting method to use — "default", "bfgs", or "firth". If "firth" is requested but the firthmodels dependency is unavailable, the function returns an error status.
+        ci_method (str): Confidence-interval method to use; currently "wald" is supported and "profile" falls back to Wald.
+    
     Returns:
-        tuple: (params, conf_int, pvalues, status_msg, stats_dict)
+        tuple:
+            params (Optional[pd.Series]): Estimated model coefficients indexed by predictor names (including intercept) or None on failure.
+            conf_int (Optional[pd.DataFrame]): Two-column DataFrame with lower and upper confidence bounds for each coefficient, or None on failure.
+            pvalues (Optional[pd.Series]): Two-sided p-values for each coefficient, or None on failure.
+            status (FitStatus): "OK" on success or a short error message describing why fitting did not complete.
+            stats_metrics (StatsMetrics): Dictionary containing fit metrics (mcfadden, nagelkerke, p_value) with NaN values when not available.
     """
     stats_metrics: StatsMetrics = {"mcfadden": np.nan, "nagelkerke": np.nan, "p_value": np.nan}
     
@@ -361,18 +373,34 @@ def analyze_outcome(
     adv_stats: Optional[dict[str, Any]] = None
 ) -> tuple[str, dict[str, ORResult], dict[str, AORResult], dict[str, InteractionResult]]:
     """
-    Perform logistic regression analysis for binary outcome.
+    Perform a complete logistic regression analysis for a binary outcome and return an HTML report plus structured results.
     
-    Args:
-        outcome_name: Name of binary outcome column
-        df: Input DataFrame
-        var_meta: Variable metadata dictionary
-        method: 'auto', 'default', 'bfgs', or 'firth'
-        interaction_pairs: List of tuples for interactions [(var1, var2), ...]
-        adv_stats: Dictionary containing advanced stats settings (MCC, VIF, etc.)
+    Parameters:
+        outcome_name (str): Column name of the binary outcome in `df`.
+        df (pd.DataFrame): Input dataset containing the outcome and candidate predictors.
+        var_meta (Optional[dict[str, Any]]): Optional variable metadata used to override automatic mode detection (categorical vs linear) and provide display labels.
+        method (MethodType): Fitting method preference: 'auto', 'default', 'bfgs', or 'firth'. 'auto' may select Firth when appropriate and available.
+        interaction_pairs (Optional[list[tuple[str, str]]]): Optional list of variable pairs for which interaction terms should be created and reported.
+        adv_stats (Optional[dict[str, Any]]): Optional advanced-statistics configuration. Recognized keys include:
+            - 'stats.mcc_enable' (bool): enable multiple-comparisons correction (MCC).
+            - 'stats.mcc_method' (str): MCC method identifier (e.g., 'fdr_bh').
+            - 'stats.mcc_alpha' (float): MCC significance level.
+            - 'stats.vif_enable' (bool): enable VIF collinearity diagnostics.
+            - 'stats.vif_threshold' (float): VIF threshold for highlighting high collinearity.
+            - 'stats.ci_method' (str): preferred confidence-interval method (e.g., 'wald').
+            Missing keys use sensible defaults.
     
     Returns:
-        tuple: (html_table, or_results, aor_results, interaction_results)
+        tuple:
+            - html_table (str): An HTML fragment (no <html> wrapper) containing a styled table and summary with crude and adjusted results, optional VIF and interaction sections.
+            - or_results (dict[str, ORResult]): Univariate odds-ratio results keyed by "variable" or "variable: level" with keys 'or', 'ci_low', 'ci_high', and 'p_value' (and optionally 'p_adj' when MCC is applied).
+            - aor_results (dict[str, AORResult]): Multivariate adjusted odds-ratio results keyed by variable or interaction identifier with keys 'aor', 'ci_low', 'ci_high', 'p_value', optional 'p_adj', and optional 'label'.
+            - interaction_results (dict[str, InteractionResult]): Interaction-term results including coefficients, OR, confidence bounds, p-values, and display label when interaction terms were requested or detected.
+    
+    Notes:
+        - The function validates that `outcome_name` exists and has exactly two unique values; non-binary values are mapped to {0,1}.
+        - Mode detection (categorical vs linear) is automatic but can be overridden via `var_meta`.
+        - Advanced features (Firth regression, MCC, interaction-creation, VIF) are applied only when enabled and available; failures are reported in the HTML output but do not raise exceptions.
     """
     # Extract Advanced Stats Settings
     mcc_enable = adv_stats.get('stats.mcc_enable', False) if adv_stats else False
@@ -658,6 +686,15 @@ def analyze_outcome(
     mv_metrics_text = ""
     
     def _is_candidate_valid(col):
+        """
+        Determine whether a column has enough usable (non-missing) observations to be a multivariate candidate.
+        
+        Parameters:
+            col (str): Column name in `df_aligned` to evaluate; uses `mode_map` to decide treatment.
+        
+        Returns:
+            bool: `True` if the column has more than 5 usable observations (for categorical: non-missing values; for numeric: values that `clean_numeric_value` does not convert to NaN), `False` otherwise.
+        """
         mode = mode_map.get(col, "linear")
         series = df_aligned[col]
         if mode == "categorical":

@@ -283,7 +283,28 @@ def survival_server(
     df_matched: reactive.Value[Optional[pd.DataFrame]], 
     is_matched: reactive.Value[bool]
 ) -> None:
-    """Modern Shiny server module - automatic namespace scoping via decorator."""
+    """
+    Initialize server-side logic for the Survival Analysis Shiny module, wiring reactive state, dataset selection, input-choice auto-detection, and handlers for curves, landmark, Cox, and subgroup analyses.
+    
+    Parameters:
+        input: Shiny input bindings for UI controls used by the module.
+        output: Shiny output bindings for rendering UI elements from the module.
+        session: Shiny session object scoped to this module instance.
+        df (reactive.Value[Optional[pd.DataFrame]]): Reactive reference to the primary dataset.
+        var_meta (reactive.Value[Dict[str, Any]]): Reactive mapping of variable metadata used to derive user-friendly labels.
+        df_matched (reactive.Value[Optional[pd.DataFrame]]): Reactive reference to an optional matched dataset.
+        is_matched (reactive.Value[bool]): Reactive flag indicating whether matched data may be selected as the active dataset.
+    
+    Behavior:
+        - Maintains reactive result stores for survival curves, landmark analysis, Cox regression, and subgroup analysis.
+        - Exposes reactive utilities for selecting the current active dataset and mapping column names to display labels.
+        - Auto-detects sensible default columns for time, event, group, and subgroup inputs and updates input choices when the dataset changes.
+        - Implements handlers to run analyses (KM / Nelson–Aalen curves, landmark, Cox PH, subgroup) with input validation, notifications, and result storage.
+        - Renders UI outputs and generates downloadable HTML reports for each analysis type when results are available.
+    
+    Side effects:
+        - Updates Shiny inputs and outputs, shows/hides notifications, and writes reactive result state used by renderers and download handlers.
+    """
     
     # ==================== REACTIVE VALUES ====================
     curves_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
@@ -527,7 +548,14 @@ def survival_server(
 
     @render.ui
     def out_curves_result():
-        """Render curves results."""
+        """
+        Assemble and return the UI card displaying survival-curve outputs and related statistics.
+        
+        When results are available, the card contains the plot, a summary statistics table, and optionally a median survival table and a survival-at-specific-times table. If no results are present, returns a centered placeholder message informing the user that results will appear here.
+        
+        Returns:
+            ui.Element: A Shiny UI element (card or placeholder div) representing the curves results panel.
+        """
         res = curves_result.get()
         if res is None:
             return ui.div(
@@ -556,6 +584,14 @@ def survival_server(
 
     @render.ui
     def out_curves_plot():
+        """
+        Render the survival curves Plotly figure or a waiting placeholder.
+        
+        If curve results are available in `curves_result`, returns a Shiny UI element containing the Plotly figure HTML; otherwise returns a centered div with a "Waiting for results..." message.
+        
+        Returns:
+            ui element: HTML containing the Plotly figure when results exist, or a div with a waiting message otherwise.
+        """
         res = curves_result.get()
         if res is None:
             return ui.div(
@@ -572,6 +608,12 @@ def survival_server(
 
     @render.data_frame
     def out_curves_table():
+        """
+        Render the curves statistics DataGrid when curve results are available.
+        
+        Returns:
+            DataGrid or None: A DataGrid built from the latest curves result 'stats' entry, or `None` if no results are present.
+        """
         res = curves_result.get()
         return render.DataGrid(res['stats']) if res else None
 
@@ -645,7 +687,12 @@ def survival_server(
 
     @render.ui
     def out_landmark_result():
-        """Render landmark analysis results."""
+        """
+        Render the landmark analysis result card containing the plot and summary statistics.
+        
+        Returns:
+            ui (shiny UI object) : A card with a header, a summary line showing total N and included N at the landmark time, the landmark plot output, and the landmark statistics table; returns `None` if no landmark results are available.
+        """
         res = landmark_result.get()
         if res is None: 
             return None
@@ -661,6 +708,12 @@ def survival_server(
 
     @render.ui
     def out_landmark_plot():
+        """
+        Render the landmark analysis plot or a waiting placeholder if results are not available.
+        
+        Returns:
+            ui_element: A Shiny UI element containing the plot HTML when landmark results exist, or a centered waiting message placeholder otherwise.
+        """
         res = landmark_result.get()
         if res is None:
             return ui.div(
@@ -677,6 +730,12 @@ def survival_server(
 
     @render.data_frame
     def out_landmark_table():
+        """
+        Render a data grid containing landmark analysis statistics if results are available.
+        
+        Returns:
+            DataGrid or None: A DataGrid built from the stored landmark `stats` when landmark results exist, otherwise `None`.
+        """
         res = landmark_result.get()
         return render.DataGrid(res['stats']) if res else None
 
@@ -749,7 +808,14 @@ def survival_server(
 
     @render.ui
     def out_cox_result():
-        """Render Cox regression results."""
+        """
+        Render the Cox proportional hazards model results card for the UI.
+        
+        Displays model summary statistics (if available), the results data table, a forest plot, and proportional-hazards (Schoenfeld residuals) outputs. If no Cox results are present, nothing is rendered.
+        
+        Returns:
+            A Shiny UI card containing model stats, the results data frame, the forest plot output placeholder, and the PH-assumption output placeholder, or `None` if no results are available.
+        """
         res = cox_result.get()
         if res is None: 
             return None
@@ -779,11 +845,23 @@ def survival_server(
 
     @render.data_frame
     def out_cox_table():
+        """
+        Render a data grid showing Cox regression results if available.
+        
+        Returns:
+            DataGrid or None: A DataGrid component containing the Cox results table, or None when no results are present.
+        """
         res = cox_result.get()
         return render.DataGrid(res['results_df']) if res else None
 
     @render.ui
     def out_cox_forest():
+        """
+        Render the Cox regression forest plot if available; otherwise show a waiting placeholder.
+        
+        Returns:
+            ui_element: A Shiny UI element containing the Plotly-generated forest plot HTML when results exist, or a centered waiting message if results are not yet available.
+        """
         res = cox_result.get()
         if res is None:
             return ui.div(
@@ -800,6 +878,12 @@ def survival_server(
 
     @render.ui
     def out_cox_assumptions_ui():
+        """
+        Render the proportional hazards assumption section for Cox regression, including interpretation text and any diagnostic plots.
+        
+        Returns:
+            ui.div or None: A UI container with the interpretation text and zero or more Plotly diagnostic plots when Cox results are available; `None` if no Cox results exist.
+        """
         res = cox_result.get()
         if not res: 
             return None
@@ -903,7 +987,14 @@ def survival_server(
 
     @render.ui
     def out_sg_result():
-        """Render subgroup analysis results."""
+        """
+        Builds the UI card displaying subgroup analysis results.
+        
+        Includes a "Subgroup Forest Plot" section when the result contains a `forest_plot` and an "Interaction Analysis" data table when the result contains an `interaction_table`.
+        
+        Returns:
+            ui.card: Card with available subgroup result sections, or `None` if no results are present.
+        """
         res = sg_result.get()
         if res is None: 
             return None
@@ -921,6 +1012,12 @@ def survival_server(
 
     @render.ui
     def out_sg_forest():
+        """
+        Render the subgroup analysis forest plot or a placeholder when results are unavailable.
+        
+        Returns:
+            A Shiny UI element containing the subgroup forest plot as HTML when a plot is present; otherwise a centered placeholder message indicating either that results are pending or that no forest plot is available.
+        """
         res = sg_result.get()
         if res is None:
             return ui.div(
@@ -943,6 +1040,12 @@ def survival_server(
         
     @render.data_frame
     def out_sg_table():
+        """
+        Render the subgroup interaction analysis table when subgroup results are available.
+        
+        Returns:
+            DataGrid: A data grid rendering of `interaction_table` from the stored subgroup result, or `None` if no result exists.
+        """
         res = sg_result.get()
         return render.DataGrid(res.get('interaction_table')) if res else None
 
