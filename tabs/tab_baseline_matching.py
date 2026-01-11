@@ -1,5 +1,5 @@
 from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget
+from utils.plotly_html_renderer import plotly_figure_to_html
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -307,7 +307,7 @@ def baseline_matching_ui() -> ui.TagChild:
                     ),
                     ui.nav_panel(
                         "📉 Visualization",
-                        output_widget("out_matched_boxplot")
+                        ui.output_ui("out_matched_boxplot")
                     ),
                 )
             )
@@ -750,7 +750,7 @@ def baseline_matching_server(
                 ui.navset_card_underline(
                     ui.nav_panel(
                         "📉 Love Plot",
-                        output_widget("out_love_plot"),
+                        ui.output_ui("out_love_plot"),
                         ui.p("Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)", style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;")
                     ),
                     ui.nav_panel(
@@ -859,11 +859,27 @@ def baseline_matching_server(
                 )
             )
 
-    @render_widget
+    @render.ui
     def out_love_plot():
         res = psm_results.get()
-        if not res: return None
-        return psm_lib.plot_love_plot(res['smd_pre'], res['smd_post'])
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        fig = psm_lib.plot_love_plot(res['smd_pre'], res['smd_post'])
+        if fig is None:
+            return ui.div(
+                ui.markdown("⏳ *No plot available...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            fig,
+            div_id="plot_balance_love",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @render.data_frame
     def out_smd_table():
@@ -994,15 +1010,25 @@ def baseline_matching_server(
             return render.DataGrid(d.groupby(treat)[var].describe().reset_index())
         return None
 
-    @render_widget
+    @render.ui
     def out_matched_boxplot():
         d = df_matched.get()
         var = input.sel_stat_var_tab3()
         treat = matched_treatment_col.get()
 
-        if d is not None and var and treat:
-            return px.box(d, x=treat, y=var, title=f"{var} by {treat}")
-        return None
+        if d is None or not var or not treat:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for data...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        fig = px.box(d, x=treat, y=var, title=f"{var} by {treat}")
+        html_str = plotly_figure_to_html(
+            fig,
+            div_id="plot_balance_boxplot",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @reactive.Effect
     @reactive.event(input.btn_clear_matched_tab3)

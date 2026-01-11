@@ -13,7 +13,7 @@ Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 """
 
 from shiny import ui, module, reactive, render, req
-from shinywidgets import output_widget, render_widget  # type: ignore
+from utils.plotly_html_renderer import plotly_figure_to_html
 import pandas as pd
 import numpy as np
 import survival_lib
@@ -537,7 +537,7 @@ def survival_server(
         
         elements = [
             ui.card_header("📈 Plot"),
-            output_widget("out_curves_plot"),
+            ui.output_ui("out_curves_plot"),
             ui.card_header("📄 Log-Rank Test / Summary Statistics"), # Update header title
             ui.output_data_frame("out_curves_table")
         ]
@@ -554,10 +554,21 @@ def survival_server(
             
         return ui.card(*elements)
 
-    @render_widget
+    @render.ui
     def out_curves_plot():
         res = curves_result.get()
-        return res['fig'] if res else None
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig'],
+            div_id="plot_curves_km_na",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @render.data_frame
     def out_curves_table():
@@ -644,14 +655,25 @@ def survival_server(
                 ui.markdown(f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"),
                 style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};"
             ),
-            output_widget("out_landmark_plot"),
+            ui.output_ui("out_landmark_plot"),
             ui.output_data_frame("out_landmark_table")
         )
 
-    @render_widget
+    @render.ui
     def out_landmark_plot():
         res = landmark_result.get()
-        return res['fig'] if res else None
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig'],
+            div_id="plot_landmark_analysis",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @render.data_frame
     def out_landmark_table():
@@ -749,7 +771,7 @@ def survival_server(
             ui.output_data_frame("out_cox_table"),
             
             ui.card_header("🌳 Forest Plot"),
-            output_widget("out_cox_forest"),
+            ui.output_ui("out_cox_forest"),
             
             ui.card_header("🔍 PH Assumption (Schoenfeld Residuals)"),
             ui.output_ui("out_cox_assumptions_ui")
@@ -760,10 +782,21 @@ def survival_server(
         res = cox_result.get()
         return render.DataGrid(res['results_df']) if res else None
 
-    @render_widget
+    @render.ui
     def out_cox_forest():
         res = cox_result.get()
-        return res['forest_fig'] if res else None
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['forest_fig'],
+            div_id="plot_cox_forest",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
 
     @render.ui
     def out_cox_assumptions_ui():
@@ -878,7 +911,7 @@ def survival_server(
         elements = []
         if 'forest_plot' in res:
             elements.append(ui.card_header("🌳 Subgroup Forest Plot"))
-            elements.append(output_widget("out_sg_forest"))
+            elements.append(ui.output_ui("out_sg_forest"))
             
         if 'interaction_table' in res:
             elements.append(ui.card_header("📄 Interaction Analysis"))
@@ -886,10 +919,27 @@ def survival_server(
             
         return ui.card(*elements)
 
-    @render_widget
+    @render.ui
     def out_sg_forest():
         res = sg_result.get()
-        return res.get('forest_plot') if res else None
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        fig = res.get('forest_plot')
+        if fig is None:
+            return ui.div(
+                ui.markdown("⏳ *No forest plot available...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            fig,
+            div_id="plot_subgroup_forest",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
         
     @render.data_frame
     def out_sg_table():

@@ -11,7 +11,7 @@ Updated: Uses dataset selector pattern like tab_diag.py
 """
 
 from shiny import ui, reactive, render, req, module
-from shinywidgets import output_widget, render_widget  # ✅ Import shinywidgets
+from utils.plotly_html_renderer import plotly_figure_to_html
 import pandas as pd
 import numpy as np
 import correlation  # Import from root
@@ -490,7 +490,7 @@ def corr_server(
             ui.HTML(interp_html),
 
             ui.card_header("Scatter Plot"),
-            output_widget("out_corr_plot_widget"),  # ✅ FIX: Use output_widget instead of ui.output_ui
+            ui.output_ui("out_corr_plot_widget"),  # ✅ FIX: Use ui.output_ui instead of output_widget
         )
 
     @render.data_frame
@@ -528,14 +528,22 @@ def corr_server(
         df_display = pd.DataFrame(display_data)
         return render.DataGrid(df_display, width="100%")
 
-    @render_widget  # ✅ FIX: Use @render_widget
+    @render.ui
     def out_corr_plot_widget():
-        """Render scatter plot as Widget."""
+        """Render scatter plot as UI."""
         result = corr_result.get()
         if result is None or result['figure'] is None:
-            return None
-
-        return result['figure']  # ✅ Return figure directly
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            result['figure'],
+            div_id="plot_corr_scatter",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
     
     # ✅ CHANGED: Logic for downloading file
     @render.download(
@@ -678,21 +686,29 @@ def corr_server(
             ui.HTML(summary_html),
             
             ui.card_header("Heatmap"),
-            output_widget("out_heatmap_widget"),  # ✅ FIX: Use output_widget
+            ui.output_ui("out_heatmap_widget"),  # ✅ FIX: Use ui.output_ui
             
             ui.card_header("Correlation Table"),
             ui.markdown("*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"),
             ui.output_data_frame("out_matrix_table")
         )
         
-    @render_widget  # ✅ FIX: Use @render_widget
+    @render.ui
     def out_heatmap_widget():
-        """Render heatmap plot."""
+        """Render heatmap plot as UI."""
         result = matrix_result.get()
         if result is None or result['figure'] is None:
-            return None
-        
-        return result['figure']  # ✅ Return figure directly
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            result['figure'],
+            div_id="plot_corr_heatmap",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
         
     @render.data_frame
     def out_matrix_table():
