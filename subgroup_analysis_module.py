@@ -106,6 +106,10 @@ class SubgroupAnalysisLogit:
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
             
+            # ✅ Ensure outcome is numeric 0/1 (fixes ValueError with bool/str in formula)
+            df_clean[outcome_col] = pd.to_numeric(df_clean[outcome_col], errors='coerce')
+            df_clean = df_clean.dropna(subset=[outcome_col])
+            
             formula_base = f'{outcome_col} ~ {treatment_col}'
             if adjustment_cols:
                 formula_base += ' + ' + ' + '.join(adjustment_cols)
@@ -168,9 +172,22 @@ class SubgroupAnalysisLogit:
                 try:
                     model_sub = logit(formula_base, data=df_sub).fit(disp=0)
                     
-                    or_sub = float(np.exp(model_sub.params[treatment_col]))
-                    ci_sub = np.exp(model_sub.conf_int().loc[treatment_col])
-                    p_sub = float(model_sub.pvalues[treatment_col])
+                    # Robust parameter lookup for treatment in subgroup
+                    sub_param_key = None
+                    if treatment_col in model_sub.params:
+                        sub_param_key = treatment_col
+                    else:
+                        for k in model_sub.params.index:
+                            if k.startswith(f"{treatment_col}["):
+                                sub_param_key = k
+                                break
+                    
+                    if not sub_param_key:
+                        continue
+
+                    or_sub = float(np.exp(model_sub.params[sub_param_key]))
+                    ci_sub = np.exp(model_sub.conf_int().loc[sub_param_key])
+                    p_sub = float(model_sub.pvalues[sub_param_key])
                     
                     results_list.append({
                         'group': f'{subgroup_col}={subgroup_val} (N={len(df_sub)})',
@@ -396,7 +413,7 @@ class SubgroupAnalysisCox:
                 cph_overall = CoxPHFitter()
                 cph_overall.fit(df_clean, duration_col=duration_col, event_col=event_col, show_progress=False)
                 
-                hr_overall = float(np.exp(cph_overall.params[treatment_col]))
+                hr_overall = float(np.exp(cph_overall.params_[treatment_col]))
                 ci_overall = np.exp(cph_overall.confidence_intervals_.loc[treatment_col])
                 p_overall = float(cph_overall.summary.loc[treatment_col, 'p'])
                 
@@ -434,7 +451,7 @@ class SubgroupAnalysisCox:
                     cph_sub = CoxPHFitter()
                     cph_sub.fit(df_sub, duration_col=duration_col, event_col=event_col, show_progress=False)
                     
-                    hr_sub = float(np.exp(cph_sub.params[treatment_col]))
+                    hr_sub = float(np.exp(cph_sub.params_[treatment_col]))
                     ci_sub = np.exp(cph_sub.confidence_intervals_.loc[treatment_col])
                     p_sub = float(cph_sub.summary.loc[treatment_col, 'p'])
                     

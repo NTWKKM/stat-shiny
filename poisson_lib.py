@@ -198,7 +198,7 @@ def check_count_outcome(series: pd.Series) -> Tuple[bool, str]:
 
 
 def analyze_poisson_outcome(
-    target: str,
+    outcome_name: str,
     df: pd.DataFrame,
     var_meta: Optional[Dict[str, Any]] = None,
     offset_col: Optional[str] = None,
