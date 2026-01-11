@@ -68,7 +68,7 @@ def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', a
 
 # --- Collinearity Diagnostics (VIF) ---
 
-def calculate_vif(df: pd.DataFrame, intercept: bool = True) -> pd.DataFrame:
+def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
     """
     Calculate Variance Inflation Factor (VIF) for each feature in a DataFrame.
     
@@ -92,12 +92,16 @@ def calculate_vif(df: pd.DataFrame, intercept: bool = True) -> pd.DataFrame:
     if df_numeric.empty:
         return pd.DataFrame(columns=['feature', 'VIF'])
 
+    # Drop constant predictors (VIF undefined / can explode)
+    variances = df_numeric.var()
+    const_predictors = variances[variances == 0].index.tolist()
+    if const_predictors:
+        df_numeric = df_numeric.drop(columns=const_predictors, errors="ignore")
+
     if intercept:
-        # Check if constant column exists (variance is 0)
-        # If not, add constant
-        if not np.any(df_numeric.var() == 0):
-            df_numeric = df_numeric.copy()
-            df_numeric['const'] = 1.0
+        df_numeric = df_numeric.copy()
+        if "const" not in df_numeric.columns:
+            df_numeric["const"] = 1.0
 
     vif_data = pd.DataFrame()
     vif_data["feature"] = df_numeric.columns
@@ -114,10 +118,9 @@ def calculate_vif(df: pd.DataFrame, intercept: bool = True) -> pd.DataFrame:
 
         return vif_data.sort_values(by='VIF', ascending=False)
         
-    except Exception as e:
+    except Exception:
         logger.exception("Error calculating VIF")
         return pd.DataFrame(columns=['feature', 'VIF'])
-
 
 # --- Confidence Interval Configuration (Helper/Placeholder) ---
 
