@@ -6,12 +6,12 @@ This module provides utility functions for:
 2. Collinearity Diagnostics (VIF)
 3. Confidence Interval Configuration (Helpers)
 """
-import logging
-from typing import Union
 
 import pandas as pd
 import numpy as np
 import statsmodels.stats.multitest as smt
+import logging
+from typing import Union
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from patsy import dmatrix
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # --- Multiple Comparison Corrections (MCC) ---
 
-def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', alpha: float = 0.05) -> pd.Series:
+def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_bh', alpha: float = 0.05) -> pd.Series:
     """
     Apply Multiple Comparison Correction to a list of p-values.
 
@@ -59,7 +59,7 @@ def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', a
         
         return pd.Series(result, index=p_values.index if isinstance(p_values, pd.Series) else None)
         
-    except (ValueError, RuntimeError) as e:
+    except (ValueError, RuntimeError):
         logger.exception("Error applying MCC method '%s'", method)
         # Fallback: return original p-values if correction fails widely
         return pd.Series(p_vals_arr, index=p_values.index if isinstance(p_values, pd.Series) else None)
@@ -123,7 +123,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
         return vif_data.sort_values(by='VIF', ascending=False)
         
-    except (ValueError, np.linalg.LinAlgError) as e:
+    except (ValueError, np.linalg.LinAlgError):
         logger.exception("Error calculating VIF")
         return pd.DataFrame(columns=['feature', 'VIF'])
 
@@ -131,8 +131,13 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
 def get_ci_method_params(method_name: str) -> dict[str, str]:
     """
-    TODO: Placeholder helper to return method-specific parameters for CI calculation.
-    Currently unused - intended for future expansion of CI method configuration.
+    laceholder for CI method configuration.
+    
+    **IMPORTANT**: This function is currently a no-op placeholder and should not be
+    used in production code. Planned for implementation in Issue #XYZ.
+    
+    Future implementation will map CI method names to statsmodels-compatible
+    parameter dictionaries for confidence interval calculation.
     """
     # This can be expanded later if we wrap statsmodels conf_int logic centrally.
-    return {"method": method_name}
+    raise NotImplementedError("CI method configuration is not yet implemented")

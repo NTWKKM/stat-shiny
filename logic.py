@@ -607,7 +607,10 @@ def analyze_outcome(
     aor_results: dict[str, ORResult] = {}
     interaction_results: dict[str, InteractionResult] = {}
     int_meta = {}
+    # Initialize multivariate analysis variables
     final_n_multi = 0
+    predictors_for_vif = []
+    multi_data = None
     mv_metrics_text = ""
     
     def _is_candidate_valid(col):
@@ -618,6 +621,10 @@ def analyze_outcome(
         return series.apply(clean_numeric_value).notna().sum() > 5
     
     cand_valid = [c for c in candidates if _is_candidate_valid(c)]
+    
+    # Initialize variables that may be used later for VIF
+    predictors_for_vif = []
+    final_n_multi = 0
     
     # ✅ FIX: Run multivariate analysis if there are candidates OR interaction pairs
     if len(cand_valid) > 0 or interaction_pairs:
@@ -648,10 +655,10 @@ def analyze_outcome(
         
         multi_data = multi_df.dropna()
         final_n_multi = len(multi_data)
-        predictors = [col for col in multi_data.columns if col != 'y']
+        predictors_for_vif = [col for col in multi_data.columns if col != 'y']
         
-        if not multi_data.empty and final_n_multi > 10 and len(predictors) > 0:
-            params, conf, pvals, status, mv_stats = run_binary_logit(multi_data['y'], multi_data[predictors], method=preferred_method)
+        if not multi_data.empty and final_n_multi > 10 and len(predictors_for_vif) > 0:
+            params, conf, pvals, status, mv_stats = run_binary_logit(multi_data['y'], multi_data[predictors_for_vif], method=preferred_method)
             
             if status == "OK":
                 r2_parts = []
@@ -728,14 +735,7 @@ def analyze_outcome(
     # ✅ VIF CALCULATION
     # ✅ VIF CALCULATION (Expanded Reporting)
     vif_html = ""
-    # VIF only makes sense if we ran multivariate analysis
-    # predictors is defined around line 651 within the multivariate block
-    if 'predictors' not in locals():
-        predictors_for_vif = []
-    else:
-        predictors_for_vif = predictors
-    
-    if vif_enable and final_n_multi > 10 and len(predictors_for_vif) > 1 and 'multi_data' in locals():
+    if vif_enable and multi_data is not None and final_n_multi > 10 and len(predictors_for_vif) > 1:
         try:
             # multi_data[predictors_for_vif] contains numeric/one-hot data used in regression
             vif_df = calculate_vif(multi_data[predictors_for_vif])
