@@ -562,6 +562,10 @@ def fit_nelson_aalen(
             label = "Overall"
 
         if len(df_g) > 0:
+            # Robustness: check if there are any events at all
+            if df_g[event_col].sum() == 0:
+                logger.warning(f"No events in group {label}. Nelson-Aalen cumulative hazard might be flat.")
+            
             naf = NelsonAalenFitter()
             naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
             
@@ -1061,6 +1065,10 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
             border-top: 1px dashed #ccc;
             padding-top: 10px;
         }}
+        .sig-p {{
+            font-weight: bold;
+            color: #d63384;
+        }}
     </style>"""
     
     safe_title = _html.escape(str(title))
@@ -1076,7 +1084,16 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
             html_doc += f"<p>{_html.escape(str(d))}</p>"
         elif t == 'table':
             if isinstance(d, pd.DataFrame):
-                html_doc += d.to_html(classes='table table-striped', border=0)
+                # Apply .sig-p class to P-value columns if they exist
+                d_styled = d.copy()
+                if 'P-value' in d_styled.columns:
+                    # Convert to numeric for comparison if possible
+                    p_vals = pd.to_numeric(d_styled['P-value'], errors='coerce')
+                    d_styled['P-value'] = [
+                        f'<span class="sig-p">{val}</span>' if not pd.isna(pv) and pv < 0.05 else str(val)
+                        for val, pv in zip(d_styled['P-value'], p_vals)
+                    ]
+                html_doc += d_styled.to_html(classes='table table-striped', border=0, escape=False)
             else:
                 html_doc += str(d)
         elif t == 'plot':

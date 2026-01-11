@@ -868,34 +868,39 @@ def analyze_outcome(
             if not vif_df.empty:
                 vif_rows = []
                 for _, row in vif_df.iterrows():
-                    feat = html.escape(str(row["feature"]).replace("::", ": "))  # clean up + escape
+                    feat = html.escape(str(row["feature"]).replace("::", ": "))
                     val = row['VIF']
                     
-                    status_style = ""
-                    status_icon = ""
+                    vif_class = "vif-value"
+                    icon = ""
                     if val > vif_threshold:
-                        status_style = "color: #d32f2f; font-weight: bold;"
-                        status_icon = "⚠️"
+                        vif_class += " vif-warning"
+                        icon = "⚠️"
                     elif val > 5:
-                         status_style = "color: #f57c00;"
+                        vif_class += " vif-caution"
                     
-                    vif_rows.append(f"<tr><td style='padding:4px; border-bottom:1px solid #eee;'>{feat}</td><td style='padding:4px; border-bottom:1px solid #eee; {status_style}'>{val:.2f} {status_icon}</td></tr>")
+                    vif_rows.append(f"""
+                        <tr>
+                            <td>{feat}</td>
+                            <td class='{vif_class}'>{val:.2f} {icon}</td>
+                        </tr>
+                    """)
                 
                 vif_body = "".join(vif_rows)
                 
                 vif_html = f"""
-                <div style='margin-top: 15px;'>
-                    <h6 style='margin-bottom: 5px; color: {COLORS['primary_dark']};'>🔹 Collinearity Diagnostics (VIF)</h6>
-                    <table style='width: 100%; max-width: 400px; font-size: 0.85em; border: 1px solid #eee;'>
-                        <thead style='background: #f8f9fa;'>
+                <div class='vif-container'>
+                    <div class='vif-title'>🔹 Collinearity Diagnostics (VIF)</div>
+                    <table class='vif-table'>
+                        <thead>
                             <tr>
-                                <th style='padding:4px; color: #444; background: #f1f3f4;'>Variable</th>
-                                <th style='padding:4px; color: #444; background: #f1f3f4;'>VIF</th>
+                                <th>Predictor</th>
+                                <th>VIF</th>
                             </tr>
                         </thead>
                         <tbody>{vif_body}</tbody>
                     </table>
-                    <small style='color: #666;'>Threshold: >{vif_threshold} indicates high collinearity.</small>
+                    <div class='vif-footer'>Threshold: >{vif_threshold} indicates potential high collinearity.</div>
                 </div>
                 """
         except (ValueError, np.linalg.LinAlgError) as e:

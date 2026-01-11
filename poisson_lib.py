@@ -27,38 +27,44 @@ COLORS = get_color_palette()
 
 
 def run_poisson_regression(
-    y: pd.Series | np.ndarray,
+    y: pd.Series,
     X: pd.DataFrame,
-    offset: pd.Series | np.ndarray | None = None
-) -> tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
+    offset: Optional[pd.Series] = None,
+    alpha: float = 0.05
+) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
     """
     Fit a Poisson generalized linear model for count outcomes.
     
     Parameters:
-        y (pd.Series | np.ndarray): Observed count outcome aligned with rows of X.
+        y (pd.Series): Observed count outcome aligned with rows of X.
         X (pd.DataFrame): Predictor matrix; a constant column will be added if absent.
-        offset (pd.Series | np.ndarray | None): Additive offset on the linear predictor (e.g., log(exposure)); pass None to omit.
+        offset (Optional[pd.Series]): Additive offset on the linear predictor (e.g., log(exposure)); pass None to omit.
     
     Returns:
-        tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
+        Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
             params: Estimated model coefficients indexed by term, or None on failure.
             conf_int: Coefficient confidence intervals as a DataFrame, or None on failure.
             pvalues: Coefficient p-values indexed by term, or None on failure.
             status_msg: "OK" on success or an error message on failure.
             stats_dict: Fit statistics with keys including "deviance", "pearson_chi2", "aic", and "bic" (values may be NaN if unavailable).
     """
-    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan}
+    stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan, "aic": np.nan, "bic": np.nan}
     
     try:
-        X_const = sm.add_constant(X, has_constant='add')
+        # Check if outcome counts are non-negative
+        if (y < 0).any():
+            return None, None, None, "Error: Count outcome must be non-negative", stats_metrics
+        
+        # Add constant if not present
+        X_with_const = sm.add_constant(X, has_constant='add')
         
         # Fit Poisson GLM
         if offset is not None:
-            model = sm.GLM(y, X_const, family=sm.families.Poisson(), offset=offset)
+            model = sm.GLM(y, X_with_const, family=sm.families.Poisson(), offset=offset)
         else:
-            model = sm.GLM(y, X_const, family=sm.families.Poisson())
+            model = sm.GLM(y, X_with_const, family=sm.families.Poisson())
         
-        result = model.fit(disp=0)
+        result = model.fit() # Removed disp=0 as per instruction, though disp=0 is often useful
         
         # Calculate fit statistics
         try:
@@ -71,18 +77,24 @@ def run_poisson_regression(
         except (AttributeError, ZeroDivisionError) as e:
             logger.debug(f"Failed to calculate Poisson fit stats: {e}")
         
-        return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
+        return result.params, result.conf_int(alpha=alpha), result.pvalues, "OK", stats_metrics
     
     except Exception as e:
+        err_msg = str(e)
+        if "Perfect separation" in err_msg or "separation" in err_msg.lower():
+            logger.warning("Perfect separation detected in Poisson regression")
+            return None, None, None, "Perfect separation detected. Model cannot be reliably fitted.", stats_metrics
+        
         logger.exception("Poisson regression failed")
-        return None, None, None, str(e), stats_metrics
+        return None, None, None, f"Error: {err_msg}", stats_metrics
 
 
 def run_negative_binomial_regression(
-    y: pd.Series | np.ndarray,
+    y: pd.Series,
     X: pd.DataFrame,
-    offset: pd.Series | np.ndarray | None = None
-) -> tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
+    offset: Optional[pd.Series] = None,
+    alpha: float = 0.05
+) -> Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
     """
     Fit Negative Binomial regression (alternative to Poisson for overdispersed data).
     
@@ -133,7 +145,7 @@ def run_negative_binomial_regression(
             logger.debug(f"Failed to calculate NB fit stats: {e}")
         
         params = result.params
-        conf = result.conf_int()
+        conf = result.conf_int(alpha=alpha)
         pvals = result.pvalues
 
         # Remove alpha from coefficient outputs (keep only in stats_metrics)
@@ -186,12 +198,14 @@ def check_count_outcome(series: pd.Series) -> Tuple[bool, str]:
 
 
 def analyze_poisson_outcome(
-    outcome_name: str, 
-    df: pd.DataFrame, 
-    var_meta: Optional[Dict[str, Any]] = None, 
-    offset_col: Optional[str] = None, 
-    interaction_pairs: Optional[List[Tuple[str, str]]] = None
-) -> Tuple[str, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    target: str,
+    df: pd.DataFrame,
+    var_meta: Optional[Dict[str, Any]] = None,
+    offset_col: Optional[str] = None,
+    exclude_cols: Optional[List[str]] = None,
+    interaction_pairs: Optional[List[Tuple[str, str]]] = None,
+    conf_level: float = 0.95
+) -> Tuple[str, Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """
     Perform Poisson regression analysis for count outcome.
     
