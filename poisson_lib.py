@@ -32,15 +32,20 @@ def run_poisson_regression(
     offset: pd.Series | np.ndarray | None = None
 ) -> tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
     """
-    Fit Poisson regression model.
+    Fit a Poisson generalized linear model for count outcomes.
     
-    Args:
-        y: Count outcome variable
-        X: Predictor variables (DataFrame)
-        offset: Exposure offset (optional, for rate calculations)
+    Parameters:
+        y (pd.Series | np.ndarray): Observed count outcome aligned with rows of X.
+        X (pd.DataFrame): Predictor matrix; a constant column will be added if absent.
+        offset (pd.Series | np.ndarray | None): Additive offset on the linear predictor (e.g., log(exposure)); pass None to omit.
     
     Returns:
-        tuple: (params, conf_int, pvalues, status_msg, stats_dict)
+        tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
+            params: Estimated model coefficients indexed by term, or None on failure.
+            conf_int: Coefficient confidence intervals as a DataFrame, or None on failure.
+            pvalues: Coefficient p-values indexed by term, or None on failure.
+            status_msg: "OK" on success or an error message on failure.
+            stats_dict: Fit statistics with keys including "deviance", "pearson_chi2", "aic", and "bic" (values may be NaN if unavailable).
     """
     stats_metrics = {"deviance": np.nan, "pearson_chi2": np.nan}
     

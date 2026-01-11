@@ -26,8 +26,12 @@ from tabs._common import get_color_palette
 
 def get_shiny_css():
     """
-    Returns comprehensive CSS for Shiny app styling with professional Navy Blue theme.
-    Updated to target standard Bootstrap classes used by Shiny (.card, .card-header, etc.)
+    Provide the full CSS stylesheet implementing the Navy Blue theme for Shiny apps.
+    
+    Includes root variables (colors, spacing, radii, shadows, transitions, typography), Bootstrap-compatible component styles (.card, .card-header, .btn, .form-control, .nav-tabs, etc.), utility classes, custom components, and responsive adjustments.
+    
+    Returns:
+        css (str): An HTML string containing a <style>...</style> block with the complete CSS for the theme.
     """
     COLORS = get_color_palette()
 
