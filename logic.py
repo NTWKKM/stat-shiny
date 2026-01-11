@@ -965,66 +965,8 @@ def analyze_outcome(
     </div>
     </div><br>"""
     
-    # --- START FIX: Forest Plot Generation ---
-    forest_plot_html = ""
-    try:
-        # Determine which results to plot (Priority: AOR > OR)
-        plot_data = []
-        source_results = aor_results if aor_results else or_results
-        title_prefix = "Adjusted" if aor_results else "Crude"
-        
-        for label, metrics in source_results.items():
-            # Skip rows without proper data
-            if not isinstance(metrics, dict): 
-                logger.warning(f"Skipping row {label} due to invalid metrics: {metrics}")
-                continue
-
-            # Extract values (support both 'aor' and 'or' keys)
-            val = metrics.get('aor', metrics.get('or'))
-            ci_low = metrics.get('ci_low')
-            ci_high = metrics.get('ci_high')
-            p = metrics.get('p_value')
-            
-            if pd.notna(val) and pd.notna(ci_low) and pd.notna(ci_high):
-                plot_data.append({
-                    'var': label,
-                    'or': val,
-                    'low': ci_low,
-                    'high': ci_high,
-                    'p': p,
-                    'group': title_prefix
-                })
-        
-        if plot_data:
-            df_plot = pd.DataFrame(plot_data)
-            
-            fig = create_forest_plot(
-                data=df_plot,
-                estimate_col='or',
-                ci_low_col='low',
-                ci_high_col='high',
-                label_col='var',
-                pval_col='p',
-                title=f"{title_prefix} Odds Ratios - {outcome_name}",
-                x_label="Odds Ratio"
-            )
-            
-            # Convert to HTML
-            if fig:
-                 forest_html_snippet = fig.to_html(full_html=False, include_plotlyjs='cdn')
-                 # Wrap in container with styling
-                 forest_plot_html = f"""
-                 <div class='table-container forest-plot-section' style='padding: 20px;'>
-                    <h3 style='color:{COLORS['primary_dark']}; margin-top:0;'>🌲 Forest Plot</h3>
-                    {forest_html_snippet}
-                 </div>"""
-    except Exception:
-        logger.exception("Failed to generate forest plot")
-        forest_plot_html = ""
-    # --- END FIX ---
-
     # Return fragment with embedded styles (No <html> wrapper)
-    final_output = html_table + forest_plot_html
+    final_output = html_table
 
     return final_output, or_results, aor_results, interaction_results
 
