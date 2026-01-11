@@ -185,11 +185,8 @@ Access the app at `http://localhost:7860`.
 
 This application is designed for enterprise and restricted environments:
 
-- **No external JavaScript runtime dependencies** - Works behind corporate proxies/firewalls
 - **Compatible with restricted platforms** - Hugging Face Private Spaces, corporate networks
 - **Uses Plotly CDN for interactive visualization** - No local widget servers required
-- **Not affected by library version updates** - Stable HTML rendering
-- **Zero breaking changes** - Existing functionality preserved
 
 ## 📝 License
 
