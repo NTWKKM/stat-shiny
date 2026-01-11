@@ -6,14 +6,14 @@ This module provides utility functions for:
 2. Collinearity Diagnostics (VIF)
 3. Confidence Interval Configuration (Helpers)
 """
+import logging
+from typing import Union
 
 import pandas as pd
 import numpy as np
 import statsmodels.stats.multitest as smt
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from patsy import dmatrix
-from typing import Union
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', a
         
         return pd.Series(result, index=p_values.index if isinstance(p_values, pd.Series) else None)
         
-    except Exception:
+    except (ValueError, RuntimeError) as e:
         logger.exception("Error applying MCC method '%s'", method)
         # Fallback: return original p-values if correction fails widely
         return pd.Series(p_vals_arr, index=p_values.index if isinstance(p_values, pd.Series) else None)
@@ -73,7 +73,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
     
     Args:
         df (pd.DataFrame): DataFrame containing numerical features (predictors).
-                           Categorical variables should be one-hot encoded heavily beforehand 
+                           Categorical variables should be one-hot encoded beforehand 
                            or passed as design matrix.
         intercept (bool): Whether to add an intercept (constant) if not present.
                           VIF calculation requires an intercept for correct interpretation.
@@ -84,9 +84,15 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame(columns=['feature', 'VIF'])
 
-    # Ensure all data is numeric; drop non-numeric columns silently or raise error
-    # Here we attempt to coerce, drop rows with NaNs as VIF can't handle them
+    # Select only numeric columns and drop rows with NaNs (VIF requires complete numeric data)
+    non_numeric_cols = df.columns.difference(df.select_dtypes(include=[np.number]).columns)
+    if len(non_numeric_cols) > 0:
+        logger.debug("VIF: Dropping %d non-numeric columns: %s", len(non_numeric_cols), list(non_numeric_cols))
+
     df_numeric = df.select_dtypes(include=[np.number]).dropna()
+    
+    if len(df_numeric) < len(df):
+        logger.debug("VIF: Dropped %d rows containing NaN values", len(df) - len(df_numeric))
     
     if df_numeric.empty:
         return pd.DataFrame(columns=['feature', 'VIF'])
@@ -117,7 +123,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
         return vif_data.sort_values(by='VIF', ascending=False)
         
-    except Exception:
+    except (ValueError, np.linalg.LinAlgError) as e:
         logger.exception("Error calculating VIF")
         return pd.DataFrame(columns=['feature', 'VIF'])
 
@@ -125,7 +131,8 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
 def get_ci_method_params(method_name: str) -> dict[str, str]:
     """
-    Placeholder helper to return method-specific parameters for CI calculation.
+    TODO: Placeholder helper to return method-specific parameters for CI calculation.
+    Currently unused - intended for future expansion of CI method configuration.
     """
     # This can be expanded later if we wrap statsmodels conf_int logic centrally.
     return {"method": method_name}
