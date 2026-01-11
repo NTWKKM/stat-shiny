@@ -764,6 +764,73 @@
         }
         
         /* Spacing Utilities */
+        .mb-1 { margin-bottom: 4px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-3 { margin-bottom: 12px; }
+        
+        /* ===========================
+           VIF SPECIFIC STYLES
+           =========================== */
+        
+        .vif-container {
+            margin-top: var(--spacing-lg);
+            padding: var(--spacing-md);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            max-width: 500px;
+        }
+        
+        .vif-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-primary-dark);
+            margin-bottom: var(--spacing-sm);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .vif-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .vif-table th {
+            text-align: left;
+            padding: var(--spacing-sm);
+            background-color: var(--color-smoke-white);
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            border-bottom: 2px solid var(--color-border);
+        }
+        
+        .vif-table td {
+            padding: var(--spacing-sm);
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .vif-value {
+            font-family: var(--font-family-mono);
+            font-weight: 600;
+        }
+        
+        .vif-warning {
+            color: var(--color-danger);
+            font-weight: 700;
+        }
+        
+        .vif-caution {
+            color: var(--color-warning);
+        }
+        
+        .vif-footer {
+            margin-top: var(--spacing-sm);
+            font-size: 11px;
+            color: var(--color-text-secondary);
+            font-style: italic;
+        }
         .mt-1 { margin-top: var(--spacing-xs); }
         .mt-2 { margin-top: var(--spacing-sm); }
         .mt-3 { margin-top: var(--spacing-md); }
