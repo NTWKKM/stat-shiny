@@ -19,7 +19,6 @@ class StatsConfig(Protocol):
         Returns:
             The value associated with `key`, or `default` if the key is not found.
         """
-...
     def update(self, key: str, value) -> None: 
         """
         Update a configuration entry identified by `key` with the provided `value`.
@@ -28,8 +27,6 @@ class StatsConfig(Protocol):
             key (str): Configuration key to set (for nested keys use a dot-separated path, e.g. "stats.mcc_enable").
             value: New value to assign to the configuration key.
         """
-...
-
 @module.ui
 def advanced_stats_ui() -> ui.TagChild:
     """
