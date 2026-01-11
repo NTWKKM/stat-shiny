@@ -17,6 +17,7 @@ from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from logger import get_logger
 from tabs._common import get_color_palette
+from config import CONFIG
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -554,7 +555,8 @@ def logit_server(
                 # Note: updated logic.py returns 4 values and html_rep typically includes the plot + css
                 html_rep, or_res, aor_res, interaction_res = analyze_outcome(
                     target, final_df, var_meta=var_meta.get(), method=method,
-                    interaction_pairs=interaction_pairs
+                    interaction_pairs=interaction_pairs,
+                    adv_stats=CONFIG
                 )
             except Exception as e:
                 ui.notification_show(f"Error: {e!s}", type="error")
