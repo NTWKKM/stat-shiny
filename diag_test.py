@@ -225,7 +225,7 @@ def calculate_chi2(
     method: str = 'Pearson (Standard)', 
     v1_pos: Optional[str] = None, 
     v2_pos: Optional[str] = None
-) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame]]:
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], str, Optional[pd.DataFrame]]:
     """
     Comprehensive 2x2+ contingency table analysis.
     

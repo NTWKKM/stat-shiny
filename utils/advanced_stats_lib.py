@@ -8,7 +8,7 @@ This module provides utility functions for:
 """
 from __future__ import annotations
 
-from typing import Union
+from typing import Tuple, List, Dict, Any, Union, Optional
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 # --- Multiple Comparison Corrections (MCC) ---
 
-def apply_mcc(p_values: list[float] | pd.Series | np.ndarray, method: str = "fdr_bh", alpha: float = 0.05) -> pd.Series:
+def apply_mcc(p_values: Union[List[float], pd.Series, np.ndarray], method: str = "fdr_bh", alpha: float = 0.05) -> pd.Series:
     """
     Apply Multiple Comparison Correction to a list of p-values.
 
@@ -45,6 +45,8 @@ def apply_mcc(p_values: list[float] | pd.Series | np.ndarray, method: str = "fdr
 
     # Convert to numpy array for processing, ensuring numeric type and handling NaNs
     p_vals_arr = pd.to_numeric(p_values, errors='coerce')
+    # Robustness: Clip p-values to valid range [0, 1]
+    p_vals_arr = np.clip(p_vals_arr, 0.0, 1.0)
     
     # Mask NaNs to avoid errors in multipletests
     mask = np.isfinite(p_vals_arr)
@@ -123,7 +125,11 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
         vif_vals = []
         for col in features:
             i = df_numeric.columns.get_loc(col)
-            vif_vals.append(variance_inflation_factor(df_numeric.values, i))
+            vif = variance_inflation_factor(df_numeric.values, i)
+            # Robustness: Check for infinite VIF
+            if not np.isfinite(vif):
+                vif = float('inf')
+            vif_vals.append(vif)
         vif_data = pd.DataFrame({"feature": features, "VIF": vif_vals})
         return vif_data.sort_values(by="VIF", ascending=False)
         
@@ -135,7 +141,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
 def determine_best_ci_method(
     n_samples: int,
-    n_events: int | None = None,
+    n_events: Optional[int] = None,
     n_params: int = 1,
     model_type: str = 'logistic'
 ) -> str:
@@ -169,12 +175,20 @@ def determine_best_ci_method(
         
     return recommended
 
-def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1, model_type: str = "logistic") -> dict[str, str]:
+def get_ci_configuration(
+    method_name: str, 
+    alpha: float = 0.05,
+    n_samples: int = 0,
+    n_events: int = 0,
+    n_params: int = 1,
+    model_type: str = "logistic"
+) -> Dict[str, Any]:
     """
     Resolve the confidence-interval method and return configuration details, resolving "auto" to a concrete choice based on sample/events.
     
     Parameters:
-        method (str): One of "auto", "wald", or "profile". If "auto", the function selects a method based on data characteristics.
+        method_name (str): One of "auto", "wald", or "profile". If "auto", the function selects a method based on data characteristics.
+        alpha (float): The significance level for the confidence interval (e.g., 0.05 for 95% CI).
         n_samples (int): Number of observations used to inform automatic selection.
         n_events (int): Number of events (for event-based models); used when applicable to compute events-per-variable.
         n_params (int): Number of model parameters (used to compute events-per-variable when relevant).

@@ -12,53 +12,83 @@ COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
 # --- 1. UI Definition ---
 @module.ui
 def data_ui() -> ui.TagChild:
-    # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
-    # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
+    """
+    UI for the Data Management tab.
+    Provides data loading (example/upload), reset, and variable metadata editing.
+    Refactored for UI consistency using ui.card and theme-aligned styling.
+    """
     return ui.layout_sidebar(
         ui.sidebar(
-            ui.h4("MENU"),
-            ui.h5("1. Data Management"),
-            
-            ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
-            ui.br(), ui.br(),
-            
-            ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
-            
-            ui.hr(),
-            
-            ui.output_ui("ui_btn_clear_match"),
-            ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
-
-            width=300,
-            # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
-            bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
+            ui.div(
+                ui.h4("⚙️ Data Controls", class_="mb-3 text-primary"),
+                ui.input_action_button(
+                    "btn_load_example", 
+                    "📄 Load Example Data", 
+                    class_="btn-outline-primary w-100 mb-2 shadow-sm"
+                ),
+                ui.input_file(
+                    "file_upload", 
+                    "📂 Upload CSV/Excel", 
+                    accept=[".csv", ".xlsx"], 
+                    multiple=False,
+                    width="100%"
+                ),
+                ui.hr(),
+                ui.div(
+                    ui.output_ui("ui_btn_clear_match"),
+                    ui.input_action_button(
+                        "btn_reset_all", 
+                        "⚠️ Reset Workspace", 
+                        class_="btn-outline-danger w-100 shadow-sm"
+                    ),
+                    class_="d-grid gap-2"
+                ),
+                class_="p-2"
+            ),
+            width=320,
+            bg=COLORS['smoke_white'],
+            title="Data Management"
         ),
         
-        # ส่วน Main Content
-        ui.accordion(
-            ui.accordion_panel(
-                "🛠️ 1. Variable Settings & Labels",
+        ui.div(
+            # 1. Variable Settings Card
+            ui.card(
+                ui.card_header(ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")),
                 ui.layout_columns(
                     ui.div(
-                        ui.input_select("sel_var_edit", "Select Variable:", choices=["Select..."]),
+                        ui.input_select(
+                            "sel_var_edit", 
+                            "Select Variable to Edit:", 
+                            choices=["Select..."],
+                            width="100%"
+                        ),
+                        ui.markdown(
+                            """
+                            > [!NOTE]
+                            > **Categorical Mapping**: 
+                            > Format as `0=Control, 1=Treat`.
+                            """
+                        ),
+                        class_="p-2"
                     ),
                     ui.div(
-                        ui.output_ui("ui_var_settings")
+                        ui.output_ui("ui_var_settings"),
+                        class_="p-2"
                     ),
                     col_widths=(4, 8)
                 ),
+                class_="mb-3 shadow-sm border-0"
             ),
-            id="acc_settings",
-            open=True
-        ),
 
-        ui.br(),
-        
-        ui.card(
-            ui.card_header("📄 2. Raw Data Preview"),
-            ui.output_data_frame("out_df_preview"),
-            height="600px",
-            full_screen=True
+            # 2. Data Preview Card
+            ui.card(
+                ui.card_header(ui.tags.span("📄 Data Preview", class_="fw-bold")),
+                ui.output_data_frame("out_df_preview"),
+                height="600px",
+                full_screen=True,
+                class_="shadow-sm border-0"
+            ),
+            class_="p-3"
         )
     )
 
