@@ -19,6 +19,8 @@ class StatsConfig(Protocol):
         Returns:
             The value associated with `key`, or `default` if the key is not found.
         """
+        ...
+
     def update(self, key: str, value) -> None: 
         """
         Update a configuration entry identified by `key` with the provided `value`.
@@ -27,13 +29,17 @@ class StatsConfig(Protocol):
             key (str): Configuration key to set (for nested keys use a dot-separated path, e.g. "stats.mcc_enable").
             value: New value to assign to the configuration key.
         """
+        ...
+
 @module.ui
 def advanced_stats_ui() -> ui.TagChild:
     """
     Builds the sidebar UI for the Advanced Statistics settings panel.
     
     Returns:
-        ui.TagChild: A Shiny UI tag containing controls for Multiple Comparison Correction (MCC), VIF collinearity checks, confidence interval method selection, a Save button, and a companion card with a recent-settings summary and guide.
+        ui.TagChild: A Shiny UI tag containing controls for Multiple Comparison Correction (MCC), 
+        VIF collinearity checks, confidence interval method selection, a Save button, 
+        and a companion card with a recent-settings summary and guide.
     """
     return ui.layout_sidebar(
         ui.sidebar(
@@ -141,24 +147,12 @@ def advanced_stats_ui() -> ui.TagChild:
 def advanced_stats_server(input, output, session, config: StatsConfig):  # noqa: ARG001
     """
     Wire up server-side behavior for the Advanced Statistics module.
-    
-    Reads UI inputs to provide a live textual summary of current MCC, VIF, and CI settings, and persists those settings into `config` when the Save button is clicked. On successful save it logs and shows a success notification; on failure it logs the exception and shows an error notification.
-    
-    Parameters:
-        config (StatsConfig): Mutable settings store; updated with keys
-            'stats.mcc_enable', 'stats.mcc_method', 'stats.mcc_alpha',
-            'stats.vif_enable', 'stats.vif_threshold', and 'stats.ci_method' when the user saves.
     """
     
     @render.text
     def txt_stats_summary() -> str:
         """
-        Produce a multi-line, human-readable summary of the current advanced statistics settings.
-        
-        The returned string includes MCC status (`ON` or `OFF`), MCC method and alpha, VIF check status (`ON` or `OFF`) and threshold, and the selected CI method.
-        
-        Returns:
-            summary (str): Multi-line summary with MCC status, method and alpha, VIF status and threshold, and CI method.
+        Produce a multi-line summary of the current advanced statistics settings.
         """
         mcc = "ON" if input.mcc_enable() else "OFF"
         vif = "ON" if input.vif_enable() else "OFF"
@@ -173,9 +167,7 @@ def advanced_stats_server(input, output, session, config: StatsConfig):  # noqa:
     @reactive.event(input.btn_save_stats)
     def _save_stats_settings() -> None:
         """
-        Persist current advanced statistics UI settings into the provided config and notify the user of the result.
-        
-        Reads the current UI inputs for MCC enablement, MCC method, MCC alpha (converted to float), VIF enablement, VIF threshold (converted to int), and CI method, updates the corresponding `stats.*` keys in the config, logs a success message and shows a success notification. If an error occurs while saving, logs the exception and shows an error notification with the exception message.
+        Persist current advanced statistics UI settings into the provided config.
         """
         try:
             config.update('stats.mcc_enable', input.mcc_enable())
