@@ -10,12 +10,11 @@ This module provides utility functions for:
 import pandas as pd
 import numpy as np
 import statsmodels.stats.multitest as smt
-import logging
 from typing import Union
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from patsy import dmatrix
+from logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # --- Multiple Comparison Corrections (MCC) ---
 
@@ -164,7 +163,7 @@ def determine_best_ci_method(
         
     return recommended
 
-def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1) -> dict[str, str]:
+def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1, model_type: str = 'logistic') -> dict[str, str]:
     """
     Get CI configuration parameters, resolving 'auto' mode.
     """
@@ -172,7 +171,7 @@ def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_param
     note = ""
     
     if method == 'auto':
-        selected_method = determine_best_ci_method(n_samples, n_events, n_params, 'logistic')
+        selected_method = determine_best_ci_method(n_samples, n_events, n_params, model_type)
         note = f"Auto-selected {selected_method.title()} based on sample size/events."
         
     return {
