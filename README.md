@@ -128,7 +128,7 @@ Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
 
 ### Option 1: Run Locally (Python)
 
-Ensure you have Python 3.9+ installed.
+Ensure you have Python 3.10+ installed.
 
 1. **Clone the repository:**
 
