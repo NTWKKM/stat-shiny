@@ -56,6 +56,26 @@
             box-sizing: border-box;
         }
         
+        .report-footer {
+            text-align: center;
+            padding: var(--spacing-xl) 0;
+            margin-top: var(--spacing-2xl);
+            border-top: 1px solid #E5E7EB;
+            color: #6B7280;
+            font-size: 13px;
+            background-color: #FFFFFF;
+        }
+        
+        .report-footer a {
+            color: #1E3A5F;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .report-footer a:hover {
+            text-decoration: underline;
+        }
+        
         /* ===========================
            LAYOUT & CONTAINER
            =========================== */
