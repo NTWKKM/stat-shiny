@@ -9,9 +9,10 @@ This conftest.py sets up fixtures for the entire test suite:
 import os
 import subprocess
 import sys
-import time
 import tempfile
+import time
 from pathlib import Path
+
 import pytest
 import requests
 
@@ -33,7 +34,7 @@ def start_shiny_server(request):
     
     # ข้ามการเปิด Server ถ้าเป็น unit test ทั้งหมด หรือรันในโฟลเดอร์ unit
     has_e2e_tests = any(
-        not any(mark.name == 'unit' for mark in getattr(item, 'iter_markers', list)())
+        not any(mark.name == 'unit' for mark in getattr(item, 'iter_markers', lambda: iter([]))())
         for item in collected_items
     )
     is_unit_dir = all("tests/unit" in str(getattr(item, 'fspath', '')) for item in collected_items)
@@ -80,8 +81,8 @@ def start_shiny_server(request):
             text=True
         )
         print(f"✅ Subprocess started (PID: {process.pid})")
-    except Exception as e:
-        raise RuntimeError(f"❌ Failed to start Shiny server: {e}")
+    except (OSError, subprocess.SubprocessError) as e:
+        raise RuntimeError(f"❌ Failed to start Shiny server: {e}") from e
 
     # ────────────────────────────────────────────────────────────────────
     # Step 3: Wait for server and Capture Error if crashed
@@ -96,7 +97,7 @@ def start_shiny_server(request):
             # ตรวจสอบว่าแอปพังกลางคันหรือไม่
             if process.poll() is not None:
                 log_file.close()
-                with open(log_file.name, 'r') as f:
+                with open(log_file.name) as f:
                     error_log = f.read()
                 raise RuntimeError(f"\n❌ Server crashed on startup!\n--- ERROR LOG ---\n{error_log}\n-----------------")
                 
@@ -142,12 +143,12 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unit: marks tests as unit tests")
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
 
-def pytest_sessionstart(session):
+def pytest_sessionstart(_session):
     print("\n" + "="*70)
     print("📊 Starting Test Session")
     print("="*70)
 
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish(_session, _exitstatus):
     print("\n" + "="*70)
     print("✅ Test Session Complete")
     print("="*70)
