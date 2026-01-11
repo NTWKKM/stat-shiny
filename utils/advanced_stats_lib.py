@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 # --- Multiple Comparison Corrections (MCC) ---
 
-def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_bh', alpha: float = 0.05) -> pd.Series:
+def apply_mcc(p_values: list[float] | pd.Series | np.ndarray, method: str = "fdr_bh", alpha: float = 0.05) -> pd.Series:
     """
     Apply Multiple Comparison Correction to a list of p-values.
 
@@ -37,6 +37,8 @@ def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_b
     """
     if p_values is None or len(p_values) == 0:
         return pd.Series(dtype=float)
+    if not (0.0 < float(alpha) <= 1.0):
+        raise ValueError(f"alpha must be in (0, 1], got {alpha}")
 
     # Convert to numpy array for processing, ensuring numeric type and handling NaNs
     p_vals_arr = pd.to_numeric(p_values, errors='coerce')
@@ -46,7 +48,10 @@ def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_b
     p_vals_clean = p_vals_arr[mask]
     
     if len(p_vals_clean) == 0:
-        return pd.Series(p_vals_arr) # Return original (all NaNs/empty)
+        return pd.Series(
+            p_vals_arr,
+            index=p_values.index if isinstance(p_values, pd.Series) else None,
+        )  # Return original (all NaNs/empty)
 
     try:
         # returns: reject, pvals_corrected, alphacSidak, alphacBonf
@@ -58,7 +63,7 @@ def apply_mcc(p_values: Union[list, pd.Series, np.ndarray], method: str = 'fdr_b
         
         return pd.Series(result, index=p_values.index if isinstance(p_values, pd.Series) else None)
         
-    except (ValueError, RuntimeError):
+    except (ValueError, RuntimeError, TypeError):
         logger.exception("Error applying MCC method '%s'", method)
         # Fallback: return original p-values if correction fails widely
         return pd.Series(p_vals_arr, index=p_values.index if isinstance(p_values, pd.Series) else None)
@@ -107,20 +112,17 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
             df_numeric = df_numeric.copy()
             df_numeric["const"] = 1.0
 
-    vif_data = pd.DataFrame()
-    vif_data["feature"] = df_numeric.columns
+    features = [c for c in df_numeric.columns if c != "const"]
+    if not features:
+        return pd.DataFrame(columns=["feature", "VIF"])
     
     try:
-        vif_data["VIF"] = [
-            variance_inflation_factor(df_numeric.values, i)
-            for i in range(df_numeric.shape[1])
-        ]
-        
-        # Filter out the constant 'const' row if we added it purely for calculation
-        if 'const' in vif_data["feature"].values:
-            vif_data = vif_data[vif_data["feature"] != 'const']
-
-        return vif_data.sort_values(by='VIF', ascending=False)
+        vif_vals = []
+        for col in features:
+            i = df_numeric.columns.get_loc(col)
+            vif_vals.append(variance_inflation_factor(df_numeric.values, i))
+        vif_data = pd.DataFrame({"feature": features, "VIF": vif_vals})
+        return vif_data.sort_values(by="VIF", ascending=False)
         
     except (ValueError, np.linalg.LinAlgError):
         logger.exception("Error calculating VIF")
@@ -130,7 +132,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
 def determine_best_ci_method(
     n_samples: int,
-    n_events: Union[int, None] = None,
+    n_events: int | None = None,
     n_params: int = 1,
     model_type: str = 'logistic'
 ) -> str:
@@ -151,7 +153,11 @@ def determine_best_ci_method(
     Returns:
         str: Recommended method ('wald', 'profile')
     """
-    recommended = 'wald'
+    if n_samples < 0 or n_params < 0:
+        raise ValueError("n_samples and n_params must be non-negative")
+    if model_type not in {"logistic", "linear", "cox"}:
+        raise ValueError(f"Unsupported model_type: {model_type}")
+    recommended = "wald"
     
     if model_type in ['logistic', 'cox'] and n_events is not None:
         epv = n_events / max(1, n_params)
@@ -163,10 +169,12 @@ def determine_best_ci_method(
         
     return recommended
 
-def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1, model_type: str = 'logistic') -> dict[str, str]:
+def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1, model_type: str = "logistic") -> dict[str, str]:
     """
     Get CI configuration parameters, resolving 'auto' mode.
     """
+    if method not in {"auto", "wald", "profile"}:
+        raise ValueError(f"Unsupported CI method: {method}")
     selected_method = method
     note = ""
     

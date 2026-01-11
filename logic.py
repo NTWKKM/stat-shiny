@@ -352,7 +352,12 @@ def analyze_outcome(
     """
     # Extract Advanced Stats Settings
     mcc_enable = adv_stats.get('stats.mcc_enable', False) if adv_stats else False
-    mcc_method = adv_stats.get('stats.mcc_method', 'fdr_bh') if adv_stats else 'fdr_bh'
+    mcc_method = adv_stats.get("stats.mcc_method", "fdr_bh") if adv_stats else "fdr_bh"
+    mcc_alpha = adv_stats.get("stats.mcc_alpha", 0.05) if adv_stats else 0.05
+    try:
+        mcc_alpha = float(mcc_alpha)
+    except (TypeError, ValueError):
+        mcc_alpha = 0.05
     
     vif_enable = adv_stats.get('stats.vif_enable', False) if adv_stats else False
     vif_threshold = adv_stats.get('stats.vif_threshold', 10) if adv_stats else 10
@@ -599,7 +604,7 @@ def analyze_outcome(
                 uni_keys.append(col)
         
         if uni_p_vals:
-            adj_p = apply_mcc(uni_p_vals, method=mcc_method)
+            adj_p = apply_mcc(uni_p_vals, method=mcc_method, alpha=mcc_alpha)
             for k, p_adj in zip(uni_keys, adj_p, strict=True):
                 results_db[k]['p_adj'] = p_adj
     
@@ -728,7 +733,7 @@ def analyze_outcome(
                      mv_keys.append(k)
             
             if mv_p_vals:
-                adj_p = apply_mcc(mv_p_vals, method=mcc_method)
+                adj_p = apply_mcc(mv_p_vals, method=mcc_method, alpha=mcc_alpha)
                 for k, p_adj in zip(mv_keys, adj_p, strict=True):
                     aor_results[k]['p_adj'] = p_adj
     
@@ -742,7 +747,7 @@ def analyze_outcome(
             if not vif_df.empty:
                 vif_rows = []
                 for _, row in vif_df.iterrows():
-                    feat = row['feature'].replace('::', ': ') # clean up
+                    feat = html.escape(str(row["feature"]).replace("::", ": "))  # clean up + escape
                     val = row['VIF']
                     
                     status_style = ""
@@ -872,7 +877,7 @@ def analyze_outcome(
     # ✅ NEW: Add interaction terms to HTML table
     if interaction_results:
         for int_name, res in interaction_results.items():
-            int_label = res.get('label', int_name)
+            int_label = html.escape(str(res.get("label", int_name)))
             int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get('coef')) else "-"
             or_val = res.get('or')
             if or_val is not None and pd.notna(or_val):
