@@ -104,7 +104,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
     # Drop constant predictors (VIF undefined / can explode)
     variances = df_numeric.var()
-    const_predictors = variances[variances == 0].index.tolist()
+    const_predictors = variances[variances < 1e-10].index.tolist()
     if const_predictors:
         df_numeric = df_numeric.drop(columns=const_predictors, errors="ignore")
 
