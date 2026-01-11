@@ -356,8 +356,9 @@ def analyze_outcome(
     
     vif_enable = adv_stats.get('stats.vif_enable', False) if adv_stats else False
     vif_threshold = adv_stats.get('stats.vif_threshold', 10) if adv_stats else 10
+    ci_method = adv_stats.get('stats.ci_method', 'wald') if adv_stats else 'wald'
 
-    logger.info(f"Starting logistic analysis for outcome: {outcome_name}. MCC={mcc_enable}, VIF={vif_enable}")
+    logger.info(f"Starting logistic analysis for outcome: {outcome_name}. MCC={mcc_enable}, VIF={vif_enable}, CI={ci_method}")
     
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
@@ -725,26 +726,44 @@ def analyze_outcome(
                     aor_results[k]['p_adj'] = p_adj
     
     # ✅ VIF CALCULATION
+    # ✅ VIF CALCULATION (Expanded Reporting)
     vif_html = ""
     if vif_enable and final_n_multi > 10 and len(predictors) > 1:
         try:
             # multi_data[predictors] contains numeric/one-hot data used in regression
             vif_df = calculate_vif(multi_data[predictors])
-            # Filter high VIF
-            high_vif = vif_df[vif_df['VIF'] > vif_threshold]
             
-            if not high_vif.empty:
+            if not vif_df.empty:
                 vif_rows = []
-                for _, row in high_vif.iterrows():
+                for _, row in vif_df.iterrows():
                     feat = row['feature'].replace('::', ': ') # clean up
                     val = row['VIF']
-                    vif_rows.append(f"<li><b>{feat}</b>: {val:.1f}</li>")
+                    
+                    status_style = ""
+                    status_icon = ""
+                    if val > vif_threshold:
+                        status_style = "color: #d32f2f; font-weight: bold;"
+                        status_icon = "⚠️"
+                    elif val > 5:
+                         status_style = "color: #f57c00;"
+                    
+                    vif_rows.append(f"<tr><td style='padding:4px; border-bottom:1px solid #eee;'>{feat}</td><td style='padding:4px; border-bottom:1px solid #eee; {status_style}'>{val:.2f} {status_icon}</td></tr>")
                 
-                vif_list = "".join(vif_rows)
+                vif_body = "".join(vif_rows)
+                
                 vif_html = f"""
-                <div style='margin-top: 10px; padding: 10px; background-color: #fff3f3; border: 1px solid #ffcccc; border-radius: 4px;'>
-                    <b style='color: #cc0000;'>⚠️ High Collinearity Detected (VIF > {vif_threshold}):</b>
-                    <ul style='margin: 5px 0 0 20px; color: #cc0000;'>{vif_list}</ul>
+                <div style='margin-top: 15px;'>
+                    <h6 style='margin-bottom: 5px; color: {COLORS['primary_dark']};'>🔹 Collinearity Diagnostics (VIF)</h6>
+                    <table style='width: 100%; max-width: 400px; font-size: 0.85em; border: 1px solid #eee;'>
+                        <thead style='background: #f8f9fa;'>
+                            <tr>
+                                <th style='padding:4px; color: #444; background: #f1f3f4;'>Variable</th>
+                                <th style='padding:4px; color: #444; background: #f1f3f4;'>VIF</th>
+                            </tr>
+                        </thead>
+                        <tbody>{vif_body}</tbody>
+                    </table>
+                    <small style='color: #666;'>Threshold: >{vif_threshold} indicates high collinearity.</small>
                 </div>
                 """
         except Exception as e:
