@@ -79,9 +79,13 @@ def plotly_figure_to_html(
         logger.debug("plotly_figure_to_html: Received None figure, returning placeholder")
         return _create_placeholder_html("⏳ Waiting for data...")
     
+    if go is None:
+        logger.warning("plotly_figure_to_html: Plotly is not installed")
+        return _create_placeholder_html("⚠️ Plotly is not installed")
+
     # Validate figure type
-    if go is not None and not isinstance(fig, go.Figure):
-        logger.warning(f"plotly_figure_to_html: Expected go.Figure, got {type(fig).__name__}")
+    if not isinstance(fig, go.Figure):
+        logger.warning("plotly_figure_to_html: Expected go.Figure, got %s", type(fig).__name__)
         return _create_placeholder_html("⚠️ Invalid figure type")
     
     # Generate or sanitize div_id
@@ -116,7 +120,7 @@ def plotly_figure_to_html(
             }
         )
         
-        logger.debug(f"plotly_figure_to_html: Generated HTML for div_id='{div_id}'")
+        logger.debug("plotly_figure_to_html: Generated HTML for div_id=%r", div_id)
         return html_str
         
     except Exception:

@@ -962,7 +962,14 @@ def logit_server(
             )
         # Use txt_edit_forest_title if provided, fallback to sg_title
         title = input.txt_edit_forest_title() or input.sg_title() or None
-        fig = analyzer.create_forest_plot(title=title)
+        try:
+            fig = analyzer.create_forest_plot(title=title)
+        except ValueError as e:
+            logger.warning("Forest plot creation failed: %s", e)
+            return ui.div(
+                ui.markdown("⚠️ *Run analysis first to generate forest plot.*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
         if fig is None:
             return ui.div(
                 ui.markdown("⏳ *No forest plot available...*"),

@@ -38,7 +38,7 @@ def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', a
         pd.Series: Adjusted p-values.
     """
     if p_values is None or len(p_values) == 0:
-        return pd.Series([])
+        return pd.Series(dtype=float)
 
     # Convert to numpy array for processing, ensuring numeric type and handling NaNs
     p_vals_arr = pd.to_numeric(p_values, errors='coerce')
@@ -60,7 +60,7 @@ def apply_mcc(p_values: list | pd.Series | np.ndarray, method: str = 'fdr_bh', a
         
         return pd.Series(result, index=p_values.index if isinstance(p_values, pd.Series) else None)
         
-    except Exception as e:
+    except Exception:
         logger.exception("Error applying MCC method '%s'", method)
         # Fallback: return original p-values if correction fails widely
         return pd.Series(p_vals_arr, index=p_values.index if isinstance(p_values, pd.Series) else None)
