@@ -568,7 +568,7 @@ def logit_server(
             fig_crude = None
 
             if aor_res:
-                df_adj = pd.DataFrame([{'variable': k, **v} for k, v in aor_res.items()])
+                df_adj = pd.DataFrame([{'variable': v.get('label', k), **v} for k, v in aor_res.items()])
                 if not df_adj.empty:
                     fig_adj = create_forest_plot(
                         df_adj, 'aor', 'ci_low', 'ci_high', 'variable', pval_col='p_value',
@@ -576,7 +576,7 @@ def logit_server(
                     )
 
             if or_res:
-                df_crude = pd.DataFrame([{'variable': k, **v} for k, v in or_res.items()])
+                df_crude = pd.DataFrame([{'variable': v.get('label', k), **v} for k, v in or_res.items()])
                 if not df_crude.empty:
                     fig_crude = create_forest_plot(
                         df_crude, 'or', 'ci_low', 'ci_high', 'variable', pval_col='p_value',

@@ -7,11 +7,12 @@ This module provides utility functions for:
 3. Confidence Interval Configuration (Helpers)
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import statsmodels.stats.multitest as smt
 from typing import Union
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+
 from logger import get_logger
 
 logger = get_logger(__name__)

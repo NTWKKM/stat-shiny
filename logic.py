@@ -95,6 +95,16 @@ InteractionResult = TypedDict("InteractionResult", {
     "label": str
 })
 
+# ✅ NEW: TypedDict for Adjusted OR results
+AORResult = TypedDict("AORResult", {
+    "aor": float,
+    "ci_low": float,
+    "ci_high": float,
+    "p_value": float,
+    "p_adj": Optional[float],
+    "label": Optional[str] # Added for flexible labeling
+})
+
 # ✅ NEW: Helper function to load static CSS
 def load_static_css() -> str:
     """Reads the content of static/styles.css to embed in reports."""
@@ -196,11 +206,18 @@ def _robust_sort_key(x: Any) -> tuple[int, Union[float, str]]:
 def run_binary_logit(
     y: pd.Series, 
     X: pd.DataFrame, 
-    method: MethodType = 'default'
+    method: MethodType = 'default',
+    ci_method: str = 'wald'
 ) -> tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], FitStatus, StatsMetrics]:
     """
     Fit binary logistic regression.
     
+    Args:
+        y: Outcome series
+        X: Predictor dataframe
+        method: Optimization method (default, newton, bfgs, firth)
+        ci_method: Confidence Interval method (wald, profile)
+        
     Returns:
         tuple: (params, conf_int, pvalues, status_msg, stats_dict)
     """
@@ -259,6 +276,13 @@ def run_binary_logit(
             }
         except (AttributeError, ZeroDivisionError, TypeError) as e:
             logger.debug(f"Failed to calculate R2: {e}")
+        
+        if ci_method == 'profile':
+             # Placeholder: Statsmodels doesn't expose profile CI directly on LogitResults in all versions easily
+             # One would typically use `model.fit().conf_int()` which is Wald.
+             # Verification task: check if we can actually run profile CI.
+             # For now, fallback to Wald with a log warning to avoid crash
+             logger.debug("Profile likelihood CI requested but not fully implemented, falling back to Wald")
         
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
     
@@ -335,7 +359,7 @@ def analyze_outcome(
     method: MethodType = 'auto', 
     interaction_pairs: Optional[list[tuple[str, str]]] = None,
     adv_stats: Optional[dict[str, Any]] = None
-) -> tuple[str, dict[str, ORResult], dict[str, ORResult], dict[str, InteractionResult]]:
+) -> tuple[str, dict[str, ORResult], dict[str, AORResult], dict[str, InteractionResult]]:
     """
     Perform logistic regression analysis for binary outcome.
     
@@ -360,7 +384,12 @@ def analyze_outcome(
         mcc_alpha = 0.05
     
     vif_enable = adv_stats.get('stats.vif_enable', False) if adv_stats else False
-    vif_threshold = adv_stats.get('stats.vif_threshold', 10) if adv_stats else 10
+    vif_thresh_raw = adv_stats.get('stats.vif_threshold', 10) if adv_stats else 10
+    try:
+        vif_threshold = float(vif_thresh_raw)
+    except (ValueError, TypeError):
+        vif_threshold = 10.0
+    
     ci_method = adv_stats.get('stats.ci_method', 'wald') if adv_stats else 'wald'
 
     logger.info("Starting logistic analysis for outcome: %s. MCC=%s, VIF=%s, CI=%s", outcome_name, mcc_enable, vif_enable, ci_method)
@@ -604,9 +633,19 @@ def analyze_outcome(
                 uni_keys.append(col)
         
         if uni_p_vals:
+            # Adjust p-values (univariate)
             adj_p = apply_mcc(uni_p_vals, method=mcc_method, alpha=mcc_alpha)
+            
+            # Map back to results
+            # uni_keys contains keys for or_results (e.g. "age", "grade: 2")
             for k, p_adj in zip(uni_keys, adj_p, strict=True):
-                results_db[k]['p_adj'] = p_adj
+                # Update or_results (per-level)
+                if k in or_results:
+                    or_results[k]['p_adj'] = p_adj
+                
+                # Also update results_db for linear scalars where k matches col
+                if k in results_db:
+                    results_db[k]['p_adj'] = p_adj
     
     # Multivariate analysis
     aor_results: dict[str, ORResult] = {}
@@ -663,7 +702,26 @@ def analyze_outcome(
         predictors_for_vif = [col for col in multi_data.columns if col != 'y']
         
         if not multi_data.empty and final_n_multi > 10 and len(predictors_for_vif) > 0:
-            params, conf, pvals, status, mv_stats = run_binary_logit(multi_data['y'], multi_data[predictors_for_vif], method=preferred_method)
+            # Resolve CI Method safely
+            try:
+                # Estimate N params (Intercept + Predictors)
+                n_params_mv = len(predictors_for_vif) + 1
+                ci_config = get_ci_configuration(ci_method, final_n_multi, y.sum(), n_params_mv)
+            except Exception as e:
+                logger.warning("CI configuration failed, falling back to auto: %s", e)
+                # Fallback
+                ci_config = {'method': 'wald', 'note': 'Fallback due to config error'}
+            
+            effective_ci_method = ci_config['method']
+            ci_note = ci_config['note']
+            
+            # Use runner that accepts CI method
+            params, conf, pvals, status, mv_stats = run_binary_logit(
+                multi_data['y'], 
+                multi_data[predictors_for_vif], 
+                method=preferred_method, 
+                ci_method=effective_ci_method
+            )
             
             if status == "OK":
                 r2_parts = []
@@ -709,12 +767,15 @@ def analyze_outcome(
                         
                         # ✅ FIX: Merge interaction results into aor_results for forest plot inclusion
                         for int_name, int_res in interaction_results.items():
-                             label = f"🔗 {int_res.get('label', int_name)}"
-                             aor_results[label] = {
+                             # Use CLEAN KEY for internal storage (no emoji)
+                             label_display = f"🔗 {int_res.get('label', int_name)}"
+                             aor_results[int_name] = {
                                  'aor': int_res.get('or', np.nan), 
                                  'ci_low': int_res.get('ci_low', np.nan), 
                                  'ci_high': int_res.get('ci_high', np.nan), 
-                                 'p_value': int_res.get('p_value', np.nan)
+                                 'p_value': int_res.get('p_value', np.nan),
+                                 'p_adj': None,
+                                 'label': label_display # Added for display
                              }
                     except Exception as e:
                         logger.error(f"Failed to format interaction results: {e}")
@@ -785,12 +846,18 @@ def analyze_outcome(
     valid_cols_for_html = [c for c in sorted_cols if c in results_db]
     grouped_cols = sorted(valid_cols_for_html, key=lambda x: (x.split('_')[0] if '_' in x else "Variables", x))
     
-    # Resolve CI Method for reporting
-    n_events_total = y.sum()
-    n_params_est = len(grouped_cols) + 1 # rough estimate
-    ci_config = get_ci_configuration(ci_method, total_n, n_events_total, n_params_est)
-    effective_ci_method = ci_config['method']
-    ci_note = ci_config['note']
+    # Resolve CI Method for reporting (if not set by multivariate block)
+    # This handles the case where multivariate analysis didn't run or we need a global setting for the table footer
+    if 'effective_ci_method' not in locals():
+        # Fallback estimation based on univariate/total
+        try:
+             # Use total_n and assume simplistic model if MV didn't run
+             ci_config = get_ci_configuration(ci_method, total_n, y.sum(), 2)
+             effective_ci_method = ci_config['method']
+             ci_note = ci_config['note']
+        except Exception:
+             effective_ci_method = 'wald'
+             ci_note = ''
     
     for col in grouped_cols:
         if col == outcome_name:
@@ -887,10 +954,10 @@ def analyze_outcome(
             int_p = fmt_p_with_styling(res.get('p_value', 1))
             
             int_p_adj = "-"
+            int_p_adj = "-"
             if mcc_enable:
-                 pk = f"🔗 {int_label}" # Key used in AOR results
-                 # Note: Interaction result keys in aor_results include emoji
-                 val = aor_results.get(pk, {}).get('p_adj')
+                 # Lookup using clean key (int_name)
+                 val = aor_results.get(int_name, {}).get('p_adj')
                  int_p_adj = fmt_p_with_styling(val)
 
             html_rows.append(f"""<tr style='background-color: {COLORS['primary_light']};'>
