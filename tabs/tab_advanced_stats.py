@@ -8,24 +8,26 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 class StatsConfig(Protocol):
-    def get(self, key: str, default=None): """
-Retrieve a configuration value by key.
+    def get(self, key: str, default=None): 
+        """
+        Retrieve a configuration value by key.
 
-Parameters:
-    key (str): Configuration key to look up.
-    default: Value to return if the key is not present.
+        Parameters:
+            key (str): Configuration key to look up.
+            default: Value to return if the key is not present.
 
-Returns:
-    The value associated with `key`, or `default` if the key is not found.
-"""
+        Returns:
+            The value associated with `key`, or `default` if the key is not found.
+        """
 ...
-    def update(self, key: str, value) -> None: """
-Update a configuration entry identified by `key` with the provided `value`.
+    def update(self, key: str, value) -> None: 
+        """
+        Update a configuration entry identified by `key` with the provided `value`.
 
-Parameters:
-    key (str): Configuration key to set (for nested keys use a dot-separated path, e.g. "stats.mcc_enable").
-    value: New value to assign to the configuration key.
-"""
+        Parameters:
+            key (str): Configuration key to set (for nested keys use a dot-separated path, e.g. "stats.mcc_enable").
+            value: New value to assign to the configuration key.
+        """
 ...
 
 @module.ui
