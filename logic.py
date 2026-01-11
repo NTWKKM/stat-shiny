@@ -732,7 +732,6 @@ def analyze_outcome(
                 for k, p_adj in zip(mv_keys, adj_p, strict=True):
                     aor_results[k]['p_adj'] = p_adj
     
-    # ✅ VIF CALCULATION
     # ✅ VIF CALCULATION (Expanded Reporting)
     vif_html = ""
     if vif_enable and multi_data is not None and final_n_multi > 10 and len(predictors_for_vif) > 1:
