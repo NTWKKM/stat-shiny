@@ -676,7 +676,7 @@ def analyze_outcome(
                     results_db[k]['p_adj'] = p_adj
     
     # Multivariate analysis
-    aor_results: dict[str, AORResult] = {}
+    aor_results: dict[str, ORResult] = {}
     interaction_results: dict[str, InteractionResult] = {}
     int_meta = {}
     # Initialize multivariate analysis variables
@@ -815,7 +815,7 @@ def analyze_outcome(
                                  'label': label_display # Added for display
                              }
                     except Exception as e:
-                        logger.exception("Failed to format interaction results")
+                        logger.error(f"Failed to format interaction results: {e}")
             else:
                 # Log multivariate failure
                 mv_metrics_text = f"<span style='color:red'>Adjustment Failed: {status}</span>"
@@ -990,6 +990,7 @@ def analyze_outcome(
                 int_or = "-"
             int_p = fmt_p_with_styling(res.get('p_value', 1))
             
+            int_p_adj = "-"
             int_p_adj = "-"
             if mcc_enable:
                  # Lookup using clean key (int_name)
