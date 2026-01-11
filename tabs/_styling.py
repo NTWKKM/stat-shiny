@@ -86,6 +86,26 @@ def get_shiny_css():
             box-sizing: border-box;
         }}
         
+        .report-footer {{
+            text-align: center;
+            padding: var(--spacing-xl) 0;
+            margin-top: var(--spacing-2xl);
+            border-top: 1px solid {COLORS['border']};
+            color: {COLORS['text_secondary']};
+            font-size: 13px;
+            background-color: {COLORS['surface']};
+        }}
+        
+        .report-footer a {{
+            color: {COLORS['primary']};
+            text-decoration: none;
+            font-weight: 600;
+        }}
+        
+        .report-footer a:hover {{
+            text-decoration: underline;
+        }}
+        
         /* ===========================
            LAYOUT & CONTAINER
            =========================== */
