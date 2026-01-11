@@ -608,6 +608,14 @@
             background-color: #E8EEF7;
         }
 
+        .sig-p {
+            color: #fff;
+            background-color: #E74856;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
         .shiny-table th, table.dataframe th {
             background-color: #F9FAFB !important;
             color: #1F2328 !important;
