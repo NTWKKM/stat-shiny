@@ -16,7 +16,7 @@ import sys
 import os
 
 # Add project root to path (one level up from tests/)
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
 from utils.plotly_html_renderer import (
     plotly_figure_to_html,

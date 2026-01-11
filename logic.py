@@ -358,7 +358,7 @@ def analyze_outcome(
     vif_threshold = adv_stats.get('stats.vif_threshold', 10) if adv_stats else 10
     ci_method = adv_stats.get('stats.ci_method', 'wald') if adv_stats else 'wald'
 
-    logger.info(f"Starting logistic analysis for outcome: {outcome_name}. MCC={mcc_enable}, VIF={vif_enable}, CI={ci_method}")
+    logger.info("Starting logistic analysis for outcome: %s. MCC=%s, VIF=%s, CI=%s", outcome_name, mcc_enable, vif_enable, ci_method)
     
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
@@ -726,14 +726,15 @@ def analyze_outcome(
                     aor_results[k]['p_adj'] = p_adj
     
     # ✅ VIF CALCULATION
-   # ✅ VIF CALCULATION (Expanded Reporting)
+    # ✅ VIF CALCULATION (Expanded Reporting)
     vif_html = ""
-    predictors_defined = 'predictors' in dir() or (len(cand_valid) > 0 or interaction_pairs)
+    # predictors is defined inside the multivariate block; check if it exists and has content
+    predictors_for_vif = locals().get('predictors', [])
     
-    if vif_enable and final_n_multi > 10 and predictors_defined and len(predictors) > 1:
+    if vif_enable and final_n_multi > 10 and len(predictors_for_vif) > 1:
         try:
-            # multi_data[predictors] contains numeric/one-hot data used in regression
-            vif_df = calculate_vif(multi_data[predictors])
+            # multi_data[predictors_for_vif] contains numeric/one-hot data used in regression
+            vif_df = calculate_vif(multi_data[predictors_for_vif])
             
             if not vif_df.empty:
                 vif_rows = []
@@ -887,7 +888,7 @@ def analyze_outcome(
                 <td><b>{int_or}</b></td>
                 <td>Interaction</td>
                 <td>-</td>
-                {f"<td>-</td>" if mcc_enable else ""}
+                {"<td>-</td>" if mcc_enable else ""}
                 <td>{int_coef}</td>
                 <td><b>{int_or}</b></td>
                 <td>{int_p}</td>
