@@ -115,23 +115,37 @@ def get_stats_categorical_data(
     return counts, total, mapped_series
 
 
-def get_stats_categorical_str(
-    counts: Union[pd.Series, Dict[Any, int]], 
-    total: int
-) -> str:
-    """
-    OPTIMIZED: Format categorical counts as HTML string with vectorization.
-    
-    FIX: Handle both Series and dict inputs - convert dict to Series if needed.
-    """
-    # Convert dict to Series if needed
+def get_stats_categorical_str(counts: Union[pd.Series, Dict[Any, int]], total: int) -> str:
+    """✅ FIXED: รองรับทั้ง Series และ dict พร้อมการตรวจสอบที่ดีขึ้น"""
     if isinstance(counts, dict):
         counts = pd.Series(counts)
     
-    pcts = (counts / total * 100) if total > 0 else pd.Series([0] * len(counts))
-    res = [f"{_html.escape(str(cat))}: {int(count)} ({pct:.1f}%)" 
-           for cat, (count, pct) in zip(counts.index, zip(counts.values, pcts.values, strict=True), strict=True)]
-    return "<br>".join(res)
+    if not isinstance(counts, pd.Series):
+        logger.error(f"Invalid counts type: {type(counts)}")
+        return "-"
+    
+    if len(counts) == 0:
+        return "-"
+    
+    # ✅ Safe percentage calculation
+    if total > 0:
+        pcts = (counts / total * 100)
+    else:
+        pcts = pd.Series([0.0] * len(counts), index=counts.index)
+    
+    try:
+        res = [
+            f"{_html.escape(str(cat))}: {int(count)} ({pct:.1f}%)" 
+            for cat, count, pct in zip(
+                counts.index, 
+                counts.values, 
+                pcts.values
+            )
+        ]
+        return "<br>".join(res)
+    except Exception as e:
+        logger.error(f"Error formatting categorical stats: {e}")
+        return "-"
 
 
 def compute_or_ci(a: float, b: float, c: float, d: float) -> str:
@@ -417,17 +431,27 @@ def generate_table(
     # CRITICAL: Create cleaned copy for statistics ONLY
     # Original df is NEVER modified
     logger.info("Creating cleaned copy for statistical analysis...")
-    df_cleaned, cleaning_report = clean_dataframe(
-        df,
-        handle_outliers_flag=False,  # Don't automatically handle outliers
-        validate_quality=True
-    )
-    
-    logger.info(f"Original data: {df.shape}, Cleaned data: {df_cleaned.shape}")
-    logger.debug(f"Cleaning report: {cleaning_report}")
-    
-    # Use cleaned DataFrame for all statistical calculations
-    # Original df is preserved for reference
+    try:
+        df_cleaned, cleaning_report = clean_dataframe(
+            df, 
+            handle_outliers_flag=False, 
+            validate_quality=True
+        )
+        
+        if df_cleaned is None or df_cleaned.empty:
+            raise ValueError("Data cleaning failed: resulted in empty DataFrame")
+            
+        logger.info(f"Original: {df.shape}, Cleaned: {df_cleaned.shape}")
+        logger.debug(f"Cleaning summary: {cleaning_report.get('summary', {})}")
+        
+        if 'quality_report' in cleaning_report:
+            quality = cleaning_report['quality_report'].get('summary', {})
+            if quality.get('has_errors', False):
+                logger.warning("Data quality issues detected - results may be unreliable")
+                
+    except Exception as e:
+        logger.error(f"Data cleaning failed: {e}")
+        raise ValueError(f"Cannot generate table: data cleaning error - {e}")
     df = df_cleaned
     
     has_group = group_col is not None and group_col != "None"
@@ -435,24 +459,20 @@ def generate_table(
     group_masks = {}  # OPTIMIZATION: Pre-compute all masks
     
     if has_group:
+        if group_col not in df.columns:
+            raise ValueError(f"Group column '{group_col}' not found in data")
+            
         mapper = {}
         if var_meta:
             key = group_col.split('_')[1] if '_' in group_col else group_col
-            if group_col in var_meta: 
-                mapper = var_meta[group_col].get('map', {})
-            elif key in var_meta: 
-                mapper = var_meta[key].get('map', {})
-        
+            if group_col in var_meta: mapper = var_meta[group_col].get('map', {})
+            elif key in var_meta: mapper = var_meta[key].get('map', {})
+            
         raw_groups = df[group_col].dropna().unique().tolist()
-        def _group_sort_key(v: Any) -> Tuple[int, Union[float, str]]:
-            s = str(v)
-            try:
-                return (0, float(s))
-            except (ValueError, TypeError):
-                return (1, s)
-        raw_groups.sort(key=_group_sort_key)
-        
-        # OPTIMIZATION: Pre-compute masks for all groups
+        if len(raw_groups) == 0:
+            raise ValueError(f"No valid groups found in column '{group_col}'")
+            
+        raw_groups.sort(key=lambda v: (0,float(str(v))) if str(v).replace('.','',1).replace('-','',1).isdigit() else (1,str(v)))
         for g in raw_groups:
             label = mapper.get(g, str(g))
             groups.append({'val': g, 'label': str(label)})
@@ -690,98 +710,105 @@ def generate_table(
     for col in selected_vars:
         if col == group_col: 
             continue
-        
-        meta = {}
-        key = col.split('_')[1] if '_' in col else col
-        if var_meta:
-            if col in var_meta: 
-                meta = var_meta[col]
-            elif key in var_meta: 
-                meta = var_meta[key]
-        
-        label = meta.get('label', key)
-        is_cat = meta.get('type') == 'Categorical'
-        if not is_cat and (df[col].nunique() < 10 or df[col].dtype == object): 
-            is_cat = True 
-        
-        row_html = f"                <tr>\n                    <td><strong>{_html.escape(str(label))}</strong></td>\n"
-        
-        if is_cat:
-            counts_total, n_total, mapped_full_series = get_stats_categorical_data(df[col], var_meta, col) 
-            val_total = get_stats_categorical_str(counts_total, n_total)
-        else:
-            val_total = get_stats_continuous(df[col])
-            mapped_full_series = None
             
-        row_html += f"                    <td class='numeric-cell'>{val_total}</td>\n"
+        if col not in df.columns:
+            logger.warning(f"Column '{col}' not found - skipping")
+            continue
         
-        group_vals_list = []
-        
-        if has_group:
-            for g in groups:
-                # OPTIMIZATION: Use pre-computed mask
-                sub_df = df[group_masks[g['val']]]
-                
-                if is_cat:
-                    counts_g, n_g, _ = get_stats_categorical_data(sub_df[col], var_meta, col)
-                    # FIX: counts_g is a Series, pass directly
-                    val_g = get_stats_categorical_str(counts_g, n_g)
-                    row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
-                else:
-                    val_g = get_stats_continuous(sub_df[col])
-                    row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
-                    group_vals_list.append(sub_df[col])
+        try:
+            meta = {}
+            key = col.split('_')[1] if '_' in col else col
+            if var_meta:
+                if col in var_meta: 
+                    meta = var_meta[col]
+                elif key in var_meta: 
+                    meta = var_meta[key]
             
-            if show_or:
-                or_cell_content = "-"
-                if is_cat:
-                    cats = counts_total.index.tolist()
-                    if len(cats) >= 2:
-                        ref_cat = cats[0]
-                        target_cat = cats[-1]
-                        or_res = compute_or_vs_ref(mapped_full_series, target_cat, ref_cat, df[group_col], group_1_val)
-                        or_cell_content = or_res
-                else:
-                    or_cell_content = calculate_or_continuous_logit(df, col, group_col, group_1_val)
-                
-                row_html += f"                    <td class='numeric-cell'>{or_cell_content}</td>\n"
-                
-                smd_cats = counts_total.index.tolist() if is_cat else None
-                smd_val = calculate_smd(df, col, group_col, group_1_val, group_2_val, is_cat=is_cat, mapped_series=mapped_full_series, cats=smd_cats)
-                row_html += f"                    <td class='numeric-cell'>{smd_val}</td>\n"
+            label = meta.get('label', key)
+            is_cat = meta.get('type') == 'Categorical'
+            if not is_cat and (df[col].nunique() < 10 or df[col].dtype == object): 
+                is_cat = True 
             
-            if is_cat: 
-                p_val, test_name = calculate_p_categorical(df, col, group_col)
-            else: 
-                p_val, test_name = calculate_p_continuous(group_vals_list)
+            row_html = f"                <tr>\n                    <td><strong>{_html.escape(str(label))}</strong></td>\n"
             
-            p_val_raw = p_val
-            p_class = "p-not-significant"
-            
-            # ✅ Robust P-value check
-            try:
-                if isinstance(p_val_raw, str):
-                    # Handle "<0.001"
-                    p_float = float(p_val_raw.replace('<', '').strip())
-                else:
-                    p_float = float(p_val_raw)
-                    
-                if p_float < 0.05:
-                    p_class = "p-significant"
-            except (ValueError, TypeError):
-                pass # Keep default
-                
-            p_str = format_p(p_val)
-            if p_class == "p-significant":
-                p_str = f"<span class='p-significant'>{p_str}*</span>"
+            if is_cat:
+                counts_total, n_total, mapped_full_series = get_stats_categorical_data(df[col], var_meta, col) 
+                val_total = get_stats_categorical_str(counts_total, n_total)
             else:
-                p_str = f"<span class='p-not-significant'>{p_str}</span>"
+                val_total = get_stats_continuous(df[col])
+                mapped_full_series = None
                 
-            row_html += f"                    <td class='numeric-cell'>{p_str}</td>\n"
-            row_html += f"                    <td class='numeric-cell'>{test_name}</td>\n"
-        
-        row_html += "                </tr>\n"
-        html += row_html
+            row_html += f"                    <td class='numeric-cell'>{val_total}</td>\n"
+            
+            group_vals_list = []
+            
+            if has_group:
+                for g in groups:
+                    # OPTIMIZATION: Use pre-computed mask
+                    sub_df = df[group_masks[g['val']]]
+                    
+                    if is_cat:
+                        counts_g, n_g, _ = get_stats_categorical_data(sub_df[col], var_meta, col)
+                        val_g = get_stats_categorical_str(counts_g, n_g)
+                        row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
+                    else:
+                        val_g = get_stats_continuous(sub_df[col])
+                        row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
+                        group_vals_list.append(sub_df[col])
+                
+                if show_or:
+                    or_cell_content = "-"
+                    if is_cat:
+                        cats = counts_total.index.tolist()
+                        if len(cats) >= 2:
+                            ref_cat = cats[0]
+                            target_cat = cats[-1]
+                            or_res = compute_or_vs_ref(mapped_full_series, target_cat, ref_cat, df[group_col], group_1_val)
+                            or_cell_content = or_res
+                    else:
+                        or_cell_content = calculate_or_continuous_logit(df, col, group_col, group_1_val)
+                    
+                    row_html += f"                    <td class='numeric-cell'>{or_cell_content}</td>\n"
+                    
+                    smd_cats = counts_total.index.tolist() if is_cat else None
+                    smd_val = calculate_smd(df, col, group_col, group_1_val, group_2_val, is_cat=is_cat, mapped_series=mapped_full_series, cats=smd_cats)
+                    row_html += f"                    <td class='numeric-cell'>{smd_val}</td>\n"
+                
+                if is_cat: 
+                    p_val, test_name = calculate_p_categorical(df, col, group_col)
+                else: 
+                    p_val, test_name = calculate_p_continuous(group_vals_list)
+                
+                p_val_raw = p_val
+                p_class = "p-not-significant"
+                
+                # ✅ Robust P-value check
+                try:
+                    if isinstance(p_val_raw, str):
+                        # Handle "<0.001"
+                        p_float = float(p_val_raw.replace('<', '').strip())
+                    else:
+                        p_float = float(p_val_raw)
+                        
+                    if p_float < 0.05:
+                        p_class = "p-significant"
+                except (ValueError, TypeError):
+                    pass # Keep default
+                    
+                p_str = format_p(p_val)
+                if p_class == "p-significant":
+                    p_str = f"<span class='p-significant'>{p_str}*</span>"
+                else:
+                    p_str = f"<span class='p-not-significant'>{p_str}</span>"
+                    
+                row_html += f"                    <td class='numeric-cell'>{p_str}</td>\n"
+                row_html += f"                    <td class='numeric-cell'>{test_name}</td>\n"
+            
+            row_html += "                </tr>\n"
+            html += row_html
+        except Exception as e:
+            logger.error(f"Error processing column '{col}': {e}")
+            continue
     
     html += f"""            </tbody>
         </table>
