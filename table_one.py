@@ -18,6 +18,12 @@ import html as _html
 import warnings
 from typing import Union, Optional, List, Dict, Tuple, Any, Sequence
 from logger import get_logger
+from utils.data_cleaning import (
+    clean_numeric,
+    clean_numeric_vector,
+    clean_dataframe,
+    validate_data_quality
+)
 
 try:
     from tabs._common import get_color_palette
@@ -41,23 +47,8 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-def clean_numeric(val: Any) -> float:
-    """
-    Parse value to float, handling strings and special characters.
-    """
-    if pd.isna(val): 
-        return np.nan
-    s = str(val).strip().replace('>', '').replace('<', '').replace(',', '')
-    try:
-        return float(s)
-    except (ValueError, TypeError):
-        return np.nan
-
-
-@np.vectorize
-def _clean_numeric_vector(val: Any) -> float:
-    """Vectorized numeric cleaning."""
-    return clean_numeric(val)
+# Note: clean_numeric and clean_numeric_vector are now imported from utils.data_cleaning
+# The local versions have been removed to use the enhanced versions
 
 
 def check_normality(series: pd.Series) -> bool:
@@ -91,8 +82,8 @@ def get_stats_continuous(series: pd.Series) -> str:
     """
     OPTIMIZED: Get mean ± SD with batch cleaning.
     """
-    # Batch numeric conversion
-    clean = pd.Series(series.values).apply(clean_numeric).dropna()
+    # Use enhanced vectorized cleaning from utils.data_cleaning
+    clean = clean_numeric_vector(series).dropna()
     if len(clean) == 0: 
         return "-"
     return f"{clean.mean():.1f} ± {clean.std():.1f}"
@@ -225,7 +216,8 @@ def calculate_or_continuous_logit(
     """
     try:
         y = safe_group_compare(df[group_col], group1_val).astype(int)
-        X = df[feature_col].apply(clean_numeric).rename(feature_col)
+        # Use enhanced vectorized cleaning from utils.data_cleaning
+        X = clean_numeric_vector(df[feature_col]).rename(feature_col)
         
         mask = X.notna() & df[group_col].notna()
         y = y[mask]
@@ -307,8 +299,9 @@ def calculate_smd(
             return "<br>".join(res_smd)
             
         else:
-            v1 = df.loc[mask1, col].apply(clean_numeric).dropna()
-            v2 = df.loc[mask2, col].apply(clean_numeric).dropna()
+            # Use enhanced vectorized cleaning from utils.data_cleaning
+            v1 = clean_numeric_vector(df.loc[mask1, col]).dropna()
+            v2 = clean_numeric_vector(df.loc[mask2, col]).dropna()
             
             if len(v1) == 0 or len(v2) == 0: 
                 return "-"
@@ -335,7 +328,8 @@ def calculate_p_continuous(data_groups: List[pd.Series]) -> Tuple[float, str]:
     """
     Calculate p-value for continuous variables.
     """
-    clean_groups = [g.apply(clean_numeric).dropna() for g in data_groups if len(g.apply(clean_numeric).dropna()) > 1]
+    # Use enhanced vectorized cleaning from utils.data_cleaning
+    clean_groups = [clean_numeric_vector(g).dropna() for g in data_groups if len(clean_numeric_vector(g).dropna()) > 1]
     num_groups = len(clean_groups)
     if num_groups < 2: 
         return np.nan, "-"
@@ -400,10 +394,17 @@ def generate_table(
     """
     OPTIMIZED: Generate baseline characteristics table as HTML with modern styling.
     
+    CRITICAL: Data Cleaning Workflow
+    1. Original DataFrame is NEVER modified
+    2. A cleaned copy is created for statistical calculations ONLY
+    3. All statistics are computed on the cleaned data
+    4. Original data remains intact for audit/reference
+    
     Optimizations:
     - Pre-compute all group masks (8x faster)
     - Batch operations on DataFrames
     - Single-pass HTML generation
+    - Enhanced data cleaning with robust error handling
     
     Returns:
         html_string
@@ -412,6 +413,22 @@ def generate_table(
     
     if or_style not in ('all_levels', 'simple'):
         raise ValueError(f"or_style must be 'all_levels' or 'simple'")
+    
+    # CRITICAL: Create cleaned copy for statistics ONLY
+    # Original df is NEVER modified
+    logger.info("Creating cleaned copy for statistical analysis...")
+    df_cleaned, cleaning_report = clean_dataframe(
+        df,
+        handle_outliers_flag=False,  # Don't automatically handle outliers
+        validate_quality=True
+    )
+    
+    logger.info(f"Original data: {df.shape}, Cleaned data: {df_cleaned.shape}")
+    logger.debug(f"Cleaning report: {cleaning_report}")
+    
+    # Use cleaned DataFrame for all statistical calculations
+    # Original df is preserved for reference
+    df = df_cleaned
     
     has_group = group_col is not None and group_col != "None"
     groups = []
