@@ -118,6 +118,10 @@ def clean_numeric(val: Any, handle_special_chars: bool = True,
             s = s.replace('$', '').replace('€', '').replace('£', '')
             s = s.replace('%', '').replace('(', '').replace(')', '')
         
+        # Handle empty string after cleaning
+        if not s:
+            return np.nan
+
         # Try to convert to float
         result = float(s)
         
@@ -134,6 +138,7 @@ def clean_numeric_vector(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.
     Vectorized numeric cleaning for entire series with comprehensive error handling.
     
     Uses pandas string operations for optimal performance (10x faster than apply).
+    It effectively handles cell-level errors by coercing them to NaN.
     
     Parameters:
         series: Input data series (pd.Series, np.ndarray, or list)
@@ -172,13 +177,14 @@ def clean_numeric_vector(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.
         s = s.str.replace('%', '', regex=False)
         
         # Convert to numeric with error coercion
+        # This is the key step: 'coerce' turns problematic cells into NaN
         result = pd.to_numeric(s, errors='coerce')
         
         # Log conversion statistics
         na_count = result.isna().sum()
         total_count = len(result)
         if na_count > 0:
-            logger.warning(f"Converted {total_count - na_count}/{total_count} values successfully ({na_count} NA)")
+            logger.debug(f"Converted {total_count - na_count}/{total_count} values successfully ({na_count} NA)")
         else:
             logger.debug(f"Successfully cleaned all {total_count} values")
         
@@ -198,23 +204,11 @@ def detect_outliers(series: pd.Series, method: str = 'iqr',
         series: Input numeric series
         method: Detection method ('iqr' or 'zscore')
         threshold: Threshold for outlier detection
-                   - IQR: multiplier (default 1.5)
-                   - Z-score: threshold (default 3.0)
+                    - IQR: multiplier (default 1.5)
+                    - Z-score: threshold (default 3.0)
     
     Returns:
         Tuple[pd.Series, Dict]: Boolean mask of outliers and statistics dict
-    
-    Examples:
-        >>> data = pd.Series([1, 2, 3, 4, 5, 100])
-        >>> mask, stats = detect_outliers(data, method='iqr')
-        >>> mask
-        0    False
-        1    False
-        2    False
-        3    False
-        4    False
-        5     True
-        dtype: bool
     """
     try:
         # Ensure input is a Series
@@ -301,17 +295,6 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
     
     Returns:
         pd.Series: Series with outliers handled
-    
-    Examples:
-        >>> data = pd.Series([1, 2, 3, 4, 5, 100])
-        >>> handle_outliers(data, action='winsorize')
-        0     1.0
-        1     2.0
-        2     3.0
-        3     4.0
-        4     5.0
-        5     5.0
-        dtype: float64
     """
     try:
         # Ensure input is a Series
@@ -374,16 +357,6 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
 def robust_sort_key(x: Any) -> tuple:
     """
     Sort key placing numeric values first, then strings, then NA.
-    
-    Parameters:
-        x: Value to generate sort key for
-    
-    Returns:
-        tuple: Sort key tuple
-    
-    Examples:
-        >>> sorted([3, "a", 1, None, "b"], key=robust_sort_key)
-        [1, 3, 'a', 'b', None]
     """
     try:
         if pd.isna(x):
@@ -397,22 +370,6 @@ def robust_sort_key(x: Any) -> tuple:
 def is_continuous_variable(series: pd.Series) -> bool:
     """
     Determine if a variable should be treated as continuous based on CONFIG.
-    
-    Uses thresholds from config.py:
-    - var_detect_threshold: Number of unique values threshold
-    - var_detect_decimal_pct: Percentage of decimal values threshold
-    
-    Parameters:
-        series: Input series to classify
-    
-    Returns:
-        bool: True if variable should be treated as continuous
-    
-    Examples:
-        >>> is_continuous_variable(pd.Series([1, 2, 3, 4, 5]))
-        False
-        >>> is_continuous_variable(pd.Series([1.1, 2.3, 3.5, 4.7, 5.9]))
-        True
     """
     try:
         # Get threshold from config
@@ -451,18 +408,6 @@ def is_continuous_variable(series: pd.Series) -> bool:
 def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Perform comprehensive data quality validation.
-    
-    Parameters:
-        df: DataFrame to validate
-    
-    Returns:
-        Dict: Validation results with metrics and warnings
-    
-    Examples:
-        >>> df = pd.DataFrame({'A': [1, 2, None], 'B': ['x', 'y', 'z']})
-        >>> results = validate_data_quality(df)
-        >>> results['missing_pct']['A']
-        33.33
     """
     results = {
         'shape': df.shape,
@@ -539,39 +484,21 @@ def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 def clean_dataframe(df: pd.DataFrame, 
-                   handle_outliers_flag: bool = False,
-                   outlier_method: str = 'iqr',
-                   outlier_action: str = 'flag',
-                   validate_quality: bool = True) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+                    handle_outliers_flag: bool = False,
+                    outlier_method: str = 'iqr',
+                    outlier_action: str = 'flag',
+                    validate_quality: bool = True) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Comprehensive data cleaning for entire DataFrame.
     
     This function:
     1. Validates input data
-    2. Cleans all numeric columns
+    2. Cleans all numeric columns (handling individual cell errors)
     3. Handles outliers if requested
     4. Validates data quality if requested
     5. Returns cleaned DataFrame and cleaning report
     
     CRITICAL: Original DataFrame is NEVER modified. A copy is returned.
-    
-    Parameters:
-        df: Input DataFrame to clean
-        handle_outliers_flag: Whether to handle outliers
-        outlier_method: Method for outlier detection ('iqr' or 'zscore')
-        outlier_action: How to handle outliers ('flag', 'remove', 'winsorize', 'cap')
-        validate_quality: Whether to validate data quality
-    
-    Returns:
-        Tuple[pd.DataFrame, Dict]: Cleaned DataFrame and cleaning report
-    
-    Examples:
-        >>> df = pd.DataFrame({'A': [">100", "1,234"], 'B': [1, 2]})
-        >>> cleaned_df, report = clean_dataframe(df)
-        >>> cleaned_df
-              A    B
-        0  100.0  1.0
-        1  1234.0  2.0
     """
     logger.info("Starting comprehensive data cleaning...")
     
@@ -587,10 +514,14 @@ def clean_dataframe(df: pd.DataFrame,
         df_validated = validate_input_data(df)
         cleaning_report['cleaning_steps'].append("Input validation")
         
-        # Create a copy for cleaning (CRITICAL: Original is never modified)
+        # Create a copy for cleaning
         df_cleaned = df_validated.copy()
         logger.info(f"Created copy for cleaning: {df_cleaned.shape}")
         
+        # Use lower threshold to be more aggressive in finding numeric columns
+        # Default lowered to 30% to support granular cleaning of dirty data
+        numeric_threshold = CONFIG.get('analysis.numeric_conversion_threshold', 0.30)
+
         # Clean each column
         for col in df_cleaned.columns:
             col_report = {
@@ -599,24 +530,35 @@ def clean_dataframe(df: pd.DataFrame,
             }
             
             try:
-                # Try to clean as numeric
+                # Try to clean as numeric if it's object/category
                 if df_cleaned[col].dtype in ['object', 'category']:
-                    original_dtype = df_cleaned[col].dtype
+                    original_na = df_cleaned[col].isna().sum()
                     
-                    # Clean numeric values
+                    # Clean numeric values (this sets problematic cells to NaN)
                     cleaned_col = clean_numeric_vector(df_cleaned[col])
                     
-                    # Check if most values are numeric
+                    # Check if enough values are numeric
                     non_na_count = cleaned_col.notna().sum()
                     total_count = len(cleaned_col)
                     non_na_ratio = non_na_count / total_count if total_count > 0 else 0
                     
-                    if non_na_ratio > 0.8:  # 80% or more numeric
-                        df_cleaned[col] = cleaned_col.values  # Use .values to avoid index issues
-                        col_report['actions'].append(f"Converted to numeric ({non_na_ratio*100:.1f}% numeric)")
+                    # UPDATED LOGIC: Be more permissive (threshold > 0.3)
+                    # If the column has at least 30% valid numbers, assume it is numeric
+                    # and treat the rest as missing data (NaN) instead of rejecting the whole column.
+                    if non_na_ratio > numeric_threshold:  
+                        new_na = cleaned_col.isna().sum()
+                        coerced_na = new_na - original_na
+                        
+                        df_cleaned[col] = cleaned_col.values
+                        
+                        action_msg = f"Converted to numeric ({non_na_ratio*100:.1f}% valid)"
+                        if coerced_na > 0:
+                            action_msg += f", set {coerced_na} problematic cells to NaN"
+                            
+                        col_report['actions'].append(action_msg)
                         col_report['new_dtype'] = 'float64'
                     else:
-                        col_report['actions'].append("Kept as object (insufficient numeric ratio)")
+                        col_report['actions'].append("Kept as object (insufficient numeric signal)")
                 
                 # Handle outliers for numeric columns
                 if handle_outliers_flag and pd.api.types.is_numeric_dtype(df_cleaned[col]):
@@ -657,12 +599,6 @@ def clean_dataframe(df: pd.DataFrame,
 def get_cleaning_summary(report: Dict[str, Any]) -> str:
     """
     Generate a human-readable summary of the cleaning report.
-    
-    Parameters:
-        report: Cleaning report from clean_dataframe
-    
-    Returns:
-        str: Formatted summary string
     """
     lines = []
     lines.append("=" * 60)
@@ -706,12 +642,6 @@ def get_cleaning_summary(report: Dict[str, Any]) -> str:
 def quick_clean_numeric(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.Series:
     """
     Quick numeric cleaning without extensive validation.
-    
-    Parameters:
-        series: Input series to clean
-    
-    Returns:
-        pd.Series: Cleaned numeric series
     """
     return clean_numeric_vector(series)
 
@@ -719,12 +649,6 @@ def quick_clean_numeric(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.S
 def quick_clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
     Quick DataFrame cleaning without extensive validation or outlier handling.
-    
-    Parameters:
-        df: Input DataFrame to clean
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
     """
     cleaned, _ = clean_dataframe(
         df, 
@@ -770,11 +694,11 @@ if __name__ == "__main__":
     print(f"  Winsorized: {result.tolist()}")
     
     # Test 5: clean_dataframe
-    print("\n[Test 5] Testing clean_dataframe:")
+    print("\n[Test 5] Testing clean_dataframe (Granular handling):")
     test_df = pd.DataFrame({
-        'A': [">100", "1,234", "abc", "500"],
-        'B': [1, 2, 3, 100],
-        'C': ['x', 'y', 'z', 'w']
+        'Dirty_Numeric': [">100", "1,234", "ERROR", "500"], # 75% valid, 1 error -> Should convert, ERROR becomes NaN
+        'Strictly_Text': ['A', 'B', 'C', 'D'],
+        'Mixed': ['10', '20', 'bad', 'worse'] # 50% valid -> Should convert, bad/worse become NaN (Threshold 0.3)
     })
     cleaned_df, report = clean_dataframe(test_df, handle_outliers_flag=True)
     print(f"  Original:\n{test_df}")
