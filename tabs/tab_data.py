@@ -14,8 +14,8 @@ COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
 def data_ui() -> ui.TagChild:
     """
     UI for the Data Management tab.
-    Provides data loading (example/upload), reset, and variable metadata editing.
     Refactored for UI consistency using ui.card and theme-aligned styling.
+    Now includes Data Health Report section.
     """
     return ui.layout_sidebar(
         ui.sidebar(
@@ -51,6 +51,9 @@ def data_ui() -> ui.TagChild:
         ),
         
         ui.div(
+            # New: Data Health Report Section (Visible only when issues exist)
+            ui.output_ui("ui_data_report_card"),
+
             # 1. Variable Settings Card
             ui.card(
                 ui.card_header(ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")),
@@ -107,10 +110,9 @@ def data_server(
     matched_covariates: reactive.Value[List[str]]
 ) -> None:
 
-    # ไม่ต้องประกาศ ns = session.ns
-    # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
-
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
+    # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
+    data_issues: reactive.Value[List[Dict[str, Any]]] = reactive.Value([])
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
@@ -118,13 +120,14 @@ def data_server(
     def _():
         logger.info("Generating example data...")
         is_loading_data.set(True)
+        data_issues.set([]) # Reset issues
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
 
         try:
             np.random.seed(42)
             n = 1500  
 
-            # --- Simulation Logic ---
+            # --- Simulation Logic (Same as original) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -200,6 +203,7 @@ def data_server(
 
             new_df = pd.DataFrame(data)
 
+            # Meta logic for example data remains explicit
             meta = {
                 'Treatment_Group': {'type':'Categorical', 'map':{0:'Standard Care', 1:'New Drug'}, 'label': 'Treatment Group'},
                 'Sex_Male': {'type':'Categorical', 'map':{0:'Female', 1:'Male'}, 'label': 'Sex'},
@@ -240,6 +244,7 @@ def data_server(
     @reactive.event(lambda: input.file_upload()) 
     def _():
         is_loading_data.set(True)
+        data_issues.set([]) # Reset report
         file_infos: list[FileInfo] = input.file_upload()
 
         if not file_infos:
@@ -261,18 +266,75 @@ def data_server(
             uploaded_file_info.set({"name": f['name']})
 
             current_meta = var_meta.get() or {}
+            current_issues = []
 
+            # --- Improved Type Detection Logic ---
             for col in new_df.columns:
-                if col not in current_meta:
-                    unique_vals = new_df[col].dropna().unique()
-                    is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
-                    if is_numeric and len(unique_vals) > 10:
-                        current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
+                if col in current_meta: continue
+
+                series = new_df[col]
+                unique_vals = series.dropna().unique()
+                n_unique = len(unique_vals)
+                
+                # Default Assumption
+                inferred_type = 'Categorical'
+                
+                # Check 1: Is it already numeric?
+                if pd.api.types.is_numeric_dtype(series):
+                    # ถ้า unique เยอะๆ (เช่น > 10-15) ถือเป็น Continuous
+                    # แต่ถ้า unique น้อยมากๆ (เช่น 0,1 หรือ 1,2,3) ถือเป็น Categorical
+                    if n_unique > 12: 
+                        inferred_type = 'Continuous'
                     else:
-                        current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
+                        inferred_type = 'Categorical'
+                
+                # Check 2: Is it Object/String but looks like numbers? (Dirty Data)
+                # เช่น "100", ">200", "<5", "40.5"
+                elif pd.api.types.is_object_dtype(series):
+                    # ลองแปลงเป็นตัวเลข (coercing errors)
+                    numeric_conversion = pd.to_numeric(series, errors='coerce')
+                    valid_count = numeric_conversion.notna().sum()
+                    total_count = series.notna().sum()
+                    
+                    if total_count > 0:
+                        numeric_ratio = valid_count / total_count
+                        # ถ้าแปลงได้สำเร็จเกิน 70% ให้สันนิษฐานว่าเป็น Continuous ที่มีขยะปน
+                        if numeric_ratio > 0.70:
+                            inferred_type = 'Continuous'
+                            
+                            # --- Identify Bad Rows for Reporting ---
+                            # หาจุดที่แปลงไม่ได้ (NaN) แต่ค่าเดิมไม่ใช่ NaN
+                            bad_mask = numeric_conversion.isna() & series.notna()
+                            bad_rows = series[bad_mask]
+                            
+                            for idx, val in bad_rows.items():
+                                # Limit report items per column to avoid flooding
+                                if len([x for x in current_issues if x['col'] == col]) < 10: 
+                                    current_issues.append({
+                                        'col': col,
+                                        'row': idx + 2, # +2 for Excel row style (1-based + header)
+                                        'value': str(val),
+                                        'issue': 'Non-numeric value in continuous column'
+                                    })
+                                elif len([x for x in current_issues if x['col'] == col]) == 10:
+                                     current_issues.append({
+                                        'col': col,
+                                        'row': '...',
+                                        'value': '...',
+                                        'issue': 'More issues suppressed...'
+                                    })
+
+                current_meta[col] = {'type': inferred_type, 'map': {}, 'label': col}
 
             var_meta.set(current_meta)
-            ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
+            data_issues.set(current_issues) # Store issues for UI
+            
+            msg = f"✅ Loaded {len(new_df)} rows."
+            if current_issues:
+                msg += " ⚠️ Found data quality issues (see report)."
+                ui.notification_show(msg, type="warning")
+            else:
+                ui.notification_show(msg, type="message")
 
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -289,6 +351,7 @@ def data_server(
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+        data_issues.set([])
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
@@ -325,13 +388,13 @@ def data_server(
                 "radio_var_type", 
                 "Variable Type:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
-                selected=current_type, # Set initial value directly
+                selected=current_type, 
                 inline=True
             ),
             ui.input_text_area(
                 "txt_var_map", 
                 "Value Labels (Format: 0=No, 1=Yes)", 
-                value=map_str, # Set initial value directly
+                value=map_str, 
                 height="100px"
             ),
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
@@ -381,7 +444,6 @@ def data_server(
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
-             # ใน Module Context ไม่ต้องใส่ ns() เอง
              return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
 
@@ -392,3 +454,41 @@ def data_server(
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+        
+    # --- New: Data Health Report Renderer ---
+    @render.ui
+    def ui_data_report_card():
+        issues = data_issues.get()
+        if not issues:
+            return None
+            
+        # Create a simple HTML table for issues
+        rows = ""
+        for item in issues:
+            rows += f"<tr><td>{item['col']}</td><td>{item['row']}</td><td>{item['value']}</td><td class='text-danger'>{item['issue']}</td></tr>"
+            
+        table_html = f"""
+        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+            <table class="table table-sm table-striped table-bordered">
+                <thead class="table-danger">
+                    <tr><th>Column</th><th>Row (Excel)</th><th>Invalid Value</th><th>Issue</th></tr>
+                </thead>
+                <tbody>
+                    {rows}
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        return ui.card(
+            ui.card_header(
+                ui.div(
+                    ui.tags.span("⚠️ Data Quality Report", class_="fw-bold text-danger"),
+                    ui.tags.span(f"Found {len(issues)} potential issues", class_="badge bg-danger ms-2"),
+                    class_="d-flex justify-content-between align-items-center"
+                )
+            ),
+            ui.HTML(table_html),
+            ui.markdown("> *Note: These values are non-numeric characters found in likely continuous columns. Please clean your data source or use Data Cleaning tools.*"),
+            class_="mb-3 border-danger shadow-sm"
+        )
