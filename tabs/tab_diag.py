@@ -355,8 +355,12 @@ def diag_server(
                 [str(x) for x in d[truth_col].dropna().unique()]
             )
             default_pos_idx = 0
+            # Force default to "1" or "1.0" if available
             if "1" in unique_vals:
                 default_pos_idx = unique_vals.index("1")
+            elif "1.0" in unique_vals:
+                default_pos_idx = unique_vals.index("1.0")
+                
             return ui.input_select(
                 "sel_roc_pos_label",
                 "Positive Label (1):",
@@ -425,10 +429,15 @@ def diag_server(
         unique_vals = [str(x) for x in df_input[col_name].dropna().unique()]
         unique_vals.sort()
         default_idx = 0
+        
+        # Prioritize "1" then "1.0", then "0"
         if "1" in unique_vals:
             default_idx = unique_vals.index("1")
+        elif "1.0" in unique_vals:
+            default_idx = unique_vals.index("1.0")
         elif "0" in unique_vals:
             default_idx = unique_vals.index("0")
+            
         return unique_vals, default_idx
 
     @render.ui

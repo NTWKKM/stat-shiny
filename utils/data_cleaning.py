@@ -293,7 +293,7 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
     Parameters:
         series: Input numeric series
         method: Detection method ('iqr' or 'zscore')
-        action: How to handle outliers ('flag', 'remove', 'winsorize', 'cap')
+        action: How to handle outliers ('flag', 'remove' (set to NaN), 'winsorize', 'cap')
         **kwargs: Additional arguments for detect_outliers
     
     Returns:
@@ -323,7 +323,7 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
             # Remove outliers (return with NaN)
             result = cleaned.copy()
             result[outlier_mask] = np.nan
-            logger.info(f"Removed {stats['outlier_count']} outliers")
+            logger.info(f"Removed {stats['outlier_count']} outliers (set to NaN)")
             
         elif action == 'winsorize':
             # Winsorize outliers to boundary values
@@ -538,7 +538,11 @@ def clean_dataframe(df: pd.DataFrame,
             
             try:
                 # Try to clean as numeric if it's object/category
-                if df_cleaned[col].dtype in ['object', 'category']:
+                if (
+                    pd.api.types.is_object_dtype(df_cleaned[col])
+                    or pd.api.types.is_string_dtype(df_cleaned[col])
+                    or pd.api.types.is_categorical_dtype(df_cleaned[col])
+                ):
                     original_na = df_cleaned[col].isna().sum()
                     
                     # Clean numeric values (this sets problematic cells to NaN)

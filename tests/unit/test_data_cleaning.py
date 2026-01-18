@@ -20,7 +20,7 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from utils.data_cleaning import (
+from utils.data_cleaning import (  # isort: skip
     check_missing_data_impact,
     clean_dataframe,
     clean_numeric,
