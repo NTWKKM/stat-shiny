@@ -61,7 +61,7 @@ class TestPSMPipeline:
         covariates = ['age', 'severity']
         
         # Step 1: Calculate Propensity Scores
-        ps_series = calculate_propensity_score(df, 'treatment', covariates)
+        ps_series, _ = calculate_propensity_score(df, 'treatment', covariates)
         
         assert len(ps_series) == len(df)
         assert ps_series.min() >= 0
