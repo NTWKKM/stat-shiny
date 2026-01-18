@@ -59,11 +59,15 @@ def validate_input_data(data: Any) -> pd.DataFrame:
         if df.empty:
             logger.warning("Input data is empty")
             
-        logger.debug(f"Validated input data: {df.shape[0]} rows, {df.shape[1]} columns")
+        logger.debug(
+            "Validated input data: %s rows, %s columns",
+            df.shape[0],
+            df.shape[1],
+        )
         return df
         
     except Exception as e:
-        logger.error(f"Failed to validate input data: {e}")
+        logger.exception("Failed to validate input data")
         raise DataValidationError(f"Input validation failed: {e}") from e
 
 
@@ -323,7 +327,7 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
             
         elif action == 'winsorize':
             # Winsorize outliers to boundary values
-            result = cleaned.copy()
+            result = cleaned.copy().astype(float)
             
             if stats['method'] == 'iqr':
                 lower_bound = stats['lower_bound']
@@ -335,7 +339,7 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
                 
         elif action == 'cap':
             # Cap outliers to nearest non-outlier value
-            result = cleaned.copy()
+            result = cleaned.copy().astype(float)
             
             if stats['method'] == 'iqr':
                 lower_bound = stats['lower_bound']
@@ -647,7 +651,7 @@ def get_cleaning_summary(report: Dict[str, Any]) -> str:
 def apply_missing_values_to_df(
     df: pd.DataFrame,
     var_meta: Dict[str, Any],
-    missing_codes: Optional[List[Any]] = None
+    missing_codes: Optional[Union[List[Any], Dict[str, Any]]] = None
 ) -> pd.DataFrame:
     """
     Replace user-specified missing value codes with NaN.
@@ -655,7 +659,7 @@ def apply_missing_values_to_df(
     Parameters:
         df: Input DataFrame
         var_meta: Variable metadata with 'missing_values' per variable
-        missing_codes: Global missing value codes (fallback)
+        missing_codes: Global missing value codes (list) or per-column (dict)
     
     Returns:
         DataFrame with missing codes replaced by NaN
@@ -667,17 +671,23 @@ def apply_missing_values_to_df(
         # Get variable-specific missing values from metadata
         if col in var_meta and 'missing_values' in var_meta[col]:
             missing_vals = var_meta[col]['missing_values']
+        elif isinstance(missing_codes, dict):
+            missing_vals = missing_codes.get(col, [])
         else:
             missing_vals = missing_codes or []
         
         if not missing_vals:
             continue
             
-        # Replace each missing code with NaN
-        for val in missing_vals:
-            df_copy[col] = df_copy[col].replace(val, np.nan)
-            # Also try numeric conversion for string comparisons
-            if pd.api.types.is_numeric_dtype(df_copy[col]):
+        # Ensure missing_vals is a list for replace
+        if not isinstance(missing_vals, (list, tuple, np.ndarray)):
+            missing_vals = [missing_vals]
+            
+        # Replace all missing codes in one pass
+        df_copy[col] = df_copy[col].replace(missing_vals, np.nan)
+        # Also try numeric conversion for string comparisons
+        if pd.api.types.is_numeric_dtype(df_copy[col]):
+            for val in missing_vals:
                 try:
                     df_copy[col] = df_copy[col].replace(float(val), np.nan)
                 except (ValueError, TypeError):
@@ -839,31 +849,44 @@ def handle_missing_for_analysis(
 def check_missing_data_impact(
     df_original: pd.DataFrame,
     df_clean: pd.DataFrame,
-    var_meta: Dict[str, Any]
+    var_meta: Dict[str, Any],
+    missing_codes: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Compare before/after to report impact of missing data handling.
+    
+    Provides accurate counts even if source data contained coded missing values 
+    (e.g., -99, 999) by normalizing internally if missing_codes is provided.
     
     Parameters:
         df_original: Original DataFrame (before cleaning)
         df_clean: Cleaned DataFrame (after handling)
         var_meta: Variable metadata
+        missing_codes: Optional dictionary mapping variable names to missing values
     
     Returns:
         Dictionary with impact statistics
     """
-    rows_removed = len(df_original) - len(df_clean)
-    pct_removed = (rows_removed / len(df_original) * 100) if len(df_original) > 0 else 0
+    # Normalize if missing codes provided to ensure accurate counting
+    if missing_codes:
+        df_orig_norm = apply_missing_values_to_df(df_original, var_meta, missing_codes)
+        df_clean_norm = apply_missing_values_to_df(df_clean, var_meta, missing_codes)
+    else:
+        df_orig_norm = df_original
+        df_clean_norm = df_clean
+
+    rows_removed = len(df_orig_norm) - len(df_clean_norm)
+    pct_removed = (rows_removed / len(df_orig_norm) * 100) if len(df_orig_norm) > 0 else 0
     
     # Find which variables had missing data  
     variables_affected = []
     observations_lost = {}
     
-    for col in df_original.columns:
-        if col not in df_clean.columns:
+    for col in df_orig_norm.columns:
+        if col not in df_clean_norm.columns:
             continue
             
-        original_missing = df_original[col].isna().sum()
+        original_missing = df_orig_norm[col].isna().sum()
         
         if original_missing > 0:
             var_label = var_meta.get(col, {}).get('label', col)
@@ -871,7 +894,7 @@ def check_missing_data_impact(
             observations_lost[col] = {
                 'label': var_label,
                 'count': int(original_missing),
-                'pct': round((original_missing / len(df_original) * 100), 1)
+                'pct': round((original_missing / len(df_orig_norm) * 100), 1)
             }
     
     return {
@@ -902,54 +925,3 @@ def quick_clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     )
     return cleaned
 
-
-if __name__ == "__main__":
-    """Test the data cleaning functions"""
-    print("\n" + "=" * 60)
-    print("Testing Data Cleaning Utilities")
-    print("=" * 60)
-    
-    # Test 1: clean_numeric
-    print("\n[Test 1] Testing clean_numeric:")
-    test_values = [">100", "1,234.56", None, "abc", "$500"]
-    for val in test_values:
-        result = clean_numeric(val)
-        print(f"  {val} -> {result}")
-    
-    # Test 2: clean_numeric_vector
-    print("\n[Test 2] Testing clean_numeric_vector:")
-    test_series = pd.Series([">100", "1,234.56", None, "abc", "$500"])
-    result = clean_numeric_vector(test_series)
-    print(f"  Input: {test_series.tolist()}")
-    print(f"  Output: {result.tolist()}")
-    
-    # Test 3: detect_outliers
-    print("\n[Test 3] Testing detect_outliers:")
-    test_series = pd.Series([1, 2, 3, 4, 5, 100])
-    mask, stats = detect_outliers(test_series, method='iqr')
-    print(f"  Series: {test_series.tolist()}")
-    print(f"  Outlier mask: {mask.tolist()}")
-    print(f"  Stats: {stats}")
-    
-    # Test 4: handle_outliers
-    print("\n[Test 4] Testing handle_outliers:")
-    test_series = pd.Series([1, 2, 3, 4, 5, 100])
-    result = handle_outliers(test_series, action='winsorize')
-    print(f"  Original: {test_series.tolist()}")
-    print(f"  Winsorized: {result.tolist()}")
-    
-    # Test 5: clean_dataframe
-    print("\n[Test 5] Testing clean_dataframe (Granular handling):")
-    test_df = pd.DataFrame({
-        'Dirty_Numeric': [">100", "1,234", "ERROR", "500"], # 75% valid, 1 error -> Should convert, ERROR becomes NaN
-        'Strictly_Text': ['A', 'B', 'C', 'D'],
-        'Mixed': ['10', '20', 'bad', 'worse'] # 50% valid -> Should convert, bad/worse become NaN (Threshold 0.3)
-    })
-    cleaned_df, report = clean_dataframe(test_df, handle_outliers_flag=True)
-    print(f"  Original:\n{test_df}")
-    print(f"\n  Cleaned:\n{cleaned_df}")
-    print(f"\n  Summary:\n{get_cleaning_summary(report)}")
-    
-    print("\n" + "=" * 60)
-    print("All tests completed!")
-    print("=" * 60 + "\n")
