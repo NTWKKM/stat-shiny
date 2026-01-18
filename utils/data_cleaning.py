@@ -335,7 +335,7 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
                 result = result.clip(lower=lower_bound, upper=upper_bound)
                 logger.info(f"Winsorized {stats['outlier_count']} outliers to [{lower_bound:.2f}, {upper_bound:.2f}]")
             else:
-                logger.warning("Winsorizing only supported with IQR method")
+                raise ValueError(f"Winsorizing requires 'iqr' method, got '{stats['method']}'")
                 
         elif action == 'cap':
             # Cap outliers to nearest non-outlier value
@@ -348,7 +348,7 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
                 result[result > upper_bound] = upper_bound
                 logger.info(f"Capped {stats['outlier_count']} outliers at bounds")
             else:
-                logger.warning("Capping only supported with IQR method")
+                raise ValueError(f"Capping requires 'iqr' method, got '{stats['method']}'")
                 
         else:
             raise ValueError(f"Unknown outlier handling action: {action}")
