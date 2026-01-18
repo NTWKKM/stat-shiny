@@ -13,11 +13,12 @@ This module provides:
 
 Driven by central configuration from config.py
 """
-
-import pandas as pd
-import numpy as np
-from typing import Any, Union, List, Dict, Tuple, Optional
 import warnings
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
+
 from config import CONFIG
 from logger import get_logger
 
@@ -26,12 +27,10 @@ logger = get_logger(__name__)
 
 class DataCleaningError(Exception):
     """Custom exception for data cleaning errors."""
-    pass
 
 
 class DataValidationError(Exception):
     """Custom exception for data validation errors."""
-    pass
 
 
 def validate_input_data(data: Any) -> pd.DataFrame:
@@ -395,8 +394,9 @@ def is_continuous_variable(series: pd.Series) -> bool:
                 decimal_ratio = decimal_count / len(non_na)
                 if decimal_ratio >= decimal_pct:
                     return True
-        except:
-            pass
+        except (ValueError, TypeError, AttributeError):
+            # Numeric conversion failed, treat as non-continuous
+            logger.debug("Could not determine decimal ratio for series")
         
         return False
         

@@ -20,9 +20,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 
 from psm_lib import (
     calculate_propensity_score,
-    perform_matching,
     compute_smd,
-    plot_love_plot
+    perform_matching,
+    plot_love_plot,
 )
 
 # Mark as integration test

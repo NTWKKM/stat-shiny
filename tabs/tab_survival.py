@@ -12,13 +12,15 @@ Provides UI and server logic for:
 Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 """
 
-from shiny import ui, module, reactive, render, req
-from utils.plotly_html_renderer import plotly_figure_to_html
-from utils.formatting import create_missing_data_report_html
-import pandas as pd
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
+
 import numpy as np
+import pandas as pd
+from shiny import module, reactive, render, req, ui
+
 import survival_lib
-from typing import Optional, List, Dict, Any, Tuple, Union, cast
+from utils.formatting import create_missing_data_report_html
+from utils.plotly_html_renderer import plotly_figure_to_html
 
 try:
     from subgroup_analysis_module import SubgroupAnalysisCox

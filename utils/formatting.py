@@ -4,10 +4,14 @@ Consolidated from logic.py, table_one.py, and diag_test.py
 Driven by central configuration from config.py
 """
 
+import html as _html
+from typing import Optional, Union
+
 import numpy as np
 import pandas as pd
-from typing import Union, Optional
+
 from config import CONFIG  # นำเข้าตัวสั่งการ
+
 
 def format_p_value(p: float, *, use_style: bool = True) -> str:
     """
@@ -104,7 +108,7 @@ def create_missing_data_report_html(
     html += '<h4>📊 Missing Data Summary</h4>\n'
     
     # Strategy info
-    strategy = missing_data_info.get('strategy', 'Unknown')
+    strategy = _html.escape(missing_data_info.get('strategy', 'Unknown'))
     rows_analyzed = missing_data_info.get('rows_analyzed', 0)
     rows_excluded = missing_data_info.get('rows_excluded', 0)
     total_rows = rows_analyzed + rows_excluded
@@ -117,6 +121,10 @@ def create_missing_data_report_html(
     
     # Variables with missing data
     summary = missing_data_info.get('summary_before', [])
+    
+    # Get threshold from config
+    threshold = CONFIG.get('analysis.missing.report_threshold_pct', 50)
+    
     if summary:
         vars_with_missing = [v for v in summary if v.get('N_Missing', 0) > 0]
         
@@ -126,9 +134,6 @@ def create_missing_data_report_html(
             html += '<thead><tr><th>Variable</th><th>Type</th><th>N Valid</th><th>N Missing</th><th>% Missing</th></tr></thead>\n'
             html += '<tbody>\n'
             
-            # Get threshold from config
-            threshold = CONFIG.get('analysis.missing.report_threshold_pct', 50)
-            
             for var in vars_with_missing:
                 pct_str = var.get('Pct_Missing', '0%')
                 try:
@@ -137,11 +142,13 @@ def create_missing_data_report_html(
                     pct_val = 0
                 
                 row_class = 'high-missing' if pct_val > threshold else ''
-                var_label = var_meta.get(var['Variable'], {}).get('label', var['Variable'])
+                raw_label = var_meta.get(var['Variable'], {}).get('label', var['Variable'])
+                var_label = _html.escape(str(raw_label))
+                var_type = _html.escape(str(var.get('Type', 'Unknown')))
                 
                 html += f"<tr class='{row_class}'>\n"
                 html += f"<td>{var_label}</td>\n"
-                html += f"<td>{var.get('Type', 'Unknown')}</td>\n"
+                html += f"<td>{var_type}</td>\n"
                 html += f"<td>{var.get('N_Valid', 0):,}</td>\n"
                 html += f"<td>{var.get('N_Missing', 0):,}</td>\n"
                 html += f"<td>{pct_str}</td>\n"
@@ -150,13 +157,14 @@ def create_missing_data_report_html(
             html += '</tbody>\n</table>\n'
     
     # Warnings for high missing
-    high_missing = [v for v in summary if _get_pct(v.get('Pct_Missing', '0%')) > 50]
+    high_missing = [v for v in summary if _get_pct(v.get('Pct_Missing', '0%')) > threshold]
     if high_missing:
         html += '<div class="warning-box">\n'
         html += '<strong>⚠️ Warning:</strong> Variables with >50% missing data:\n'
         html += '<ul>\n'
         for var in high_missing:
-            var_label = var_meta.get(var['Variable'], {}).get('label', var['Variable'])
+            raw_label = var_meta.get(var['Variable'], {}).get('label', var['Variable'])
+            var_label = _html.escape(str(raw_label))
             html += f"<li>{var_label} ({var.get('Pct_Missing', '?')} missing)</li>\n"
         html += '</ul>\n'
         html += '</div>\n'

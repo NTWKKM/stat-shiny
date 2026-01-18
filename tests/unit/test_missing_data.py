@@ -8,21 +8,23 @@ Tests:
 - handle_missing_for_analysis - Apply handling strategy
 - check_missing_data_impact - Report impact
 """
-
-import pytest
-import pandas as pd
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+import pandas as pd
+import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from utils.data_cleaning import (
     apply_missing_values_to_df,
+    check_missing_data_impact,
     detect_missing_in_variable,
     get_missing_summary_df,
     handle_missing_for_analysis,
-    check_missing_data_impact,
 )
 
 
@@ -160,7 +162,7 @@ class TestHandleMissingForAnalysis:
         })
         var_meta = {}
         
-        result, counts = handle_missing_for_analysis(df, var_meta, return_counts=True)
+        _, counts = handle_missing_for_analysis(df, var_meta, return_counts=True)
         
         assert 'original_rows' in counts
         assert 'final_rows' in counts

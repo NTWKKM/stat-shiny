@@ -7,14 +7,14 @@ Returns Incidence Rate Ratios (IRR) instead of Odds Ratios (OR)
 ✅ Now supports Interaction Terms Analysis
 OPTIMIZED for Python 3.12 with strict type hints.
 """
-import pandas as pd
-import numpy as np
-import scipy.stats as stats
-import statsmodels.api as sm
-
 import html
 import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+import statsmodels.api as sm
 
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -70,7 +70,7 @@ def run_poisson_regression(
         else:
             model = sm.GLM(y, X_with_const, family=sm.families.Poisson())
         
-        result = model.fit() # Removed disp=0 as per instruction, though disp=0 is often useful
+        result = model.fit(disp=0)  # Suppress convergence output
         
         # Calculate fit statistics
         try:
@@ -208,9 +208,7 @@ def analyze_poisson_outcome(
     df: pd.DataFrame,
     var_meta: Optional[Dict[str, Any]] = None,
     offset_col: Optional[str] = None,
-    exclude_cols: Optional[List[str]] = None,
     interaction_pairs: Optional[List[Tuple[str, str]]] = None,
-    conf_level: float = 0.95
 ) -> Tuple[str, Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """
     Perform Poisson regression analysis for count outcome.
@@ -228,8 +226,13 @@ def analyze_poisson_outcome(
     # ✅ FIX: Wrap entire function in try-except to prevent None return crashes
     try:
         # ✅ Consolidated fmt_p import: Use logic.py's centralized formatting
-        from logic import (clean_numeric_value, _robust_sort_key, get_label, 
-                           fmt_p, fmt_p_with_styling)
+        from logic import (
+            _robust_sort_key,
+            clean_numeric_value,
+            fmt_p,
+            fmt_p_with_styling,
+            get_label,
+        )
         
         logger.info(f"Starting Poisson analysis for outcome: {outcome_name}")
         
@@ -501,7 +504,11 @@ def analyze_poisson_outcome(
             # ✅ Add interaction terms if specified
             if interaction_pairs:
                 try:
-                    from interaction_lib import create_interaction_terms, format_interaction_results
+                    from interaction_lib import (
+                        create_interaction_terms,
+                        format_interaction_results,
+                    )
+
                     # Now multi_df has the raw columns, so create_interaction_terms will work correctly
                     multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                     logger.info(f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model")
