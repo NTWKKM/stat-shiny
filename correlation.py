@@ -803,6 +803,9 @@ def generate_report(
             else:
                 html += f"<p>{_html.escape(text_str)}</p>"
         
+        elif element_type == 'html':
+             html += str(data)
+        
         elif element_type == 'interpretation':
             html += f"<div class='interpretation'>📊 {_html.escape(str(data))}</div>"
         
