@@ -16,6 +16,11 @@ import statsmodels.stats.multitest as smt
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from logger import get_logger
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
 
 logger = get_logger(__name__)
 
@@ -76,7 +81,7 @@ def apply_mcc(p_values: Union[List[float], pd.Series, np.ndarray], method: str =
 
 # --- Collinearity Diagnostics (VIF) ---
 
-def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
+def calculate_vif(df: pd.DataFrame, *, intercept: bool = True, var_meta: Optional[Dict[str, Any]] = None) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Calculate Variance Inflation Factor (VIF) for each feature in a DataFrame.
     
@@ -86,25 +91,53 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
                            or passed as design matrix.
         intercept (bool): Whether to add an intercept (constant) if not present.
                           VIF calculation requires an intercept for correct interpretation.
+        var_meta (dict, optional): Variable metadata for missing value handling.
 
     Returns:
-        pd.DataFrame: A DataFrame with columns ['feature', 'VIF'].
+        Tuple[pd.DataFrame, Dict[str, Any]]: 
+            - DataFrame with columns ['feature', 'VIF'].
+            - Missing data info dictionary.
     """
     if df is None or df.empty:
-        return pd.DataFrame(columns=['feature', 'VIF'])
+        return pd.DataFrame(columns=['feature', 'VIF']), {}
+
+    var_meta = var_meta or {}
+
+    # 1. Apply Missing Value Codes
+    df_clean = apply_missing_values_to_df(df, var_meta)
+    
+    # 2. Generate Missing Summary (before dropping)
+    missing_summary = get_missing_summary_df(df_clean, var_meta)
+    
+    # 3. Handle Missing Data (Complete Case)
+    # VIF requires complete numeric data, so we must drop NaNs.
+    # We use 'complete-case' implicitly by calling handle_missing_for_analysis 
+    # or manually dropping. Since VIF often runs on a subset, let's use the standard handler.
+    # Note: handle_missing_for_analysis expects a target column, but VIF is unsupervised regarding target.
+    # We can just dropna() on the whole df_clean.
+    
+    initial_n = len(df_clean)
+    df_numeric = df_clean.select_dtypes(include=[np.number]).dropna()
+    final_n = len(df_numeric)
+    
+    missing_info = {
+        'strategy': 'complete-case',
+        'initial_n': initial_n,
+        'final_n': final_n,
+        'excluded_n': initial_n - final_n,
+        'missing_summary': missing_summary.to_dict('records') if not missing_summary.empty else []
+    }
 
     # Select only numeric columns and drop rows with NaNs (VIF requires complete numeric data)
     non_numeric_cols = df.columns.difference(df.select_dtypes(include=[np.number]).columns)
     if len(non_numeric_cols) > 0:
         logger.debug("VIF: Dropping %d non-numeric columns: %s", len(non_numeric_cols), list(non_numeric_cols))
-
-    df_numeric = df.select_dtypes(include=[np.number]).dropna()
     
-    if len(df_numeric) < len(df):
-        logger.debug("VIF: Dropped %d rows containing NaN values", len(df) - len(df_numeric))
+    if len(df_numeric) < initial_n:
+        logger.debug("VIF: Dropped %d rows containing NaN values", initial_n - len(df_numeric))
     
     if df_numeric.empty:
-        return pd.DataFrame(columns=['feature', 'VIF'])
+        return pd.DataFrame(columns=['feature', 'VIF']), missing_info
 
     # Drop constant predictors (VIF undefined / can explode)
     variances = df_numeric.var()
@@ -119,7 +152,7 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
     features = [c for c in df_numeric.columns if c != "const"]
     if not features:
-        return pd.DataFrame(columns=["feature", "VIF"])
+        return pd.DataFrame(columns=["feature", "VIF"]), missing_info
     
     try:
         vif_vals = []
@@ -131,11 +164,11 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
                 vif = float('inf')
             vif_vals.append(vif)
         vif_data = pd.DataFrame({"feature": features, "VIF": vif_vals})
-        return vif_data.sort_values(by="VIF", ascending=False)
+        return vif_data.sort_values(by="VIF", ascending=False), missing_info
         
     except (ValueError, np.linalg.LinAlgError):
         logger.exception("Error calculating VIF")
-        return pd.DataFrame(columns=['feature', 'VIF'])
+        return pd.DataFrame(columns=['feature', 'VIF']), missing_info
 
 # --- Confidence Interval Configuration (Helper/Placeholder) ---
 

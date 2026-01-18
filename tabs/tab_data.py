@@ -54,10 +54,11 @@ def data_ui() -> ui.TagChild:
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
 
-            # 1. Variable Settings Card
+            # 1. Variable Settings Card (3-column layout with Missing Data Config)
             ui.card(
                 ui.card_header(ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")),
                 ui.layout_columns(
+                    # LEFT COLUMN: Variable Selection
                     ui.div(
                         ui.input_select(
                             "sel_var_edit", 
@@ -74,11 +75,30 @@ def data_ui() -> ui.TagChild:
                         ),
                         class_="p-2"
                     ),
+                    # MIDDLE COLUMN: Variable Settings
                     ui.div(
                         ui.output_ui("ui_var_settings"),
                         class_="p-2"
                     ),
-                    col_widths=(4, 8)
+                    # RIGHT COLUMN: Missing Data Configuration
+                    ui.div(
+                        ui.h6("🔍 Missing Data", style="margin-top: 0; color: #0066cc;"),
+                        ui.input_text(
+                            "txt_missing_codes",
+                            "Missing Value Codes:",
+                            placeholder="e.g., -99, -999, 99",
+                            value=""
+                        ),
+                        ui.output_ui("ui_missing_preview"),
+                        ui.input_action_button(
+                            "btn_save_missing",
+                            "💾 Save Missing Config",
+                            class_="btn-secondary w-100 mt-2"
+                        ),
+                        class_="p-2",
+                        style="background-color: #f8f9fa; border-radius: 6px;"
+                    ),
+                    col_widths=(3, 6, 3)
                 ),
                 class_="mb-3 shadow-sm border-0"
             ),
@@ -431,6 +451,74 @@ def data_server(
         }
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
+
+    # --- Missing Data Configuration Handlers ---
+    @render.ui
+    def ui_missing_preview():
+        """Preview currently configured missing values for selected variable"""
+        var_name = input.sel_var_edit()
+        if not var_name or var_name == "Select...":
+            return ui.p("Select a variable", style="color: #999; font-size: 0.85em;")
+        
+        meta = var_meta.get()
+        if not meta or var_name not in meta:
+            return ui.p("No config yet", style="color: #999; font-size: 0.85em;")
+        
+        missing_vals = meta[var_name].get('missing_values', [])
+        if not missing_vals:
+            return ui.p("No missing codes configured", style="color: #999; font-size: 0.85em;")
+        
+        codes_str = ", ".join(str(v) for v in missing_vals)
+        return ui.p(
+            f"✓ Codes: {codes_str}", 
+            style="color: #198754; font-weight: 500; font-size: 0.9em;"
+        )
+    
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_save_missing())
+    def _save_missing_config():
+        """Save missing data configuration for selected variable"""
+        var_name = input.sel_var_edit()
+        if not var_name or var_name == "Select...":
+            ui.notification_show("⚠️ Select a variable first", type="warning")
+            return
+        
+        # Parse comma-separated missing codes
+        missing_input = input.txt_missing_codes()
+        missing_codes = []
+        
+        if missing_input.strip():
+            for item in missing_input.split(','):
+                item = item.strip()
+                if not item:
+                    continue
+                # Try to parse as number
+                try:
+                    if '.' in item:
+                        missing_codes.append(float(item))
+                    else:
+                        missing_codes.append(int(item))
+                except ValueError:
+                    # If not a number, treat as string
+                    missing_codes.append(item)
+        
+        # Update metadata
+        current_meta = var_meta.get() or {}
+        if var_name not in current_meta:
+            current_meta[var_name] = {
+                'type': 'Continuous',
+                'map': {},
+                'label': var_name
+            }
+        
+        current_meta[var_name]['missing_values'] = missing_codes
+        var_meta.set(current_meta)
+        
+        codes_display = ", ".join(str(c) for c in missing_codes) if missing_codes else "None"
+        ui.notification_show(
+            f"✅ Missing codes for '{var_name}' set to: {codes_display}",
+            type="message"
+        )
 
     # --- 3. Render Outputs ---
     @render.data_frame

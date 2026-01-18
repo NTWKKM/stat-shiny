@@ -18,6 +18,7 @@ from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from logger import get_logger
 from tabs._common import get_color_palette
 from config import CONFIG
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -309,7 +310,8 @@ def logit_ui() -> ui.TagChild:
                         ui.hr(),
                         ui.output_ui("out_interpretation_box"),
                         ui.h5("Detailed Results"),
-                        ui.output_data_frame("out_sg_table")
+                        ui.output_data_frame("out_sg_table"),
+                        ui.output_ui("out_sg_missing_report")
                     ),
                     ui.nav_panel(
                         "💾 Exports",
@@ -1021,7 +1023,8 @@ def logit_server(
                     treatment_col=input.sg_treatment(),
                     subgroup_col=input.sg_subgroup(),
                     adjustment_cols=list(input.sg_adjust()),
-                    min_subgroup_n=input.sg_min_n()
+                    min_subgroup_n=input.sg_min_n(),
+                    var_meta=var_meta.get()
                 )
                 
                 subgroup_res.set(results)
@@ -1138,6 +1141,13 @@ def logit_server(
             cols = ['group', 'n', 'events', 'or', 'ci_low', 'ci_high', 'p_value']
             available_cols = [c for c in cols if c in df_res.columns]
             return render.DataGrid(df_res[available_cols].round(4))
+        return None
+
+    @render.ui
+    def out_sg_missing_report():
+        res = subgroup_res.get()
+        if res and 'missing_data_info' in res:
+             return ui.HTML(create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {}))
         return None
 
     # --- Subgroup Downloads ---

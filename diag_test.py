@@ -24,6 +24,12 @@ import html as _html
 import warnings
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -224,8 +230,9 @@ def calculate_chi2(
     col2: str, 
     method: str = 'Pearson (Standard)', 
     v1_pos: Optional[str] = None, 
-    v2_pos: Optional[str] = None
-) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], str, Optional[pd.DataFrame]]:
+    v2_pos: Optional[str] = None,
+    var_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], str, Optional[pd.DataFrame], Optional[Dict[str, Any]]]:
     """
     Comprehensive 2x2+ contingency table analysis.
     
@@ -234,13 +241,30 @@ def calculate_chi2(
     """
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns '{col1}' or '{col2}' not found")
-        return None, None, "Columns not found", None
+        return None, None, "Columns not found", None, {}
     
-    data = df[[col1, col2]].dropna()
+    # --- MISSING DATA HANDLING ---
+    missing_data_info = {}
+    if var_meta:
+        df_subset = df[[col1, col2]].copy()
+        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+        missing_summary = get_missing_summary_df(df_processed, var_meta)
+        df_clean, impact = handle_missing_for_analysis(
+            df_processed, var_meta, strategy='complete-case', return_counts=True
+        )
+        missing_data_info = {
+            'strategy': 'complete-case',
+            'rows_analyzed': impact['final_rows'],
+            'rows_excluded': impact['rows_removed'],
+            'summary_before': missing_summary.to_dict('records')
+        }
+        data = df_clean
+    else:
+        data = df[[col1, col2]].dropna()
 
     if data.empty:
         logger.warning("No data after dropping NAs")
-        return None, None, "No data available after dropping missing values.", None
+        return None, None, "No data available after dropping missing values.", None, missing_data_info
 
     data = data.copy()
     data[col1] = data[col1].astype(str)
@@ -627,14 +651,19 @@ def calculate_chi2(
         
         # Return with comprehensive data
         # Note: Return types are correctly hinted at the top
-        return display_tab, stats_df, msg, risk_df
+        return display_tab, stats_df, msg, risk_df, missing_data_info
     
     except Exception as e:
         logger.exception("Chi-square calculation error")
         return display_tab, None, str(e), None
 
 
-def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame]]:
+def calculate_kappa(
+    df: pd.DataFrame, 
+    col1: str, 
+    col2: str,
+    var_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame], Optional[Dict[str, Any]]]:
     """
     Calculate Cohen's Kappa between 2 raters.
     
@@ -643,13 +672,30 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
     """
     if col1 not in df.columns or col2 not in df.columns:
         logger.error(f"Columns not found: {col1}, {col2}")
-        return None, "Columns not found", None
+        return None, "Columns not found", None, {}
     
-    data = df[[col1, col2]].dropna()
+    # --- MISSING DATA HANDLING ---
+    missing_data_info = {}
+    if var_meta:
+        df_subset = df[[col1, col2]].copy()
+        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+        missing_summary = get_missing_summary_df(df_processed, var_meta)
+        df_clean, impact = handle_missing_for_analysis(
+            df_processed, var_meta, strategy='complete-case', return_counts=True
+        )
+        missing_data_info = {
+            'strategy': 'complete-case',
+            'rows_analyzed': impact['final_rows'],
+            'rows_excluded': impact['rows_removed'],
+            'summary_before': missing_summary.to_dict('records')
+        }
+        data = df_clean
+    else:
+        data = df[[col1, col2]].dropna()
     
     if data.empty:
         logger.warning("No data after dropping NAs")
-        return None, "No data after dropping NAs", None
+        return None, "No data after dropping NAs", None, missing_data_info
     
     y1 = data[col1].astype(str)
     y2 = data[col2].astype(str)
@@ -719,7 +765,7 @@ def calculate_kappa(df: pd.DataFrame, col1: str, col2: str) -> Tuple[Optional[pd
         conf_matrix.index.name = col1
         
         logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
-        return res_df, None, conf_matrix
+        return res_df, None, conf_matrix, missing_data_info
     
     except Exception as e:
         logger.error(f"Kappa calculation error: {e}")
@@ -796,7 +842,8 @@ def analyze_roc(
     truth_col: str, 
     score_col: str, 
     method: str = 'delong', 
-    pos_label_user: Optional[str] = None
+    pos_label_user: Optional[str] = None,
+    var_meta: Optional[Dict[str, Any]] = None
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[go.Figure], Optional[pd.DataFrame]]:
     """
     Analyze ROC curve with interactive Plotly visualization.
@@ -805,6 +852,27 @@ def analyze_roc(
         tuple: (stats_dict, error_msg, plotly_fig, coords_df)
     """
     data = df[[truth_col, score_col]].dropna()
+    
+    # --- MISSING DATA HANDLING ---
+    missing_data_info = {}
+    if var_meta:
+        # We start fresh from df to apply rules
+        df_subset = df[[truth_col, score_col]].copy()
+        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+        missing_summary = get_missing_summary_df(df_processed, var_meta)
+        df_clean, impact = handle_missing_for_analysis(
+            df_processed, var_meta, strategy='complete-case', return_counts=True
+        )
+        missing_data_info = {
+            'strategy': 'complete-case',
+            'rows_analyzed': impact['final_rows'],
+            'rows_excluded': impact['rows_removed'],
+            'summary_before': missing_summary.to_dict('records')
+        }
+        data = df_clean
+    else:
+        # Standard
+        data = df[[truth_col, score_col]].dropna()
 
     if data.empty:
         logger.error("No data available for ROC analysis")
@@ -920,6 +988,9 @@ def analyze_roc(
         'Specificity': 1-fpr,
         'J-Index': j_scores
     })
+
+    if missing_data_info:
+        stats_dict['missing_data_info'] = missing_data_info
 
     return stats_dict, None, fig, coords_df
 
