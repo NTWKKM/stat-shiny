@@ -36,10 +36,10 @@ def calculate_propensity_score(
         
         missing_data_info = {}
         if var_meta:
-            # 1. Apply codes (converts user-defined missing to NaN)
+            # 1. Get summary of what is missing (on original data)
+            missing_summary = get_missing_summary_df(df_subset, var_meta)
+            # 2. Apply codes (converts user-defined missing to NaN)
             df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-            # 2. Get summary of what is missing
-            missing_summary = get_missing_summary_df(df_processed, var_meta)
             
             # 3. Create report info (Strategy: Mean Imputation)
             # We don't drop rows here, we impute.

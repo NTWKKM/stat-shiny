@@ -446,13 +446,13 @@ def analyze_outcome(
     logger.info("Starting logistic analysis for outcome: %s. MCC=%s, VIF=%s, CI=%s", outcome_name, mcc_enable, vif_enable, ci_method)
     
     # --- MISSING DATA HANDLING ---
-    # Step 1: Apply user-defined missing value codes → NaN
-    missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
-    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
-    
-    # Step 2: Get missing summary BEFORE dropping rows
+    # Step 1: Get missing summary BEFORE normalization
     missing_summary_df = get_missing_summary_df(df, var_meta or {})
     missing_summary_records = missing_summary_df.to_dict('records')
+    
+    # Step 2: Apply user-defined missing value codes → NaN
+    missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
     
     # Step 3: Handle missing data (complete-case)
     df_clean, miss_counts = handle_missing_for_analysis(

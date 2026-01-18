@@ -322,10 +322,10 @@ def calculate_correlation(
         cols_to_use = [col1, col2]
         df_subset = df[cols_to_use].copy()
         
-        # 1. Apply codes
+        # 1. Get summary (on original data)
+        missing_summary = get_missing_summary_df(df_subset, var_meta)
+        # 2. Apply codes
         df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-        # 2. Get summary
-        missing_summary = get_missing_summary_df(df_processed, var_meta)
         # 3. Handle (Complete case)
         df_clean, impact = handle_missing_for_analysis(
             df_processed, var_meta, strategy='complete-case', return_counts=True
@@ -470,8 +470,8 @@ def compute_correlation_matrix(
     missing_data_info = {}
     if var_meta:
         df_subset = df[cols].copy()
+        missing_summary = get_missing_summary_df(df_subset, var_meta)
         df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-        missing_summary = get_missing_summary_df(df_processed, var_meta)
         
         # Note: Correlation calculation usually handles pairwise missingness (analyzes valid pairs)
         # So 'drop_na' across ALL columns might be too aggressive if we want pairwise.
@@ -638,8 +638,16 @@ def generate_report(
     """
     Generate comprehensive HTML report from elements.
     
+    Element Type Contract:
+    - 'html': Must contain pre-escaped HTML strings. Producers (e.g., 
+      create_missing_data_report_html()) are responsible for escaping user-supplied 
+      metadata using utils.formatting._html.escape().
+    - 'text', 'interpretation', 'summary', 'note', 'table': Automatically escaped 
+      by this function using _html.escape() or to_html(escape=True).
+    - 'plot': Handled via Plotly's to_html().
+
     Args:
-        title (str): Report title
+        title (str): Report title (automatically escaped)
         elements (list): List of report elements with 'type', 'data', 'header'
         
     Returns:

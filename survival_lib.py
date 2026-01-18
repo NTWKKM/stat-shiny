@@ -453,8 +453,8 @@ def fit_km_logrank(
         
     # Handle missing data
     df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
     df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
-    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
 
     data, impact = handle_missing_for_analysis(
         df_processed,
@@ -581,8 +581,8 @@ def fit_nelson_aalen(
 
     # Handle missing data
     df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
     df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
-    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
 
     data, impact = handle_missing_for_analysis(
         df_processed,
@@ -691,8 +691,8 @@ def fit_cox_ph(
 
     # Handle missing data
     df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
     df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
-    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
 
     data, impact = handle_missing_for_analysis(
         df_processed,
@@ -997,8 +997,8 @@ def fit_km_landmark(
 
     # Handle missing data
     df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
     df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
-    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
 
     data, impact = handle_missing_for_analysis(
         df_processed,

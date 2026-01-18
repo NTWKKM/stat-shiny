@@ -249,8 +249,8 @@ def calculate_chi2(
     missing_data_info = {}
     if var_meta:
         df_subset = df[[col1, col2]].copy()
+        missing_summary = get_missing_summary_df(df_subset, var_meta)
         df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-        missing_summary = get_missing_summary_df(df_processed, var_meta)
         df_clean, impact = handle_missing_for_analysis(
             df_processed, var_meta, strategy='complete-case', return_counts=True
         )
@@ -680,8 +680,8 @@ def calculate_kappa(
     missing_data_info = {}
     if var_meta:
         df_subset = df[[col1, col2]].copy()
+        missing_summary = get_missing_summary_df(df_subset, var_meta)
         df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-        missing_summary = get_missing_summary_df(df_processed, var_meta)
         df_clean, impact = handle_missing_for_analysis(
             df_processed, var_meta, strategy='complete-case', return_counts=True
         )
@@ -862,8 +862,8 @@ def analyze_roc(
     if var_meta:
         # We start fresh from df to apply rules
         df_subset = df[[truth_col, score_col]].copy()
+        missing_summary = get_missing_summary_df(df_subset, var_meta)
         df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-        missing_summary = get_missing_summary_df(df_processed, var_meta)
         df_clean, impact = handle_missing_for_analysis(
             df_processed, var_meta, strategy='complete-case', return_counts=True
         )

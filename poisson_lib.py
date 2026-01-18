@@ -237,8 +237,8 @@ def analyze_poisson_outcome(
         logger.info(f"Starting Poisson analysis for outcome: {outcome_name}")
         
         # --- MISSING DATA HANDLING ---
-        df = apply_missing_values_to_df(df, var_meta or {}, [])
         missing_summary_df = get_missing_summary_df(df, var_meta or {})
+        df = apply_missing_values_to_df(df, var_meta or {}, [])
         missing_summary_records = missing_summary_df.to_dict('records')
         df_clean, miss_counts = handle_missing_for_analysis(
             df, var_meta or {}, strategy='complete-case', return_counts=True

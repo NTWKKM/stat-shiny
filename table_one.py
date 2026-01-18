@@ -146,7 +146,8 @@ def get_stats_categorical_str(counts: Union[pd.Series, Dict[Any, int]], total: i
             for cat, count, pct in zip(
                 counts.index, 
                 counts.values, 
-                pcts.values
+                pcts.values,
+                strict=True
             )
         ]
         return "<br>".join(res)
@@ -444,12 +445,12 @@ def generate_table(
     missing_codes = missing_cfg.get("user_defined_values", [])
     
     # --- MISSING DATA HANDLING ---
-    # Step 1: Apply user-defined missing value codes → NaN
-    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
-    
-    # Step 2: Get missing summary BEFORE dropping rows
+    # Step 1: Get missing summary BEFORE normalization
     missing_summary_df = get_missing_summary_df(df, var_meta or {})
     missing_summary_records = missing_summary_df.to_dict('records')
+    
+    # Step 2: Apply user-defined missing value codes → NaN
+    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
     
     # Step 3: Handle missing data (complete-case)
     df_clean, miss_counts = handle_missing_for_analysis(
@@ -492,7 +493,7 @@ def generate_table(
                 
     except Exception as e:
         logger.error(f"Data cleaning failed: {e}")
-        raise ValueError(f"Cannot generate table: data cleaning error - {e}")
+        raise ValueError(f"Cannot generate table: data cleaning error - {e}") from e
     df = df_cleaned
     
     has_group = group_col is not None and group_col != "None"
@@ -850,7 +851,7 @@ def generate_table(
             row_html += "                </tr>\n"
             html += row_html
         except Exception as e:
-            logger.error(f"Error processing column '{col}': {e}")
+            logger.exception(f"Error processing column '{col}': {e}")
             continue
     
     html += f"""            </tbody>
