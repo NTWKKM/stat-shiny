@@ -837,6 +837,54 @@ def auc_ci_delong(y_true: Any, y_scores: Any) -> Tuple[float, float, float]:
         return np.nan, np.nan, np.nan
 
 
+def _format_missing_data_html(missing_info):
+    """
+    Formats the missing_data_info dictionary into a readable HTML block.
+    Preserves UI structure by using standard table classes.
+    """
+    if not missing_info or not isinstance(missing_info, dict):
+        return ""
+
+    # Create summary header
+    html = f"""
+    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+        <h5 style="margin-bottom: 5px;">Missing Data Analysis</h5>
+        <div style="font-size: 0.9em; color: #555; margin-bottom: 10px;">
+            Strategy: <b>{missing_info.get('strategy', 'N/A')}</b> | 
+            Analyzed: {missing_info.get('rows_analyzed', 0)} | 
+            Excluded: {missing_info.get('rows_excluded', 0)}
+        </div>
+    """
+
+    # Create table for variables if summary exists
+    if 'summary_before' in missing_info and missing_info['summary_before']:
+        html += """
+        <table class="table table-sm table-striped" style="font-size: 0.85em; width: 100%;">
+            <thead>
+                <tr style="background-color: #f8f9fa;">
+                    <th>Variable</th>
+                    <th>Total</th>
+                    <th>Missing</th>
+                    <th>% Missing</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        for row in missing_info['summary_before']:
+            html += f"""
+                <tr>
+                    <td>{row.get('Variable', '')}</td>
+                    <td>{row.get('N_Total', '')}</td>
+                    <td>{row.get('N_Missing', '')}</td>
+                    <td>{row.get('Pct_Missing', '')}</td>
+                </tr>
+            """
+        html += "</tbody></table>"
+    
+    html += "</div>"
+    return html
+
+
 def analyze_roc(
     df: pd.DataFrame, 
     truth_col: str, 

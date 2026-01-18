@@ -647,11 +647,13 @@ def diag_server(
 
                 # Add statistics table
                 if res is not None:
+                    # Filter out missing_data_info/metadata from the main stats table
+                    res_display = {k: v for k, v in res.items() if k != 'missing_data_info'}
                     rep.append(
                         {
                             "type": "table",
                             "header": "ROC Statistics",
-                            "data": pd.DataFrame([res]).T,
+                            "data": pd.DataFrame([res_display]).T,
                         }
                     )
 
@@ -738,6 +740,9 @@ def diag_server(
                     },
                 ]
                 if stats is not None:
+                    # Filter out missing_data_info if present in stats (unlikely for Chi2 dataframe but safe)
+                    # stats is already a DataFrame here from diag_test.calculate_chi2 return
+                    # Checking just in case logic transforms it or if user meant the stats dict
                     rep.append(
                         {
                             "type": "table",
