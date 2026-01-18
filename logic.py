@@ -447,7 +447,9 @@ def analyze_outcome(
     
     # --- MISSING DATA HANDLING ---
     # Step 1: Get missing summary BEFORE normalization
-    missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
     missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
     missing_summary_records = missing_summary_df.to_dict('records')
     
@@ -456,12 +458,12 @@ def analyze_outcome(
     
     # Step 3: Handle missing data (complete-case)
     df_clean, miss_counts = handle_missing_for_analysis(
-        df, var_meta or {}, missing_codes, strategy='complete-case', return_counts=True
+        df, var_meta or {}, missing_codes, strategy=strategy, return_counts=True
     )
     
     # Track missing data info for report
     missing_data_info = {
-        'strategy': 'complete-case',
+        'strategy': strategy,
         'rows_analyzed': miss_counts['final_rows'],
         'rows_excluded': miss_counts['rows_removed'],
         'summary_before': missing_summary_records

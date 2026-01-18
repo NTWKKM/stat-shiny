@@ -879,7 +879,8 @@ def analyze_poisson_outcome(
             </div>
         </div>
         <!-- Missing Data Section -->
-        {create_missing_data_report_html(missing_data_info, var_meta or {})}
+        {create_missing_data_report_html(missing_data_info, var_meta or {})
+            if CONFIG.get("analysis.missing.report_missing", True) else ""}
         <br>"""
         
         return html_table, irr_results, airr_results, interaction_results
