@@ -21,13 +21,13 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from utils.data_cleaning import (
+    check_missing_data_impact,
     clean_dataframe,
     clean_numeric,
     clean_numeric_vector,
     detect_outliers,
-    handle_outliers,
     get_cleaning_summary,
-    check_missing_data_impact,
+    handle_outliers,
     apply_missing_values_to_df,
 )
 
@@ -50,8 +50,8 @@ class TestNumericCleaning:
         test_series = pd.Series([">100", "1,234.56", None, "abc", "$500"])
         result = clean_numeric_vector(test_series)
         
-        expected = [100.0, 1234.56, np.nan, np.nan, 500.0]
-        np.testing.assert_array_almost_equal(result.tolist(), expected)
+        expected = pd.Series([100.0, 1234.56, np.nan, np.nan, 500.0])
+        pd.testing.assert_series_equal(result.reset_index(drop=True), expected, check_names=False)
 
 
 class TestOutlierDetection:
@@ -62,7 +62,7 @@ class TestOutlierDetection:
         test_series = pd.Series([1, 2, 3, 4, 5, 100])
         mask, stats = detect_outliers(test_series, method='iqr')
         
-        assert mask.iloc[5] == True
+        assert mask.iloc[5]
         assert not mask.iloc[0:5].any()
         assert stats['method'] == 'iqr'
         assert stats['outlier_count'] == 1
@@ -73,7 +73,7 @@ class TestOutlierDetection:
         test_series = pd.Series([10, 10, 11, 10, 11, 10, 100])
         mask, stats = detect_outliers(test_series, method='zscore', threshold=2.0)
         
-        assert mask.iloc[6] == True
+        assert mask.iloc[6]
         assert stats['method'] == 'zscore'
 
     def test_handle_outliers_actions(self):
@@ -105,7 +105,7 @@ class TestDataFrameCleaning:
             'Mixed': ['10', '20', 'bad', 'worse']
         })
         
-        cleaned_df, report = clean_dataframe(test_df)
+        cleaned_df, _report = clean_dataframe(test_df)
         
         # Dirty_Numeric should be float
         assert pd.api.types.is_numeric_dtype(cleaned_df['Dirty_Numeric'])
