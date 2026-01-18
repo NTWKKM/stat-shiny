@@ -16,6 +16,7 @@ import pandas as pd
 import scipy.stats as stats
 import statsmodels.api as sm
 
+from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
@@ -237,14 +238,17 @@ def analyze_poisson_outcome(
         logger.info(f"Starting Poisson analysis for outcome: {outcome_name}")
         
         # --- MISSING DATA HANDLING ---
-        missing_summary_df = get_missing_summary_df(df, var_meta or {})
-        df = apply_missing_values_to_df(df, var_meta or {}, [])
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+        missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
+        df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
         missing_summary_records = missing_summary_df.to_dict('records')
         df_clean, miss_counts = handle_missing_for_analysis(
-            df, var_meta or {}, strategy='complete-case', return_counts=True
+            df, var_meta or {}, strategy=strategy, return_counts=True
         )
         missing_data_info = {
-            'strategy': 'complete-case',
+            'strategy': strategy,
             'rows_analyzed': miss_counts['final_rows'],
             'rows_excluded': miss_counts['rows_removed'],
             'summary_before': missing_summary_records

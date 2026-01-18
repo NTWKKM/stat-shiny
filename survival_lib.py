@@ -39,6 +39,7 @@ from lifelines.statistics import (
 )
 from lifelines.utils import median_survival_times
 
+from config import CONFIG
 from forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -452,18 +453,21 @@ def fit_km_logrank(
         cols_to_check.append(group_col)
         
     # Handle missing data
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
     df_subset = df[cols_to_check].copy()
-    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
-    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {}, missing_codes)
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, missing_codes)
 
     data, impact = handle_missing_for_analysis(
         df_processed,
         var_meta=var_meta or {},
-        strategy="complete-case",
+        strategy=strategy,
         return_counts=True,
     )
     missing_info = {
-        "strategy": "complete-case",
+        "strategy": strategy,
         "rows_analyzed": impact["final_rows"],
         "rows_excluded": impact["rows_removed"],
         "summary_before": missing_summary.to_dict("records"),
