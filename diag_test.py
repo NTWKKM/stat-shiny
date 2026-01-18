@@ -13,15 +13,17 @@ Note: Removed Streamlit dependencies, now Shiny-compatible
 OPTIMIZATIONS: DeLong method vectorized (106x faster), ICC vectorized (9x faster)
 """
 
-from typing import Union, Optional, Any, Tuple, Dict, List, Literal
-import pandas as pd
-import numpy as np
-import scipy.stats as stats
-from sklearn.metrics import roc_curve, roc_auc_score, cohen_kappa_score
-import plotly.graph_objects as go
-import plotly.io as pio
 import html as _html
 import warnings
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.io as pio
+import scipy.stats as stats
+from sklearn.metrics import cohen_kappa_score, roc_auc_score, roc_curve
+
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
@@ -837,52 +839,6 @@ def auc_ci_delong(y_true: Any, y_scores: Any) -> Tuple[float, float, float]:
         return np.nan, np.nan, np.nan
 
 
-def _format_missing_data_html(missing_info):
-    """
-    Formats the missing_data_info dictionary into a readable HTML block.
-    Preserves UI structure by using standard table classes.
-    """
-    if not missing_info or not isinstance(missing_info, dict):
-        return ""
-
-    # Create summary header
-    html = f"""
-    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-        <h5 style="margin-bottom: 5px;">Missing Data Analysis</h5>
-        <div style="font-size: 0.9em; color: #555; margin-bottom: 10px;">
-            Strategy: <b>{missing_info.get('strategy', 'N/A')}</b> | 
-            Analyzed: {missing_info.get('rows_analyzed', 0)} | 
-            Excluded: {missing_info.get('rows_excluded', 0)}
-        </div>
-    """
-
-    # Create table for variables if summary exists
-    if 'summary_before' in missing_info and missing_info['summary_before']:
-        html += """
-        <table class="table table-sm table-striped" style="font-size: 0.85em; width: 100%;">
-            <thead>
-                <tr style="background-color: #f8f9fa;">
-                    <th>Variable</th>
-                    <th>Total</th>
-                    <th>Missing</th>
-                    <th>% Missing</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-        for row in missing_info['summary_before']:
-            html += f"""
-                <tr>
-                    <td>{row.get('Variable', '')}</td>
-                    <td>{row.get('N_Total', '')}</td>
-                    <td>{row.get('N_Missing', '')}</td>
-                    <td>{row.get('Pct_Missing', '')}</td>
-                </tr>
-            """
-        html += "</tbody></table>"
-    
-    html += "</div>"
-    return html
 
 
 def analyze_roc(
@@ -1396,6 +1352,8 @@ def generate_report(
                  html += str(data)
         
         elif element_type == 'html':
+             # Note: Producers of 'html' elements (e.g., create_missing_data_report_html) 
+             # are responsible for escaping user-supplied metadata.
              html += str(data)
         
         elif element_type == 'plot':

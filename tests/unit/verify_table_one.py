@@ -1,15 +1,15 @@
-import pandas as pd
-import numpy as np
-import sys
 import os
+import sys
 
-# Add current directory to path
-sys.path.append(os.getcwd())
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
+import numpy as np
+import pandas as pd
 
 from table_one import generate_table
 
+
 def test_categorical():
-    print("\n--- Test Case 1: Categorical Variables ---")
     np.random.seed(42)
     df_test = pd.DataFrame({
         'Treatment_Group': np.random.binomial(1, 0.5, 100),
@@ -36,20 +36,15 @@ def test_categorical():
         }
     }
     
-    try:
-        html = generate_table(
-            df=df_test,
-            selected_vars=['Age', 'Sex', 'Diabetes'],
-            group_col='Treatment_Group',
-            var_meta=var_meta,
-            or_style='all_levels'
-        )
-        print("✅ Test Case 1 PASSED" if html else "❌ Test Case 1 FAILED")
-        # Save for manual inspection
-        with open("test_output_1.html", "w") as f:
-            f.write(html)
-    except Exception as e:
-        print(f"❌ Test Case 1 ERROR: {e}")
+    html = generate_table(
+        df=df_test,
+        selected_vars=['Age', 'Sex', 'Diabetes'],
+        group_col='Treatment_Group',
+        var_meta=var_meta,
+        or_style='all_levels'
+    )
+    assert html is not None
+    assert '<table' in html
 
 def test_missing_data():
     print("\n--- Test Case 2: Missing Data ---")
@@ -132,7 +127,7 @@ def test_edge_cases():
     df_all_missing = df_test.copy()
     df_all_missing['Age'] = np.nan
     try:
-        html = generate_table(
+        _ = generate_table(
             df=df_all_missing,
             selected_vars=['Age', 'Sex'],
             group_col='Treatment_Group',

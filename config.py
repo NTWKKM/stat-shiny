@@ -19,9 +19,10 @@ Usage:
 
 import json
 import os
-from pathlib import Path
-from typing import Any, Optional, Dict, Tuple, List, cast
 import warnings
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, cast
+
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -49,6 +50,16 @@ class ConfigManager:
         self._config: Dict[str, Any] = config_dict or self._get_default_config()
         self._env_prefix = "MEDSTAT_"
         self._load_env_overrides()
+        self._sync_missing_legacy()
+
+    def _sync_missing_legacy(self) -> None:
+        analysis = self._config.get("analysis", {})
+        missing = analysis.get("missing", {})
+        if isinstance(missing, dict):
+            analysis["missing_strategy"] = missing.get("strategy", analysis.get("missing_strategy"))
+            analysis["missing_threshold_pct"] = missing.get(
+                "report_threshold_pct", analysis.get("missing_threshold_pct")
+            )
     
     @staticmethod
     def _get_default_config() -> Dict[str, Any]:
@@ -227,6 +238,8 @@ class ConfigManager:
         if final_key not in config:
             raise KeyError(f"Config key '{key}' does not exist")
         config[final_key] = value
+        if key.startswith("analysis.missing") or key.startswith("analysis.missing_"):
+            self._sync_missing_legacy()
     
     def set_nested(self, key: str, value: Any, create: bool = False) -> None:
         """

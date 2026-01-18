@@ -19,8 +19,8 @@ OPTIMIZATIONS:
 from __future__ import annotations
 
 import base64
-import io
 import html as _html
+import io
 import logging
 import numbers
 import warnings
@@ -32,7 +32,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from lifelines import CoxPHFitter, KaplanMeierFitter, NelsonAalenFitter
-from lifelines.statistics import logrank_test, multivariate_logrank_test, proportional_hazard_test
+from lifelines.statistics import (
+    logrank_test,
+    multivariate_logrank_test,
+    proportional_hazard_test,
+)
 from lifelines.utils import median_survival_times
 
 from forest_plot_lib import create_forest_plot
@@ -448,11 +452,22 @@ def fit_km_logrank(
         cols_to_check.append(group_col)
         
     # Handle missing data
-    data, missing_info = handle_missing_for_analysis(
-        df[cols_to_check],
+    df_subset = df[cols_to_check].copy()
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
         var_meta=var_meta or {},
-        return_counts=True
+        strategy="complete-case",
+        return_counts=True,
     )
+    missing_info = {
+        "strategy": "complete-case",
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
     
     if group_col:
         if group_col not in data.columns:
@@ -565,11 +580,22 @@ def fit_nelson_aalen(
         cols_to_check.append(group_col)
 
     # Handle missing data
-    data, missing_info = handle_missing_for_analysis(
-        df[cols_to_check],
+    df_subset = df[cols_to_check].copy()
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
         var_meta=var_meta or {},
-        return_counts=True
+        strategy="complete-case",
+        return_counts=True,
     )
+    missing_info = {
+        "strategy": "complete-case",
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
 
     if len(data) == 0:
         raise ValueError("No valid data after removing missing values.")
@@ -664,11 +690,22 @@ def fit_cox_ph(
         return None, None, df, f"Missing columns: {missing}", None, None
 
     # Handle missing data
-    data, missing_info = handle_missing_for_analysis(
-        df[cols_to_check],
+    df_subset = df[cols_to_check].copy()
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
         var_meta=var_meta or {},
-        return_counts=True
+        strategy="complete-case",
+        return_counts=True,
     )
+    missing_info = {
+        "strategy": "complete-case",
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
     
     if len(data) == 0:
         return None, None, data, "No valid data after dropping missing values.", None, missing_info
@@ -959,11 +996,22 @@ def fit_km_landmark(
         return None, None, len(df), 0, f"Missing columns: {missing}", None
 
     # Handle missing data
-    data, missing_info = handle_missing_for_analysis(
-        df[cols_to_check],
+    df_subset = df[cols_to_check].copy()
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+    missing_summary = get_missing_summary_df(df_processed, var_meta or {})
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
         var_meta=var_meta or {},
-        return_counts=True
+        strategy="complete-case",
+        return_counts=True,
     )
+    missing_info = {
+        "strategy": "complete-case",
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
     
     n_pre_filter = len(data)
 

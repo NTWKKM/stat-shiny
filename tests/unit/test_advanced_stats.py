@@ -1,12 +1,13 @@
-import sys
 import os
+import sys
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
+
 from utils.advanced_stats_lib import apply_mcc, calculate_vif
 
 # --- MCC Tests ---

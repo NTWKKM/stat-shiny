@@ -1,9 +1,10 @@
-from shiny import ui, module, reactive, render, req
-import pandas as pd
-import numpy as np
-import diag_test
-from typing import Optional, List, Dict, Any, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
+import numpy as np
+import pandas as pd
+from shiny import module, reactive, render, req, ui
+
+import diag_test
 from tabs._common import get_color_palette
 from utils.formatting import create_missing_data_report_html
 
@@ -833,7 +834,7 @@ def diag_server(
                 # Missing Data Report
                 if missing_info:
                     rep.append({
-                        "type": "text",
+                        "type": "html",
                         "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
                     })
 

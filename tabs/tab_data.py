@@ -1,10 +1,13 @@
-from shiny import ui, module, reactive, render
-from shiny.types import FileInfo
-import pandas as pd
+import html as _html
+from typing import Any, Dict, List, Optional, Union, cast
+
 import numpy as np
+import pandas as pd
+from shiny import module, reactive, render, ui
+from shiny.types import FileInfo
+
 from logger import get_logger
 from tabs._common import get_color_palette, wrap_with_container
-from typing import Optional, List, Dict, Any, Union, cast
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
@@ -561,7 +564,11 @@ def data_server(
         # Create a simple HTML table for issues
         rows = ""
         for item in issues:
-            rows += f"<tr><td>{item['col']}</td><td>{item['row']}</td><td>{item['value']}</td><td class='text-danger'>{item['issue']}</td></tr>"
+            col = _html.escape(str(item['col']))
+            row = _html.escape(str(item['row']))
+            value = _html.escape(str(item['value']))
+            issue = _html.escape(str(item['issue']))
+            rows += f"<tr><td>{col}</td><td>{row}</td><td>{value}</td><td class='text-danger'>{issue}</td></tr>"
             
         table_html = f"""
         <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">

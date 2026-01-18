@@ -1036,7 +1036,6 @@ def get_shiny_css():
         }}
         
         .missing-config-column {{
-            padding-left: var(--spacing-md);
             background-color: {COLORS['background']};
             padding: var(--spacing-md);
             border-radius: var(--radius-md);

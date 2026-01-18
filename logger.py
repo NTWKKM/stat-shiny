@@ -7,12 +7,11 @@ Simplified, Streamlit-free logging system.
 import logging
 import logging.handlers
 import sys
-from pathlib import Path
-from contextlib import contextmanager
-from typing import Optional, Any, Dict, List, Generator, cast
-from typing import ClassVar
-import time
 import threading
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, ClassVar, Dict, Generator, List, Optional, cast
 
 # Default configuration (can be overridden)
 DEFAULT_CONFIG: Dict[str, Any] = {

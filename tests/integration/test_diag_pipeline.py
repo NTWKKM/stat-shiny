@@ -13,12 +13,7 @@ import pytest
 # Setup path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from diag_test import (
-    analyze_roc,
-    calculate_chi2,
-    calculate_icc,
-    calculate_kappa
-)
+from diag_test import analyze_roc, calculate_chi2, calculate_icc, calculate_kappa
 
 pytestmark = pytest.mark.integration
 

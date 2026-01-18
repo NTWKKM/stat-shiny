@@ -5,10 +5,15 @@ Professional subgroup analysis without Streamlit dependencies.
 OPTIMIZED for Python 3.12 with strict type hints and TypedDict.
 """
 
-import pandas as pd
+import warnings
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+
 import numpy as np
-from logger import get_logger
+import pandas as pd
+import plotly.graph_objects as go
+
 from forest_plot_lib import create_forest_plot
+from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
     apply_missing_values_to_df,
@@ -16,9 +21,6 @@ from utils.data_cleaning import (
     handle_missing_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
-import warnings
-from typing import Union, Optional, List, Dict, Tuple, Any, TypedDict
-import plotly.graph_objects as go
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -99,8 +101,8 @@ class SubgroupAnalysisLogit:
     ) -> Dict[str, Any]:
         """Perform logistic regression subgroup analysis."""
         try:
-            from statsmodels.formula.api import logit
             from scipy import stats
+            from statsmodels.formula.api import logit
             
             self.validate_inputs(outcome_col, treatment_col, subgroup_col, adjustment_cols)
             
@@ -111,29 +113,28 @@ class SubgroupAnalysisLogit:
             
             # --- MISSING DATA HANDLING ---
             missing_data_info = {}
+            # Coerce outcome first so invalid values are counted as missing
+            df_subset = self.df[cols_to_use].copy()
+            df_subset[outcome_col] = pd.to_numeric(df_subset[outcome_col], errors='coerce')
             if var_meta:
-                 # Apply missing value rules
-                 df_subset = self.df[cols_to_use].copy()
-                 df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-                 missing_summary = get_missing_summary_df(df_processed, var_meta)
-                 
-                 df_clean, impact = handle_missing_for_analysis(
+                df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+                missing_summary = get_missing_summary_df(df_processed, var_meta)
+                
+                df_clean, impact = handle_missing_for_analysis(
                     df_processed, var_meta, strategy='complete-case', return_counts=True
-                 )
-                 missing_data_info = {
+                )
+                missing_data_info = {
                     'strategy': 'complete-case',
                     'rows_analyzed': impact['final_rows'],
                     'rows_excluded': impact['rows_removed'],
                     'summary_before': missing_summary.to_dict('records')
-                 }
+                }
             else:
-                 df_clean = self.df[cols_to_use].dropna().copy()
+                df_clean = df_subset.dropna().copy()
             
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
             
-            # ✅ Ensure outcome is numeric 0/1 (fixes ValueError with bool/str in formula)
-            df_clean[outcome_col] = pd.to_numeric(df_clean[outcome_col], errors='coerce')
             df_clean = df_clean.dropna(subset=[outcome_col])
             
             formula_base = f'{outcome_col} ~ {treatment_col}'

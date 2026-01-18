@@ -10,21 +10,28 @@ Enhanced Features:
 Updated: Uses dataset selector pattern like tab_diag.py
 """
 
-from shiny import ui, reactive, render, req, module
-from utils.plotly_html_renderer import plotly_figure_to_html
-import pandas as pd
-import numpy as np
-import correlation  # Import from root
-import diag_test  # Import for ICC calculation
-from utils.formatting import create_missing_data_report_html
-from typing import Optional, List, Dict, Any, Union, cast
-from logger import get_logger
-from tabs._common import get_color_palette
-import tempfile
+import html as _html
 import os
 import re
-import html
-import html as _html
+import tempfile
+from typing import Any, Dict, List, Optional, Union, cast
+
+import numpy as np
+import pandas as pd
+from shiny import module, reactive, render, req, ui
+
+import correlation  # Import from root
+import diag_test  # Import for ICC calculation
+from logger import get_logger
+from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
+from utils.plotly_html_renderer import plotly_figure_to_html
+
 
 def _safe_filename_part(s: str) -> str:
     s = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(s).strip())
@@ -720,8 +727,7 @@ def corr_server(
             ui.card_header("Matrix Results"),
             ui.markdown(f"**Data Source:** {result['data_label']}"),
             ui.markdown(f"**Method:** {result['method'].title()}"),
-            
-            ui.markdown(f"**Method:** {result['method'].title()}"),
+            ui.markdown(f"**Missing Data Strategy:** {result['strategy'].title()}"),
             
             ui.HTML(summary_html),
             

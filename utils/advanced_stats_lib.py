@@ -8,7 +8,7 @@ This module provides utility functions for:
 """
 from __future__ import annotations
 
-from typing import Tuple, List, Dict, Any, Union, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd

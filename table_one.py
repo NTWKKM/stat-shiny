@@ -10,22 +10,25 @@ OPTIMIZATIONS:
 - Vectorized categorical comparisons
 """
 
-import pandas as pd
-import numpy as np
-from scipy import stats
-import statsmodels.api as sm
 import html as _html
 import warnings
-from typing import Union, Optional, List, Dict, Tuple, Any, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from scipy import stats
+
+from config import CONFIG
 from logger import get_logger
 from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    clean_dataframe,
     clean_numeric,
     clean_numeric_vector,
-    clean_dataframe,
-    validate_data_quality,
-    apply_missing_values_to_df,
     get_missing_summary_df,
     handle_missing_for_analysis,
+    validate_data_quality,
 )
 from utils.formatting import create_missing_data_report_html
 
@@ -347,7 +350,11 @@ def calculate_p_continuous(data_groups: List[pd.Series]) -> Tuple[float, str]:
     Calculate p-value for continuous variables.
     """
     # Use enhanced vectorized cleaning from utils.data_cleaning
-    clean_groups = [clean_numeric_vector(g).dropna() for g in data_groups if len(clean_numeric_vector(g).dropna()) > 1]
+    clean_groups = []
+    for g in data_groups:
+        cleaned = clean_numeric_vector(g).dropna()
+        if len(cleaned) > 1:
+            clean_groups.append(cleaned)
     num_groups = len(clean_groups)
     if num_groups < 2: 
         return np.nan, "-"
@@ -432,9 +439,13 @@ def generate_table(
     if or_style not in ('all_levels', 'simple'):
         raise ValueError(f"or_style must be 'all_levels' or 'simple'")
     
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
+    
     # --- MISSING DATA HANDLING ---
     # Step 1: Apply user-defined missing value codes → NaN
-    df = apply_missing_values_to_df(df, var_meta or {}, [])
+    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
     
     # Step 2: Get missing summary BEFORE dropping rows
     missing_summary_df = get_missing_summary_df(df, var_meta or {})
@@ -442,12 +453,12 @@ def generate_table(
     
     # Step 3: Handle missing data (complete-case)
     df_clean, miss_counts = handle_missing_for_analysis(
-        df, var_meta or {}, strategy='complete-case', return_counts=True
+        df, var_meta or {}, strategy=strategy, return_counts=True
     )
     
     # Track missing data info for report
     missing_data_info = {
-        'strategy': 'complete-case',
+        'strategy': strategy,
         'rows_analyzed': miss_counts['final_rows'],
         'rows_excluded': miss_counts['rows_removed'],
         'summary_before': missing_summary_records

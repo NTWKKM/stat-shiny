@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, PropertyMock
 import numpy as np
 import pandas as pd
 import pytest
-
 from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 
 # ============================================================================
@@ -122,37 +121,35 @@ sys.modules['sklearn.linear_model'] = MagicMock()
 # ============================================================================
 # Try importing poisson_lib if available, else mock or ignore
 try:
-    from poisson_lib import run_poisson_regression, run_negative_binomial_regression
+    from poisson_lib import run_negative_binomial_regression, run_poisson_regression
 except ImportError:
     run_poisson_regression = MagicMock()
     run_negative_binomial_regression = MagicMock()
 
-from logic import (
-    validate_logit_data, 
-    clean_numeric_value, 
-    run_binary_logit,
-    analyze_outcome,
-    get_label,
-    fmt_p_with_styling
-)
-
 from diag_test import (
-    calculate_descriptive, 
-    calculate_chi2, 
     analyze_roc,
-    calculate_kappa,
-    calculate_icc,
-    format_p_value,
+    auc_ci_delong,
+    calculate_chi2,
     calculate_ci_wilson_score,
-    auc_ci_delong
+    calculate_descriptive,
+    calculate_icc,
+    calculate_kappa,
+    format_p_value,
 )
-
+from logic import (
+    analyze_outcome,
+    clean_numeric_value,
+    fmt_p_with_styling,
+    get_label,
+    run_binary_logit,
+    validate_logit_data,
+)
 from survival_lib import (
-    fit_km_logrank, 
-    fit_cox_ph, 
     calculate_median_survival,
+    fit_cox_ph,
+    fit_km_landmark,
+    fit_km_logrank,
     fit_nelson_aalen,
-    fit_km_landmark
 )
 
 # Mark all tests as unit tests

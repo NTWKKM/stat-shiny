@@ -13,14 +13,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from forest_plot_lib import create_forest_plot
 from survival_lib import (
     calculate_median_survival,
-    fit_km_logrank,
     fit_cox_ph,
+    fit_km_logrank,
     fit_nelson_aalen,
 )
-
-from forest_plot_lib import create_forest_plot
 
 pytestmark = pytest.mark.integration
 

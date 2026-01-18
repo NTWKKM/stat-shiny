@@ -4,17 +4,17 @@
 Propensity score calculation and matching without Streamlit dependencies.
 OPTIMIZED for Python 3.12 with strict type hints.
 """
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from sklearn.linear_model import LogisticRegression
-from typing import Union, Optional, List, Dict, Tuple, Any, Set
+
 from logger import get_logger
 from utils.data_cleaning import (
     apply_missing_values_to_df,
     get_missing_summary_df,
-    handle_missing_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
 
