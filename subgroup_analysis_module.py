@@ -117,8 +117,8 @@ class SubgroupAnalysisLogit:
             df_subset = self.df[cols_to_use].copy()
             df_subset[outcome_col] = pd.to_numeric(df_subset[outcome_col], errors='coerce')
             if var_meta:
+                missing_summary = get_missing_summary_df(df_subset, var_meta)
                 df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-                missing_summary = get_missing_summary_df(df_processed, var_meta)
                 
                 df_clean, impact = handle_missing_for_analysis(
                     df_processed, var_meta, strategy='complete-case', return_counts=True
@@ -436,8 +436,8 @@ class SubgroupAnalysisCox:
             missing_data_info = {}
             if var_meta:
                  df_subset = self.df[cols_to_use].copy()
+                 missing_summary = get_missing_summary_df(df_subset, var_meta)
                  df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-                 missing_summary = get_missing_summary_df(df_processed, var_meta)
                  
                  df_clean, impact = handle_missing_for_analysis(
                     df_processed, var_meta, strategy='complete-case', return_counts=True

@@ -137,6 +137,49 @@ class TestGetMissingSummaryDf:
         assert '50.0%' in result['Pct_Missing'].values
 
 
+class TestMissingValueBreakdownFix:
+    """Tests for the fix of missing value breakdown (coded vs NaN)."""
+    
+    def test_detect_missing_breakdown_before_and_after_normalization(self):
+        """Test that breakdown is correct both before and after normalization."""
+        series = pd.Series([1, -99, 3, np.nan, 5])
+        missing_codes = [-99]
+        
+        # 1. Before normalization (raw data)
+        info_raw = detect_missing_in_variable(series, missing_codes, already_normalized=False)
+        assert info_raw['missing_coded_count'] == 1
+        assert info_raw['missing_nan_count'] == 1
+        assert info_raw['missing_count'] == 2
+        
+        # 2. After normalization (using the new flag)
+        from utils.data_cleaning import apply_missing_values_to_df
+        df = pd.DataFrame({'val': series})
+        var_meta = {'val': {'missing_values': missing_codes}}
+        df_normalized = apply_missing_values_to_df(df, var_meta)
+        
+        # Coded value -99 is now NaN
+        info_norm = detect_missing_in_variable(df_normalized['val'], missing_codes, already_normalized=True)
+        assert info_norm['missing_coded_count'] == 0  # Should be 0 when already normalized
+        assert info_norm['missing_nan_count'] == 2    # Should include the former coded value
+        assert info_norm['missing_count'] == 2       # Total should remain same
+    
+    def test_detect_missing_avoids_double_counting_with_nan_input(self):
+        """Test that detect_missing_in_variable handles coded values that might be NaN."""
+        # This tests the 'if series == code' logic which might be tricky with NaN
+        series = pd.Series([1, np.nan, 3])
+        # If someone accidentally adds np.nan to missing_codes
+        missing_codes = [np.nan]
+        
+        info = detect_missing_in_variable(series, missing_codes)
+        # NaN == NaN is usually False in pandas Series comparison unless handled.
+        # My implementation uses (series == code).sum().
+        # In pandas, (pd.Series([np.nan]) == np.nan).sum() is 0.
+        # So it shouldn't double count if we just use standard equality.
+        assert info['missing_nan_count'] == 1
+        assert info['missing_coded_count'] == 0
+        assert info['missing_count'] == 1
+
+
 class TestHandleMissingForAnalysis:
     """Tests for handle_missing_for_analysis function."""
     
