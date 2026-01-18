@@ -683,19 +683,21 @@ def apply_missing_values_to_df(
         if not missing_vals:
             continue
             
-        # Ensure missing_vals is a list for replace
-        if not isinstance(missing_vals, (list, tuple, np.ndarray)):
-            missing_vals = [missing_vals]
-            
-        # Replace all missing codes in one pass
-        df_copy[col] = df_copy[col].replace(missing_vals, np.nan)
-        # Also try numeric conversion for string comparisons
-        if pd.api.types.is_numeric_dtype(df_copy[col]):
-            for val in missing_vals:
+        # Normalize missing codes across string/numeric representations
+        is_numeric = pd.api.types.is_numeric_dtype(df_copy[col])
+        normalized_vals = set()
+        for val in missing_vals:
+            if pd.isna(val):
+                continue
+            normalized_vals.add(val)
+            normalized_vals.add(str(val))
+            if is_numeric:
                 try:
-                    df_copy[col] = df_copy[col].replace(float(val), np.nan)
+                    normalized_vals.add(float(val))
                 except (ValueError, TypeError):
                     pass
+        
+        df_copy[col] = df_copy[col].replace(list(normalized_vals), np.nan)
     
     logger.debug(f"Applied missing value codes to {len(df_copy.columns)} columns")
     return df_copy
@@ -872,12 +874,8 @@ def check_missing_data_impact(
         Dictionary with impact statistics
     """
     # Normalize if missing codes provided to ensure accurate counting
-    if missing_codes:
-        df_orig_norm = apply_missing_values_to_df(df_original, var_meta, missing_codes)
-        df_clean_norm = apply_missing_values_to_df(df_clean, var_meta, missing_codes)
-    else:
-        df_orig_norm = df_original
-        df_clean_norm = df_clean
+    df_orig_norm = apply_missing_values_to_df(df_original, var_meta, missing_codes)
+    df_clean_norm = apply_missing_values_to_df(df_clean, var_meta, missing_codes)
 
     rows_removed = len(df_orig_norm) - len(df_clean_norm)
     pct_removed = (rows_removed / len(df_orig_norm) * 100) if len(df_orig_norm) > 0 else 0
