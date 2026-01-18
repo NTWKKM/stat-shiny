@@ -85,8 +85,15 @@ class ConfigManager:
                 "cox_method": "efron",  # 'efron', 'breslow'
     
                 # Missing Data
-                "missing_strategy": "complete-case",  # 'complete-case', 'drop'
-                "missing_threshold_pct": 50,  # Flag if >X% missing in a column
+                "missing": {
+                    "strategy": "complete-case",  # 'complete-case', 'drop', 'impute' (future)
+                    "user_defined_values": [],  # User-specified missing codes: [-99, -999, 99]
+                    "treat_empty_as_missing": True,
+                    "report_missing": True,
+                    "report_threshold_pct": 50,  # Flag if >X% missing
+                },
+                "missing_strategy": "complete-case",  # Legacy - kept for backward compatibility
+                "missing_threshold_pct": 50,  # Legacy - kept for backward compatibility
             },
             # ========== ADVANCED STATS SETTINGS ==========
             "stats": {

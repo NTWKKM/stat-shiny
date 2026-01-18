@@ -11,6 +11,7 @@ import io
 from typing import Optional, List, Dict, Any, Union, cast
 
 from tabs._common import get_color_palette
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -693,7 +694,12 @@ def baseline_matching_server(
                 final_cov_cols = cov_cols
 
             # Calculation
-            ps_scores = psm_lib.calculate_propensity_score(df_analysis, final_treat_col, final_cov_cols)
+            ps_scores, missing_info = psm_lib.calculate_propensity_score(
+                df_analysis, 
+                final_treat_col, 
+                final_cov_cols,
+                var_meta=var_meta.get()
+            )
             df_ps = df_analysis.copy()
             df_ps['propensity_score'] = ps_scores
 
@@ -724,7 +730,8 @@ def baseline_matching_server(
                 "df_ps_len": len(df_ps),
                 "df_matched_len": len(df_m),
                 "treat_pre_sum": df_ps[final_treat_col].sum(),
-                "treat_post_sum": df_m[final_treat_col].sum()
+                "treat_post_sum": df_m[final_treat_col].sum(),
+                "missing_data_info": missing_info
             }
 
             # อัปเดตพร้อมกันหลังจากผ่านการตรวจสอบและคำนวณทั้งหมดแล้ว
@@ -777,6 +784,9 @@ def baseline_matching_server(
                 ),
 
                 ui.output_ui("ui_balance_alert"),
+                
+                # Missing Data Report
+                ui.HTML(create_missing_data_report_html(res.get('missing_data_info', {}), var_meta.get() or {})),
 
                 ui.hr(),
 

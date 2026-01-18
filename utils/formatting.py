@@ -80,3 +80,95 @@ def get_badge_html(text: str, level: str = 'info') -> str:
              f"display: inline-block; background-color: {c['bg']}; color: {c['color']}; "
              f"border: 1px solid {c['border']};")
     return f'<span style="{style}">{text}</span>'
+
+
+def create_missing_data_report_html(
+    missing_data_info: dict,
+    var_meta: dict
+) -> str:
+    """
+    Generate HTML section for missing data report.
+    
+    Parameters:
+        missing_data_info: Dictionary containing:
+            - strategy: str (e.g., 'complete-case')
+            - rows_analyzed: int
+            - rows_excluded: int
+            - summary_before: list of dicts with Variable, N_Missing, Pct_Missing
+        var_meta: Variable metadata dictionary
+    
+    Returns:
+        HTML string with formatted missing data section
+    """
+    html = '<div class="missing-data-section">\n'
+    html += '<h4>📊 Missing Data Summary</h4>\n'
+    
+    # Strategy info
+    strategy = missing_data_info.get('strategy', 'Unknown')
+    rows_analyzed = missing_data_info.get('rows_analyzed', 0)
+    rows_excluded = missing_data_info.get('rows_excluded', 0)
+    total_rows = rows_analyzed + rows_excluded
+    pct_excluded = (rows_excluded / total_rows * 100) if total_rows > 0 else 0
+    pct_included = 100 - pct_excluded
+    
+    html += f'<p><strong>Strategy:</strong> {strategy}</p>\n'
+    html += f'<p><strong>Rows Analyzed:</strong> {rows_analyzed:,} / {total_rows:,} ({pct_included:.1f}%)</p>\n'
+    html += f'<p><strong>Rows Excluded:</strong> {rows_excluded:,} ({pct_excluded:.1f}%)</p>\n'
+    
+    # Variables with missing data
+    summary = missing_data_info.get('summary_before', [])
+    if summary:
+        vars_with_missing = [v for v in summary if v.get('N_Missing', 0) > 0]
+        
+        if vars_with_missing:
+            html += '<h5>Variables with Missing Data:</h5>\n'
+            html += '<table class="missing-table">\n'
+            html += '<thead><tr><th>Variable</th><th>Type</th><th>N Valid</th><th>N Missing</th><th>% Missing</th></tr></thead>\n'
+            html += '<tbody>\n'
+            
+            # Get threshold from config
+            threshold = CONFIG.get('analysis.missing.report_threshold_pct', 50)
+            
+            for var in vars_with_missing:
+                pct_str = var.get('Pct_Missing', '0%')
+                try:
+                    pct_val = float(pct_str.rstrip('%'))
+                except (ValueError, AttributeError):
+                    pct_val = 0
+                
+                row_class = 'high-missing' if pct_val > threshold else ''
+                var_label = var_meta.get(var['Variable'], {}).get('label', var['Variable'])
+                
+                html += f"<tr class='{row_class}'>\n"
+                html += f"<td>{var_label}</td>\n"
+                html += f"<td>{var.get('Type', 'Unknown')}</td>\n"
+                html += f"<td>{var.get('N_Valid', 0):,}</td>\n"
+                html += f"<td>{var.get('N_Missing', 0):,}</td>\n"
+                html += f"<td>{pct_str}</td>\n"
+                html += '</tr>\n'
+            
+            html += '</tbody>\n</table>\n'
+    
+    # Warnings for high missing
+    high_missing = [v for v in summary if _get_pct(v.get('Pct_Missing', '0%')) > 50]
+    if high_missing:
+        html += '<div class="warning-box">\n'
+        html += '<strong>⚠️ Warning:</strong> Variables with >50% missing data:\n'
+        html += '<ul>\n'
+        for var in high_missing:
+            var_label = var_meta.get(var['Variable'], {}).get('label', var['Variable'])
+            html += f"<li>{var_label} ({var.get('Pct_Missing', '?')} missing)</li>\n"
+        html += '</ul>\n'
+        html += '</div>\n'
+    
+    html += '</div>\n'
+    
+    return html
+
+
+def _get_pct(pct_str: str) -> float:
+    """Helper to extract percentage as float from string like '50.0%'."""
+    try:
+        return float(pct_str.rstrip('%'))
+    except (ValueError, AttributeError):
+        return 0.0

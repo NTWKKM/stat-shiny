@@ -11,20 +11,55 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LogisticRegression
 from typing import Union, Optional, List, Dict, Tuple, Any, Set
 from logger import get_logger
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 
 def calculate_propensity_score(
     df: pd.DataFrame, 
     treatment_col: str, 
-    covariate_cols: List[str]
-) -> pd.Series:
+    covariate_cols: List[str],
+    var_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[pd.Series, Dict[str, Any]]:
     """
     Calculate propensity scores using logistic regression.
     """
     try:
-        # Fill missing values with mean for numeric covariates
-        X = df[covariate_cols].fillna(df[covariate_cols].mean())
+        # --- MISSING DATA HANDLING ---
+        # PSM in this library currently uses simple mean imputation
+        df_subset = df[covariate_cols].copy()
+        
+        missing_data_info = {}
+        if var_meta:
+            # 1. Apply codes (converts user-defined missing to NaN)
+            df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+            # 2. Get summary of what is missing
+            missing_summary = get_missing_summary_df(df_processed, var_meta)
+            
+            # 3. Create report info (Strategy: Mean Imputation)
+            # We don't drop rows here, we impute.
+            # Calculate how many rows WOULD have been dropped if we did complete-case
+            n_rows = len(df)
+            n_complete = len(df_processed.dropna())
+            n_imputed = n_rows - n_complete
+            
+            missing_data_info = {
+                'strategy': 'Mean Imputation (Automatic)',
+                'rows_analyzed': n_rows,
+                'rows_excluded': 0, # We keep all rows via imputation
+                'note': f"⚠️ {n_imputed} rows containing missing values were imputed with the mean.",
+                'summary_before': missing_summary.to_dict('records')
+            }
+            X = df_processed.fillna(df_processed.mean())
+        else:
+            # Fallback path (existing logic but slightly cleaner)
+            X = df[covariate_cols].fillna(df[covariate_cols].mean())
+            
         y = df[treatment_col].astype(int)
         
         model = LogisticRegression(max_iter=1000)
@@ -32,7 +67,7 @@ def calculate_propensity_score(
         
         ps = model.predict_proba(X)[:, 1]
         logger.info(f"Propensity scores calculated: mean={ps.mean():.3f}, std={ps.std():.3f}")
-        return pd.Series(ps, index=df.index)
+        return pd.Series(ps, index=df.index), missing_data_info
     except Exception as e:
         logger.error(f"PSM calculation error: {e}")
         raise

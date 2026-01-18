@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import correlation  # Import from root
 import diag_test  # Import for ICC calculation
+from utils.formatting import create_missing_data_report_html
 from typing import Optional, List, Dict, Any, Union, cast
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -440,7 +441,7 @@ def corr_server(
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Calculating correlation...", detail="This may take a moment")
             res_stats, err, fig = correlation.calculate_correlation(
-                data, col1, col2, method=method
+                data, col1, col2, method=method, var_meta=var_meta.get() or {}
             )
 
         if err:
@@ -499,6 +500,9 @@ def corr_server(
             ui.output_data_frame("out_corr_table"),
             
             ui.HTML(interp_html),
+            
+            # Missing Data Report
+            ui.HTML(create_missing_data_report_html(stats.get('missing_data_info', {}), var_meta.get() or {})),
 
             ui.card_header("Scatter Plot"),
             ui.output_ui("out_corr_plot_widget"),  # ✅ FIX: Use ui.output_ui instead of output_widget
@@ -611,6 +615,12 @@ def corr_server(
             'data': stats['Sample Note']
         })
         
+        if 'missing_data_info' in stats:
+            elements.append({
+                'type': 'text',
+                'data': create_missing_data_report_html(stats['missing_data_info'], var_meta.get() or {})
+            })
+            
         # Add plot
         elements.append({
             'type': 'plot',
@@ -648,7 +658,7 @@ def corr_server(
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Generating Heatmap...", detail=f"Processing {len(cols)} variables")
             corr_matrix, fig, summary = correlation.compute_correlation_matrix(
-                data, list(cols), method=method
+                data, list(cols), method=method, var_meta=var_meta.get() or {}
             )
             
         if corr_matrix is not None:
@@ -711,7 +721,12 @@ def corr_server(
             ui.markdown(f"**Data Source:** {result['data_label']}"),
             ui.markdown(f"**Method:** {result['method'].title()}"),
             
+            ui.markdown(f"**Method:** {result['method'].title()}"),
+            
             ui.HTML(summary_html),
+            
+            # Missing Data Report
+            ui.HTML(create_missing_data_report_html(summary.get('missing_data_info', {}), var_meta.get() or {})),
             
             ui.card_header("Heatmap"),
             ui.output_ui("out_heatmap_widget"),  # ✅ FIX: Use ui.output_ui
@@ -796,6 +811,12 @@ def corr_server(
         <p><strong>Strongest Negative:</strong> {summary['strongest_negative']}</p>
         """
         
+        if 'missing_data_info' in summary:
+            elements.append({
+                'type': 'text',
+                'data': create_missing_data_report_html(summary['missing_data_info'], var_meta.get() or {})
+            })
+
         elements.append({
             'type': 'summary',
             'data': summary_text

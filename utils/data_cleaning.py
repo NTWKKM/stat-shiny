@@ -637,6 +637,237 @@ def get_cleaning_summary(report: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# ============================================================
+# Missing Data Management Utilities
+# ============================================================
+
+def apply_missing_values_to_df(
+    df: pd.DataFrame,
+    var_meta: Dict[str, Any],
+    missing_codes: Optional[List[Any]] = None
+) -> pd.DataFrame:
+    """
+    Replace user-specified missing value codes with NaN.
+    
+    Parameters:
+        df: Input DataFrame
+        var_meta: Variable metadata with 'missing_values' per variable
+        missing_codes: Global missing value codes (fallback)
+    
+    Returns:
+        DataFrame with missing codes replaced by NaN
+    """
+    df_copy = df.copy()
+    var_meta = var_meta or {}
+    
+    for col in df_copy.columns:
+        # Get variable-specific missing values from metadata
+        if col in var_meta and 'missing_values' in var_meta[col]:
+            missing_vals = var_meta[col]['missing_values']
+        else:
+            missing_vals = missing_codes or []
+        
+        if not missing_vals:
+            continue
+            
+        # Replace each missing code with NaN
+        for val in missing_vals:
+            df_copy[col] = df_copy[col].replace(val, np.nan)
+            # Also try numeric conversion for string comparisons
+            if pd.api.types.is_numeric_dtype(df_copy[col]):
+                try:
+                    df_copy[col] = df_copy[col].replace(float(val), np.nan)
+                except (ValueError, TypeError):
+                    pass
+    
+    logger.debug(f"Applied missing value codes to {len(df_copy.columns)} columns")
+    return df_copy
+
+
+def detect_missing_in_variable(
+    series: pd.Series,
+    missing_codes: Optional[List[Any]] = None
+) -> Dict[str, Any]:
+    """
+    Detect and count missing values in a single variable.
+    
+    Parameters:
+        series: Input pandas Series
+        missing_codes: Optional list of values to treat as missing
+    
+    Returns:
+        Dictionary with missing value statistics
+    """
+    total_count = len(series)
+    
+    # Count standard NaN values
+    missing_nan_count = int(series.isna().sum())
+    
+    # Count user-specified missing codes
+    missing_coded_count = 0
+    if missing_codes:
+        for code in missing_codes:
+            missing_coded_count += int((series == code).sum())
+    
+    # Total missing = NaN + coded missing (avoiding double counting)
+    total_missing = missing_nan_count + missing_coded_count
+    
+    missing_pct = (total_missing / total_count * 100) if total_count > 0 else 0.0
+    
+    return {
+        'total_count': total_count,
+        'missing_count': total_missing,
+        'missing_pct': round(missing_pct, 2),
+        'missing_coded_count': missing_coded_count,
+        'missing_nan_count': missing_nan_count,
+        'valid_count': total_count - total_missing
+    }
+
+
+def get_missing_summary_df(
+    df: pd.DataFrame,
+    var_meta: Dict[str, Any],
+    missing_codes: Optional[List[Any]] = None
+) -> pd.DataFrame:
+    """
+    Generate summary table of missing data for all variables.
+    
+    Parameters:
+        df: Input DataFrame
+        var_meta: Variable metadata dictionary
+        missing_codes: Global missing value codes (fallback)
+    
+    Returns:
+        DataFrame with columns: Variable, Type, N_Total, N_Valid, N_Missing, Pct_Missing
+    """
+    summary_data = []
+    
+    for col in df.columns:
+        original_series = df[col]
+        
+        # Get variable-specific missing codes
+        if col in var_meta and 'missing_values' in var_meta[col]:
+            var_missing_codes = var_meta[col]['missing_values']
+        else:
+            var_missing_codes = missing_codes or []
+        
+        # Detect missing values
+        missing_info = detect_missing_in_variable(original_series, var_missing_codes)
+        
+        # Get variable type from metadata
+        var_type = var_meta.get(col, {}).get('type', 'Unknown')
+        
+        summary_data.append({
+            'Variable': col,
+            'Type': var_type,
+            'N_Total': missing_info['total_count'],
+            'N_Valid': missing_info['valid_count'],
+            'N_Missing': missing_info['missing_count'],
+            'Pct_Missing': f"{missing_info['missing_pct']:.1f}%"
+        })
+    
+    return pd.DataFrame(summary_data)
+
+
+def handle_missing_for_analysis(
+    df: pd.DataFrame,
+    var_meta: Dict[str, Any],
+    missing_codes: Optional[List[Any]] = None,
+    strategy: str = "complete-case",
+    return_counts: bool = False
+) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, Any]]]:
+    """
+    Apply missing data handling strategy.
+    
+    Parameters:
+        df: Input DataFrame
+        var_meta: Variable metadata
+        missing_codes: Missing value codes to apply
+        strategy: 'complete-case' (drop rows with any NaN) or 'drop' (keep only complete variables)
+        return_counts: If True, also return before/after counts
+    
+    Returns:
+        Cleaned DataFrame (+ counts dict if return_counts=True)
+    """
+    # Step 1: Apply missing codes → NaN
+    df_processed = apply_missing_values_to_df(df, var_meta, missing_codes)
+    
+    original_rows = len(df_processed)
+    
+    # Step 2: Apply strategy
+    if strategy == "complete-case":
+        # Drop rows with any NaN
+        df_clean = df_processed.dropna()
+    elif strategy == "drop":
+        # Drop columns with any NaN (keep only complete variables)
+        df_clean = df_processed.dropna(axis=1)
+    else:
+        logger.warning(f"Unknown missing data strategy: {strategy}, using complete-case")
+        df_clean = df_processed.dropna()
+    
+    rows_removed = original_rows - len(df_clean)
+    
+    logger.info(f"Missing data handling: {original_rows} → {len(df_clean)} rows "
+                f"({rows_removed} removed, strategy='{strategy}')")
+    
+    if return_counts:
+        counts = {
+            'original_rows': original_rows,
+            'final_rows': len(df_clean),
+            'rows_removed': rows_removed,
+            'pct_removed': round((rows_removed / original_rows * 100) if original_rows > 0 else 0, 2)
+        }
+        return df_clean, counts
+    
+    return df_clean
+
+
+def check_missing_data_impact(
+    df_original: pd.DataFrame,
+    df_clean: pd.DataFrame,
+    var_meta: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Compare before/after to report impact of missing data handling.
+    
+    Parameters:
+        df_original: Original DataFrame (before cleaning)
+        df_clean: Cleaned DataFrame (after handling)
+        var_meta: Variable metadata
+    
+    Returns:
+        Dictionary with impact statistics
+    """
+    rows_removed = len(df_original) - len(df_clean)
+    pct_removed = (rows_removed / len(df_original) * 100) if len(df_original) > 0 else 0
+    
+    # Find which variables had missing data  
+    variables_affected = []
+    observations_lost = {}
+    
+    for col in df_original.columns:
+        if col not in df_clean.columns:
+            continue
+            
+        original_missing = df_original[col].isna().sum()
+        
+        if original_missing > 0:
+            var_label = var_meta.get(col, {}).get('label', col)
+            variables_affected.append(col)
+            observations_lost[col] = {
+                'label': var_label,
+                'count': int(original_missing),
+                'pct': round((original_missing / len(df_original) * 100), 1)
+            }
+    
+    return {
+        'rows_removed': rows_removed,
+        'pct_removed': round(pct_removed, 2),
+        'variables_affected': variables_affected,
+        'observations_lost': observations_lost
+    }
+
+
 # Convenience functions for common operations
 
 def quick_clean_numeric(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.Series:

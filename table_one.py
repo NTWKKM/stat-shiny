@@ -22,8 +22,12 @@ from utils.data_cleaning import (
     clean_numeric,
     clean_numeric_vector,
     clean_dataframe,
-    validate_data_quality
+    validate_data_quality,
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
 )
+from utils.formatting import create_missing_data_report_html
 
 try:
     from tabs._common import get_color_palette
@@ -428,6 +432,32 @@ def generate_table(
     if or_style not in ('all_levels', 'simple'):
         raise ValueError(f"or_style must be 'all_levels' or 'simple'")
     
+    # --- MISSING DATA HANDLING ---
+    # Step 1: Apply user-defined missing value codes → NaN
+    df = apply_missing_values_to_df(df, var_meta or {}, [])
+    
+    # Step 2: Get missing summary BEFORE dropping rows
+    missing_summary_df = get_missing_summary_df(df, var_meta or {})
+    missing_summary_records = missing_summary_df.to_dict('records')
+    
+    # Step 3: Handle missing data (complete-case)
+    df_clean, miss_counts = handle_missing_for_analysis(
+        df, var_meta or {}, strategy='complete-case', return_counts=True
+    )
+    
+    # Track missing data info for report
+    missing_data_info = {
+        'strategy': 'complete-case',
+        'rows_analyzed': miss_counts['final_rows'],
+        'rows_excluded': miss_counts['rows_removed'],
+        'summary_before': missing_summary_records
+    }
+    
+    logger.info(f"Missing data: {miss_counts['rows_removed']} rows excluded ({miss_counts['pct_removed']:.1f}%)")
+    
+    # Use cleaned dataframe
+    df = df_clean
+    
     # CRITICAL: Create cleaned copy for statistics ONLY
     # Original df is NEVER modified
     logger.info("Creating cleaned copy for statistical analysis...")
@@ -826,6 +856,9 @@ def generate_table(
             </ul>
         </div>
     </div>
+    
+    <!-- Missing Data Summary -->
+    {create_missing_data_report_html(missing_data_info, var_meta or {})}
 </div>
 </body>
 </html>

@@ -63,7 +63,7 @@ def test_calculate_vif_independent():
         'c': np.random.normal(0, 1, 100)
     })
     
-    vif_df = calculate_vif(df)
+    vif_df, _ = calculate_vif(df)
     # VIFs should be close to 1 for independent comparisons
     assert not vif_df.empty
     assert all(vif_df['VIF'] < 5)
@@ -77,7 +77,7 @@ def test_calculate_vif_collinear():
         'y': x * 2 + np.random.normal(0, 0.001, 100) # y is almost perfectly correlated with x
     })
     
-    vif_df = calculate_vif(df)
+    vif_df, _ = calculate_vif(df)
     # VIF should be very high
     assert vif_df[vif_df['feature'] == 'x']['VIF'].iloc[0] > 10
 
@@ -87,7 +87,7 @@ def test_calculate_vif_constant_handling():
         'a': [1, 2, 3, 4],
         'b': [2, 4, 6, 8] # Perfect correlation
     })
-    vif_df = calculate_vif(df)
+    vif_df, _ = calculate_vif(df)
     assert not vif_df.empty
     # 'const' should be removed from result if it was added internally
     assert 'const' not in vif_df['feature'].values
@@ -100,6 +100,13 @@ def test_calculate_vif_with_nans():
         'c': [9, 10, 11, 12]
     })
     # Should drop row 4
-    vif_df = calculate_vif(df)
+    # Should drop row 4
+    vif_df, missing_info = calculate_vif(df)
     assert not vif_df.empty
     assert len(vif_df) == 3 # 3 features: a, b, c
+    
+    # Check missing info
+    assert missing_info['strategy'] == 'complete-case'
+    assert missing_info['initial_n'] == 4
+    assert missing_info['final_n'] == 3
+    assert missing_info['excluded_n'] == 1

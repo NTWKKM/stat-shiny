@@ -955,6 +955,100 @@ def get_shiny_css():
         }}
         
         /* ===========================
+           MISSING DATA SECTION
+           =========================== */
+        
+        .missing-data-section {{
+            background-color: #f0f7ff;
+            border-left: 4px solid {COLORS['primary']};
+            padding: var(--spacing-lg);
+            margin: var(--spacing-xl) 0;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        }}
+        
+        .missing-data-section h4 {{
+            color: {COLORS['primary_dark']};
+            margin-top: 0;
+            margin-bottom: var(--spacing-md);
+        }}
+        
+        .missing-data-section h5 {{
+            color: {COLORS['text']};
+            margin-top: var(--spacing-lg);
+            margin-bottom: var(--spacing-sm);
+        }}
+        
+        .missing-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: var(--spacing-md) 0;
+            font-size: 13px;
+        }}
+        
+        .missing-table th,
+        .missing-table td {{
+            padding: var(--spacing-sm) var(--spacing-md);
+            text-align: left;
+            border-bottom: 1px solid {COLORS['border']};
+        }}
+        
+        .missing-table th {{
+            background-color: #e8f1ff;
+            font-weight: 600;
+            color: {COLORS['primary_dark']};
+        }}
+        
+        .missing-table tr.high-missing {{
+            background-color: #fff3cd;
+        }}
+        
+        .missing-table tr.high-missing td {{
+            color: #856404;
+            font-weight: 500;
+        }}
+        
+        .warning-box {{
+            background-color: #fff3cd;
+            border: 1px solid {COLORS['warning']};
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-top: var(--spacing-md);
+        }}
+        
+        .warning-box strong {{
+            color: #856404;
+        }}
+        
+        .warning-box ul {{
+            margin: var(--spacing-sm) 0 0 var(--spacing-lg);
+            padding: 0;
+        }}
+        
+        .warning-box li {{
+            color: #856404;
+            margin-bottom: var(--spacing-xs);
+        }}
+        
+        /* Missing config column styling */
+        .variable-config-column {{
+            padding-right: var(--spacing-md);
+            border-right: 1px solid {COLORS['border']};
+        }}
+        
+        .missing-config-column {{
+            padding-left: var(--spacing-md);
+            background-color: {COLORS['background']};
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+        }}
+        
+        .missing-config-column h5,
+        .missing-config-column h6 {{
+            color: {COLORS['primary']};
+            margin-bottom: var(--spacing-md);
+        }}
+        
+        /* ===========================
            RESPONSIVENESS
            =========================== */
         

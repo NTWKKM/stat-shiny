@@ -14,6 +14,7 @@ Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 
 from shiny import ui, module, reactive, render, req
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.formatting import create_missing_data_report_html
 import pandas as pd
 import numpy as np
 import survival_lib
@@ -966,7 +967,8 @@ def survival_server(
                 subgroup_col=subgroup,
                 adjustment_cols=list(adjust) if adjust else None,
                 min_subgroup_n=input.sg_min_n(),
-                min_events=input.sg_min_events()
+                min_events=input.sg_min_events(),
+                var_meta=var_meta.get()
             )
             if error:
                 ui.notification_show(error, type="error")
@@ -1007,6 +1009,11 @@ def survival_server(
         if 'interaction_table' in res:
             elements.append(ui.card_header("📄 Interaction Analysis"))
             elements.append(ui.output_data_frame("out_sg_table"))
+            
+        # Missing Data Report
+        if 'missing_data_info' in res:
+            elements.append(ui.card_header("⚠️ Missing Data Report"))
+            elements.append(ui.HTML(create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {})))
             
         return ui.card(*elements)
 

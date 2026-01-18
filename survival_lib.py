@@ -38,6 +38,12 @@ from lifelines.utils import median_survival_times
 from forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -1008,9 +1014,20 @@ def fit_km_landmark(
     return fig, pd.DataFrame([stats_data]), n_pre_filter, n_post_filter, None
 
 
-def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
+def generate_report_survival(
+    title: str, 
+    elements: List[Dict[str, Any]],
+    missing_data_info: Optional[Dict[str, Any]] = None,
+    var_meta: Optional[Dict[str, Any]] = None
+) -> str:
     """
     Generate complete HTML report with embedded plots and tables.
+    
+    Args:
+        title: Report title
+        elements: List of report elements
+        missing_data_info: Optional dict with missing data statistics for reporting
+        var_meta: Optional variable metadata
     """
     primary_color = COLORS.get('primary', '#2180BE')
     primary_dark = COLORS.get('primary_dark', '#1a5a8a')
@@ -1109,7 +1126,12 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
     
     html_doc += """<div class='report-footer'>
     © 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny
-    </div></body>
-    </html>"""
+    </div>"""
+    
+    # Add missing data section if provided
+    if missing_data_info:
+        html_doc += create_missing_data_report_html(missing_data_info, var_meta or {})
+    
+    html_doc += "</body></html>"
     
     return html_doc
