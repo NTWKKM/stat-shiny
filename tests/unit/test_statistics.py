@@ -482,7 +482,7 @@ class TestChiSquareAnalysis:
     
     def test_calculate_chi2_basic(self, dummy_df):
         """✅ Test basic chi-square calculation."""
-        display_tab, stats_df, msg, risk_df = calculate_chi2(
+        display_tab, stats_df, msg, risk_df, _ = calculate_chi2(
             dummy_df, 'exposure', 'disease'
         )
         
@@ -497,7 +497,7 @@ class TestChiSquareAnalysis:
     
     def test_calculate_chi2_2x2_risk_metrics(self, dummy_df):
         """✅ Test 2x2 table risk metrics calculation."""
-        display_tab, stats_df, msg, risk_df = calculate_chi2(
+        display_tab, stats_df, msg, risk_df, _ = calculate_chi2(
             dummy_df, 'exposure', 'disease'
         )
         
@@ -517,7 +517,7 @@ class TestChiSquareAnalysis:
             'outcome': [0, 1, 0, 1, 0, 0, 1, 1, 0, 1] * 2
         })
         
-        display_tab, stats_df, msg, risk_df = calculate_chi2(
+        display_tab, stats_df, msg, risk_df, _ = calculate_chi2(
             df, 'treatment', 'outcome', method='Fisher'
         )
         
@@ -527,7 +527,7 @@ class TestChiSquareAnalysis:
     
     def test_calculate_chi2_missing_columns(self, dummy_df):
         """✅ Test with missing columns."""
-        display_tab, stats_df, msg, risk_df = calculate_chi2(
+        display_tab, stats_df, msg, risk_df, _ = calculate_chi2(
             dummy_df, 'nonexistent1', 'nonexistent2'
         )
         
@@ -538,7 +538,7 @@ class TestChiSquareAnalysis:
     def test_calculate_chi2_empty_data(self):
         """✅ Test with empty DataFrame."""
         df = pd.DataFrame({'col1': [], 'col2': []})
-        display_tab, stats_df, msg, risk_df = calculate_chi2(
+        display_tab, stats_df, msg, risk_df, _ = calculate_chi2(
             df, 'col1', 'col2'
         )
         
@@ -624,7 +624,7 @@ class TestKappaAnalysis:
             'rater2': [0, 1, 0, 1] * 5
         })
         
-        res_df, error_msg, conf_matrix = calculate_kappa(
+        res_df, error_msg, conf_matrix, _ = calculate_kappa(
             df, 'rater1', 'rater2'
         )
         
@@ -639,7 +639,7 @@ class TestKappaAnalysis:
             'rater2': [0, 1] * 10
         })
         
-        res_df, error_msg, conf_matrix = calculate_kappa(df, 'rater1', 'rater2')
+        res_df, error_msg, conf_matrix, _ = calculate_kappa(df, 'rater1', 'rater2')
         assert res_df is not None
     
     def test_calculate_kappa_no_agreement(self):
@@ -649,7 +649,7 @@ class TestKappaAnalysis:
             'rater2': [1, 1, 1]
         })
         
-        res_df, error_msg, conf_matrix = calculate_kappa(df, 'rater1', 'rater2')
+        res_df, error_msg, conf_matrix, _ = calculate_kappa(df, 'rater1', 'rater2')
         assert res_df is not None
 
 
@@ -784,7 +784,7 @@ class TestKaplanMeier:
         """✅ Test KM curves with log-rank test."""
         dummy_df['group'] = dummy_df['exposure']
         
-        fig, stats_df = fit_km_logrank(
+        fig, stats_df, _ = fit_km_logrank(
             dummy_df, 'time', 'event', 'group'
         )
         
@@ -795,7 +795,7 @@ class TestKaplanMeier:
     
     def test_fit_km_logrank_no_group(self, dummy_df):
         """✅ Test KM without grouping variable."""
-        fig, stats_df = fit_km_logrank(
+        fig, stats_df, _ = fit_km_logrank(
             dummy_df, 'time', 'event', None
         )
         
@@ -810,7 +810,7 @@ class TestNelsonAalen:
         """✅ Test Nelson-Aalen estimator."""
         dummy_df['group'] = dummy_df['exposure']
         
-        fig, stats_df = fit_nelson_aalen(
+        fig, stats_df, _ = fit_nelson_aalen(
             dummy_df, 'time', 'event', 'group'
         )
         
@@ -890,7 +890,7 @@ class TestLandmarkAnalysis:
         landmark_time = 5.0
         dummy_df['group'] = dummy_df['exposure']
         
-        fig, stats_df, n_pre, n_post, err = fit_km_landmark(
+        fig, stats_df, n_pre, n_post, err, _ = fit_km_landmark(
             dummy_df, 'time', 'event', 'group', landmark_time
         )
         
@@ -905,7 +905,7 @@ class TestLandmarkAnalysis:
         """✅ Test landmark with time beyond all observations."""
         landmark_time = 1000.0  # Beyond max time
         
-        fig, stats_df, n_pre, n_post, err = fit_km_landmark(
+        fig, stats_df, n_pre, n_post, err, _ = fit_km_landmark(
             dummy_df, 'time', 'event', 'exposure', landmark_time
         )
         
@@ -928,7 +928,7 @@ class TestIntegrationScenarios:
         assert desc is not None
         
         # Step 2: Chi-square test
-        _, stats, _, risk = calculate_chi2(dummy_df, 'exposure', 'disease')
+        _, stats, _, risk, _ = calculate_chi2(dummy_df, 'exposure', 'disease')
         assert stats is not None
         
         # Step 3: ROC analysis
@@ -953,7 +953,7 @@ class TestIntegrationScenarios:
         dummy_df_km = dummy_df.copy()
         dummy_df_km['group'] = dummy_df_km['exposure']
         
-        fig, stats = fit_km_logrank(dummy_df_km, 'time', 'event', 'group')
+        fig, stats, _ = fit_km_logrank(dummy_df_km, 'time', 'event', 'group')
         assert fig is not None
         assert stats is not None
         
@@ -1000,7 +1000,7 @@ class TestEdgeCases:
         # Diagnostic tests
         assert calculate_descriptive(df, 'col') is None
         
-        display, stats, msg, risk = calculate_chi2(df, 'c1', 'c2')
+        display, stats, msg, risk, _ = calculate_chi2(df, 'c1', 'c2')
         assert stats is None or msg is not None
         
         # Survival tests
@@ -1048,7 +1048,7 @@ class TestPerformance:
         
         import time
         start = time.time()
-        display, stats, msg, risk = calculate_chi2(df, 'var1', 'var2')
+        display, stats, msg, risk, _ = calculate_chi2(df, 'var1', 'var2')
         elapsed = time.time() - start
         
         assert stats is not None
