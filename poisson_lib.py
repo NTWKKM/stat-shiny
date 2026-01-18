@@ -235,7 +235,7 @@ def analyze_poisson_outcome(
             get_label,
         )
         
-        logger.info(f"Starting Poisson analysis for outcome: {outcome_name}")
+        logger.info("Starting Poisson analysis for outcome: %s", outcome_name)
         
         # --- MISSING DATA HANDLING ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}

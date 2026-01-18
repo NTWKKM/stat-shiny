@@ -194,7 +194,7 @@ def clean_numeric_vector(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.
         return result
         
     except Exception as e:
-        logger.error(f"Failed in clean_numeric_vector: {e}")
+        logger.exception("Failed in clean_numeric_vector")
         raise DataCleaningError(f"Vectorized cleaning failed: {e}") from e
 
 

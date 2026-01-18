@@ -453,10 +453,7 @@ def analyze_outcome(
     missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
     missing_summary_records = missing_summary_df.to_dict('records')
     
-    # Step 2: Apply user-defined missing value codes → NaN
-    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
-    
-    # Step 3: Handle missing data (complete-case)
+    # Step 2: Handle missing data (complete-case)
     df_clean, miss_counts = handle_missing_for_analysis(
         df, var_meta or {}, missing_codes, strategy=strategy, return_counts=True
     )
