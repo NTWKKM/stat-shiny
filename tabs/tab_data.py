@@ -145,7 +145,7 @@ def data_server(
 
         try:
             np.random.seed(42)
-            n = 1500  
+            n = 1600  
 
             # --- Simulation Logic (Same as original) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
@@ -222,6 +222,14 @@ def data_server(
             }
 
             new_df = pd.DataFrame(data)
+
+            # [ADDED] Introduce ~1.68% missing data (NaN) for demonstration
+            # Exclude ID column from having missing values
+            for col in new_df.columns:
+                if col != 'ID':
+                    # Randomly set ~1.68% of values to NaN
+                    mask = np.random.choice([True, False], size=n, p=[0.0168, 1 - 0.0168])
+                    new_df.loc[mask, col] = np.nan
 
             # Meta logic for example data remains explicit
             meta = {
