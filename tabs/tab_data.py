@@ -226,7 +226,7 @@ def data_server(
 
             new_df = pd.DataFrame(data)
 
-            # [ADDED] Introduce ~1.68% missing data (NaN) for demonstration
+            # [ADDED] Introduce ~0.618% missing data (NaN) for demonstration
             # Exclude ID column from having missing values
             for col in new_df.columns:
                 if col != 'ID':
@@ -332,6 +332,8 @@ def data_server(
                         # ถ้าแปลงได้สำเร็จเกิน 70% ให้สันนิษฐานว่าเป็น Continuous ที่มีขยะปน
                         if numeric_ratio > 0.70:
                             inferred_type = 'Continuous'
+                            # Coerce to numeric; non-numeric values become NaN
+                            new_df[col] = numeric_conversion
                             
                             # --- Identify Bad Rows for Reporting ---
                             # หาจุดที่แปลงไม่ได้ (NaN) แต่ค่าเดิมไม่ใช่ NaN
@@ -505,10 +507,9 @@ def data_server(
                     continue
                 # Try to parse as number
                 try:
-                    if '.' in item:
-                        missing_codes.append(float(item))
-                    else:
-                        missing_codes.append(int(item))
+                    num = float(item)
+                    num = int(num) if num.is_integer() else num
+                    missing_codes.append(num)
                 except ValueError:
                     # If not a number, treat as string
                     missing_codes.append(item)
