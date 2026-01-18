@@ -48,6 +48,7 @@ jobs:
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
         run: |
           pytest tests/unit/ -v --tb=short
+          pytest tests/unit/test_missing_data.py -v --tb=short
           pytest tests/test_plotly_html_rendering.py -v --tb=short
 
   # ==========================================

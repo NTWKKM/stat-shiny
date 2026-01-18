@@ -20,9 +20,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 
 from psm_lib import (
     calculate_propensity_score,
-    perform_matching,
     compute_smd,
-    plot_love_plot
+    perform_matching,
+    plot_love_plot,
 )
 
 # Mark as integration test
@@ -61,7 +61,7 @@ class TestPSMPipeline:
         covariates = ['age', 'severity']
         
         # Step 1: Calculate Propensity Scores
-        ps_series = calculate_propensity_score(df, 'treatment', covariates)
+        ps_series, _ = calculate_propensity_score(df, 'treatment', covariates)
         
         assert len(ps_series) == len(df)
         assert ps_series.min() >= 0

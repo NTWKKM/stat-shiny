@@ -8,7 +8,7 @@ This module provides utility functions for:
 """
 from __future__ import annotations
 
-from typing import Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -16,12 +16,17 @@ import statsmodels.stats.multitest as smt
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from logger import get_logger
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
 
 logger = get_logger(__name__)
 
 # --- Multiple Comparison Corrections (MCC) ---
 
-def apply_mcc(p_values: list[float] | pd.Series | np.ndarray, method: str = "fdr_bh", alpha: float = 0.05) -> pd.Series:
+def apply_mcc(p_values: Union[List[float], pd.Series, np.ndarray], method: str = "fdr_bh", alpha: float = 0.05) -> pd.Series:
     """
     Apply Multiple Comparison Correction to a list of p-values.
 
@@ -45,6 +50,8 @@ def apply_mcc(p_values: list[float] | pd.Series | np.ndarray, method: str = "fdr
 
     # Convert to numpy array for processing, ensuring numeric type and handling NaNs
     p_vals_arr = pd.to_numeric(p_values, errors='coerce')
+    # Robustness: Clip p-values to valid range [0, 1]
+    p_vals_arr = np.clip(p_vals_arr, 0.0, 1.0)
     
     # Mask NaNs to avoid errors in multipletests
     mask = np.isfinite(p_vals_arr)
@@ -74,7 +81,7 @@ def apply_mcc(p_values: list[float] | pd.Series | np.ndarray, method: str = "fdr
 
 # --- Collinearity Diagnostics (VIF) ---
 
-def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
+def calculate_vif(df: pd.DataFrame, *, intercept: bool = True, var_meta: Optional[Dict[str, Any]] = None) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Calculate Variance Inflation Factor (VIF) for each feature in a DataFrame.
     
@@ -84,25 +91,53 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
                            or passed as design matrix.
         intercept (bool): Whether to add an intercept (constant) if not present.
                           VIF calculation requires an intercept for correct interpretation.
+        var_meta (dict, optional): Variable metadata for missing value handling.
 
     Returns:
-        pd.DataFrame: A DataFrame with columns ['feature', 'VIF'].
+        Tuple[pd.DataFrame, Dict[str, Any]]: 
+            - DataFrame with columns ['feature', 'VIF'].
+            - Missing data info dictionary.
     """
     if df is None or df.empty:
-        return pd.DataFrame(columns=['feature', 'VIF'])
+        return pd.DataFrame(columns=['feature', 'VIF']), {}
+
+    var_meta = var_meta or {}
+
+    # 1. Generate Missing Summary (on original data)
+    missing_summary = get_missing_summary_df(df, var_meta)
+    
+    # 2. Apply Missing Value Codes
+    df_clean = apply_missing_values_to_df(df, var_meta)
+    
+    # 3. Handle Missing Data (Complete Case)
+    # VIF requires complete numeric data, so we must drop NaNs.
+    # We use 'complete-case' implicitly by calling handle_missing_for_analysis 
+    # or manually dropping. Since VIF often runs on a subset, let's use the standard handler.
+    # Note: handle_missing_for_analysis expects a target column, but VIF is unsupervised regarding target.
+    # We can just dropna() on the whole df_clean.
+    
+    initial_n = len(df_clean)
+    df_numeric = df_clean.select_dtypes(include=[np.number]).dropna()
+    final_n = len(df_numeric)
+    
+    missing_info = {
+        'strategy': 'complete-case',
+        'initial_n': initial_n,
+        'final_n': final_n,
+        'excluded_n': initial_n - final_n,
+        'missing_summary': missing_summary.to_dict('records') if not missing_summary.empty else []
+    }
 
     # Select only numeric columns and drop rows with NaNs (VIF requires complete numeric data)
     non_numeric_cols = df.columns.difference(df.select_dtypes(include=[np.number]).columns)
     if len(non_numeric_cols) > 0:
         logger.debug("VIF: Dropping %d non-numeric columns: %s", len(non_numeric_cols), list(non_numeric_cols))
-
-    df_numeric = df.select_dtypes(include=[np.number]).dropna()
     
-    if len(df_numeric) < len(df):
-        logger.debug("VIF: Dropped %d rows containing NaN values", len(df) - len(df_numeric))
+    if len(df_numeric) < initial_n:
+        logger.debug("VIF: Dropped %d rows containing NaN values", initial_n - len(df_numeric))
     
     if df_numeric.empty:
-        return pd.DataFrame(columns=['feature', 'VIF'])
+        return pd.DataFrame(columns=['feature', 'VIF']), missing_info
 
     # Drop constant predictors (VIF undefined / can explode)
     variances = df_numeric.var()
@@ -117,25 +152,29 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True) -> pd.DataFrame:
 
     features = [c for c in df_numeric.columns if c != "const"]
     if not features:
-        return pd.DataFrame(columns=["feature", "VIF"])
+        return pd.DataFrame(columns=["feature", "VIF"]), missing_info
     
     try:
         vif_vals = []
         for col in features:
             i = df_numeric.columns.get_loc(col)
-            vif_vals.append(variance_inflation_factor(df_numeric.values, i))
+            vif = variance_inflation_factor(df_numeric.values, i)
+            # Robustness: Check for infinite VIF
+            if not np.isfinite(vif):
+                vif = float('inf')
+            vif_vals.append(vif)
         vif_data = pd.DataFrame({"feature": features, "VIF": vif_vals})
-        return vif_data.sort_values(by="VIF", ascending=False)
+        return vif_data.sort_values(by="VIF", ascending=False), missing_info
         
     except (ValueError, np.linalg.LinAlgError):
         logger.exception("Error calculating VIF")
-        return pd.DataFrame(columns=['feature', 'VIF'])
+        return pd.DataFrame(columns=['feature', 'VIF']), missing_info
 
 # --- Confidence Interval Configuration (Helper/Placeholder) ---
 
 def determine_best_ci_method(
     n_samples: int,
-    n_events: int | None = None,
+    n_events: Optional[int] = None,
     n_params: int = 1,
     model_type: str = 'logistic'
 ) -> str:
@@ -169,12 +208,20 @@ def determine_best_ci_method(
         
     return recommended
 
-def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_params: int = 1, model_type: str = "logistic") -> dict[str, str]:
+def get_ci_configuration(
+    method_name: str, 
+    alpha: float = 0.05,
+    n_samples: int = 0,
+    n_events: int = 0,
+    n_params: int = 1,
+    model_type: str = "logistic"
+) -> Dict[str, Any]:
     """
     Resolve the confidence-interval method and return configuration details, resolving "auto" to a concrete choice based on sample/events.
     
     Parameters:
-        method (str): One of "auto", "wald", or "profile". If "auto", the function selects a method based on data characteristics.
+        method_name (str): One of "auto", "wald", or "profile". If "auto", the function selects a method based on data characteristics.
+        alpha (float): The significance level for the confidence interval (e.g., 0.05 for 95% CI).
         n_samples (int): Number of observations used to inform automatic selection.
         n_events (int): Number of events (for event-based models); used when applicable to compute events-per-variable.
         n_params (int): Number of model parameters (used to compute events-per-variable when relevant).
@@ -188,12 +235,12 @@ def get_ci_configuration(method: str, n_samples: int, n_events: int = 0, n_param
     Raises:
         ValueError: If `method` is not one of "auto", "wald", or "profile".
     """
-    if method not in {"auto", "wald", "profile"}:
-        raise ValueError(f"Unsupported CI method: {method}")
-    selected_method = method
+    if method_name not in {"auto", "wald", "profile"}:
+        raise ValueError(f"Unsupported CI method: {method_name}")
+    selected_method = method_name
     note = ""
     
-    if method == 'auto':
+    if method_name == 'auto':
         selected_method = determine_best_ci_method(n_samples, n_events, n_params, model_type)
         note = f"Auto-selected {selected_method.title()} based on sample size/events."
         

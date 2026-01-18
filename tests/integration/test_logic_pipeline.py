@@ -19,8 +19,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from logic import validate_logit_data, clean_numeric_value, run_binary_logit, analyze_outcome
 from forest_plot_lib import create_forest_plot  # Import forest plot lib
+from logic import (
+    analyze_outcome,
+    clean_numeric_value,
+    run_binary_logit,
+    validate_logit_data,
+)
 
 # Mark as integration test
 pytestmark = pytest.mark.integration

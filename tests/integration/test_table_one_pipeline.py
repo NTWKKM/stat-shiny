@@ -8,20 +8,21 @@ Tests the flow of generating baseline characteristics tables:
 3. HTML Table Generation
 """
 
-import sys
 import os
-import pytest
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from table_one import (
-    generate_table,
-    calculate_smd,
+    calculate_p_categorical,
     calculate_p_continuous,
-    calculate_p_categorical
+    calculate_smd,
+    generate_table,
 )
 
 # Mark as integration test

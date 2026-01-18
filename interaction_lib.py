@@ -5,14 +5,15 @@ Handles creation and analysis of interaction effects between variables
 Compatible with both Logistic and Poisson regression
 """
 
-import pandas as pd
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
+import pandas as pd
 import statsmodels.api as sm
 from scipy.stats import chi2
+
 from logger import get_logger
-from logic import clean_numeric_value
-from logic import fmt_p_with_styling, COLORS
-from typing import Union, Optional, List, Dict, Tuple, Any
+from logic import COLORS, clean_numeric_value, fmt_p_with_styling
 
 logger = get_logger(__name__)
 

@@ -1,10 +1,12 @@
-from shiny import ui, module, reactive, render, req
-import pandas as pd
-import numpy as np
-import diag_test
-from typing import Optional, List, Dict, Any, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
+import numpy as np
+import pandas as pd
+from shiny import module, reactive, render, req, ui
+
+import diag_test
 from tabs._common import get_color_palette
+from utils.formatting import create_missing_data_report_html
 
 COLORS = get_color_palette()
 
@@ -618,6 +620,7 @@ def diag_server(
                 score_col,
                 method=method,
                 pos_label_user=pos_label,
+                var_meta=var_meta.get() or {}
             )
 
             if err:
@@ -645,11 +648,13 @@ def diag_server(
 
                 # Add statistics table
                 if res is not None:
+                    # Filter out missing_data_info/metadata from the main stats table
+                    res_display = {k: v for k, v in res.items() if k != 'missing_data_info'}
                     rep.append(
                         {
                             "type": "table",
                             "header": "ROC Statistics",
-                            "data": pd.DataFrame([res]).T,
+                            "data": pd.DataFrame([res_display]).T,
                         }
                     )
 
@@ -662,6 +667,13 @@ def diag_server(
                             "data": coords,
                         }
                     )
+                
+                # Missing Data Report
+                if res and 'missing_data_info' in res:
+                    rep.append({
+                        "type": "html",
+                        "data": create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {})
+                    })
 
                 html_report = diag_test.generate_report(
                     f"ROC Analysis Report ({method})", rep
@@ -696,13 +708,14 @@ def diag_server(
         chi_processing.set(True)
 
         try:
-            tab, stats, msg, risk = diag_test.calculate_chi2(
+            tab, stats, msg, risk, missing_info = diag_test.calculate_chi2(
                 d,
                 input.sel_chi_v1(),
                 input.sel_chi_v2(),
                 method=input.radio_chi_method(),
                 v1_pos=input.sel_chi_v1_pos(),
                 v2_pos=input.sel_chi_v2_pos(),
+                var_meta=var_meta.get() or {}
             )
 
             if tab is not None:
@@ -728,6 +741,9 @@ def diag_server(
                     },
                 ]
                 if stats is not None:
+                    # Filter out missing_data_info if present in stats (unlikely for Chi2 dataframe but safe)
+                    # stats is already a DataFrame here from diag_test.calculate_chi2 return
+                    # Checking just in case logic transforms it or if user meant the stats dict
                     rep.append(
                         {
                             "type": "table",
@@ -743,6 +759,13 @@ def diag_server(
                             "data": risk,
                         }
                     )
+                
+                # Missing Data Report
+                if missing_info:
+                    rep.append({
+                        "type": "html",
+                        "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
+                    })
 
                 chi_html.set(
                     diag_test.generate_report(
@@ -782,8 +805,9 @@ def diag_server(
         kappa_processing.set(True)
 
         try:
-            res, err, conf = diag_test.calculate_kappa(
-                d, input.sel_kappa_v1(), input.sel_kappa_v2()
+            res, err, conf, missing_info = diag_test.calculate_kappa(
+                d, input.sel_kappa_v1(), input.sel_kappa_v2(),
+                var_meta=var_meta.get() or {}
             )
             if err:
                 kappa_html.set(
@@ -806,6 +830,14 @@ def diag_server(
                         "data": conf,
                     },
                 ]
+                
+                # Missing Data Report
+                if missing_info:
+                    rep.append({
+                        "type": "html",
+                        "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
+                    })
+
                 kappa_html.set(
                     diag_test.generate_report(
                         f"Kappa: {input.sel_kappa_v1()} vs {input.sel_kappa_v2()}",

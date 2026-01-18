@@ -1,23 +1,28 @@
-from shiny import ui, module, reactive, render, req
-from utils.plotly_html_renderer import plotly_figure_to_html
-import pandas as pd
-import numpy as np
-import json
-import plotly.graph_objects as go
-import html
-from htmltools import HTML, div
 import gc
+import html
+import json
+
 # Use built-in list/dict/tuple for Python 3.9+ and typing for complex types
-from typing import Optional, Any, Union, cast
+from typing import Any, Optional, Union, cast
+from itertools import combinations, islice
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from htmltools import HTML, div
+from shiny import module, reactive, render, req, ui
+
+from config import CONFIG
+from forest_plot_lib import create_forest_plot
+from logger import get_logger
 
 # Import internal modules
 from logic import analyze_outcome
 from poisson_lib import analyze_poisson_outcome
-from forest_plot_lib import create_forest_plot
 from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
-from logger import get_logger
 from tabs._common import get_color_palette
-from config import CONFIG
+from utils.formatting import create_missing_data_report_html
+from utils.plotly_html_renderer import plotly_figure_to_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -309,7 +314,8 @@ def logit_ui() -> ui.TagChild:
                         ui.hr(),
                         ui.output_ui("out_interpretation_box"),
                         ui.h5("Detailed Results"),
-                        ui.output_data_frame("out_sg_table")
+                        ui.output_data_frame("out_sg_table"),
+                        ui.output_ui("out_sg_missing_report")
                     ),
                     ui.nav_panel(
                         "💾 Exports",
@@ -506,7 +512,6 @@ def logit_server(
         ui.update_selectize("sel_exclude", choices=cols)
         
         # Generate interaction pair choices for Logit
-        from itertools import islice, combinations
         interaction_choices = list(islice((f"{a} × {b}" for a, b in combinations(cols, 2)), 50))
         ui.update_selectize("sel_interactions", choices=interaction_choices)
         
@@ -1021,7 +1026,8 @@ def logit_server(
                     treatment_col=input.sg_treatment(),
                     subgroup_col=input.sg_subgroup(),
                     adjustment_cols=list(input.sg_adjust()),
-                    min_subgroup_n=input.sg_min_n()
+                    min_subgroup_n=input.sg_min_n(),
+                    var_meta=var_meta.get()
                 )
                 
                 subgroup_res.set(results)
@@ -1138,6 +1144,13 @@ def logit_server(
             cols = ['group', 'n', 'events', 'or', 'ci_low', 'ci_high', 'p_value']
             available_cols = [c for c in cols if c in df_res.columns]
             return render.DataGrid(df_res[available_cols].round(4))
+        return None
+
+    @render.ui
+    def out_sg_missing_report() -> ui.TagChild | None:
+        res = subgroup_res.get()
+        if res and 'missing_data_info' in res:
+             return ui.HTML(create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {}))
         return None
 
     # --- Subgroup Downloads ---

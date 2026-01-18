@@ -13,14 +13,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from forest_plot_lib import create_forest_plot
 from survival_lib import (
     calculate_median_survival,
-    fit_km_logrank,
     fit_cox_ph,
+    fit_km_logrank,
     fit_nelson_aalen,
 )
-
-from forest_plot_lib import create_forest_plot
 
 pytestmark = pytest.mark.integration
 
@@ -67,7 +66,7 @@ class TestSurvivalPipeline:
         
         # --- Step 2: Kaplan-Meier & Log-rank ---
         # Note: In integration test, we check if objects are created successfully
-        fig, stats_df = fit_km_logrank(df, 'time', 'event', 'treatment')
+        fig, stats_df, _ = fit_km_logrank(df, 'time', 'event', 'treatment')
         
         assert fig is not None
         # Check if Log-rank test produced a P-value
@@ -153,7 +152,7 @@ class TestSurvivalPipeline:
         df = survival_data
     
         # Test with grouping
-        fig, stats_df = fit_nelson_aalen(df, 'time', 'event', 'treatment')
+        fig, stats_df, _ = fit_nelson_aalen(df, 'time', 'event', 'treatment')
     
         assert fig is not None
         assert hasattr(fig, 'data')
@@ -169,7 +168,7 @@ class TestSurvivalPipeline:
         assert 'Events' in stats_df.columns
     
         # Test without grouping (overall)
-        fig_overall, stats_overall = fit_nelson_aalen(df, 'time', 'event', None)
+        fig_overall, stats_overall, _ = fit_nelson_aalen(df, 'time', 'event', None)
     
         assert fig_overall is not None
         assert not stats_overall.empty

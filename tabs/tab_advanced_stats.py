@@ -1,8 +1,10 @@
-from shiny import ui, reactive, render, module
+from typing import Protocol
+
+from shiny import module, reactive, render, ui
+
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
-from typing import Protocol
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
