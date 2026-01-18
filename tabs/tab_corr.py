@@ -680,7 +680,8 @@ def corr_server(
                 "figure": fig,
                 "method": method,
                 "summary": summary,
-                "data_label": data_label
+                "data_label": data_label,
+                "strategy": summary.get('missing_data_info', {}).get('strategy', 'pairwise-complete')
             })
             ui.notification_show("✅ Heatmap generated!", type="default")
         else:
