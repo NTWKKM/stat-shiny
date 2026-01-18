@@ -24,6 +24,7 @@ import plotly.io as pio
 import scipy.stats as stats
 from sklearn.metrics import cohen_kappa_score, roc_auc_score, roc_curve
 
+from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
@@ -248,14 +249,17 @@ def calculate_chi2(
     # --- MISSING DATA HANDLING ---
     missing_data_info = {}
     if var_meta:
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
         df_subset = df[[col1, col2]].copy()
-        missing_summary = get_missing_summary_df(df_subset, var_meta)
-        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
         df_clean, impact = handle_missing_for_analysis(
-            df_processed, var_meta, strategy='complete-case', return_counts=True
+            df_subset, var_meta, missing_codes=missing_codes, strategy=strategy, return_counts=True
         )
         missing_data_info = {
-            'strategy': 'complete-case',
+            'strategy': strategy,
             'rows_analyzed': impact['final_rows'],
             'rows_excluded': impact['rows_removed'],
             'summary_before': missing_summary.to_dict('records')
@@ -657,7 +661,7 @@ def calculate_chi2(
     
     except Exception as e:
         logger.exception("Chi-square calculation error")
-        return display_tab, None, str(e), None
+        return display_tab, None, str(e), None, missing_data_info
 
 
 def calculate_kappa(
@@ -860,15 +864,18 @@ def analyze_roc(
     # --- MISSING DATA HANDLING ---
     missing_data_info = {}
     if var_meta:
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
         # We start fresh from df to apply rules
         df_subset = df[[truth_col, score_col]].copy()
-        missing_summary = get_missing_summary_df(df_subset, var_meta)
-        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
         df_clean, impact = handle_missing_for_analysis(
-            df_processed, var_meta, strategy='complete-case', return_counts=True
+            df_subset, var_meta, missing_codes=missing_codes, strategy=strategy, return_counts=True
         )
         missing_data_info = {
-            'strategy': 'complete-case',
+            'strategy': strategy,
             'rows_analyzed': impact['final_rows'],
             'rows_excluded': impact['rows_removed'],
             'summary_before': missing_summary.to_dict('records')

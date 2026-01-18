@@ -24,6 +24,7 @@ import plotly.graph_objects as go
 import scipy.stats as stats
 
 from tabs._common import get_color_palette
+from config import CONFIG
 from utils.data_cleaning import (
     apply_missing_values_to_df,
     get_missing_summary_df,
@@ -318,21 +319,23 @@ def calculate_correlation(
     # Although we did dropna() above, let's capture the logic formally for reporting
     missing_data_info = {}
     if var_meta:
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
         # Re-process from original df to capture missing stats properly
         cols_to_use = [col1, col2]
         df_subset = df[cols_to_use].copy()
         
         # 1. Get summary (on original data)
-        missing_summary = get_missing_summary_df(df_subset, var_meta)
-        # 2. Apply codes
-        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-        # 3. Handle (Complete case)
+        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+        # 2. Apply codes & 3. Handle (Complete case)
         df_clean, impact = handle_missing_for_analysis(
-            df_processed, var_meta, strategy='complete-case', return_counts=True
+            df_subset, var_meta, missing_codes=missing_codes, strategy=strategy, return_counts=True
         )
         
         missing_data_info = {
-            'strategy': 'complete-case',
+            'strategy': strategy,
             'rows_analyzed': impact['final_rows'],
             'rows_excluded': impact['rows_removed'],
             'summary_before': missing_summary.to_dict('records')
@@ -469,9 +472,10 @@ def compute_correlation_matrix(
     # --- MISSING DATA HANDLING ---
     missing_data_info = {}
     if var_meta:
+        missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
         df_subset = df[cols].copy()
-        missing_summary = get_missing_summary_df(df_subset, var_meta)
-        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+        df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
         
         # Note: Correlation calculation usually handles pairwise missingness (analyzes valid pairs)
         # So 'drop_na' across ALL columns might be too aggressive if we want pairwise.

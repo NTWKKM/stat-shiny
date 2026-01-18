@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from sklearn.linear_model import LogisticRegression
 
+from config import CONFIG
 from logger import get_logger
 from utils.data_cleaning import (
     apply_missing_values_to_df,
@@ -36,10 +37,10 @@ def calculate_propensity_score(
         
         missing_data_info = {}
         if var_meta:
-            # 1. Get summary of what is missing (on original data)
-            missing_summary = get_missing_summary_df(df_subset, var_meta)
-            # 2. Apply codes (converts user-defined missing to NaN)
-            df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+            missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+            missing_codes = missing_cfg.get("user_defined_values", [])
+            missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+            df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
             
             # 3. Create report info (Strategy: Mean Imputation)
             # We don't drop rows here, we impute.
