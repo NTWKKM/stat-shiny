@@ -668,7 +668,7 @@ def diag_server(
                 # Missing Data Report
                 if res and 'missing_data_info' in res:
                     rep.append({
-                        "type": "text",
+                        "type": "html",
                         "data": create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {})
                     })
 
@@ -757,7 +757,7 @@ def diag_server(
                 # Missing Data Report
                 if missing_info:
                     rep.append({
-                        "type": "text",
+                        "type": "html",
                         "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
                     })
 

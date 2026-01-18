@@ -617,7 +617,7 @@ def corr_server(
         
         if 'missing_data_info' in stats:
             elements.append({
-                'type': 'text',
+                'type': 'html',
                 'data': create_missing_data_report_html(stats['missing_data_info'], var_meta.get() or {})
             })
             
@@ -813,7 +813,7 @@ def corr_server(
         
         if 'missing_data_info' in summary:
             elements.append({
-                'type': 'text',
+                'type': 'html',
                 'data': create_missing_data_report_html(summary['missing_data_info'], var_meta.get() or {})
             })
 

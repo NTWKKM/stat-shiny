@@ -1347,6 +1347,9 @@ def generate_report(
             else:
                  html += str(data)
         
+        elif element_type == 'html':
+             html += str(data)
+        
         elif element_type == 'plot':
             if hasattr(data, 'to_html'):
                 html += data.to_html(full_html=False, include_plotlyjs='cdn')
