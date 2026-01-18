@@ -305,6 +305,9 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
         
         # Detect outliers
         outlier_mask, stats = detect_outliers(series, method=method, **kwargs)
+        if not stats:
+            logger.info("No outliers detected (empty or non-numeric series)")
+            return cleaned
         
         if action == 'flag':
             # Flag outliers with NaN
