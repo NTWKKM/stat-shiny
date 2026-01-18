@@ -524,21 +524,23 @@ def survival_server(
             medians = None # Initialize medians
             
             if plot_type == "km":
-                fig, stats = survival_lib.fit_km_logrank(data, time_col, event_col, group_col)
-                medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col)
-                
-                # ✅ FIXED: Do NOT merge stats (single row test result) and medians (per-group result)
-                # Storing them separately prevents NaN and shape misalignment issues
+                fig, stats, missing_info = survival_lib.fit_km_logrank(
+                    data, time_col, event_col, group_col, var_meta=var_meta.get()
+                )
+                medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col) # Uses raw data still if not updated, but acceptable for median
                 
             else:
-                fig, stats = survival_lib.fit_nelson_aalen(data, time_col, event_col, group_col)
+                fig, stats, missing_info = survival_lib.fit_nelson_aalen(
+                    data, time_col, event_col, group_col, var_meta=var_meta.get()
+                )
             
             curves_result.set({
                 'fig': fig, 
                 'stats': stats, 
-                'medians': medians, # ✅ Store medians separately in dict
+                'medians': medians,
                 'surv_at_times': surv_at_times_df,
-                'plot_type': plot_type
+                'plot_type': plot_type,
+                'missing_data_info': missing_info
             })
             ui.notification_remove("run_curves")
             
@@ -654,7 +656,12 @@ def survival_server(
             elements.append({'type': 'header', 'data': 'Survival Probability at Fixed Times'})
             elements.append({'type': 'table', 'data': res['surv_at_times']})
             
-        yield survival_lib.generate_report_survival("Survival Analysis", elements)
+        yield survival_lib.generate_report_survival(
+            "Survival Analysis", 
+            elements, 
+            missing_data_info=res.get('missing_data_info'),
+            var_meta=var_meta.get()
+        )
 
     # ==================== 2. LANDMARK LOGIC ====================
     @reactive.Effect
@@ -673,12 +680,21 @@ def survival_server(
 
         try:
             ui.notification_show("Running Landmark Analysis...", duration=None, id="run_landmark")
-            fig, stats, n_pre, n_post, err = survival_lib.fit_km_landmark(data, time_col, event_col, group_col, t)
+            fig, stats, n_pre, n_post, err, missing_info = survival_lib.fit_km_landmark(
+                data, time_col, event_col, group_col, t, var_meta=var_meta.get()
+            )
             
             if err:
                 ui.notification_show(err, type="error")
             else:
-                landmark_result.set({'fig': fig, 'stats': stats, 'n_pre': n_pre, 'n_post': n_post, 't': t})
+                landmark_result.set({
+                    'fig': fig, 
+                    'stats': stats, 
+                    'n_pre': n_pre, 
+                    'n_post': n_post, 
+                    't': t,
+                    'missing_data_info': missing_info
+                })
             
             ui.notification_remove("run_landmark")
         except Exception as e:
@@ -755,7 +771,12 @@ def survival_server(
             {'type': 'header', 'data': 'Statistics'},
             {'type': 'table', 'data': res['stats']}
         ]
-        yield survival_lib.generate_report_survival("Landmark Analysis", elements)
+        yield survival_lib.generate_report_survival(
+            "Landmark Analysis", 
+            elements,
+            missing_data_info=res.get('missing_data_info'),
+            var_meta=var_meta.get()
+        )
 
     # ==================== 3. COX REGRESSION LOGIC ====================
     @reactive.Effect
@@ -778,8 +799,10 @@ def survival_server(
         try:
             ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
             
-            # ✅ NEW: Capture model_stats
-            cph, res_df, clean_data, err, model_stats = survival_lib.fit_cox_ph(data, time_col, event_col, list(covars))
+            # ✅ NEW: Capture model_stats and missing_info
+            cph, res_df, clean_data, err, model_stats, missing_info = survival_lib.fit_cox_ph(
+                data, time_col, event_col, list(covars), var_meta=var_meta.get()
+            )
             
             if err:
                 ui.notification_show(err, type="error")
@@ -797,7 +820,8 @@ def survival_server(
                 'forest_fig': forest_fig,
                 'assumptions_text': assump_text,
                 'assumptions_plots': assump_plots,
-                'model_stats': model_stats # ✅ NEW
+                'model_stats': model_stats,
+                'missing_data_info': missing_info
             })
             
             ui.notification_remove("run_cox")
@@ -933,7 +957,12 @@ def survival_server(
             {'type': 'header', 'data': 'PH Assumptions'},
             {'type': 'text', 'data': res['assumptions_text']}
         ])
-        yield survival_lib.generate_report_survival("Cox Regression", elements)
+        yield survival_lib.generate_report_survival(
+            "Cox Regression", 
+            elements, 
+            missing_data_info=res.get('missing_data_info'),
+            var_meta=var_meta.get()
+        )
 
     # ==================== 4. SUBGROUP LOGIC ====================
     @reactive.Effect
