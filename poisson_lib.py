@@ -242,10 +242,9 @@ def analyze_poisson_outcome(
         strategy = missing_cfg.get("strategy", "complete-case")
         missing_codes = missing_cfg.get("user_defined_values", [])
         missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
-        df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
         missing_summary_records = missing_summary_df.to_dict('records')
         df_clean, miss_counts = handle_missing_for_analysis(
-            df, var_meta or {}, strategy=strategy, return_counts=True
+            df, var_meta or {}, missing_codes, strategy=strategy, return_counts=True
         )
         missing_data_info = {
             'strategy': strategy,
@@ -254,7 +253,7 @@ def analyze_poisson_outcome(
             'summary_before': missing_summary_records
         }
         df = df_clean
-        logger.info(f"Missing data: {miss_counts['rows_removed']} rows excluded")
+        logger.info("Missing data: %s rows excluded", miss_counts["rows_removed"])
         
         if outcome_name not in df.columns:
             msg = f"Outcome '{outcome_name}' not found"
