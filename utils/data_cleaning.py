@@ -603,7 +603,7 @@ def clean_dataframe(df: pd.DataFrame,
         return df_cleaned, cleaning_report
         
     except Exception as e:
-        logger.error(f"Data cleaning failed: {e}")
+        logger.exception("Data cleaning failed")
         raise DataCleaningError(f"Failed to clean DataFrame: {e}") from e
 
 
