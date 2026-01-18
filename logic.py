@@ -471,7 +471,11 @@ def analyze_outcome(
     
     # Use cleaned dataframe for analysis
     df = df_clean
-    logger.info(f"Missing data: {miss_counts['rows_removed']} rows excluded ({miss_counts['pct_removed']:.1f}%)")
+    logger.info(
+        "Missing data: %s rows excluded (%.1f%%)",
+        miss_counts["rows_removed"],
+        miss_counts["pct_removed"],
+    )
     
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
