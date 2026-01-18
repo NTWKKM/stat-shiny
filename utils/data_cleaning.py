@@ -400,8 +400,8 @@ def is_continuous_variable(series: pd.Series) -> bool:
         
         return False
         
-    except Exception as e:
-        logger.warning(f"Failed to determine if variable is continuous: {e}")
+    except (TypeError, ValueError, AttributeError) as e:
+        logger.warning("Failed to determine if variable is continuous: %s", e)
         return False
 
 

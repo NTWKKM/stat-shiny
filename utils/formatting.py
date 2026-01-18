@@ -160,7 +160,7 @@ def create_missing_data_report_html(
     high_missing = [v for v in summary if _get_pct(v.get('Pct_Missing', '0%')) > threshold]
     if high_missing:
         html += '<div class="warning-box">\n'
-        html += '<strong>⚠️ Warning:</strong> Variables with >50% missing data:\n'
+        html += f'<strong>⚠️ Warning:</strong> Variables with >{threshold}% missing data:\n'
         html += '<ul>\n'
         for var in high_missing:
             raw_label = var_meta.get(var['Variable'], {}).get('label', var['Variable'])
