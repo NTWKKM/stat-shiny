@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
+from config import CONFIG
 from forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -117,11 +118,12 @@ class SubgroupAnalysisLogit:
             df_subset = self.df[cols_to_use].copy()
             df_subset[outcome_col] = pd.to_numeric(df_subset[outcome_col], errors='coerce')
             if var_meta:
-                missing_summary = get_missing_summary_df(df_subset, var_meta)
-                df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+                missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+                missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+                df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
                 
                 df_clean, impact = handle_missing_for_analysis(
-                    df_processed, var_meta, strategy='complete-case', return_counts=True
+                    df_processed, var_meta, missing_codes, strategy='complete-case', return_counts=True
                 )
                 missing_data_info = {
                     'strategy': 'complete-case',
@@ -436,11 +438,12 @@ class SubgroupAnalysisCox:
             missing_data_info = {}
             if var_meta:
                  df_subset = self.df[cols_to_use].copy()
-                 missing_summary = get_missing_summary_df(df_subset, var_meta)
-                 df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+                 missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+                 missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+                 df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
                  
                  df_clean, impact = handle_missing_for_analysis(
-                    df_processed, var_meta, strategy='complete-case', return_counts=True
+                    df_processed, var_meta, missing_codes, strategy='complete-case', return_counts=True
                  )
                  missing_data_info = {
                     'strategy': 'complete-case',

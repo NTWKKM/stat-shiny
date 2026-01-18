@@ -16,8 +16,9 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
+
 from scipy import stats
+import statsmodels.api as sm
 
 from config import CONFIG
 from logger import get_logger

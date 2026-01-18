@@ -277,8 +277,8 @@ def detect_outliers(series: pd.Series, method: str = 'iqr',
         return outlier_mask, stats
         
     except Exception as e:
-        logger.error(f"Failed to detect outliers: {e}")
-        raise DataCleaningError(f"Outlier detection failed: {e}")
+        logger.exception("Failed to detect outliers")
+        raise DataCleaningError(f"Outlier detection failed: {e}") from e
 
 
 def handle_outliers(series: pd.Series, method: str = 'iqr', 
@@ -349,8 +349,8 @@ def handle_outliers(series: pd.Series, method: str = 'iqr',
         return result
         
     except Exception as e:
-        logger.error(f"Failed to handle outliers: {e}")
-        raise DataCleaningError(f"Outlier handling failed: {e}")
+        logger.exception("Failed to handle outliers")
+        raise DataCleaningError(f"Outlier handling failed: {e}") from e
 
 
 def robust_sort_key(x: Any) -> tuple:
@@ -479,8 +479,8 @@ def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
         return results
         
     except Exception as e:
-        logger.error(f"Data quality validation failed: {e}")
-        raise DataValidationError(f"Validation failed: {e}")
+        logger.exception("Data quality validation failed")
+        raise DataValidationError(f"Validation failed: {e}") from e
 
 
 def clean_dataframe(df: pd.DataFrame, 

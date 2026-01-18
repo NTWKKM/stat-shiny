@@ -15,8 +15,8 @@ import pandas as pd
 import scipy.stats as stats
 import statsmodels.api as sm
 
-from forest_plot_lib import create_forest_plot
 from config import CONFIG
+from forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
@@ -447,11 +447,11 @@ def analyze_outcome(
     
     # --- MISSING DATA HANDLING ---
     # Step 1: Get missing summary BEFORE normalization
-    missing_summary_df = get_missing_summary_df(df, var_meta or {})
+    missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+    missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
     missing_summary_records = missing_summary_df.to_dict('records')
     
     # Step 2: Apply user-defined missing value codes → NaN
-    missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
     df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
     
     # Step 3: Handle missing data (complete-case)
