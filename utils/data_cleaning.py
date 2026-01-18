@@ -64,7 +64,7 @@ def validate_input_data(data: Any) -> pd.DataFrame:
         
     except Exception as e:
         logger.error(f"Failed to validate input data: {e}")
-        raise DataValidationError(f"Input validation failed: {e}")
+        raise DataValidationError(f"Input validation failed: {e}") from e
 
 
 def clean_numeric(val: Any, handle_special_chars: bool = True, 
@@ -191,7 +191,7 @@ def clean_numeric_vector(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.
         
     except Exception as e:
         logger.error(f"Failed in clean_numeric_vector: {e}")
-        raise DataCleaningError(f"Vectorized cleaning failed: {e}")
+        raise DataCleaningError(f"Vectorized cleaning failed: {e}") from e
 
 
 def detect_outliers(series: pd.Series, method: str = 'iqr', 
@@ -593,7 +593,7 @@ def clean_dataframe(df: pd.DataFrame,
         
     except Exception as e:
         logger.error(f"Data cleaning failed: {e}")
-        raise DataCleaningError(f"Failed to clean DataFrame: {e}")
+        raise DataCleaningError(f"Failed to clean DataFrame: {e}") from e
 
 
 def get_cleaning_summary(report: Dict[str, Any]) -> str:
@@ -686,7 +686,8 @@ def apply_missing_values_to_df(
 
 def detect_missing_in_variable(
     series: pd.Series,
-    missing_codes: Optional[List[Any]] = None
+    missing_codes: Optional[List[Any]] = None,
+    already_normalized: bool = False
 ) -> Dict[str, Any]:
     """
     Detect and count missing values in a single variable.
@@ -694,22 +695,26 @@ def detect_missing_in_variable(
     Parameters:
         series: Input pandas Series
         missing_codes: Optional list of values to treat as missing
+        already_normalized: If True, assume coded values are already converted to NaN
     
     Returns:
         Dictionary with missing value statistics
     """
     total_count = len(series)
     
-    # Count standard NaN values
+    # Count entries that are already standard NaN
     missing_nan_count = int(series.isna().sum())
     
     # Count user-specified missing codes
     missing_coded_count = 0
-    if missing_codes:
+    if missing_codes and not already_normalized:
         for code in missing_codes:
-            missing_coded_count += int((series == code).sum())
+            # Count occurrences of this code (only if not already NaN)
+            count = int((series == code).sum())
+            missing_coded_count += count
     
-    # Total missing = NaN + coded missing (avoiding double counting)
+    # Total missing = NaN + coded missing
+    # If already_normalized=True, coded missing will be 0 and NaN will include them
     total_missing = missing_nan_count + missing_coded_count
     
     missing_pct = (total_missing / total_count * 100) if total_count > 0 else 0.0
@@ -727,7 +732,8 @@ def detect_missing_in_variable(
 def get_missing_summary_df(
     df: pd.DataFrame,
     var_meta: Dict[str, Any],
-    missing_codes: Optional[List[Any]] = None
+    missing_codes: Optional[List[Any]] = None,
+    already_normalized: bool = False
 ) -> pd.DataFrame:
     """
     Generate summary table of missing data for all variables.
@@ -736,6 +742,7 @@ def get_missing_summary_df(
         df: Input DataFrame
         var_meta: Variable metadata dictionary
         missing_codes: Global missing value codes (fallback)
+        already_normalized: If True, assume coded values are already converted to NaN
     
     Returns:
         DataFrame with columns: Variable, Type, N_Total, N_Valid, N_Missing, Pct_Missing
@@ -752,7 +759,11 @@ def get_missing_summary_df(
             var_missing_codes = missing_codes or []
         
         # Detect missing values
-        missing_info = detect_missing_in_variable(original_series, var_missing_codes)
+        missing_info = detect_missing_in_variable(
+            original_series, 
+            var_missing_codes,
+            already_normalized=already_normalized
+        )
         
         # Get variable type from metadata
         var_type = var_meta.get(col, {}).get('type', 'Unknown')
@@ -802,8 +813,8 @@ def handle_missing_for_analysis(
         # Drop columns with any NaN (keep only complete variables)
         df_clean = df_processed.dropna(axis=1)
     else:
-        logger.warning(f"Unknown missing data strategy: {strategy}, using complete-case")
-        df_clean = df_processed.dropna()
+        raise ValueError(f"Unknown missing data strategy: '{strategy}'. "
+                         f"Supported strategies: 'complete-case', 'drop'")
     
     rows_removed = original_rows - len(df_clean)
     

@@ -103,11 +103,11 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True, var_meta: Optiona
 
     var_meta = var_meta or {}
 
-    # 1. Apply Missing Value Codes
-    df_clean = apply_missing_values_to_df(df, var_meta)
+    # 1. Generate Missing Summary (on original data)
+    missing_summary = get_missing_summary_df(df, var_meta)
     
-    # 2. Generate Missing Summary (before dropping)
-    missing_summary = get_missing_summary_df(df_clean, var_meta)
+    # 2. Apply Missing Value Codes
+    df_clean = apply_missing_values_to_df(df, var_meta)
     
     # 3. Handle Missing Data (Complete Case)
     # VIF requires complete numeric data, so we must drop NaNs.

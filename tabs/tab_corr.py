@@ -809,8 +809,8 @@ def corr_server(
         # Add summary statistics
         summary_text = f"""
         <h3>Matrix Summary Statistics</h3>
-        <p><strong>Correlations Computed:</strong> {html.escape(str(summary['n_correlations']))} unique pairs</p>
-        <p><strong>Mean |Correlation|:</strong> {html.escape(str(summary['mean_correlation']))}</p>
+        <p><strong>Correlations Computed:</strong> {_html.escape(str(summary['n_correlations']))} unique pairs</p>
+        <p><strong>Mean |Correlation|:</strong> {_html.escape(str(summary['mean_correlation']))}</p>
         <p><strong>Maximum |Correlation|:</strong> {summary['max_correlation']:.3f}</p>
         <p><strong>Minimum |Correlation|:</strong> {summary['min_correlation']:.3f}</p>
         <p><strong>Significant Correlations (p<0.05):</strong> {summary['n_significant']} out of {summary['n_correlations']} ({summary['pct_significant']:.1f}%)</p>
@@ -818,16 +818,16 @@ def corr_server(
         <p><strong>Strongest Negative:</strong> {summary['strongest_negative']}</p>
         """
         
+        elements.append({
+            'type': 'summary',
+            'data': summary_text
+        })
+
         if 'missing_data_info' in summary:
             elements.append({
                 'type': 'html',
                 'data': create_missing_data_report_html(summary['missing_data_info'], var_meta.get() or {})
             })
-
-        elements.append({
-            'type': 'summary',
-            'data': summary_text
-        })
         
         # Add heatmap
         elements.append({
