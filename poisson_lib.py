@@ -18,6 +18,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
@@ -226,6 +232,22 @@ def analyze_poisson_outcome(
                            fmt_p, fmt_p_with_styling)
         
         logger.info(f"Starting Poisson analysis for outcome: {outcome_name}")
+        
+        # --- MISSING DATA HANDLING ---
+        df = apply_missing_values_to_df(df, var_meta or {}, [])
+        missing_summary_df = get_missing_summary_df(df, var_meta or {})
+        missing_summary_records = missing_summary_df.to_dict('records')
+        df_clean, miss_counts = handle_missing_for_analysis(
+            df, var_meta or {}, strategy='complete-case', return_counts=True
+        )
+        missing_data_info = {
+            'strategy': 'complete-case',
+            'rows_analyzed': miss_counts['final_rows'],
+            'rows_excluded': miss_counts['rows_removed'],
+            'summary_before': missing_summary_records
+        }
+        df = df_clean
+        logger.info(f"Missing data: {miss_counts['rows_removed']} rows excluded")
         
         if outcome_name not in df.columns:
             msg = f"Outcome '{outcome_name}' not found"
@@ -844,7 +866,10 @@ def analyze_poisson_outcome(
                     {interaction_info}
                 </div>
             </div>
-        </div><br>"""
+        </div>
+        <!-- Missing Data Section -->
+        {create_missing_data_report_html(missing_data_info, var_meta or {})}
+        <br>"""
         
         return html_table, irr_results, airr_results, interaction_results
 

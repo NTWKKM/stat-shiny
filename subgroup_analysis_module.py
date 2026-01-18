@@ -10,6 +10,12 @@ import numpy as np
 from logger import get_logger
 from forest_plot_lib import create_forest_plot
 from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 import warnings
 from typing import Union, Optional, List, Dict, Tuple, Any, TypedDict
 import plotly.graph_objects as go
@@ -88,7 +94,8 @@ class SubgroupAnalysisLogit:
         treatment_col: str, 
         subgroup_col: str, 
         adjustment_cols: Optional[List[str]] = None, 
-        min_subgroup_n: int = 5
+        min_subgroup_n: int = 5,
+        var_meta: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Perform logistic regression subgroup analysis."""
         try:
@@ -101,7 +108,26 @@ class SubgroupAnalysisLogit:
                 adjustment_cols = []
             
             cols_to_use = [outcome_col, treatment_col, subgroup_col] + adjustment_cols
-            df_clean = self.df[cols_to_use].dropna().copy()
+            
+            # --- MISSING DATA HANDLING ---
+            missing_data_info = {}
+            if var_meta:
+                 # Apply missing value rules
+                 df_subset = self.df[cols_to_use].copy()
+                 df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+                 missing_summary = get_missing_summary_df(df_processed, var_meta)
+                 
+                 df_clean, impact = handle_missing_for_analysis(
+                    df_processed, var_meta, strategy='complete-case', return_counts=True
+                 )
+                 missing_data_info = {
+                    'strategy': 'complete-case',
+                    'rows_analyzed': impact['final_rows'],
+                    'rows_excluded': impact['rows_removed'],
+                    'summary_before': missing_summary.to_dict('records')
+                 }
+            else:
+                 df_clean = self.df[cols_to_use].dropna().copy()
             
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
@@ -241,7 +267,10 @@ class SubgroupAnalysisLogit:
             self.results = pd.DataFrame(results_list)
             self.stats = self._compute_summary_statistics()
             logger.info("Analysis complete")
-            return self._format_output()
+            result = self._format_output()
+            if missing_data_info:
+                result['missing_data_info'] = missing_data_info
+            return result
         
         except Exception as e:
             logger.error(f"Analysis failed: {e}")
@@ -387,8 +416,9 @@ class SubgroupAnalysisCox:
         subgroup_col: str, 
         adjustment_cols: Optional[List[str]] = None, 
         min_subgroup_n: int = 5, 
-        min_events: int = 2
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        min_events: int = 2,
+        var_meta: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str]]:
         """Perform Cox subgroup analysis."""
         try:
             from lifelines import CoxPHFitter
@@ -400,7 +430,25 @@ class SubgroupAnalysisCox:
                 adjustment_cols = []
             
             cols_to_use = [duration_col, event_col, treatment_col, subgroup_col] + adjustment_cols
-            df_clean = self.df[cols_to_use].dropna().copy()
+            
+            # --- MISSING DATA HANDLING ---
+            missing_data_info = {}
+            if var_meta:
+                 df_subset = self.df[cols_to_use].copy()
+                 df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
+                 missing_summary = get_missing_summary_df(df_processed, var_meta)
+                 
+                 df_clean, impact = handle_missing_for_analysis(
+                    df_processed, var_meta, strategy='complete-case', return_counts=True
+                 )
+                 missing_data_info = {
+                    'strategy': 'complete-case',
+                    'rows_analyzed': impact['final_rows'],
+                    'rows_excluded': impact['rows_removed'],
+                    'summary_before': missing_summary.to_dict('records')
+                 }
+            else:
+                 df_clean = self.df[cols_to_use].dropna().copy()
             
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
@@ -494,7 +542,10 @@ class SubgroupAnalysisCox:
             self.results = pd.DataFrame(results_list)
             self.stats = self._compute_summary_statistics()
             logger.info("Analysis complete")
-            return self._format_output(), None, None
+            result = self._format_output()
+            if missing_data_info:
+                result['missing_data_info'] = missing_data_info
+            return result, None, None
         
         except Exception as e:
             logger.error(f"Analysis failed: {e}")

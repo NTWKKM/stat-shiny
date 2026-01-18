@@ -17,6 +17,12 @@ from logger import get_logger
 from forest_plot_lib import create_forest_plot
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 
@@ -435,6 +441,31 @@ def analyze_outcome(
     ci_method = adv_stats.get('stats.ci_method', 'wald') if adv_stats else 'wald'
 
     logger.info("Starting logistic analysis for outcome: %s. MCC=%s, VIF=%s, CI=%s", outcome_name, mcc_enable, vif_enable, ci_method)
+    
+    # --- MISSING DATA HANDLING ---
+    # Step 1: Apply user-defined missing value codes → NaN
+    df = apply_missing_values_to_df(df, var_meta or {}, [])
+    
+    # Step 2: Get missing summary BEFORE dropping rows
+    missing_summary_df = get_missing_summary_df(df, var_meta or {})
+    missing_summary_records = missing_summary_df.to_dict('records')
+    
+    # Step 3: Handle missing data (complete-case)
+    df_clean, miss_counts = handle_missing_for_analysis(
+        df, var_meta or {}, strategy='complete-case', return_counts=True
+    )
+    
+    # Track missing data info for report
+    missing_data_info = {
+        'strategy': 'complete-case',
+        'rows_analyzed': miss_counts['final_rows'],
+        'rows_excluded': miss_counts['rows_removed'],
+        'summary_before': missing_summary_records
+    }
+    
+    # Use cleaned dataframe for analysis
+    df = df_clean
+    logger.info(f"Missing data: {miss_counts['rows_removed']} rows excluded ({miss_counts['pct_removed']:.1f}%)")
     
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
@@ -863,7 +894,7 @@ def analyze_outcome(
     if vif_enable and multi_data is not None and final_n_multi > 10 and len(predictors_for_vif) > 1:
         try:
             # multi_data[predictors_for_vif] contains numeric/one-hot data used in regression
-            vif_df = calculate_vif(multi_data[predictors_for_vif])
+            vif_df, _ = calculate_vif(multi_data[predictors_for_vif], var_meta=var_meta)
             
             if not vif_df.empty:
                 vif_rows = []
@@ -1111,7 +1142,8 @@ def analyze_outcome(
             {vif_html}
             {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}
         </div>
-    </div>
+    <!-- Missing Data Section -->
+    {create_missing_data_report_html(missing_data_info, var_meta or {})}
     </div><br>"""
     
     # Return fragment with embedded styles (No <html> wrapper)
