@@ -4,17 +4,20 @@
 No Streamlit dependencies - pure statistical functions.
 """
 
-from typing import TypedDict, Literal, Any, cast, Union, Optional
-import pandas as pd
-import numpy as np
+import html
 import re
+import warnings
+from pathlib import Path
+from typing import Any, Literal, Optional, TypedDict, Union, cast
+
+import numpy as np
+import pandas as pd
 import scipy.stats as stats
 import statsmodels.api as sm
-import warnings
-import html
-from pathlib import Path
-from logger import get_logger
+
 from forest_plot_lib import create_forest_plot
+from config import CONFIG
+from logger import get_logger
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
 from utils.data_cleaning import (
@@ -44,7 +47,7 @@ COLORS = {
 try:
     from firthmodels import FirthLogisticRegression    
     if not hasattr(FirthLogisticRegression, "_validate_data"):
-        from sklearn.utils.validation import check_X_y, check_array
+        from sklearn.utils.validation import check_array, check_X_y
         
         logger.info("Applying sklearn compatibility patch to FirthLogisticRegression")
         
@@ -444,7 +447,8 @@ def analyze_outcome(
     
     # --- MISSING DATA HANDLING ---
     # Step 1: Apply user-defined missing value codes → NaN
-    df = apply_missing_values_to_df(df, var_meta or {}, [])
+    missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
     
     # Step 2: Get missing summary BEFORE dropping rows
     missing_summary_df = get_missing_summary_df(df, var_meta or {})
@@ -452,7 +456,7 @@ def analyze_outcome(
     
     # Step 3: Handle missing data (complete-case)
     df_clean, miss_counts = handle_missing_for_analysis(
-        df, var_meta or {}, strategy='complete-case', return_counts=True
+        df, var_meta or {}, missing_codes, strategy='complete-case', return_counts=True
     )
     
     # Track missing data info for report
@@ -1143,7 +1147,8 @@ def analyze_outcome(
             {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}
         </div>
     <!-- Missing Data Section -->
-    {create_missing_data_report_html(missing_data_info, var_meta or {})}
+    {create_missing_data_report_html(missing_data_info, var_meta or {})
+        if CONFIG.get("analysis.missing.report_missing", True) else ""}
     </div><br>"""
     
     # Return fragment with embedded styles (No <html> wrapper)

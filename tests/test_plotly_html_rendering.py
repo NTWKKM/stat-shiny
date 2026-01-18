@@ -10,18 +10,19 @@ Tests the plotly_figure_to_html function for:
 - XSS prevention (HTML safety)
 """
 
-import pytest
+import os
 import re
 import sys
-import os
+
+import pytest
 
 # Add project root to path (one level up from tests/)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
 from utils.plotly_html_renderer import (
-    plotly_figure_to_html,
+    _create_placeholder_html,
     _sanitize_div_id,
-    _create_placeholder_html
+    plotly_figure_to_html,
 )
 
 try:

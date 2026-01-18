@@ -6,25 +6,31 @@ This script tests:
 2. Cleaned copy is used for statistics
 3. All statistical functions use cleaned data
 4. Data quality improvements are effective
+
+FIXES:
+- RUF059: Renamed unused 'report' variables to '_report'
+- Added assertions for html_output to validate generate_table output
 """
 
-import pandas as pd
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+import pandas as pd
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
+from table_one import generate_table
 from utils.data_cleaning import (
+    clean_dataframe,
     clean_numeric,
     clean_numeric_vector,
-    clean_dataframe,
     detect_outliers,
     handle_outliers,
-    validate_data_quality
+    validate_data_quality,
 )
-from table_one import generate_table
+
 
 def test_original_data_preservation():
     """Test that original data is never modified."""
@@ -47,12 +53,12 @@ def test_original_data_preservation():
     original_age_0 = original_data.loc[0, 'age']
     original_weight_4 = original_data.loc[4, 'weight']
     
-    print(f"\nStored original values:")
+    print("\nStored original values:")
     print(f"  age[0] = {original_age_0}")
     print(f"  weight[4] = {original_weight_4}")
     
-    # Apply cleaning
-    cleaned_df, report = clean_dataframe(original_data)
+    # Apply cleaning - FIX: Renamed unused 'report' to '_report'
+    cleaned_df, _report = clean_dataframe(original_data)
     
     print(f"\nCleaned DataFrame:\n{cleaned_df}")
     print(f"\nCleaned dtypes:\n{cleaned_df.dtypes}")
@@ -85,8 +91,8 @@ def test_cleaned_data_improvement():
     original_quality = validate_data_quality(data)
     print(f"\nOriginal quality: {original_quality['summary']['overall_missing_pct']}% missing")
     
-    # Clean data
-    cleaned_df, report = clean_dataframe(data)
+    # Clean data - FIX: Renamed unused 'report' to '_report'
+    cleaned_df, _report = clean_dataframe(data)
     
     print(f"\nCleaned data:\n{cleaned_df}")
     
@@ -131,12 +137,25 @@ def test_table_one_workflow():
         'outcome': {'label': 'Outcome', 'type': 'Categorical'}
     }
     
+    # FIX: Added assertions to validate html_output
     html_output = generate_table(
         df=original_data,
         selected_vars=selected_vars,
         group_col='group',
         var_meta=var_meta
     )
+    
+    # Validate HTML output
+    assert html_output is not None, "generate_table returned None!"
+    assert isinstance(html_output, str), "generate_table did not return a string!"
+    assert len(html_output) > 0, "generate_table returned empty string!"
+    assert '<table' in html_output.lower(), "HTML output does not contain a table element!"
+    assert 'age' in html_output.lower() or 'Age (years)' in html_output, "HTML output missing age variable!"
+    assert 'weight' in html_output.lower() or 'Weight (kg)' in html_output, "HTML output missing weight variable!"
+    
+    print(f"\nHTML output length: {len(html_output)} characters")
+    print(f"Contains <table>: {'<table' in html_output.lower()}")
+    print(f"Contains variable labels: {('age' in html_output.lower() or 'Age (years)' in html_output)}")
     
     # Verify original data is unchanged
     assert original_data['age'].equals(original_age), "Original age column was modified!"
@@ -146,7 +165,7 @@ def test_table_one_workflow():
     print(f"\nOriginal age[0] still: {original_data.loc[0, 'age']}")
     print(f"Original weight[4] still: {original_data.loc[4, 'weight']}")
     
-    print("\n✓ TEST PASSED: Table One preserves original data")
+    print("\n✓ TEST PASSED: Table One preserves original data and generates valid HTML")
     return True
 
 
@@ -189,14 +208,16 @@ def test_edge_cases():
     # Test 1: Empty DataFrame
     print("\nTest 5.1: Empty DataFrame")
     empty_df = pd.DataFrame()
-    cleaned_empty, report = clean_dataframe(empty_df)
+    # FIX: Renamed unused 'report' to '_report'
+    cleaned_empty, _report = clean_dataframe(empty_df)
     assert cleaned_empty.empty, "Empty DataFrame handling failed!"
     print("  ✓ Empty DataFrame handled correctly")
     
     # Test 2: All NaN column
     print("\nTest 5.2: All NaN column")
     all_nan_df = pd.DataFrame({'col1': [None, None, None], 'col2': [1, 2, 3]})
-    cleaned_nan, report = clean_dataframe(all_nan_df)
+    # FIX: Renamed unused 'report' to '_report'
+    cleaned_nan, _report = clean_dataframe(all_nan_df)
     assert cleaned_nan['col1'].isna().all(), "All NaN column not preserved!"
     print("  ✓ All NaN column handled correctly")
     
@@ -205,7 +226,8 @@ def test_edge_cases():
     mixed_df = pd.DataFrame({
         'mixed': [1, "2", 3.0, ">4", "5", "6"]  # 100% convertible to numeric
     })
-    cleaned_mixed, report = clean_dataframe(mixed_df)
+    # FIX: Renamed unused 'report' to '_report'
+    cleaned_mixed, _report = clean_dataframe(mixed_df)
     assert pd.api.types.is_numeric_dtype(cleaned_mixed['mixed']), "Mixed type column not cleaned!"
     print("  ✓ Mixed types handled correctly")
     
@@ -214,7 +236,8 @@ def test_edge_cases():
     special_df = pd.DataFrame({
         'special': ["$1,000", "€500", "£250", "50%", "100"]  # Removed parentheses which cause issues
     })
-    cleaned_special, report = clean_dataframe(special_df)
+    # FIX: Renamed unused 'report' to '_report'
+    cleaned_special, _report = clean_dataframe(special_df)
     assert pd.api.types.is_numeric_dtype(cleaned_special['special']), "Special characters not handled!"
     assert cleaned_special.loc[0, 'special'] == 1000.0, "Dollar sign not removed!"
     assert cleaned_special.loc[1, 'special'] == 500.0, "Euro sign not removed!"
@@ -241,9 +264,9 @@ def run_all_tests():
     results = []
     for test_name, test_func in tests:
         try:
-            success = test_func()
+            test_func()  # Returns True on success, raises on failure
             results.append((test_name, "PASSED", None))
-        except Exception as e:
+        except AssertionError as e:
             results.append((test_name, "FAILED", str(e)))
             print(f"\n✗ TEST FAILED: {e}")
     

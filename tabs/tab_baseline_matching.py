@@ -1,17 +1,18 @@
-from shiny import ui, module, reactive, render, req
-from utils.plotly_html_renderer import plotly_figure_to_html
-import pandas as pd
+import io
+from typing import Any, Dict, List, Optional, Union, cast
+
 import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import table_one  # Import from root
-import psm_lib  # Import from root
-from logger import get_logger
-import io
-from typing import Optional, List, Dict, Any, Union, cast
+from shiny import module, reactive, render, req, ui
 
+import psm_lib  # Import from root
+import table_one  # Import from root
+from logger import get_logger
 from tabs._common import get_color_palette
 from utils.formatting import create_missing_data_report_html
+from utils.plotly_html_renderer import plotly_figure_to_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -758,7 +759,7 @@ def baseline_matching_server(
         Builds the main Propensity Score Matching (PSM) results UI, showing a prompt when results are absent or a tabbed results interface when available.
         
         Returns:
-        	A Shiny UI element: if no PSM results are present, a card prompting the user to run PSM; otherwise a tabbed card with two panels — Match Quality (summary metrics, balance alert, Love Plot, SMD table, and group comparison) and Export & Next Steps (CSV and HTML report download actions).
+            A Shiny UI element: if no PSM results are present, a card prompting the user to run PSM; otherwise a tabbed card with two panels — Match Quality (summary metrics, balance alert, Love Plot, SMD table, and group comparison) and Export & Next Steps (CSV and HTML report download actions).
         """
         res = psm_results.get()
 

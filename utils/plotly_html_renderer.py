@@ -16,9 +16,9 @@ Usage:
     return ui.HTML(html_str)
 """
 
+import logging
 import re
 import uuid
-import logging
 from typing import Optional, Union
 
 try:

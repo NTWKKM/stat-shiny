@@ -15,12 +15,14 @@ Enhanced Features:
 - Detailed interpretations
 """
 
-import pandas as pd
-import numpy as np
-import scipy.stats as stats
-import plotly.graph_objects as go
 import html as _html
-from typing import Union, Optional, List, Dict, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import scipy.stats as stats
+
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
     apply_missing_values_to_df,
@@ -268,52 +270,6 @@ def calculate_chi2(
         return display_tab, None, str(e), None
 
 
-def _format_missing_data_html(missing_info):
-    """
-    Formats the missing_data_info dictionary into a readable HTML block.
-    Preserves UI structure by using standard table classes.
-    """
-    if not missing_info or not isinstance(missing_info, dict):
-        return ""
-
-    # Create summary header
-    html = f"""
-    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-        <h5 style="margin-bottom: 5px;">Missing Data Analysis</h5>
-        <div style="font-size: 0.9em; color: #555; margin-bottom: 10px;">
-            Strategy: <b>{missing_info.get('strategy', 'N/A')}</b> | 
-            Analyzed: {missing_info.get('rows_analyzed', 0)} | 
-            Excluded: {missing_info.get('rows_excluded', 0)}
-        </div>
-    """
-
-    # Create table for variables if summary exists
-    if 'summary_before' in missing_info and missing_info['summary_before']:
-        html += """
-        <table class="table table-sm table-striped" style="font-size: 0.85em; width: 100%;">
-            <thead>
-                <tr style="background-color: #f8f9fa;">
-                    <th>Variable</th>
-                    <th>Total</th>
-                    <th>Missing</th>
-                    <th>% Missing</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-        for row in missing_info['summary_before']:
-            html += f"""
-                <tr>
-                    <td>{row.get('Variable', '')}</td>
-                    <td>{row.get('N_Total', '')}</td>
-                    <td>{row.get('N_Missing', '')}</td>
-                    <td>{row.get('Pct_Missing', '')}</td>
-                </tr>
-            """
-        html += "</tbody></table>"
-    
-    html += "</div>"
-    return html
 
 
 def calculate_correlation(
@@ -384,9 +340,12 @@ def calculate_correlation(
         
         # Use cleaner data if valid
         if not df_clean.empty:
-            v1 = df_clean[col1]
-            v2 = df_clean[col2]
-            n = len(df_clean)
+            data_numeric = df_clean.apply(pd.to_numeric, errors='coerce').dropna()
+            if len(data_numeric) < 2:
+                return None, "Error: Need at least 2 numeric values.", None
+            v1 = data_numeric[col1]
+            v2 = data_numeric[col2]
+            n = len(data_numeric)
         
     if method == 'pearson':
         corr, p = stats.pearsonr(v1, v2)
@@ -852,6 +811,7 @@ def generate_report(
                 html += f"<p>{_html.escape(text_str)}</p>"
         
         elif element_type == 'html':
+             # Note: Producers of 'html' elements are responsible for escaping user-supplied metadata.
              html += str(data)
         
         elif element_type == 'interpretation':
