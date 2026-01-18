@@ -230,8 +230,8 @@ def data_server(
             # Exclude ID column from having missing values
             for col in new_df.columns:
                 if col != 'ID':
-                    # Randomly set ~1.68% of values to NaN
-                    mask = np.random.choice([True, False], size=n, p=[0.0168, 1 - 0.0168])
+                    # Randomly set ~0.618% of values to NaN
+                    mask = np.random.choice([True, False], size=n, p=[0.00618, 1 - 0.00618])
                     new_df.loc[mask, col] = np.nan
 
             # Meta logic for example data remains explicit
