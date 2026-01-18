@@ -187,8 +187,8 @@ class TestMissingDataImpact:
         
         assert result['a'].isna().sum() == 1
         assert result['b'].isna().sum() == 1
-        assert result.loc[1, 'a'] is np.nan or np.isnan(result.loc[1, 'a'])
-        assert result.loc[1, 'b'] is np.nan or np.isnan(result.loc[1, 'b'])
+        assert np.isnan(result.loc[1, 'a'])
+        assert np.isnan(result.loc[1, 'b'])
 
 
 if __name__ == "__main__":
