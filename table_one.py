@@ -506,8 +506,10 @@ def generate_table(
         mapper = {}
         if var_meta:
             key = group_col.split('_')[1] if '_' in group_col else group_col
-            if group_col in var_meta: mapper = var_meta[group_col].get('map', {})
-            elif key in var_meta: mapper = var_meta[key].get('map', {})
+            if group_col in var_meta: 
+                mapper = var_meta[group_col].get('map', {})
+            elif key in var_meta: 
+                mapper = var_meta[key].get('map', {})
             
         raw_groups = df[group_col].dropna().unique().tolist()
         if len(raw_groups) == 0:

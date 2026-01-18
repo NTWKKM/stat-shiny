@@ -4,6 +4,7 @@ import json
 
 # Use built-in list/dict/tuple for Python 3.9+ and typing for complex types
 from typing import Any, Optional, Union, cast
+from itertools import combinations, islice
 
 import numpy as np
 import pandas as pd
@@ -511,7 +512,6 @@ def logit_server(
         ui.update_selectize("sel_exclude", choices=cols)
         
         # Generate interaction pair choices for Logit
-        from itertools import combinations, islice
         interaction_choices = list(islice((f"{a} × {b}" for a, b in combinations(cols, 2)), 50))
         ui.update_selectize("sel_interactions", choices=interaction_choices)
         

@@ -17,8 +17,6 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from utils.data_cleaning import (
     apply_missing_values_to_df,
     check_missing_data_impact,

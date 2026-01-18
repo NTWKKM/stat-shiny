@@ -466,7 +466,6 @@ def compute_correlation_matrix(
         return None, None, None
         
     # Filter and convert to numeric
-    # Filter and convert to numeric
     # --- MISSING DATA HANDLING ---
     missing_data_info = {}
     if var_meta:
@@ -537,7 +536,6 @@ def compute_correlation_matrix(
         "mean_correlation": float(np.nanmean(np.abs(upper_triangle_flat))),
         "max_correlation": float(np.nanmax(np.abs(upper_triangle_flat))),
         "min_correlation": float(np.nanmin(np.abs(upper_triangle_flat))),
-        "n_significant": int(np.sum(p_flat < 0.05)),
         "n_significant": int(np.sum(p_flat < 0.05)),
         "pct_significant": float(np.nansum(p_flat < 0.05) / np.sum(~np.isnan(p_flat)) * 100) if np.sum(~np.isnan(p_flat)) > 0 else 0.0,
         "missing_data_info": missing_data_info

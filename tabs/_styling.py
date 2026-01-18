@@ -797,11 +797,6 @@ def get_shiny_css():
             margin: var(--spacing-lg) 0;
         }}
         
-        /* Spacing Utilities */
-        .mb-1 {{ margin-bottom: 4px; }}
-        .mb-2 {{ margin-bottom: 8px; }}
-        .mb-3 {{ margin-bottom: 12px; }}
-        
         /* ===========================
            VIF SPECIFIC STYLES
            =========================== */
