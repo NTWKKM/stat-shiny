@@ -656,6 +656,21 @@ def get_shiny_css():
             font-weight: 600;
         }}
         
+        /* Table Responsiveness - Enable horizontal scrolling on mobile */
+        .table-responsive {{
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: var(--radius-md);
+        }}
+        
+        /* Error Cell Highlighting - For data quality issues */
+        .cell-error {{
+            background-color: #fee !important;
+            border: 1px solid {COLORS['danger']} !important;
+            color: {COLORS['danger']} !important;
+            font-weight: 600 !important;
+        }}
+        
         /* ===========================
            BADGES & STATUS INDICATORS
            =========================== */
@@ -1082,6 +1097,10 @@ def get_shiny_css():
             .table thead th,
             .table tbody td {{
                 padding: var(--spacing-sm);
+            }}
+            
+            .table-responsive {{
+                margin-bottom: var(--spacing-md);
             }}
         }}
         
