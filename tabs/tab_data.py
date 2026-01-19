@@ -236,12 +236,17 @@ def data_server(
                     # Adjust stop time if it exceeds follow-up
                     actual_stop = min(stop_time, max_followup)
                     
-                    # Ensure minimum interval duration (avoid start == stop which causes convergence errors)
-                    if actual_stop - start_time < 0.1:
-                        actual_stop = start_time + 0.1
+                    # Rounding can cause zero duration intervals (e.g. 3.0 to 3.04 -> both 3.0)
+                    r_start = round(start_time, 1)
+                    r_stop = round(actual_stop, 1)
+                    
+                    if r_stop <= r_start:
+                        # If interval is too short, extend stop slightly
+                        r_stop = r_start + 0.1
                     
                     # Determine event: 1 only in final interval for patients with events
-                    is_final_interval = actual_stop >= max_followup or stop_time >= max_followup
+                    # Check if this is effectively the last interval
+                    is_final_interval = (actual_stop >= max_followup) or (stop_time >= max_followup)
                     interval_event = 1 if (has_event and is_final_interval) else 0
                     
                     # TVC value changes over time (simulate deterioration or improvement)
@@ -251,13 +256,17 @@ def data_server(
                     
                     tvc_data_rows.append({
                         'id_tvc': patient_id,
-                        'time_start': round(start_time, 1),
-                        'time_stop': round(actual_stop, 1),
+                        'time_start': r_start,
+                        'time_stop': r_stop,
                         'status_event': interval_event,
                         'TVC_Value': round(current_val, 1),
                         'Static_Age': static_age,
                         'Static_Sex': static_sex
                     })
+                    
+                    # If we hit max_followup, stop generating intervals for this patient
+                    if actual_stop >= max_followup:
+                        break
             
             tvc_df = pd.DataFrame(tvc_data_rows)
 
