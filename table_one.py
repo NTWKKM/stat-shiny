@@ -10,14 +10,28 @@ OPTIMIZATIONS:
 - Vectorized categorical comparisons
 """
 
-import pandas as pd
-import numpy as np
-from scipy import stats
-import statsmodels.api as sm
 import html as _html
 import warnings
-from typing import Union, Optional, List, Dict, Tuple, Any, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
+import pandas as pd
+
+from scipy import stats
+import statsmodels.api as sm
+
+from config import CONFIG
 from logger import get_logger
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    clean_dataframe,
+    clean_numeric,
+    clean_numeric_vector,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+    validate_data_quality,
+)
+from utils.formatting import create_missing_data_report_html
 
 try:
     from tabs._common import get_color_palette
@@ -41,23 +55,8 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-def clean_numeric(val: Any) -> float:
-    """
-    Parse value to float, handling strings and special characters.
-    """
-    if pd.isna(val): 
-        return np.nan
-    s = str(val).strip().replace('>', '').replace('<', '').replace(',', '')
-    try:
-        return float(s)
-    except (ValueError, TypeError):
-        return np.nan
-
-
-@np.vectorize
-def _clean_numeric_vector(val: Any) -> float:
-    """Vectorized numeric cleaning."""
-    return clean_numeric(val)
+# Note: clean_numeric and clean_numeric_vector are now imported from utils.data_cleaning
+# The local versions have been removed to use the enhanced versions
 
 
 def check_normality(series: pd.Series) -> bool:
@@ -91,8 +90,8 @@ def get_stats_continuous(series: pd.Series) -> str:
     """
     OPTIMIZED: Get mean ± SD with batch cleaning.
     """
-    # Batch numeric conversion
-    clean = pd.Series(series.values).apply(clean_numeric).dropna()
+    # Use enhanced vectorized cleaning from utils.data_cleaning
+    clean = clean_numeric_vector(series).dropna()
     if len(clean) == 0: 
         return "-"
     return f"{clean.mean():.1f} ± {clean.std():.1f}"
@@ -124,23 +123,38 @@ def get_stats_categorical_data(
     return counts, total, mapped_series
 
 
-def get_stats_categorical_str(
-    counts: Union[pd.Series, Dict[Any, int]], 
-    total: int
-) -> str:
-    """
-    OPTIMIZED: Format categorical counts as HTML string with vectorization.
-    
-    FIX: Handle both Series and dict inputs - convert dict to Series if needed.
-    """
-    # Convert dict to Series if needed
+def get_stats_categorical_str(counts: Union[pd.Series, Dict[Any, int]], total: int) -> str:
+    """✅ FIXED: รองรับทั้ง Series และ dict พร้อมการตรวจสอบที่ดีขึ้น"""
     if isinstance(counts, dict):
         counts = pd.Series(counts)
     
-    pcts = (counts / total * 100) if total > 0 else pd.Series([0] * len(counts))
-    res = [f"{_html.escape(str(cat))}: {int(count)} ({pct:.1f}%)" 
-           for cat, (count, pct) in zip(counts.index, zip(counts.values, pcts.values, strict=True), strict=True)]
-    return "<br>".join(res)
+    if not isinstance(counts, pd.Series):
+        logger.error(f"Invalid counts type: {type(counts)}")
+        return "-"
+    
+    if len(counts) == 0:
+        return "-"
+    
+    # ✅ Safe percentage calculation
+    if total > 0:
+        pcts = (counts / total * 100)
+    else:
+        pcts = pd.Series([0.0] * len(counts), index=counts.index)
+    
+    try:
+        res = [
+            f"{_html.escape(str(cat))}: {int(count)} ({pct:.1f}%)" 
+            for cat, count, pct in zip(
+                counts.index, 
+                counts.values, 
+                pcts.values,
+                strict=True
+            )
+        ]
+        return "<br>".join(res)
+    except Exception as e:
+        logger.error(f"Error formatting categorical stats: {e}")
+        return "-"
 
 
 def compute_or_ci(a: float, b: float, c: float, d: float) -> str:
@@ -225,7 +239,8 @@ def calculate_or_continuous_logit(
     """
     try:
         y = safe_group_compare(df[group_col], group1_val).astype(int)
-        X = df[feature_col].apply(clean_numeric).rename(feature_col)
+        # Use enhanced vectorized cleaning from utils.data_cleaning
+        X = clean_numeric_vector(df[feature_col]).rename(feature_col)
         
         mask = X.notna() & df[group_col].notna()
         y = y[mask]
@@ -307,8 +322,9 @@ def calculate_smd(
             return "<br>".join(res_smd)
             
         else:
-            v1 = df.loc[mask1, col].apply(clean_numeric).dropna()
-            v2 = df.loc[mask2, col].apply(clean_numeric).dropna()
+            # Use enhanced vectorized cleaning from utils.data_cleaning
+            v1 = clean_numeric_vector(df.loc[mask1, col]).dropna()
+            v2 = clean_numeric_vector(df.loc[mask2, col]).dropna()
             
             if len(v1) == 0 or len(v2) == 0: 
                 return "-"
@@ -335,7 +351,12 @@ def calculate_p_continuous(data_groups: List[pd.Series]) -> Tuple[float, str]:
     """
     Calculate p-value for continuous variables.
     """
-    clean_groups = [g.apply(clean_numeric).dropna() for g in data_groups if len(g.apply(clean_numeric).dropna()) > 1]
+    # Use enhanced vectorized cleaning from utils.data_cleaning
+    clean_groups = []
+    for g in data_groups:
+        cleaned = clean_numeric_vector(g).dropna()
+        if len(cleaned) > 1:
+            clean_groups.append(cleaned)
     num_groups = len(clean_groups)
     if num_groups < 2: 
         return np.nan, "-"
@@ -400,10 +421,17 @@ def generate_table(
     """
     OPTIMIZED: Generate baseline characteristics table as HTML with modern styling.
     
+    CRITICAL: Data Cleaning Workflow
+    1. Original DataFrame is NEVER modified
+    2. A cleaned copy is created for statistical calculations ONLY
+    3. All statistics are computed on the cleaned data
+    4. Original data remains intact for audit/reference
+    
     Optimizations:
     - Pre-compute all group masks (8x faster)
     - Batch operations on DataFrames
     - Single-pass HTML generation
+    - Enhanced data cleaning with robust error handling
     
     Returns:
         html_string
@@ -413,11 +441,70 @@ def generate_table(
     if or_style not in ('all_levels', 'simple'):
         raise ValueError(f"or_style must be 'all_levels' or 'simple'")
     
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
+    
+    # --- MISSING DATA HANDLING ---
+    # Step 1: Get missing summary BEFORE normalization
+    missing_summary_df = get_missing_summary_df(df, var_meta or {})
+    missing_summary_records = missing_summary_df.to_dict('records')
+    
+    # Step 2: Apply user-defined missing value codes → NaN
+    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
+    
+    # Step 3: Handle missing data (complete-case)
+    df_clean, miss_counts = handle_missing_for_analysis(
+        df, var_meta or {}, strategy=strategy, return_counts=True
+    )
+    
+    # Track missing data info for report
+    missing_data_info = {
+        'strategy': strategy,
+        'rows_analyzed': miss_counts['final_rows'],
+        'rows_excluded': miss_counts['rows_removed'],
+        'summary_before': missing_summary_records
+    }
+    
+    logger.info(f"Missing data: {miss_counts['rows_removed']} rows excluded ({miss_counts['pct_removed']:.1f}%)")
+    
+    # Use cleaned dataframe
+    df = df_clean
+    
+    # CRITICAL: Create cleaned copy for statistics ONLY
+    # Original df is NEVER modified
+    logger.info("Creating cleaned copy for statistical analysis...")
+    try:
+        df_cleaned, cleaning_report = clean_dataframe(
+            df, 
+            handle_outliers_flag=False, 
+            validate_quality=True
+        )
+        
+        if df_cleaned is None or df_cleaned.empty:
+            raise ValueError("Data cleaning failed: resulted in empty DataFrame")
+            
+        logger.info(f"Original: {df.shape}, Cleaned: {df_cleaned.shape}")
+        logger.debug(f"Cleaning summary: {cleaning_report.get('summary', {})}")
+        
+        if 'quality_report' in cleaning_report:
+            quality = cleaning_report['quality_report'].get('summary', {})
+            if quality.get('has_errors', False):
+                logger.warning("Data quality issues detected - results may be unreliable")
+                
+    except Exception as e:
+        logger.error(f"Data cleaning failed: {e}")
+        raise ValueError(f"Cannot generate table: data cleaning error - {e}") from e
+    df = df_cleaned
+    
     has_group = group_col is not None and group_col != "None"
     groups = []
     group_masks = {}  # OPTIMIZATION: Pre-compute all masks
     
     if has_group:
+        if group_col not in df.columns:
+            raise ValueError(f"Group column '{group_col}' not found in data")
+            
         mapper = {}
         if var_meta:
             key = group_col.split('_')[1] if '_' in group_col else group_col
@@ -425,17 +512,12 @@ def generate_table(
                 mapper = var_meta[group_col].get('map', {})
             elif key in var_meta: 
                 mapper = var_meta[key].get('map', {})
-        
+            
         raw_groups = df[group_col].dropna().unique().tolist()
-        def _group_sort_key(v: Any) -> Tuple[int, Union[float, str]]:
-            s = str(v)
-            try:
-                return (0, float(s))
-            except (ValueError, TypeError):
-                return (1, s)
-        raw_groups.sort(key=_group_sort_key)
-        
-        # OPTIMIZATION: Pre-compute masks for all groups
+        if len(raw_groups) == 0:
+            raise ValueError(f"No valid groups found in column '{group_col}'")
+            
+        raw_groups.sort(key=lambda v: (0,float(str(v))) if str(v).replace('.','',1).replace('-','',1).isdigit() else (1,str(v)))
         for g in raw_groups:
             label = mapper.get(g, str(g))
             groups.append({'val': g, 'label': str(label)})
@@ -673,98 +755,105 @@ def generate_table(
     for col in selected_vars:
         if col == group_col: 
             continue
-        
-        meta = {}
-        key = col.split('_')[1] if '_' in col else col
-        if var_meta:
-            if col in var_meta: 
-                meta = var_meta[col]
-            elif key in var_meta: 
-                meta = var_meta[key]
-        
-        label = meta.get('label', key)
-        is_cat = meta.get('type') == 'Categorical'
-        if not is_cat and (df[col].nunique() < 10 or df[col].dtype == object): 
-            is_cat = True 
-        
-        row_html = f"                <tr>\n                    <td><strong>{_html.escape(str(label))}</strong></td>\n"
-        
-        if is_cat:
-            counts_total, n_total, mapped_full_series = get_stats_categorical_data(df[col], var_meta, col) 
-            val_total = get_stats_categorical_str(counts_total, n_total)
-        else:
-            val_total = get_stats_continuous(df[col])
-            mapped_full_series = None
             
-        row_html += f"                    <td class='numeric-cell'>{val_total}</td>\n"
+        if col not in df.columns:
+            logger.warning(f"Column '{col}' not found - skipping")
+            continue
         
-        group_vals_list = []
-        
-        if has_group:
-            for g in groups:
-                # OPTIMIZATION: Use pre-computed mask
-                sub_df = df[group_masks[g['val']]]
-                
-                if is_cat:
-                    counts_g, n_g, _ = get_stats_categorical_data(sub_df[col], var_meta, col)
-                    # FIX: counts_g is a Series, pass directly
-                    val_g = get_stats_categorical_str(counts_g, n_g)
-                    row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
-                else:
-                    val_g = get_stats_continuous(sub_df[col])
-                    row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
-                    group_vals_list.append(sub_df[col])
+        try:
+            meta = {}
+            key = col.split('_')[1] if '_' in col else col
+            if var_meta:
+                if col in var_meta: 
+                    meta = var_meta[col]
+                elif key in var_meta: 
+                    meta = var_meta[key]
             
-            if show_or:
-                or_cell_content = "-"
-                if is_cat:
-                    cats = counts_total.index.tolist()
-                    if len(cats) >= 2:
-                        ref_cat = cats[0]
-                        target_cat = cats[-1]
-                        or_res = compute_or_vs_ref(mapped_full_series, target_cat, ref_cat, df[group_col], group_1_val)
-                        or_cell_content = or_res
-                else:
-                    or_cell_content = calculate_or_continuous_logit(df, col, group_col, group_1_val)
-                
-                row_html += f"                    <td class='numeric-cell'>{or_cell_content}</td>\n"
-                
-                smd_cats = counts_total.index.tolist() if is_cat else None
-                smd_val = calculate_smd(df, col, group_col, group_1_val, group_2_val, is_cat=is_cat, mapped_series=mapped_full_series, cats=smd_cats)
-                row_html += f"                    <td class='numeric-cell'>{smd_val}</td>\n"
+            label = meta.get('label', key)
+            is_cat = meta.get('type') == 'Categorical'
+            if not is_cat and (df[col].nunique() < 10 or df[col].dtype == object): 
+                is_cat = True 
             
-            if is_cat: 
-                p_val, test_name = calculate_p_categorical(df, col, group_col)
-            else: 
-                p_val, test_name = calculate_p_continuous(group_vals_list)
+            row_html = f"                <tr>\n                    <td><strong>{_html.escape(str(label))}</strong></td>\n"
             
-            p_val_raw = p_val
-            p_class = "p-not-significant"
-            
-            # ✅ Robust P-value check
-            try:
-                if isinstance(p_val_raw, str):
-                    # Handle "<0.001"
-                    p_float = float(p_val_raw.replace('<', '').strip())
-                else:
-                    p_float = float(p_val_raw)
-                    
-                if p_float < 0.05:
-                    p_class = "p-significant"
-            except (ValueError, TypeError):
-                pass # Keep default
-                
-            p_str = format_p(p_val)
-            if p_class == "p-significant":
-                p_str = f"<span class='p-significant'>{p_str}*</span>"
+            if is_cat:
+                counts_total, n_total, mapped_full_series = get_stats_categorical_data(df[col], var_meta, col) 
+                val_total = get_stats_categorical_str(counts_total, n_total)
             else:
-                p_str = f"<span class='p-not-significant'>{p_str}</span>"
+                val_total = get_stats_continuous(df[col])
+                mapped_full_series = None
                 
-            row_html += f"                    <td class='numeric-cell'>{p_str}</td>\n"
-            row_html += f"                    <td class='numeric-cell'>{test_name}</td>\n"
-        
-        row_html += "                </tr>\n"
-        html += row_html
+            row_html += f"                    <td class='numeric-cell'>{val_total}</td>\n"
+            
+            group_vals_list = []
+            
+            if has_group:
+                for g in groups:
+                    # OPTIMIZATION: Use pre-computed mask
+                    sub_df = df[group_masks[g['val']]]
+                    
+                    if is_cat:
+                        counts_g, n_g, _ = get_stats_categorical_data(sub_df[col], var_meta, col)
+                        val_g = get_stats_categorical_str(counts_g, n_g)
+                        row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
+                    else:
+                        val_g = get_stats_continuous(sub_df[col])
+                        row_html += f"                    <td class='numeric-cell'>{val_g}</td>\n"
+                        group_vals_list.append(sub_df[col])
+                
+                if show_or:
+                    or_cell_content = "-"
+                    if is_cat:
+                        cats = counts_total.index.tolist()
+                        if len(cats) >= 2:
+                            ref_cat = cats[0]
+                            target_cat = cats[-1]
+                            or_res = compute_or_vs_ref(mapped_full_series, target_cat, ref_cat, df[group_col], group_1_val)
+                            or_cell_content = or_res
+                    else:
+                        or_cell_content = calculate_or_continuous_logit(df, col, group_col, group_1_val)
+                    
+                    row_html += f"                    <td class='numeric-cell'>{or_cell_content}</td>\n"
+                    
+                    smd_cats = counts_total.index.tolist() if is_cat else None
+                    smd_val = calculate_smd(df, col, group_col, group_1_val, group_2_val, is_cat=is_cat, mapped_series=mapped_full_series, cats=smd_cats)
+                    row_html += f"                    <td class='numeric-cell'>{smd_val}</td>\n"
+                
+                if is_cat: 
+                    p_val, test_name = calculate_p_categorical(df, col, group_col)
+                else: 
+                    p_val, test_name = calculate_p_continuous(group_vals_list)
+                
+                p_val_raw = p_val
+                p_class = "p-not-significant"
+                
+                # ✅ Robust P-value check
+                try:
+                    if isinstance(p_val_raw, str):
+                        # Handle "<0.001"
+                        p_float = float(p_val_raw.replace('<', '').strip())
+                    else:
+                        p_float = float(p_val_raw)
+                        
+                    if p_float < 0.05:
+                        p_class = "p-significant"
+                except (ValueError, TypeError):
+                    pass # Keep default
+                    
+                p_str = format_p(p_val)
+                if p_class == "p-significant":
+                    p_str = f"<span class='p-significant'>{p_str}*</span>"
+                else:
+                    p_str = f"<span class='p-not-significant'>{p_str}</span>"
+                    
+                row_html += f"                    <td class='numeric-cell'>{p_str}</td>\n"
+                row_html += f"                    <td class='numeric-cell'>{test_name}</td>\n"
+            
+            row_html += "                </tr>\n"
+            html += row_html
+        except Exception as e:
+            logger.exception(f"Error processing column '{col}': {e}")
+            continue
     
     html += f"""            </tbody>
         </table>
@@ -782,6 +871,9 @@ def generate_table(
             </ul>
         </div>
     </div>
+    
+    <!-- Missing Data Summary -->
+    {create_missing_data_report_html(missing_data_info, var_meta or {})}
 </div>
 </body>
 </html>

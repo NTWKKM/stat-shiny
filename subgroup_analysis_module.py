@@ -5,14 +5,23 @@ Professional subgroup analysis without Streamlit dependencies.
 OPTIMIZED for Python 3.12 with strict type hints and TypedDict.
 """
 
-import pandas as pd
-import numpy as np
-from logger import get_logger
-from forest_plot_lib import create_forest_plot
-from tabs._common import get_color_palette
 import warnings
-from typing import Union, Optional, List, Dict, Tuple, Any, TypedDict
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
+
+from config import CONFIG
+from forest_plot_lib import create_forest_plot
+from logger import get_logger
+from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -88,12 +97,13 @@ class SubgroupAnalysisLogit:
         treatment_col: str, 
         subgroup_col: str, 
         adjustment_cols: Optional[List[str]] = None, 
-        min_subgroup_n: int = 5
+        min_subgroup_n: int = 5,
+        var_meta: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Perform logistic regression subgroup analysis."""
         try:
-            from statsmodels.formula.api import logit
             from scipy import stats
+            from statsmodels.formula.api import logit
             
             self.validate_inputs(outcome_col, treatment_col, subgroup_col, adjustment_cols)
             
@@ -101,10 +111,33 @@ class SubgroupAnalysisLogit:
                 adjustment_cols = []
             
             cols_to_use = [outcome_col, treatment_col, subgroup_col] + adjustment_cols
-            df_clean = self.df[cols_to_use].dropna().copy()
+            
+            # --- MISSING DATA HANDLING ---
+            missing_data_info = {}
+            # Coerce outcome first so invalid values are counted as missing
+            df_subset = self.df[cols_to_use].copy()
+            df_subset[outcome_col] = pd.to_numeric(df_subset[outcome_col], errors='coerce')
+            if var_meta:
+                missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+                missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+                df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
+                
+                df_clean, impact = handle_missing_for_analysis(
+                    df_processed, var_meta, missing_codes, strategy='complete-case', return_counts=True
+                )
+                missing_data_info = {
+                    'strategy': 'complete-case',
+                    'rows_analyzed': impact['final_rows'],
+                    'rows_excluded': impact['rows_removed'],
+                    'summary_before': missing_summary.to_dict('records')
+                }
+            else:
+                df_clean = df_subset.dropna().copy()
             
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
+            
+            df_clean = df_clean.dropna(subset=[outcome_col])
             
             formula_base = f'{outcome_col} ~ {treatment_col}'
             if adjustment_cols:
@@ -168,9 +201,22 @@ class SubgroupAnalysisLogit:
                 try:
                     model_sub = logit(formula_base, data=df_sub).fit(disp=0)
                     
-                    or_sub = float(np.exp(model_sub.params[treatment_col]))
-                    ci_sub = np.exp(model_sub.conf_int().loc[treatment_col])
-                    p_sub = float(model_sub.pvalues[treatment_col])
+                    # Robust parameter lookup for treatment in subgroup
+                    sub_param_key = None
+                    if treatment_col in model_sub.params:
+                        sub_param_key = treatment_col
+                    else:
+                        for k in model_sub.params.index:
+                            if k.startswith(f"{treatment_col}["):
+                                sub_param_key = k
+                                break
+                    
+                    if not sub_param_key:
+                        continue
+
+                    or_sub = float(np.exp(model_sub.params[sub_param_key]))
+                    ci_sub = np.exp(model_sub.conf_int().loc[sub_param_key])
+                    p_sub = float(model_sub.pvalues[sub_param_key])
                     
                     results_list.append({
                         'group': f'{subgroup_col}={subgroup_val} (N={len(df_sub)})',
@@ -224,7 +270,10 @@ class SubgroupAnalysisLogit:
             self.results = pd.DataFrame(results_list)
             self.stats = self._compute_summary_statistics()
             logger.info("Analysis complete")
-            return self._format_output()
+            result = self._format_output()
+            if missing_data_info:
+                result['missing_data_info'] = missing_data_info
+            return result
         
         except Exception as e:
             logger.error(f"Analysis failed: {e}")
@@ -370,8 +419,9 @@ class SubgroupAnalysisCox:
         subgroup_col: str, 
         adjustment_cols: Optional[List[str]] = None, 
         min_subgroup_n: int = 5, 
-        min_events: int = 2
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        min_events: int = 2,
+        var_meta: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str]]:
         """Perform Cox subgroup analysis."""
         try:
             from lifelines import CoxPHFitter
@@ -383,7 +433,26 @@ class SubgroupAnalysisCox:
                 adjustment_cols = []
             
             cols_to_use = [duration_col, event_col, treatment_col, subgroup_col] + adjustment_cols
-            df_clean = self.df[cols_to_use].dropna().copy()
+            
+            # --- MISSING DATA HANDLING ---
+            missing_data_info = {}
+            if var_meta:
+                 df_subset = self.df[cols_to_use].copy()
+                 missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+                 missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+                 df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
+                 
+                 df_clean, impact = handle_missing_for_analysis(
+                    df_processed, var_meta, missing_codes, strategy='complete-case', return_counts=True
+                 )
+                 missing_data_info = {
+                    'strategy': 'complete-case',
+                    'rows_analyzed': impact['final_rows'],
+                    'rows_excluded': impact['rows_removed'],
+                    'summary_before': missing_summary.to_dict('records')
+                 }
+            else:
+                 df_clean = self.df[cols_to_use].dropna().copy()
             
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
@@ -396,7 +465,7 @@ class SubgroupAnalysisCox:
                 cph_overall = CoxPHFitter()
                 cph_overall.fit(df_clean, duration_col=duration_col, event_col=event_col, show_progress=False)
                 
-                hr_overall = float(np.exp(cph_overall.params[treatment_col]))
+                hr_overall = float(np.exp(cph_overall.params_[treatment_col]))
                 ci_overall = np.exp(cph_overall.confidence_intervals_.loc[treatment_col])
                 p_overall = float(cph_overall.summary.loc[treatment_col, 'p'])
                 
@@ -434,7 +503,7 @@ class SubgroupAnalysisCox:
                     cph_sub = CoxPHFitter()
                     cph_sub.fit(df_sub, duration_col=duration_col, event_col=event_col, show_progress=False)
                     
-                    hr_sub = float(np.exp(cph_sub.params[treatment_col]))
+                    hr_sub = float(np.exp(cph_sub.params_[treatment_col]))
                     ci_sub = np.exp(cph_sub.confidence_intervals_.loc[treatment_col])
                     p_sub = float(cph_sub.summary.loc[treatment_col, 'p'])
                     
@@ -477,7 +546,10 @@ class SubgroupAnalysisCox:
             self.results = pd.DataFrame(results_list)
             self.stats = self._compute_summary_statistics()
             logger.info("Analysis complete")
-            return self._format_output(), None, None
+            result = self._format_output()
+            if missing_data_info:
+                result['missing_data_info'] = missing_data_info
+            return result, None, None
         
         except Exception as e:
             logger.error(f"Analysis failed: {e}")

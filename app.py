@@ -1,21 +1,24 @@
-from shiny import App, ui, reactive, Session, Inputs, Outputs
-from shiny.types import FileInfo
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
+from shiny import App, Inputs, Outputs, Session, reactive, ui
+from shiny.types import FileInfo
 
 # Import Config/Logger
 from config import CONFIG
-from logger import get_logger, LoggerFactory
+from logger import LoggerFactory, get_logger
 from logic import HAS_FIRTH
 
 # Import Tabs Modules
-from tabs import tab_data           # 🟢 Data Module
-from tabs import tab_baseline_matching
-from tabs import tab_diag
-from tabs import tab_logit
-from tabs import tab_corr
-from tabs import tab_survival
-from tabs import tab_settings
+from tabs import tab_data  # 🟢 Data Module
+from tabs import (
+    tab_baseline_matching,
+    tab_corr,
+    tab_diag,
+    tab_logit,
+    tab_settings,
+    tab_survival,
+)
 
 # from tabs._styling import get_shiny_css  # DEPRECATED: Now using external CSS file
 from tabs._common import wrap_with_container

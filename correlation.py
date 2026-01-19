@@ -15,13 +15,22 @@ Enhanced Features:
 - Detailed interpretations
 """
 
-import pandas as pd
-import numpy as np
-import scipy.stats as stats
-import plotly.graph_objects as go
 import html as _html
-from typing import Union, Optional, List, Dict, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import scipy.stats as stats
+
 from tabs._common import get_color_palette
+from config import CONFIG
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 # Get unified color palette
 COLORS = get_color_palette()
@@ -262,11 +271,14 @@ def calculate_chi2(
         return display_tab, None, str(e), None
 
 
+
+
 def calculate_correlation(
     df: pd.DataFrame, 
     col1: str, 
     col2: str, 
-    method: str = 'pearson'
+    method: str = 'pearson',
+    var_meta: Optional[Dict[str, Any]] = None
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[go.Figure]]:
     """
     ENHANCED: Compute correlation with comprehensive statistics.
@@ -303,6 +315,41 @@ def calculate_correlation(
     v2 = data_numeric[col2]
     n = len(data_numeric)
     
+    # --- MISSING DATA HANDLING ---
+    # Although we did dropna() above, let's capture the logic formally for reporting
+    missing_data_info = {}
+    if var_meta:
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        # Re-process from original df to capture missing stats properly
+        cols_to_use = [col1, col2]
+        df_subset = df[cols_to_use].copy()
+        
+        # 1. Get summary (on original data)
+        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+        # 2. Apply codes & 3. Handle (Complete case)
+        df_clean, impact = handle_missing_for_analysis(
+            df_subset, var_meta, missing_codes=missing_codes, strategy=strategy, return_counts=True
+        )
+        
+        missing_data_info = {
+            'strategy': strategy,
+            'rows_analyzed': impact['final_rows'],
+            'rows_excluded': impact['rows_removed'],
+            'summary_before': missing_summary.to_dict('records')
+        }
+        
+        # Use cleaner data if valid
+        if not df_clean.empty:
+            data_numeric = df_clean.apply(pd.to_numeric, errors='coerce').dropna()
+            if len(data_numeric) < 2:
+                return None, "Error: Need at least 2 numeric values.", None
+            v1 = data_numeric[col1]
+            v2 = data_numeric[col2]
+            n = len(data_numeric)
+        
     if method == 'pearson':
         corr, p = stats.pearsonr(v1, v2)
         name = "Pearson"
@@ -389,7 +436,8 @@ def calculate_correlation(
         "P-value": p,
         "N": n,
         "Interpretation": interpretation,
-        "Sample Note": sample_note
+        "Sample Note": sample_note,
+        "missing_data_info": missing_data_info
     }
     
     return result, None, fig
@@ -398,7 +446,8 @@ def calculate_correlation(
 def compute_correlation_matrix(
     df: pd.DataFrame, 
     cols: List[str], 
-    method: str = 'pearson'
+    method: str = 'pearson',
+    var_meta: Optional[Dict[str, Any]] = None
 ) -> Tuple[Optional[pd.DataFrame], Optional[go.Figure], Optional[Dict[str, Any]]]:
     """
     ENHANCED: Compute correlation matrix with summary statistics.
@@ -420,7 +469,31 @@ def compute_correlation_matrix(
         return None, None, None
         
     # Filter and convert to numeric
-    data = df[cols].apply(pd.to_numeric, errors='coerce')
+    # --- MISSING DATA HANDLING ---
+    missing_data_info = {}
+    if var_meta:
+        missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
+        df_subset = df[cols].copy()
+        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
+        df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
+        
+        # Note: Correlation calculation usually handles pairwise missingness (analyzes valid pairs)
+        # So 'drop_na' across ALL columns might be too aggressive if we want pairwise.
+        # But pandas .corr() handles NaN automatically (pairwise complete).
+        # We just want to REPORT the missingness here.
+        
+        # Let's count missing but NOT drop rows list-wise for the matrix unless requested.
+        # Actually .apply(pd.to_numeric) handles coercion.
+        
+        missing_data_info = {
+            'strategy': 'pairwise-complete (handled by correlation)',
+            'rows_analyzed': len(df_processed), # Potentially all rows
+            'rows_excluded': 0, # We don't drop rows explicitly for matrix unless all-nan
+            'summary_before': missing_summary.to_dict('records')
+        }
+        data = df_processed.apply(pd.to_numeric, errors='coerce')
+    else:
+        data = df[cols].apply(pd.to_numeric, errors='coerce')
     
     # Calculate correlation matrix
     corr_matrix = data.corr(method=method)
@@ -468,7 +541,8 @@ def compute_correlation_matrix(
         "max_correlation": float(np.nanmax(np.abs(upper_triangle_flat))),
         "min_correlation": float(np.nanmin(np.abs(upper_triangle_flat))),
         "n_significant": int(np.sum(p_flat < 0.05)),
-        "pct_significant": float(np.nansum(p_flat < 0.05) / np.sum(~np.isnan(p_flat)) * 100) if np.sum(~np.isnan(p_flat)) > 0 else 0.0
+        "pct_significant": float(np.nansum(p_flat < 0.05) / np.sum(~np.isnan(p_flat)) * 100) if np.sum(~np.isnan(p_flat)) > 0 else 0.0,
+        "missing_data_info": missing_data_info
     }
     
     # Check if we have valid data before calling argmax/argmin to avoid All-NaN slice error
@@ -568,8 +642,16 @@ def generate_report(
     """
     Generate comprehensive HTML report from elements.
     
+    Element Type Contract:
+    - 'html': Must contain pre-escaped HTML strings. Producers (e.g., 
+      create_missing_data_report_html()) are responsible for escaping user-supplied 
+      metadata using utils.formatting._html.escape().
+    - 'text', 'interpretation', 'summary', 'note', 'table': Automatically escaped 
+      by this function using _html.escape() or to_html(escape=True).
+    - 'plot': Handled via Plotly's to_html().
+
     Args:
-        title (str): Report title
+        title (str): Report title (automatically escaped)
         elements (list): List of report elements with 'type', 'data', 'header'
         
     Returns:
@@ -737,6 +819,10 @@ def generate_report(
                 html += f"<p class='metric-text'><span class='metric-label'>{label}:</span> <span class='metric-value'>{value}</span></p>"
             else:
                 html += f"<p>{_html.escape(text_str)}</p>"
+        
+        elif element_type == 'html':
+             # Note: Producers of 'html' elements are responsible for escaping user-supplied metadata.
+             html += str(data)
         
         elif element_type == 'interpretation':
             html += f"<div class='interpretation'>📊 {_html.escape(str(data))}</div>"
