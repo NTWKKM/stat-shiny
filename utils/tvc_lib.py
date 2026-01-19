@@ -404,12 +404,16 @@ def fit_tvc_cox(
         pass
         
         # Combine covariates
-        
-        # Combine covariates
         all_covariates = (tvc_cols or []) + (static_cols or [])
         
         if not all_covariates:
             return None, None, None, "❌ No covariates specified", {}, {}
+        
+        # Validate required columns exist BEFORE accessing them
+        required_cols = [start_col, stop_col, event_col]
+        missing_required = [c for c in required_cols if c not in df.columns]
+        if missing_required:
+            return None, None, None, f"❌ Missing required columns: {', '.join(missing_required)}. Available: {df.columns.tolist()}", {}, {}
         
         # Check for missing covariates
         missing_covars = set(all_covariates) - set(df.columns)
@@ -523,6 +527,9 @@ def fit_tvc_cox(
         
         return cph, results_df, clean_data, None, stats, missing_info
         
+    except np.linalg.LinAlgError:
+        logger.warning("TVC Cox: Singular matrix detected")
+        return None, None, None, "❌ Singular Matrix Error: Variables are likely highly correlated or collinear. \nTry:\n1. Increasing the penalizer (e.g., 0.1)\n2. Removing redundant variables.", {}, {}
     except Exception as e:
         logger.exception("TVC Cox fitting error")
         return None, None, None, f"❌ Model fitting error: {str(e)}", {}, {}
