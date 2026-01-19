@@ -281,8 +281,8 @@ def transform_wide_to_long(
                 # Create interval row
                 interval_row = {
                     id_col: patient_id,
-                    'start_time': start,
-                    'stop_time': stop,
+                    'start': start,
+                    'stop': stop,
                     event_col: interval_event
                 }
                 
@@ -318,8 +318,8 @@ def transform_wide_to_long(
         # Validate transformed data
         is_valid, val_err = validate_long_format(
             long_df, id_col=id_col, 
-            start_col='start_time', 
-            stop_col='stop_time', 
+            start_col='start', 
+            stop_col='stop', 
             event_col=event_col
         )
         

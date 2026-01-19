@@ -639,8 +639,8 @@ def survival_server(
                     # But input values are retained. If we are in wide mode, id_col is preserved.
                     if fmt == "wide":
                         # Standardize sort column names for transformed data
-                        if 'start_time' in long_df.columns:
-                             long_df = long_df.sort_values([id_col, 'stop_time'])
+                        if 'start' in long_df.columns:
+                             long_df = long_df.sort_values([id_col, 'stop'])
                     else:
                         long_df = long_df.sort_values(sort_cols)
                 except Exception as e:
