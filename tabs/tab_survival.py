@@ -1,4 +1,4 @@
-⛳ Survival Analysis Module (Shiny) - MODERN MODULE PATTERN (UPDATED)
+"""⛳ Survival Analysis Module (Shiny) - MODERN MODULE PATTERN (UPDATED)
 
 Provides UI and server logic for:
 - Kaplan-Meier curves with log-rank tests (Enhanced)

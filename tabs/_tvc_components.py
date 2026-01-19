@@ -185,7 +185,7 @@ def tvc_risk_interval_picker_ui() -> ui.TagChild:
             {
                 "auto": "🤖 Auto-detect (from TVC column names like 'tvc_3m', 'tvc_6m')",
                 "quantile": "📈 Quantile-based (equal number of events in each interval)",
-                "manual": ✍️ Manual (specify time points below)"
+                "manual": "✍️ Manual (specify time points below)"
             },
             selected="auto",
             inline=False
