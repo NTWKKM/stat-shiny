@@ -437,21 +437,37 @@ def fit_tvc_cox(
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
         
+        # --- ROBUST COLUMN HANDLING ---
+        # Ensure critical columns exist, restoring from original DF if needed (matching index)
+        # This handles cases where data cleaning might have dropped them or names were weird
+        for col, label in [(start_col, "Start"), (stop_col, "Stop"), (event_col, "Event")]:
+            if col not in clean_data.columns:
+                logger.warning(f"Restoring missing critical column '{col}' from original data")
+                try:
+                    clean_data[col] = df.loc[clean_data.index, col]
+                except KeyError:
+                    return None, None, None, f"❌ Critical column '{col}' lost during processing and cannot be restored.", {}, missing_info
+
         # Standardize column names for lifelines to avoid KeyError
-        # Rename start_col -> 'start', stop_col -> 'stop' in clean_data
-        # This prevents issues where lifelines might insist on default names or fail to pop custom names
+        # Force rename to 'start' and 'stop' to ensure exact match with lifelines expectations
         standard_start = 'start'
         standard_stop = 'stop'
         
-        # Handle case where columns are ALREADY named start/stop to avoid rename error
-        rename_map = {}
+        # transform_wide_to_long outputs 'start'/'stop', but if user provided map is different,
+        # we strictly rename what we have (start_col/stop_col) to 'start'/'stop'
+        # We use a direct assignment to avoid complex rename logic and handle potential overlaps
         if start_col != standard_start:
-            rename_map[start_col] = standard_start
+            clean_data[standard_start] = clean_data[start_col]
+            # Optional: drop old if not needed, but keeping it is safer for now unless it conflicts
+            # If start_col is NOT standard_start, and we copied it, we can drop the old one to avoid confusion
+            # provided it's not used as a covariate (which it shouldn't be)
+            if start_col not in all_covariates:
+                clean_data.drop(columns=[start_col], inplace=True)
+                
         if stop_col != standard_stop:
-            rename_map[stop_col] = standard_stop
-            
-        if rename_map:
-            clean_data = clean_data.rename(columns=rename_map)
+            clean_data[standard_stop] = clean_data[stop_col]
+            if stop_col not in all_covariates:
+                 clean_data.drop(columns=[stop_col], inplace=True)
             
         cph = CoxTimeVaryingFitter(penalizer=penalizer)
         
