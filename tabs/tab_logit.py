@@ -22,6 +22,15 @@ from poisson_lib import analyze_poisson_outcome
 from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from tabs._common import get_color_palette
 from utils.formatting import create_missing_data_report_html
+from utils.linear_lib import (
+    analyze_linear_outcome,
+    bootstrap_ols,
+    compare_models,
+    format_bootstrap_results,
+    format_model_comparison,
+    format_stepwise_history,
+    stepwise_selection,
+)
 from utils.plotly_html_renderer import plotly_figure_to_html
 
 logger = get_logger(__name__)
@@ -250,7 +259,192 @@ def logit_ui() -> ui.TagChild:
             ),
 
             # =====================================================================
-            # TAB 3: Subgroup Analysis
+            # TAB 3: Linear Regression (OLS)
+            # =====================================================================
+            ui.nav_panel(
+                "📐 Linear Regression",
+
+                # Control section (top)
+                ui.card(
+                    ui.card_header("📐 Linear Regression Options"),
+
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Variable Selection:"),
+                            ui.input_select("linear_outcome", "Select Continuous Outcome (Y):", choices=[]),
+                            ui.input_selectize(
+                                "linear_predictors", 
+                                "Select Predictors (X):", 
+                                choices=[], 
+                                multiple=True,
+                                options={"placeholder": "Select predictors or leave empty for auto-selection..."}
+                            ),
+                            ui.p(
+                                "💡 Leave predictors empty to auto-include all numeric variables",
+                                style="font-size: 0.8em; color: #666; margin-top: 4px;"
+                            ),
+                        ),
+
+                        ui.card(
+                            ui.card_header("Method & Settings:"),
+                            ui.input_radio_buttons(
+                                "linear_method",
+                                "Regression Method:",
+                                {
+                                    "ols": "Standard OLS",
+                                    "robust": "Robust (Huber)"
+                                },
+                                selected="ols"
+                            ),
+                            ui.input_checkbox(
+                                "linear_robust_se",
+                                "Use Robust Standard Errors (HC3)",
+                                value=False
+                            ),
+                        ),
+                        
+                        col_widths=[6, 6]
+                    ),
+                    
+                    # Advanced Options Accordion
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "🔧 Advanced Options",
+                            ui.layout_columns(
+                                ui.card(
+                                    ui.card_header("Variable Selection:"),
+                                    ui.input_checkbox(
+                                        "linear_stepwise_enable",
+                                        "Enable Stepwise Selection",
+                                        value=False
+                                    ),
+                                    ui.input_radio_buttons(
+                                        "linear_stepwise_dir",
+                                        "Direction:",
+                                        {"both": "Both", "forward": "Forward", "backward": "Backward"},
+                                        selected="both",
+                                        inline=True
+                                    ),
+                                    ui.input_radio_buttons(
+                                        "linear_stepwise_crit",
+                                        "Criterion:",
+                                        {"aic": "AIC", "bic": "BIC", "pvalue": "P-value"},
+                                        selected="aic",
+                                        inline=True
+                                    ),
+                                ),
+                                ui.card(
+                                    ui.card_header("Bootstrap CI:"),
+                                    ui.input_checkbox(
+                                        "linear_bootstrap_enable",
+                                        "Enable Bootstrap CIs",
+                                        value=False
+                                    ),
+                                    ui.input_numeric(
+                                        "linear_bootstrap_n",
+                                        "Bootstrap Samples:",
+                                        value=1000,
+                                        min=100,
+                                        max=10000
+                                    ),
+                                    ui.input_radio_buttons(
+                                        "linear_bootstrap_method",
+                                        "CI Method:",
+                                        {"percentile": "Percentile", "bca": "BCa"},
+                                        selected="percentile",
+                                        inline=True
+                                    ),
+                                ),
+                                col_widths=[6, 6]
+                            ),
+                        ),
+                        open=False
+                    ),
+                    
+                    ui.h6("Exclude Variables (Optional):"),
+                    ui.input_selectize("linear_exclude", label=None, choices=[], multiple=True),
+
+                    ui.hr(),
+
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_linear",
+                            "🚀 Run Linear Regression",
+                            class_="btn-primary btn-sm w-100"
+                        ),
+                        ui.download_button(
+                            "btn_dl_linear_report",
+                            "📥 Download Report",
+                            class_="btn-secondary btn-sm w-100"
+                        ),
+                        col_widths=[6, 6]
+                    ),
+                ),
+
+                # Content section (bottom)
+                ui.output_ui("out_linear_status"),
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "📋 Regression Results",
+                        ui.output_ui("out_linear_html_report")
+                    ),
+                    ui.nav_panel(
+                        "📈 Diagnostic Plots",
+                        ui.output_ui("out_linear_diagnostic_plots")
+                    ),
+                    ui.nav_panel(
+                        "🔍 Variable Selection",
+                        ui.output_ui("out_linear_stepwise")
+                    ),
+                    ui.nav_panel(
+                        "🎲 Bootstrap CI",
+                        ui.output_ui("out_linear_bootstrap")
+                    ),
+                    ui.nav_panel(
+                        "📚 Reference",
+                        ui.markdown("""
+                        ### Linear Regression Reference
+                        
+                        **When to Use:**
+                        * Continuous outcomes (blood pressure, glucose, length of stay)
+                        * Understanding effect size of predictors (β coefficients)
+                        * Analyzing relationships between continuous variables
+                        
+                        **Interpretation:**
+                        * **β > 0**: Positive relationship (Y increases with X)
+                        * **β < 0**: Negative relationship (Y decreases with X)
+                        * **p < 0.05**: Statistically significant effect
+                        * **CI not crossing 0**: Significant effect
+                        
+                        **Model Fit:**
+                        * **R² > 0.7**: Strong explanatory power
+                        * **R² 0.4-0.7**: Moderate explanatory power
+                        * **R² < 0.4**: Weak explanatory power
+                        
+                        **Assumptions:**
+                        1. **Linearity**: Check Residuals vs Fitted plot
+                        2. **Normality**: Check Q-Q plot
+                        3. **Homoscedasticity**: Check Scale-Location plot
+                        4. **Independence**: Check Durbin-Watson statistic
+                        5. **No Multicollinearity**: Check VIF values
+                        
+                        **Stepwise Selection:**
+                        Automatically selects the best subset of variables using AIC, BIC, or p-value criteria.
+                        - Forward: Start empty, add significant variables
+                        - Backward: Start full, remove non-significant variables
+                        - Both: Stepwise forward and backward
+                        
+                        **Bootstrap CI:**
+                        Non-parametric confidence intervals via resampling.
+                        - Percentile: Simple quantile-based CIs
+                        - BCa: Bias-corrected and accelerated (more accurate)
+                        """)
+                    )
+                )
+            ),
+
+            # =====================================================================
+            # TAB 4: Subgroup Analysis
             # =====================================================================
             ui.nav_panel(
                 "🗣️ Subgroup Analysis",
@@ -331,7 +525,7 @@ def logit_ui() -> ui.TagChild:
             ),
 
             # =====================================================================
-            # TAB 4: Reference
+            # TAB 5: Reference
             # =====================================================================
             ui.nav_panel(
                 "ℹ️ Reference",
@@ -420,7 +614,9 @@ def logit_server(
     """
     logit_res = reactive.Value(None)     
     # Store Poisson results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
-    poisson_res = reactive.Value(None)   
+    poisson_res = reactive.Value(None)
+    # Store Linear Regression results: {'html_fragment': str, 'html_full': str, 'plots': dict, 'results': dict}
+    linear_res = reactive.Value(None)
     # Store subgroup results: SubgroupResult
     subgroup_res: reactive.Value[Optional[SubgroupResult]] = reactive.Value(None)
     # Store analyzer instance: SubgroupAnalysisLogit
@@ -428,7 +624,7 @@ def logit_server(
 
     # --- Cache Clearing on Tab Change ---
     @reactive.Effect
-    @reactive.event(input.btn_run_logit, input.btn_run_poisson, input.btn_run_subgroup)
+    @reactive.event(input.btn_run_logit, input.btn_run_poisson, input.btn_run_subgroup, input.btn_run_linear)
     def _cleanup_after_analysis():
         """
         OPTIMIZATION: Clear cache after completing analysis.
@@ -526,7 +722,20 @@ def logit_server(
         ui.update_selectize("poisson_exclude", choices=cols)
         ui.update_selectize("poisson_interactions", choices=interaction_choices[:50])
 
-        # Update Tab 3 (Subgroup) Inputs
+        # Update Tab 3 (Linear Regression) Inputs
+        # Identify continuous numeric columns for outcome
+        numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(d[c])]
+        continuous_cols = [
+            c for c in numeric_cols 
+            if d[c].nunique() > 10  # More than 10 unique values suggests continuous
+        ]
+        # Fall back to all numeric if no continuous found
+        linear_outcome_choices = continuous_cols if continuous_cols else numeric_cols
+        ui.update_select("linear_outcome", choices=linear_outcome_choices)
+        ui.update_selectize("linear_predictors", choices=numeric_cols)
+        ui.update_selectize("linear_exclude", choices=cols)
+
+        # Update Tab 4 (Subgroup) Inputs
         ui.update_select("sg_outcome", choices=binary_cols)
         ui.update_select("sg_treatment", choices=cols)
         ui.update_select("sg_subgroup", choices=sg_cols)
@@ -999,6 +1208,329 @@ def logit_server(
         res = poisson_res.get()
         if res: 
             yield res['html_full']
+
+    # ==========================================================================
+    # LOGIC: Linear Regression (OLS)
+    # ==========================================================================
+    @reactive.Effect
+    @reactive.event(input.btn_run_linear)
+    def _run_linear():
+        """Run linear regression analysis for continuous outcome."""
+        d = current_df()
+        target = input.linear_outcome()
+        predictors = list(input.linear_predictors()) if input.linear_predictors() else None
+        exclude = list(input.linear_exclude()) if input.linear_exclude() else []
+        method = input.linear_method()
+        robust_se = input.linear_robust_se()
+
+        if d is None or d.empty:
+            ui.notification_show("Please load data first", type="error")
+            return
+        if not target:
+            ui.notification_show("Please select a continuous outcome variable", type="error")
+            return
+
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message="Running Linear Regression...", detail="Preparing data...")
+
+            try:
+                # Run analysis from linear_lib
+                html_report, results, plots, missing_info = analyze_linear_outcome(
+                    outcome_name=target,
+                    df=d,
+                    predictor_cols=predictors,
+                    var_meta=var_meta.get(),
+                    exclude_cols=exclude,
+                    regression_type=method,
+                    robust_se=robust_se
+                )
+            except Exception as e:
+                ui.notification_show(f"Error: {e!s}", type="error")
+                logger.exception("Linear regression error")
+                return
+
+            # Create full HTML for download
+            target_escaped = html.escape(target)
+            full_linear_html = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Linear Regression Report: {target_escaped}</title>
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }}
+                    .table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
+                    .table th, .table td {{ padding: 8px; border: 1px solid #ddd; text-align: left; }}
+                    .table th {{ background: #f5f5f5; }}
+                    .table-striped tbody tr:nth-child(odd) {{ background: #fafafa; }}
+                </style>
+            </head>
+            <body>
+                <div class="report-container">
+                    {html_report}
+                </div>
+            </body>
+            </html>
+            """
+
+            # Store Results
+            linear_res.set({
+                "html_fragment": html_report,
+                "html_full": full_linear_html,
+                "plots": plots,
+                "results": results,
+                "missing_info": missing_info
+            })
+
+            ui.notification_show("✅ Linear Regression Complete!", type="message")
+
+    # --- Render Linear Regression Results ---
+    @render.ui
+    def out_linear_status():
+        res = linear_res.get()
+        if res:
+            r2 = res['results'].get('r_squared', 0)
+            n_obs = res['results'].get('n_obs', 0)
+            r2_text = f"R² = {r2:.4f}" if np.isfinite(r2) else "R² = N/A"
+            return ui.div(
+                ui.h5(f"✅ Linear Regression Complete ({r2_text}, n = {n_obs:,})"),
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;"
+            )
+        return None
+
+    @render.ui
+    def out_linear_html_report():
+        """Render the Linear Regression detailed report."""
+        res = linear_res.get()
+        if res:
+            return ui.card(
+                ui.card_header("📋 Linear Regression Report"),
+                ui.HTML(res['html_fragment'])
+            )
+        return ui.card(
+            ui.card_header("📋 Linear Regression Report"),
+            ui.div(
+                "Run analysis to see detailed report.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+            )
+        )
+
+    @render.ui
+    def out_linear_diagnostic_plots():
+        """Render diagnostic plots for linear regression."""
+        res = linear_res.get()
+        if not res or not res.get('plots'):
+            return ui.div(
+                "Run analysis to see diagnostic plots.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+            )
+
+        plots = res['plots']
+        plot_sections = []
+
+        # Plot descriptions
+        plot_info = [
+            ('residuals_vs_fitted', '📊 Residuals vs Fitted', 
+             '✅ Random scatter = good (linearity, homoscedasticity) | ❌ Pattern = potential issues'),
+            ('qq_plot', '📈 Normal Q-Q Plot', 
+             '✅ Points on line = normal residuals | ❌ Deviation = non-normality'),
+            ('scale_location', '📉 Scale-Location Plot', 
+             '✅ Horizontal trend = constant variance | ❌ Slope = heteroscedasticity'),
+            ('residuals_vs_leverage', '🔍 Residuals vs Leverage', 
+             '✅ Blue points = normal | 🔴 Red points = influential observations (high Cook\'s D)')
+        ]
+
+        for plot_key, plot_title, plot_desc in plot_info:
+            if plot_key in plots and plots[plot_key] is not None:
+                plot_html = plotly_figure_to_html(
+                    plots[plot_key],
+                    div_id=f"linear_diag_{plot_key}",
+                    include_plotlyjs='cdn',
+                    responsive=True
+                )
+                plot_sections.append(ui.card(
+                    ui.card_header(plot_title),
+                    ui.HTML(plot_html),
+                    ui.p(plot_desc, style="font-size: 0.85em; color: #666; margin-top: 10px;")
+                ))
+
+        if not plot_sections:
+            return ui.div("No diagnostic plots available.", class_="text-muted")
+
+        return ui.div(*plot_sections)
+
+    @render.download(filename="linear_regression_report.html")
+    def btn_dl_linear_report():
+        """Download the complete Linear Regression report as HTML."""
+        res = linear_res.get()
+        if res:
+            yield res['html_full']
+
+    # --- Stepwise Selection Results ---
+    @render.ui
+    def out_linear_stepwise():
+        """Render stepwise variable selection results."""
+        res = linear_res.get()
+        
+        # Check if stepwise is enabled and data available
+        if not input.linear_stepwise_enable():
+            return ui.card(
+                ui.card_header("🔍 Variable Selection"),
+                ui.div(
+                    "Enable stepwise selection in Advanced Options to use this feature.",
+                    style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+                )
+            )
+        
+        d = current_df()
+        target = input.linear_outcome()
+        predictors = list(input.linear_predictors()) if input.linear_predictors() else None
+        exclude = list(input.linear_exclude()) if input.linear_exclude() else []
+        
+        if d is None or d.empty or not target:
+            return ui.card(
+                ui.card_header("🔍 Variable Selection"),
+                ui.div(
+                    "Load data and select outcome to run stepwise selection.",
+                    style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+                )
+            )
+        
+        # Determine candidate columns
+        if predictors:
+            candidates = [c for c in predictors if c not in exclude and c != target]
+        else:
+            numeric_cols = d.select_dtypes(include=[np.number]).columns.tolist()
+            candidates = [c for c in numeric_cols if c != target and c not in exclude]
+        
+        if len(candidates) < 2:
+            return ui.card(
+                ui.card_header("🔍 Variable Selection"),
+                ui.div(
+                    "Need at least 2 candidate variables for stepwise selection.",
+                    style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+                )
+            )
+        
+        # Run stepwise selection
+        try:
+            step_result = stepwise_selection(
+                df=d.dropna(subset=[target] + candidates),
+                outcome_col=target,
+                candidate_cols=candidates,
+                direction=input.linear_stepwise_dir(),
+                criterion=input.linear_stepwise_crit()
+            )
+        except Exception as e:
+            return ui.card(
+                ui.card_header("🔍 Variable Selection"),
+                ui.div(f"Error: {e}", style="color: red; padding: 20px;")
+            )
+        
+        # Format history
+        history_df = format_stepwise_history(step_result.get('history', []))
+        history_html = history_df.to_html(index=False, escape=False, classes='table table-sm', border=0)
+        
+        selected = step_result.get('selected_vars', [])
+        criterion_val = step_result.get('final_criterion', 0)
+        
+        return ui.card(
+            ui.card_header(f"🔍 Stepwise Selection ({input.linear_stepwise_dir().title()}, {input.linear_stepwise_crit().upper()})"),
+            ui.div(
+                ui.h5(f"✅ Selected Variables ({len(selected)}):"),
+                ui.tags.ul([ui.tags.li(v) for v in selected]) if selected else ui.p("No variables selected"),
+                ui.p(f"Final {input.linear_stepwise_crit().upper()}: {criterion_val:.2f}"),
+                ui.hr(),
+                ui.h5("Selection History:"),
+                ui.HTML(history_html),
+                style="padding: 15px;"
+            )
+        )
+
+    # --- Bootstrap CI Results ---
+    @render.ui
+    def out_linear_bootstrap():
+        """Render bootstrap confidence interval results."""
+        if not input.linear_bootstrap_enable():
+            return ui.card(
+                ui.card_header("🎲 Bootstrap Confidence Intervals"),
+                ui.div(
+                    "Enable Bootstrap CIs in Advanced Options to use this feature.",
+                    style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+                )
+            )
+        
+        d = current_df()
+        target = input.linear_outcome()
+        predictors = list(input.linear_predictors()) if input.linear_predictors() else None
+        exclude = list(input.linear_exclude()) if input.linear_exclude() else []
+        
+        if d is None or d.empty or not target:
+            return ui.card(
+                ui.card_header("🎲 Bootstrap Confidence Intervals"),
+                ui.div(
+                    "Load data and select outcome to compute bootstrap CIs.",
+                    style="color: gray; font-style: italic; padding: 20px; text-align: center;"
+                )
+            )
+        
+        # Determine predictor columns
+        if predictors:
+            use_predictors = [c for c in predictors if c not in exclude and c != target]
+        else:
+            numeric_cols = d.select_dtypes(include=[np.number]).columns.tolist()
+            use_predictors = [c for c in numeric_cols if c != target and c not in exclude]
+        
+        if not use_predictors:
+            return ui.card(
+                ui.card_header("🎲 Bootstrap Confidence Intervals"),
+                ui.div("No predictor variables available.", style="color: gray; padding: 20px;")
+            )
+        
+        # Run bootstrap
+        n_boot = input.linear_bootstrap_n()
+        ci_method = input.linear_bootstrap_method()
+        
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message=f"Running {n_boot} bootstrap samples...", detail="This may take a moment...")
+            
+            try:
+                boot_result = bootstrap_ols(
+                    df=d.dropna(subset=[target] + use_predictors),
+                    outcome_col=target,
+                    predictor_cols=use_predictors,
+                    n_bootstrap=n_boot,
+                    random_state=42
+                )
+            except Exception as e:
+                return ui.card(
+                    ui.card_header("🎲 Bootstrap Confidence Intervals"),
+                    ui.div(f"Error: {e}", style="color: red; padding: 20px;")
+                )
+        
+        if 'error' in boot_result:
+            return ui.card(
+                ui.card_header("🎲 Bootstrap Confidence Intervals"),
+                ui.div(f"Error: {boot_result['error']}", style="color: red; padding: 20px;")
+            )
+        
+        # Format results
+        formatted = format_bootstrap_results(boot_result, ci_method=ci_method)
+        result_html = formatted.to_html(index=False, escape=False, classes='table table-striped', border=0)
+        
+        return ui.card(
+            ui.card_header(f"🎲 Bootstrap CIs (n={boot_result['n_bootstrap']}, {ci_method.upper()})"),
+            ui.div(
+                ui.HTML(result_html),
+                ui.p(
+                    f"Failed samples: {boot_result['failed_samples']} | "
+                    f"CI Level: {int(boot_result['ci_level'] * 100)}%",
+                    style="font-size: 0.85em; color: #666; margin-top: 10px;"
+                ),
+                style="padding: 15px;"
+            )
+        )
 
     # ==========================================================================
     # LOGIC: Subgroup Analysis
