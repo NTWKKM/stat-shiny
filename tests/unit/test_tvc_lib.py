@@ -33,12 +33,12 @@ def long_data():
         # 2 intervals per subject
         # T=0 to T=5
         df_list.append({
-            'id': i, 'start': 0, 'stop': 5, 'event': 0, 
+            'id': i, 'start_time': 0, 'stop_time': 5, 'event': 0, 
             'val': np.random.normal(10, 2), 'static': static_val
         })
         # T=5 to T=10
         df_list.append({
-            'id': i, 'start': 5, 'stop': 10, 'event': is_event, 
+            'id': i, 'start_time': 5, 'stop_time': 10, 'event': is_event, 
             'val': np.random.normal(12, 2), 'static': static_val
         })
     return pd.DataFrame(df_list)
@@ -47,7 +47,7 @@ class TestTVCUtils:
     
     def test_validate_long_format_valid(self, long_data):
         is_valid, msg = validate_long_format(
-            long_data, id_col='id', start_col='start', stop_col='stop', event_col='event'
+            long_data, 'id', 'start_time', 'stop_time', 'event'
         )
         assert is_valid
         assert msg is None
@@ -104,10 +104,10 @@ class TestTVCUtils:
         pass
 
     def test_fit_tvc_cox_basic(self, long_data):
-        cph, res, clean, err, stats, miss = fit_tvc_cox(
+        cph, res, clean, err, stats, missing_info = fit_tvc_cox(
             long_data,
-            start_col='start',
-            stop_col='stop',
+            start_col='start_time',
+            stop_col='stop_time',
             event_col='event',
             tvc_cols=['val'],
             static_cols=['static']
@@ -120,11 +120,12 @@ class TestTVCUtils:
 
     def test_check_assumptions(self, long_data):
         # First fit a model
-        cph, _, clean, _, _, _ = fit_tvc_cox(
-            long_data, 'start', 'stop', 'event', ['val', 'static']
-        )
+        # Diagnostics
+        clean = long_data[['id', 'start_time', 'stop_time', 'event', 'val', 'static']].dropna()
+        cph = CoxTimeVaryingFitter()
+        cph.fit(clean, start_col='start_time', stop_col='stop_time', event_col='event')
         
-        text, plots = check_tvc_assumptions(cph, clean, 'start', 'stop', 'event')
+        text, plots = check_tvc_assumptions(cph, clean, 'start_time', 'stop_time', 'event')
         assert isinstance(text, str)
         assert isinstance(plots, list)
         # With small dataset, plots might be empty due to sample size checks
