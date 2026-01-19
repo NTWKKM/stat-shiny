@@ -203,31 +203,59 @@ def data_server(
             icc_rater2 = icc_rater1 + 5 + np.random.normal(0, 4, n)
             icc_rater2 = icc_rater2.round(1)
 
-            # [ADDED] Time-Varying Covariates (Wide Format) for TVC Module Testing
-            # Simulate a lab value measured at 0, 3, 6, 12 months
-            # Trend: Standard Care (0) -> worsening (increasing), New Drug (1) -> improving (decreasing)
+            # [UPDATED] Time-Varying Covariates (Long Format) for TVC Module Testing
+            # Generate TVC data: Multiple rows per patient with time intervals
+            # Each patient has 2-4 intervals depending on their follow-up time
             
-            # Baseline (0m)
-            lab_0m = np.random.normal(50, 10, n).clip(20, 100).round(1)
+            n_tvc_patients = 300  # Number of patients for TVC data
+            tvc_intervals = [0, 3, 6, 12, 24]  # Time points
             
-            # 3 Months: correlated with baseline + treatment effect
-            # Group 1 (New Drug) gets slight reduction (-2), Group 0 (Standard) gets slight increase (+2)
-            noise_3m = np.random.normal(0, 5, n)
-            lab_3m = lab_0m + np.where(group==1, -2, 2) + noise_3m
-            lab_3m = lab_3m.clip(10, 120).round(1)
-            # Determine if patient followed up at 3m (time_obs > 3)
-            # If time_obs < 3, the value might be missing or carried forward, but in wide format usually we have the col.
-            # For simplicity, we fill all, user will handle censoring/intervals via transformation logic.
+            tvc_data_rows = []
+            for patient_id in range(1, n_tvc_patients + 1):
+                # Static values (same for all intervals of this patient)
+                static_age = np.random.randint(30, 80)
+                static_sex = np.random.choice([0, 1])
+                
+                # Determine total follow-up time and event status
+                max_followup = np.random.uniform(3, 30)
+                has_event = np.random.choice([0, 1], p=[0.4, 0.6])  # 60% event rate
+                
+                # Baseline TVC value
+                baseline_val = np.random.normal(50, 10)
+                current_val = baseline_val
+                
+                # Create intervals for this patient
+                for i in range(len(tvc_intervals) - 1):
+                    start_time = tvc_intervals[i]
+                    stop_time = tvc_intervals[i + 1]
+                    
+                    # Skip intervals beyond follow-up time
+                    if start_time >= max_followup:
+                        break
+                    
+                    # Adjust stop time if it exceeds follow-up
+                    actual_stop = min(stop_time, max_followup)
+                    
+                    # Determine event: 1 only in final interval for patients with events
+                    is_final_interval = actual_stop >= max_followup or stop_time >= max_followup
+                    interval_event = 1 if (has_event and is_final_interval) else 0
+                    
+                    # TVC value changes over time (simulate deterioration or improvement)
+                    drift = np.random.normal(2, 3)  # Slight increase over time
+                    current_val = current_val + drift
+                    current_val = np.clip(current_val, 10, 120)
+                    
+                    tvc_data_rows.append({
+                        'id_tvc': patient_id,
+                        'time_start': round(start_time, 1),
+                        'time_stop': round(actual_stop, 1),
+                        'status_event': interval_event,
+                        'TVC_Value': round(current_val, 1),
+                        'Static_Age': static_age,
+                        'Static_Sex': static_sex
+                    })
             
-            # 6 Months
-            noise_6m = np.random.normal(0, 5, n)
-            lab_6m = lab_3m + np.where(group==1, -3, 3) + noise_6m
-            lab_6m = lab_6m.clip(10, 130).round(1)
-            
-            # 12 Months
-            noise_12m = np.random.normal(0, 5, n)
-            lab_12m = lab_6m + np.where(group==1, -4, 4) + noise_12m
-            lab_12m = lab_12m.clip(10, 140).round(1)
+            tvc_df = pd.DataFrame(tvc_data_rows)
 
             data = {
                 'ID': range(1, n+1),
@@ -248,22 +276,37 @@ def data_server(
                 'Lab_Glucose': glucose,
                 'ICC_SysBP_Rater1': icc_rater1,
                 'ICC_SysBP_Rater2': icc_rater2,
-                # TVC Columns (Wide)
-                'TVC_Lab_Baseline': lab_0m,
-                'TVC_Lab_3m': lab_3m,
-                'TVC_Lab_6m': lab_6m,
-                'TVC_Lab_12m': lab_12m,
             }
+            
+            # Add TVC columns to main data (fill with NaN for non-TVC rows)
+            for col in ['id_tvc', 'time_start', 'time_stop', 'status_event', 'TVC_Value', 'Static_Age', 'Static_Sex']:
+                data[col] = np.nan
 
             new_df = pd.DataFrame(data)
+            
+            # Append TVC rows to main dataframe
+            # For TVC rows, fill non-TVC columns with NaN
+            tvc_df_full = tvc_df.copy()
+            for col in new_df.columns:
+                if col not in tvc_df_full.columns:
+                    tvc_df_full[col] = np.nan
+            
+            # Reorder columns to match main df
+            tvc_df_full = tvc_df_full[new_df.columns]
+            new_df = pd.concat([new_df, tvc_df_full], ignore_index=True)
 
             # [ADDED] Introduce ~0.618% missing data (NaN) for demonstration
-            # Exclude ID column from having missing values
+            # Exclude ID and TVC key columns from having missing values
+            protected_cols = ['ID', 'id_tvc', 'time_start', 'time_stop', 'status_event']
             for col in new_df.columns:
-                if col != 'ID':
-                    # Randomly set ~0.618% of values to NaN
-                    mask = np.random.choice([True, False], size=n, p=[0.00618, 1 - 0.00618])
-                    new_df.loc[mask, col] = np.nan
+                if col not in protected_cols:
+                    # Only apply to rows that already have values
+                    valid_mask = new_df[col].notna()
+                    valid_count = valid_mask.sum()
+                    if valid_count > 0:
+                        # Randomly set ~0.618% of valid values to NaN
+                        random_mask = np.random.choice([True, False], size=len(new_df), p=[0.00618, 1 - 0.00618])
+                        new_df.loc[valid_mask & random_mask, col] = np.nan
 
             # Meta logic for example data remains explicit
             meta = {
@@ -284,10 +327,14 @@ def data_server(
                 'Lab_Glucose': {'type': 'Continuous', 'label': 'Fasting Glucose (mg/dL)', 'map': {}},
                 'ICC_SysBP_Rater1': {'type': 'Continuous', 'label': 'Sys BP (Rater 1)', 'map': {}},
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
-                'TVC_Lab_Baseline': {'type': 'Continuous', 'label': 'Lab Value (Baseline)', 'map': {}},
-                'TVC_Lab_3m': {'type': 'Continuous', 'label': 'Lab Value (3 Months)', 'map': {}},
-                'TVC_Lab_6m': {'type': 'Continuous', 'label': 'Lab Value (6 Months)', 'map': {}},
-                'TVC_Lab_12m': {'type': 'Continuous', 'label': 'Lab Value (12 Months)', 'map': {}},
+                # TVC Long-format columns
+                'id_tvc': {'type': 'Continuous', 'label': 'TVC Patient ID', 'map': {}},
+                'time_start': {'type': 'Continuous', 'label': 'TVC Interval Start', 'map': {}},
+                'time_stop': {'type': 'Continuous', 'label': 'TVC Interval Stop', 'map': {}},
+                'status_event': {'type': 'Categorical', 'map': {0: 'Censored', 1: 'Event'}, 'label': 'TVC Event Status'},
+                'TVC_Value': {'type': 'Continuous', 'label': 'Time-Varying Covariate', 'map': {}},
+                'Static_Age': {'type': 'Continuous', 'label': 'TVC Static Age', 'map': {}},
+                'Static_Sex': {'type': 'Categorical', 'map': {0: 'Female', 1: 'Male'}, 'label': 'TVC Static Sex'},
             }
 
             df.set(new_df)
