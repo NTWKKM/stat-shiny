@@ -101,10 +101,13 @@ def tvc_column_config_ui() -> ui.TagChild:
                 "🆔 Patient ID Column:",
                 choices={"Select...": "Select..."}
             ),
-            ui.input_select(
-                "tvc_start_col",
-                "⏱️ Interval Start Time:",
-                choices={"Select...": "Select..."}
+            ui.div(
+                ui.input_select(
+                    "tvc_start_col",
+                    "⏱️ Interval Start Time:",
+                    choices={"Select...": "Select..."}
+                ),
+                id="div_tvc_start_col"
             ),
             ui.input_select(
                 "tvc_stop_col",

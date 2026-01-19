@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from lifelines import CoxTimeVaryingFitter
-from lifelines.statistics import proportional_hazard_assumption
+from lifelines.statistics import proportional_hazard_test
 from scipy import stats as sp_stats
 
 from logger import get_logger
@@ -422,9 +422,9 @@ def fit_tvc_cox(
         
         cph.fit(
             df=clean_data,
-            duration_col=stop_col,
             event_col=event_col,
-            start_col=start_col
+            start_col=start_col,
+            stop_col=stop_col
         )
         
         # Extract results
@@ -459,10 +459,15 @@ def fit_tvc_cox(
         results_df = pd.DataFrame(results_data)
         
         # Model statistics
+        # Note: CoxTimeVaryingFitter might not have concordance_index_ computed by default depending on version
+        c_index = getattr(cph, 'concordance_index_', np.nan)
+        aic = getattr(cph, 'AIC_partial_', getattr(cph, 'AIC_', np.nan))
+        log_lik = getattr(cph, 'log_likelihood_', np.nan)
+        
         stats = {
-            'Concordance Index': round(cph.concordance_index_, 4),
-            'AIC': round(cph.AIC_partial_, 1),
-            'Log-Likelihood': round(cph.log_likelihood_, 2),
+            'Concordance Index': round(c_index, 4) if pd.notna(c_index) else "N/A",
+            'AIC': round(aic, 1) if pd.notna(aic) else "N/A",
+            'Log-Likelihood': round(log_lik, 2) if pd.notna(log_lik) else "N/A",
             'N Events': clean_data[event_col].sum(),
             'N Observations': len(clean_data),
             'N Intervals': len(clean_data),
@@ -533,7 +538,7 @@ def check_tvc_assumptions(
             if len(df_quartile) > 10 and df_quartile[event_col].sum() > 0:
                 try:
                     cph_q = CoxTimeVaryingFitter()
-                    cph_q.fit(df_quartile, duration_col=stop_col, 
+                    cph_q.fit(df_quartile, stop_col=stop_col, 
                               event_col=event_col, start_col=start_col)
                     
                     quartile_coefs.append(cph_q.params_.to_dict())
@@ -703,8 +708,8 @@ def generate_tvc_report(
     var_meta: Optional[Dict[str, Any]] = None
 ) -> str:
     """
-    Generate HTML report for TVC Cox analysis.
-    
+    Generate HTML report for TVC Cox analysis with standard application styling.
+
     Parameters:
         title: Report title
         elements: List of elements to include
@@ -712,75 +717,157 @@ def generate_tvc_report(
         stats: Model statistics dictionary
         missing_data_info: Information about dropped rows due to missing values
         var_meta: Optional variable metadata
-    
+
     Returns:
         str: HTML string ready for download
     """
+    from utils.formatting import create_missing_data_report_html
+    from config import CONFIG
+    import html as _html
+
+    # --- Styles aligned with survival_lib.generate_report_survival ---
+    primary_color = CONFIG.get('ui.colors.primary', '#2180BE')
+    primary_dark = CONFIG.get('ui.colors.primary_dark', '#1a5a8a')
+    text_color = '#333'
     
+    css_style = f"""<style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 20px;
+            background-color: #f4f6f8;
+            color: {text_color};
+            line-height: 1.6;
+        }}
+        h1 {{
+            color: {primary_dark};
+            border-bottom: 3px solid {primary_color};
+            padding-bottom: 12px;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }}
+        h2 {{
+            color: {primary_dark};
+            border-left: 5px solid {primary_color};
+            padding-left: 12px;
+            margin: 25px 0 15px 0;
+        }}
+        .stats-box {{
+            background-color: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            border-left: 5px solid {primary_color};
+        }}
+        table {{
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            background-color: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }}
+        th, td {{
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }}
+        th {{
+            background-color: {primary_dark};
+            color: white;
+            font-weight: 600;
+        }}
+        tr:nth-child(even) {{
+            background-color: #f8f9fa;
+        }}
+        tr:hover {{
+            background-color: #f1f3f5;
+        }}
+        .plot {{ 
+            margin: 20px 0; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }}
+        .report-footer {{
+            text-align: center;
+            font-size: 0.75em;
+            color: #666;
+            margin-top: 40px;
+            border-top: 1px dashed #ccc;
+            padding-top: 10px;
+        }}
+        .sig-p {{
+            font-weight: bold;
+            color: #d63384;
+        }}
+    </style>"""
+
+    safe_title = _html.escape(str(title))
     html_parts = [
         "<!DOCTYPE html>",
         "<html>",
         "<head>",
         "<meta charset='utf-8'>",
-        f"<title>{title}</title>",
-        "<style>",
-        """
-        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
-        h2 { color: #34495e; margin-top: 20px; }
-        h3 { color: #7f8c8d; }
-        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-        th, td { border: 1px solid #bdc3c7; padding: 10px; text-align: left; }
-        th { background-color: #ecf0f1; font-weight: bold; }
-        tr:nth-child(even) { background-color: #f5f5f5; }
-        .plot { margin: 20px 0; }
-        .stats-box { background-color: #ecf0f1; padding: 15px; border-left: 5px solid #3498db; margin: 10px 0; }
-        .warning { background-color: #fff3cd; padding: 10px; border-left: 5px solid #ffc107; margin: 10px 0; }
-        """,
-        "</style>",
+        f"<title>{safe_title}</title>",
+        css_style,
         "</head>",
         "<body>"
     ]
-    
+
     # Title
-    html_parts.append(f"<h1>{title}</h1>")
-    
+    html_parts.append(f"<h1>{safe_title}</h1>")
+
     # Generate timestamp
     from datetime import datetime
     html_parts.append(f"<p><em>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</em></p>")
-    
+
     # Model statistics
     if stats:
         html_parts.append("<h2>📊 Model Summary</h2>")
         html_parts.append("<div class='stats-box'>")
+        # Format stats as a grid or list
+        html_parts.append("<div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;'>")
         for key, val in stats.items():
-            html_parts.append(f"<strong>{key}:</strong> {val}<br>")
+            html_parts.append(f"<div><strong>{key}:</strong> {val}</div>")
         html_parts.append("</div>")
-    
+        html_parts.append("</div>")
+
     # Missing data info
-    if missing_data_info and missing_data_info.get('rows_dropped', 0) > 0:
-        html_parts.append("<div class='warning'>")
-        html_parts.append(f"⚠️ <strong>Missing Data:</strong> {missing_data_info['rows_dropped']} rows dropped due to missing values. ")
-        html_parts.append(f"Kept {missing_data_info['clean_rows']} rows ({(1 - missing_data_info['missing_proportion'])*100:.1f}% of original data).")
-        html_parts.append("</div>")
-    
+    if missing_data_info:
+        html_parts.append(create_missing_data_report_html(missing_data_info, var_meta or {}))
+
     # Add elements
     for elem in elements:
         elem_type = elem.get('type', '')
         data = elem.get('data')
-        
+
         if elem_type == 'header':
-            html_parts.append(f"<h2>{data}</h2>")
+            html_parts.append(f"<h2>{_html.escape(str(data))}</h2>")
         elif elem_type == 'text':
-            html_parts.append(f"<p>{data}</p>")
+            # Allow some safe HTML provided by system (e.g. assumptions text), otherwise escape
+            # Assuming 'data' from our system is relatively safe, but for text blocks mostly just text.
+            # If data contains newlines, convert to <br> or wrap in <p>
+            html_parts.append(f"<div style='background:#f8f9fa; padding:15px; border-radius:5px;'>{str(data)}</div>")
         elif elem_type == 'table' and isinstance(data, pd.DataFrame):
-            html_parts.append(data.to_html(index=False))
+            # Apply highlighting to p-values if present
+            d_styled = data.copy()
+            if 'p-value' in d_styled.columns:
+                 p_vals = pd.to_numeric(d_styled['p-value'], errors='coerce')
+                 d_styled['p-value'] = [
+                     f'<span class="sig-p">{val:.4f}</span>' if not pd.isna(pv) and pv < 0.05 else f'{val:.4f}' if isinstance(val, float) else str(val)
+                     for val, pv in zip(d_styled['p-value'], p_vals)
+                 ]
+            html_parts.append(d_styled.to_html(classes='table', index=False, escape=False))
         elif elem_type == 'plot' and hasattr(data, 'to_html'):
-            html_parts.append(f"<div class='plot'>{data.to_html(include_plotlyjs='cdn')}</div>")
+            html_parts.append(f"<div class='plot'>{data.to_html(include_plotlyjs='cdn', full_html=False)}</div>")
+
+    html_parts.append("""<div class='report-footer'>
+    © 2026 Powered by stat-shiny
+    </div>""")
     
-    html_parts.extend([
-        "</body>",
-        "</html>"
-    ])
-    
+    html_parts.append("</body></html>")
+
     return "\n".join(html_parts)

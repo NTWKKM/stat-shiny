@@ -203,6 +203,32 @@ def data_server(
             icc_rater2 = icc_rater1 + 5 + np.random.normal(0, 4, n)
             icc_rater2 = icc_rater2.round(1)
 
+            # [ADDED] Time-Varying Covariates (Wide Format) for TVC Module Testing
+            # Simulate a lab value measured at 0, 3, 6, 12 months
+            # Trend: Standard Care (0) -> worsening (increasing), New Drug (1) -> improving (decreasing)
+            
+            # Baseline (0m)
+            lab_0m = np.random.normal(50, 10, n).clip(20, 100).round(1)
+            
+            # 3 Months: correlated with baseline + treatment effect
+            # Group 1 (New Drug) gets slight reduction (-2), Group 0 (Standard) gets slight increase (+2)
+            noise_3m = np.random.normal(0, 5, n)
+            lab_3m = lab_0m + np.where(group==1, -2, 2) + noise_3m
+            lab_3m = lab_3m.clip(10, 120).round(1)
+            # Determine if patient followed up at 3m (time_obs > 3)
+            # If time_obs < 3, the value might be missing or carried forward, but in wide format usually we have the col.
+            # For simplicity, we fill all, user will handle censoring/intervals via transformation logic.
+            
+            # 6 Months
+            noise_6m = np.random.normal(0, 5, n)
+            lab_6m = lab_3m + np.where(group==1, -3, 3) + noise_6m
+            lab_6m = lab_6m.clip(10, 130).round(1)
+            
+            # 12 Months
+            noise_12m = np.random.normal(0, 5, n)
+            lab_12m = lab_6m + np.where(group==1, -4, 4) + noise_12m
+            lab_12m = lab_12m.clip(10, 140).round(1)
+
             data = {
                 'ID': range(1, n+1),
                 'Treatment_Group': group,  
@@ -222,6 +248,11 @@ def data_server(
                 'Lab_Glucose': glucose,
                 'ICC_SysBP_Rater1': icc_rater1,
                 'ICC_SysBP_Rater2': icc_rater2,
+                # TVC Columns (Wide)
+                'TVC_Lab_Baseline': lab_0m,
+                'TVC_Lab_3m': lab_3m,
+                'TVC_Lab_6m': lab_6m,
+                'TVC_Lab_12m': lab_12m,
             }
 
             new_df = pd.DataFrame(data)
@@ -253,6 +284,10 @@ def data_server(
                 'Lab_Glucose': {'type': 'Continuous', 'label': 'Fasting Glucose (mg/dL)', 'map': {}},
                 'ICC_SysBP_Rater1': {'type': 'Continuous', 'label': 'Sys BP (Rater 1)', 'map': {}},
                 'ICC_SysBP_Rater2': {'type': 'Continuous', 'label': 'Sys BP (Rater 2)', 'map': {}},
+                'TVC_Lab_Baseline': {'type': 'Continuous', 'label': 'Lab Value (Baseline)', 'map': {}},
+                'TVC_Lab_3m': {'type': 'Continuous', 'label': 'Lab Value (3 Months)', 'map': {}},
+                'TVC_Lab_6m': {'type': 'Continuous', 'label': 'Lab Value (6 Months)', 'map': {}},
+                'TVC_Lab_12m': {'type': 'Continuous', 'label': 'Lab Value (12 Months)', 'map': {}},
             }
 
             df.set(new_df)
