@@ -9,9 +9,9 @@ Tests the Interaction Analysis workflow:
 import os
 import sys
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))

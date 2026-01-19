@@ -89,7 +89,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 `-- wakeup coderabbitai
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 # 🏥 Medical Statistical Tool (Shiny for Python)
@@ -132,6 +131,16 @@ Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
 
 Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
 
+### 🧩 Missing Data Integration (Enhanced)
+
+A professional-grade missing data handling system that surpasses standard tools:
+
+- **Transparency**: Detailed "Missing Data Report" for every analysis (initial N, excluded N, missing breakdown).
+- **Consistency**: Unified "Complete-Case Analysis" strategy enforced across all 8 modules.
+- **Flexibility**: Define custom missing value codes (e.g., -99, 999) globally.
+- **Robustness**: Validation checks prevent crashes on insufficient data.
+- **Quality Assurance**: Protected by automated regression tests in CI/CD.
+
 ## 🛠️ Installation & Usage
 
 ### Option 1: Run Locally (Python)
@@ -140,11 +149,14 @@ Ensure you have Python 3.10+ installed.
 
 1. **Clone the repository:**
 
+```bash
+git clone https://huggingface.co/spaces/ntwkkm/shinystat
+cd shinystat
 ```
 
-
-2. **Install dependencies:**
+1. **Install dependencies:**
 It is recommended to use a virtual environment.
+
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -169,14 +181,12 @@ This project is containerized for easy deployment.
 
 ```bash
 docker build -t medical-stat-tool .
-
 ```
 
 1. **Run the container:**
 
 ```bash
 docker run -p 7860:7860 medical-stat-tool
-
 ```
 
 Access the app at `http://localhost:7860`.

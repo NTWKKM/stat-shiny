@@ -13,12 +13,7 @@ import pytest
 # Setup path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from diag_test import (
-    analyze_roc,
-    calculate_chi2,
-    calculate_icc,
-    calculate_kappa
-)
+from diag_test import analyze_roc, calculate_chi2, calculate_icc, calculate_kappa
 
 pytestmark = pytest.mark.integration
 
@@ -55,7 +50,7 @@ class TestDiagnosticPipeline:
         """🔄 Test Contingency Table & Chi-square"""
         df = diagnostic_data
         
-        _display_tab, stats_df, _msg, risk_df = calculate_chi2(
+        _display_tab, stats_df, _msg, risk_df, _ = calculate_chi2(
             df, 'risk_group', 'disease_status'
         )
         
@@ -88,7 +83,7 @@ class TestDiagnosticPipeline:
         """🔄 Test Cohen's Kappa Agreement"""
         df = diagnostic_data
         
-        stats_df, err, _conf_matrix = calculate_kappa(
+        stats_df, err, _conf_matrix, _ = calculate_kappa(
             df, 'doctor_A', 'doctor_B'
         )
         

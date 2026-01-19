@@ -1,10 +1,13 @@
-from shiny import ui, module, reactive, render
-from shiny.types import FileInfo
-import pandas as pd
+import html as _html
+from typing import Any, Dict, List, Optional, Union, cast
+
 import numpy as np
+import pandas as pd
+from shiny import module, reactive, render, ui
+from shiny.types import FileInfo
+
 from logger import get_logger
 from tabs._common import get_color_palette, wrap_with_container
-from typing import Optional, List, Dict, Any, Union, cast
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
@@ -12,53 +15,106 @@ COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
 # --- 1. UI Definition ---
 @module.ui
 def data_ui() -> ui.TagChild:
-    # 🟢 แก้ไข: นำ ui.nav_panel ออก ให้เหลือแต่ content หลัก (layout_sidebar)
-    # เพื่อให้ app-container ใน app.py ทำงานได้ถูกต้อง
+    """
+    UI for the Data Management tab.
+    Refactored for UI consistency using ui.card and theme-aligned styling.
+    Now includes Data Health Report section.
+    """
     return ui.layout_sidebar(
         ui.sidebar(
-            ui.h4("MENU"),
-            ui.h5("1. Data Management"),
-            
-            ui.input_action_button("btn_load_example", "📄 Load Example Data", class_="btn-secondary"),
-            ui.br(), ui.br(),
-            
-            ui.input_file("file_upload", "Upload CSV/Excel", accept=[".csv", ".xlsx"], multiple=False),
-            
-            ui.hr(),
-            
-            ui.output_ui("ui_btn_clear_match"),
-            ui.input_action_button("btn_reset_all", "⚠️ Reset All Data", class_="btn-danger"),
-
-            width=300,
-            # bg="#f8f9fa"  # 🔴 OLD: Hardcoded color
-            bg=COLORS['smoke_white']  # 🟢 NEW: Use central palette
-        ),
-        
-        # ส่วน Main Content
-        ui.accordion(
-            ui.accordion_panel(
-                "🛠️ 1. Variable Settings & Labels",
-                ui.layout_columns(
-                    ui.div(
-                        ui.input_select("sel_var_edit", "Select Variable:", choices=["Select..."]),
-                    ),
-                    ui.div(
-                        ui.output_ui("ui_var_settings")
-                    ),
-                    col_widths=(4, 8)
+            ui.div(
+                ui.h4("⚙️ Data Controls", class_="mb-3 text-primary"),
+                ui.input_action_button(
+                    "btn_load_example", 
+                    "📄 Load Example Data", 
+                    class_="btn-outline-primary w-100 mb-2 shadow-sm"
                 ),
+                ui.input_file(
+                    "file_upload", 
+                    "📂 Upload CSV/Excel", 
+                    accept=[".csv", ".xlsx"], 
+                    multiple=False,
+                    width="100%"
+                ),
+                ui.hr(),
+                ui.div(
+                    ui.output_ui("ui_btn_clear_match"),
+                    ui.input_action_button(
+                        "btn_reset_all", 
+                        "⚠️ Reset Workspace", 
+                        class_="btn-outline-danger w-100 shadow-sm"
+                    ),
+                    class_="d-grid gap-2"
+                ),
+                class_="p-2"
             ),
-            id="acc_settings",
-            open=True
+            width=320,
+            bg=COLORS['smoke_white'],
+            title="Data Management"
         ),
-
-        ui.br(),
         
-        ui.card(
-            ui.card_header("📄 2. Raw Data Preview"),
-            ui.output_data_frame("out_df_preview"),
-            height="600px",
-            full_screen=True
+        ui.div(
+            # New: Data Health Report Section (Visible only when issues exist)
+            ui.output_ui("ui_data_report_card"),
+
+            # 1. Variable Settings Card (3-column layout with Missing Data Config)
+            ui.card(
+                ui.card_header(ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")),
+                ui.layout_columns(
+                    # LEFT COLUMN: Variable Selection
+                    ui.div(
+                        ui.input_select(
+                            "sel_var_edit", 
+                            "Select Variable to Edit:", 
+                            choices=["Select..."],
+                            width="100%"
+                        ),
+                        ui.markdown(
+                            """
+                            > [!NOTE]
+                            > **Categorical Mapping**: 
+                            > Format as `0=Control, 1=Treat`.
+                            """
+                        ),
+                        class_="p-2"
+                    ),
+                    # MIDDLE COLUMN: Variable Settings
+                    ui.div(
+                        ui.output_ui("ui_var_settings"),
+                        class_="p-2"
+                    ),
+                    # RIGHT COLUMN: Missing Data Configuration
+                    ui.div(
+                        ui.h6("🔍 Missing Data", style="margin-top: 0; color: #0066cc;"),
+                        ui.input_text(
+                            "txt_missing_codes",
+                            "Missing Value Codes:",
+                            placeholder="e.g., -99, -999, 99",
+                            value=""
+                        ),
+                        ui.output_ui("ui_missing_preview"),
+                        ui.input_action_button(
+                            "btn_save_missing",
+                            "💾 Save Missing Config",
+                            class_="btn-secondary w-100 mt-2"
+                        ),
+                        class_="p-2",
+                        style="background-color: #f8f9fa; border-radius: 6px;"
+                    ),
+                    col_widths=(3, 6, 3)
+                ),
+                class_="mb-3 shadow-sm border-0"
+            ),
+
+            # 2. Data Preview Card
+            ui.card(
+                ui.card_header(ui.tags.span("📄 Data Preview", class_="fw-bold")),
+                ui.output_data_frame("out_df_preview"),
+                height="600px",
+                full_screen=True,
+                class_="shadow-sm border-0"
+            ),
+            class_="p-3"
         )
     )
 
@@ -77,10 +133,9 @@ def data_server(
     matched_covariates: reactive.Value[List[str]]
 ) -> None:
 
-    # ไม่ต้องประกาศ ns = session.ns
-    # ใช้ input.id() ได้เลย (Shiny ตัด prefix ให้เองใน Module)
-
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
+    # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
+    data_issues: reactive.Value[List[Dict[str, Any]]] = reactive.Value([])
 
     # --- 1. Data Loading Logic ---
     @reactive.Effect
@@ -88,13 +143,14 @@ def data_server(
     def _():
         logger.info("Generating example data...")
         is_loading_data.set(True)
+        data_issues.set([]) # Reset issues
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
 
         try:
             np.random.seed(42)
-            n = 1500  
+            n = 1600  
 
-            # --- Simulation Logic ---
+            # --- Simulation Logic (Same as original) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
@@ -170,6 +226,15 @@ def data_server(
 
             new_df = pd.DataFrame(data)
 
+            # [ADDED] Introduce ~0.618% missing data (NaN) for demonstration
+            # Exclude ID column from having missing values
+            for col in new_df.columns:
+                if col != 'ID':
+                    # Randomly set ~0.618% of values to NaN
+                    mask = np.random.choice([True, False], size=n, p=[0.00618, 1 - 0.00618])
+                    new_df.loc[mask, col] = np.nan
+
+            # Meta logic for example data remains explicit
             meta = {
                 'Treatment_Group': {'type':'Categorical', 'map':{0:'Standard Care', 1:'New Drug'}, 'label': 'Treatment Group'},
                 'Sex_Male': {'type':'Categorical', 'map':{0:'Female', 1:'Male'}, 'label': 'Sex'},
@@ -210,6 +275,7 @@ def data_server(
     @reactive.event(lambda: input.file_upload()) 
     def _():
         is_loading_data.set(True)
+        data_issues.set([]) # Reset report
         file_infos: list[FileInfo] = input.file_upload()
 
         if not file_infos:
@@ -231,18 +297,77 @@ def data_server(
             uploaded_file_info.set({"name": f['name']})
 
             current_meta = var_meta.get() or {}
+            current_issues = []
 
+            # --- Improved Type Detection Logic ---
             for col in new_df.columns:
-                if col not in current_meta:
-                    unique_vals = new_df[col].dropna().unique()
-                    is_numeric = pd.api.types.is_numeric_dtype(new_df[col])
-                    if is_numeric and len(unique_vals) > 10:
-                        current_meta[col] = {'type': 'Continuous', 'map': {}, 'label': col}
+                if col in current_meta: continue
+
+                series = new_df[col]
+                unique_vals = series.dropna().unique()
+                n_unique = len(unique_vals)
+                
+                # Default Assumption
+                inferred_type = 'Categorical'
+                
+                # Check 1: Is it already numeric?
+                if pd.api.types.is_numeric_dtype(series):
+                    # ถ้า unique เยอะๆ (เช่น > 10-15) ถือเป็น Continuous
+                    # แต่ถ้า unique น้อยมากๆ (เช่น 0,1 หรือ 1,2,3) ถือเป็น Categorical
+                    if n_unique > 12: 
+                        inferred_type = 'Continuous'
                     else:
-                        current_meta[col] = {'type': 'Categorical', 'map': {}, 'label': col}
+                        inferred_type = 'Categorical'
+                
+                # Check 2: Is it Object/String but looks like numbers? (Dirty Data)
+                # เช่น "100", ">200", "<5", "40.5"
+                elif pd.api.types.is_object_dtype(series):
+                    # ลองแปลงเป็นตัวเลข (coercing errors)
+                    numeric_conversion = pd.to_numeric(series, errors='coerce')
+                    valid_count = numeric_conversion.notna().sum()
+                    total_count = series.notna().sum()
+                    
+                    if total_count > 0:
+                        numeric_ratio = valid_count / total_count
+                        # ถ้าแปลงได้สำเร็จเกิน 70% ให้สันนิษฐานว่าเป็น Continuous ที่มีขยะปน
+                        if numeric_ratio > 0.70:
+                            inferred_type = 'Continuous'
+                            # Coerce to numeric; non-numeric values become NaN
+                            new_df[col] = numeric_conversion
+                            
+                            # --- Identify Bad Rows for Reporting ---
+                            # หาจุดที่แปลงไม่ได้ (NaN) แต่ค่าเดิมไม่ใช่ NaN
+                            bad_mask = numeric_conversion.isna() & series.notna()
+                            bad_rows = series[bad_mask]
+                            
+                            for idx, val in bad_rows.items():
+                                # Limit report items per column to avoid flooding
+                                if len([x for x in current_issues if x['col'] == col]) < 10: 
+                                    current_issues.append({
+                                        'col': col,
+                                        'row': idx + 2, # +2 for Excel row style (1-based + header)
+                                        'value': str(val),
+                                        'issue': 'Non-numeric value in continuous column'
+                                    })
+                                elif len([x for x in current_issues if x['col'] == col]) == 10:
+                                     current_issues.append({
+                                        'col': col,
+                                        'row': '...',
+                                        'value': '...',
+                                        'issue': 'More issues suppressed...'
+                                    })
+
+                current_meta[col] = {'type': inferred_type, 'map': {}, 'label': col}
 
             var_meta.set(current_meta)
-            ui.notification_show(f"✅ Loaded {len(new_df)} rows", type="message")
+            data_issues.set(current_issues) # Store issues for UI
+            
+            msg = f"✅ Loaded {len(new_df)} rows."
+            if current_issues:
+                msg += " ⚠️ Found data quality issues (see report)."
+                ui.notification_show(msg, type="warning")
+            else:
+                ui.notification_show(msg, type="message")
 
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -259,6 +384,7 @@ def data_server(
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+        data_issues.set([])
         is_loading_data.set(False)
         ui.notification_show("All data reset", type="warning")
 
@@ -295,13 +421,13 @@ def data_server(
                 "radio_var_type", 
                 "Variable Type:", 
                 choices={"Continuous": "Continuous", "Categorical": "Categorical"},
-                selected=current_type, # Set initial value directly
+                selected=current_type, 
                 inline=True
             ),
             ui.input_text_area(
                 "txt_var_map", 
                 "Value Labels (Format: 0=No, 1=Yes)", 
-                value=map_str, # Set initial value directly
+                value=map_str, 
                 height="100px"
             ),
             ui.input_action_button("btn_save_meta", "💾 Save Settings", class_="btn-primary")
@@ -339,6 +465,73 @@ def data_server(
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
 
+    # --- Missing Data Configuration Handlers ---
+    @render.ui
+    def ui_missing_preview():
+        """Preview currently configured missing values for selected variable"""
+        var_name = input.sel_var_edit()
+        if not var_name or var_name == "Select...":
+            return ui.p("Select a variable", style="color: #999; font-size: 0.85em;")
+        
+        meta = var_meta.get()
+        if not meta or var_name not in meta:
+            return ui.p("No config yet", style="color: #999; font-size: 0.85em;")
+        
+        missing_vals = meta[var_name].get('missing_values', [])
+        if not missing_vals:
+            return ui.p("No missing codes configured", style="color: #999; font-size: 0.85em;")
+        
+        codes_str = ", ".join(str(v) for v in missing_vals)
+        return ui.p(
+            f"✓ Codes: {codes_str}", 
+            style="color: #198754; font-weight: 500; font-size: 0.9em;"
+        )
+    
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_save_missing())
+    def _save_missing_config():
+        """Save missing data configuration for selected variable"""
+        var_name = input.sel_var_edit()
+        if not var_name or var_name == "Select...":
+            ui.notification_show("⚠️ Select a variable first", type="warning")
+            return
+        
+        # Parse comma-separated missing codes
+        missing_input = input.txt_missing_codes()
+        missing_codes = []
+        
+        if missing_input.strip():
+            for item in missing_input.split(','):
+                item = item.strip()
+                if not item:
+                    continue
+                # Try to parse as number
+                try:
+                    num = float(item)
+                    num = int(num) if num.is_integer() else num
+                    missing_codes.append(num)
+                except ValueError:
+                    # If not a number, treat as string
+                    missing_codes.append(item)
+        
+        # Update metadata
+        current_meta = var_meta.get() or {}
+        if var_name not in current_meta:
+            current_meta[var_name] = {
+                'type': 'Continuous',
+                'map': {},
+                'label': var_name
+            }
+        
+        current_meta[var_name]['missing_values'] = missing_codes
+        var_meta.set(current_meta)
+        
+        codes_display = ", ".join(str(c) for c in missing_codes) if missing_codes else "None"
+        ui.notification_show(
+            f"✅ Missing codes for '{var_name}' set to: {codes_display}",
+            type="message"
+        )
+
     # --- 3. Render Outputs ---
     @render.data_frame
     def out_df_preview():
@@ -351,7 +544,6 @@ def data_server(
     @render.ui
     def ui_btn_clear_match():
         if is_matched.get():
-             # ใน Module Context ไม่ต้องใส่ ns() เอง
              return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
 
@@ -362,3 +554,45 @@ def data_server(
         is_matched.set(False)
         matched_treatment_col.set(None)
         matched_covariates.set([])
+        
+    # --- New: Data Health Report Renderer ---
+    @render.ui
+    def ui_data_report_card():
+        issues = data_issues.get()
+        if not issues:
+            return None
+            
+        # Create a simple HTML table for issues
+        rows = ""
+        for item in issues:
+            col = _html.escape(str(item['col']))
+            row = _html.escape(str(item['row']))
+            value = _html.escape(str(item['value']))
+            issue = _html.escape(str(item['issue']))
+            rows += f"<tr><td>{col}</td><td>{row}</td><td>{value}</td><td class='text-danger'>{issue}</td></tr>"
+            
+        table_html = f"""
+        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+            <table class="table table-sm table-striped table-bordered">
+                <thead class="table-danger">
+                    <tr><th>Column</th><th>Row (Excel)</th><th>Invalid Value</th><th>Issue</th></tr>
+                </thead>
+                <tbody>
+                    {rows}
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        return ui.card(
+            ui.card_header(
+                ui.div(
+                    ui.tags.span("⚠️ Data Quality Report", class_="fw-bold text-danger"),
+                    ui.tags.span(f"Found {len(issues)} potential issues", class_="badge bg-danger ms-2"),
+                    class_="d-flex justify-content-between align-items-center"
+                )
+            ),
+            ui.HTML(table_html),
+            ui.markdown("> *Note: These values are non-numeric characters found in likely continuous columns. Please clean your data source or use Data Cleaning tools.*"),
+            class_="mb-3 border-danger shadow-sm"
+        )

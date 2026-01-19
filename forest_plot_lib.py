@@ -11,14 +11,16 @@ OPTIMIZATIONS:
 - Pre-computed CI widths (5x faster)
 """
 
-import pandas as pd
+import warnings
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
 from logger import get_logger
 from tabs._common import get_color_palette
-import warnings
-from typing import Union, Optional, List, Dict, Tuple, Any
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()

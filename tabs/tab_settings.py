@@ -13,13 +13,15 @@ Usage:
     tab_settings.settings_server("settings", CONFIG)
 """
 
-from shiny import ui, reactive, render
+from typing import Any, Dict, List, Optional, Union
+
+from shiny import reactive, render, ui
 from shiny.session import get_current_session
+
 from config import CONFIG
 from logger import get_logger
-from tabs._common import get_color_palette
 from tabs import tab_advanced_stats
-from typing import Optional, List, Dict, Any, Union
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()

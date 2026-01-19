@@ -4,19 +4,28 @@
 No Streamlit dependencies - pure statistical functions.
 """
 
-from typing import TypedDict, Literal, Any, cast, Union, Optional
-import pandas as pd
-import numpy as np
+import html
 import re
+import warnings
+from pathlib import Path
+from typing import Any, Literal, Optional, TypedDict, Union, cast
+
+import numpy as np
+import pandas as pd
 import scipy.stats as stats
 import statsmodels.api as sm
-import warnings
-import html
-from pathlib import Path
-from logger import get_logger
+
+from config import CONFIG
 from forest_plot_lib import create_forest_plot
+from logger import get_logger
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 
@@ -38,7 +47,7 @@ COLORS = {
 try:
     from firthmodels import FirthLogisticRegression    
     if not hasattr(FirthLogisticRegression, "_validate_data"):
-        from sklearn.utils.validation import check_X_y, check_array
+        from sklearn.utils.validation import check_array, check_X_y
         
         logger.info("Applying sklearn compatibility patch to FirthLogisticRegression")
         
@@ -435,6 +444,35 @@ def analyze_outcome(
     ci_method = adv_stats.get('stats.ci_method', 'wald') if adv_stats else 'wald'
 
     logger.info("Starting logistic analysis for outcome: %s. MCC=%s, VIF=%s, CI=%s", outcome_name, mcc_enable, vif_enable, ci_method)
+    
+    # --- MISSING DATA HANDLING ---
+    # Step 1: Get missing summary BEFORE normalization
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
+    missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
+    missing_summary_records = missing_summary_df.to_dict('records')
+    
+    # Step 2: Handle missing data (complete-case)
+    df_clean, miss_counts = handle_missing_for_analysis(
+        df, var_meta or {}, missing_codes, strategy=strategy, return_counts=True
+    )
+    
+    # Track missing data info for report
+    missing_data_info = {
+        'strategy': strategy,
+        'rows_analyzed': miss_counts['final_rows'],
+        'rows_excluded': miss_counts['rows_removed'],
+        'summary_before': missing_summary_records
+    }
+    
+    # Use cleaned dataframe for analysis
+    df = df_clean
+    logger.info(
+        "Missing data: %s rows excluded (%.1f%%)",
+        miss_counts["rows_removed"],
+        miss_counts["pct_removed"],
+    )
     
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
@@ -863,39 +901,44 @@ def analyze_outcome(
     if vif_enable and multi_data is not None and final_n_multi > 10 and len(predictors_for_vif) > 1:
         try:
             # multi_data[predictors_for_vif] contains numeric/one-hot data used in regression
-            vif_df = calculate_vif(multi_data[predictors_for_vif])
+            vif_df, _ = calculate_vif(multi_data[predictors_for_vif], var_meta=var_meta)
             
             if not vif_df.empty:
                 vif_rows = []
                 for _, row in vif_df.iterrows():
-                    feat = html.escape(str(row["feature"]).replace("::", ": "))  # clean up + escape
+                    feat = html.escape(str(row["feature"]).replace("::", ": "))
                     val = row['VIF']
                     
-                    status_style = ""
-                    status_icon = ""
+                    vif_class = "vif-value"
+                    icon = ""
                     if val > vif_threshold:
-                        status_style = "color: #d32f2f; font-weight: bold;"
-                        status_icon = "⚠️"
+                        vif_class += " vif-warning"
+                        icon = "⚠️"
                     elif val > 5:
-                         status_style = "color: #f57c00;"
+                        vif_class += " vif-caution"
                     
-                    vif_rows.append(f"<tr><td style='padding:4px; border-bottom:1px solid #eee;'>{feat}</td><td style='padding:4px; border-bottom:1px solid #eee; {status_style}'>{val:.2f} {status_icon}</td></tr>")
+                    vif_rows.append(f"""
+                        <tr>
+                            <td>{feat}</td>
+                            <td class='{vif_class}'>{val:.2f} {icon}</td>
+                        </tr>
+                    """)
                 
                 vif_body = "".join(vif_rows)
                 
                 vif_html = f"""
-                <div style='margin-top: 15px;'>
-                    <h6 style='margin-bottom: 5px; color: {COLORS['primary_dark']};'>🔹 Collinearity Diagnostics (VIF)</h6>
-                    <table style='width: 100%; max-width: 400px; font-size: 0.85em; border: 1px solid #eee;'>
-                        <thead style='background: #f8f9fa;'>
+                <div class='vif-container'>
+                    <div class='vif-title'>🔹 Collinearity Diagnostics (VIF)</div>
+                    <table class='vif-table'>
+                        <thead>
                             <tr>
-                                <th style='padding:4px; color: #444; background: #f1f3f4;'>Variable</th>
-                                <th style='padding:4px; color: #444; background: #f1f3f4;'>VIF</th>
+                                <th>Predictor</th>
+                                <th>VIF</th>
                             </tr>
                         </thead>
                         <tbody>{vif_body}</tbody>
                     </table>
-                    <small style='color: #666;'>Threshold: >{vif_threshold} indicates high collinearity.</small>
+                    <div class='vif-footer'>Threshold: >{vif_threshold} indicates potential high collinearity.</div>
                 </div>
                 """
         except (ValueError, np.linalg.LinAlgError) as e:
@@ -1106,7 +1149,9 @@ def analyze_outcome(
             {vif_html}
             {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}
         </div>
-    </div>
+    <!-- Missing Data Section -->
+    {create_missing_data_report_html(missing_data_info, var_meta or {})
+        if CONFIG.get("analysis.missing.report_missing", True) else ""}
     </div><br>"""
     
     # Return fragment with embedded styles (No <html> wrapper)

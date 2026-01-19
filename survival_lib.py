@@ -19,8 +19,8 @@ OPTIMIZATIONS:
 from __future__ import annotations
 
 import base64
-import io
 import html as _html
+import io
 import logging
 import numbers
 import warnings
@@ -32,12 +32,23 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from lifelines import CoxPHFitter, KaplanMeierFitter, NelsonAalenFitter
-from lifelines.statistics import logrank_test, multivariate_logrank_test, proportional_hazard_test
+from lifelines.statistics import (
+    logrank_test,
+    multivariate_logrank_test,
+    proportional_hazard_test,
+)
 from lifelines.utils import median_survival_times
 
+from config import CONFIG
 from forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    apply_missing_values_to_df,
+    get_missing_summary_df,
+    handle_missing_for_analysis,
+)
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -428,23 +439,50 @@ def fit_km_logrank(
     df: pd.DataFrame, 
     duration_col: str, 
     event_col: str, 
-    group_col: Optional[str]
-) -> Tuple[go.Figure, pd.DataFrame]:
+    group_col: Optional[str],
+    var_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[go.Figure, pd.DataFrame, Optional[Dict[str, Any]]]:
     """
     OPTIMIZED: Fit KM curves and perform Log-rank test.
     ✅ ENHANCED: Includes Chi-squared and Degrees of Freedom.
+    ✅ INTEGRATED: Missing data handling.
     """
-    data = df.dropna(subset=[duration_col, event_col])
+    # Define columns to check
+    cols_to_check = [duration_col, event_col]
     if group_col:
-        if group_col not in df.columns:
+        cols_to_check.append(group_col)
+        
+    # Handle missing data
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
+    df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {}, missing_codes)
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, missing_codes)
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
+        var_meta=var_meta or {},
+        strategy=strategy,
+        return_counts=True,
+    )
+    missing_info = {
+        "strategy": strategy,
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
+    
+    if group_col:
+        if group_col not in data.columns:
+             # Should be caught by handle_missing, but safety check
             raise ValueError(f"Missing group column: {group_col}")
-        data = data.dropna(subset=[group_col])
         groups = _sort_groups_vectorized(data[group_col].unique())
     else:
         groups = ['Overall']
 
     if len(data) == 0:
-        raise ValueError("No valid data.")
+        raise ValueError("No valid data after removing missing values.")
 
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
@@ -526,25 +564,50 @@ def fit_km_logrank(
         logger.error(f"Log-rank test error: {e}")
         stats_data = {'Test': 'Error', 'Note': str(e)}
 
-    return fig, pd.DataFrame([stats_data])
+    return fig, pd.DataFrame([stats_data]), missing_info
 
 
 def fit_nelson_aalen(
     df: pd.DataFrame, 
     duration_col: str, 
     event_col: str, 
-    group_col: Optional[str]
-) -> Tuple[go.Figure, pd.DataFrame]:
+    group_col: Optional[str],
+    var_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[go.Figure, pd.DataFrame, Optional[Dict[str, Any]]]:
     """
     OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
+    ✅ INTEGRATED: Missing data handling.
     """
-    data = df.dropna(subset=[duration_col, event_col])
-    if len(data) == 0:
-        raise ValueError("No valid data.")
+    # Define columns to check
+    cols_to_check = [duration_col, event_col]
     if group_col:
-        if group_col not in df.columns:
+        cols_to_check.append(group_col)
+
+    # Handle missing data
+    df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
+        var_meta=var_meta or {},
+        strategy="complete-case",
+        return_counts=True,
+    )
+    missing_info = {
+        "strategy": "complete-case",
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
+
+    if len(data) == 0:
+        raise ValueError("No valid data after removing missing values.")
+
+    if group_col:
+        if group_col not in data.columns:
+             # Should be caught by handle_missing, but safety check
             raise ValueError(f"Missing group column: {group_col}")
-        data = data.dropna(subset=[group_col])
         groups = _sort_groups_vectorized(data[group_col].unique())
     else:
         groups = ['Overall']
@@ -562,6 +625,10 @@ def fit_nelson_aalen(
             label = "Overall"
 
         if len(df_g) > 0:
+            # Robustness: check if there are any events at all
+            if df_g[event_col].sum() == 0:
+                logger.warning(f"No events in group {label}. Nelson-Aalen cumulative hazard might be flat.")
+            
             naf = NelsonAalenFitter()
             naf.fit(df_g[duration_col], event_observed=df_g[event_col], label=label)
             
@@ -604,29 +671,48 @@ def fit_nelson_aalen(
         height=500
     )
 
-    return fig, pd.DataFrame(stats_list)
+    return fig, pd.DataFrame(stats_list), missing_info
 
 
 def fit_cox_ph(
     df: pd.DataFrame, 
     duration_col: str, 
     event_col: str, 
-    covariate_cols: List[str]
-) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str], Optional[Dict[str, Any]]]:
+    covariate_cols: List[str],
+    var_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """
     Fit Cox proportional hazards model.
     ✅ ENHANCED: Returns model performance statistics (AIC, C-index).
     ✅ IMPROVED: Better handling of boolean types, scalar extraction, and robust stat retrieval.
+    ✅ INTEGRATED: Missing data handling.
     """
-    missing = [c for c in [duration_col, event_col, *covariate_cols] if c not in df.columns]
+    cols_to_check = [duration_col, event_col, *covariate_cols]
+    missing = [c for c in cols_to_check if c not in df.columns]
     if missing:
         logger.error(f"Missing columns: {missing}")
-        return None, None, df, f"Missing columns: {missing}", None
+        return None, None, df, f"Missing columns: {missing}", None, None
 
-    data = df[[duration_col, event_col, *covariate_cols]].dropna().copy()
+    # Handle missing data
+    df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
+        var_meta=var_meta or {},
+        strategy="complete-case",
+        return_counts=True,
+    )
+    missing_info = {
+        "strategy": "complete-case",
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
     
     if len(data) == 0:
-        return None, None, data, "No valid data after dropping missing values.", None
+        return None, None, data, "No valid data after dropping missing values.", None, missing_info
 
     # ✅ FIXED: Explicitly convert Boolean columns to Integers to prevent issues with lifelines/pandas
     bool_cols = data.select_dtypes(include=['bool']).columns
@@ -639,11 +725,11 @@ def fit_cox_ph(
         
         if float(event_total) == 0:
             logger.error("No events observed")
-            return None, None, data, "No events observed (all censored). CoxPH requires at least one event.", None
+            return None, None, data, "No events observed (all censored). CoxPH requires at least one event.", None, missing_info
     except Exception as e:
         logger.error(f"Error checking event sum: {e}")
         if not (data[event_col].astype(float) == 1).any():
-             return None, None, data, "No events found in event column.", None
+             return None, None, data, "No events found in event column.", None, missing_info
 
     original_covariate_cols = list(covariate_cols)
     try:
@@ -657,7 +743,7 @@ def fit_cox_ph(
             covariate_cols = covars_encoded.columns.tolist()
     except Exception as e:
         logger.error(f"Encoding error: {e}")
-        return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}", None
+        return None, None, data, f"Encoding Error (Original vars: {original_covariate_cols}): {e}", None, missing_info
     
     validation_errors = []
     
@@ -678,7 +764,7 @@ def fit_cox_ph(
     if validation_errors:
         error_msg = "[DATA QUALITY ISSUES]\n\n" + "\n\n".join(f"[ERROR] {e}" for e in validation_errors)
         logger.error(error_msg)
-        return None, None, data, error_msg, None
+        return None, None, data, error_msg, None, missing_info
     
     _standardize_numeric_cols(data, covariate_cols)
     
@@ -717,7 +803,7 @@ def fit_cox_ph(
             f"Last Error: {last_error!s}"
         )
         logger.error(error_msg)
-        return None, None, data, error_msg, None
+        return None, None, data, error_msg, None, missing_info
 
     summary = cph.summary.copy()
     
@@ -766,7 +852,7 @@ def fit_cox_ph(
         model_stats = {}
     
     logger.debug(f"Cox model fitted successfully: {method_used}")
-    return cph, res_df, data, None, model_stats
+    return cph, res_df, data, None, model_stats, missing_info
 
 
 def check_cph_assumptions(
@@ -897,16 +983,40 @@ def fit_km_landmark(
     duration_col: str, 
     event_col: str, 
     group_col: Optional[str], 
-    landmark_time: float
-) -> Tuple[Optional[go.Figure], Optional[pd.DataFrame], int, int, Optional[str]]:
+    landmark_time: float,
+    var_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[Optional[go.Figure], Optional[pd.DataFrame], int, int, Optional[str], Optional[Dict[str, Any]]]:
     """
     OPTIMIZED: Perform landmark-time Kaplan-Meier analysis.
+    ✅ INTEGRATED: Missing data handling.
     """
-    missing = [c for c in [duration_col, event_col, group_col] if c not in df.columns]
-    if missing:
-        return None, None, len(df), 0, f"Missing columns: {missing}"
+    # Define columns to check
+    cols_to_check = [duration_col, event_col]
+    if group_col:
+        cols_to_check.append(group_col)
 
-    data = df.dropna(subset=[duration_col, event_col, group_col])
+    missing = [c for c in cols_to_check if c not in df.columns]
+    if missing:
+        return None, None, len(df), 0, f"Missing columns: {missing}", None
+
+    # Handle missing data
+    df_subset = df[cols_to_check].copy()
+    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
+    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+
+    data, impact = handle_missing_for_analysis(
+        df_processed,
+        var_meta=var_meta or {},
+        strategy="complete-case",
+        return_counts=True,
+    )
+    missing_info = {
+        "strategy": "complete-case",
+        "rows_analyzed": impact["final_rows"],
+        "rows_excluded": impact["rows_removed"],
+        "summary_before": missing_summary.to_dict("records"),
+    }
+    
     n_pre_filter = len(data)
 
     landmark_data = data[data[duration_col] >= landmark_time].copy()
@@ -914,7 +1024,7 @@ def fit_km_landmark(
     
     if n_post_filter < 2:
         logger.warning("Insufficient patients at landmark")
-        return None, None, n_pre_filter, n_post_filter, "Error: Insufficient patients (N < 2) survived until landmark."
+        return None, None, n_pre_filter, n_post_filter, "Error: Insufficient patients (N < 2) survived until landmark.", missing_info
     
     _adj_duration = '_landmark_adjusted_duration'
     landmark_data[_adj_duration] = landmark_data[duration_col] - landmark_time
@@ -1001,12 +1111,23 @@ def fit_km_landmark(
         logger.error(f"Landmark log-rank test error: {e}")
         stats_data = {'Test': 'Error', 'Note': str(e), 'Method': f'Landmark at {landmark_time}'}
 
-    return fig, pd.DataFrame([stats_data]), n_pre_filter, n_post_filter, None
+    return fig, pd.DataFrame([stats_data]), n_pre_filter, n_post_filter, None, missing_info
 
 
-def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
+def generate_report_survival(
+    title: str, 
+    elements: List[Dict[str, Any]],
+    missing_data_info: Optional[Dict[str, Any]] = None,
+    var_meta: Optional[Dict[str, Any]] = None
+) -> str:
     """
     Generate complete HTML report with embedded plots and tables.
+    
+    Args:
+        title: Report title
+        elements: List of report elements
+        missing_data_info: Optional dict with missing data statistics for reporting
+        var_meta: Optional variable metadata
     """
     primary_color = COLORS.get('primary', '#2180BE')
     primary_dark = COLORS.get('primary_dark', '#1a5a8a')
@@ -1061,6 +1182,10 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
             border-top: 1px dashed #ccc;
             padding-top: 10px;
         }}
+        .sig-p {{
+            font-weight: bold;
+            color: #d63384;
+        }}
     </style>"""
     
     safe_title = _html.escape(str(title))
@@ -1076,7 +1201,16 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
             html_doc += f"<p>{_html.escape(str(d))}</p>"
         elif t == 'table':
             if isinstance(d, pd.DataFrame):
-                html_doc += d.to_html(classes='table table-striped', border=0)
+                # Apply .sig-p class to P-value columns if they exist
+                d_styled = d.copy()
+                if 'P-value' in d_styled.columns:
+                    # Convert to numeric for comparison if possible
+                    p_vals = pd.to_numeric(d_styled['P-value'], errors='coerce')
+                    d_styled['P-value'] = [
+                        f'<span class="sig-p">{val}</span>' if not pd.isna(pv) and pv < 0.05 else str(val)
+                        for val, pv in zip(d_styled['P-value'], p_vals)
+                    ]
+                html_doc += d_styled.to_html(classes='table table-striped', border=0, escape=False)
             else:
                 html_doc += str(d)
         elif t == 'plot':
@@ -1092,7 +1226,12 @@ def generate_report_survival(title: str, elements: List[Dict[str, Any]]) -> str:
     
     html_doc += """<div class='report-footer'>
     © 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny
-    </div></body>
-    </html>"""
+    </div>"""
+    
+    # Add missing data section if provided
+    if missing_data_info:
+        html_doc += create_missing_data_report_html(missing_data_info, var_meta or {})
+    
+    html_doc += "</body></html>"
     
     return html_doc
