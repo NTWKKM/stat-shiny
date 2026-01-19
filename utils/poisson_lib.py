@@ -208,6 +208,87 @@ def check_count_outcome(series: pd.Series) -> Tuple[bool, str]:
         return False, f"Validation error: {e!s}"
 
 
+def interpret_irr(
+    irr: float, 
+    ci_low: float, 
+    ci_high: float, 
+    var_name: str = "", 
+    mode: str = "linear"
+) -> str:
+    """
+    Convert IRR (Incidence Rate Ratio) to human-readable interpretation.
+    
+    Args:
+        irr: Incidence Rate Ratio value
+        ci_low: Lower bound of 95% CI
+        ci_high: Upper bound of 95% CI
+        var_name: Variable name for context (optional)
+        mode: "linear" for continuous or "categorical" for categories
+    
+    Returns:
+        str: Human-readable interpretation in English and Thai
+    
+    Examples:
+        >>> interpret_irr(1.25, 1.10, 1.42, "Age", "linear")
+        'Increase 25% per unit (95% CI: 10%-42%) | เพิ่มขึ้น 25% ต่อหน่วย (95% CI: 10%-42%)'
+        
+        >>> interpret_irr(0.80, 0.65, 0.95, "Treatment", "categorical")
+        'Decrease 20% (95% CI: 35% decrease to 5% decrease) | ลดลง 20% (95% CI: ลดลง 35% ถึง 5%)'
+    """
+    try:
+        # Calculate percentage change from IRR
+        pct_change = (irr - 1) * 100
+        pct_ci_low = (ci_low - 1) * 100
+        pct_ci_high = (ci_high - 1) * 100
+        
+        # Determine effect direction
+        if abs(pct_change) < 0.5:  # Essentially no change
+            direction_en = "No significant change"
+            direction_th = "ไม่มีการเปลี่ยนแปลงที่มีนัยสำคัญ"
+            detail_en = ""
+            detail_th = ""
+        elif pct_change > 0:  # Increase
+            direction_en = "Increase"
+            direction_th = "เพิ่มขึ้น"
+            detail_en = f"{abs(pct_change):.1f}%"
+            detail_th = f"{abs(pct_change):.1f}%"
+        else:  # Decrease
+            direction_en = "Decrease"
+            direction_th = "ลดลง"
+            detail_en = f"{abs(pct_change):.1f}%"
+            detail_th = f"{abs(pct_change):.1f}%"
+        
+        # Build interpretation based on mode
+        if mode == "linear":
+            unit_en = " per unit"
+            unit_th = " ต่อหน่วย"
+        else:
+            unit_en = ""
+            unit_th = ""
+        
+        # Format confidence interval
+        if abs(pct_change) < 0.5:
+            ci_en = f"(95% CI: IRR {ci_low:.2f}-{ci_high:.2f})"
+            ci_th = f"(95% CI: IRR {ci_low:.2f}-{ci_high:.2f})"
+        else:
+            ci_en = f"(95% CI: {pct_ci_low:+.1f}% to {pct_ci_high:+.1f}%)"
+            ci_th = f"(95% CI: {pct_ci_low:+.1f}% ถึง {pct_ci_high:+.1f}%)"
+        
+        # Combine into final interpretation
+        if abs(pct_change) < 0.5:
+            interp_en = f"{direction_en} {ci_en}"
+            interp_th = f"{direction_th} {ci_th}"
+        else:
+            interp_en = f"{direction_en} {detail_en}{unit_en} {ci_en}"
+            interp_th = f"{direction_th} {detail_th}{unit_th} {ci_th}"
+        
+        return f"{interp_en} | {interp_th}"
+    
+    except Exception as e:
+        logger.debug(f"Failed to interpret IRR: {e}")
+        return f"IRR = {irr:.2f} (95% CI: {ci_low:.2f}-{ci_high:.2f})"
+
+
 def analyze_poisson_outcome(
     outcome_name: str,
     df: pd.DataFrame,
@@ -402,8 +483,10 @@ def analyze_poisson_outcome(
                                     coef_lines.append(f"{coef:.3f}")
                                     irr_lines.append(f"{irr:.2f} ({ci_l:.2f}-{ci_h:.2f})")
                                     p_lines.append(fmt_p_with_styling(pv))
+                                    interpretation = interpret_irr(irr, ci_l, ci_h, f"{col}: {lvl}", mode='categorical')
                                     irr_results[f"{col}: {lvl}"] = {
-                                        'irr': irr, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv
+                                        'irr': irr, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv,
+                                        'interpretation': interpretation
                                     }
                             
                             res['irr'] = "<br>".join(irr_lines)
@@ -450,7 +533,8 @@ def analyze_poisson_outcome(
                         res['coef'] = f"{coef:.3f}"
                         res['irr'] = f"{irr:.2f} ({ci_l:.2f}-{ci_h:.2f})"
                         res['p_irr'] = pv
-                        irr_results[col] = {'irr': irr, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv}
+                        interpretation = interpret_irr(irr, ci_l, ci_h, col, mode='linear')
+                        irr_results[col] = {'irr': irr, 'ci_low': ci_l, 'ci_high': ci_h, 'p_value': pv, 'interpretation': interpretation}
                     else:
                         res['irr'] = "-"
                         res['coef'] = "-"
@@ -564,8 +648,10 @@ def analyze_poisson_outcome(
                                         'lvl': lvl, 'coef': coef, 'airr': airr,
                                         'l': ci_low, 'h': ci_high, 'p': pv
                                     })
+                                    interpretation = interpret_irr(airr, ci_low, ci_high, f"{var}: {lvl}", mode='categorical')
                                     airr_results[f"{var}: {lvl}"] = {
-                                        'airr': airr, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv
+                                        'airr': airr, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv,
+                                        'interpretation': interpretation
                                     }
                             results_db[var]['multi_res'] = airr_entries
                         else:
@@ -577,8 +663,10 @@ def analyze_poisson_outcome(
                                 results_db[var]['multi_res'] = {
                                     'coef': coef, 'airr': airr, 'l': ci_low, 'h': ci_high, 'p': pv
                                 }
+                                interpretation = interpret_irr(airr, ci_low, ci_high, var, mode='linear')
                                 airr_results[var] = {
-                                    'airr': airr, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv
+                                    'airr': airr, 'ci_low': ci_low, 'ci_high': ci_high, 'p_value': pv,
+                                    'interpretation': interpretation
                                 }
                     
                     # ✅ Process interaction effects
@@ -881,6 +969,33 @@ def analyze_poisson_outcome(
                 </div>
             </div>
         </div>
+        <!-- IRR Interpretations Section -->
+        {''.join([f"""
+        <div class='table-container' style='margin-top: 20px;'>
+            <div class='outcome-title'>💬 Rate Ratio Interpretations | การแปลผล Rate Ratio</div>
+            <div class='summary-box' style='border-radius: 0 0 8px 8px;'>
+                <b style='color: {COLORS['primary_dark']}; font-size: 1.1em;'>Crude (Univariate) Analysis:</b><br>
+                <ul style='margin-top: 8px; line-height: 1.8;'>
+                    {''.join([f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>" 
+                              for k, v in irr_results.items() 
+                              if v.get('p_value', 1) < 0.05 and v.get('interpretation')])}
+                </ul>
+                {f'''
+                <div style='margin-top: 16px; padding-top: 12px; border-top: 1px solid {COLORS['border']};'>
+                    <b style='color: {COLORS['primary_dark']}; font-size: 1.1em;'>Adjusted (Multivariate) Analysis:</b><br>
+                    <ul style='margin-top: 8px; line-height: 1.8;'>
+                        {''.join([f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>" 
+                                  for k, v in airr_results.items() 
+                                  if v.get('p_value', 1) < 0.05 and v.get('interpretation')])}
+                    </ul>
+                </div>
+                ''' if airr_results and any(v.get('p_value', 1) < 0.05 for v in airr_results.values()) else ''}
+            </div>
+        </div>
+        """ if (irr_results or airr_results) and 
+              (any(v.get('p_value', 1) < 0.05 for v in irr_results.values()) or 
+               any(v.get('p_value', 1) < 0.05 for v in airr_results.values())) 
+        else ""])}
         <!-- Missing Data Section -->
         {create_missing_data_report_html(missing_data_info, var_meta or {})
             if CONFIG.get("analysis.missing.report_missing", True) else ""}

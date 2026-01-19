@@ -1114,6 +1114,26 @@ def survival_server(
             "style": {"display": display_style}
         })
 
+    # --- TVC Interval Presets ---
+    @reactive.Effect
+    @reactive.event(input.btn_tvc_preset_quarterly)
+    def _set_quarterly_intervals():
+        """Set manual intervals to Quarterly (every 3 months up to 24m)."""
+        ui.update_text("tvc_manual_intervals", value="0, 3, 6, 9, 12, 15, 18, 21, 24")
+
+    @reactive.Effect
+    @reactive.event(input.btn_tvc_preset_biannual)
+    def _set_biannual_intervals():
+        """Set manual intervals to Biannual (every 6 months up to 48m)."""
+        ui.update_text("tvc_manual_intervals", value="0, 6, 12, 18, 24, 30, 36, 42, 48")
+
+    @reactive.Effect
+    @reactive.event(input.btn_tvc_preset_yearly)
+    def _set_yearly_intervals():
+        """Set manual intervals to Yearly (every 12 months up to 60m)."""
+        ui.update_text("tvc_manual_intervals", value="0, 12, 24, 36, 48, 60")
+
+
     @reactive.Effect
     async def _update_tvc_interval_preview():
         """Update risk interval preview text when settings change."""
