@@ -43,7 +43,7 @@ from lifelines.statistics import (
 from lifelines.utils import median_survival_times
 
 from config import CONFIG
-from forest_plot_lib import create_forest_plot
+from utils.forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (

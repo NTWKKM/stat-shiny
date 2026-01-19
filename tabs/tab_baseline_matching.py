@@ -7,8 +7,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from shiny import module, reactive, render, req, ui
 
-import psm_lib  # Import from root
-import table_one  # Import from root
+from utils import psm_lib  # Import from utils
+from utils import table_one  # Import from utils
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.formatting import create_missing_data_report_html

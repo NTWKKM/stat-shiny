@@ -18,7 +18,7 @@ import pytest
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from psm_lib import (
+from utils.psm_lib import (
     calculate_propensity_score,
     compute_smd,
     perform_matching,

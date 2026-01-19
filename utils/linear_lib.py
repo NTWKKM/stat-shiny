@@ -1003,7 +1003,7 @@ def create_bootstrap_distribution_plot(
         Plotly Figure
     """
     if 'error' in boot_results:
-        return go.Figure()
+        return go.Figure(layout={})
     
     samples = boot_results['bootstrap_samples'][:, variable_idx]
     var_name = boot_results['param_names'][variable_idx]
@@ -1015,7 +1015,7 @@ def create_bootstrap_distribution_plot(
     ci_lower = np.percentile(samples, alpha/2 * 100)
     ci_upper = np.percentile(samples, (1-alpha/2) * 100)
     
-    fig = go.Figure()
+    fig = go.Figure(layout={})
     
     # Histogram
     fig.add_trace(go.Histogram(
@@ -1221,7 +1221,7 @@ def create_residuals_vs_fitted_plot(
     - Random scatter (good - linear relationship, homoscedasticity)
     - Patterns (bad - nonlinearity, heteroscedasticity)
     """
-    fig = go.Figure()
+    fig = go.Figure(layout={})
     
     # Add scatter points
     fig.add_trace(go.Scatter(
@@ -1291,7 +1291,7 @@ def create_qq_plot(residuals: pd.Series) -> go.Figure:
     
     Points close to the reference line indicate normally distributed residuals.
     """
-    fig = go.Figure()
+    fig = go.Figure(layout={})
     
     # Calculate theoretical quantiles
     quantiles = stats.probplot(residuals.values)
@@ -1358,7 +1358,7 @@ def create_scale_location_plot(
     Checks for homoscedasticity (constant variance).
     A horizontal trend line indicates constant variance.
     """
-    fig = go.Figure()
+    fig = go.Figure(layout={})
     
     # Calculate sqrt of absolute standardized residuals
     sqrt_abs_resid = np.sqrt(np.abs(standardized_residuals))
@@ -1425,7 +1425,7 @@ def create_residuals_vs_leverage_plot(
     
     Identifies influential observations that may affect the model.
     """
-    fig = go.Figure()
+    fig = go.Figure(layout={})
     
     # Color points by Cook's distance
     cooks_threshold = 4 / len(leverage)

@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from forest_plot_lib import create_forest_plot
-from survival_lib import (
+from utils.forest_plot_lib import create_forest_plot
+from utils.survival_lib import (
     calculate_median_survival,
     fit_cox_ph,
     fit_km_logrank,

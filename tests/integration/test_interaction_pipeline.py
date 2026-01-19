@@ -17,8 +17,8 @@ import pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 # ✅ Correct Import: Only import what exists
-from interaction_lib import create_interaction_terms
-from logic import run_binary_logit
+from utils.interaction_lib import create_interaction_terms
+from utils.logic import run_binary_logit
 
 pytestmark = pytest.mark.integration
 

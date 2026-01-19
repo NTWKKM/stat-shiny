@@ -18,12 +18,12 @@ import numpy as np
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
-import survival_lib
+from utils import survival_lib
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
 
 try:
-    from subgroup_analysis_module import SubgroupAnalysisCox
+    from utils.subgroup_analysis_module import SubgroupAnalysisCox
 except ImportError:
     SubgroupAnalysisCox = None  # type: ignore
     

@@ -7,7 +7,7 @@ from shiny.types import FileInfo
 # Import Config/Logger
 from config import CONFIG
 from logger import LoggerFactory, get_logger
-from logic import HAS_FIRTH
+from utils.logic import HAS_FIRTH
 
 # Import Tabs Modules
 from tabs import tab_data  # 🟢 Data Module

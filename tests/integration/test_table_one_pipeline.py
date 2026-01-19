@@ -18,7 +18,7 @@ import pytest
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from table_one import (
+from utils.table_one import (
     calculate_p_categorical,
     calculate_p_continuous,
     calculate_smd,

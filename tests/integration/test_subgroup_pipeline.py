@@ -16,7 +16,7 @@ import pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 # ✅ Correct Import: It's a Class, not a function
-from subgroup_analysis_module import SubgroupAnalysisLogit
+from utils.subgroup_analysis_module import SubgroupAnalysisLogit
 
 pytestmark = pytest.mark.integration
 

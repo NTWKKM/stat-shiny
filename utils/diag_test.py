@@ -1194,7 +1194,7 @@ def generate_report(
 ) -> str:
     """
     Generate HTML report from elements.
-    Copied from correlation.py for standalone usage in diag_test module.
+    Copied from utils.correlation.py for standalone usage in diag_test module.
     """
     primary_color = COLORS['primary']
     primary_dark = COLORS['primary_dark']

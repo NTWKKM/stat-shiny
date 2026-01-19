@@ -17,7 +17,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from poisson_lib import run_negative_binomial_regression, run_poisson_regression
+from utils.poisson_lib import run_negative_binomial_regression, run_poisson_regression
 
 # Mark as integration test
 pytestmark = pytest.mark.integration

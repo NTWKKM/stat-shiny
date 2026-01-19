@@ -37,6 +37,7 @@ sys.modules['plotly'] = mock_plotly
 sys.modules['plotly.graph_objects'] = MagicMock()
 sys.modules['plotly.express'] = mock_plotly
 sys.modules['plotly.io'] = MagicMock()
+sys.modules['plotly.subplots'] = MagicMock()
 sys.modules['plotly.colors'] = mock_colors # Direct import mock
 
 # 2. Mock Forest Plot Lib
@@ -121,12 +122,12 @@ sys.modules['sklearn.linear_model'] = MagicMock()
 # ============================================================================
 # Try importing poisson_lib if available, else mock or ignore
 try:
-    from poisson_lib import run_negative_binomial_regression, run_poisson_regression
+    from utils.poisson_lib import run_negative_binomial_regression, run_poisson_regression
 except ImportError:
     run_poisson_regression = MagicMock()
     run_negative_binomial_regression = MagicMock()
 
-from diag_test import (
+from utils.diag_test import (
     analyze_roc,
     auc_ci_delong,
     calculate_chi2,
@@ -136,7 +137,7 @@ from diag_test import (
     calculate_kappa,
     format_p_value,
 )
-from logic import (
+from utils.logic import (
     analyze_outcome,
     clean_numeric_value,
     fmt_p_with_styling,
@@ -144,7 +145,7 @@ from logic import (
     run_binary_logit,
     validate_logit_data,
 )
-from survival_lib import (
+from utils.survival_lib import (
     calculate_median_survival,
     fit_cox_ph,
     fit_km_landmark,

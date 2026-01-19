@@ -13,13 +13,14 @@ from htmltools import HTML, div
 from shiny import module, reactive, render, req, ui
 
 from config import CONFIG
-from forest_plot_lib import create_forest_plot
+from utils.forest_plot_lib import create_forest_plot
+from utils.logic import analyze_outcome
+from utils.poisson_lib import analyze_poisson_outcome
+from utils.subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from logger import get_logger
 
 # Import internal modules
-from logic import analyze_outcome
-from poisson_lib import analyze_poisson_outcome
-from subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
+
 from tabs._common import get_color_palette
 from utils.formatting import create_missing_data_report_html
 from utils.linear_lib import (
