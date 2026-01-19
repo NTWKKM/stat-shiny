@@ -636,8 +636,37 @@ def data_server(
         d = df.get()
         if d is None:
             return render.DataTable(pd.DataFrame({'Status': ['🔄 No data loaded yet.']}), width="100%")
-
-        return render.DataTable(d, width="100%", filters=False)
+        
+        # Get current data quality issues
+        issues = data_issues.get()
+        
+        # If no issues, return plain table
+        if not issues:
+            return render.DataTable(d, width="100%", filters=False)
+        
+        # Build a lookup dict of (col, row_idx) -> True for error cells
+        error_cells = {}
+        for issue in issues:
+            col = issue['col']
+            # Convert Excel row (1-based + header) to DataFrame index (0-based)
+            row_idx = issue['row'] - 2  # -2 because Excel is 1-based and has header
+            if isinstance(row_idx, int) and 0 <= row_idx < len(d):
+                error_cells[(row_idx, col)] = True
+        
+        # Apply styling using pandas Styler
+        def highlight_errors(row):
+            # Create style array for this row
+            styles = [''] * len(row)
+            row_idx = row.name  # Get the row index
+            for col_idx, col_name in enumerate(d.columns):
+                if (row_idx, col_name) in error_cells:
+                    styles[col_idx] = 'background-color: #fee; border: 1px solid #E74856; color: #E74856; font-weight: 600;'
+            return styles
+        
+        # Apply the styling function
+        styled_df = d.style.apply(highlight_errors, axis=1)
+        
+        return render.DataTable(styled_df, width="100%", filters=False)
 
     @render.ui
     def ui_btn_clear_match():
