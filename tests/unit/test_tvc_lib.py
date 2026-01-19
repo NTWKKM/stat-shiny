@@ -33,12 +33,12 @@ def long_data():
         # 2 intervals per subject
         # T=0 to T=5
         df_list.append({
-            'id': i, 'start_time': 0, 'stop_time': 5, 'event': 0, 
+            'id': i, 'start': 0, 'stop': 5, 'event': 0, 
             'val': np.random.normal(10, 2), 'static': static_val
         })
         # T=5 to T=10
         df_list.append({
-            'id': i, 'start_time': 5, 'stop_time': 10, 'event': is_event, 
+            'id': i, 'start': 5, 'stop': 10, 'event': is_event, 
             'val': np.random.normal(12, 2), 'static': static_val
         })
     return pd.DataFrame(df_list)
@@ -47,7 +47,7 @@ class TestTVCUtils:
     
     def test_validate_long_format_valid(self, long_data):
         is_valid, msg = validate_long_format(
-            long_data, 'id', 'start_time', 'stop_time', 'event'
+            long_data, 'id', 'start', 'stop', 'event'
         )
         assert is_valid
         assert msg is None
@@ -82,8 +82,8 @@ class TestTVCUtils:
         
         assert err is None
         assert not long_df.empty
-        assert 'start_time' in long_df.columns
-        assert 'stop_time' in long_df.columns
+        assert 'start' in long_df.columns
+        assert 'stop' in long_df.columns
         assert len(long_df) >= len(wide_data)
         
         # Check specific values
@@ -91,8 +91,8 @@ class TestTVCUtils:
         # Should have intervals [0,3] and [3,5]
         p2 = long_df[long_df['id'] == 2]
         assert len(p2) == 2
-        assert p2.iloc[0]['start_time'] == 0
-        assert p2.iloc[0]['stop_time'] == 3
+        assert p2.iloc[0]['start'] == 0
+        assert p2.iloc[0]['stop'] == 3
         # Check TVC carry forward
         # p2: lab_0m=110, lab_3m=112. lab_6m=NaN.
         # Interval [0,3]: should pick lab_0m? Actually logic picks col with time <= stop.
@@ -106,8 +106,8 @@ class TestTVCUtils:
     def test_fit_tvc_cox_basic(self, long_data):
         cph, res, clean, err, stats, missing_info = fit_tvc_cox(
             long_data,
-            start_col='start_time',
-            stop_col='stop_time',
+            start_col='start',
+            stop_col='stop',
             event_col='event',
             tvc_cols=['val'],
             static_cols=['static']
@@ -121,11 +121,11 @@ class TestTVCUtils:
     def test_check_assumptions(self, long_data):
         # First fit a model
         # Diagnostics
-        clean = long_data[['id', 'start_time', 'stop_time', 'event', 'val', 'static']].dropna()
+        clean = long_data[['id', 'start', 'stop', 'event', 'val', 'static']].dropna()
         cph = CoxTimeVaryingFitter()
-        cph.fit(clean, start_col='start_time', stop_col='stop_time', event_col='event')
+        cph.fit(clean, start_col='start', stop_col='stop', event_col='event')
         
-        text, plots = check_tvc_assumptions(cph, clean, 'start_time', 'stop_time', 'event')
+        text, plots = check_tvc_assumptions(cph, clean, 'start', 'stop', 'event')
         assert isinstance(text, str)
         assert isinstance(plots, list)
         # With small dataset, plots might be empty due to sample size checks
