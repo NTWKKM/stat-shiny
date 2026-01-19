@@ -395,36 +395,43 @@ def fit_tvc_cox(
     """
     
     try:
-        # Validate input (Check columns existence only first, or strict valid?)
-        # NOTE: validate_long_format checks for NaNs. If we validate BEFORE cleaning, it will fail on NaNs.
-        # We should validate structure (columns exist) first, then clean, then validate contents?
-        # But validate_long_format does everything.
-        # Let's skip validation for now and rely on cleaning, OR expect clean data.
-        # Better: Clean first, THEN validate.
-        pass
+        # --- 1. Column Resolution & Validation ---
+        # Robustly handle cases where input data (e.g. from transform_wide_to_long) 
+        # has standardized names ('start', 'stop') different from user selection.
         
+        real_start_col = start_col
+        real_stop_col = stop_col
+        
+        # Fallback to 'start'/'stop' if user-specified columns are missing but standard ones exist
+        if start_col not in df.columns and 'start' in df.columns:
+            logger.info(f"TVC Fit: Start column '{start_col}' not found. Using 'start'.")
+            real_start_col = 'start'
+            
+        if stop_col not in df.columns and 'stop' in df.columns:
+            logger.info(f"TVC Fit: Stop column '{stop_col}' not found. Using 'stop'.")
+            real_stop_col = 'stop'
+
+        # Validate required columns
+        required_cols = [real_start_col, real_stop_col, event_col]
+        missing_required = [c for c in required_cols if c not in df.columns]
+        if missing_required:
+            msg = f"❌ Missing columns: {', '.join(missing_required)}. Available: {sorted(df.columns.tolist())}"
+            return None, None, None, msg, {}, {}
+
         # Combine covariates
         all_covariates = (tvc_cols or []) + (static_cols or [])
-        
         if not all_covariates:
             return None, None, None, "❌ No covariates specified", {}, {}
         
-        # Validate required columns exist BEFORE accessing them
-        required_cols = [start_col, stop_col, event_col]
-        missing_required = [c for c in required_cols if c not in df.columns]
-        if missing_required:
-            return None, None, None, f"❌ Missing required columns: {', '.join(missing_required)}. Available: {df.columns.tolist()}", {}, {}
-        
-        # Check for missing covariates
         missing_covars = set(all_covariates) - set(df.columns)
         if missing_covars:
             return None, None, None, f"❌ Missing covariates: {', '.join(missing_covars)}", {}, {}
+
+        # --- 2. Data Cleaning ---
+        id_col = df.columns[0] # Use first column as ID
         
-        # Clean data using standardized utility
-        # This handles missing codes and drops NaNs based on strategy
-        id_col = df.columns[0] # Use first column as ID (standard convention for this app)
-        # Ensure we don't duplicate columns if ID is also a covariate (unlikely but safe to check)
-        key_cols = [id_col, start_col, stop_col, event_col] + all_covariates
+        # Build key columns list
+        key_cols = [id_col, real_start_col, real_stop_col, event_col] + all_covariates
         key_cols = list(dict.fromkeys(key_cols)) # Dedup preserving order
         
         clean_data, missing_info = handle_missing_for_analysis(
@@ -436,39 +443,21 @@ def fit_tvc_cox(
         
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
-        
-        # --- ROBUST COLUMN HANDLING ---
-        # Ensure critical columns exist, restoring from original DF if needed (matching index)
-        # This handles cases where data cleaning might have dropped them or names were weird
-        for col, label in [(start_col, "Start"), (stop_col, "Stop"), (event_col, "Event")]:
-            if col not in clean_data.columns:
-                logger.warning(f"Restoring missing critical column '{col}' from original data")
-                try:
-                    clean_data[col] = df.loc[clean_data.index, col]
-                except KeyError:
-                    return None, None, None, f"❌ Critical column '{col}' lost during processing and cannot be restored.", {}, missing_info
-
-        # Standardize column names for lifelines to avoid KeyError
-        # Force rename to 'start' and 'stop' to ensure exact match with lifelines expectations
+            
+        # --- 3. Standardization for Lifelines ---
+        # Ensure columns are named 'start' and 'stop' as lifelines can be finicky or user expectation varies
         standard_start = 'start'
         standard_stop = 'stop'
         
-        # transform_wide_to_long outputs 'start'/'stop', but if user provided map is different,
-        # we strictly rename what we have (start_col/stop_col) to 'start'/'stop'
-        # We use a direct assignment to avoid complex rename logic and handle potential overlaps
-        if start_col != standard_start:
-            clean_data[standard_start] = clean_data[start_col]
-            # Optional: drop old if not needed, but keeping it is safer for now unless it conflicts
-            # If start_col is NOT standard_start, and we copied it, we can drop the old one to avoid confusion
-            # provided it's not used as a covariate (which it shouldn't be)
-            if start_col not in all_covariates:
-                clean_data.drop(columns=[start_col], inplace=True)
-                
-        if stop_col != standard_stop:
-            clean_data[standard_stop] = clean_data[stop_col]
-            if stop_col not in all_covariates:
-                 clean_data.drop(columns=[stop_col], inplace=True)
+        rename_map = {}
+        if real_start_col != standard_start:
+            rename_map[real_start_col] = standard_start
+        if real_stop_col != standard_stop:
+            rename_map[real_stop_col] = standard_stop
             
+        if rename_map:
+            clean_data = clean_data.rename(columns=rename_map)
+
         cph = CoxTimeVaryingFitter(penalizer=penalizer)
         
         logger.info(f"TVC Fit - Pre-Fit Columns: {clean_data.columns.tolist()}")
