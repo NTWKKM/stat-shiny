@@ -187,21 +187,31 @@ def tvc_risk_interval_picker_ui() -> ui.TagChild:
                 "quantile": "📈 Quantile-based (equal number of events in each interval)",
                 "manual": "✍️ Manual (specify time points below)"
             },
-            selected="auto",
+            selected="manual",  # Default to Manual as per clinical preference
             inline=False
         ),
         
         # Manual interval input (conditionally shown)
         ui.div(
             ui.markdown("**Specify time points (comma-separated):**"),
+            
+            # Preset Buttons
+            ui.div(
+                ui.span("Presets: ", style="margin-right: 10px; font-weight: bold; color: #555;"),
+                ui.input_action_button("btn_tvc_preset_quarterly", "Quarterly (3m)", class_="btn-sm btn-outline-primary", style="margin-right: 5px;"),
+                ui.input_action_button("btn_tvc_preset_biannual", "Biannual (6m)", class_="btn-sm btn-outline-primary", style="margin-right: 5px;"),
+                ui.input_action_button("btn_tvc_preset_yearly", "Yearly (12m)", class_="btn-sm btn-outline-primary"),
+                style="margin-bottom: 10px;"
+            ),
+            
             ui.input_text(
                 "tvc_manual_intervals",
-                "Example: 0, 1, 3, 6, 12",
+                "Enter custom intervals:",
                 placeholder="0, 1, 3, 6, 12, 24",
                 value=""
             ),
             id="tvc_manual_interval_div",
-            style="display:none;"
+            style="display:none;" # Controlled by JS/Reactive
         ),
         
         ui.markdown(

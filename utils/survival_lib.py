@@ -52,6 +52,8 @@ from utils.data_cleaning import (
     handle_missing_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
+from utils.advanced_stats_lib import calculate_vif, apply_mcc
+from scipy import stats as scipy_stats
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -197,11 +199,30 @@ def calculate_survival_at_times(
     duration_col: str, 
     event_col: str, 
     group_col: Optional[str],
-    time_points: List[float]
-) -> pd.DataFrame:
+    time_points: List[float],
+    enable_comparison: bool = True,
+    mcc_method: str = "fdr_bh"
+) -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
     """
     🆕 NEW: Calculate survival probabilities at specific time points (Robust Version)
     Includes enhanced event column validation and coercion to prevent KM fitter failures.
+    
+    ✅ ENHANCED: Added pairwise Z-test comparison between groups at each time point
+    with Multiple Comparison Correction (MCC).
+    
+    Parameters:
+        df: Input DataFrame
+        duration_col: Name of duration/time column
+        event_col: Name of event/status column (1=event, 0=censored)
+        group_col: Name of grouping column (None for single-group analysis)
+        time_points: List of time points to calculate survival probabilities
+        enable_comparison: Whether to perform pairwise Z-test comparisons (default: True)
+        mcc_method: Method for multiple comparison correction (default: "fdr_bh")
+    
+    Returns:
+        Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
+            - DataFrame with survival probabilities at each time point
+            - DataFrame with pairwise comparison results (or None if not applicable)
     """
     data = df.dropna(subset=[duration_col, event_col])
     if group_col:
@@ -211,6 +232,9 @@ def calculate_survival_at_times(
         groups = ['Overall']
         
     results = []
+    
+    # Store KM fitters for comparison later
+    kmf_by_group: Dict[str, Tuple[KaplanMeierFitter, pd.Series]] = {}
     
     # 1. Map known truthy/falsy values (handling strings, numbers, bools)
     # Truthy map: {"event", "dead", "1", 1, True} -> 1
@@ -281,6 +305,8 @@ def calculate_survival_at_times(
             if kmf.survival_function_.empty:
                 logger.debug("KM fit resulted in empty survival function for group %s", label)
                 continue
+            # Store KM fitter for pairwise comparison
+            kmf_by_group[label] = (kmf, df_g[duration_col])
         except Exception as e:
             # CHANGED: Log the exception with context instead of silent swallow
             logger.debug("Failed to fit KM for group %s: %s", label, e)
@@ -292,13 +318,14 @@ def calculate_survival_at_times(
             surv_prob = np.nan
             lower = np.nan
             upper = np.nan
+            variance = np.nan
             
             # Check if time t is within reasonable bounds (or slightly after)
             try:
                 # 1. Get Survival Probability
                 surv_prob = kmf.predict(float(t))
                 
-                # 2. Get Confidence Interval
+                # 2. Get Confidence Interval FIRST (we need this to derive variance)
                 # Use interpolation to handle times that aren't exact event times
                 ci_df = kmf.confidence_interval_survival_function_
                 
@@ -335,6 +362,16 @@ def calculate_survival_at_times(
                      # CHANGED: Log detailed exception for inner block failure
                      logger.debug("CI indexing failed for group %s at time %s: %s", label, t, e)
                      lower, upper = np.nan, np.nan
+                
+                # 3. Calculate Variance from CI (for Z-test)
+                # For 95% CI: SE = (upper - lower) / (2 * 1.96)
+                # Variance = SE^2
+                try:
+                    if not pd.isna(lower) and not pd.isna(upper) and upper > lower:
+                        se = (upper - lower) / (2 * 1.96)
+                        variance = se ** 2
+                except Exception as e:
+                    logger.debug("Variance calculation failed for group %s at time %s: %s", label, t, e)
 
                 # Format Display
                 if pd.isna(surv_prob):
@@ -357,10 +394,94 @@ def calculate_survival_at_times(
                 "Survival Prob": surv_prob if not pd.isna(surv_prob) else None,
                 "95% CI Lower": lower if not pd.isna(lower) else None,
                 "95% CI Upper": upper if not pd.isna(upper) else None,
+                "Variance": variance if not pd.isna(variance) else None,
                 "Display": display_val
             })
 
-    return pd.DataFrame(results)
+    results_df = pd.DataFrame(results)
+    
+    # ===================================
+    # PAIRWISE COMPARISON (Z-TEST) - NEW
+    # ===================================
+    comparison_results = None
+    
+    if enable_comparison and group_col and len(kmf_by_group) >= 2:
+        comparison_rows = []
+        group_labels = list(kmf_by_group.keys())
+        
+        # Perform pairwise comparisons at each time point
+        for t in time_points:
+            for i, g1 in enumerate(group_labels):
+                for g2 in group_labels[i + 1:]:
+                    try:
+                        # Get survival probabilities and variances for both groups
+                        kmf1, _ = kmf_by_group[g1]
+                        kmf2, _ = kmf_by_group[g2]
+                        
+                        s1 = kmf1.predict(float(t))
+                        s2 = kmf2.predict(float(t))
+                        
+                        # Get variances from results_df
+                        var1_row = results_df[(results_df["Group"] == g1) & (results_df["Time Point"] == t)]
+                        var2_row = results_df[(results_df["Group"] == g2) & (results_df["Time Point"] == t)]
+                        
+                        var1 = var1_row["Variance"].values[0] if not var1_row.empty and var1_row["Variance"].values[0] is not None else None
+                        var2 = var2_row["Variance"].values[0] if not var2_row.empty and var2_row["Variance"].values[0] is not None else None
+                        
+                        # Calculate Z-statistic and p-value
+                        # Z = (S1 - S2) / sqrt(Var(S1) + Var(S2))
+                        p_val = np.nan
+                        z_stat = np.nan
+                        diff = np.nan
+                        
+                        if (s1 is not None and s2 is not None and 
+                            var1 is not None and var2 is not None and
+                            not pd.isna(s1) and not pd.isna(s2) and
+                            not pd.isna(var1) and not pd.isna(var2)):
+                            
+                            diff = s1 - s2
+                            se_diff = np.sqrt(var1 + var2)
+                            
+                            if se_diff > 0:
+                                z_stat = diff / se_diff
+                                # Two-sided p-value
+                                p_val = 2 * (1 - scipy_stats.norm.cdf(abs(z_stat)))
+                        
+                        comparison_rows.append({
+                            "Time Point": t,
+                            "Group 1": g1,
+                            "Group 2": g2,
+                            "S1": s1 if not pd.isna(s1) else None,
+                            "S2": s2 if not pd.isna(s2) else None,
+                            "Difference (S1-S2)": diff if not pd.isna(diff) else None,
+                            "Z-statistic": z_stat if not pd.isna(z_stat) else None,
+                            "P-value": p_val if not pd.isna(p_val) else None
+                        })
+                        
+                    except Exception as e:
+                        logger.debug("Pairwise comparison failed for %s vs %s at t=%s: %s", g1, g2, t, e)
+        
+        if comparison_rows:
+            comparison_df = pd.DataFrame(comparison_rows)
+            
+            # Apply Multiple Comparison Correction
+            raw_pvals = comparison_df["P-value"].tolist()
+            if any(pd.notna(p) for p in raw_pvals):
+                try:
+                    adjusted_pvals = apply_mcc(raw_pvals, method=mcc_method)
+                    comparison_df["P-value (Adjusted)"] = adjusted_pvals.values
+                    comparison_df["MCC Method"] = mcc_method
+                except Exception as e:
+                    logger.warning("MCC application failed: %s", e)
+                    comparison_df["P-value (Adjusted)"] = np.nan
+                    comparison_df["MCC Method"] = "N/A"
+            else:
+                comparison_df["P-value (Adjusted)"] = np.nan
+                comparison_df["MCC Method"] = "N/A"
+            
+            comparison_results = comparison_df
+            
+    return results_df, comparison_results
 
 
 def calculate_median_survival(
@@ -814,6 +935,28 @@ def fit_cox_ph(
     _standardize_numeric_cols(data, covariate_cols)
     
     # ==========================================
+    # VIF CALCULATION (Multicollinearity Check) - NEW
+    # ==========================================
+    vif_results = None
+    high_vif_warning = None
+    vif_threshold = 10.0  # Standard threshold for high collinearity
+    
+    if len(covariate_cols) > 1:
+        try:
+            vif_df, _ = calculate_vif(data[covariate_cols], var_meta=var_meta)
+            if not vif_df.empty:
+                vif_results = vif_df
+                
+                # Check for high VIF values
+                high_vif = vif_df[vif_df["VIF"] > vif_threshold]
+                if not high_vif.empty:
+                    high_vif_vars = high_vif["feature"].tolist()
+                    high_vif_warning = f"⚠️ High multicollinearity detected (VIF > {vif_threshold}): {', '.join(high_vif_vars)}"
+                    logger.warning(high_vif_warning)
+        except Exception as e:
+            logger.warning(f"VIF calculation failed: {e}")
+    
+    # ==========================================
     # FITTING LOGIC: lifelines vs Firth
     # ==========================================
     
@@ -946,6 +1089,13 @@ def fit_cox_ph(
             "Number of Observations": len(data),
             "Number of Events": n_events
         }
+        
+        # ✅ NEW: Add VIF results to model_stats
+        if vif_results is not None:
+            model_stats["VIF"] = vif_results.to_dict('records')
+        if high_vif_warning:
+            model_stats["VIF Warning"] = high_vif_warning
+            
     except Exception as e:
         logger.warning(f"Could not extract model stats: {e}")
         model_stats = {}
