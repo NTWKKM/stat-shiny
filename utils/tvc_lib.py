@@ -623,7 +623,7 @@ def check_tvc_assumptions(
                     pass
 
         # --- Diagnostic 2: Partial Likelihood Residuals ---
-        residuals = cph.compute_partial_hazard(df)
+        residuals = cph.predict_partial_hazard(df)
 
         # --- Build Interpretation Text ---
         interpretation = """
