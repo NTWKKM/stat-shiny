@@ -1118,6 +1118,24 @@ def get_shiny_css():
                 margin-bottom: var(--spacing-sm);
             }}
         }}
+
+        /* ===========================
+           TVC SPECIFIC STYLES
+           =========================== */
+        
+        .tvc-preset-container {{
+            margin-bottom: 10px;
+        }}
+        
+        .tvc-preset-label {{
+            margin-right: 10px; 
+            font-weight: 600; 
+            color: #555;
+        }}
+        
+        .tvc-preset-btn {{
+            margin-right: 5px !important;
+        }}
     </style>
     """
 

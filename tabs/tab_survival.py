@@ -453,6 +453,10 @@ def survival_server(
         # --- AUTO-DETECTION LOGIC ---
         time_keywords = ['time', 'day', 'month', 'year', 'range', 'followup', 'fu']
         default_time = "Select..."
+        
+        # 🟢 Dynamic Slider Max Logic
+        max_time_val = 100
+        
         for kw in time_keywords:
             matched = [c for c in numeric_cols if kw in c.lower()]
             if matched:
@@ -460,6 +464,15 @@ def survival_server(
                 break
         if default_time == "Select..." and numeric_cols:
             default_time = numeric_cols[0]
+            
+        # Get max time from default_time column
+        if default_time != "Select..." and default_time in data.columns:
+             try:
+                 max_t = data[default_time].max()
+                 if pd.notna(max_t):
+                     max_time_val = int(np.ceil(max_t))
+             except:
+                 pass
 
         event_keywords = ['status', 'event', 'death', 'cure', 'survive', 'died', 'outcome']
         default_event = "Select..."
@@ -498,8 +511,10 @@ def survival_server(
         ui.update_select("surv_event", choices=choices_with_labels, selected=default_event)
         ui.update_select("surv_group", choices={"None": "None", **choices_with_labels})
         
+        
         # Landmark Analysis
         ui.update_select("landmark_group", choices=choices_with_labels, selected=default_compare)
+        ui.update_slider("landmark_t", max=max_time_val, value=min(10, max_time_val))
         
         # Cox Regression
         ui.update_checkbox_group("cox_covariates", choices=choices_with_labels)

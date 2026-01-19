@@ -197,11 +197,11 @@ def tvc_risk_interval_picker_ui() -> ui.TagChild:
             
             # Preset Buttons
             ui.div(
-                ui.span("Presets: ", style="margin-right: 10px; font-weight: bold; color: #555;"),
-                ui.input_action_button("btn_tvc_preset_quarterly", "Quarterly (3m)", class_="btn-sm btn-outline-primary", style="margin-right: 5px;"),
-                ui.input_action_button("btn_tvc_preset_biannual", "Biannual (6m)", class_="btn-sm btn-outline-primary", style="margin-right: 5px;"),
+                ui.span("Presets: ", class_="tvc-preset-label"),
+                ui.input_action_button("btn_tvc_preset_quarterly", "Quarterly (3m)", class_="btn-sm btn-outline-primary tvc-preset-btn"),
+                ui.input_action_button("btn_tvc_preset_biannual", "Biannual (6m)", class_="btn-sm btn-outline-primary tvc-preset-btn"),
                 ui.input_action_button("btn_tvc_preset_yearly", "Yearly (12m)", class_="btn-sm btn-outline-primary"),
-                style="margin-bottom: 10px;"
+                class_="tvc-preset-container"
             ),
             
             ui.input_text(
