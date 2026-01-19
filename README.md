@@ -36,7 +36,10 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- CACHE_INTEGRATION_GUIDE.md
 |   |-- MIGRATION_NOTES.md
 |   |-- Migration from shinywidgets to HTML-Plotly.md
-|   `-- OPTIMIZATION.md
+|   |-- Missing Data Integration Walkthrough.md
+|   |-- OPTIMIZATION.md
+|   |-- fix_table_one.md
+|   `-- missing_data_implementation_plan.md
 |-- poisson_lib.py
 |-- psm_lib.py
 |-- pytest.ini
@@ -78,7 +81,11 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- test_plotly_html_rendering.py
 |   `-- unit /
 |       |-- test_advanced_stats.py
-|       `-- test_statistics.py
+|       |-- test_data_cleaning.py
+|       |-- test_data_cleaning_workflow.py
+|       |-- test_missing_data.py
+|       |-- test_statistics.py
+|       `-- verify_table_one.py
 |-- utils /
 |   |-- __init__.py
 |   |-- advanced_stats_lib.py
@@ -88,6 +95,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   `-- update_css.py
 `-- wakeup coderabbitai
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
