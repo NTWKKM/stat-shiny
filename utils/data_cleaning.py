@@ -680,7 +680,13 @@ def apply_missing_values_to_df(
         else:
             missing_vals = missing_codes or []
         
-        if not missing_vals:
+        # Normalize missing_vals to list if scalar or unexpected type
+        if isinstance(missing_vals, (str, bytes)) or not isinstance(
+            missing_vals, (list, tuple, set, np.ndarray)
+        ):
+            missing_vals = [missing_vals]
+        
+        if len(missing_vals) == 0:
             continue
             
         # Normalize missing codes across string/numeric representations
