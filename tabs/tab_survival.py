@@ -533,17 +533,17 @@ def survival_server(
 
     # ==================== 5. TIME-VARYING COX LOGIC (NEW) ====================
     @reactive.Effect
-    def _update_tvc_manual_interval_visibility():
+    async def _update_tvc_manual_interval_visibility():
         """Show/hide manual interval input based on method selection."""
         method = input.tvc_interval_method()
         display_style = "block" if method == "manual" else "none"
-        session.send_custom_message("set_element_style", {
+        await session.send_custom_message("set_element_style", {
             "id": "tvc_manual_interval_div",
             "style": {"display": display_style}
         })
 
     @reactive.Effect
-    def _update_tvc_interval_preview():
+    async def _update_tvc_interval_preview():
         """Update risk interval preview text when settings change."""
         method = input.tvc_interval_method()
         manual_str = input.tvc_manual_intervals()
@@ -557,13 +557,17 @@ def survival_server(
                 intervals = []
         elif data is not None:
             # Simple auto intervals using quartiles of a numeric time column
-            time_col = input.surv_time()
-            if time_col in data.columns:
-                qs = data[time_col].quantile([0, 0.25, 0.5, 0.75, 1.0]).tolist()
-                intervals = sorted(set(qs))
+            # In Wide format, tvc_stop_col acts as fallback time col if input.surv_time() is not relevant
+            # But let's verify if surv_time() is mapped. Usually user sets tvc_stop_col.
+            time_col = input.tvc_stop_col()
+            if time_col != "Select..." and time_col in data.columns:
+                 # Ensure numeric
+                 if pd.api.types.is_numeric_dtype(data[time_col]):
+                     qs = data[time_col].quantile([0, 0.25, 0.5, 0.75, 1.0]).tolist()
+                     intervals = sorted(set(qs))
         
         preview = format_interval_preview(intervals) if intervals else "Intervals will appear here"
-        session.send_custom_message("set_inner_text", {
+        await session.send_custom_message("set_inner_text", {
             "id": "tvc_interval_preview",
             "text": preview
         })
@@ -575,22 +579,74 @@ def survival_server(
         if data is None:
             return
         
+        fmt = input.tvc_data_format()
         id_col = input.tvc_id_col()
         start_col = input.tvc_start_col()
         stop_col = input.tvc_stop_col()
         event_col = input.tvc_event_col()
-        tvc_cols = input.tvc_tvc_cols()
-        static_cols = input.tvc_static_cols()
+        tvc_cols = list(input.tvc_tvc_cols())
+        static_cols = list(input.tvc_static_cols())
         
-        # For now, assume long format if user selects start/stop explicitly
-        if start_col == "Select..." or stop_col == "Select..." or event_col == "Select...":
+        # Basic validation
+        if any(c == "Select..." for c in [id_col, stop_col, event_col]):
             return
-        
+            
         try:
-            # In long format, we don't transform; just preview the existing data
-            long_df = data[[id_col, start_col, stop_col, event_col] + list(tvc_cols) + list(static_cols)].copy()
-            long_df = long_df.sort_values([id_col, stop_col])
-            tvc_long_data.set(long_df)
+            long_df = None
+            
+            if fmt == "wide":
+                # Preview transformation for Wide format
+                method = input.tvc_interval_method()
+                manual_str = input.tvc_manual_intervals()
+                risk_intervals = None
+                
+                if method == "manual" and manual_str:
+                    try:
+                        risk_intervals = sorted(set(float(x.strip()) for x in manual_str.split(",") if x.strip() != ""))
+                    except ValueError:
+                        pass # Ignore invalid manual input during preview
+
+                from utils.tvc_lib import transform_wide_to_long
+                long_df, _ = transform_wide_to_long(
+                    data,
+                    id_col=id_col,
+                    time_col=stop_col,
+                    event_col=event_col,
+                    tvc_cols=tvc_cols,
+                    static_cols=static_cols,
+                    risk_intervals=risk_intervals,
+                    interval_method=method
+                )
+            else:
+                # Long format: Use data directly
+                # Ensure start_col is selected
+                if start_col == "Select...":
+                    return
+
+                # Prevent duplicate columns selection
+                req_cols = [id_col, start_col, stop_col, event_col] + tvc_cols + static_cols
+                # Remove duplicates while preserving order
+                unique_cols = list(dict.fromkeys(req_cols))
+                
+                long_df = data[unique_cols].copy()
+            
+            if long_df is not None:
+                # Sort if possible (might fail if columns missing or duplicates)
+                try:
+                    sort_cols = [c for c in [id_col, stop_col] if c in long_df.columns]
+                    # Also rename columns to standard start/stop if transformed?
+                    # transform_wide_to_long returns 'start_time', 'stop_time'
+                    # But input values are retained. If we are in wide mode, id_col is preserved.
+                    if fmt == "wide":
+                        # Standardize sort column names for transformed data
+                        if 'start_time' in long_df.columns:
+                             long_df = long_df.sort_values([id_col, 'stop_time'])
+                    else:
+                        long_df = long_df.sort_values(sort_cols)
+                except Exception as e:
+                    logger.warning(f"Sort preview failed: {e}")
+
+                tvc_long_data.set(long_df)
         except Exception:
             logger.exception("TVC preview update error")
 
@@ -621,15 +677,15 @@ def survival_server(
         return render.DataGrid(preview_df)
 
     @reactive.Effect
-    def _update_tvc_ui_labels():
+    async def _update_tvc_ui_labels():
         """Update input labels based on data format selection."""
         fmt = input.tvc_data_format()
         if fmt == "wide":
             ui.update_select("tvc_stop_col", label="⏱️ Follow-up Time:")
-            session.send_custom_message("set_element_style", {"id": "div_tvc_start_col", "style": {"display": "none"}})
+            await session.send_custom_message("set_element_style", {"id": "div_tvc_start_col", "style": {"display": "none"}})
         else:
             ui.update_select("tvc_stop_col", label="⏱️ Interval Stop Time:")
-            session.send_custom_message("set_element_style", {"id": "div_tvc_start_col", "style": {"display": "block"}})
+            await session.send_custom_message("set_element_style", {"id": "div_tvc_start_col", "style": {"display": "block"}})
 
     @reactive.Effect
     @reactive.event(input.btn_run_tvc)
@@ -718,7 +774,10 @@ def survival_server(
                 if long_df_pre is not None:
                     fit_data = long_df_pre
                 else:
-                    fit_data = data[[id_col, start_col, stop_col, event_col] + tvc_cols + static_cols].copy()
+                    # Construct from fresh selection, ensuring unique columns
+                    req_cols = [id_col, start_col, stop_col, event_col] + tvc_cols + static_cols
+                    unique_cols = list(dict.fromkeys(req_cols))
+                    fit_data = data[unique_cols].copy()
                 
                 fit_start = start_col
                 fit_stop = stop_col
