@@ -41,8 +41,6 @@ from lifelines import CoxTimeVaryingFitter
 from lifelines.statistics import proportional_hazard_test
 from scipy import stats as sp_stats
 
-from scipy import stats as sp_stats
-
 from logger import get_logger
 from utils.data_cleaning import handle_missing_for_analysis
 
@@ -60,26 +58,6 @@ def validate_long_format(df: pd.DataFrame,
                           event_col: str) -> Tuple[bool, Optional[str]]:
     """
     Validate that a dataset is in proper long format for TVC Cox analysis.
-    
-    Parameters:
-        df: DataFrame to validate
-        id_col: Column name for patient ID
-        start_col: Column name for interval start time
-        stop_col: Column name for interval stop time
-        event_col: Column name for event indicator (0/1)
-    
-    Returns:
-        Tuple[bool, Optional[str]]: (is_valid, error_message)
-            - is_valid=True if all checks pass
-            - error_message contains specific issue if validation fails
-    
-    Validation Checks:
-        1. All required columns exist
-        2. No NaN values in key columns
-        3. start_time < stop_time for all rows
-        4. Duplicate (id, start, stop) combinations
-        5. Event values are 0 or 1
-        6. Event occurs only in final interval per patient
     """
     
     # 1. Check column existence
@@ -137,52 +115,6 @@ def transform_wide_to_long(
 ) -> Tuple[pd.DataFrame, Optional[str]]:
     """
     Transform wide-format survival data to long format for time-varying covariate analysis.
-    
-    In wide format, each row represents one patient with:
-    - ID, time to event/censoring, event indicator
-    - Multiple columns representing time-varying covariate values at different timepoints
-    - Static baseline covariates
-    
-    In long format, each row represents one patient-interval with:
-    - ID, start_time, stop_time, event (1 only in final interval)
-    - Last-observed value of time-varying covariates
-    - Static covariates (repeated)
-    
-    Parameters:
-        df: Wide-format DataFrame
-        id_col: Column name for patient ID
-        time_col: Column name for follow-up time
-        event_col: Column name for event indicator (binary)
-        tvc_cols: List of columns representing time-varying covariates
-                 Format: ['tvc_baseline', 'tvc_3m', 'tvc_6m', 'tvc_12m']
-                 Where tvc_baseline < tvc_3m < tvc_6m < tvc_12m
-        static_cols: List of columns for static covariates (e.g., ['age', 'sex'])
-        risk_intervals: List of time points defining intervals [0, 1, 3, 6, 12]
-                       If None, auto-detects from TVC column names or uses quantiles
-        interval_method: "quantile" (auto) or "manual" (user-specified)
-    
-    Returns:
-        Tuple[pd.DataFrame, Optional[str]]: (long_data, error_message)
-            - long_data: DataFrame in long format, ready for CoxTimeVaryingFitter
-            - error_message: If transformation fails, contains error details
-    
-    Example:
-        >>> wide_df = pd.DataFrame({
-        ...     'patient_id': [1, 2],
-        ...     'followup_time': [12, 6],
-        ...     'event': [1, 0],
-        ...     'tvc_baseline': [100, 95],
-        ...     'tvc_3m': [110, 98],
-        ...     'tvc_6m': [120, 105],
-        ...     'age': [45, 52],
-        ...     'sex': ['M', 'F']
-        ... })
-        >>> long_df, err = transform_wide_to_long(
-        ...     wide_df, id_col='patient_id', time_col='followup_time',
-        ...     event_col='event', tvc_cols=['tvc_baseline', 'tvc_3m', 'tvc_6m'],
-        ...     static_cols=['age', 'sex'], risk_intervals=[0, 3, 6, 12]
-        ... )
-        >>> # Now long_df has 8 rows: 4 intervals × 2 patients
     """
     
     try:
@@ -356,69 +288,33 @@ def fit_tvc_cox(
            Optional[Dict[str, Any]]]:
     """
     Fit Cox proportional hazards model with time-varying covariates.
-    
-    Uses lifelines.CoxTimeVaryingFitter which handles:
-    - Multiple intervals per patient
-    - Partial likelihood computation over intervals
-    - Event constraint (event=1 only in final interval)
-    
-    Parameters:
-        df: Long-format DataFrame with required columns
-        start_col: Column name for interval start time
-        stop_col: Column name for interval stop time
-        event_col: Column name for event indicator (binary)
-        tvc_cols: List of time-varying covariate column names
-        static_cols: List of static covariate column names (optional)
-        penalizer: Ridge penalizer (0.0 = no penalty, >0 = L2 regularization)
-        var_meta: Optional dictionary mapping column names to labels for output
-    
-    Returns:
-        Tuple containing:
-        - cph: CoxTimeVaryingFitter object (fitted model) or None if error
-        - results_df: Summary table (Variable, HR, CI_lower, CI_upper, p-value) or None
-        - clean_data: DataFrame used for fitting (after removing NaN) or None
-        - error: Error message string or None
-        - stats: Dictionary with model statistics (C-index, AIC, N events, etc.)
-        - missing_data_info: Dictionary describing missing data handling
-    
-    Example:
-        >>> from utils.tvc_lib import fit_tvc_cox
-        >>> cph, results_df, clean_data, err, stats, missing_info = fit_tvc_cox(
-        ...     long_df, start_col='start_time', stop_col='stop_time',
-        ...     event_col='event', tvc_cols=['treatment', 'lab_value'],
-        ...     static_cols=['age', 'sex']
-        ... )
-        >>> if err:
-        ...     print(f"Fitting error: {err}")
-        ... else:
-        ...     print(results_df)
     """
     
     try:
-        # --- 1. Column Resolution & Validation ---
-        # Robustly handle cases where input data (e.g. from transform_wide_to_long) 
-        # has standardized names ('start', 'stop') different from user selection.
+        # --- 1. Column Resolution & Robust Detection ---
+        # Handle cases where user-selected columns (from UI) differ from actual DataFrame columns
+        # (e.g. standard 'start'/'stop' generated by transform_wide_to_long)
         
         real_start_col = start_col
         real_stop_col = stop_col
         
-        # Fallback to 'start'/'stop' if user-specified columns are missing but standard ones exist
+        # If specified columns don't exist, check for standard names
         if start_col not in df.columns and 'start' in df.columns:
-            logger.info(f"TVC Fit: Start column '{start_col}' not found. Using 'start'.")
+            logger.info(f"TVC Fit: Start column '{start_col}' missing. Found 'start', using it.")
             real_start_col = 'start'
             
         if stop_col not in df.columns and 'stop' in df.columns:
-            logger.info(f"TVC Fit: Stop column '{stop_col}' not found. Using 'stop'.")
+            logger.info(f"TVC Fit: Stop column '{stop_col}' missing. Found 'stop', using it.")
             real_stop_col = 'stop'
 
-        # Validate required columns
+        # Validate existence of resolved columns
         required_cols = [real_start_col, real_stop_col, event_col]
         missing_required = [c for c in required_cols if c not in df.columns]
         if missing_required:
             msg = f"❌ Missing columns: {', '.join(missing_required)}. Available: {sorted(df.columns.tolist())}"
             return None, None, None, msg, {}, {}
 
-        # Combine covariates
+        # Combine all needed columns for cleaning
         all_covariates = (tvc_cols or []) + (static_cols or [])
         if not all_covariates:
             return None, None, None, "❌ No covariates specified", {}, {}
@@ -428,11 +324,11 @@ def fit_tvc_cox(
             return None, None, None, f"❌ Missing covariates: {', '.join(missing_covars)}", {}, {}
 
         # --- 2. Data Cleaning ---
-        id_col = df.columns[0] # Use first column as ID
+        id_col = df.columns[0] # Use first column as ID by convention
         
-        # Build key columns list
+        # Prepare subset for cleaning
         key_cols = [id_col, real_start_col, real_stop_col, event_col] + all_covariates
-        key_cols = list(dict.fromkeys(key_cols)) # Dedup preserving order
+        key_cols = list(dict.fromkeys(key_cols)) # Remove duplicates, preserve order
         
         clean_data, missing_info = handle_missing_for_analysis(
             df[key_cols],
@@ -443,36 +339,35 @@ def fit_tvc_cox(
         
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
-            
-        # DEBUG LOGGING
-        logger.info(f"DEBUG: start_col arg = '{start_col}'")
-        logger.info(f"DEBUG: real_start_col resolved = '{real_start_col}'")
-        logger.info(f"DEBUG: df.columns = {df.columns.tolist()}")
-        logger.info(f"DEBUG: clean_data.columns BEFORE restore = {clean_data.columns.tolist()}")
 
-        # [Safety Check] Ensure critical columns exist (restore from df if dropped by cleaner)
-        for col in [real_start_col, real_stop_col, event_col]:
-            if col not in clean_data.columns and col in df.columns:
-                clean_data[col] = df.loc[clean_data.index, col]
-                logger.warning(f"Restored column '{col}' from original data after cleaning.")
-
-        # --- 3. Standardization for Lifelines ---
-        # Ensure columns are named 'start' and 'stop' for cph.fit
+        # --- 3. Safety Check & Standardization ---
+        # Ensure 'start' and 'stop' exist in cleaned data. 
+        # If handle_missing dropped them (unlikely if in key_cols) or if we need to rename.
+        
         standard_start = 'start'
         standard_stop = 'stop'
-        
         rename_map = {}
+
+        # If we found the columns but they aren't named 'start'/'stop', prepare rename
         if real_start_col != standard_start:
             rename_map[real_start_col] = standard_start
         if real_stop_col != standard_stop:
             rename_map[real_stop_col] = standard_stop
-            
+
+        # Apply renaming
         if rename_map:
             clean_data = clean_data.rename(columns=rename_map)
+            logger.info(f"TVC Fit: Renamed columns for lifelines: {rename_map}")
 
+        # Final check before fitting
+        if standard_start not in clean_data.columns or standard_stop not in clean_data.columns:
+             # Should be impossible if logic above holds, but safety first
+             return None, None, None, f"❌ Internal Error: 'start' or 'stop' columns missing after standardization.", {}, {}
+
+        # --- 4. Fitting ---
         cph = CoxTimeVaryingFitter(penalizer=penalizer)
         
-        logger.info(f"TVC Fit - Pre-Fit Columns: {clean_data.columns.tolist()}")
+        logger.info(f"TVC Fit - Final Columns: {clean_data.columns.tolist()}")
         logger.info(f"TVC Fit - Args: event='{event_col}', start='{standard_start}', stop='{standard_stop}'")
         
         cph.fit(
@@ -482,21 +377,18 @@ def fit_tvc_cox(
             stop_col=standard_stop
         )
         
-        # Post-fitting validation check (optional but safest)
-        # Note: clean_data is now guaranteed to have no NaNs.
-        # However, checking for logic errors (start >= stop) is still good.
+        # --- 5. Post-Fit Validation ---
         is_valid, val_err = validate_long_format(
             clean_data, id_col=clean_data.columns[0],
             start_col=standard_start, stop_col=standard_stop, event_col=event_col
         )
         if not is_valid:
-             # Even after cleaning, if logic is bad, we fail
-             return None, None, clean_data, val_err, {}, missing_info
+             return None, None, clean_data, f"❌ Data validation failed after cleaning: {val_err}", {}, missing_info
         
-        # Extract results
+        # --- 6. Results Extraction ---
         summary_df = cph.summary.copy()
         
-        # Build results table with labels
+        # Apply labels
         label_map = {}
         if var_meta:
             for key, item in var_meta.items():
@@ -524,8 +416,7 @@ def fit_tvc_cox(
         
         results_df = pd.DataFrame(results_data)
         
-        # Model statistics
-        # Note: CoxTimeVaryingFitter might not have concordance_index_ computed by default depending on version
+        # Stats
         c_index = getattr(cph, 'concordance_index_', np.nan)
         aic = getattr(cph, 'AIC_partial_', getattr(cph, 'AIC_', np.nan))
         log_lik = getattr(cph, 'log_likelihood_', np.nan)
@@ -540,13 +431,13 @@ def fit_tvc_cox(
             'Penalizer': penalizer
         }
         
-        logger.info(f"✅ TVC Cox fitted: C-index={stats['Concordance Index']}, Events={stats['N Events']}")
+        logger.info(f"✅ TVC Cox fitted successfully.")
         
         return cph, results_df, clean_data, None, stats, missing_info
         
     except np.linalg.LinAlgError:
         logger.warning("TVC Cox: Singular matrix detected")
-        return None, None, None, "❌ Singular Matrix Error: Variables are likely highly correlated or collinear. \nTry:\n1. Increasing the penalizer (e.g., 0.1)\n2. Removing redundant variables.", {}, {}
+        return None, None, None, "❌ Singular Matrix Error: Variables are likely highly correlated or collinear.", {}, {}
     except Exception as e:
         logger.exception("TVC Cox fitting error")
         return None, None, None, f"❌ Model fitting error: {str(e)}", {}, {}
@@ -565,41 +456,24 @@ def check_tvc_assumptions(
 ) -> Tuple[str, List[go.Figure]]:
     """
     Check proportional hazards assumptions for TVC Cox model.
-    
-    For time-varying covariate models, standard Schoenfeld residual tests
-    may not apply in the classical sense. This function provides alternative diagnostics:
-    
-    1. **Partial likelihood residuals plot:** Check for patterns over time
-    2. **Coefficient stability:** Check if model coefficients vary significantly
-       over follow-up time by fitting separate models to time quartiles
-    3. **Cumulative hazard plot:** Check for non-proportionality visually
-    
-    Parameters:
-        cph: Fitted CoxTimeVaryingFitter object
-        df: Cleaned data used for fitting (long format)
-        start_col: Column name for interval start time
-        stop_col: Column name for interval stop time
-        event_col: Column name for event indicator
-    
-    Returns:
-        Tuple[str, List[go.Figure]]:
-        - interpretation_text: HTML-formatted interpretation of diagnostics
-        - diagnostic_plots: List of Plotly figures for visualization
     """
-    
     try:
-        # Resolve column names: fallback to cph attributes if passed names not in df
-        # This handles the case where fit_tvc_cox recognized/standardized columns to 'start'/'stop'
-        if start_col not in df.columns and hasattr(cph, 'start_col') and cph.start_col in df.columns:
+        # Standardize column names based on model attributes if available
+        # This aligns with the standardized names used during fit
+        if hasattr(cph, 'start_col') and cph.start_col in df.columns:
             start_col = cph.start_col
-        if stop_col not in df.columns and hasattr(cph, 'stop_col') and cph.stop_col in df.columns:
+        elif 'start' in df.columns:
+            start_col = 'start'
+
+        if hasattr(cph, 'stop_col') and cph.stop_col in df.columns:
             stop_col = cph.stop_col
+        elif 'stop' in df.columns:
+            stop_col = 'stop'
             
         # Get covariates from model
         covariates = cph.params_.index.tolist()
         
         # --- Diagnostic 1: Coefficient Stability Over Time ---
-        # Split data into time quartiles and refit
         df_time_sorted = df.sort_values(stop_col)
         quartile_size = len(df_time_sorted) // 4
         
@@ -640,25 +514,12 @@ def check_tvc_assumptions(
         2. **Domain Knowledge:**
            - Consult clinical literature for expected covariate effects over time
            - Consider whether covariates should change their effect dynamically
-        
-        3. **Interaction Testing:**
-           - Formally test time × covariate interactions
-           - If significant, consider extended TVC model with interaction terms
-        
-        4. **Sensitivity Analysis:**
-           - Refit with different risk interval definitions
-           - If results stable, conclusions are robust
-        
-        **Action Items:**
-        - If coefficients vary dramatically across time quartiles → Consider time × covariate interaction
-        - If coefficients stable → PH assumption reasonably satisfied
-        - If uncertainty remains → Consult with senior biostatistician
         """
         
         # --- Build Diagnostic Plots ---
         plots = []
         
-        # Plot 1: Coefficient Trends Across Time Quartiles
+        # Plot 1: Coefficient Trends
         if len(quartile_coefs) > 1:
             coef_data = {covar: [] for covar in covariates}
             
@@ -667,7 +528,7 @@ def check_tvc_assumptions(
                     coef_data[covar].append(coef_dict.get(covar, np.nan))
             
             fig = go.Figure()
-            for covar in covariates[:min(5, len(covariates))]:  # Limit to 5 for clarity
+            for covar in covariates[:min(5, len(covariates))]:
                 fig.add_trace(go.Scatter(
                     x=quartile_labels,
                     y=coef_data[covar],
@@ -685,7 +546,7 @@ def check_tvc_assumptions(
             )
             plots.append(fig)
         
-        # Plot 2: Residuals Over Time
+        # Plot 2: Residuals
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=df[stop_col],
@@ -717,12 +578,6 @@ def check_tvc_assumptions(
 def create_tvc_forest_plot(results_df: pd.DataFrame) -> go.Figure:
     """
     Create a forest plot for TVC Cox model results.
-    
-    Parameters:
-        results_df: DataFrame with columns: Variable, HR, HR_Lower, HR_Upper, p-value
-    
-    Returns:
-        go.Figure: Plotly figure ready for display
     """
     
     results_sorted = results_df.sort_values('HR', ascending=False)
@@ -784,24 +639,12 @@ def generate_tvc_report(
     var_meta: Optional[Dict[str, Any]] = None
 ) -> str:
     """
-    Generate HTML report for TVC Cox analysis with standard application styling.
-
-    Parameters:
-        title: Report title
-        elements: List of elements to include
-                 Each element: {'type': 'header'|'text'|'table'|'plot', 'data': ...}
-        stats: Model statistics dictionary
-        missing_data_info: Information about dropped rows due to missing values
-        var_meta: Optional variable metadata
-
-    Returns:
-        str: HTML string ready for download
+    Generate HTML report for TVC Cox analysis.
     """
     from utils.formatting import create_missing_data_report_html
     from config import CONFIG
     import html as _html
 
-    # --- Styles aligned with survival_lib.generate_report_survival ---
     primary_color = CONFIG.get('ui.colors.primary', '#2180BE')
     primary_dark = CONFIG.get('ui.colors.primary_dark', '#1a5a8a')
     text_color = '#333'
@@ -904,7 +747,6 @@ def generate_tvc_report(
     if stats:
         html_parts.append("<h2>📊 Model Summary</h2>")
         html_parts.append("<div class='stats-box'>")
-        # Format stats as a grid or list
         html_parts.append("<div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;'>")
         for key, val in stats.items():
             html_parts.append(f"<div><strong>{key}:</strong> {val}</div>")
@@ -923,12 +765,8 @@ def generate_tvc_report(
         if elem_type == 'header':
             html_parts.append(f"<h2>{_html.escape(str(data))}</h2>")
         elif elem_type == 'text':
-            # Allow some safe HTML provided by system (e.g. assumptions text), otherwise escape
-            # Assuming 'data' from our system is relatively safe, but for text blocks mostly just text.
-            # If data contains newlines, convert to <br> or wrap in <p>
             html_parts.append(f"<div style='background:#f8f9fa; padding:15px; border-radius:5px;'>{str(data)}</div>")
         elif elem_type == 'table' and isinstance(data, pd.DataFrame):
-            # Apply highlighting to p-values if present
             d_styled = data.copy()
             if 'p-value' in d_styled.columns:
                  p_vals = pd.to_numeric(d_styled['p-value'], errors='coerce')
