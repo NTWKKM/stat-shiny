@@ -511,22 +511,36 @@ def survival_server(
         ui.update_select("sg_subgroup", choices=choices_with_labels, selected=default_subgr)
         ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
         
-        # TVC: Column configuration (use same detection logic)
+        # TVC: Column configuration (use specialized detection for long-format TVC data)
         if len(cols) > 0:
-            # ID = first non-numeric column by default
-            id_candidates = [c for c in cols if c not in numeric_cols]
-            default_id = id_candidates[0] if id_candidates else cols[0]
+            # Auto-detect long-format TVC columns by name
+            tvc_id_default = 'id_tvc' if 'id_tvc' in cols else cols[0]
+            tvc_start_default = 'time_start' if 'time_start' in numeric_cols else default_time
+            tvc_stop_default = 'time_stop' if 'time_stop' in numeric_cols else default_time
+            tvc_event_default = 'status_event' if 'status_event' in cols else default_event
             
-            ui.update_select("tvc_id_col", choices={c: get_label(c) for c in cols}, selected=default_id)
-            ui.update_select("tvc_start_col", choices=num_choices_with_labels, selected=default_time)
-            ui.update_select("tvc_stop_col", choices=num_choices_with_labels, selected=default_time)
-            ui.update_select("tvc_event_col", choices=choices_with_labels, selected=default_event)
+            ui.update_select("tvc_id_col", choices={c: get_label(c) for c in cols}, selected=tvc_id_default)
+            ui.update_select("tvc_start_col", choices=num_choices_with_labels, selected=tvc_start_default)
+            ui.update_select("tvc_stop_col", choices=num_choices_with_labels, selected=tvc_stop_default)
+            ui.update_select("tvc_event_col", choices=choices_with_labels, selected=tvc_event_default)
             
-            tvc_auto = detect_tvc_columns(data)
-            static_auto = detect_static_columns(data, exclude_cols=[default_id, default_time, default_event] + tvc_auto)
+            # Detect TVC and Static columns
+            # Priority: exact matches for example data columns, then fallback to prefix detection
+            tvc_auto = []
+            if 'TVC_Value' in cols:
+                tvc_auto = ['TVC_Value']
+            else:
+                tvc_auto = detect_tvc_columns(data)
+            
+            static_auto = []
+            if 'Static_Age' in cols:
+                static_auto = [c for c in cols if c.startswith('Static_')]
+            else:
+                exclude_for_static = [tvc_id_default, tvc_start_default, tvc_stop_default, tvc_event_default] + tvc_auto
+                static_auto = detect_static_columns(data, exclude_cols=exclude_for_static)
             
             ui.update_checkbox_group("tvc_tvc_cols", choices={c: get_label(c) for c in tvc_auto}, selected=tvc_auto)
-            ui.update_checkbox_group("tvc_static_cols", choices={c: get_label(c) for c in static_auto}, selected=[])
+            ui.update_checkbox_group("tvc_static_cols", choices={c: get_label(c) for c in static_auto}, selected=static_auto)
 
     # ==================== EXISTING LOGIC (CURVES, LANDMARK, COX, SUBGROUP) ====================
     # ... (unchanged code for _run_curves, _run_landmark, _run_cox, _run_sg, and renderers) ...
