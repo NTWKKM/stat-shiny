@@ -542,8 +542,566 @@ def survival_server(
             ui.update_checkbox_group("tvc_tvc_cols", choices={c: get_label(c) for c in tvc_auto}, selected=tvc_auto)
             ui.update_checkbox_group("tvc_static_cols", choices={c: get_label(c) for c in static_auto}, selected=static_auto)
 
-    # ==================== EXISTING LOGIC (CURVES, LANDMARK, COX, SUBGROUP) ====================
-    # ... (unchanged code for _run_curves, _run_landmark, _run_cox, _run_sg, and renderers) ...
+    # ==================== 1. CURVES LOGIC (KM / Nelson-Aalen) ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_curves)
+    def _run_curves():
+        """Run Kaplan-Meier or Nelson-Aalen curves."""
+        data = current_df()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+        group_col = input.surv_group()
+        plot_type = input.plot_type()
+        
+        if data is None or time_col == "Select..." or event_col == "Select...":
+            ui.notification_show("Please select Time and Event variables", type="warning")
+            return
+        
+        if group_col == "None": 
+            group_col = None
+            
+        # Parse and validate time points
+        time_points: list[float] = []
+        raw_tp = input.surv_time_points()
+        if raw_tp:
+            try:
+                parts = [p.strip() for p in raw_tp.split(',') if p.strip()]
+                parsed_values = []
+                
+                for p in parts:
+                    try:
+                        val = float(p)
+                    except ValueError:
+                        raise ValueError(f"Non-numeric value detected: '{p}'. Please enter numbers only.") from None
+                        
+                    if val < 0:
+                        raise ValueError(f"Time points must be non-negative. Found: {val}")
+                    
+                    parsed_values.append(val)
+                
+                unique_points = sorted(set(parsed_values))
+                if len(unique_points) < len(parsed_values):
+                    ui.notification_show("⚠️ Duplicate time points were found and removed.", type="warning")
+                
+                time_points = unique_points
+                
+            except ValueError as e:
+                ui.notification_show(f"Input Error: {str(e)}", type="error")
+                return 
+        
+        try:
+            ui.notification_show("Generating curves...", duration=None, id="run_curves")
+            
+            surv_at_times_df = None
+            if time_points:
+                surv_at_times_df = survival_lib.calculate_survival_at_times(
+                    data, time_col, event_col, group_col, time_points
+                )
+            
+            medians = None
+            
+            if plot_type == "km":
+                fig, stats, missing_info = survival_lib.fit_km_logrank(
+                    data, time_col, event_col, group_col, var_meta=var_meta.get()
+                )
+                medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col)
+                
+            else:
+                fig, stats, missing_info = survival_lib.fit_nelson_aalen(
+                    data, time_col, event_col, group_col, var_meta=var_meta.get()
+                )
+            
+            curves_result.set({
+                'fig': fig, 
+                'stats': stats, 
+                'medians': medians,
+                'surv_at_times': surv_at_times_df,
+                'plot_type': plot_type,
+                'missing_data_info': missing_info
+            })
+            ui.notification_remove("run_curves")
+            
+        except Exception as e:
+            ui.notification_remove("run_curves")
+            ui.notification_show(f"Error: {e}", type="error")
+            logger.exception("Curve error")
+
+    @render.ui
+    def out_curves_result():
+        """Assemble and return the UI card displaying survival-curve outputs and related statistics."""
+        res = curves_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("*Results will appear here...*"),
+                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;"
+            )
+        
+        elements = [
+            ui.card_header("📈 Plot"),
+            ui.output_ui("out_curves_plot"),
+            ui.card_header("📄 Log-Rank Test / Summary Statistics"),
+            ui.output_data_frame("out_curves_table")
+        ]
+        
+        if res.get('medians') is not None:
+             elements.append(ui.card_header("⏱️ Median Survival Time"))
+             elements.append(ui.output_data_frame("out_medians_table"))
+        
+        if res.get('surv_at_times') is not None:
+            elements.append(ui.card_header("🕰️ Survival Probability at Specific Times"))
+            elements.append(ui.output_data_frame("out_surv_times_table"))
+            
+        return ui.card(*elements)
+
+    @render.ui
+    def out_curves_plot():
+        """Render the survival curves Plotly figure or a waiting placeholder."""
+        res = curves_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig'],
+            div_id="plot_curves_km_na",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
+
+    @render.data_frame
+    def out_curves_table():
+        """Render the curves statistics DataGrid when curve results are available."""
+        res = curves_result.get()
+        return render.DataGrid(res['stats']) if res else None
+
+    @render.data_frame
+    def out_medians_table():
+        """Render the median survival table."""
+        res = curves_result.get()
+        return render.DataGrid(res['medians']) if res and res.get('medians') is not None else None
+
+    @render.data_frame
+    def out_surv_times_table():
+        """Render the survival at specific times table."""
+        res = curves_result.get()
+        return render.DataGrid(res['surv_at_times']) if res and res.get('surv_at_times') is not None else None
+    
+    @render.download(filename="survival_report.html")
+    def btn_dl_curves():
+        """Download survival curves report."""
+        res = curves_result.get()
+        if not res:
+            yield "No results"
+            return
+        
+        elements = [
+            {'type': 'header', 'data': f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km')=='km' else 'Nelson-Aalen'})"},
+            {'type': 'plot', 'data': res['fig']},
+            {'type': 'header', 'data': 'Statistics'},
+            {'type': 'table', 'data': res['stats']}
+        ]
+        
+        if res.get('medians') is not None:
+            elements.append({'type': 'header', 'data': 'Median Survival Time'})
+            elements.append({'type': 'table', 'data': res['medians']})
+        
+        if res.get('surv_at_times') is not None:
+            elements.append({'type': 'header', 'data': 'Survival Probability at Fixed Times'})
+            elements.append({'type': 'table', 'data': res['surv_at_times']})
+            
+        yield survival_lib.generate_report_survival(
+            "Survival Analysis", 
+            elements, 
+            missing_data_info=res.get('missing_data_info'),
+            var_meta=var_meta.get()
+        )
+
+    # ==================== 2. LANDMARK ANALYSIS LOGIC ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_landmark)
+    def _run_landmark():
+        """Run landmark analysis."""
+        data = current_df()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+        group_col = input.landmark_group()
+        t = input.landmark_t()
+        
+        if data is None or group_col == "Select...":
+            ui.notification_show("Please configure variables properly", type="warning")
+            return
+
+        try:
+            ui.notification_show("Running Landmark Analysis...", duration=None, id="run_landmark")
+            fig, stats, n_pre, n_post, err, missing_info = survival_lib.fit_km_landmark(
+                data, time_col, event_col, group_col, t, var_meta=var_meta.get()
+            )
+            
+            if err:
+                ui.notification_show(err, type="error")
+            else:
+                landmark_result.set({
+                    'fig': fig, 
+                    'stats': stats, 
+                    'n_pre': n_pre, 
+                    'n_post': n_post, 
+                    't': t,
+                    'missing_data_info': missing_info
+                })
+            
+            ui.notification_remove("run_landmark")
+        except Exception as e:
+            ui.notification_remove("run_landmark")
+            logger.exception("Landmark error")
+            ui.notification_show(f"Landmark analysis error: {e}", type="error")
+
+    @render.ui
+    def out_landmark_result():
+        """Render the landmark analysis result card containing the plot and summary statistics."""
+        res = landmark_result.get()
+        if res is None: 
+            return None
+        return ui.card(
+            ui.card_header("📈 Landmark Plot"),
+            ui.div(
+                ui.markdown(f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"),
+                style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};"
+            ),
+            ui.output_ui("out_landmark_plot"),
+            ui.output_data_frame("out_landmark_table")
+        )
+
+    @render.ui
+    def out_landmark_plot():
+        """Render the landmark analysis plot or a waiting placeholder if results are not available."""
+        res = landmark_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['fig'],
+            div_id="plot_landmark_analysis",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
+
+    @render.data_frame
+    def out_landmark_table():
+        """Render a data grid containing landmark analysis statistics if results are available."""
+        res = landmark_result.get()
+        return render.DataGrid(res['stats']) if res else None
+
+    @render.download(filename="landmark_report.html")
+    def btn_dl_landmark():
+        """Download landmark analysis report."""
+        res = landmark_result.get()
+        if not res:
+            yield "No results"
+            return
+            
+        elements = [
+            {'type': 'header', 'data': f'Landmark Analysis (t={res["t"]})'},
+            {'type': 'plot', 'data': res['fig']},
+            {'type': 'header', 'data': 'Statistics'},
+            {'type': 'table', 'data': res['stats']}
+        ]
+        yield survival_lib.generate_report_survival(
+            "Landmark Analysis", 
+            elements,
+            missing_data_info=res.get('missing_data_info'),
+            var_meta=var_meta.get()
+        )
+
+    # ==================== 3. COX REGRESSION LOGIC ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_cox)
+    def _run_cox():
+        """Run Cox proportional hazards regression."""
+        data = current_df()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+        covars = input.cox_covariates()
+
+        if data is None or time_col == "Select..." or event_col == "Select...":
+            ui.notification_show("Please select Time and Event variables", type="warning")
+            return
+        
+        if not covars:
+            ui.notification_show("Select at least one covariate", type="warning")
+            return
+            
+        try:
+            ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
+            
+            cox_method = input.cox_method()
+            
+            cph, res_df, clean_data, err, model_stats, missing_info = survival_lib.fit_cox_ph(
+                data, time_col, event_col, list(covars), var_meta=var_meta.get(), method=cox_method
+            )
+            
+            if err:
+                ui.notification_show(err, type="error")
+                ui.notification_remove("run_cox")
+                return
+            
+            # Forest Plot
+            forest_fig = survival_lib.create_forest_plot_cox(res_df)
+            
+            # Check Assumptions (Schoenfeld) - only for lifelines CoxPHFitter
+            from lifelines import CoxPHFitter
+            if isinstance(cph, CoxPHFitter):
+                assump_text, assump_plots = survival_lib.check_cph_assumptions(cph, clean_data)
+            else:
+                # Firth Cox PH doesn't support Schoenfeld residuals
+                assump_text = "⚠️ Proportional Hazards assumption test is not available for Firth Cox PH models."
+                assump_plots = []
+            
+            cox_result.set({
+                'results_df': res_df,
+                'forest_fig': forest_fig,
+                'assumptions_text': assump_text,
+                'assumptions_plots': assump_plots,
+                'model_stats': model_stats,
+                'missing_data_info': missing_info
+            })
+            
+            ui.notification_remove("run_cox")
+            
+        except Exception as e:
+            ui.notification_remove("run_cox")
+            ui.notification_show(f"Cox error: {e}", type="error")
+            logger.exception("Cox Error")
+
+    @render.ui
+    def out_cox_result():
+        """Render the Cox proportional hazards model results card for the UI."""
+        res = cox_result.get()
+        if res is None: 
+            return None
+        
+        stats_ui = None
+        if res.get('model_stats'):
+            s = res['model_stats']
+            stats_ui = ui.div(
+                ui.div(ui.strong("C-index: "), str(s.get('Concordance Index (C-index)', '-'))),
+                ui.div(ui.strong("AIC: "), str(s.get('AIC', '-'))),
+                ui.div(ui.strong("Events: "), f"{s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}" ),
+                style='display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;'
+            )
+        
+        return ui.card(
+            ui.card_header("📄 Cox Results"),
+            stats_ui,
+            ui.output_data_frame("out_cox_table"),
+            
+            ui.card_header("🌳 Forest Plot"),
+            ui.output_ui("out_cox_forest"),
+            
+            ui.card_header("🔍 PH Assumption (Schoenfeld Residuals)"),
+            ui.output_ui("out_cox_assumptions_ui")
+        )
+
+    @render.data_frame
+    def out_cox_table():
+        """Render a data grid showing Cox regression results if available."""
+        res = cox_result.get()
+        return render.DataGrid(res['results_df']) if res else None
+
+    @render.ui
+    def out_cox_forest():
+        """Render the Cox regression forest plot if available; otherwise show a waiting placeholder."""
+        res = cox_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            res['forest_fig'],
+            div_id="plot_cox_forest",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
+
+    @render.ui
+    def out_cox_assumptions_ui():
+        """Render the proportional hazards assumption section for Cox regression."""
+        res = cox_result.get()
+        if not res: 
+            return None
+        
+        elements = [
+            ui.div(
+                ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}"),
+                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};"
+            )
+        ]
+        
+        if res['assumptions_plots']:
+            html_plots = ""
+            for i, fig in enumerate(res['assumptions_plots']):
+                include_js = 'cdn' if i == 0 else False
+                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
+            
+            elements.append(ui.HTML(html_plots))
+            
+        return ui.div(*elements)
+
+    @render.download(filename="cox_report.html")
+    def btn_dl_cox():
+        """Download Cox regression report."""
+        res = cox_result.get()
+        if not res:
+            yield "No results"
+            return
+
+        elements = [
+            {'type': 'header', 'data': 'Cox Proportional Hazards Regression'},
+        ]
+        
+        if res.get('model_stats'):
+            s = res['model_stats']
+            stats_text = f"C-index: {s.get('Concordance Index (C-index)')}, AIC: {s.get('AIC')}, Events: {s.get('Number of Events')}"
+            elements.append({'type': 'text', 'data': stats_text})
+
+        elements.extend([
+            {'type': 'table', 'data': res['results_df']},
+            {'type': 'plot', 'data': res['forest_fig']},
+            {'type': 'header', 'data': 'PH Assumptions'},
+            {'type': 'text', 'data': res['assumptions_text']}
+        ])
+        yield survival_lib.generate_report_survival(
+            "Cox Regression", 
+            elements, 
+            missing_data_info=res.get('missing_data_info'),
+            var_meta=var_meta.get()
+        )
+
+    # ==================== 4. SUBGROUP LOGIC ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_sg)
+    def _run_sg():
+        """Run subgroup analysis."""
+        if SubgroupAnalysisCox is None:
+            ui.notification_show("Subgroup module not found", type="error")
+            return
+            
+        data = current_df()
+        time = input.sg_time()
+        event = input.sg_event()
+        treat = input.sg_treatment()
+        subgroup = input.sg_subgroup()
+        adjust = input.sg_adjust()
+        
+        if any(x == "Select..." for x in [time, event, treat, subgroup]):
+            ui.notification_show("Please select all required variables", type="warning")
+            return
+            
+        try:
+            ui.notification_show("Running Subgroup Analysis...", duration=None, id="run_sg")
+            
+            analyzer = SubgroupAnalysisCox(data)  # type: ignore
+            result, _, error = analyzer.analyze(
+                duration_col=time,
+                event_col=event,
+                treatment_col=treat,
+                subgroup_col=subgroup,
+                adjustment_cols=list(adjust) if adjust else None,
+                min_subgroup_n=input.sg_min_n(),
+                min_events=input.sg_min_events(),
+                var_meta=var_meta.get()
+            )
+            if error:
+                ui.notification_show(error, type="error")
+                ui.notification_remove("run_sg")
+                return
+            
+            # Generate forest plot
+            forest_fig = analyzer.create_forest_plot()
+            result['forest_plot'] = forest_fig
+            result['interaction_table'] = analyzer.results
+            sg_result.set(result)
+            
+            ui.notification_remove("run_sg")
+        except Exception as e:
+            ui.notification_remove("run_sg")
+            ui.notification_show(f"Error: {e}", type="error")
+            logger.exception("Subgroup analysis error")
+
+    @render.ui
+    def out_sg_result():
+        """Builds the UI card displaying subgroup analysis results."""
+        res = sg_result.get()
+        if res is None: 
+            return None
+        
+        elements = []
+        if 'forest_plot' in res:
+            elements.append(ui.card_header("🌳 Subgroup Forest Plot"))
+            elements.append(ui.output_ui("out_sg_forest"))
+            
+        if 'interaction_table' in res:
+            elements.append(ui.card_header("📄 Interaction Analysis"))
+            elements.append(ui.output_data_frame("out_sg_table"))
+            
+        # Missing Data Report
+        if 'missing_data_info' in res:
+            elements.append(ui.card_header("⚠️ Missing Data Report"))
+            elements.append(ui.HTML(create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {})))
+            
+        return ui.card(*elements)
+
+    @render.ui
+    def out_sg_forest():
+        """Render the subgroup analysis forest plot or a placeholder when results are unavailable."""
+        res = sg_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        fig = res.get('forest_plot')
+        if fig is None:
+            return ui.div(
+                ui.markdown("⏳ *No forest plot available...*"),
+                style="color: #999; text-align: center; padding: 20px;"
+            )
+        html_str = plotly_figure_to_html(
+            fig,
+            div_id="plot_subgroup_forest",
+            include_plotlyjs='cdn',
+            responsive=True
+        )
+        return ui.HTML(html_str)
+        
+    @render.data_frame
+    def out_sg_table():
+        """Render the subgroup interaction analysis table when subgroup results are available."""
+        res = sg_result.get()
+        return render.DataGrid(res.get('interaction_table')) if res else None
+
+    @render.download(filename="subgroup_report.html")
+    def btn_dl_sg():
+        """Download subgroup analysis report."""
+        res = sg_result.get()
+        if not res:
+            yield "No results"
+            return
+            
+        elements = [
+            {'type': 'header', 'data': 'Cox Subgroup Analysis'},
+            {'type': 'plot', 'data': res.get('forest_plot')},
+            {'type': 'header', 'data': 'Results'},
+            {'type': 'table', 'data': res.get('interaction_table')}
+        ]
+        elements = [e for e in elements if e.get('data') is not None]
+        yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
 
     # ==================== 5. TIME-VARYING COX LOGIC (NEW) ====================
     @reactive.Effect
