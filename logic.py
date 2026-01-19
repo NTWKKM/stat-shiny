@@ -909,27 +909,37 @@ def analyze_outcome(
                     feat = html.escape(str(row["feature"]).replace("::", ": "))
                     val = row['VIF']
                     
-                    vif_class = "vif-value"
-                    icon = ""
-                    if val > vif_threshold:
-                        vif_class += " vif-warning"
+                    # Format VIF value with special handling for infinity
+                    if np.isinf(val):
+                        vif_str = "∞ (Perfect Collinearity)"
+                        vif_class = "vif-warning"
+                        icon = "⚠️"
+                    elif val > vif_threshold:
+                        vif_str = f"{val:.2f}"
+                        vif_class = "vif-warning"
                         icon = "⚠️"
                     elif val > 5:
-                        vif_class += " vif-caution"
+                        vif_str = f"{val:.2f}"
+                        vif_class = "vif-caution"
+                        icon = ""
+                    else:
+                        vif_str = f"{val:.2f}"
+                        vif_class = ""
+                        icon = ""
                     
                     vif_rows.append(f"""
                         <tr>
                             <td>{feat}</td>
-                            <td class='{vif_class}'>{val:.2f} {icon}</td>
+                            <td class='{vif_class}'><strong>{vif_str}</strong> {icon}</td>
                         </tr>
                     """)
                 
                 vif_body = "".join(vif_rows)
                 
                 vif_html = f"""
-                <div class='vif-container'>
+                <div class='vif-container' style='margin-top: 16px;'>
                     <div class='vif-title'>🔹 Collinearity Diagnostics (VIF)</div>
-                    <table class='vif-table'>
+                    <table class='table' style='max-width: 500px;'>
                         <thead>
                             <tr>
                                 <th>Predictor</th>
@@ -938,7 +948,9 @@ def analyze_outcome(
                         </thead>
                         <tbody>{vif_body}</tbody>
                     </table>
-                    <div class='vif-footer'>Threshold: >{vif_threshold} indicates potential high collinearity.</div>
+                    <div class='vif-footer'>
+                        VIF &gt; {vif_threshold}: potential high collinearity. ∞ = perfect correlation with other predictors.
+                    </div>
                 </div>
                 """
         except (ValueError, np.linalg.LinAlgError) as e:

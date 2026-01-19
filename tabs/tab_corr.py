@@ -621,12 +621,6 @@ def corr_server(
             'type': 'note',
             'data': stats['Sample Note']
         })
-        
-        if 'missing_data_info' in stats:
-            elements.append({
-                'type': 'html',
-                'data': create_missing_data_report_html(stats['missing_data_info'], var_meta.get() or {})
-            })
             
         # Add plot
         elements.append({
@@ -634,6 +628,13 @@ def corr_server(
             'header': 'Scatter Plot',
             'data': result['figure']
         })
+        
+        # Missing Data Report (moved to end)
+        if 'missing_data_info' in stats:
+            elements.append({
+                'type': 'html',
+                'data': create_missing_data_report_html(stats['missing_data_info'], var_meta.get() or {})
+            })
         
         # Generate HTML
         html_content = correlation.generate_report(
@@ -822,12 +823,6 @@ def corr_server(
             'type': 'summary',
             'data': summary_text
         })
-
-        if 'missing_data_info' in summary:
-            elements.append({
-                'type': 'html',
-                'data': create_missing_data_report_html(summary['missing_data_info'], var_meta.get() or {})
-            })
         
         # Add heatmap
         elements.append({
@@ -847,6 +842,13 @@ def corr_server(
             'type': 'note',
             'data': 'Significance levels: * p<0.05, ** p<0.01, *** p<0.001'
         })
+
+        # Missing Data Report (moved to end)
+        if 'missing_data_info' in summary:
+            elements.append({
+                'type': 'html',
+                'data': create_missing_data_report_html(summary['missing_data_info'], var_meta.get() or {})
+            })
         
         # Generate HTML
         html_content = correlation.generate_report(
