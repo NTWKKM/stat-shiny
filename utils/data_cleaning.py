@@ -541,7 +541,7 @@ def clean_dataframe(df: pd.DataFrame,
                 if (
                     pd.api.types.is_object_dtype(df_cleaned[col])
                     or pd.api.types.is_string_dtype(df_cleaned[col])
-                    or pd.api.types.is_categorical_dtype(df_cleaned[col])
+                    or isinstance(df_cleaned[col].dtype, pd.CategoricalDtype)
                 ):
                     original_na = df_cleaned[col].isna().sum()
                     

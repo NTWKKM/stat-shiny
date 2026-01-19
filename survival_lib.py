@@ -25,6 +25,9 @@ import logging
 import numbers
 import warnings
 from functools import lru_cache
+
+# Suppress DeprecationWarning from lifelines (datetime.utcnow)
+warnings.filterwarnings("ignore", message="datetime.datetime.utcnow")
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np

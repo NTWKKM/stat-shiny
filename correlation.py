@@ -534,12 +534,22 @@ def compute_correlation_matrix(
     p_flat = p_upper_triangle.values[mask]
     
     # Summary statistics
+    # Calculate summary stats carefully to avoid RuntimeWarning
+    if len(upper_triangle_flat) > 0 and not np.all(np.isnan(upper_triangle_flat)):
+        mean_corr = float(np.nanmean(np.abs(upper_triangle_flat)))
+        max_corr = float(np.nanmax(np.abs(upper_triangle_flat)))
+        min_corr = float(np.nanmin(np.abs(upper_triangle_flat)))
+    else:
+        mean_corr = 0.0
+        max_corr = 0.0
+        min_corr = 0.0
+
     summary = {
         "n_variables": len(cols),
         "n_correlations": len(upper_triangle_flat),
-        "mean_correlation": float(np.nanmean(np.abs(upper_triangle_flat))),
-        "max_correlation": float(np.nanmax(np.abs(upper_triangle_flat))),
-        "min_correlation": float(np.nanmin(np.abs(upper_triangle_flat))),
+        "mean_correlation": mean_corr,
+        "max_correlation": max_corr,
+        "min_correlation": min_corr,
         "n_significant": int(np.sum(p_flat < 0.05)),
         "pct_significant": float(np.nansum(p_flat < 0.05) / np.sum(~np.isnan(p_flat)) * 100) if np.sum(~np.isnan(p_flat)) > 0 else 0.0,
         "missing_data_info": missing_data_info
