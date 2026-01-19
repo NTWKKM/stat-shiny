@@ -433,14 +433,30 @@ def fit_tvc_cox(
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
         
+        # Standardize column names for lifelines to avoid KeyError
+        # Rename start_col -> 'start', stop_col -> 'stop' in clean_data
+        # This prevents issues where lifelines might insist on default names or fail to pop custom names
+        standard_start = 'start'
+        standard_stop = 'stop'
+        
+        # Handle case where columns are ALREADY named start/stop to avoid rename error
+        rename_map = {}
+        if start_col != standard_start:
+            rename_map[start_col] = standard_start
+        if stop_col != standard_stop:
+            rename_map[stop_col] = standard_stop
+            
+        if rename_map:
+            clean_data = clean_data.rename(columns=rename_map)
+            
         # Fit model
         cph = CoxTimeVaryingFitter(penalizer=penalizer)
         
         cph.fit(
             df=clean_data,
             event_col=event_col,
-            start_col=start_col,
-            stop_col=stop_col
+            start_col=standard_start,
+            stop_col=standard_stop
         )
         
         # Post-fitting validation check (optional but safest)
@@ -448,7 +464,7 @@ def fit_tvc_cox(
         # However, checking for logic errors (start >= stop) is still good.
         is_valid, val_err = validate_long_format(
             clean_data, id_col=clean_data.columns[0],
-            start_col=start_col, stop_col=stop_col, event_col=event_col
+            start_col=standard_start, stop_col=standard_stop, event_col=event_col
         )
         if not is_valid:
              # Even after cleaning, if logic is bad, we fail
@@ -546,6 +562,13 @@ def check_tvc_assumptions(
     """
     
     try:
+        # Resolve column names: fallback to cph attributes if passed names not in df
+        # This handles the case where fit_tvc_cox recognized/standardized columns to 'start'/'stop'
+        if start_col not in df.columns and hasattr(cph, 'start_col') and cph.start_col in df.columns:
+            start_col = cph.start_col
+        if stop_col not in df.columns and hasattr(cph, 'stop_col') and cph.stop_col in df.columns:
+            stop_col = cph.stop_col
+            
         # Get covariates from model
         covariates = cph.params_.index.tolist()
         
