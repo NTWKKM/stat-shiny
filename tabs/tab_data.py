@@ -204,71 +204,81 @@ def data_server(
             icc_rater2 = icc_rater2.round(1)
 
             # [UPDATED] Time-Varying Covariates (Long Format) for TVC Module Testing
-            # Generate TVC data: Multiple rows per patient with time intervals
-            # Each patient has 2-4 intervals depending on their follow-up time
+            # [UPDATED] Time-Varying Covariates (Long Format)
+            # Generate EXACTLY n rows of TVC intervals to match the main dataset size.
+            # This creates a "Hybrid" dataset:
+            # - Rows 0-1599 are independent patients for standard analysis.
+            # - Rows 0-1599 ALSO represent intervals for ~500 TVC patients for TVC analysis.
             
-            n_tvc_patients = 300  # Number of patients for TVC data
-            tvc_intervals = [0, 3, 6, 12, 24]  # Time points
-            
+            tvc_intervals_template = [0, 3, 6, 12, 24]
             tvc_data_rows = []
-            for patient_id in range(1, n_tvc_patients + 1):
-                # Static values (same for all intervals of this patient)
-                static_age = np.random.randint(30, 80)
-                static_sex = np.random.choice([0, 1])
+            current_row_count = 0
+            tvc_patient_id = 1
+            
+            while current_row_count < n:
+                # Generate a patient profile
+                p_age = np.random.randint(30, 80)
+                p_sex = np.random.choice([0, 1])
+                p_max_followup = np.random.uniform(3, 30)
+                p_has_event = np.random.choice([0, 1], p=[0.4, 0.6])
                 
-                # Determine total follow-up time and event status
-                max_followup = np.random.uniform(3, 30)
-                has_event = np.random.choice([0, 1], p=[0.4, 0.6])  # 60% event rate
-                
-                # Baseline TVC value
                 baseline_val = np.random.normal(50, 10)
                 current_val = baseline_val
                 
-                # Create intervals for this patient
-                for i in range(len(tvc_intervals) - 1):
-                    start_time = tvc_intervals[i]
-                    stop_time = tvc_intervals[i + 1]
+                # Generate intervals for this patient
+                patient_intervals = []
+                for i in range(len(tvc_intervals_template) - 1):
+                    start_t = tvc_intervals_template[i]
+                    stop_t = tvc_intervals_template[i + 1]
                     
-                    # Skip intervals beyond follow-up time
-                    if start_time >= max_followup:
+                    if start_t >= p_max_followup:
                         break
                     
-                    # Adjust stop time if it exceeds follow-up
-                    actual_stop = min(stop_time, max_followup)
+                    actual_stop = min(stop_t, p_max_followup)
                     
-                    # Rounding can cause zero duration intervals (e.g. 3.0 to 3.04 -> both 3.0)
-                    r_start = round(start_time, 1)
+                    # Fix zero-length intervals
+                    r_start = round(start_t, 1)
                     r_stop = round(actual_stop, 1)
-                    
                     if r_stop <= r_start:
-                        # If interval is too short, extend stop slightly
                         r_stop = r_start + 0.1
+                        
+                    is_final = (actual_stop >= p_max_followup) or (stop_t >= p_max_followup)
+                    event = 1 if (p_has_event and is_final) else 0
                     
-                    # Determine event: 1 only in final interval for patients with events
-                    # Check if this is effectively the last interval
-                    is_final_interval = (actual_stop >= max_followup) or (stop_time >= max_followup)
-                    interval_event = 1 if (has_event and is_final_interval) else 0
+                    drift = np.random.normal(2, 3)
+                    current_val = np.clip(current_val + drift, 10, 120)
                     
-                    # TVC value changes over time (simulate deterioration or improvement)
-                    drift = np.random.normal(2, 3)  # Slight increase over time
-                    current_val = current_val + drift
-                    current_val = np.clip(current_val, 10, 120)
-                    
-                    tvc_data_rows.append({
-                        'id_tvc': patient_id,
+                    patient_intervals.append({
+                        'id_tvc': tvc_patient_id,
                         'time_start': r_start,
                         'time_stop': r_stop,
-                        'status_event': interval_event,
+                        'status_event': event,
                         'TVC_Value': round(current_val, 1),
-                        'Static_Age': static_age,
-                        'Static_Sex': static_sex
+                        'Static_Age': p_age,
+                        'Static_Sex': p_sex
                     })
                     
-                    # If we hit max_followup, stop generating intervals for this patient
-                    if actual_stop >= max_followup:
+                    if actual_stop >= p_max_followup:
                         break
+                
+                # Add to main list, but trim if exceeding n
+                for row in patient_intervals:
+                    if current_row_count >= n:
+                        break
+                    tvc_data_rows.append(row)
+                    current_row_count += 1
+                
+                tvc_patient_id += 1
             
             tvc_df = pd.DataFrame(tvc_data_rows)
+            
+            # Verify length (should be exactly n)
+            if len(tvc_df) < n:
+                # Pad if somehow short (unlikely loop logic, but safe fallback)
+                padding = pd.DataFrame(np.nan, index=range(n - len(tvc_df)), columns=tvc_df.columns)
+                tvc_df = pd.concat([tvc_df, padding], ignore_index=True)
+            elif len(tvc_df) > n:
+                tvc_df = tvc_df.iloc[:n]
 
             data = {
                 'ID': range(1, n+1),
@@ -289,25 +299,18 @@ def data_server(
                 'Lab_Glucose': glucose,
                 'ICC_SysBP_Rater1': icc_rater1,
                 'ICC_SysBP_Rater2': icc_rater2,
+                # TVC Columns (Hybrid - mapped to rows)
+                'id_tvc': tvc_df['id_tvc'].values,
+                'time_start': tvc_df['time_start'].values,
+                'time_stop': tvc_df['time_stop'].values,
+                'status_event': tvc_df['status_event'].values,
+                'TVC_Value': tvc_df['TVC_Value'].values,
+                'Static_Age': tvc_df['Static_Age'].values,
+                'Static_Sex': tvc_df['Static_Sex'].values,
             }
-            
-            # Add TVC columns to main data (fill with NaN for non-TVC rows)
-            for col in ['id_tvc', 'time_start', 'time_stop', 'status_event', 'TVC_Value', 'Static_Age', 'Static_Sex']:
-                data[col] = np.nan
 
             new_df = pd.DataFrame(data)
             
-            # Append TVC rows to main dataframe
-            # For TVC rows, fill non-TVC columns with NaN
-            tvc_df_full = tvc_df.copy()
-            for col in new_df.columns:
-                if col not in tvc_df_full.columns:
-                    tvc_df_full[col] = np.nan
-            
-            # Reorder columns to match main df
-            tvc_df_full = tvc_df_full[new_df.columns]
-            new_df = pd.concat([new_df, tvc_df_full], ignore_index=True)
-
             # [ADDED] Introduce ~0.618% missing data (NaN) for demonstration
             # Exclude ID and TVC key columns from having missing values
             protected_cols = ['ID', 'id_tvc', 'time_start', 'time_stop', 'status_event']
