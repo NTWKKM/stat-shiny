@@ -621,6 +621,17 @@ def survival_server(
         return render.DataGrid(preview_df)
 
     @reactive.Effect
+    def _update_tvc_ui_labels():
+        """Update input labels based on data format selection."""
+        fmt = input.tvc_data_format()
+        if fmt == "wide":
+            ui.update_select("tvc_stop_col", label="⏱️ Follow-up Time:")
+            session.send_custom_message("set_element_style", {"id": "div_tvc_start_col", "style": {"display": "none"}})
+        else:
+            ui.update_select("tvc_stop_col", label="⏱️ Interval Stop Time:")
+            session.send_custom_message("set_element_style", {"id": "div_tvc_start_col", "style": {"display": "block"}})
+
+    @reactive.Effect
     @reactive.event(input.btn_run_tvc)
     def _run_tvc():
         """Run Time-Varying Cox model using long-format data."""
@@ -631,16 +642,17 @@ def survival_server(
         
         id_col = input.tvc_id_col()
         start_col = input.tvc_start_col()
-        stop_col = input.tvc_stop_col()
+        stop_col = input.tvc_stop_col() # In Wide format, this acts as 'Time'
         event_col = input.tvc_event_col()
         tvc_cols = list(input.tvc_tvc_cols())
         static_cols = list(input.tvc_static_cols())
         penalizer = float(input.tvc_penalizer())
         
-        if any(x == "Select..." for x in [id_col, start_col, stop_col, event_col]):
-            ui.notification_show("Please configure ID, time, and event columns", type="warning")
-            return
-        
+        # Validation
+        if any(x == "Select..." for x in [id_col, stop_col, event_col]):
+             ui.notification_show("Please configure ID, time, and event columns", type="warning")
+             return
+             
         if not tvc_cols and not static_cols:
             ui.notification_show("Please select at least one covariate", type="warning")
             return
@@ -648,16 +660,76 @@ def survival_server(
         try:
             ui.notification_show("Fitting Time-Varying Cox Model...", duration=None, id="run_tvc")
             
-            # Use long-format data directly (no transformation here; transformation handled upstream if needed)
-            long_df = tvc_long_data.get()
-            if long_df is None:
-                # Fallback: attempt to construct from current data selection
-                long_df = data[[id_col, start_col, stop_col, event_col] + tvc_cols + static_cols].copy()
+            # --- 1. Handle Data Format (Long vs Wide) ---
+            fmt = input.tvc_data_format()
+            
+            if fmt == "wide":
+                # In Wide format, user selected:
+                # - ID: Input ID
+                # - Follow-up Time: mapped from tvc_stop_col input (label it clearly in UI if possible, but reusing input is fine)
+                # - Event: Input Event
+                # - Intervals: From picker
+                logger.info("Transforming Wide -> Long for TVC...")
+                
+                # Get interval method settings
+                method = input.tvc_interval_method()
+                manual_str = input.tvc_manual_intervals()
+                risk_intervals = None
+                
+                if method == "manual" and manual_str:
+                    try:
+                        risk_intervals = sorted(set(float(x.strip()) for x in manual_str.split(",") if x.strip() != ""))
+                    except ValueError:
+                        ui.notification_show("Invalid manual intervals", type="error")
+                        ui.notification_remove("run_tvc")
+                        return
+
+                from utils.tvc_lib import transform_wide_to_long
+                
+                long_df, trans_err = transform_wide_to_long(
+                    data,
+                    id_col=id_col,
+                    time_col=stop_col, # Reusing stop_col input as 'Time' for Wide format
+                    event_col=event_col,
+                    tvc_cols=tvc_cols,
+                    static_cols=static_cols,
+                    risk_intervals=risk_intervals,
+                    interval_method=method
+                )
+                
+                if trans_err:
+                    ui.notification_show(trans_err, type="error")
+                    logger.error(f"TVC Transformation Error: {trans_err}")
+                    ui.notification_remove("run_tvc")
+                    return
+                    
+                fit_data = long_df
+                # For long format fitting, start/stop are fixed names from transformation
+                fit_start = 'start_time'
+                fit_stop = 'stop_time'
+                
+                # Update cols list for fitting (tvc cols are now single column 'tvc_val'...? 
+                # Wait, transform_wide_to_long preserves column names but fills them?
+                # ... checking tvc_lib.py -> uses same names for TVC cols in output
+                
+            else:
+                # Long format: Use data directly
+                long_df_pre = tvc_long_data.get()
+                if long_df_pre is not None:
+                    fit_data = long_df_pre
+                else:
+                    fit_data = data[[id_col, start_col, stop_col, event_col] + tvc_cols + static_cols].copy()
+                
+                fit_start = start_col
+                fit_stop = stop_col
+            
+            # --- 2. Fit Model ---
+            from utils.tvc_lib import check_tvc_assumptions  # Import here to ensure availability
             
             cph, res_df, clean_data, err, stats, missing_info = fit_tvc_cox(
-                long_df,
-                start_col=start_col,
-                stop_col=stop_col,
+                fit_data,
+                start_col=fit_start,
+                stop_col=fit_stop,
                 event_col=event_col,
                 tvc_cols=tvc_cols,
                 static_cols=static_cols,
@@ -673,10 +745,13 @@ def survival_server(
             # Forest plot
             forest_fig = create_tvc_forest_plot(res_df)
             
-            # Diagnostics
-            assumption_text, assumption_plots = (
-                ("Diagnostics not available", []) if cph is None else
-                survival_lib.check_cph_assumptions(cph, clean_data)  # Reuse existing logic where possible
+            # --- 3. Diagnostics (Specialized for TVC) ---
+            assumption_text, assumption_plots = check_tvc_assumptions(
+                cph, 
+                clean_data, 
+                start_col=fit_start, 
+                stop_col=fit_stop, 
+                event_col=event_col
             )
             
             tvc_result.set({
