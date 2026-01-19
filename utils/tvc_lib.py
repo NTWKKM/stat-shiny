@@ -449,11 +449,10 @@ def fit_tvc_cox(
         if rename_map:
             clean_data = clean_data.rename(columns=rename_map)
             
-        # Fit model
         cph = CoxTimeVaryingFitter(penalizer=penalizer)
         
-        logger.debug(f"TVC Fit - Columns: {clean_data.columns.tolist()}")
-        logger.debug(f"TVC Fit - Args: event='{event_col}', start='{standard_start}', stop='{standard_stop}'")
+        logger.info(f"TVC Fit - Pre-Fit Columns: {clean_data.columns.tolist()}")
+        logger.info(f"TVC Fit - Args: event='{event_col}', start='{standard_start}', stop='{standard_stop}'")
         
         cph.fit(
             df=clean_data,
