@@ -444,8 +444,14 @@ def fit_tvc_cox(
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
             
+        # [Safety Check] Ensure critical columns exist (restore from df if dropped by cleaner)
+        for col in [real_start_col, real_stop_col, event_col]:
+            if col not in clean_data.columns and col in df.columns:
+                clean_data[col] = df.loc[clean_data.index, col]
+                logger.warning(f"Restored column '{col}' from original data after cleaning.")
+
         # --- 3. Standardization for Lifelines ---
-        # Ensure columns are named 'start' and 'stop' as lifelines can be finicky or user expectation varies
+        # Ensure columns are named 'start' and 'stop' for cph.fit
         standard_start = 'start'
         standard_stop = 'stop'
         
