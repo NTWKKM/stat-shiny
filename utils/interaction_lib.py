@@ -13,7 +13,7 @@ import statsmodels.api as sm
 from scipy.stats import chi2
 
 from logger import get_logger
-from logic import COLORS, clean_numeric_value, fmt_p_with_styling
+from utils.logic import COLORS, clean_numeric_value, fmt_p_with_styling
 
 logger = get_logger(__name__)
 

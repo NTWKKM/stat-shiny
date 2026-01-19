@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
-import diag_test
+from utils import diag_test
 from tabs._common import get_color_palette
 from utils.formatting import create_missing_data_report_html
 

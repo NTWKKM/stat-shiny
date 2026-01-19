@@ -16,7 +16,7 @@ import scipy.stats as stats
 import statsmodels.api as sm
 
 from config import CONFIG
-from forest_plot_lib import create_forest_plot
+from utils.forest_plot_lib import create_forest_plot
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
@@ -787,7 +787,7 @@ def analyze_outcome(
         # ✅ NEW: Add interaction terms if specified
         if interaction_pairs:
             try:
-                from interaction_lib import create_interaction_terms
+                from utils.interaction_lib import create_interaction_terms
                 multi_df, int_meta = create_interaction_terms(multi_df, interaction_pairs, mode_map)
                 logger.info(f"✅ Added {len(int_meta)} interaction terms to logistic multivariate model")
             except ImportError:
@@ -859,7 +859,7 @@ def analyze_outcome(
                 # ✅ NEW: Process interaction effects
                 if int_meta:
                     try:
-                        from interaction_lib import format_interaction_results
+                        from utils.interaction_lib import format_interaction_results
                         interaction_results = format_interaction_results(params, conf, pvals, int_meta, 'logit')
                         logger.info(f"✅ Formatted {len(interaction_results)} logistic interaction results")
                         

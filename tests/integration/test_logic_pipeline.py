@@ -19,8 +19,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from forest_plot_lib import create_forest_plot  # Import forest plot lib
-from logic import (
+from utils.forest_plot_lib import create_forest_plot  # Import forest plot lib
+from utils.logic import (
     analyze_outcome,
     clean_numeric_value,
     run_binary_logit,

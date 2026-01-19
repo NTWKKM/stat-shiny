@@ -20,8 +20,8 @@ import numpy as np
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
-import correlation  # Import from root
-import diag_test  # Import for ICC calculation
+from utils import correlation  # Import from utils
+from utils import diag_test  # Import for ICC calculation
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (

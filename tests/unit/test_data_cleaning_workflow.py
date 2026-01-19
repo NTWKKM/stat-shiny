@@ -21,7 +21,7 @@ import pandas as pd
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from table_one import generate_table
+from utils.table_one import generate_table
 from utils.data_cleaning import (
     clean_dataframe,
     clean_numeric,
@@ -69,7 +69,6 @@ def test_original_data_preservation():
     assert original_data.dtypes['age'] == object, "Original dtype was modified!"
     
     print("\n✓ TEST PASSED: Original data preserved")
-    return True
 
 
 def test_cleaned_data_improvement():
@@ -106,7 +105,6 @@ def test_cleaned_data_improvement():
     assert cleaned_df.loc[1, 'numeric_with_issues'] == 1234.56, "Second value not cleaned correctly"
     
     print("\n✓ TEST PASSED: Cleaned data has better quality")
-    return True
 
 
 def test_table_one_workflow():
@@ -166,7 +164,6 @@ def test_table_one_workflow():
     print(f"Original weight[4] still: {original_data.loc[4, 'weight']}")
     
     print("\n✓ TEST PASSED: Table One preserves original data and generates valid HTML")
-    return True
 
 
 def test_outlier_detection_and_handling():
@@ -196,7 +193,6 @@ def test_outlier_detection_and_handling():
     assert winsorized.max() < 100, "Outlier not handled correctly!"
     
     print("\n✓ TEST PASSED: Outlier detection and handling works correctly")
-    return True
 
 
 def test_edge_cases():
@@ -244,7 +240,6 @@ def test_edge_cases():
     print("  ✓ Special characters handled correctly")
     
     print("\n✓ TEST PASSED: All edge cases handled correctly")
-    return True
 
 
 def run_all_tests():
