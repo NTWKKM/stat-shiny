@@ -444,6 +444,12 @@ def fit_tvc_cox(
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
             
+        # DEBUG LOGGING
+        logger.info(f"DEBUG: start_col arg = '{start_col}'")
+        logger.info(f"DEBUG: real_start_col resolved = '{real_start_col}'")
+        logger.info(f"DEBUG: df.columns = {df.columns.tolist()}")
+        logger.info(f"DEBUG: clean_data.columns BEFORE restore = {clean_data.columns.tolist()}")
+
         # [Safety Check] Ensure critical columns exist (restore from df if dropped by cleaner)
         for col in [real_start_col, real_stop_col, event_col]:
             if col not in clean_data.columns and col in df.columns:
