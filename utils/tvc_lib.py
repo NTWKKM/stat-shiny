@@ -340,10 +340,15 @@ def fit_tvc_cox(
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
 
+        # --- 2.5 Safety Restoration ---
+        # [CRITICAL FIX] Ensure critical columns exist (restore from df if dropped by cleaner)
+        # This fixes the issue where clean_data loses the start/stop/event columns
+        for col in [real_start_col, real_stop_col, event_col]:
+            if col not in clean_data.columns and col in df.columns:
+                clean_data[col] = df.loc[clean_data.index, col]
+                logger.warning(f"Restored column '{col}' from original data after cleaning.")
+
         # --- 3. Safety Check & Standardization ---
-        # Ensure 'start' and 'stop' exist in cleaned data. 
-        # If handle_missing dropped them (unlikely if in key_cols) or if we need to rename.
-        
         standard_start = 'start'
         standard_stop = 'stop'
         rename_map = {}
