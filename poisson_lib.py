@@ -15,6 +15,10 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 import statsmodels.api as sm
+import statsmodels.genmod.generalized_linear_model
+
+# Suppress statsmodels FutureWarning for BIC calculation
+statsmodels.genmod.generalized_linear_model.SET_USE_BIC_LLF(True)
 
 from config import CONFIG
 from logger import get_logger
