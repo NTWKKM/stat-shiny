@@ -56,6 +56,29 @@ from utils.formatting import create_missing_data_report_html
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
+# Try to import Firth Cox regression for small samples / rare events
+try:
+    from firthmodels import FirthCoxPH
+    if not hasattr(FirthCoxPH, "_validate_data"):
+        from sklearn.utils.validation import check_array, check_X_y
+        
+        logger.info("Applying sklearn compatibility patch to FirthCoxPH")
+        
+        def _validate_data_patch(self, X, y=None, reset=True, validate_separately=False, **check_params):
+            """Compatibility shim for sklearn >= 1.6."""
+            if y is None:
+                return check_array(X, **check_params)
+            else:
+                return check_X_y(X, y, **check_params)
+        
+        FirthCoxPH._validate_data = _validate_data_patch
+        logger.info("FirthCoxPH patch applied successfully")
+        
+    HAS_FIRTH_COX = True
+except (ImportError, AttributeError):
+    HAS_FIRTH_COX = False
+    logger.warning("firthmodels.FirthCoxPH not available - Firth Cox PH will be disabled")
+
 
 # ==========================================
 # HELPER FUNCTIONS (Internal)
@@ -682,14 +705,33 @@ def fit_cox_ph(
     duration_col: str, 
     event_col: str, 
     covariate_cols: List[str],
-    var_meta: Optional[Dict[str, Any]] = None
-) -> Tuple[Optional[CoxPHFitter], Optional[pd.DataFrame], pd.DataFrame, Optional[str], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    var_meta: Optional[Dict[str, Any]] = None,
+    method: str = "auto"
+) -> Tuple[Optional[Union[CoxPHFitter, Any]], Optional[pd.DataFrame], pd.DataFrame, Optional[str], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """
     Fit Cox proportional hazards model.
+    
     ✅ ENHANCED: Returns model performance statistics (AIC, C-index).
     ✅ IMPROVED: Better handling of boolean types, scalar extraction, and robust stat retrieval.
     ✅ INTEGRATED: Missing data handling.
+    ✅ NEW: Firth-penalized Cox PH support for small samples / rare events / monotone likelihood.
+    
+    Parameters:
+        df: Input DataFrame
+        duration_col: Name of duration/time column
+        event_col: Name of event/status column (1=event, 0=censored)
+        covariate_cols: List of covariate column names
+        var_meta: Optional variable metadata
+        method: Fitting method - "auto", "lifelines", or "firth"
+            - "auto": Try lifelines first, fallback to Firth if convergence fails
+            - "lifelines": Use lifelines CoxPHFitter only
+            - "firth": Use firthmodels FirthCoxPH (for small samples/rare events)
+    
+    Returns:
+        Tuple of (fitted_model, results_df, cleaned_data, error_msg, model_stats, missing_info)
     """
+    from typing import Literal
+    
     cols_to_check = [duration_col, event_col, *covariate_cols]
     missing = [c for c in cols_to_check if c not in df.columns]
     if missing:
@@ -771,70 +813,124 @@ def fit_cox_ph(
     
     _standardize_numeric_cols(data, covariate_cols)
     
-    penalizers = [
-        {"p": 0.0, "name": "Standard CoxPH (Maximum Partial Likelihood)"},
-        {"p": 0.1, "name": "L2 Penalized CoxPH (p=0.1) - Ridge Regression"},
-        {"p": 1.0, "name": "L2 Penalized CoxPH (p=1.0) - Strong Regularization"}
-    ]
+    # ==========================================
+    # FITTING LOGIC: lifelines vs Firth
+    # ==========================================
     
     cph = None
-    last_error = None
+    res_df = None
     method_used = None
-    methods_tried = []
-
-    for conf in penalizers:
-        p = conf['p']
-        current_method = conf['name']
-        
-        methods_tried.append(current_method)
+    last_error = None
+    
+    # --- Try Firth directly if requested ---
+    if method == "firth":
+        if not HAS_FIRTH_COX:
+            return None, None, data, "Firth Cox PH requested but firthmodels is not installed.", None, missing_info
         
         try:
-            temp_cph = CoxPHFitter(penalizer=p) 
-            temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
-            cph = temp_cph
-            method_used = current_method
-            break
+            cph, res_df, method_used = _fit_firth_cox(data, duration_col, event_col, covariate_cols)
         except Exception as e:
-            last_error = e
-            continue
-
-    if cph is None:
-        methods_str = "\n".join(f"  [ERROR] {m}" for m in methods_tried)
-        error_msg = (
-            f"Cox Model Convergence Failed\n\n"
-            f"Fitting Methods Attempted:\n{methods_str}\n\n"
-            f"Last Error: {last_error!s}"
-        )
-        logger.error(error_msg)
-        return None, None, data, error_msg, None, missing_info
-
-    summary = cph.summary.copy()
+            logger.error(f"Firth Cox fitting failed: {e}")
+            return None, None, data, f"Firth Cox PH failed: {e}", None, missing_info
     
-    # ✅ Map index names back for the test (Revised)
-    new_index = []
-    for idx in summary.index:
-        # Only strip statsmodels categorical encoding suffix [T.xxx]
-        if "[T." in str(idx) and str(idx).endswith("]"):
-            new_index.append(str(idx).split('[')[0])
-        else:
-            new_index.append(idx)
-    
-    summary.index = new_index
-    
-    summary['HR'] = np.exp(summary['coef'])
-    ci = cph.confidence_intervals_
-    summary['95% CI Lower'] = np.exp(ci.iloc[:, 0])
-    summary['95% CI Upper'] = np.exp(ci.iloc[:, 1])
-    summary['Method'] = method_used
-    summary.index.name = "Covariate"
+    # --- Try lifelines (with penalizer fallback) ---
+    elif method in ("lifelines", "auto"):
+        penalizers = [
+            {"p": 0.0, "name": "Standard CoxPH (Maximum Partial Likelihood)"},
+            {"p": 0.1, "name": "L2 Penalized CoxPH (p=0.1) - Ridge Regression"},
+            {"p": 1.0, "name": "L2 Penalized CoxPH (p=1.0) - Strong Regularization"}
+        ]
+        
+        methods_tried = []
 
-    res_df = summary[['HR', '95% CI Lower', '95% CI Upper', 'p', 'Method']].rename(columns={'p': 'P-value'})
+        for conf in penalizers:
+            p = conf['p']
+            current_method = conf['name']
+            
+            methods_tried.append(current_method)
+            
+            try:
+                temp_cph = CoxPHFitter(penalizer=p) 
+                temp_cph.fit(data, duration_col=duration_col, event_col=event_col, show_progress=False)
+                cph = temp_cph
+                method_used = current_method
+                break
+            except Exception as e:
+                last_error = e
+                continue
+
+        # -- Fallback to Firth if auto and lifelines failed --
+        if cph is None and method == "auto" and HAS_FIRTH_COX:
+            logger.info("Lifelines failed, attempting Firth Cox PH fallback...")
+            try:
+                cph, res_df, method_used = _fit_firth_cox(data, duration_col, event_col, covariate_cols)
+            except Exception as e:
+                logger.error(f"Firth fallback also failed: {e}")
+                last_error = e
+        
+        if cph is None:
+            methods_str = "\n".join(f"  [ERROR] {m}" for m in methods_tried)
+            firth_note = " (Firth fallback attempted)" if method == "auto" and HAS_FIRTH_COX else ""
+            error_msg = (
+                f"Cox Model Convergence Failed{firth_note}\n\n"
+                f"Fitting Methods Attempted:\n{methods_str}\n\n"
+                f"Last Error: {last_error!s}"
+            )
+            logger.error(error_msg)
+            return None, None, data, error_msg, None, missing_info
+    
+    else:
+        return None, None, data, f"Unknown method: {method}. Use 'auto', 'lifelines', or 'firth'.", None, missing_info
+
+    # ==========================================
+    # BUILD RESULT DATAFRAME (if not from Firth)
+    # ==========================================
+    
+    if res_df is None and cph is not None:
+        # Results from lifelines CoxPHFitter
+        summary = cph.summary.copy()
+        
+        # ✅ Map index names back for the test (Revised)
+        new_index = []
+        for idx in summary.index:
+            # Only strip statsmodels categorical encoding suffix [T.xxx]
+            if "[T." in str(idx) and str(idx).endswith("]"):
+                new_index.append(str(idx).split('[')[0])
+            else:
+                new_index.append(idx)
+        
+        summary.index = new_index
+        
+        summary['HR'] = np.exp(summary['coef'])
+        ci = cph.confidence_intervals_
+        summary['95% CI Lower'] = np.exp(ci.iloc[:, 0])
+        summary['95% CI Upper'] = np.exp(ci.iloc[:, 1])
+        summary['Method'] = method_used
+        summary.index.name = "Covariate"
+
+        res_df = summary[['HR', '95% CI Lower', '95% CI Upper', 'p', 'Method']].rename(columns={'p': 'P-value'})
     
     # ✅ NEW: Model Statistics (Defensive extraction for robustness against Mocks/Nulls)
     try:
-        c_index = getattr(cph, 'concordance_index_', None)
-        aic_val = getattr(cph, 'AIC_partial_', None)
-        ll_val = getattr(cph, 'log_likelihood_', None)
+        if isinstance(cph, CoxPHFitter):
+            c_index = getattr(cph, 'concordance_index_', None)
+            aic_val = getattr(cph, 'AIC_partial_', None)
+            ll_val = getattr(cph, 'log_likelihood_', None)
+            n_events = int(cph.event_observed.sum()) if hasattr(cph, 'event_observed') else 0
+        else:
+            # FirthCoxPH: compute C-index via score method if possible
+            try:
+                X = data[covariate_cols].values
+                event_arr = data[event_col].astype(bool).values
+                time_arr = data[duration_col].values
+                y_struct = np.array(list(zip(event_arr, time_arr)), 
+                                   dtype=[('event', bool), ('time', float)])
+                c_index = cph.score(X, y_struct)
+            except Exception:
+                c_index = None
+            aic_val = None
+            ll_val = getattr(cph, 'loglik_', None)
+            n_events = int(data[event_col].sum())
         
         def fmt(x: Any, p: int) -> str:
             if x is None:
@@ -848,7 +944,7 @@ def fit_cox_ph(
             "AIC": fmt(aic_val, 2),
             "Log-Likelihood": fmt(ll_val, 2),
             "Number of Observations": len(data),
-            "Number of Events": int(cph.event_observed.sum()) if hasattr(cph, 'event_observed') else 0
+            "Number of Events": n_events
         }
     except Exception as e:
         logger.warning(f"Could not extract model stats: {e}")
@@ -856,6 +952,52 @@ def fit_cox_ph(
     
     logger.debug(f"Cox model fitted successfully: {method_used}")
     return cph, res_df, data, None, model_stats, missing_info
+
+
+def _fit_firth_cox(
+    data: pd.DataFrame,
+    duration_col: str,
+    event_col: str,
+    covariate_cols: List[str]
+) -> Tuple[Any, pd.DataFrame, str]:
+    """
+    Internal helper: Fit Firth-penalized Cox PH model using firthmodels.
+    
+    Returns:
+        Tuple of (fitted_model, results_df, method_name)
+    """
+    from scipy import stats as scipy_stats
+    
+    # Prepare data for FirthCoxPH
+    X = data[covariate_cols].values.astype(float)
+    event = data[event_col].astype(bool).values
+    time = data[duration_col].astype(float).values
+    
+    # Fit model (FirthCoxPH accepts y as tuple (event, time) or structured array)
+    model = FirthCoxPH()
+    model.fit(X, (event, time))
+    
+    # Extract results
+    coefs = model.coef_
+    se = model.bse_
+    pvals = model.pvalues_
+    
+    # Compute Hazard Ratios and 95% CI
+    hrs = np.exp(coefs)
+    ci_low = np.exp(coefs - 1.96 * se)
+    ci_high = np.exp(coefs + 1.96 * se)
+    
+    # Build results DataFrame
+    res_df = pd.DataFrame({
+        'HR': hrs,
+        '95% CI Lower': ci_low,
+        '95% CI Upper': ci_high,
+        'P-value': pvals,
+        'Method': 'Firth Cox PH (Penalized)'
+    }, index=covariate_cols)
+    res_df.index.name = "Covariate"
+    
+    return model, res_df, "Firth Cox PH (Penalized)"
 
 
 def check_cph_assumptions(
