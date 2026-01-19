@@ -761,8 +761,9 @@ def survival_server(
                     
                 fit_data = long_df
                 # For long format fitting, start/stop are fixed names from transformation
-                fit_start = 'start_time'
-                fit_stop = 'stop_time'
+                # transform_wide_to_long outputs 'start' and 'stop' columns (see tvc_lib.py lines 284-285)
+                fit_start = 'start'
+                fit_stop = 'stop'
                 
                 # Update cols list for fitting (tvc cols are now single column 'tvc_val'...? 
                 # Wait, transform_wide_to_long preserves column names but fills them?
