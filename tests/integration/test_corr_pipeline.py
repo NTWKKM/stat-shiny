@@ -19,7 +19,7 @@ import pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 # Import correlation module
-from correlation import compute_correlation_matrix
+from utils.correlation import compute_correlation_matrix
 
 pytestmark = pytest.mark.integration
 

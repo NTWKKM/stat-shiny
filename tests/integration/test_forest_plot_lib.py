@@ -18,7 +18,7 @@ import pytest
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from forest_plot_lib import create_forest_plot
+from utils.forest_plot_lib import create_forest_plot
 
 pytestmark = pytest.mark.integration
 

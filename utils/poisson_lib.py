@@ -231,7 +231,7 @@ def analyze_poisson_outcome(
     # ✅ FIX: Wrap entire function in try-except to prevent None return crashes
     try:
         # ✅ Consolidated fmt_p import: Use logic.py's centralized formatting
-        from logic import (
+        from utils.logic import (
             _robust_sort_key,
             clean_numeric_value,
             fmt_p,
@@ -511,7 +511,7 @@ def analyze_poisson_outcome(
             # ✅ Add interaction terms if specified
             if interaction_pairs:
                 try:
-                    from interaction_lib import (
+                    from utils.interaction_lib import (
                         create_interaction_terms,
                         format_interaction_results,
                     )
@@ -840,7 +840,7 @@ def analyze_poisson_outcome(
             interaction_info = f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs"
             if interaction_results:
                 try:
-                    from interaction_lib import interpret_interaction
+                    from utils.interaction_lib import interpret_interaction
                     interaction_info += interpret_interaction(interaction_results, 'poisson')
                 except ImportError:
                     logger.warning("interaction_lib not available for interpretation")
