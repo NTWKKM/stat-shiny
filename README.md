@@ -96,7 +96,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 `-- wakeup coderabbitai
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 # 🏥 Medical Statistical Tool (Shiny for Python)
@@ -124,7 +123,7 @@ Calculate sensitivity, specificity, PPV, NPV, and visualize ROC curves.
 
 - Run Univariable and Multivariable Logistic Regression.
 - Visualize results with Forest Plots.
-- Supports **Firth's Regression** for rare events (if dependencies are met).
+- Supports **Firth's Regression** for rare events (requires `firthmodels` package; see installation).
 
 ### 📈 Correlation & ICC
 
@@ -138,6 +137,11 @@ Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
 ### ⚙️ Settings
 
 Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
+
+### 📝 Logging & Diagnostics
+
+- **Smart Logging**: Default log level set to `WARNING` for production to reduce noise.
+- **Performance Tracking**: Optional performance logging for optimization.
 
 ### 🧩 Missing Data Integration (Enhanced)
 
@@ -169,6 +173,9 @@ It is recommended to use a virtual environment.
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+# Optional: Install for Firth Regression support
+pip install firthmodels
+
 
 ```
 

@@ -27,7 +27,7 @@ import warnings
 from functools import lru_cache
 
 # Suppress DeprecationWarning from lifelines (datetime.utcnow)
-warnings.filterwarnings("ignore", message="datetime.datetime.utcnow")
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='lifelines')
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -54,9 +54,29 @@ from utils.data_cleaning import (
 from utils.formatting import create_missing_data_report_html
 from utils.advanced_stats_lib import calculate_vif, apply_mcc
 from scipy import stats as scipy_stats
+from shiny import ui
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
+
+# ==========================================
+# PROGRESS HELPERS
+# ==========================================
+
+def progress_start(message: str = "Processing...", id: str = "progress_notif") -> None:
+    """Show a progress notification. Safely ignores if no session active."""
+    try:
+        ui.notification_show(message, duration=None, id=id, type="message")
+    except RuntimeError:
+        pass  # No active session (e.g., running tests)
+
+def progress_end(id: str = "progress_notif") -> None:
+    """Remove a progress notification. Safely ignores if no session active."""
+    try:
+        ui.notification_remove(id)
+    except RuntimeError:
+        pass  # No active session (e.g., running tests)
+
 
 # Try to import Firth Cox regression for small samples / rare events
 try:
@@ -233,7 +253,11 @@ def calculate_survival_at_times(
         
     results = []
     
+    # Show progress
+    progress_start("Calculating Survival Probabilities...", id="calc_surv_probs")
+    
     # Store KM fitters for comparison later
+
     kmf_by_group: Dict[str, Tuple[KaplanMeierFitter, pd.Series]] = {}
     
     # 1. Map known truthy/falsy values (handling strings, numbers, bools)
@@ -481,6 +505,10 @@ def calculate_survival_at_times(
             
             comparison_results = comparison_df
             
+            
+            comparison_results = comparison_df
+            
+    progress_end(id="calc_surv_probs")
     return results_df, comparison_results
 
 
@@ -627,6 +655,9 @@ def fit_km_logrank(
         groups = _sort_groups_vectorized(data[group_col].unique())
     else:
         groups = ['Overall']
+    
+    # Show progress
+    progress_start("Fitting Kaplan-Meier Curves...", id="fit_km")
 
     if len(data) == 0:
         raise ValueError("No valid data after removing missing values.")
@@ -712,6 +743,9 @@ def fit_km_logrank(
         stats_data = {'Test': 'Error', 'Note': str(e)}
 
     return fig, pd.DataFrame([stats_data]), missing_info
+    
+    progress_end(id="fit_km")
+
 
 
 def fit_nelson_aalen(
@@ -758,6 +792,9 @@ def fit_nelson_aalen(
         groups = _sort_groups_vectorized(data[group_col].unique())
     else:
         groups = ['Overall']
+
+    # Show progress
+    progress_start("Calculating Cumulative Hazard...", id="fit_na")
 
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
@@ -965,6 +1002,9 @@ def fit_cox_ph(
     method_used = None
     last_error = None
     
+    # Show progress
+    progress_start("Fitting Cox Proportional Hazards Model...", id="fit_cox")
+    
     # --- Try Firth directly if requested ---
     if method == "firth":
         if not HAS_FIRTH_COX:
@@ -1101,6 +1141,7 @@ def fit_cox_ph(
         model_stats = {}
     
     logger.debug(f"Cox model fitted successfully: {method_used}")
+    progress_end(id="fit_cox")
     return cph, res_df, data, None, model_stats, missing_info
 
 

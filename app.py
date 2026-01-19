@@ -107,6 +107,9 @@ app_ui = ui.page_navbar(
         ui.tags.meta(charset="utf-8"),
         ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
         
+        # ✅ Google Fonts: Inter
+        ui.tags.link(href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap", rel="stylesheet"),
+        
         # ✅ Preload CSS for faster loading
         # 🟢 Fix: Remove leading / to make it a relative path (supports Posit Connect subpath)
         ui.tags.link(rel="preload", href="static/styles.css", as_="style"),
