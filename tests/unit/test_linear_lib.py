@@ -17,6 +17,15 @@ import pandas as pd
 import pytest
 from unittest.mock import patch, MagicMock
 
+# Check if plotly is available and working
+try:
+    import plotly.graph_objects as go
+    # Try creating a figure to ensure plotly is fully functional
+    _test_fig = go.Figure()
+    PLOTLY_AVAILABLE = True
+except Exception:
+    PLOTLY_AVAILABLE = False
+
 # Import module under test
 from utils.linear_lib import (
     validate_ols_inputs,
@@ -29,6 +38,12 @@ from utils.linear_lib import (
     create_diagnostic_plots,
     format_ols_results,
     analyze_linear_outcome,
+)
+
+# Skip marker for tests that require plotly
+requires_plotly = pytest.mark.skipif(
+    not PLOTLY_AVAILABLE,
+    reason="Plotly is not available or not working in this environment"
 )
 
 
@@ -410,6 +425,7 @@ class TestDiagnosticTests:
 # Test: Diagnostic Plots
 # =============================================================================
 
+@requires_plotly
 class TestDiagnosticPlots:
     """Tests for create_diagnostic_plots function."""
     
@@ -486,6 +502,7 @@ class TestFormatOLSResults:
 # Test: Full Analysis Pipeline
 # =============================================================================
 
+@requires_plotly
 class TestAnalyzeLinearOutcome:
     """Tests for analyze_linear_outcome function."""
     
@@ -558,6 +575,8 @@ class TestEdgeCases:
     
     def test_variable_names_with_spaces(self):
         """Test handling of variable names with spaces."""
+        if not PLOTLY_AVAILABLE:
+            pytest.skip("Plotly not available")
         df = pd.DataFrame({
             'Blood Pressure': np.random.normal(120, 20, 50),
             'Patient Age': np.random.normal(50, 10, 50),

@@ -154,21 +154,24 @@ def calculate_vif(df: pd.DataFrame, *, intercept: bool = True, var_meta: Optiona
     if not features:
         return pd.DataFrame(columns=["feature", "VIF"]), missing_info
     
-    try:
-        vif_vals = []
-        for col in features:
+    # Calculate VIF for each feature individually to handle errors per-variable
+    vif_vals = []
+    for col in features:
+        try:
             i = df_numeric.columns.get_loc(col)
             vif = variance_inflation_factor(df_numeric.values, i)
-            # Robustness: Check for infinite VIF
+            # Robustness: Check for infinite VIF (from high collinearity)
             if not np.isfinite(vif):
                 vif = float('inf')
-            vif_vals.append(vif)
-        vif_data = pd.DataFrame({"feature": features, "VIF": vif_vals})
-        return vif_data.sort_values(by="VIF", ascending=False), missing_info
-        
-    except (ValueError, np.linalg.LinAlgError):
-        logger.exception("Error calculating VIF")
-        return pd.DataFrame(columns=['feature', 'VIF']), missing_info
+        except (ValueError, np.linalg.LinAlgError):
+            # When a variable causes singular matrix (perfect collinearity),
+            # set VIF to infinity to indicate "very high collinearity"
+            logger.warning("VIF calculation failed for '%s' (singular matrix), setting to infinity", col)
+            vif = float('inf')
+        vif_vals.append(vif)
+    
+    vif_data = pd.DataFrame({"feature": features, "VIF": vif_vals})
+    return vif_data.sort_values(by="VIF", ascending=False), missing_info
 
 # --- Confidence Interval Configuration (Helper/Placeholder) ---
 

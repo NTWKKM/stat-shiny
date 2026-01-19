@@ -163,6 +163,20 @@ def survival_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("Cox Proportional Hazards Regression"),
                     
+                    ui.layout_columns(
+                        ui.input_select(
+                            "cox_method",
+                            "🔧 Fitting Method:",
+                            choices={
+                                "auto": "Auto (lifelines → Firth fallback)",
+                                "lifelines": "Standard (lifelines CoxPHFitter)",
+                                "firth": "Firth (for rare events / small samples)"
+                            },
+                            selected="auto"
+                        ),
+                        col_widths=[12]
+                    ),
+                    
                     ui.input_checkbox_group(
                         "cox_covariates",
                         "Select Covariates (Predictors):",
@@ -801,9 +815,11 @@ def survival_server(
         try:
             ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
             
-            # ✅ NEW: Capture model_stats and missing_info
+            # ✅ NEW: Get method from UI and pass to fit_cox_ph
+            cox_method = input.cox_method()
+            
             cph, res_df, clean_data, err, model_stats, missing_info = survival_lib.fit_cox_ph(
-                data, time_col, event_col, list(covars), var_meta=var_meta.get()
+                data, time_col, event_col, list(covars), var_meta=var_meta.get(), method=cox_method
             )
             
             if err:
@@ -814,8 +830,14 @@ def survival_server(
             # 2. Forest Plot
             forest_fig = survival_lib.create_forest_plot_cox(res_df)
             
-            # 3. Check Assumptions (Schoenfeld)
-            assump_text, assump_plots = survival_lib.check_cph_assumptions(cph, clean_data)
+            # 3. Check Assumptions (Schoenfeld) - only for lifelines CoxPHFitter
+            from lifelines import CoxPHFitter
+            if isinstance(cph, CoxPHFitter):
+                assump_text, assump_plots = survival_lib.check_cph_assumptions(cph, clean_data)
+            else:
+                # Firth Cox PH doesn't support Schoenfeld residuals
+                assump_text = "⚠️ Proportional Hazards assumption test is not available for Firth Cox PH models."
+                assump_plots = []
             
             cox_result.set({
                 'results_df': res_df,
