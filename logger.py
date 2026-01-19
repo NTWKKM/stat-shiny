@@ -16,7 +16,7 @@ from typing import Any, ClassVar, Dict, Generator, List, Optional, cast
 # Default configuration (can be overridden)
 DEFAULT_CONFIG: Dict[str, Any] = {
     'logging.enabled': True,
-    'logging.level': 'INFO',
+    'logging.level': 'WARNING',
     'logging.format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     'logging.date_format': '%Y-%m-%d %H:%M:%S',
     'logging.file_enabled': False,
