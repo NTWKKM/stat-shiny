@@ -236,6 +236,10 @@ def data_server(
                     # Adjust stop time if it exceeds follow-up
                     actual_stop = min(stop_time, max_followup)
                     
+                    # Ensure minimum interval duration (avoid start == stop which causes convergence errors)
+                    if actual_stop - start_time < 0.1:
+                        actual_stop = start_time + 0.1
+                    
                     # Determine event: 1 only in final interval for patients with events
                     is_final_interval = actual_stop >= max_followup or stop_time >= max_followup
                     interval_event = 1 if (has_event and is_final_interval) else 0
