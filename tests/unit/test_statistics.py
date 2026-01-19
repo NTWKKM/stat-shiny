@@ -12,7 +12,8 @@ Run with: pytest tests/unit/test_statistics.py -v
 import os
 import sys
 import warnings
-from unittest.mock import MagicMock, PropertyMock
+import importlib
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
 import pandas as pd
@@ -24,134 +25,183 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparatio
 # ============================================================================
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-# --- ROBUST MOCK SETUP ---
+# Global placeholders for imported functions
+run_negative_binomial_regression = None
+run_poisson_regression = None
 
-# 1. Mock Plotly with concrete colors to prevent ZeroDivisionError
-mock_plotly = MagicMock()
-# Ensure colors list is available and has length
-mock_colors = MagicMock()
-mock_colors.qualitative.Plotly = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-mock_plotly.colors = mock_colors
-mock_plotly.express.colors = mock_colors  # For px.colors usage
-sys.modules['plotly'] = mock_plotly
-sys.modules['plotly.graph_objects'] = MagicMock()
-sys.modules['plotly.express'] = mock_plotly
-sys.modules['plotly.io'] = MagicMock()
-sys.modules['plotly.subplots'] = MagicMock()
-sys.modules['plotly.colors'] = mock_colors # Direct import mock
+analyze_roc = None
+auc_ci_delong = None
+calculate_chi2 = None
+calculate_ci_wilson_score = None
+calculate_descriptive = None
+calculate_icc = None
+calculate_kappa = None
+format_p_value = None
 
-# 2. Mock Forest Plot Lib
-sys.modules['forest_plot_lib'] = MagicMock()
+analyze_outcome = None
+clean_numeric_value = None
+fmt_p_with_styling = None
+get_label = None
+run_binary_logit = None
+validate_logit_data = None
 
-# 3. Mock Lifelines with structured return values
-mock_lifelines = MagicMock()
+calculate_median_survival = None
+fit_cox_ph = None
+fit_km_landmark = None
+fit_km_logrank = None
+fit_nelson_aalen = None
 
-# KM Fitter Mock
-mock_kmf = MagicMock()
-type(mock_kmf.return_value).median_survival_time_ = PropertyMock(return_value=10.0)
-mock_ci = MagicMock()
-mock_ci.values = np.array([[5.0, 15.0]])
-mock_ci.to_numpy.return_value = np.array([[5.0, 15.0]])
-type(mock_kmf.return_value).confidence_interval_ = PropertyMock(return_value=mock_ci)
 
-# Cox Fitter Mock
-mock_cph = MagicMock()
-mock_cph_inst = mock_cph.return_value
+@pytest.fixture(scope="module", autouse=True)
+def setup_mocks():
+    """
+    Setup mocks for all tests in this module.
+    Patches sys.modules to inject mocks for plotly, lifelines, etc.
+    """
+    global run_negative_binomial_regression, run_poisson_regression
+    global analyze_roc, auc_ci_delong, calculate_chi2, calculate_ci_wilson_score
+    global calculate_descriptive, calculate_icc, calculate_kappa, format_p_value
+    global analyze_outcome, clean_numeric_value, fmt_p_with_styling, get_label
+    global run_binary_logit, validate_logit_data
+    global calculate_median_survival, fit_cox_ph, fit_km_landmark, fit_km_logrank, fit_nelson_aalen
 
-# --- FIX: Define concordance_index_ as a float for format string usage ---
-mock_cph_inst.concordance_index_ = 0.85 
-# ----------------------------------------------------------------------------
+    # --- ROBUST MOCK SETUP ---
+    
+    # 1. Mock Plotly with concrete colors to prevent ZeroDivisionError
+    mock_plotly = MagicMock()
+    # Ensure colors list is available and has length
+    mock_colors = MagicMock()
+    mock_colors.qualitative.Plotly = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+    mock_plotly.colors = mock_colors
+    mock_plotly.express.colors = mock_colors  # For px.colors usage
+    
+    # 2. Mock Lifelines with structured return values
+    mock_lifelines = MagicMock()
+    
+    # KM Fitter Mock
+    mock_kmf = MagicMock()
+    type(mock_kmf.return_value).median_survival_time_ = PropertyMock(return_value=10.0)
+    mock_ci = MagicMock()
+    mock_ci.values = np.array([[5.0, 15.0]])
+    mock_ci.to_numpy.return_value = np.array([[5.0, 15.0]])
+    type(mock_kmf.return_value).confidence_interval_ = PropertyMock(return_value=mock_ci)
+    
+    # Cox Fitter Mock
+    mock_cph = MagicMock()
+    mock_cph_inst = mock_cph.return_value
+    
+    # --- FIX: Define concordance_index_ as a float for format string usage ---
+    mock_cph_inst.concordance_index_ = 0.85 
+    # ----------------------------------------------------------------------------
+    
+    # Mock summary DataFrame
+    mock_cph_inst.summary = pd.DataFrame({
+        'coef': [0.5, 0.2], 
+        'exp(coef)': [1.65, 1.22], 
+        'p': [0.01, 0.04], 
+        'HR': [1.65, 1.22]
+    }, index=['age', 'exposure'])
+    
+    # Mock confidence_intervals_ DataFrame (Crucial for fit_cox_ph)
+    mock_cph_inst.confidence_intervals_ = pd.DataFrame(
+        data=[[-0.1, 0.8], [0.1, 0.3]], 
+        index=['age', 'exposure'],
+        columns=['lower-bound', 'upper-bound']
+    )
+    
+    mock_lifelines.KaplanMeierFitter = mock_kmf
+    mock_lifelines.CoxPHFitter = mock_cph
+    mock_lifelines.NelsonAalenFitter = MagicMock()
 
-# Mock summary DataFrame
-mock_cph_inst.summary = pd.DataFrame({
-    'coef': [0.5, 0.2], 
-    'exp(coef)': [1.65, 1.22], 
-    'p': [0.01, 0.04], 
-    'HR': [1.65, 1.22]
-}, index=['age', 'exposure'])
+    # Configure statistics mock with concrete float values
+    mock_stats = MagicMock()
+    mock_test_result = MagicMock()
+    # Important: p_value must be a float to allow f-string formatting (e.g. :.3f)
+    mock_test_result.p_value = 0.045
+    mock_test_result.test_statistic = 4.0
+    mock_stats.logrank_test.return_value = mock_test_result
+    mock_stats.multivariate_logrank_test.return_value = mock_test_result
+    
+    # 3. Mock Sklearn with float return values for metrics
+    mock_sklearn = MagicMock()
+    mock_metrics = MagicMock()
+    
+    # Fix: roc_curve returns tuple of arrays
+    mock_metrics.roc_curve.return_value = (
+        np.array([0.0, 0.1, 1.0]), 
+        np.array([0.0, 0.8, 1.0]), 
+        np.array([0.5, 0.5, 0.5])
+    )
+    # Fix: auc must return a float for comparisons (e.g. >= 0.9)
+    mock_metrics.auc.return_value = 0.85
+    mock_metrics.roc_auc_score.return_value = 0.85
+    mock_metrics.cohen_kappa_score.return_value = 0.85
+    
+    mock_sklearn.metrics = mock_metrics
 
-# Mock confidence_intervals_ DataFrame (Crucial for fit_cox_ph)
-mock_cph_inst.confidence_intervals_ = pd.DataFrame(
-    data=[[-0.1, 0.8], [0.1, 0.3]], 
-    index=['age', 'exposure'],
-    columns=['lower-bound', 'upper-bound']
-)
+    # Create the dictionary of modules to patch
+    modules_to_patch = {
+        'plotly': mock_plotly,
+        'plotly.graph_objects': MagicMock(),
+        'plotly.express': mock_plotly,
+        'plotly.io': MagicMock(),
+        'plotly.subplots': MagicMock(),
+        'plotly.colors': mock_colors,
+        'forest_plot_lib': MagicMock(),
+        'lifelines': mock_lifelines,
+        'lifelines.statistics': mock_stats,
+        'lifelines.utils': MagicMock(),
+        'sklearn': mock_sklearn,
+        'sklearn.metrics': mock_metrics,
+        'sklearn.linear_model': MagicMock(),
+    }
 
-mock_lifelines.KaplanMeierFitter = mock_kmf
-mock_lifelines.CoxPHFitter = mock_cph
-mock_lifelines.NelsonAalenFitter = MagicMock()
+    # Apply the patches to sys.modules
+    with patch.dict(sys.modules, modules_to_patch):
+        # Import modules under test INSIDE the patch context
+        # Check if modules are already imported and reload if necessary
+        # to ensure they use the mocked dependencies
+        
+        import utils.poisson_lib
+        importlib.reload(utils.poisson_lib)
+        try:
+             # Re-assign from reloaded module
+            run_negative_binomial_regression = utils.poisson_lib.run_negative_binomial_regression
+            run_poisson_regression = utils.poisson_lib.run_poisson_regression
+        except AttributeError:
+             # Fallback if specific functions missing or import failed
+            run_negative_binomial_regression = MagicMock()
+            run_poisson_regression = MagicMock()
 
-sys.modules['lifelines'] = mock_lifelines
+        import utils.diag_test
+        importlib.reload(utils.diag_test)
+        analyze_roc = utils.diag_test.analyze_roc
+        auc_ci_delong = utils.diag_test.auc_ci_delong
+        calculate_chi2 = utils.diag_test.calculate_chi2
+        calculate_ci_wilson_score = utils.diag_test.calculate_ci_wilson_score
+        calculate_descriptive = utils.diag_test.calculate_descriptive
+        calculate_icc = utils.diag_test.calculate_icc
+        calculate_kappa = utils.diag_test.calculate_kappa
+        format_p_value = utils.diag_test.format_p_value
+        
+        import utils.logic
+        importlib.reload(utils.logic)
+        analyze_outcome = utils.logic.analyze_outcome
+        clean_numeric_value = utils.logic.clean_numeric_value
+        fmt_p_with_styling = utils.logic.fmt_p_with_styling
+        get_label = utils.logic.get_label
+        run_binary_logit = utils.logic.run_binary_logit
+        validate_logit_data = utils.logic.validate_logit_data
 
-# --- FIX START: Configure statistics mock with concrete float values ---
-mock_stats = MagicMock()
-mock_test_result = MagicMock()
-# Important: p_value must be a float to allow f-string formatting (e.g. :.3f)
-mock_test_result.p_value = 0.045
-mock_test_result.test_statistic = 4.0
-mock_stats.logrank_test.return_value = mock_test_result
-mock_stats.multivariate_logrank_test.return_value = mock_test_result
+        import utils.survival_lib
+        importlib.reload(utils.survival_lib)
+        calculate_median_survival = utils.survival_lib.calculate_median_survival
+        fit_cox_ph = utils.survival_lib.fit_cox_ph
+        fit_km_landmark = utils.survival_lib.fit_km_landmark
+        fit_km_logrank = utils.survival_lib.fit_km_logrank
+        fit_nelson_aalen = utils.survival_lib.fit_nelson_aalen
 
-sys.modules['lifelines.statistics'] = mock_stats
-# --- FIX END ---
-
-sys.modules['lifelines.utils'] = MagicMock()
-
-# 4. Mock Sklearn with float return values for metrics
-mock_sklearn = MagicMock()
-mock_metrics = MagicMock()
-
-# Fix: roc_curve returns tuple of arrays
-mock_metrics.roc_curve.return_value = (
-    np.array([0.0, 0.1, 1.0]), 
-    np.array([0.0, 0.8, 1.0]), 
-    np.array([0.5, 0.5, 0.5])
-)
-# Fix: auc must return a float for comparisons (e.g. >= 0.9)
-mock_metrics.auc.return_value = 0.85
-mock_metrics.roc_auc_score.return_value = 0.85
-mock_metrics.cohen_kappa_score.return_value = 0.85
-
-mock_sklearn.metrics = mock_metrics
-sys.modules['sklearn'] = mock_sklearn
-sys.modules['sklearn.metrics'] = mock_metrics
-sys.modules['sklearn.linear_model'] = MagicMock()
-
-# ============================================================================
-# IMPORT MODULES UNDER TEST
-# ============================================================================
-# Try importing poisson_lib if available, else mock or ignore
-try:
-    from utils.poisson_lib import run_negative_binomial_regression, run_poisson_regression
-except ImportError:
-    run_poisson_regression = MagicMock()
-    run_negative_binomial_regression = MagicMock()
-
-from utils.diag_test import (
-    analyze_roc,
-    auc_ci_delong,
-    calculate_chi2,
-    calculate_ci_wilson_score,
-    calculate_descriptive,
-    calculate_icc,
-    calculate_kappa,
-    format_p_value,
-)
-from utils.logic import (
-    analyze_outcome,
-    clean_numeric_value,
-    fmt_p_with_styling,
-    get_label,
-    run_binary_logit,
-    validate_logit_data,
-)
-from utils.survival_lib import (
-    calculate_median_survival,
-    fit_cox_ph,
-    fit_km_landmark,
-    fit_km_logrank,
-    fit_nelson_aalen,
-)
+        yield
 
 # Mark all tests as unit tests
 pytestmark = pytest.mark.unit
