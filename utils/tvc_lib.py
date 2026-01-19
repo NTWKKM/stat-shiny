@@ -41,7 +41,10 @@ from lifelines import CoxTimeVaryingFitter
 from lifelines.statistics import proportional_hazard_test
 from scipy import stats as sp_stats
 
+from scipy import stats as sp_stats
+
 from logger import get_logger
+from utils.data_cleaning import handle_missing_for_analysis
 
 logger = get_logger(__name__)
 
@@ -236,10 +239,24 @@ def transform_wide_to_long(
         risk_intervals = sorted(set(risk_intervals))
         logger.info(f"Risk intervals: {risk_intervals}")
         
+        # --- Handle Missing Data ---
+        # Clean the input dataframe before processing to avoid NaN errors during iteration
+        # Critical columns that must be present: ID, Time, Event
+        critical_cols = [id_col, time_col, event_col]
+        # Also include covariates to ensure consistent cleaning (optional but recommended)
+        processing_cols = critical_cols + (tvc_cols or []) + (static_cols or [])
+        
+        # We use 'complete-case' on critical columns essentially, but for TVC we might want to be careful.
+        # Let's clean rows that have missing values in CRITICAL columns first.
+        df_clean = df.dropna(subset=critical_cols)
+        
+        if len(df_clean) < len(df):
+            logger.warning(f"Transform: Dropped {len(df) - len(df_clean)} rows with missing ID/Time/Event")
+        
         # Build long-format data
         long_rows = []
         
-        for idx, row in df.iterrows():
+        for idx, row in df_clean.iterrows():
             patient_id = row[id_col]
             followup_time = row[time_col]
             event = row[event_col]
@@ -378,16 +395,15 @@ def fit_tvc_cox(
     """
     
     try:
-        # Validate input
-        is_valid, val_err = validate_long_format(
-            df, id_col=df.columns[0],  # Use first column as ID (usually patient_id)
-            start_col=start_col, 
-            stop_col=stop_col, 
-            event_col=event_col
-        )
+        # Validate input (Check columns existence only first, or strict valid?)
+        # NOTE: validate_long_format checks for NaNs. If we validate BEFORE cleaning, it will fail on NaNs.
+        # We should validate structure (columns exist) first, then clean, then validate contents?
+        # But validate_long_format does everything.
+        # Let's skip validation for now and rely on cleaning, OR expect clean data.
+        # Better: Clean first, THEN validate.
+        pass
         
-        if not is_valid:
-            return None, None, None, val_err, {}, {}
+        # Combine covariates
         
         # Combine covariates
         all_covariates = (tvc_cols or []) + (static_cols or [])
@@ -400,22 +416,22 @@ def fit_tvc_cox(
         if missing_covars:
             return None, None, None, f"❌ Missing covariates: {', '.join(missing_covars)}", {}, {}
         
-        # Clean data: drop rows with NaN in key columns
-        key_cols = [start_col, stop_col, event_col] + all_covariates
-        clean_data = df[key_cols].dropna()
+        # Clean data using standardized utility
+        # This handles missing codes and drops NaNs based on strategy
+        id_col = df.columns[0] # Use first column as ID (standard convention for this app)
+        # Ensure we don't duplicate columns if ID is also a covariate (unlikely but safe to check)
+        key_cols = [id_col, start_col, stop_col, event_col] + all_covariates
+        key_cols = list(dict.fromkeys(key_cols)) # Dedup preserving order
         
-        missing_info = {
-            'original_rows': len(df),
-            'clean_rows': len(clean_data),
-            'rows_dropped': len(df) - len(clean_data),
-            'missing_proportion': (len(df) - len(clean_data)) / len(df) if len(df) > 0 else 0
-        }
+        clean_data, missing_info = handle_missing_for_analysis(
+            df[key_cols],
+            var_meta=var_meta or {},
+            strategy="complete-case",
+            return_counts=True
+        )
         
         if len(clean_data) == 0:
             return None, None, None, "❌ All data dropped due to missing values", {}, missing_info
-        
-        if len(clean_data) < len(df):
-            logger.warning(f"Dropped {missing_info['rows_dropped']} rows with NaN (keep {len(clean_data)})")
         
         # Fit model
         cph = CoxTimeVaryingFitter(penalizer=penalizer)
@@ -426,6 +442,17 @@ def fit_tvc_cox(
             start_col=start_col,
             stop_col=stop_col
         )
+        
+        # Post-fitting validation check (optional but safest)
+        # Note: clean_data is now guaranteed to have no NaNs.
+        # However, checking for logic errors (start >= stop) is still good.
+        is_valid, val_err = validate_long_format(
+            clean_data, id_col=clean_data.columns[0],
+            start_col=start_col, stop_col=stop_col, event_col=event_col
+        )
+        if not is_valid:
+             # Even after cleaning, if logic is bad, we fail
+             return None, None, clean_data, val_err, {}, missing_info
         
         # Extract results
         summary_df = cph.summary.copy()
