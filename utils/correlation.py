@@ -32,7 +32,7 @@ from utils.data_cleaning import (
     get_missing_summary_df,
     handle_missing_for_analysis,
 )
-from utils.formatting import create_missing_data_report_html
+
 
 # Get unified color palette
 COLORS = get_color_palette()

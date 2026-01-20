@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any
 
 import pandas as pd
 import plotly.express as px
@@ -15,7 +15,7 @@ def run_gee(
     treatment_col: str,
     time_col: str,
     subject_col: str,
-    covariates: List[str] = [],
+    covariates: list[str] = [],
     cov_struct: str = "exchangeable",
     family_str: str = "gaussian",
 ) -> Any:
@@ -75,7 +75,7 @@ def run_lmm(
     treatment_col: str,
     time_col: str,
     subject_col: str,
-    covariates: List[str] = [],
+    covariates: list[str] = [],
     random_slope: bool = False,
 ) -> Any:
     """
@@ -125,7 +125,7 @@ def create_trajectory_plot(
     outcome_col: str,
     time_col: str,
     group_col: str,
-    subject_col: Optional[str] = None,
+    subject_col: str | None = None,
 ) -> go.Figure:
     """
     Create a trajectory plot showing mean trends and optional individual spaghetti lines.

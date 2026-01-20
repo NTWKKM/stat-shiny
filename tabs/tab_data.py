@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html as _html
-from typing import Any, Optional, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -124,12 +124,12 @@ def data_server(
     input: Any,
     output: Any,
     session: Any,
-    df: reactive.Value[Optional[pd.DataFrame]],
+    df: reactive.Value[pd.DataFrame | None],
     var_meta: reactive.Value[dict[str, Any]],
-    uploaded_file_info: reactive.Value[Optional[dict[str, Any]]],
-    df_matched: reactive.Value[Optional[pd.DataFrame]],
+    uploaded_file_info: reactive.Value[dict[str, Any] | None],
+    df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
-    matched_treatment_col: reactive.Value[Optional[str]],
+    matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
 
