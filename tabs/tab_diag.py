@@ -1,14 +1,20 @@
-from typing import Any, Dict, List, Optional, Union, cast
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
-import diag_test
+from logger import get_logger
 from tabs._common import get_color_palette
+from utils import decision_curve_lib, diag_test
 from utils.formatting import create_missing_data_report_html
 
+logger = get_logger(__name__)
+
 COLORS = get_color_palette()
+
 
 # ==============================================================================
 # UI Definition
@@ -18,15 +24,12 @@ def diag_ui() -> ui.TagChild:
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
-
         # Dataset Info Box
         ui.output_ui("ui_matched_info"),
         ui.br(),
-
         # Dataset Selector
         ui.output_ui("ui_dataset_selector"),
         ui.br(),
-
         # Tabs for different analyses
         ui.navset_tab(
             # TAB 1: ROC Curve & AUC
@@ -67,9 +70,7 @@ def diag_ui() -> ui.TagChild:
             # TAB 2: Chi-Square & Risk Analysis
             ui.nav_panel(
                 "🎲 Chi-Square & Risk (2x2)",
-                ui.markdown(
-                    "##### Chi-Square & Risk Analysis (2x2 Contingency Table)"
-                ),
+                ui.markdown("##### Chi-Square & Risk Analysis (2x2 Contingency Table)"),
                 ui.row(
                     ui.column(3, ui.output_ui("ui_chi_v1")),
                     ui.column(3, ui.output_ui("ui_chi_v2")),
@@ -141,6 +142,39 @@ def diag_ui() -> ui.TagChild:
                 ui.br(),
                 ui.output_ui("out_kappa_results"),
             ),
+            # TAB 4: Agreement (Bland-Altman)
+            ui.nav_panel(
+                "🤝 Agreement (Bland-Altman)",
+                ui.markdown("##### Bland-Altman Analysis (Continuous)"),
+                ui.row(
+                    ui.column(6, ui.output_ui("ui_ba_v1")),
+                    ui.column(6, ui.output_ui("ui_ba_v2")),
+                ),
+                ui.row(
+                    ui.column(
+                        6,
+                        ui.input_action_button(
+                            "btn_analyze_ba",
+                            "🚀 Analyze Agreement",
+                            class_="btn-primary w-100",
+                            width="100%",
+                        ),
+                    ),
+                    ui.column(
+                        6,
+                        ui.download_button(
+                            "btn_dl_ba_report",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                            width="100%",
+                        ),
+                    ),
+                ),
+                ui.br(),
+                ui.output_ui("ui_ba_status"),
+                ui.br(),
+                ui.output_ui("out_ba_results"),
+            ),
             # TAB 4: Descriptive
             ui.nav_panel(
                 "📊 Descriptive",
@@ -171,11 +205,42 @@ def diag_ui() -> ui.TagChild:
                 ui.br(),
                 ui.output_ui("out_desc_results"),
             ),
-            # TAB 5: Reference & Interpretation
+            # TAB 5: Decision Curve Analysis (DCA)
+            ui.nav_panel(
+                "📉 Decision Curve (DCA)",
+                ui.markdown("##### Decision Curve Analysis"),
+                ui.row(
+                    ui.column(6, ui.output_ui("ui_dca_truth")),
+                    ui.column(6, ui.output_ui("ui_dca_prob")),
+                ),
+                ui.row(
+                    ui.column(
+                        6,
+                        ui.input_action_button(
+                            "btn_run_dca",
+                            "🚀 Run DCA",
+                            class_="btn-primary w-100",
+                        ),
+                    ),
+                    ui.column(
+                        6,
+                        ui.download_button(
+                            "btn_dl_dca_report",
+                            "📥 Download Report",
+                            class_="btn-outline-primary w-100",
+                            width="100%",
+                        ),
+                    ),
+                ),
+                ui.br(),
+                ui.output_ui("ui_dca_status"),
+                ui.br(),
+                ui.output_ui("out_dca_results"),
+            ),
+            # TAB 6: Reference & Interpretation
             ui.nav_panel(
                 "ℹ️ Reference & Interpretation",
-                ui.markdown(
-                    """
+                ui.markdown("""
                     ## 📚 Reference & Interpretation Guide
 
                     💡 **Tip:** This section provides detailed explanations and interpretation rules for all the diagnostic tests.
@@ -219,8 +284,7 @@ def diag_ui() -> ui.TagChild:
                     - **Median:** Middle value (robust to outliers)
                     - **SD (Standard Deviation):** Spread of data around mean
                     - **Q1/Q3:** 25th and 75th percentiles
-                    """
-                ),
+                    """),
             ),
         ),
     )
@@ -231,22 +295,142 @@ def diag_ui() -> ui.TagChild:
 # ==============================================================================
 @module.server
 def diag_server(
-    input: Any, 
-    output: Any, 
-    session: Any, 
-    df: reactive.Value[Optional[pd.DataFrame]], 
-    var_meta: reactive.Value[Dict[str, Any]], 
-    df_matched: reactive.Value[Optional[pd.DataFrame]], 
-    is_matched: reactive.Value[bool]
+    input: Any,
+    output: Any,
+    session: Any,
+    df: reactive.Value[pd.DataFrame | None],
+    var_meta: reactive.Value[dict[str, Any]],
+    df_matched: reactive.Value[pd.DataFrame | None],
+    is_matched: reactive.Value[bool],
 ) -> None:
-
     # --- Reactive Results Storage ---
-    roc_html: reactive.Value[Optional[str]] = reactive.Value(None)
-    chi_html: reactive.Value[Optional[str]] = reactive.Value(None)
-    kappa_html: reactive.Value[Optional[str]] = reactive.Value(None)
-    desc_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    roc_html: reactive.Value[str | None] = reactive.Value(None)
+    chi_html: reactive.Value[str | None] = reactive.Value(None)
+    kappa_html: reactive.Value[str | None] = reactive.Value(None)
+    desc_html: reactive.Value[str | None] = reactive.Value(None)
+    # --- Bland-Altman Reactives ---
+    ba_html: reactive.Value[str | None] = reactive.Value(None)
+    ba_processing: reactive.Value[bool] = reactive.Value(False)
 
-    # --- Processing Status Indicators ---
+    # --- DCA Reactives ---
+    dca_html: reactive.Value[str | None] = reactive.Value(None)
+    dca_processing: reactive.Value[bool] = reactive.Value(False)
+
+    # --- Bland-Altman Inputs ---
+    @render.ui
+    def ui_ba_v1():
+        cols = all_cols()
+        # Filter for numeric columns
+        d = current_df()
+        if d is not None:
+            cols = d.select_dtypes(include=[np.number]).columns.tolist()
+        return ui.input_select(
+            "sel_ba_v1",
+            "Variable 1 (Method A):",
+            choices=cols,
+            selected=cols[0] if cols else None,
+        )
+
+    @render.ui
+    def ui_ba_v2():
+        cols = all_cols()
+        d = current_df()
+        if d is not None:
+            cols = d.select_dtypes(include=[np.number]).columns.tolist()
+        return ui.input_select(
+            "sel_ba_v2",
+            "Variable 2 (Method B):",
+            choices=cols,
+            selected=cols[1] if len(cols) > 1 else None,
+        )
+
+    @render.ui
+    def ui_ba_status():
+        if ba_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Calculating Bland-Altman statistics... Please wait",
+                    class_="alert alert-info",
+                )
+            )
+        return None
+
+    # --- Bland-Altman Logic ---
+    @reactive.Effect
+    @reactive.event(input.btn_analyze_ba)
+    def _run_ba():
+        d = current_df()
+        req(d is not None, input.sel_ba_v1(), input.sel_ba_v2())
+
+        ba_processing.set(True)
+        try:
+            stats_res, fig = diag_test.calculate_bland_altman(
+                d, input.sel_ba_v1(), input.sel_ba_v2()
+            )
+
+            if "error" in stats_res:
+                ba_html.set(
+                    f"<div class='alert alert-danger'>Error: {stats_res['error']}</div>"
+                )
+            else:
+                # Format stats for display
+                stats_df = pd.DataFrame(
+                    [
+                        {
+                            "Mean Difference (Bias)": f"{stats_res['mean_diff']:.4f}",
+                            "95% CI Bias": f"{stats_res['ci_mean_diff'][0]:.4f} to {stats_res['ci_mean_diff'][1]:.4f}",
+                            "Upper LoA (+1.96 SD)": f"{stats_res['upper_loa']:.4f}",
+                            "95% CI Upper LoA": f"{stats_res['ci_loa_upper'][0]:.4f} to {stats_res['ci_loa_upper'][1]:.4f}",
+                            "Lower LoA (-1.96 SD)": f"{stats_res['lower_loa']:.4f}",
+                            "95% CI Lower LoA": f"{stats_res['ci_loa_lower'][0]:.4f} to {stats_res['ci_loa_lower'][1]:.4f}",
+                            "SD of Diff": f"{stats_res['sd_diff']:.4f}",
+                            "N": stats_res["n"],
+                        }
+                    ]
+                ).T
+
+                rep = [
+                    {
+                        "type": "text",
+                        "data": f"Bland-Altman Analysis: {input.sel_ba_v1()} vs {input.sel_ba_v2()}",
+                    },
+                    {"type": "plot", "data": fig},
+                    {
+                        "type": "table",
+                        "header": "Agreement Statistics",
+                        "data": stats_df,
+                    },
+                ]
+
+                ba_html.set(
+                    diag_test.generate_report(
+                        f"Bland-Altman: {input.sel_ba_v1()} vs {input.sel_ba_v2()}", rep
+                    )
+                )
+
+        except Exception as e:
+            logger.exception("Bland-Altman analysis failed")
+            ba_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+        finally:
+            ba_processing.set(False)
+
+    @render.ui
+    def out_ba_results():
+        if ba_html.get():
+            return ui.HTML(ba_html.get())
+        return ui.div(
+            "Click 'Analyze Agreement' to view results.", class_="text-secondary p-3"
+        )
+
+    @render.download(filename="bland_altman_report.html")
+    def btn_dl_ba_report():
+        content = ba_html.get()
+        if content:
+            yield content
+        else:
+            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
+
     roc_processing: reactive.Value[bool] = reactive.Value(False)
     chi_processing: reactive.Value[bool] = reactive.Value(False)
     kappa_processing: reactive.Value[bool] = reactive.Value(False)
@@ -254,7 +438,7 @@ def diag_server(
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
-    def current_df() -> Optional[pd.DataFrame]:
+    def current_df() -> pd.DataFrame | None:
         if is_matched.get() and input.radio_diag_source() == "matched":
             return df_matched.get()
         return df.get()
@@ -300,7 +484,7 @@ def diag_server(
 
     # Get all columns
     @reactive.Calc
-    def all_cols() -> List[str]:
+    def all_cols() -> list[str]:
         d = current_df()
         if d is not None:
             return d.columns.tolist()
@@ -351,23 +535,19 @@ def diag_server(
         truth_col = input.sel_roc_truth()
         d = current_df()
         if d is not None and truth_col and truth_col in d.columns:
-            unique_vals = sorted(
-                [str(x) for x in d[truth_col].dropna().unique()]
-            )
+            unique_vals = sorted([str(x) for x in d[truth_col].dropna().unique()])
             default_pos_idx = 0
             # Force default to "1" or "1.0" if available
             if "1" in unique_vals:
                 default_pos_idx = unique_vals.index("1")
             elif "1.0" in unique_vals:
                 default_pos_idx = unique_vals.index("1.0")
-                
+
             return ui.input_select(
                 "sel_roc_pos_label",
                 "Positive Label (1):",
                 choices=unique_vals,
-                selected=unique_vals[default_pos_idx]
-                if unique_vals
-                else None,
+                selected=unique_vals[default_pos_idx] if unique_vals else None,
             )
         return ui.input_select(
             "sel_roc_pos_label",
@@ -379,9 +559,7 @@ def diag_server(
     @render.ui
     def ui_chi_v1():
         cols = all_cols()
-        v1_idx = next(
-            (i for i, c in enumerate(cols) if c == "Treatment_Group"), 0
-        )
+        v1_idx = next((i for i, c in enumerate(cols) if c == "Treatment_Group"), 0)
         return ui.input_select(
             "sel_chi_v1",
             "Variable 1 (Exposure/Row):",
@@ -423,13 +601,15 @@ def diag_server(
             class_="text-secondary text-sm",
         )
 
-    def get_pos_label_settings(df_input: pd.DataFrame, col_name: str) -> tuple[list[str], int]:
+    def get_pos_label_settings(
+        df_input: pd.DataFrame, col_name: str
+    ) -> tuple[list[str], int]:
         if df_input is None or col_name not in df_input.columns:
             return [], 0
         unique_vals = [str(x) for x in df_input[col_name].dropna().unique()]
         unique_vals.sort()
         default_idx = 0
-        
+
         # Prioritize "1" then "1.0", then "0"
         if "1" in unique_vals:
             default_idx = unique_vals.index("1")
@@ -437,14 +617,14 @@ def diag_server(
             default_idx = unique_vals.index("1.0")
         elif "0" in unique_vals:
             default_idx = unique_vals.index("0")
-            
+
         return unique_vals, default_idx
 
     @render.ui
     def ui_chi_v1_pos():
         v1_col = input.sel_chi_v1()
         d = current_df()
-        if d is None: 
+        if d is None:
             return None
         v1_uv, v1_idx = get_pos_label_settings(d, v1_col)
         if not v1_uv:
@@ -463,7 +643,7 @@ def diag_server(
     def ui_chi_v2_pos():
         v2_col = input.sel_chi_v2()
         d = current_df()
-        if d is None: 
+        if d is None:
             return None
         v2_uv, v2_idx = get_pos_label_settings(d, v2_col)
         if not v2_uv:
@@ -521,9 +701,7 @@ def diag_server(
             ):
                 kv2_idx = i
                 break
-        kv1_idx = next(
-            (i for i, c in enumerate(cols) if c == input.sel_kappa_v1()), 0
-        )
+        kv1_idx = next((i for i, c in enumerate(cols) if c == input.sel_kappa_v1()), 0)
         if kv2_idx == kv1_idx and len(cols) > 1:
             kv2_idx = min(kv1_idx + 1, len(cols) - 1)
         return ui.input_select(
@@ -546,9 +724,7 @@ def diag_server(
     @render.ui
     def ui_desc_var():
         cols = all_cols()
-        return ui.input_select(
-            "sel_desc_var", "Select Variable:", choices=cols
-        )
+        return ui.input_select("sel_desc_var", "Select Variable:", choices=cols)
 
     # --- ROC Status & Results ---
     @render.ui
@@ -556,9 +732,7 @@ def diag_server(
         if roc_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Generating ROC curve and statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -570,9 +744,7 @@ def diag_server(
         if chi_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Calculating Chi-Square statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -584,9 +756,7 @@ def diag_server(
         if kappa_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Calculating Kappa statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -598,9 +768,7 @@ def diag_server(
         if desc_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Calculating descriptive statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -629,13 +797,11 @@ def diag_server(
                 score_col,
                 method=method,
                 pos_label_user=pos_label,
-                var_meta=var_meta.get() or {}
+                var_meta=var_meta.get() or {},
             )
 
             if err:
-                roc_html.set(
-                    f"<div class='alert alert-danger'>📄 Error: {err}</div>"
-                )
+                roc_html.set(f"<div class='alert alert-danger'>📄 Error: {err}</div>")
             else:
                 rep = [
                     {
@@ -658,7 +824,9 @@ def diag_server(
                 # Add statistics table
                 if res is not None:
                     # Filter out missing_data_info/metadata from the main stats table
-                    res_display = {k: v for k, v in res.items() if k != 'missing_data_info'}
+                    res_display = {
+                        k: v for k, v in res.items() if k != "missing_data_info"
+                    }
                     rep.append(
                         {
                             "type": "table",
@@ -676,19 +844,26 @@ def diag_server(
                             "data": coords,
                         }
                     )
-                
+
                 # Missing Data Report
-                if res and 'missing_data_info' in res:
-                    rep.append({
-                        "type": "html",
-                        "data": create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {})
-                    })
+                if res and "missing_data_info" in res:
+                    rep.append(
+                        {
+                            "type": "html",
+                            "data": create_missing_data_report_html(
+                                res["missing_data_info"], var_meta.get() or {}
+                            ),
+                        }
+                    )
 
                 html_report = diag_test.generate_report(
                     f"ROC Analysis Report ({method})", rep
                 )
                 roc_html.set(html_report)
 
+        except Exception as e:
+            logger.exception("ROC analysis failed")
+            roc_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             roc_processing.set(False)
@@ -724,7 +899,7 @@ def diag_server(
                 method=input.radio_chi_method(),
                 v1_pos=input.sel_chi_v1_pos(),
                 v2_pos=input.sel_chi_v2_pos(),
-                var_meta=var_meta.get() or {}
+                var_meta=var_meta.get() or {},
             )
 
             if tab is not None:
@@ -768,13 +943,17 @@ def diag_server(
                             "data": risk,
                         }
                     )
-                
+
                 # Missing Data Report
                 if missing_info:
-                    rep.append({
-                        "type": "html",
-                        "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
-                    })
+                    rep.append(
+                        {
+                            "type": "html",
+                            "data": create_missing_data_report_html(
+                                missing_info, var_meta.get() or {}
+                            ),
+                        }
+                    )
 
                 chi_html.set(
                     diag_test.generate_report(
@@ -784,9 +963,12 @@ def diag_server(
                 )
             else:
                 chi_html.set(
-                f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
-            )
+                    f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
+                )
 
+        except Exception as e:
+            logger.exception("Chi-Square analysis failed")
+            chi_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             chi_processing.set(False)
@@ -795,9 +977,7 @@ def diag_server(
     def out_chi_results():
         if chi_html.get():
             return ui.HTML(chi_html.get())
-        return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
-        )
+        return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="chi2_report.html")
     def btn_dl_chi_report():
@@ -815,13 +995,13 @@ def diag_server(
 
         try:
             res, err, conf, missing_info = diag_test.calculate_kappa(
-                d, input.sel_kappa_v1(), input.sel_kappa_v2(),
-                var_meta=var_meta.get() or {}
+                d,
+                input.sel_kappa_v1(),
+                input.sel_kappa_v2(),
+                var_meta=var_meta.get() or {},
             )
             if err:
-                kappa_html.set(
-                    "<div class='alert alert-danger'>{}</div>".format(err)
-                )
+                kappa_html.set("<div class='alert alert-danger'>{}</div>".format(err))
             else:
                 rep = [
                     {
@@ -839,13 +1019,17 @@ def diag_server(
                         "data": conf,
                     },
                 ]
-                
+
                 # Missing Data Report
                 if missing_info:
-                    rep.append({
-                        "type": "html",
-                        "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
-                    })
+                    rep.append(
+                        {
+                            "type": "html",
+                            "data": create_missing_data_report_html(
+                                missing_info, var_meta.get() or {}
+                            ),
+                        }
+                    )
 
                 kappa_html.set(
                     diag_test.generate_report(
@@ -854,6 +1038,9 @@ def diag_server(
                     )
                 )
 
+        except Exception as e:
+            logger.exception("Kappa analysis failed")
+            kappa_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             kappa_processing.set(False)
@@ -862,9 +1049,7 @@ def diag_server(
     def out_kappa_results():
         if kappa_html.get():
             return ui.HTML(kappa_html.get())
-        return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
-        )
+        return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="kappa_report.html")
     def btn_dl_kappa_report():
@@ -881,9 +1066,7 @@ def diag_server(
         desc_processing.set(True)
 
         try:
-            res = diag_test.calculate_descriptive(
-                d, input.sel_desc_var()
-            )
+            res = diag_test.calculate_descriptive(d, input.sel_desc_var())
             if res is not None:
                 desc_html.set(
                     diag_test.generate_report(
@@ -898,6 +1081,9 @@ def diag_server(
                     )
                 )
 
+        except Exception as e:
+            logger.exception("Descriptive analysis failed")
+            desc_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             desc_processing.set(False)
@@ -906,10 +1092,125 @@ def diag_server(
     def out_desc_results():
         if desc_html.get():
             return ui.HTML(desc_html.get())
-        return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
-        )
+        return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="descriptive_report.html")
     def btn_dl_desc_report():
-        yield desc_html.get()
+        content = desc_html.get()
+        if content:
+            yield content
+        else:
+            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
+
+    # --- DCA Logic ---
+    @render.ui
+    def ui_dca_truth():
+        cols = all_cols()
+        def_idx = 0
+        for i, c in enumerate(cols):
+            if "gold" in c.lower() or "standard" in c.lower() or "outcome" in c.lower():
+                def_idx = i
+                break
+        return ui.input_select(
+            "sel_dca_truth",
+            "Outcome (Truth):",
+            choices=cols,
+            selected=cols[def_idx] if cols else None,
+        )
+
+    @render.ui
+    def ui_dca_prob():
+        cols = all_cols()
+        score_idx = 0
+        for i, c in enumerate(cols):
+            if "score" in c.lower() or "prob" in c.lower() or "pred" in c.lower():
+                score_idx = i
+                break
+        return ui.input_select(
+            "sel_dca_prob",
+            "Prediction/Score (Probability):",
+            choices=cols,
+            selected=cols[score_idx] if cols else None,
+        )
+
+    @render.ui
+    def ui_dca_status():
+        if dca_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Calculating Decision Curve... Please wait",
+                    class_="alert alert-info",
+                )
+            )
+        return None
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_dca)
+    def _run_dca():
+        d = current_df()
+        req(d is not None, input.sel_dca_truth(), input.sel_dca_prob())
+
+        dca_processing.set(True)
+
+        try:
+            truth = input.sel_dca_truth()
+            prob = input.sel_dca_prob()
+
+            # Calculate Net Benefits
+            nb_model = decision_curve_lib.calculate_net_benefit(
+                d, truth, prob, model_name="Current Model"
+            )
+            nb_all = decision_curve_lib.calculate_net_benefit_all(d, truth)
+            nb_none = decision_curve_lib.calculate_net_benefit_none()
+
+            # Combine
+            df_dca = pd.concat([nb_model, nb_all, nb_none])
+
+            # Plot
+            fig = decision_curve_lib.create_dca_plot(df_dca)
+
+            # Report Generation using diag_test.generate_report helper
+            # Format table for display
+            df_disp = nb_model[
+                ["threshold", "net_benefit", "tp_rate", "fp_rate"]
+            ].copy()
+            df_disp = df_disp[
+                df_disp["threshold"].isin([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+            ]
+
+            rep = [
+                {
+                    "type": "text",
+                    "data": f"Decision Curve Analysis: {prob} (Model) vs {truth} (Outcome)",
+                },
+                {"type": "plot", "data": fig},
+                {
+                    "type": "table",
+                    "header": "Net Benefit (Model) at selected thresholds",
+                    "data": df_disp,
+                },
+            ]
+
+            html_content = diag_test.generate_report(f"DCA: {prob} vs {truth}", rep)
+            dca_html.set(html_content)
+
+        except Exception as e:
+            logger.exception("DCA analysis failed")
+            dca_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+        finally:
+            dca_processing.set(False)
+
+    @render.ui
+    def out_dca_results():
+        if dca_html.get():
+            return ui.HTML(dca_html.get())
+        return ui.div("Click 'Run DCA' to view results.", class_="text-secondary p-3")
+
+    @render.download(filename="dca_report.html")
+    def btn_dl_dca_report():
+        content = dca_html.get()
+        if content:
+            yield content
+        else:
+            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"

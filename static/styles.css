@@ -622,6 +622,21 @@
             font-weight: 600;
         }
         
+        /* Table Responsiveness - Enable horizontal scrolling on mobile */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: var(--radius-md);
+        }
+        
+        /* Error Cell Highlighting - For data quality issues */
+        .cell-error {
+            background-color: #fee !important;
+            border: 1px solid #E74856 !important;
+            color: #E74856 !important;
+            font-weight: 600 !important;
+        }
+        
         /* ===========================
            BADGES & STATUS INDICATORS
            =========================== */
@@ -1049,6 +1064,10 @@
             .table tbody td {
                 padding: var(--spacing-sm);
             }
+            
+            .table-responsive {
+                margin-bottom: var(--spacing-md);
+            }
         }
         
         @media (max-width: 480px) {
@@ -1064,4 +1083,22 @@
                 width: 100%;
                 margin-bottom: var(--spacing-sm);
             }
+        }
+
+        /* ===========================
+           TVC SPECIFIC STYLES
+           =========================== */
+        
+        .tvc-preset-container {
+            margin-bottom: 10px;
+        }
+        
+        .tvc-preset-label {
+            margin-right: 10px; 
+            font-weight: 600; 
+            color: #6B7280;
+        }
+        
+        .tvc-preset-btn {
+            margin-right: 5px !important;
         }

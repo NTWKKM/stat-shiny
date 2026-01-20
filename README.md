@@ -8,6 +8,15 @@ app_port: 7860
 pinned: false
 ---
 
+<!-- AI-READABLE-REQUIREMENTS-START -->
+> **⚠️ IMPORTANT FOR AI AGENTS**: This project requires **Python 3.12+** due to the use of modern Python syntax features (nested f-strings with list comprehensions). Python versions below 3.12 will cause SyntaxErrors.
+>
+> | Requirement | Version   |
+> | ----------- | --------- |
+> | Python      | **≥ 3.12** |
+> | pip         | Latest    |
+<!-- AI-READABLE-REQUIREMENTS-END -->
+
 [Hugging Face Space](https://huggingface.co/spaces/ntwkkm/shinystat)
 
 [--- REPOSITORY-TREE-START ---]
@@ -96,7 +105,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 `-- wakeup coderabbitai
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 # 🏥 Medical Statistical Tool (Shiny for Python)
@@ -124,7 +132,7 @@ Calculate sensitivity, specificity, PPV, NPV, and visualize ROC curves.
 
 - Run Univariable and Multivariable Logistic Regression.
 - Visualize results with Forest Plots.
-- Supports **Firth's Regression** for rare events (if dependencies are met).
+- Supports **Firth's Regression** for rare events (requires `firthmodels` package; see installation).
 
 ### 📈 Correlation & ICC
 
@@ -138,6 +146,11 @@ Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
 ### ⚙️ Settings
 
 Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
+
+### 📝 Logging & Diagnostics
+
+- **Smart Logging**: Default log level set to `WARNING` for production to reduce noise.
+- **Performance Tracking**: Optional performance logging for optimization.
 
 ### 🧩 Missing Data Integration (Enhanced)
 
@@ -153,7 +166,7 @@ A professional-grade missing data handling system that surpasses standard tools:
 
 ### Option 1: Run Locally (Python)
 
-Ensure you have Python 3.10+ installed.
+Ensure you have **Python 3.12+** installed (required for modern f-string syntax).
 
 1. **Clone the repository:**
 
@@ -169,6 +182,9 @@ It is recommended to use a virtual environment.
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+# Optional: Install for Firth Regression support
+pip install firthmodels
+
 
 ```
 
@@ -181,7 +197,21 @@ shiny run app.py
 
 The app will be available at `http://localhost:8000`.
 
-### Option 2: Run with Docker
+### Option 2: Running Tests
+
+To run the test suite, ensure you use the `pytest` from your virtual environment (assuming venv is named `.venv`):
+
+```bash
+# Run all tests
+.venv/bin/pytest
+# Or if using a different venv name/activation:
+# python -m pytest
+
+# Run specific test
+.venv/bin/pytest tests/unit/test_statistics.py
+```
+
+### Option 3: Run with Docker
 
 This project is containerized for easy deployment.
 
