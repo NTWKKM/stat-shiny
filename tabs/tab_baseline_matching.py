@@ -422,18 +422,6 @@ def baseline_matching_server(
             return
         cols = d.columns.tolist()
 
-        # TVC columns to exclude from baseline/PSM analyses
-        tvc_cols_to_exclude = [
-            "id_tvc",
-            "time_start",
-            "time_stop",
-            "status_event",
-            "TVC_Value",
-            "Static_Age",
-            "Static_Sex",
-        ]
-        cols = [c for c in cols if c not in tvc_cols_to_exclude]
-
         # Table 1
         ui.update_select("sel_group_col", choices=["None"] + cols)
         ui.update_selectize("sel_t1_vars", choices=cols, selected=cols)
@@ -446,12 +434,11 @@ def baseline_matching_server(
             selected="⊘ None / Skip",
         )
 
-        # FIX: Update covariates dropdown with all columns (excluding TVC)
+        # FIX: Update covariates dropdown with all columns
         ui.update_selectize("sel_covariates", choices=cols, selected=[])
 
-        # Matched View (use original d for numeric cols)
+        # Matched View
         numeric_cols = d.select_dtypes(include=[np.number]).columns.tolist()
-        numeric_cols = [c for c in numeric_cols if c not in tvc_cols_to_exclude]
         ui.update_select("sel_stat_var_tab3", choices=numeric_cols)
 
     # =========================================================================

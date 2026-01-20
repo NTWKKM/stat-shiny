@@ -174,15 +174,11 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[12],
                     ),
-                    ui.h6("Select Covariates (Predictors):"),
-                    ui.input_selectize(
+                    ui.input_checkbox_group(
                         "cox_covariates",
-                        label=None,
+                        "Select Covariates (Predictors):",
                         choices=[],
-                        multiple=True,
-                        options={
-                            "placeholder": "Select covariates for Cox regression..."
-                        },
+                        selected=[],
                     ),
                     ui.layout_columns(
                         ui.input_action_button(
@@ -521,64 +517,38 @@ def survival_server(
         choices_with_labels = {c: get_label(c) for c in cols}
         num_choices_with_labels = {c: get_label(c) for c in numeric_cols}
 
-        # TVC columns to exclude from non-TVC analyses
-        tvc_cols_to_exclude = [
-            "id_tvc",
-            "time_start",
-            "time_stop",
-            "status_event",
-            "TVC_Value",
-            "Static_Age",
-            "Static_Sex",
-        ]
-        non_tvc_cols = [c for c in cols if c not in tvc_cols_to_exclude]
-        non_tvc_numeric = [c for c in numeric_cols if c not in tvc_cols_to_exclude]
-        non_tvc_choices = {c: get_label(c) for c in non_tvc_cols}
-        non_tvc_num_choices = {c: get_label(c) for c in non_tvc_numeric}
-
         # KM Curves
         ui.update_select(
-            "surv_time", choices=non_tvc_num_choices, selected=default_time
+            "surv_time", choices=num_choices_with_labels, selected=default_time
         )
         ui.update_select(
-            "surv_event", choices=non_tvc_choices, selected=default_event
+            "surv_event", choices=choices_with_labels, selected=default_event
         )
-        ui.update_select("surv_group", choices={"None": "None", **non_tvc_choices})
+        ui.update_select("surv_group", choices={"None": "None", **choices_with_labels})
 
         # Landmark Analysis
         ui.update_select(
-            "landmark_group", choices=non_tvc_choices, selected=default_compare
+            "landmark_group", choices=choices_with_labels, selected=default_compare
         )
         ui.update_slider("landmark_t", max=max_time_val, value=min(10, max_time_val))
 
-        # Cox Regression - Auto-select clinical covariates (Age, Sex, BMI, Comorbidities)
-        cox_covar_keywords = ["age", "sex", "bmi", "comorb", "diabetes", "hypertension"]
-        cox_default_covars = []
-        for kw in cox_covar_keywords:
-            for c in non_tvc_cols:
-                if kw in c.lower() and c not in cox_default_covars:
-                    cox_default_covars.append(c)
-                    break
-        ui.update_selectize(
-            "cox_covariates",
-            choices=non_tvc_choices,
-            selected=cox_default_covars[:5],  # Limit to 5 default covariates
-        )
+        # Cox Regression
+        ui.update_checkbox_group("cox_covariates", choices=choices_with_labels)
 
         # Subgroup Analysis
         ui.update_select(
-            "sg_time", choices=non_tvc_num_choices, selected=default_time
+            "sg_time", choices=num_choices_with_labels, selected=default_time
         )
         ui.update_select(
-            "sg_event", choices=non_tvc_choices, selected=default_event
+            "sg_event", choices=choices_with_labels, selected=default_event
         )
         ui.update_select(
-            "sg_treatment", choices=non_tvc_choices, selected=default_compare
+            "sg_treatment", choices=choices_with_labels, selected=default_compare
         )
         ui.update_select(
-            "sg_subgroup", choices=non_tvc_choices, selected=default_subgr
+            "sg_subgroup", choices=choices_with_labels, selected=default_subgr
         )
-        ui.update_checkbox_group("sg_adjust", choices=non_tvc_choices)
+        ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
 
         # TVC: Column configuration (use specialized detection for long-format TVC data)
         if len(cols) > 0:
