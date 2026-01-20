@@ -6,9 +6,12 @@ import numpy as np
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
+from logger import get_logger
 from tabs._common import get_color_palette
 from utils import decision_curve_lib, diag_test
 from utils.formatting import create_missing_data_report_html
+
+logger = get_logger(__name__)
 
 COLORS = get_color_palette()
 
