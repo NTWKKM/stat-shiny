@@ -57,3 +57,4 @@ playwright>=1.40.0
 # 📝 Code Quality (Ruff replaces black, flake8, isort)
 # ==============================================================================
 ruff>=0.4.0
+pillow>=10.3.0 # not directly required, pinned by Snyk to avoid a vulnerability
