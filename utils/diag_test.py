@@ -420,6 +420,7 @@ def calculate_chi2(
                     None,
                     "Error: Fisher's Exact Test requires a 2x2 table.",
                     None,
+                    {},
                 )
 
             odds_ratio, p_value = stats.fisher_exact(tab)
@@ -1605,6 +1606,7 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
 
     html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
     html += "</body>\n</html>"
+    return html
 
 
 # ==============================================================================

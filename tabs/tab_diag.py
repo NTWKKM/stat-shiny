@@ -398,6 +398,7 @@ def diag_server(
                 )
 
         except Exception as e:
+            logger.exception("Bland-Altman analysis failed")
             ba_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
         finally:
             ba_processing.set(False)
@@ -844,6 +845,9 @@ def diag_server(
                 )
                 roc_html.set(html_report)
 
+        except Exception as e:
+            logger.exception("ROC analysis failed")
+            roc_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             roc_processing.set(False)
@@ -946,6 +950,9 @@ def diag_server(
                     f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
                 )
 
+        except Exception as e:
+            logger.exception("Chi-Square analysis failed")
+            chi_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             chi_processing.set(False)
@@ -1015,6 +1022,9 @@ def diag_server(
                     )
                 )
 
+        except Exception as e:
+            logger.exception("Kappa analysis failed")
+            kappa_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             kappa_processing.set(False)
@@ -1055,6 +1065,9 @@ def diag_server(
                     )
                 )
 
+        except Exception as e:
+            logger.exception("Descriptive analysis failed")
+            desc_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
         finally:
             # Clear processing flag
             desc_processing.set(False)
@@ -1163,8 +1176,8 @@ def diag_server(
             dca_html.set(html_content)
 
         except Exception as e:
+            logger.exception("DCA analysis failed")
             dca_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
-
         finally:
             dca_processing.set(False)
 

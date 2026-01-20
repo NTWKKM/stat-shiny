@@ -136,20 +136,25 @@ def load_static_css() -> str:
     """
     Load the contents of static/styles.css for embedding in reports.
 
-    Looks for a file named `styles.css` inside a `static` directory located next to this module.
+    Looks for a file named `styles.css` inside:
+    1. A `static` directory located next to this module (`utils/static/styles.css`).
+    2. A `static` directory located in the project root (`static/styles.css`).
 
     Returns:
         str: The CSS file contents, or an empty string if the file is missing or cannot be read.
     """
     try:
-        # Assumes logic.py is in the root or same level as static folder
+        # 1. Try local static folder (utils/static/styles.css)
         css_path = Path(__file__).parent / "static" / "styles.css"
+        if not css_path.exists():
+            # 2. Try root static folder (static/styles.css)
+            css_path = Path(__file__).parent.parent / "static" / "styles.css"
 
         if css_path.exists():
             with open(css_path, encoding="utf-8") as f:
                 return f.read()
         else:
-            logger.warning(f"CSS file not found at: {css_path}")
+            logger.warning(f"CSS file not found at expected locations. Last checked: {css_path}")
             return ""
     except Exception as e:
         logger.exception("Failed to load static CSS")
