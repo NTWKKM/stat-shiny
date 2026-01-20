@@ -16,83 +16,83 @@ import pandas as pd
 import pytest
 
 # Add parent directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from forest_plot_lib import create_forest_plot
+from utils.forest_plot_lib import create_forest_plot
 
 pytestmark = pytest.mark.integration
 
-class TestForestPlotLib:
 
+class TestForestPlotLib:
     @pytest.fixture
     def ready_to_plot_df(self):
         """Create a DataFrame formatted exactly for the forest plot function"""
-        return pd.DataFrame({
-            'Subgroup': ['Overall', 'Age', 'Age', 'Gender', 'Gender'],
-            'Level': ['', '<65', '>=65', 'Male', 'Female'],
-            'Est': [0.8, 0.7, 0.9, 0.75, 0.85],  # Point estimate (OR/HR/RR)
-            'Lower': [0.6, 0.5, 0.7, 0.6, 0.65],
-            'Upper': [1.1, 0.9, 1.2, 0.95, 1.15],
-            'P-value': [0.15, 0.02, 0.4, 0.03, 0.3],
-            'Interaction P-value': [np.nan, 0.04, np.nan, 0.6, np.nan]
-        })
+        return pd.DataFrame(
+            {
+                "Subgroup": ["Overall", "Age", "Age", "Gender", "Gender"],
+                "Level": ["", "<65", ">=65", "Male", "Female"],
+                "Est": [0.8, 0.7, 0.9, 0.75, 0.85],  # Point estimate (OR/HR/RR)
+                "Lower": [0.6, 0.5, 0.7, 0.6, 0.65],
+                "Upper": [1.1, 0.9, 1.2, 0.95, 1.15],
+                "P-value": [0.15, 0.02, 0.4, 0.03, 0.3],
+                "Interaction P-value": [np.nan, 0.04, np.nan, 0.6, np.nan],
+            }
+        )
 
     def test_basic_forest_plot(self, ready_to_plot_df):
         """📊 Test generating a standard forest plot"""
         fig = create_forest_plot(
             ready_to_plot_df,
-            'Est',
-            'Lower',
-            'Upper',
-            'Subgroup',
+            "Est",
+            "Lower",
+            "Upper",
+            "Subgroup",
             title="Test Forest Plot",
-            xlabel="Odds Ratio"
+            xlabel="Odds Ratio",
         )
-        
+
         assert fig is not None
         # Verify it returns a Plotly Figure
-        assert hasattr(fig, 'layout')
-        assert hasattr(fig, 'data')
-        
+        assert hasattr(fig, "layout")
+        assert hasattr(fig, "data")
+
         # Check basic layout properties
         assert "Test Forest Plot" in fig.layout.title.text
-        assert len(fig.data) > 0 # Should have traces (points, lines)
+        assert len(fig.data) > 0  # Should have traces (points, lines)
 
     def test_forest_plot_customization(self, ready_to_plot_df):
         """🎨 Test customizing columns and styles"""
         # Rename columns to test flexibility
-        df_custom = ready_to_plot_df.rename(columns={
-            'Est': 'HazardRatio',
-            'Lower': 'CI_L',
-            'Upper': 'CI_U'
-        })
-        
+        df_custom = ready_to_plot_df.rename(
+            columns={"Est": "HazardRatio", "Lower": "CI_L", "Upper": "CI_U"}
+        )
+
         fig = create_forest_plot(
             df_custom,
-            'HazardRatio',
-            'CI_L',
-            'CI_U',
-            'Subgroup',
+            "HazardRatio",
+            "CI_L",
+            "CI_U",
+            "Subgroup",
             title="Custom Cox Plot",
-            colors=['blue', 'red'] # If supported
+            colors=["blue", "red"],  # If supported
         )
-        
+
         assert fig is not None
         assert "Custom Cox Plot" in fig.layout.title.text
 
     def test_plot_with_missing_interaction(self, ready_to_plot_df):
         """⚠️ Test plotting when Interaction P-value column is missing"""
-        df_no_int = ready_to_plot_df.drop(columns=['Interaction P-value'])
-        
+        df_no_int = ready_to_plot_df.drop(columns=["Interaction P-value"])
+
         # Should still work, just not display interaction p-values
-        fig = create_forest_plot(df_no_int, 'Est', 'Lower', 'Upper', 'Subgroup')
-        
+        fig = create_forest_plot(df_no_int, "Est", "Lower", "Upper", "Subgroup")
+
         assert fig is not None
 
     def test_empty_dataframe(self):
         """🚫 Test handling of empty input"""
-        df_empty = pd.DataFrame(columns=['Subgroup', 'Level', 'Est', 'Lower', 'Upper'])
-        
+        df_empty = pd.DataFrame(columns=["Subgroup", "Level", "Est", "Lower", "Upper"])
+
         # Verify that empty DataFrame raises ValueError
         with pytest.raises(ValueError, match=r"empty|no data"):
             create_forest_plot(df_empty)

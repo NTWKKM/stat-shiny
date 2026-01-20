@@ -1,27 +1,81 @@
-# ใช้ Python 3.12-slim
-FROM python:3.12-slim
+# ==============================================================================
+# Medical Stat Tool (stat-shiny) - Dockerfile
+# ==============================================================================
+# Optimized for HuggingFace Spaces deployment
+# Build: docker build -t stat-shiny .
+# Run:   docker run -p 7860:7860 stat-shiny
+# ==============================================================================
 
-# ตั้งค่า Working Directory
-WORKDIR /code
+# -----------------------------------------------------------------------------
+# Stage 1: Builder - Install dependencies
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim AS builder
 
-# Copy requirements และ Install
-# (ขั้นตอนนี้จะลง gunicorn ให้ด้วย เพราะมันอยู่ในไฟล์ requirements.txt แล้ว)
-COPY ./requirements.txt /code/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONUNBUFFERED=1 \
+  PIP_NO_CACHE_DIR=1 \
+  PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Copy โค้ดทั้งหมด
-COPY . .
+WORKDIR /build
 
-# สร้าง User (Security)
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /code
+# Install build dependencies (if needed for C extensions)
+RUN set -o pipefail && apt-get update && apt-get install -y --no-install-recommends \
+  gcc="$(apt-cache show gcc | grep -m1 Version | cut -d' ' -f2)" \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy and install requirements
+# Copy only requirements first to leverage Docker cache
+COPY requirements-prod.txt ./
+RUN pip install --target=/build/deps --no-cache-dir -r requirements-prod.txt
+
+# -----------------------------------------------------------------------------
+# Stage 2: Runtime - Lean production image
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+# OCI Labels
+LABEL org.opencontainers.image.title="Medical Stat Tool" \
+  org.opencontainers.image.description="Medical statistical analysis web app" \
+  org.opencontainers.image.source="https://github.com/NTWKKM/stat-shiny" \
+  org.opencontainers.image.licenses="MIT"
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONUNBUFFERED=1 \
+  PYTHONPATH=/app/deps \
+  HOME=/home/appuser
+
+WORKDIR /app
+
+# Copy installed dependencies from builder stage
+COPY --from=builder /build/deps /app/deps
+
+# Create non-root user for security
+RUN useradd -m -u 1000 appuser && \
+  chown -R appuser:appuser /app
+
+# Copy application code (respecting .dockerignore)
+COPY --chown=appuser:appuser . .
+
+# Switch to non-root user
 USER appuser
 
-# เปิด Port
+# Expose port (HuggingFace Spaces uses 7860)
 EXPOSE 7860
 
-# Health Check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:7860', timeout=2)" || exit 1
+# Health check (Ensure python is available)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860', timeout=3)" || exit 1
 
-# คำสั่งรัน (ใช้ gunicorn เรียก asgi:app ตามที่เราทำกันไว้)
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "--timeout", "120", "--bind", "0.0.0.0:7860", "asgi:app"]
+# Run with Gunicorn + Uvicorn worker
+# - workers: 2 (Increased to 2 for better concurrency if memory allows, or keep 1)
+# - timeout: 120s (for long-running statistical computations)
+CMD ["python", "-m", "gunicorn", \
+  "-k", "uvicorn.workers.UvicornWorker", \
+  "-w", "2", \
+  "--timeout", "120", \
+  "--graceful-timeout", "30", \
+  "--bind", "0.0.0.0:7860", \
+  "--preload", \
+  "asgi:app"]

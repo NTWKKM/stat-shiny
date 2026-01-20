@@ -1,0 +1,962 @@
+# 📊 Stat-Shiny Repository Comprehensive Analysis & Enhancement Recommendations
+
+**Report Date:** January 20, 2026  
+**Branch Analyzed:** `patch`  
+**Objective:** Review current architecture and provide strategic recommendations for adding professional medical statistics modules suitable for world-class publications
+
+---
+
+## Executive Summary
+
+**stat-shiny** is a well-architected, modular Python Shiny application for medical statistical analysis. Currently featuring 7 main analysis modules, the platform demonstrates professional-grade design with proper logging, configuration management, and comprehensive missing data handling.
+
+### Current Strengths
+✅ **Modular Tab Architecture** - 7 independent but interconnected analytical modules  
+✅ **Advanced Statistical Methods** - Firth's regression, Cox models, PSM, survival analysis  
+✅ **Publication-Ready Output** - Forest plots, detailed HTML reports, forest plot generation  
+✅ **Missing Data Framework** - Transparent reporting aligned with best practices  
+✅ **Enterprise Infrastructure** - Docker-ready, logging, configuration management  
+✅ **Code Quality** - Type hints, docstrings, error handling  
+
+### Strategic Gaps (for Publication Excellence)
+⚠️ **Sample Size Planning** - No power calculation tools for Methods section  
+⚠️ **Longitudinal Analysis** - Missing GEE/LMM for repeated measures data  
+⚠️ **Clinical Decision-Making** - No DCA for evaluating clinical utility  
+⚠️ **Advanced Modeling** - Could benefit from GLM with custom family/link functions  
+
+---
+
+## I. Current Architecture Deep Dive
+
+### A. Tab Structure & Module Organization
+
+```
+Primary Tabs (7 main modules)
+├── 📁 Data Management (tab_data.py)
+│   └── Data upload, preview, variable classification
+├── 📋 Table 1 & Matching (tab_baseline_matching.py)
+│   ├── Baseline characteristics table generation
+│   ├── Propensity Score Matching (PSM)
+│   └── Matched cohort comparison
+├── 🧪 Diagnostic Tests (tab_diag.py)
+│   ├── Sensitivity, Specificity, PPV, NPV
+│   └── ROC curve visualization
+├── 📊 Regression Models (tab_logit.py) ⭐ PRIMARY REGRESSION HUB
+│   ├── Binary Logistic Regression (3 methods: Auto/Firth/Standard)
+│   ├── Poisson Regression (with offset support)
+│   ├── Linear Regression (OLS + Robust + Stepwise + Bootstrap)
+│   └── Subgroup Analysis (interaction testing)
+├── 📈 Correlation & ICC (tab_corr.py)
+│   ├── Pearson/Spearman correlation matrices
+│   └── Intraclass Correlation Coefficients
+├── ⏳ Survival Analysis (tab_survival.py)
+│   ├── Kaplan-Meier curves (stratified & log-rank tests)
+│   ├── Cox Proportional Hazards models
+│   ├── Time-varying covariates (TVC)
+│   └── Landmark analysis
+└── ⚙️ Settings (tab_settings.py)
+    ├── Advanced statistics configuration (MCC, VIF, CI methods)
+    └── UI theme/layout settings
+```
+
+### B. Current Advanced Features
+
+#### 1. **Regression Models Tab (tab_logit.py)** - Most Complex Module
+- **Binary Logistic Regression**: Auto-detection of perfect separation, Firth support
+- **Poisson Regression**: Count data, offset support for rate calculations
+- **Linear Regression**: OLS, Robust SE, stepwise selection (forward/backward/both), Bootstrap CIs
+- **Subgroup Analysis**: Heterogeneity testing with interaction p-values
+
+#### 2. **Missing Data Framework** (config.py + integrated across modules)
+```python
+"missing": {
+    "strategy": "complete-case",
+    "user_defined_values": [],  # -99, 999, etc.
+    "treat_empty_as_missing": True,
+    "report_missing": True,
+    "report_threshold_pct": 50,
+}
+```
+- Transparent reporting of excluded observations
+- Missing data thresholds flagged during analysis
+- Consistent implementation across all 7 modules
+
+#### 3. **Advanced Statistics Module** (tab_advanced_stats.py)
+```python
+"stats": {
+    "mcc_enable": True,
+    "mcc_method": "fdr_bh",           # Bonferroni, Holm, FDR, Sidak
+    "vif_enable": True,
+    "vif_threshold": 10,
+    "ci_method": "auto",              # Wald, Profile, Auto
+}
+```
+- Multiple Comparison Correction (MCC)
+- Variance Inflation Factor (VIF) for collinearity
+- Confidence Interval method selection
+
+#### 4. **Visualization Pipeline**
+- Plotly-based forest plots with interactive features
+- Kaplan-Meier survival curves with risk tables
+- ROC curves with AUC confidence intervals
+- Linear regression diagnostic plots (4-plot panel)
+
+---
+
+## II. Strategic Recommendations: New Modules for Publication Excellence
+
+### Recommendation Overview
+
+**Goal:** Add 3 critical professional analytics modules to support complete research workflow - from planning through publication. Strategy: **Reorganize Tab Structure using "Research Phase" Grouping** and **embed new modules as subtabs** rather than creating new primary tabs.
+
+### A. Tab Re-organization Strategy (Grouping by Research Phase)
+
+The current 7-tab structure serves well but can be more intuitive by grouping modules into **research workflow phases**. This approach aligns with how researchers think about their projects and matches journal submission requirements:
+
+#### Tab Reorganization Map
+
+| Current Tab | New Tab Name | Research Phase | New Sub-tabs to Add |
+|------------|-------------|---------------|--------------------|
+| 📋 Table 1 & Matching | 📋 **Baseline & Planning** | Pre-Analysis | + Sample Size Calculation |
+| 📊 Regression Models | 📊 **Multivariable Models** | Main Analysis | + Repeated Measures (GEE/LMM) + GLM |
+| 🧪 Diagnostic Tests | 🧪 **Diagnostic & Prognostic** | Clinical Utility | + Decision Curve Analysis (DCA) |
+| 📁 Data Management | 📁 Data Management | Foundation | - |
+| 📈 Correlation & ICC | 📈 Correlation & ICC | Exploratory | - |
+| ⏳ Survival Analysis | ⏳ Survival Analysis | Time-to-Event | - |
+| ⚙️ Settings | ⚙️ Settings | Configuration | - |
+
+**Benefits of Re-organization:**
+✅ **Natural workflow progression**: Plan → Analyze → Evaluate (matches research cycle)  
+✅ **No new primary tabs**: Keeps UI clean with 7 tabs (no cognitive overload)  
+✅ **Journal alignment**: Directly addresses JAMA/Lancet/BMJ submission checklist  
+✅ **Logical grouping**: Related analyses in same tab = better discoverability  
+
+### B. Three Critical Modules to Add
+
+---
+
+## III. Module 1: Sample Size & Power Calculation (PRIORITY 1)
+
+### Location & Purpose
+**Tab:** 📋 Baseline & Planning (rename from "Table 1 & Matching")  
+**Sub-tab:** New "🔢 Sample Size" alongside existing "Baseline Characteristics" and "Propensity Matching"  
+**Why Critical:** High-impact journals (JAMA, Lancet, BMJ) require detailed power analysis in Methods section. Shows study was adequately powered a priori.
+
+### User Interface Design
+
+#### Input Panel (Sidebar)
+```
+┌─ Study Design ──────────────────┐
+│ Design Type: [Dropdown]         │
+│  ├─ Compare Means (t-test)      │
+│  ├─ Compare Proportions (χ²)    │
+│  ├─ Survival (Log-rank)         │
+│  ├─ Correlation                 │
+│  └─ Custom Effect Size          │
+└─────────────────────────────────┘
+
+┌─ Statistical Parameters ────────┐
+│ Alpha (Significance): [0.05]    │
+│ Power (1-β): [0.80]             │
+│ Allocation Ratio: [1:1]         │
+│ Two-tailed: [✓]                 │
+└─────────────────────────────────┘
+
+┌─ Effect Size Parameters ────────┐
+│ (Changes based on Design Type)  │
+│ Mean Diff: [5.0]                │
+│ Pooled SD: [10.0]               │
+│ or                              │
+│ Proportion 1: [0.3]             │
+│ Proportion 2: [0.5]             │
+└─────────────────────────────────┘
+
+[🚀 Calculate]  [📊 Save Assumptions]
+```
+
+#### Output Panel (Main Area)
+
+**Card 1: Primary Result**
+```
+┌───────────────────────────────┐
+│   Total Sample Size Required  │
+│                               │
+│         n = 246               │
+│    (123 per group)            │
+│                               │
+│  Assumptions:                 │
+│  • α = 0.05 (two-tailed)      │
+│  • Power = 80%                │
+│  • Effect = 5.0 (SD 10)       │
+└───────────────────────────────┘
+```
+
+**Card 2: Power Curve Graph**
+```
+Power Curve Analysis
+100%  ┐
+      │     ╱
+  80% ├───╱─────  Target Power
+      │  ╱
+  60% │╱
+    0└─────────────────
+      50  100  150  200  250
+          Sample Size (per group)
+      
+→ Shows: If we recruit 123 per group (246 total),
+  we'll achieve ~80% power to detect 5-point difference
+```
+
+**Card 3: Copy-Ready Text**
+```
+Methods Text Generator
+─────────────────────────────────
+"We calculated that a sample size of 123 per 
+group (246 total) would provide 80% power to 
+detect a clinically meaningful difference of 
+5 points [SD=10] with a two-tailed alpha of 
+0.05, assuming equal allocation and normal 
+distribution of outcomes."
+
+[📋 Copy to Clipboard]
+```
+
+**Card 4: Sensitivity Table**
+```
+Sample Size Sensitivity Analysis
+┌────────────┬──────┬────────┐
+│ Per Group  │ Total│ Power  │
+├────────────┼──────┼────────┤
+│ 100        │ 200  │ 72.5%  │
+│ 110        │ 220  │ 76.1%  │
+│ 123        │ 246  │ 80.0%  │
+│ 150        │ 300  │ 89.3%  │
+│ 200        │ 400  │ 98.1%  │
+└────────────┴──────┴────────┘
+```
+
+### Backend Implementation
+```python
+# utils/sample_size_lib.py
+
+def power_t_test(mean1, mean2, sd1, sd2, ratio, alpha, power):
+    """Calculate sample size for t-test"""
+    effect_size = (mean1 - mean2) / np.sqrt((sd1**2 + sd2**2) / 2)
+    # Use statsmodels.stats.power.tt_ind_solve_power()
+    n1 = tt_ind_solve_power(effect_size, nobs1=None, alpha=alpha, power=power, ratio=ratio)
+    return int(np.ceil(n1))
+
+def power_proportions_test(p1, p2, ratio, alpha, power):
+    """Calculate sample size for proportions (χ² test)"""
+    effect_size = proportions_effectsize(p1, p2)
+    n = proportions_chisquare_pwr.solve_power(effect_size=effect_size, nobs1=None, 
+                                              alpha=alpha, power=power, ratio=ratio)
+    return int(np.ceil(n))
+
+def power_curve(parameters, n_range):
+    """Generate power curve data for visualization"""
+    # Return DataFrame with columns: n_per_group, total_n, power
+```
+
+### Code Integration Example
+```python
+# In tabs/tab_baseline_matching.py
+
+ui.nav_panel(
+    "🔢 Sample Size Calculation",
+    ui.layout_sidebar(
+        ui.sidebar(
+            # ... Input controls as designed above ...
+        ),
+        ui.div(
+            # Card 1: Primary Result
+            ui.value_box("Total N Required", ui.output_text("ss_total_n")),
+            # Card 2: Power Curve
+            ui.output_plot("ss_power_curve"),
+            # Card 3: Copy-ready text
+            ui.card(ui.output_ui("ss_methods_text")),
+            # Card 4: Sensitivity table
+            ui.output_data_frame("ss_sensitivity_table"),
+        )
+    )
+)
+
+@server
+def baseline_matching_server(...):
+    @reactive.Effect
+    @reactive.event(input.btn_calculate_ss)
+    def _calculate():
+        n = power_t_test(
+            mean1=input.mean1(),
+            mean2=input.mean2(),
+            sd1=input.sd1(),
+            sd2=input.sd2(),
+            ratio=input.ratio(),
+            alpha=input.alpha(),
+            power=input.power()
+        )
+        # Store n and generate outputs
+```
+
+---
+
+## IV. Module 2: Repeated Measures & Longitudinal Analysis (PRIORITY 2)
+
+### Location & Purpose
+**Tab:** 📊 Multivariable Models (rename from "Regression Models")  
+**Sub-tab:** New "📊 Repeated Measures" alongside Binary/Poisson/Linear/Subgroup Analysis  
+**Why Critical:** Medical data frequently includes repeated measurements (follow-up visits). Standard regression violates independence assumption. GEE/LMM are standard in high-impact journals for longitudinal studies.
+
+### User Interface Design
+
+#### Input Panel (Sidebar)
+```
+┌─ Data Structure ────────────────┐
+│ Subject ID Column: [subject_id] │
+│ Time Variable: [visit_day]      │
+│ Outcome Variable: [outcome]     │
+│ Group/Treatment: [treatment]    │
+└─────────────────────────────────┘
+
+┌─ Method Selection ──────────────┐
+│ ○ GEE (Population-Averaged)     │
+│   "Average effect across pop"   │
+│ ○ LMM (Mixed Model)             │
+│   "Subject-specific + random"   │
+│ ○ Both (for comparison)         │
+└─────────────────────────────────┘
+
+┌─ Correlation Structure ─────────┐
+│ (if GEE selected)               │
+│ ○ Exchangeable (Compound)       │
+│ ○ AR(1) (Autoregressive)        │
+│ ○ Unstructured                  │
+│ ○ Independent                   │
+└─────────────────────────────────┘
+
+┌─ Adjustment ────────────────────┐
+│ ☐ Random Intercept              │
+│ ☐ Random Slope (per subject)    │
+│ Covariates: [multi-select]      │
+└─────────────────────────────────┘
+
+[🚀 Run Analysis]
+```
+
+#### Output Panel (Main Area)
+
+**Card 1: Fixed Effects Table**
+```
+FIXED EFFECTS RESULTS (GEE / LMM)
+┌────────────────┬───────┬────────┬────────┬─────────┐
+│ Variable       │ Beta  │   SE   │ 95% CI │ P-value │
+├────────────────┼───────┼────────┼────────┼─────────┤
+│ Treatment      │ 2.45  │ 0.82   │ (0.85, │ 0.003   │
+│                │       │        │  4.05) │         │
+│ Time (Visit 3) │ 1.12  │ 0.65   │ (-0.15,│ 0.085   │
+│                │       │        │  2.39) │         │
+│ Treat×Time     │ 0.88  │ 0.92   │ (-0.92,│ 0.339   │
+│                │       │        │  2.68) │         │
+│ Age (centered) │ -0.05 │ 0.03   │ (-0.11,│ 0.120   │
+│                │       │        │  0.01) │         │
+└────────────────┴───────┴────────┴────────┴─────────┘
+
+Model: Outcome ~ Treatment + Time + Treatment×Time + Age
+Method: GEE | Correlation: Exchangeable | N subjects: 150 | N obs: 600
+```
+
+**Card 2: Visualization - Trajectories Plot**
+```
+Mean Outcome Trajectory Over Time
+  
+Outcome │
+   10.0 │     ●─────●─────●
+        │    ╱
+   8.0 │   ╱  Treatment=Yes
+        │  ╱
+   6.0 │─●─────●─────●  (95% CI shaded)
+        │  Treatment=No
+   4.0 │
+        │
+        └────────────────────────
+          Visit1  Visit2  Visit3
+         (0 mo)  (3 mo)  (6 mo)
+
+→ Interpretation: Treatment group shows steeper improvement
+  over time compared to control (interaction p=0.339)
+```
+
+**Card 3: Random Effects Distribution (if LMM)**
+```
+RANDOM EFFECTS SUMMARY (LMM only)
+┌────────────────────────────────────────────┐
+│ Random Intercept SD: 2.34                  │
+│ Random Slope SD (Time): 0.45               │
+│ Residual SD: 1.82                         │
+│                                            │
+│ Interpretation:                            │
+│ • Subjects vary in baseline (SD=2.34)      │
+│ • Subjects vary in slope (SD=0.45)         │
+│ • Some variation unexplained (σ=1.82)      │
+└────────────────────────────────────────────┘
+```
+
+**Card 4: Model Comparison (if GEE vs LMM run)**
+```
+GEE vs LMM COMPARISON
+┌─────────────────┬─────────┬─────────┐
+│ Parameter       │ GEE     │ LMM     │
+├─────────────────┼─────────┼─────────┤
+│ Treatment Beta  │ 2.45    │ 2.52    │
+│ SE              │ 0.82    │ 0.79    │
+│ 95% CI          │ (0.85,  │ (0.98,  │
+│                 │  4.05)  │  4.06)  │
+│ P-value         │ 0.003   │ 0.002   │
+│                 │         │         │
+│ Interpretation: Both methods give similar │
+│ results, confirming robustness            │
+└─────────────────┴─────────┴─────────┘
+```
+
+### Backend Implementation
+```python
+# utils/repeated_measures_lib.py
+
+from statsmodels.genmod.generalized_estimating_equations import GEE
+from statsmodels.genmod.cov_struct import Exchangeable, AR, Unstructured, Independence
+import statsmodels.formula.api as smf
+
+def run_gee(df, outcome_col, time_col, subject_col, treatment_col, 
+            cov_cols, correlation_type='exchangeable'):
+    """
+    Run Generalized Estimating Equation (GEE)
+    - Population-averaged approach
+    - Handles repeated measures with specified correlation structure
+    """
+    # Build formula: outcome ~ treatment + time + treatment:time + covariates
+    formula = f"{outcome_col} ~ C({treatment_col}) + C({time_col}) + C({treatment_col}):C({time_col})"
+    if cov_cols:
+        formula += " + " + " + ".join(cov_cols)
+    
+    # Set correlation structure
+    corr_map = {
+        'exchangeable': Exchangeable(),
+        'ar1': AR(order=1),
+        'unstructured': Unstructured(),
+        'independent': Independence(),
+    }
+    
+    gee_model = GEE.from_formula(
+        formula, 
+        groups=subject_col,
+        data=df,
+        family=sm.families.Gaussian(),
+        cov_struct=corr_map[correlation_type]
+    )
+    
+    return gee_model.fit()
+
+def run_lmm(df, outcome_col, time_col, subject_col, treatment_col,
+            cov_cols, random_intercept=True, random_slope=False):
+    """
+    Run Linear Mixed Model (LMM)
+    - Subject-specific approach
+    - Allows random intercepts and/or slopes
+    """
+    from statsmodels.regression.mixed_linear_model import MixedLM
+    
+    formula = f"{outcome_col} ~ C({treatment_col}) + C({time_col}) + C({treatment_col}):C({time_col})"
+    if cov_cols:
+        formula += " + " + " + ".join(cov_cols)
+    
+    # Build random effects structure
+    if random_slope:
+        random_formula = f"~C({time_col})"  # Random slope per subject
+    else:
+        random_formula = "~1"  # Random intercept only
+    
+    lmm_model = MixedLM.from_formula(
+        formula,
+        groups=df[subject_col],
+        data=df,
+        re_formula=random_formula
+    )
+    
+    return lmm_model.fit()
+
+def create_trajectory_plot(df, time_col, outcome_col, group_col):
+    """Generate spaghetti/mean profile plot"""
+    # Use Plotly for interactive visualization with CI bands
+```
+
+### Code Integration Example
+```python
+# In tabs/tab_logit.py (within existing navset_tab)
+
+ui.nav_panel(
+    "📊 Repeated Measures",
+    ui.layout_sidebar(
+        ui.sidebar(
+            ui.input_select("rm_subject", "Subject ID Column", choices=[]),
+            ui.input_select("rm_time", "Time Variable", choices=[]),
+            ui.input_select("rm_outcome", "Outcome", choices=[]),
+            ui.input_radio_buttons("rm_method", "Method", 
+                                  {"gee": "GEE (Population-Avg)", "lmm": "LMM (Mixed)"}),
+            ui.panel_conditional(
+                "input.rm_method == 'gee'",
+                ui.input_radio_buttons("rm_corr", "Correlation",
+                                      {"exch": "Exchangeable", "ar1": "AR(1)", "unst": "Unstructured"})
+            ),
+            ui.input_action_button("btn_run_rm", "🚀 Run Analysis"),
+        ),
+        ui.div(
+            ui.output_ui("rm_status"),
+            ui.navset_card_tab(
+                ui.nav_panel("Fixed Effects", ui.output_data_frame("rm_table")),
+                ui.nav_panel("Trajectories", ui.output_plot("rm_trajectory")),
+                ui.nav_panel("Random Effects (LMM)", ui.output_ui("rm_random_effects")),
+                ui.nav_panel("Model Comparison", ui.output_ui("rm_comparison")),
+            )
+        )
+    )
+)
+```
+
+---
+
+## V. Module 3: Decision Curve Analysis (PRIORITY 3)
+
+### Location & Purpose
+**Tab:** 🧪 Diagnostic & Prognostic (rename from "Diagnostic Tests")  
+**Sub-tab:** New "📈 Decision Curve Analysis (DCA)" alongside ROC/Sensitivity/Specificity  
+**Why Critical:** Modern high-impact journals (JCO, JAMA Oncology, BMJ) require DCA to show clinical net benefit. AUC alone is insufficient. Shows whether model is actually useful in practice.
+
+### User Interface Design
+
+#### Input Panel (Sidebar)
+```
+┌─ Data Selection ────────────────┐
+│ Outcome (Binary): [outcome]     │
+│ Risk Scores/Predictions:        │
+│  ☐ Model 1 [model1_prob]        │
+│  ☐ Model 2 [model2_prob]        │
+│  ☐ Reference (e.g., Age)        │
+│ (Allow multiple models for      │
+│  head-to-head comparison)       │
+└─────────────────────────────────┘
+
+┌─ Threshold Settings ────────────┐
+│ Threshold Probability Range:    │
+│ Min: [0.01]                     │
+│ Max: [0.99]                     │
+│ Step: [0.01]                    │
+│                                 │
+│ Include Reference Lines:        │
+│ ☑ Treat All (Horizontal line)  │
+│ ☑ Treat None (Baseline)         │
+└─────────────────────────────────┘
+
+[🚀 Calculate DCA]
+```
+
+#### Output Panel (Main Area)
+
+**Card 1: Decision Curve (Main Plot)**
+```
+Decision Curve Analysis - Net Benefit
+  
+Net      │
+Benefit  │  Treat All ─────────────
+  0.40   │       ╱│
+         │      ╱ │
+  0.30   │     ╱  │ Model 1 (AUC=0.80)
+         │    ╱   │╱╲
+  0.20   │   ╱    ╱  ╲
+         │  ╱    ╱    ╲
+  0.10   │ ╱    ╱      ╲
+         │╱    ╱        ╲
+  0.00   ├─────────────╱─ ╲──── Treat None
+         │             ╱   ╲
+ -0.10   │            ╱     ╲╱─ Model 2 (AUC=0.75)
+         │
+         └──────────────────────────
+          0.0  0.1  0.2  0.3  0.4 0.5
+          Threshold Probability
+
+Legend:
+━━━ Model 1 (Logistic) - Best overall
+─ ─ ─ Model 2 (Simple Score) - For comparison  
+─── Treat All            - Reference
+...  Treat None          - Baseline
+
+Key Finding:
+Model 1 provides positive net benefit across 
+thresholds 0.05-0.45, meaning it's clinically 
+useful in this range. At threshold <0.05, 
+treating all is better.
+```
+
+**Card 2: Interpretation Table**
+```
+CLINICAL UTILITY INTERPRETATION
+┌──────────────────────────────────────────┐
+│ Threshold   │ Decision        │ Model 1  │
+│ Probability │                 │ vs Ref   │
+├──────────────────────────────────────────┤
+│ 0.01-0.05   │ Treat All       │ Inferior │
+│             │ (Better net     │          │
+│             │ benefit)        │          │
+│             │                 │          │
+│ 0.05-0.45   │ Use Model 1     │ Superior │
+│             │ (Higher net     │ ✓ Best   │
+│             │ benefit)        │ choice   │
+│             │                 │          │
+│ 0.45-1.00   │ Treat None      │ Inferior │
+│             │ (Better net     │          │
+│             │ benefit)        │          │
+└──────────────────────────────────────────┘
+
+Recommendation: Use this model when pre-test 
+probability is 5-45%. At lower thresholds, 
+treat all patients. At higher thresholds, 
+treat none.
+```
+
+**Card 3: Summary Statistics**
+```
+DCA SUMMARY STATISTICS
+┌──────────────────────────────────────────┐
+│                 Model 1  │  Model 2       │
+├──────────────────────────────────────────┤
+│ Sensitivity    │   84%   │   78%          │
+│ Specificity    │   72%   │   81%          │
+│ AUC-ROC        │  0.805  │  0.748         │
+│ Max Net Benefit│  0.38   │  0.31          │
+│ @ Threshold    │  0.25   │  0.22          │
+├──────────────────────────────────────────┤
+│ Positive: Model 1 shows higher net       │
+│ benefit across broader threshold range   │
+│ → Preferred for clinical decision-making │
+└──────────────────────────────────────────┘
+```
+
+**Card 4: Download-Ready Table**
+```
+Threshold  Model 1 NB  Model 2 NB  Treat All  Treat None
+0.01       0.086       0.074       0.099      0.000
+0.05       0.215       0.182       0.238      0.000
+0.10       0.302       0.258       0.300      0.000
+0.15       0.355       0.298       0.300      0.000
+0.20       0.377       0.315       0.278      0.000
+...
+0.45       0.289       0.215       0.095      0.000
+0.50       0.241       0.168       0.048      0.000
+
+[📥 Download as CSV]
+```
+
+### Backend Implementation
+```python
+# utils/decision_curve_lib.py
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+
+def calculate_net_benefit(actual, predicted_prob, thresholds):
+    """
+    Calculate net benefit for Decision Curve Analysis
+    
+    Net Benefit = TP/N - (FP/N) * (threshold / (1-threshold))
+    
+    Where:
+    - TP = True Positives
+    - FP = False Positives  
+    - N = Total sample
+    - threshold = Decision threshold probability
+    """
+    nb_values = []
+    
+    for threshold in thresholds:
+        # Predict positive if prob >= threshold
+        predicted_positive = (predicted_prob >= threshold).astype(int)
+        
+        # Calculate TP and FP
+        tp = np.sum((predicted_positive == 1) & (actual == 1))
+        fp = np.sum((predicted_positive == 1) & (actual == 0))
+        n = len(actual)
+        
+        # Net benefit formula
+        nb = (tp / n) - (fp / n) * (threshold / (1 - threshold))
+        nb_values.append(nb)
+    
+    return np.array(nb_values)
+
+def calculate_reference_lines(actual, thresholds):
+    """
+    Calculate reference lines (treat all, treat none)
+    """
+    prevalence = np.mean(actual)
+    
+    # Treat All: assume all positive
+    treat_all = prevalence - (1 - prevalence) * (thresholds / (1 - thresholds))
+    
+    # Treat None: no treatment benefit
+    treat_none = np.zeros_like(thresholds)
+    
+    return treat_all, treat_none
+
+def create_dca_plot(df_results, title="Decision Curve Analysis"):
+    """Generate interactive Plotly DCA visualization"""
+    fig = go.Figure()
+    
+    # Add model curves
+    for col in df_results.columns:
+        if col != 'threshold':
+            fig.add_trace(go.Scatter(
+                x=df_results['threshold'],
+                y=df_results[col],
+                name=col,
+                mode='lines'
+            ))
+    
+    # Add reference lines
+    fig.update_layout(
+        title=title,
+        xaxis_title="Threshold Probability",
+        yaxis_title="Net Benefit",
+        hovermode='x unified'
+    )
+    return fig
+```
+
+### Code Integration Example
+```python
+# In tabs/tab_diag.py (within existing navset_tab)
+
+ui.nav_panel(
+    "📈 Decision Curve Analysis",
+    ui.layout_sidebar(
+        ui.sidebar(
+            ui.input_select("dca_outcome", "Outcome (Binary)", choices=[]),
+            ui.input_selectize("dca_predictions", "Risk Models to Compare", 
+                              choices=[], multiple=True),
+            ui.h6("Threshold Settings"),
+            ui.input_slider("dca_threshold_range", "Probability Range",
+                           min=0.01, max=0.99, value=c(0.01, 0.99), step=0.01),
+            ui.input_action_button("btn_run_dca", "🚀 Calculate DCA"),
+        ),
+        ui.div(
+            ui.output_plot("dca_curve"),
+            ui.output_data_frame("dca_interpretation"),
+            ui.output_data_frame("dca_table"),
+            ui.download_button("btn_dl_dca", "📥 Download Results"),
+        )
+    )
+)
+```
+
+---
+
+## VI. Additional Enhancement: Generalized Linear Models (GLM)
+
+### Optional Sub-tab within "Multivariable Models"
+**Purpose:** Support advanced family/link combinations beyond standard Logistic/Linear/Poisson
+
+```python
+# Users can specify:
+- Family: Gaussian, Binomial, Poisson, Gamma, Inverse Gaussian, Tweedie
+- Link: logit, probit, log, sqrt, etc.
+- Useful for: Cost analysis (Gamma), Rate data with zeros (Tweedie), etc.
+
+# Implementation in tab_logit.py
+ui.nav_panel(
+    "🔧 Advanced GLM",
+    ui.input_radio_buttons("glm_family", "Distribution Family",
+        {"gaussian": "Gaussian", "binomial": "Binomial", "poisson": "Poisson",
+         "gamma": "Gamma (Cost Data)", "tweedie": "Tweedie (Excess Zeros)"}),
+    ui.input_select("glm_link", "Link Function", choices=[...]),
+    # ... Standard regression UI follows ...
+)
+```
+
+---
+
+## VII. Implementation Roadmap
+
+### Phase 1: Foundation 
+**Priority: Critical**
+
+1. **Rename Tabs in app.py** (No structural changes)
+   ```python
+   # OLD: "📋 Table 1 & Matching" → NEW: "📋 Baseline & Planning"
+   # OLD: "📊 Regression Models" → NEW: "📊 Multivariable Models"
+   # OLD: "🧪 Diagnostic Tests" → NEW: "🧪 Diagnostic & Prognostic"
+   ```
+
+2. **Create New Module Files**
+   ```bash
+   tabs/tab_sample_size.py              # Sample size module (or extend baseline)
+   utils/sample_size_lib.py             # Power calculation backend
+   utils/repeated_measures_lib.py       # GEE/LMM computation
+   utils/decision_curve_lib.py          # DCA computation
+   ```
+
+### Phase 2: Sample Size Implementation 
+**Priority: High** (Required for Methods section in papers)
+
+- Implement power calculations (t-test, proportions, survival, correlation)
+- Create power curve visualization
+- Add copy-ready methods text generator
+- Full test coverage
+
+### Phase 3: Repeated Measures Implementation 
+**Priority: High** (Required for longitudinal studies)
+
+- Implement GEE with multiple correlation structures
+- Implement LMM with random effects
+- Create trajectory plots
+- Model comparison (GEE vs LMM)
+
+### Phase 4: Decision Curve Analysis 
+**Priority: Medium-High** (Increasingly required by top journals)
+
+- Calculate net benefit across thresholds
+- Create DCA plot with reference lines
+- Clinical utility interpretation table
+- Multi-model comparison
+
+### Phase 5: GLM Enhancement 
+**Priority: Medium** (Nice-to-have, enhances capabilities)
+
+- Extend logit_ui to include GLM options
+- Support family/link selection
+- Unify with existing regression output
+
+---
+
+## VIII. Tab Structure Transition Plan
+
+### No UI Overhaul Needed
+Simply rename existing tabs and extend with subtabs:
+
+```python
+# app.py changes (MINIMAL)
+
+app_ui = ui.page_navbar(
+    # Tab 1: Rename only
+    ui.nav_panel("📋 Baseline & Planning",  # was "Table 1 & Matching"
+                 wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm"))),
+    
+    # Tab 2: Rename + extend
+    ui.nav_panel("📊 Multivariable Models",  # was "Regression Models"
+                 wrap_with_container(tab_logit.logit_ui("logit"))),
+    
+    # Tab 3: Rename + extend  
+    ui.nav_panel("🧪 Diagnostic & Prognostic",  # was "Diagnostic Tests"
+                 wrap_with_container(tab_diag.diag_ui("diag"))),
+    
+    # Tab 4-7: Unchanged
+    ui.nav_panel("📁 Data Management", wrap_with_container(tab_data.data_ui("data"))),
+    ui.nav_panel("📈 Correlation & ICC", wrap_with_container(tab_corr.corr_ui("corr"))),
+    ui.nav_panel("⏳ Survival Analysis", wrap_with_container(tab_survival.survival_ui("survival"))),
+    ui.nav_panel("⚙️ Settings", wrap_with_container(tab_settings.settings_ui("settings"))),
+)
+```
+
+### Within Each Extended Tab
+Each module (baseline_matching, logit, diag) will use `ui.navset_tab()` to add subtabs:
+
+```python
+# Example in tabs/tab_baseline_matching.py
+
+@module.ui
+def baseline_matching_ui() -> ui.TagChild:
+    return ui.navset_tab(
+        ui.nav_panel("📊 Baseline Characteristics", ...),  # Existing
+        ui.nav_panel("✅ Propensity Matching", ...),        # Existing
+        ui.nav_panel("🔢 Sample Size", ...),               # NEW
+        ui.nav_panel("ℹ️ Reference", ...),
+    )
+```
+
+---
+
+## IX. Quality Assurance & Publication Standards
+
+### JAMA/Lancet/BMJ Compliance Checklist
+
+- [x] **Sample Size**: Power calculation with methods text generator
+- [x] **Multiple Testing**: Already has MCC in settings
+- [x] **Longitudinal**: GEE/LMM for repeated measures
+- [x] **Clinical Utility**: DCA for decision-making
+- [x] **Sensitivity Analysis**: (Covered in advanced stats)
+- [x] **Missing Data**: Transparent reporting (existing)
+- [x] **Effect Size**: Exact point estimates + CIs (existing)
+
+### Testing Requirements
+- [ ] Unit tests for each power calculation scenario
+- [ ] Integration tests for GEE/LMM workflows  
+- [ ] DCA validation against published examples
+- [ ] Regression tests for tab reorganization
+
+---
+
+## X. Expected Impact
+
+### Before Enhancement
+- 📊 Good for exploratory/descriptive analysis
+- ✅ Solid regression capabilities
+- ⚠️ Missing pre-analysis planning tools
+- ⚠️ Limited longitudinal data handling
+- ❌ No clinical utility assessment
+
+### After Enhancement
+- 📊 Complete research workflow (Plan → Analyze → Evaluate)
+- ✅ Publication-grade across all phases
+- ✅ Sample size justification in Methods
+- ✅ Longitudinal analysis (GEE/LMM)
+- ✅ Clinical decision-making (DCA)
+- ✅ Competitive advantage vs other Shiny tools
+
+### Journal Alignment
+High-impact journals now expect:
+1. Sample size a priori (Methods section) ← Module 1
+2. Proper handling of repeated measurements ← Module 2  
+3. Evidence of clinical utility (not just AUC) ← Module 3
+
+---
+
+## XI. Dependencies & Libraries
+
+### New Python Requirements
+```
+statsmodels>=0.14.0           # GEE, LMM, power calculations
+scipy>=1.11.0                 # Statistical functions
+plotly>=5.14.0                # Already in use
+```
+
+### No conflicts with existing dependencies in requirements.txt
+
+---
+
+## XII. Conclusion
+
+**stat-shiny** already has excellent analytical depth. By adding these 3 critical modules through strategic tab reorganization:
+
+✅ **Complete research workflow**: From study planning through clinical implementation  
+✅ **Journal-ready**: Addresses JAMA/Lancet/BMJ submission requirements  
+✅ **Minimal UI disruption**: Same 7 tabs, just better organized  
+✅ **Researcher efficiency**: No need to leave platform for publication prep  
+✅ **Competitive advantage**: Comprehensive medical statistics in one tool  
+
+**Status**: Ready for implementation  
+**Recommended Start**: Week of January 20, 2026  
+**Expected Completion**: Early March 2026
+
+---
+
+**Report Prepared For**: NTWKKM stat-shiny development team  
+**Analysis Date**: January 20, 2026  
+**Strategy**: Grouping by Research Phase (Plan → Analyze → Evaluate)  
+**Status**: Final, Ready for Development
