@@ -3,10 +3,15 @@ import pandas as pd
 import plotly.express as px
 from shiny import module, reactive, render, ui
 
+from tabs._common import (
+    get_color_palette,
+)
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.psm_lib import calculate_ipw, calculate_ps, check_balance
 from utils.sensitivity_lib import calculate_e_value
 from utils.stratified_lib import breslow_day, mantel_haenszel
+
+COLORS = get_color_palette()
 
 
 @module.ui
