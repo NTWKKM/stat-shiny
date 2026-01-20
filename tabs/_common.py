@@ -203,3 +203,161 @@ def get_color_info() -> dict[str, Any]:
             },
         },
     }
+
+
+# ===========================================
+# UI HELPER FUNCTIONS
+# ===========================================
+
+
+def form_section(
+    title: str, *content: "TagChild", icon: str = "", description: str = ""
+) -> "TagChild":
+    """
+    Creates a consistent form section with header and content.
+
+    Args:
+        title: Section title
+        *content: Form elements to include
+        icon: Optional emoji/icon prefix
+        description: Optional description text
+
+    Returns:
+        A div containing the styled form section
+    """
+    from shiny import ui
+
+    header_text = f"{icon} {title}" if icon else title
+    header = ui.h5(header_text, class_="form-section-header")
+
+    elements = [header]
+    if description:
+        elements.append(
+            ui.p(description, class_="text-muted", style="font-size: 13px; margin-bottom: 16px;")
+        )
+    elements.extend(content)
+
+    return ui.div(*elements, class_="form-section", style="margin-bottom: 24px;")
+
+
+def action_buttons(*buttons: "TagChild", align: str = "left") -> "TagChild":
+    """
+    Creates a standardized action button group.
+
+    Args:
+        *buttons: Button elements to include
+        align: Alignment ('left', 'center', 'right')
+
+    Returns:
+        A div containing the button group with consistent spacing
+    """
+    from shiny import ui
+
+    justify = {"left": "flex-start", "center": "center", "right": "flex-end"}.get(
+        align, "flex-start"
+    )
+
+    return ui.div(
+        *buttons,
+        style=f"display: flex; gap: 12px; justify-content: {justify}; margin-top: 16px;",
+    )
+
+
+def info_badge(text: str) -> "TagChild":
+    """
+    Creates a blue informational badge.
+
+    Args:
+        text: Badge text
+
+    Returns:
+        A styled badge element
+    """
+    from shiny import ui
+
+    return ui.span(
+        f"ℹ️ {text}",
+        style="background-color: #EFF6FF; color: #1E40AF; padding: 4px 10px; "
+        "border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid #BFDBFE;",
+    )
+
+
+def warning_badge(text: str) -> "TagChild":
+    """
+    Creates a yellow warning badge.
+
+    Args:
+        text: Badge text
+
+    Returns:
+        A styled badge element
+    """
+    from shiny import ui
+
+    return ui.span(
+        f"⚠️ {text}",
+        style="background-color: #FFFBEB; color: #92400E; padding: 4px 10px; "
+        "border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid #FDE68A;",
+    )
+
+
+def success_badge(text: str) -> "TagChild":
+    """
+    Creates a green success badge.
+
+    Args:
+        text: Badge text
+
+    Returns:
+        A styled badge element
+    """
+    from shiny import ui
+
+    return ui.span(
+        f"✅ {text}",
+        style="background-color: #ECFDF5; color: #065F46; padding: 4px 10px; "
+        "border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid #A7F3D0;",
+    )
+
+
+def danger_badge(text: str) -> "TagChild":
+    """
+    Creates a red danger/error badge.
+
+    Args:
+        text: Badge text
+
+    Returns:
+        A styled badge element
+    """
+    from shiny import ui
+
+    return ui.span(
+        f"❌ {text}",
+        style="background-color: #FEF2F2; color: #991B1B; padding: 4px 10px; "
+        "border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid #FECACA;",
+    )
+
+
+def collapsible_section(
+    id: str, title: str, *content: "TagChild", open: bool = False
+) -> "TagChild":
+    """
+    Creates an expandable/collapsible section.
+
+    Args:
+        id: Unique identifier for the accordion
+        title: Section title
+        *content: Content to show when expanded
+        open: Whether section starts expanded
+
+    Returns:
+        An accordion panel element
+    """
+    from shiny import ui
+
+    return ui.accordion(
+        ui.accordion_panel(title, *content, value=id),
+        id=f"accordion_{id}",
+        open=id if open else None,
+    )

@@ -42,7 +42,9 @@ except ImportError:
     SubgroupAnalysisCox = None  # type: ignore
 
 from logger import get_logger
-from tabs._common import get_color_palette
+from tabs._common import (
+    get_color_palette,
+)
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()

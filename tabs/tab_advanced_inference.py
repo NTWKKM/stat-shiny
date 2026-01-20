@@ -6,6 +6,9 @@ import seaborn as sns
 import statsmodels.api as sm
 from shiny import module, reactive, render, ui
 
+from tabs._common import (
+    get_color_palette,
+)
 from utils.collinearity_lib import calculate_vif
 from utils.heterogeneity_lib import calculate_heterogeneity
 from utils.mediation_lib import analyze_mediation
@@ -16,6 +19,8 @@ from utils.model_diagnostics_lib import (
     run_reset_test,
 )
 from utils.plotly_html_renderer import plotly_figure_to_html
+
+COLORS = get_color_palette()
 
 
 @module.ui

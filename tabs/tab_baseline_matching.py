@@ -10,7 +10,9 @@ from shiny import module, reactive, render, ui
 
 from logger import get_logger
 from tabs import tab_sample_size  # Import Sample Size Tab
-from tabs._common import get_color_palette
+from tabs._common import (
+    get_color_palette,
+)
 from utils import (
     psm_lib,  # Import from utils
     table_one,

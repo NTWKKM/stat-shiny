@@ -58,12 +58,21 @@ def get_shiny_css():
             --color-surface: {COLORS["surface"]};
             
             /* Spacing System - INCREASED for better proportions */
+            --spacing-2xs: 2px;
+            --spacing-1-5xs: 6px;
             --spacing-xs: 4px;
             --spacing-sm: 8px;
+            --spacing-1-5sm: 12px;
             --spacing-md: 16px;       /* Increased from 12px */
             --spacing-lg: 20px;       /* Increased from 16px */
             --spacing-xl: 32px;       /* Increased from 24px */
             --spacing-2xl: 48px;      /* Increased from 32px */
+            
+            /* Component-Specific Spacing */
+            --spacing-card-vertical: 24px;
+            --spacing-section-vertical: 32px;
+            --spacing-input-gap: 8px;
+            --spacing-form-section: 20px;
             
             /* Border Radius */
             --radius-sm: 4px;
@@ -489,6 +498,59 @@ def get_shiny_css():
             color: {COLORS["primary_dark"]} !important;
             background-color: {COLORS["primary_light"]};
             font-weight: 600;
+        }}
+        
+        /* Dropdown Menu (nav_menu) Styles */
+        .navbar .dropdown-toggle {{
+            color: {COLORS["text_secondary"]} !important;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 8px 16px !important;
+            margin: 0 4px;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+            background: transparent;
+            border: none;
+        }}
+        
+        .navbar .dropdown-toggle:hover,
+        .navbar .dropdown-toggle:focus {{
+            color: {COLORS["primary"]} !important;
+            background-color: {COLORS["smoke_white"]};
+        }}
+        
+        .navbar .dropdown-toggle::after {{
+            margin-left: 6px;
+            vertical-align: middle;
+        }}
+        
+        .navbar .dropdown-menu {{
+            background-color: {COLORS["surface"]};
+            border: 1px solid {COLORS["border"]};
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 8px 0;
+            min-width: 200px;
+            margin-top: 4px;
+        }}
+        
+        .navbar .dropdown-item {{
+            color: {COLORS["text"]};
+            font-size: 14px;
+            font-weight: 500;
+            padding: 10px 20px;
+            transition: all var(--transition-fast);
+        }}
+        
+        .navbar .dropdown-item:hover {{
+            background-color: {COLORS["smoke_white"]};
+            color: {COLORS["primary"]};
+        }}
+        
+        .navbar .dropdown-item.active,
+        .navbar .dropdown-item:active {{
+            background-color: {COLORS["primary_light"]};
+            color: {COLORS["primary_dark"]};
         }}
         
         /* Sidebar Navigation */
