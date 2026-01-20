@@ -11,11 +11,13 @@ from logger import LoggerFactory, get_logger
 
 # Import Tabs Modules
 from tabs import (
+    tab_advanced_inference,
     tab_baseline_matching,
+    tab_causal_inference,
+    tab_core_regression,
     tab_corr,
     tab_data,  # 🟢 Data Module
     tab_diag,
-    tab_logit,
     tab_settings,
     tab_survival,
 )
@@ -50,12 +52,23 @@ app_ui = ui.page_navbar(
     # --- 3. Diagnostic Tests Module ---
     ui.nav_panel("🧪 Diagnostic Tests", wrap_with_container(tab_diag.diag_ui("diag"))),
     # --- 4. Logistic Regression Module ---
-    # --- 4. Regression Models Module ---
+    # --- 4. Core Regression Models Module ---
     ui.nav_panel(
-        "📊 Regression Models", wrap_with_container(tab_logit.logit_ui("logit"))
+        "📊 Core Regression Models",
+        wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
     ),
     # --- 5. Correlation & ICC Module ---
     ui.nav_panel("📈 Correlation & ICC", wrap_with_container(tab_corr.corr_ui("corr"))),
+    # --- 7. Advanced Inference ---
+    ui.nav_panel(
+        "🔍 Advanced Inference",
+        wrap_with_container(tab_advanced_inference.advanced_inference_ui("adv_inf")),
+    ),
+    # --- 8. Causal Inference ---
+    ui.nav_panel(
+        "🎯 Causal Inference",
+        wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
+    ),
     # --- 6. Survival Analysis Module ---
     ui.nav_panel(
         "⏳ Survival Analysis",
@@ -159,11 +172,23 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # --- 3. Diagnostic Tests ---
     tab_diag.diag_server("diag", df, var_meta, df_matched, is_matched)
 
-    # --- 4. Logistic Regression ---
-    tab_logit.logit_server("logit", df, var_meta, df_matched, is_matched)
+    # --- 4. Core Regression ---
+    tab_core_regression.core_regression_server(
+        "core_reg", df, var_meta, df_matched, is_matched
+    )
 
     # --- 5. Correlation & ICC ---
     tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched)
+
+    # --- 7. Advanced Inference ---
+    tab_advanced_inference.advanced_inference_server(
+        "adv_inf", df, var_meta, df_matched, is_matched
+    )
+
+    # --- 8. Causal Inference ---
+    tab_causal_inference.causal_inference_server(
+        "causal", df, var_meta, df_matched, is_matched
+    )
 
     # --- 6. Survival Analysis Module ---
     # ✅ Fix here: No need to pass input, output, session manually anymore

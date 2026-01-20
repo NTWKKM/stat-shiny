@@ -390,6 +390,7 @@ def analyze_poisson_outcome(
     var_meta: dict[str, Any] | None = None,
     offset_col: str | None = None,
     interaction_pairs: list[tuple[str, str | None]] = None,
+    model_type: str = "poisson",
 ) -> tuple[str, dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     """
     Perform Poisson regression analysis for count outcome.
@@ -414,7 +415,10 @@ def analyze_poisson_outcome(
             get_label,
         )
 
-        logger.info("Starting Poisson analysis for outcome: %s", outcome_name)
+        model_label = (
+            "Negative Binomial" if model_type == "negative_binomial" else "Poisson"
+        )
+        logger.info("Starting %s analysis for outcome: %s", model_label, outcome_name)
 
         # --- MISSING DATA HANDLING ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -482,7 +486,7 @@ def analyze_poisson_outcome(
 
         # Univariate analysis
         logger.info(
-            f"Starting univariate Poisson analysis for {len(sorted_cols) - 1} variables"
+            f"Starting univariate {model_label} analysis for {len(sorted_cols) - 1} variables"
         )
 
         for col in sorted_cols:
@@ -586,9 +590,20 @@ def analyze_poisson_outcome(
                         offset_uni = (
                             offset.loc[temp_df.index] if offset is not None else None
                         )
-                        params, conf, pvals, status, _ = run_poisson_regression(
-                            temp_df["y"], temp_df[dummy_cols], offset=offset_uni
+                        offset_uni = (
+                            offset.loc[temp_df.index] if offset is not None else None
                         )
+
+                        if model_type == "negative_binomial":
+                            params, conf, pvals, status, _ = (
+                                run_negative_binomial_regression(
+                                    temp_df["y"], temp_df[dummy_cols], offset=offset_uni
+                                )
+                            )
+                        else:
+                            params, conf, pvals, status, _ = run_poisson_regression(
+                                temp_df["y"], temp_df[dummy_cols], offset=offset_uni
+                            )
 
                         if status == "OK":
                             irr_lines, coef_lines, p_lines = ["Ref."], ["-"], ["-"]
@@ -656,9 +671,20 @@ def analyze_poisson_outcome(
                     offset_uni = (
                         offset.loc[data_uni.index] if offset is not None else None
                     )
-                    params, conf, pvals, status, _ = run_poisson_regression(
-                        data_uni["y"], data_uni[["x"]], offset=offset_uni
+                    offset_uni = (
+                        offset.loc[data_uni.index] if offset is not None else None
                     )
+
+                    if model_type == "negative_binomial":
+                        params, conf, pvals, status, _ = (
+                            run_negative_binomial_regression(
+                                data_uni["y"], data_uni[["x"]], offset=offset_uni
+                            )
+                        )
+                    else:
+                        params, conf, pvals, status, _ = run_poisson_regression(
+                            data_uni["y"], data_uni[["x"]], offset=offset_uni
+                        )
 
                     if status == "OK" and "x" in params:
                         coef = params["x"]
@@ -755,7 +781,7 @@ def analyze_poisson_outcome(
                         multi_df, interaction_pairs, mode_map
                     )
                     logger.info(
-                        f"✅ Added {len(int_meta)} interaction terms to Poisson multivariate model"
+                        f"✅ Added {len(int_meta)} interaction terms to {model_label} multivariate model"
                     )
                 except (ImportError, ValueError, TypeError, KeyError):
                     logger.exception("Failed to create interaction terms")
@@ -773,13 +799,29 @@ def analyze_poisson_outcome(
                 offset_multi = (
                     offset.loc[multi_data.index] if offset is not None else None
                 )
-                params, conf, pvals, status, mv_stats = run_poisson_regression(
-                    multi_data["y"], multi_data[predictors], offset=offset_multi
-                )
+
+                if model_type == "negative_binomial":
+                    params, conf, pvals, status, mv_stats = (
+                        run_negative_binomial_regression(
+                            multi_data["y"], multi_data[predictors], offset=offset_multi
+                        )
+                    )
+                else:
+                    params, conf, pvals, status, mv_stats = run_poisson_regression(
+                        multi_data["y"], multi_data[predictors], offset=offset_multi
+                    )
 
                 if status == "OK":
                     # Format fit statistics
                     r2_parts = []
+                    if pd.notna(mv_stats.get("deviance")):
+                        r2_parts.append(f"Deviance = {mv_stats['deviance']:.2f}")
+                    r2_parts = []
+                    if model_type == "negative_binomial" and pd.notna(
+                        mv_stats.get("alpha")
+                    ):
+                        r2_parts.append(f"Alpha (Dispersion) = {mv_stats['alpha']:.3f}")
+
                     if pd.notna(mv_stats.get("deviance")):
                         r2_parts.append(f"Deviance = {mv_stats['deviance']:.2f}")
                     if pd.notna(mv_stats.get("aic")):
@@ -1111,7 +1153,7 @@ def analyze_poisson_outcome(
                 </tr>""")
 
         logger.info(
-            f"Poisson analysis complete. Multivariate n={final_n_multi}, Interactions={len(interaction_results)}"
+            f"{model_label} analysis complete. Multivariate n={final_n_multi}, Interactions={len(interaction_results)}"
         )
 
         # Model fit and interaction info
@@ -1133,7 +1175,8 @@ def analyze_poisson_outcome(
                     from utils.interaction_lib import interpret_interaction
 
                     interaction_info += interpret_interaction(
-                        interaction_results, "poisson"
+                        interaction_results,
+                        "poisson",  # Interaction check uses generalized logic close enough for NB
                     )
                 except ImportError:
                     logger.warning("interaction_lib not available for interpretation")
@@ -1144,7 +1187,7 @@ def analyze_poisson_outcome(
         # Complete HTML report with professional styling
         html_table = f"""{css_styles}
         <div id='{outcome_name}' class='table-container'>
-            <div class='outcome-title'>📊 Poisson Regression: {outcome_name} (n={
+            <div class='outcome-title'>📊 {model_label} Regression: {outcome_name} (n={
             total_n
         }){offset_info}</div>
             <table>
@@ -1164,7 +1207,7 @@ def analyze_poisson_outcome(
                 <tbody>{chr(10).join(html_rows)}</tbody>
             </table>
             <div class='summary-box'>
-                <b>Method:</b> Poisson GLM (Generalized Linear Model)<br>
+                <b>Method:</b> {model_label} GLM / MLE<br>
                 <div style='margin-top: 8px; padding-top: 8px; 
                             border-top: 1px solid {COLORS["border"]}; 
                             font-size: 0.9em; color: {COLORS["text_secondary"]};'>
@@ -1192,7 +1235,7 @@ def analyze_poisson_outcome(
 
     except Exception as e:
         logger.exception(
-            "Unexpected error in Poisson analysis for outcome: %s", outcome_name
+            "Unexpected error in %s analysis for outcome: %s", model_type, outcome_name
         )
         # ✅ FIX: ALWAYS return 4 elements to prevent "cannot unpack" error
         return (
