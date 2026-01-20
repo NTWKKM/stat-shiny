@@ -14,7 +14,12 @@ from tabs._common import get_color_palette
 from utils import psm_lib  # Import from utils
 from tabs import tab_sample_size  # Import Sample Size Tab
 
-# ... (Previous imports)
+from utils import table_one
+from utils.formatting import create_missing_data_report_html
+from utils.plotly_html_renderer import plotly_figure_to_html
+
+logger = get_logger(__name__)
+COLORS = get_color_palette()
 
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
