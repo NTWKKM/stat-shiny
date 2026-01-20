@@ -197,7 +197,19 @@ shiny run app.py
 
 The app will be available at `http://localhost:8000`.
 
-### Option 2: Run with Docker
+### Option 2: Running Tests
+
+To run the test suite, ensure you use the `pytest` from your virtual environment:
+
+```bash
+# Run all tests
+.venv/bin/pytest
+
+# Run specific test
+.venv/bin/pytest tests/unit/test_statistics.py
+```
+
+### Option 3: Run with Docker
 
 This project is containerized for easy deployment.
 

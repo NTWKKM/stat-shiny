@@ -16,10 +16,11 @@ Usage:
     return ui.HTML(html_str)
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import uuid
-from typing import Optional, Union
 
 try:
     import plotly.graph_objects as go
@@ -30,11 +31,11 @@ logger = logging.getLogger(__name__)
 
 
 def plotly_figure_to_html(
-    fig: Optional["go.Figure"] = None,
-    div_id: Optional[str] = None,
-    include_plotlyjs: Union[str, bool] = "cdn",
-    height: Optional[int] = None,
-    width: Optional[int] = None,
+    fig: "go.Figure" | None = None,
+    div_id: str | None = None,
+    include_plotlyjs: str | bool = "cdn",
+    height: int | None = None,
+    width: int | None = None,
     responsive: bool = True,
 ) -> str:
     """
@@ -43,14 +44,14 @@ def plotly_figure_to_html(
     Returns a sanitized HTML fragment suitable for embedding (e.g., in a UI). If the provided figure is None, Plotly is unavailable, the figure is invalid, or an error occurs during rendering, a styled placeholder HTML string is returned.
 
     Parameters:
-        fig (Optional[go.Figure]): Plotly Figure to render. If None, a placeholder is returned.
-        div_id (Optional[str]): Optional HTML id for the figure container. If provided it is sanitized to allow only letters, digits, underscores, and hyphens and to ensure it starts with a letter; if omitted a unique id is generated.
+        fig (go.Figure | None): Plotly Figure to render. If None, a placeholder is returned.
+        div_id (str | None): Optional HTML id for the figure container. If provided it is sanitized to allow only letters, digits, underscores, and hyphens and to ensure it starts with a letter; if omitted a unique id is generated.
         include_plotlyjs (Union[str, bool]): How to include Plotly.js:
             - 'cdn' (default): Load Plotly.js from CDN.
             - True: Inline the full Plotly.js library.
             - False: Do not include Plotly.js (assumes it is already loaded).
-        height (Optional[int]): Fixed height in pixels to apply to the figure layout; if None the figure's existing height is used.
-        width (Optional[int]): Fixed width in pixels to apply to the figure layout; if None the figure's existing width is used.
+        height (int | None): Fixed height in pixels to apply to the figure layout; if None the figure's existing height is used.
+        width (int | None): Fixed width in pixels to apply to the figure layout; if None the figure's existing width is used.
         responsive (bool): When True (default), enable autosize/responsive layout behavior.
 
     Returns:

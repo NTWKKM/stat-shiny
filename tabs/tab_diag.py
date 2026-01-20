@@ -1,4 +1,6 @@
-from typing import Any, Dict, List, Optional, Union, cast
+from __future__ import annotations
+
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -229,7 +231,7 @@ def diag_server(
     output: Any,
     session: Any,
     df: reactive.Value[Optional[pd.DataFrame]],
-    var_meta: reactive.Value[Dict[str, Any]],
+    var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[Optional[pd.DataFrame]],
     is_matched: reactive.Value[bool],
 ) -> None:
@@ -294,7 +296,7 @@ def diag_server(
 
     # Get all columns
     @reactive.Calc
-    def all_cols() -> List[str]:
+    def all_cols() -> list[str]:
         d = current_df()
         if d is not None:
             return d.columns.tolist()

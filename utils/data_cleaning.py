@@ -14,8 +14,10 @@ This module provides:
 Driven by central configuration from config.py
 """
 
+from __future__ import annotations
+
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -48,14 +50,15 @@ def validate_input_data(data: Any) -> pd.DataFrame:
         DataValidationError: If input cannot be converted to DataFrame
     """
     try:
-        if isinstance(data, pd.DataFrame):
-            df = data.copy()
-        elif isinstance(data, dict):
-            df = pd.DataFrame(data)
-        elif isinstance(data, list):
-            df = pd.DataFrame(data)
-        else:
-            raise DataValidationError(f"Unsupported data type: {type(data)}")
+        match data:
+            case pd.DataFrame():
+                df = data.copy()
+            case dict():
+                df = pd.DataFrame(data)
+            case list():
+                df = pd.DataFrame(data)
+            case _:
+                raise DataValidationError(f"Unsupported data type: {type(data)}")
 
         if df.empty:
             logger.warning("Input data is empty")
@@ -138,7 +141,7 @@ def clean_numeric(
         return np.nan
 
 
-def clean_numeric_vector(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.Series:
+def clean_numeric_vector(series: pd.Series | np.ndarray | list[Any]) -> pd.Series:
     """
     Vectorized numeric cleaning for entire series with comprehensive error handling.
 
@@ -204,7 +207,7 @@ def clean_numeric_vector(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.
 
 def detect_outliers(
     series: pd.Series, method: str = "iqr", threshold: float = 1.5
-) -> Tuple[pd.Series, Dict[str, Any]]:
+) -> tuple[pd.Series, dict[str, Any]]:
     """
     Detect outliers in numeric series using specified method.
 
@@ -216,7 +219,7 @@ def detect_outliers(
                     - Z-score: threshold (default 3.0)
 
     Returns:
-        Tuple[pd.Series, Dict]: Boolean mask of outliers and statistics dict
+        tuple[pd.Series, Dict]: Boolean mask of outliers and statistics dict
     """
     try:
         # Ensure input is a Series
@@ -234,53 +237,54 @@ def detect_outliers(
         outlier_mask = pd.Series(False, index=series.index)
         stats = {}
 
-        if method == "iqr":
-            # IQR method
-            Q1 = cleaned.quantile(0.25)
-            Q3 = cleaned.quantile(0.75)
-            IQR = Q3 - Q1
+        match method:
+            case "iqr":
+                # IQR method
+                Q1 = cleaned.quantile(0.25)
+                Q3 = cleaned.quantile(0.75)
+                IQR = Q3 - Q1
 
-            lower_bound = Q1 - threshold * IQR
-            upper_bound = Q3 + threshold * IQR
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
 
-            outlier_mask = (cleaned < lower_bound) | (cleaned > upper_bound)
-            outlier_mask = outlier_mask.reindex(series.index, fill_value=False)
+                outlier_mask = (cleaned < lower_bound) | (cleaned > upper_bound)
+                outlier_mask = outlier_mask.reindex(series.index, fill_value=False)
 
-            stats = {
-                "method": "iqr",
-                "Q1": Q1,
-                "Q3": Q3,
-                "IQR": IQR,
-                "lower_bound": lower_bound,
-                "upper_bound": upper_bound,
-                "outlier_count": outlier_mask.sum(),
-                "outlier_pct": (outlier_mask.sum() / len(series)) * 100,
-            }
+                stats = {
+                    "method": "iqr",
+                    "Q1": Q1,
+                    "Q3": Q3,
+                    "IQR": IQR,
+                    "lower_bound": lower_bound,
+                    "upper_bound": upper_bound,
+                    "outlier_count": outlier_mask.sum(),
+                    "outlier_pct": (outlier_mask.sum() / len(series)) * 100,
+                }
 
-        elif method == "zscore":
-            # Z-score method
-            mean = cleaned.mean()
-            std = cleaned.std()
+            case "zscore":
+                # Z-score method
+                mean = cleaned.mean()
+                std = cleaned.std()
 
-            if std == 0:
-                logger.warning("Standard deviation is zero, cannot use z-score method")
-                return outlier_mask, stats
+                if std == 0:
+                    logger.warning("Standard deviation is zero, cannot use z-score method")
+                    return outlier_mask, stats
 
-            z_scores = np.abs((cleaned - mean) / std)
-            outlier_mask = z_scores > threshold
-            outlier_mask = outlier_mask.reindex(series.index, fill_value=False)
+                z_scores = np.abs((cleaned - mean) / std)
+                outlier_mask = z_scores > threshold
+                outlier_mask = outlier_mask.reindex(series.index, fill_value=False)
 
-            stats = {
-                "method": "zscore",
-                "mean": mean,
-                "std": std,
-                "threshold": threshold,
-                "outlier_count": outlier_mask.sum(),
-                "outlier_pct": (outlier_mask.sum() / len(series)) * 100,
-            }
+                stats = {
+                    "method": "zscore",
+                    "mean": mean,
+                    "std": std,
+                    "threshold": threshold,
+                    "outlier_count": outlier_mask.sum(),
+                    "outlier_pct": (outlier_mask.sum() / len(series)) * 100,
+                }
 
-        else:
-            raise ValueError(f"Unknown outlier detection method: {method}")
+            case _:
+                raise ValueError(f"Unknown outlier detection method: {method}")
 
         logger.info(
             f"Detected {stats['outlier_count']} outliers ({stats['outlier_pct']:.2f}%) using {method} method"
@@ -321,51 +325,46 @@ def handle_outliers(
             logger.info("No outliers detected (empty or non-numeric series)")
             return cleaned
 
-        if action == "flag":
-            # Flag outliers with NaN
-            result = cleaned.copy()
-            result[outlier_mask] = np.nan
-            logger.info(f"Flagged {stats['outlier_count']} outliers as NaN")
+        match action:
+            case "flag" | "remove":
+                # Flag/Remove outliers (set to NaN)
+                result = cleaned.copy()
+                result[outlier_mask] = np.nan
+                logger.info(f"Handled {stats['outlier_count']} outliers via '{action}' (set to NaN)")
 
-        elif action == "remove":
-            # Remove outliers (return with NaN)
-            result = cleaned.copy()
-            result[outlier_mask] = np.nan
-            logger.info(f"Removed {stats['outlier_count']} outliers (set to NaN)")
+            case "winsorize":
+                # Winsorize outliers to boundary values
+                result = cleaned.copy().astype(float)
 
-        elif action == "winsorize":
-            # Winsorize outliers to boundary values
-            result = cleaned.copy().astype(float)
+                if stats["method"] == "iqr":
+                    lower_bound = stats["lower_bound"]
+                    upper_bound = stats["upper_bound"]
+                    result = result.clip(lower=lower_bound, upper=upper_bound)
+                    logger.info(
+                        f"Winsorized {stats['outlier_count']} outliers to [{lower_bound:.2f}, {upper_bound:.2f}]"
+                    )
+                else:
+                    raise ValueError(
+                        f"Winsorizing requires 'iqr' method, got '{stats['method']}'"
+                    )
 
-            if stats["method"] == "iqr":
-                lower_bound = stats["lower_bound"]
-                upper_bound = stats["upper_bound"]
-                result = result.clip(lower=lower_bound, upper=upper_bound)
-                logger.info(
-                    f"Winsorized {stats['outlier_count']} outliers to [{lower_bound:.2f}, {upper_bound:.2f}]"
-                )
-            else:
-                raise ValueError(
-                    f"Winsorizing requires 'iqr' method, got '{stats['method']}'"
-                )
+            case "cap":
+                # Cap outliers to nearest non-outlier value
+                result = cleaned.copy().astype(float)
 
-        elif action == "cap":
-            # Cap outliers to nearest non-outlier value
-            result = cleaned.copy().astype(float)
+                if stats["method"] == "iqr":
+                    lower_bound = stats["lower_bound"]
+                    upper_bound = stats["upper_bound"]
+                    result[result < lower_bound] = lower_bound
+                    result[result > upper_bound] = upper_bound
+                    logger.info(f"Capped {stats['outlier_count']} outliers at bounds")
+                else:
+                    raise ValueError(
+                        f"Capping requires 'iqr' method, got '{stats['method']}'"
+                    )
 
-            if stats["method"] == "iqr":
-                lower_bound = stats["lower_bound"]
-                upper_bound = stats["upper_bound"]
-                result[result < lower_bound] = lower_bound
-                result[result > upper_bound] = upper_bound
-                logger.info(f"Capped {stats['outlier_count']} outliers at bounds")
-            else:
-                raise ValueError(
-                    f"Capping requires 'iqr' method, got '{stats['method']}'"
-                )
-
-        else:
-            raise ValueError(f"Unknown outlier handling action: {action}")
+            case _:
+                raise ValueError(f"Unknown outlier handling action: {action}")
 
         return result
 
@@ -426,7 +425,7 @@ def is_continuous_variable(series: pd.Series) -> bool:
         return False
 
 
-def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
+def validate_data_quality(df: pd.DataFrame) -> dict[str, Any]:
     """
     Perform comprehensive data quality validation.
     """
@@ -514,7 +513,7 @@ def clean_dataframe(
     outlier_method: str = "iqr",
     outlier_action: str = "flag",
     validate_quality: bool = True,
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Comprehensive data cleaning for entire DataFrame.
 
@@ -630,7 +629,7 @@ def clean_dataframe(
         raise DataCleaningError(f"Failed to clean DataFrame: {e}") from e
 
 
-def get_cleaning_summary(report: Dict[str, Any]) -> str:
+def get_cleaning_summary(report: dict[str, Any]) -> str:
     """
     Generate a human-readable summary of the cleaning report.
     """
@@ -678,8 +677,8 @@ def get_cleaning_summary(report: Dict[str, Any]) -> str:
 
 def apply_missing_values_to_df(
     df: pd.DataFrame,
-    var_meta: Dict[str, Any],
-    missing_codes: Optional[Union[List[Any], Dict[str, Any]]] = None,
+    var_meta: dict[str, Any],
+    missing_codes: list[Any] | dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """
     Replace user-specified missing value codes with NaN.
@@ -735,9 +734,9 @@ def apply_missing_values_to_df(
 
 def detect_missing_in_variable(
     series: pd.Series,
-    missing_codes: Optional[List[Any]] = None,
+    missing_codes: list[Any] | None = None,
     already_normalized: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Detect and count missing values in a single variable.
 
@@ -780,8 +779,8 @@ def detect_missing_in_variable(
 
 def get_missing_summary_df(
     df: pd.DataFrame,
-    var_meta: Dict[str, Any],
-    missing_codes: Optional[List[Any]] = None,
+    var_meta: dict[str, Any],
+    missing_codes: list[Any] | None = None,
     already_normalized: bool = False,
 ) -> pd.DataFrame:
     """
@@ -831,11 +830,11 @@ def get_missing_summary_df(
 
 def handle_missing_for_analysis(
     df: pd.DataFrame,
-    var_meta: Dict[str, Any],
-    missing_codes: Optional[List[Any]] = None,
+    var_meta: dict[str, Any],
+    missing_codes: list[Any] | None = None,
     strategy: str = "complete-case",
     return_counts: bool = False,
-) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, Any]]]:
+) -> pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]]:
     """
     Apply missing data handling strategy.
 
@@ -891,9 +890,9 @@ def handle_missing_for_analysis(
 def check_missing_data_impact(
     df_original: pd.DataFrame,
     df_clean: pd.DataFrame,
-    var_meta: Dict[str, Any],
-    missing_codes: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    var_meta: dict[str, Any],
+    missing_codes: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Compare before/after to report impact of missing data handling.
 
@@ -948,7 +947,7 @@ def check_missing_data_impact(
 # Convenience functions for common operations
 
 
-def quick_clean_numeric(series: Union[pd.Series, np.ndarray, List[Any]]) -> pd.Series:
+def quick_clean_numeric(series: pd.Series | np.ndarray | list[Any]) -> pd.Series:
     """
     Quick numeric cleaning without extensive validation.
     """

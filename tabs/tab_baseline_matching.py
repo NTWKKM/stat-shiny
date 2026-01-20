@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import io
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -22,7 +24,7 @@ COLORS = get_color_palette()
 # Helper Function (Pure Python)
 # ==============================================================================
 def _calculate_categorical_smd(
-    df: pd.DataFrame, treatment_col: str, cat_cols: List[str]
+    df: pd.DataFrame, treatment_col: str, cat_cols: list[str]
 ) -> pd.DataFrame:
     """
     Compute standardized mean differences (SMD) for categorical covariates between treated and control groups.
@@ -384,11 +386,11 @@ def baseline_matching_server(
     output: Any,
     session: Any,
     df: reactive.Value[Optional[pd.DataFrame]],
-    var_meta: reactive.Value[Dict[str, Any]],
+    var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[Optional[pd.DataFrame]],
     is_matched: reactive.Value[bool],
     matched_treatment_col: reactive.Value[Optional[str]],
-    matched_covariates: reactive.Value[List[str]],
+    matched_covariates: reactive.Value[list[str]],
 ) -> None:
 
     # -------------------------------------------------------------------------
@@ -408,13 +410,13 @@ def baseline_matching_server(
         output: Shiny output object for registering UI/data outputs (not documented here).
         session: Shiny session object (not documented here).
         df (reactive.Value[Optional[pd.DataFrame]]): Reactive source of the original dataset used for Table 1 and PSM.
-        var_meta (reactive.Value[Dict[str, Any]]): Reactive metadata for variables (labels, types, display hints) used when generating Table 1.
+        var_meta (reactive.Value[dict[str, Any]]): Reactive metadata for variables (labels, types, display hints) used when generating Table 1.
         df_matched (reactive.Value[Optional[pd.DataFrame]]): Reactive holder for the matched dataset; set by the PSM routine and consumed by matched-data views and exports.
         is_matched (reactive.Value[bool]): Reactive flag indicating whether matched data is available; updated once matching completes successfully.
         matched_treatment_col (reactive.Value[Optional[str]]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
-        matched_covariates (reactive.Value[List[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
+        matched_covariates (reactive.Value[list[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
     """
-    psm_results: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    psm_results: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
     html_content: reactive.Value[Optional[str]] = reactive.Value(None)
 
     # -------------------------------------------------------------------------

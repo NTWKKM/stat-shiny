@@ -15,8 +15,10 @@ Enhanced Features:
 - Detailed interpretations
 """
 
+from __future__ import annotations
+
 import html as _html
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -38,7 +40,7 @@ COLORS = get_color_palette()
 
 def _compute_correlation_ci(
     r: float, n: int, confidence: float = 0.95
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Compute confidence interval for correlation coefficient using Fisher's Z transformation.
 
@@ -112,9 +114,9 @@ def calculate_chi2(
     col1: str,
     col2: str,
     method: str = "Pearson (Standard)",
-    v1_pos: Optional[str] = None,
-    v2_pos: Optional[str] = None,
-) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], str, Optional[pd.DataFrame]]:
+    v1_pos: str | None = None,
+    v2_pos: str | None = None,
+) -> tuple[pd.DataFrame | None, pd.DataFrame | None, str, pd.DataFrame | None]:
     """
     OPTIMIZED: Compute chi-square or Fisher's exact test between two categorical variables.
 
@@ -162,14 +164,14 @@ def calculate_chi2(
     base_col_labels = [col for col in all_col_labels if col != "Total"]
     base_row_labels = [row for row in all_row_labels if row != "Total"]
 
-    def get_original_label(label_str: str, df_labels: List[Any]) -> Any:
+    def get_original_label(label_str: str, df_labels: list[Any]) -> Any:
         """Find the original label from a collection."""
         for lbl in df_labels:
             if str(lbl) == label_str:
                 return lbl
         return label_str
 
-    def custom_sort(label: Any) -> Tuple[int, Any]:
+    def custom_sort(label: Any) -> tuple[int, Any]:
         """Sort key for mixed numeric/string labels."""
         try:
             return (0, float(label))
@@ -237,7 +239,7 @@ def calculate_chi2(
     try:
         is_2x2 = tab.shape == (2, 2)
 
-        stats_res: Dict[str, Union[str, int]] = {}
+        stats_res: dict[str, str | int] = {}
 
         if "Fisher" in method:
             if not is_2x2:
@@ -294,8 +296,8 @@ def calculate_correlation(
     col1: str,
     col2: str,
     method: str = "pearson",
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[go.Figure]]:
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any] | None, str | None, go.Figure | None]:
     """
     ENHANCED: Compute correlation with comprehensive statistics.
 
@@ -469,10 +471,10 @@ def calculate_correlation(
 
 def compute_correlation_matrix(
     df: pd.DataFrame,
-    cols: List[str],
+    cols: list[str],
     method: str = "pearson",
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[Optional[pd.DataFrame], Optional[go.Figure], Optional[Dict[str, Any]]]:
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[pd.DataFrame | None, go.Figure | None, dict[str, Any] | None]:
     """
     ENHANCED: Compute correlation matrix with summary statistics.
 
@@ -677,7 +679,7 @@ def compute_correlation_matrix(
     return corr_matrix_rounded, fig, summary
 
 
-def generate_report(title: str, elements: List[Dict[str, Any]]) -> str:
+def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
     """
     Generate comprehensive HTML report from elements.
 

@@ -8,9 +8,11 @@ Returns Incidence Rate Ratios (IRR) instead of Odds Ratios (OR)
 OPTIMIZED for Python 3.12 with strict type hints.
 """
 
+from __future__ import annotations
+
 import html
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -38,17 +40,68 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 COLORS = get_color_palette()
 
 
+def _build_irr_interpretation_section(
+    irr_results: dict[str, Any],
+    airr_results: dict[str, Any],
+    colors: dict[str, str],
+) -> str:
+    """Build HTML section for IRR interpretations, avoiding nested f-strings."""
+    # Check if we should display
+    has_sig_irr = any(v.get("p_value", 1) < 0.05 for v in irr_results.values())
+    has_sig_airr = any(v.get("p_value", 1) < 0.05 for v in airr_results.values())
+    
+    if not (irr_results or airr_results) or not (has_sig_irr or has_sig_airr):
+        return ""
+    
+    # Build crude analysis list
+    crude_items = []
+    for k, v in irr_results.items():
+        if v.get("p_value", 1) < 0.05 and v.get("interpretation"):
+            crude_items.append(f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>")
+    crude_html = "".join(crude_items)
+    
+    # Build adjusted analysis section
+    adjusted_html = ""
+    if airr_results and has_sig_airr:
+        adjusted_items = []
+        for k, v in airr_results.items():
+            if v.get("p_value", 1) < 0.05 and v.get("interpretation"):
+                adjusted_items.append(f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>")
+        adjusted_list = "".join(adjusted_items)
+        adjusted_html = f"""
+                <div style='margin-top: 16px; padding-top: 12px; border-top: 1px solid {colors['border']};'>
+                    <b style='color: {colors['primary_dark']}; font-size: 1.1em;'>Adjusted (Multivariate) Analysis:</b><br>
+                    <ul style='margin-top: 8px; line-height: 1.8;'>
+                        {adjusted_list}
+                    </ul>
+                </div>
+                """
+    
+    return f"""
+        <div class='table-container' style='margin-top: 20px;'>
+            <div class='outcome-title'>💬 Rate Ratio Interpretations | การแปลผล Rate Ratio</div>
+            <div class='summary-box' style='border-radius: 0 0 8px 8px;'>
+                <b style='color: {colors['primary_dark']}; font-size: 1.1em;'>Crude (Univariate) Analysis:</b><br>
+                <ul style='margin-top: 8px; line-height: 1.8;'>
+                    {crude_html}
+                </ul>
+                {adjusted_html}
+            </div>
+        </div>
+        """
+
+
 def run_poisson_regression(
     y: pd.Series,
     X: pd.DataFrame,
-    offset: Optional[pd.Series] = None,
+    offset: pd.Series | None = None,
     alpha: float = 0.05,
-) -> Tuple[
-    Optional[pd.Series],
-    Optional[pd.DataFrame],
-    Optional[pd.Series],
+) -> tuple[
+    pd.Series | None,
+    pd.DataFrame | None,
+    pd.Series | None,
     str,
-    Dict[str, float],
+    dict[str, float],
 ]:
     """
     Fit a Poisson generalized linear model for count outcomes.
@@ -56,10 +109,10 @@ def run_poisson_regression(
     Parameters:
         y (pd.Series): Observed count outcome aligned with rows of X.
         X (pd.DataFrame): Predictor matrix; a constant column will be added if absent.
-        offset (Optional[pd.Series]): Additive offset on the linear predictor (e.g., log(exposure)); pass None to omit.
+        offset (pd.Series | None): Additive offset on the linear predictor (e.g., log(exposure)); pass None to omit.
 
     Returns:
-        Tuple[Optional[pd.Series], Optional[pd.DataFrame], Optional[pd.Series], str, Dict[str, float]]:
+        tuple[pd.Series | None, pd.DataFrame | None, pd.Series | None, str, dict[str, float]]:
             params: Estimated model coefficients indexed by term, or None on failure.
             conf_int: Coefficient confidence intervals as a DataFrame, or None on failure.
             pvalues: Coefficient p-values indexed by term, or None on failure.
@@ -133,14 +186,14 @@ def run_poisson_regression(
 def run_negative_binomial_regression(
     y: pd.Series,
     X: pd.DataFrame,
-    offset: Optional[pd.Series] = None,
+    offset: pd.Series | None = None,
     alpha: float = 0.05,
-) -> Tuple[
-    Optional[pd.Series],
-    Optional[pd.DataFrame],
-    Optional[pd.Series],
+) -> tuple[
+    pd.Series | None,
+    pd.DataFrame | None,
+    pd.Series | None,
     str,
-    Dict[str, float],
+    dict[str, float],
 ]:
     """
     Fit Negative Binomial regression (alternative to Poisson for overdispersed data).
@@ -220,7 +273,7 @@ def run_negative_binomial_regression(
         return None, None, None, str(e), stats_metrics
 
 
-def check_count_outcome(series: pd.Series) -> Tuple[bool, str]:
+def check_count_outcome(series: pd.Series) -> tuple[bool, str]:
     """
     Validate if series is suitable for Poisson regression.
 
@@ -340,11 +393,11 @@ def interpret_irr(
 def analyze_poisson_outcome(
     outcome_name: str,
     df: pd.DataFrame,
-    var_meta: Optional[Dict[str, Any]] = None,
-    offset_col: Optional[str] = None,
-    interaction_pairs: Optional[List[Tuple[str, str]]] = None,
-) -> Tuple[
-    str, Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]
+    var_meta: dict[str, Any] | None = None,
+    offset_col: str | None = None,
+    interaction_pairs: list[tuple[str, str | None]] = None,
+) -> tuple[
+    str, dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None
 ]:
     """
     Perform Poisson regression analysis for count outcome.
@@ -1128,32 +1181,7 @@ def analyze_poisson_outcome(
             </div>
         </div>
         <!-- IRR Interpretations Section -->
-        {''.join([f"""
-        <div class='table-container' style='margin-top: 20px;'>
-            <div class='outcome-title'>💬 Rate Ratio Interpretations | การแปลผล Rate Ratio</div>
-            <div class='summary-box' style='border-radius: 0 0 8px 8px;'>
-                <b style='color: {COLORS['primary_dark']}; font-size: 1.1em;'>Crude (Univariate) Analysis:</b><br>
-                <ul style='margin-top: 8px; line-height: 1.8;'>
-                    {''.join([f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>" 
-                              for k, v in irr_results.items() 
-                              if v.get('p_value', 1) < 0.05 and v.get('interpretation')])}
-                </ul>
-                {f'''
-                <div style='margin-top: 16px; padding-top: 12px; border-top: 1px solid {COLORS['border']};'>
-                    <b style='color: {COLORS['primary_dark']}; font-size: 1.1em;'>Adjusted (Multivariate) Analysis:</b><br>
-                    <ul style='margin-top: 8px; line-height: 1.8;'>
-                        {''.join([f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>" 
-                                  for k, v in airr_results.items() 
-                                  if v.get('p_value', 1) < 0.05 and v.get('interpretation')])}
-                    </ul>
-                </div>
-                ''' if airr_results and any(v.get('p_value', 1) < 0.05 for v in airr_results.values()) else ''}
-            </div>
-        </div>
-        """ if (irr_results or airr_results) and 
-              (any(v.get('p_value', 1) < 0.05 for v in irr_results.values()) or 
-               any(v.get('p_value', 1) < 0.05 for v in airr_results.values())) 
-        else ""])}
+        {_build_irr_interpretation_section(irr_results, airr_results, COLORS)}
         <!-- Missing Data Section -->
         {create_missing_data_report_html(missing_data_info, var_meta or {})
             if CONFIG.get("analysis.missing.report_missing", True) else ""}

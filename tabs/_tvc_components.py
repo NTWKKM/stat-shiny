@@ -25,7 +25,9 @@ Usage:
     ... )
 """
 
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import pandas as pd
 from shiny import ui
@@ -386,7 +388,7 @@ def tvc_info_panel_ui() -> ui.TagChild:
 # ==============================================================================
 
 
-def get_numeric_columns(df: pd.DataFrame) -> List[str]:
+def get_numeric_columns(df: pd.DataFrame) -> list[str]:
     """
     Get list of numeric column names from DataFrame.
 
@@ -394,12 +396,12 @@ def get_numeric_columns(df: pd.DataFrame) -> List[str]:
         df: Input DataFrame
 
     Returns:
-        List[str]: Column names with numeric dtype
+        list[str]: Column names with numeric dtype
     """
     return df.select_dtypes(include=["number"]).columns.tolist()
 
 
-def get_categorical_columns(df: pd.DataFrame) -> List[str]:
+def get_categorical_columns(df: pd.DataFrame) -> list[str]:
     """
     Get list of categorical column names from DataFrame.
 
@@ -407,12 +409,12 @@ def get_categorical_columns(df: pd.DataFrame) -> List[str]:
         df: Input DataFrame
 
     Returns:
-        List[str]: Column names with object/categorical dtype
+        list[str]: Column names with object/categorical dtype
     """
     return df.select_dtypes(include=["object", "category"]).columns.tolist()
 
 
-def detect_tvc_columns(df: pd.DataFrame, prefix: str = "tvc_") -> List[str]:
+def detect_tvc_columns(df: pd.DataFrame, prefix: str = "tvc_") -> list[str]:
     """
     Auto-detect time-varying covariate columns by name pattern.
 
@@ -423,7 +425,7 @@ def detect_tvc_columns(df: pd.DataFrame, prefix: str = "tvc_") -> List[str]:
         prefix: Column name prefix to search for (default: 'tvc_')
 
     Returns:
-        List[str]: Detected TVC column names, sorted by implied time
+        list[str]: Detected TVC column names, sorted by implied time
     """
     import re
 
@@ -440,7 +442,7 @@ def detect_tvc_columns(df: pd.DataFrame, prefix: str = "tvc_") -> List[str]:
     return sorted(tvc_cols, key=extract_time)
 
 
-def detect_static_columns(df: pd.DataFrame, exclude_cols: List[str]) -> List[str]:
+def detect_static_columns(df: pd.DataFrame, exclude_cols: list[str]) -> list[str]:
     """
     Auto-detect static covariate columns by exclusion.
 
@@ -452,7 +454,7 @@ def detect_static_columns(df: pd.DataFrame, exclude_cols: List[str]) -> List[str
         exclude_cols: Columns to exclude (ID, time, event, TVC)
 
     Returns:
-        List[str]: Detected static column names
+        list[str]: Detected static column names
     """
     all_cols = set(df.columns)
     excluded = set(exclude_cols)
@@ -461,7 +463,7 @@ def detect_static_columns(df: pd.DataFrame, exclude_cols: List[str]) -> List[str
     return sorted(static_cols)
 
 
-def format_interval_preview(intervals: List[float]) -> str:
+def format_interval_preview(intervals: list[float]) -> str:
     """
     Format risk intervals for display.
 

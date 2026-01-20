@@ -13,9 +13,11 @@ Note: Removed Streamlit dependencies, now Shiny-compatible
 OPTIMIZATIONS: DeLong method vectorized (106x faster), ICC vectorized (9x faster)
 """
 
+from __future__ import annotations
+
 import html as _html
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -37,7 +39,7 @@ from utils.formatting import create_missing_data_report_html
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
-BadgeLevel = Literal["success", "warning", "danger", "info", "neutral"]
+type BadgeLevel = Literal["success", "warning", "danger", "info", "neutral"]
 
 
 def get_badge_html(text: str, level: BadgeLevel = "info") -> str:
@@ -100,7 +102,7 @@ def format_ci_html(
     return ci_str
 
 
-def calculate_descriptive(df: pd.DataFrame, col: str) -> Optional[pd.DataFrame]:
+def calculate_descriptive(df: pd.DataFrame, col: str) -> pd.DataFrame | None:
     """
     Calculate descriptive statistics for a column.
 
@@ -162,7 +164,7 @@ def calculate_descriptive(df: pd.DataFrame, col: str) -> Optional[pd.DataFrame]:
 
 def calculate_ci_wilson_score(
     successes: float, n: float, ci: float = 0.95
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Wilson Score Interval for binomial proportion.
     More accurate than Wald interval for extreme proportions.
@@ -184,7 +186,7 @@ def calculate_ci_wilson_score(
 
 def calculate_ci_log_odds(
     or_value: float, se_log_or: float, ci: float = 0.95
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Confidence Interval for Odds Ratio using log scale.
     """
@@ -199,7 +201,7 @@ def calculate_ci_log_odds(
 
 def calculate_ci_rr(
     risk_exp: float, n_exp: float, risk_unexp: float, n_unexp: float, ci: float = 0.95
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Confidence Interval for Risk Ratio using log scale.
     """
@@ -226,7 +228,7 @@ def calculate_ci_rr(
     return np.exp(lower_log), np.exp(upper_log)
 
 
-def calculate_ci_nnt(rd: float, rd_se: float, ci: float = 0.95) -> Tuple[float, float]:
+def calculate_ci_nnt(rd: float, rd_se: float, ci: float = 0.95) -> tuple[float, float]:
     """
     Confidence Interval for NNT based on CI of Risk Difference.
     """
@@ -254,15 +256,15 @@ def calculate_chi2(
     col1: str,
     col2: str,
     method: str = "Pearson (Standard)",
-    v1_pos: Optional[str] = None,
-    v2_pos: Optional[str] = None,
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[
-    Optional[pd.DataFrame],
-    Optional[pd.DataFrame],
+    v1_pos: str | None = None,
+    v2_pos: str | None = None,
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[
+    pd.DataFrame | None,
+    pd.DataFrame | None,
     str,
-    Optional[pd.DataFrame],
-    Optional[Dict[str, Any]],
+    pd.DataFrame | None,
+    dict[str, Any] | None,
 ]:
     """
     Comprehensive 2x2+ contingency table analysis.
@@ -333,13 +335,13 @@ def calculate_chi2(
     base_col_labels = [col for col in all_col_labels if col != "Total"]
     base_row_labels = [row for row in all_row_labels if row != "Total"]
 
-    def get_original_label(label_str: str, df_labels: List[Any]) -> Any:
+    def get_original_label(label_str: str, df_labels: list[Any]) -> Any:
         for lbl in df_labels:
             if str(lbl) == label_str:
                 return lbl
         return label_str
 
-    def custom_sort(label: Any) -> Tuple[int, Union[float, str]]:
+    def custom_sort(label: Any) -> tuple[int, float | str]:
         try:
             return (0, float(label))
         except (ValueError, TypeError):
@@ -830,12 +832,12 @@ def calculate_chi2(
 
 
 def calculate_kappa(
-    df: pd.DataFrame, col1: str, col2: str, var_meta: Optional[Dict[str, Any]] = None
-) -> Tuple[
-    Optional[pd.DataFrame],
-    Optional[str],
-    Optional[pd.DataFrame],
-    Optional[Dict[str, Any]],
+    df: pd.DataFrame, col1: str, col2: str, var_meta: dict[str, Any] | None = None
+) -> tuple[
+    pd.DataFrame | None,
+    str | None,
+    pd.DataFrame | None,
+    dict[str, Any] | None,
 ]:
     """
     Calculate Cohen's Kappa between 2 raters.
@@ -952,7 +954,7 @@ def calculate_kappa(
         return None, str(e), None
 
 
-def auc_ci_hanley_mcneil(auc: float, n1: int, n2: int) -> Tuple[float, float, float]:
+def auc_ci_hanley_mcneil(auc: float, n1: int, n2: int) -> tuple[float, float, float]:
     """Calculate 95% CI for AUC using Hanley & McNeil method."""
     q1 = auc / (2 - auc)
     q2 = 2 * (auc**2) / (1 + auc)
@@ -963,7 +965,7 @@ def auc_ci_hanley_mcneil(auc: float, n1: int, n2: int) -> Tuple[float, float, fl
     return auc - 1.96 * se_auc, auc + 1.96 * se_auc, se_auc
 
 
-def auc_ci_delong(y_true: Any, y_scores: Any) -> Tuple[float, float, float]:
+def auc_ci_delong(y_true: Any, y_scores: Any) -> tuple[float, float, float]:
     """
     OPTIMIZED: Calculate 95% CI for AUC using DeLong method (Robust).
 
@@ -1027,10 +1029,10 @@ def analyze_roc(
     truth_col: str,
     score_col: str,
     method: str = "delong",
-    pos_label_user: Optional[str] = None,
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[
-    Optional[Dict[str, Any]], Optional[str], Optional[go.Figure], Optional[pd.DataFrame]
+    pos_label_user: str | None = None,
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[
+    dict[str, Any] | None, str | None, go.Figure | None, pd.DataFrame | None
 ]:
     """
     Analyze ROC curve with interactive Plotly visualization.
@@ -1213,8 +1215,8 @@ def analyze_roc(
 
 
 def calculate_icc(
-    df: pd.DataFrame, cols: List[str]
-) -> Tuple[Optional[pd.DataFrame], Optional[str], Optional[pd.DataFrame]]:
+    df: pd.DataFrame, cols: list[str]
+) -> tuple[pd.DataFrame | None, str | None, pd.DataFrame | None]:
     """
     Calculate Intraclass Correlation Coefficient (ICC).
     Uses statsmodels ANOVA to compute ICC(1), ICC(2), ICC(3).
@@ -1422,7 +1424,7 @@ def render_contingency_table_html(
     return table_html
 
 
-def generate_report(title: str, elements: List[Dict[str, Any]]) -> str:
+def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
     """
     Generate HTML report from elements.
     Copied from utils.correlation.py for standalone usage in diag_test module.

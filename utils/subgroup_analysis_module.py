@@ -5,8 +5,10 @@ Professional subgroup analysis without Streamlit dependencies.
 OPTIMIZED for Python 3.12 with strict type hints and TypedDict.
 """
 
+from __future__ import annotations
+
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -36,7 +38,7 @@ class SubgroupResult(TypedDict):
     ci_high: float
     p_value: float
     type: str
-    subgroup: Optional[str]
+    subgroup: str | None
 
 
 class SubgroupStats(TypedDict):
@@ -44,11 +46,11 @@ class SubgroupStats(TypedDict):
     events_overall: int
     n_subgroups: int
     or_overall: float
-    ci_overall: Tuple[float, float]
+    ci_overall: tuple[float, float]
     p_overall: float
     p_interaction: float
     heterogeneous: bool
-    or_range: Tuple[float, float]
+    or_range: tuple[float, float]
 
 
 class SubgroupAnalysisLogit:
@@ -60,10 +62,10 @@ class SubgroupAnalysisLogit:
     def __init__(self, df: pd.DataFrame):
         """Initialize with dataset copy."""
         self.df = df.copy()
-        self.results: Optional[pd.DataFrame] = None
-        self.stats: Optional[Dict[str, Any]] = None
-        self.interaction_result: Optional[Dict[str, Any]] = None
-        self.figure: Optional[go.Figure] = None
+        self.results: pd.DataFrame | None = None
+        self.stats: dict[str, Any] | None = None
+        self.interaction_result: dict[str, Any] | None = None
+        self.figure: go.Figure | None = None
         logger.info(f"SubgroupAnalysisLogit initialized with {len(df)} observations")
 
     def validate_inputs(
@@ -71,7 +73,7 @@ class SubgroupAnalysisLogit:
         outcome_col: str,
         treatment_col: str,
         subgroup_col: str,
-        adjustment_cols: Optional[List[str]] = None,
+        adjustment_cols: list[str] | None = None,
     ) -> bool:
         """Validate input columns and data types."""
         required_cols = {outcome_col, treatment_col, subgroup_col}
@@ -99,10 +101,10 @@ class SubgroupAnalysisLogit:
         outcome_col: str,
         treatment_col: str,
         subgroup_col: str,
-        adjustment_cols: Optional[List[str]] = None,
+        adjustment_cols: list[str] | None = None,
         min_subgroup_n: int = 5,
-        var_meta: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        var_meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Perform logistic regression subgroup analysis."""
         try:
             from scipy import stats
@@ -158,7 +160,7 @@ class SubgroupAnalysisLogit:
             if adjustment_cols:
                 formula_base += " + " + " + ".join(adjustment_cols)
 
-            results_list: List[Dict[str, Any]] = []
+            results_list: list[dict[str, Any]] = []
 
             # Overall model
             logger.info("Computing overall model...")
@@ -307,7 +309,7 @@ class SubgroupAnalysisLogit:
             logger.error(f"Analysis failed: {e}")
             raise
 
-    def _compute_summary_statistics(self) -> Dict[str, Any]:
+    def _compute_summary_statistics(self) -> dict[str, Any]:
         """Compute summary statistics."""
         if self.results is None or self.results.empty:
             return {}
@@ -342,7 +344,7 @@ class SubgroupAnalysisLogit:
             ),
         }
 
-    def _format_output(self) -> Dict[str, Any]:
+    def _format_output(self) -> dict[str, Any]:
         """Format results for output."""
         if self.results is None or self.results.empty:
             return {}
@@ -383,7 +385,7 @@ class SubgroupAnalysisLogit:
     def create_forest_plot(
         self,
         title: str = "Subgroup Analysis: Logistic Regression",
-        color: Optional[str] = None,
+        color: str | None = None,
     ) -> go.Figure:
         """Create forest plot."""
         if self.results is None:
@@ -436,10 +438,10 @@ class SubgroupAnalysisCox:
     def __init__(self, df: pd.DataFrame):
         """Initialize with dataset copy."""
         self.df = df.copy()
-        self.results: Optional[pd.DataFrame] = None
-        self.stats: Optional[Dict[str, Any]] = None
-        self.interaction_result: Optional[Dict[str, Any]] = None
-        self.figure: Optional[go.Figure] = None
+        self.results: pd.DataFrame | None = None
+        self.stats: dict[str, Any] | None = None
+        self.interaction_result: dict[str, Any] | None = None
+        self.figure: go.Figure | None = None
         logger.info(f"SubgroupAnalysisCox initialized with {len(df)} observations")
 
     def validate_inputs(
@@ -448,7 +450,7 @@ class SubgroupAnalysisCox:
         event_col: str,
         treatment_col: str,
         subgroup_col: str,
-        adjustment_cols: Optional[List[str]] = None,
+        adjustment_cols: list[str] | None = None,
     ) -> bool:
         """Validate input columns and data types."""
         required_cols = {duration_col, event_col, treatment_col, subgroup_col}
@@ -477,11 +479,11 @@ class SubgroupAnalysisCox:
         event_col: str,
         treatment_col: str,
         subgroup_col: str,
-        adjustment_cols: Optional[List[str]] = None,
+        adjustment_cols: list[str] | None = None,
         min_subgroup_n: int = 5,
         min_events: int = 2,
-        var_meta: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str]]:
+        var_meta: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
         """Perform Cox subgroup analysis."""
         try:
             from lifelines import CoxPHFitter
@@ -532,7 +534,7 @@ class SubgroupAnalysisCox:
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
 
-            results_list: List[Dict[str, Any]] = []
+            results_list: list[dict[str, Any]] = []
 
             # Overall Cox model
             logger.info("Computing overall Cox model...")
@@ -659,7 +661,7 @@ class SubgroupAnalysisCox:
             logger.error(f"Analysis failed: {e}")
             return None, None, str(e)
 
-    def _compute_summary_statistics(self) -> Dict[str, Any]:
+    def _compute_summary_statistics(self) -> dict[str, Any]:
         """Compute summary statistics."""
         if self.results is None or self.results.empty:
             return {}
@@ -681,7 +683,7 @@ class SubgroupAnalysisCox:
             ),
         }
 
-    def _format_output(self) -> Dict[str, Any]:
+    def _format_output(self) -> dict[str, Any]:
         """Format results for output."""
         if self.results is None or self.results.empty:
             return {}
@@ -711,7 +713,7 @@ class SubgroupAnalysisCox:
     def create_forest_plot(
         self,
         title: str = "Subgroup Analysis: Cox Regression",
-        color: Optional[str] = None,
+        color: str | None = None,
     ) -> go.Figure:
         """Create forest plot."""
         if self.results is None:

@@ -4,17 +4,20 @@
 Simplified, Streamlit-free logging system.
 """
 
+from __future__ import annotations
+
 import logging
 import logging.handlers
 import sys
 import threading
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Generator, List, Optional, cast
+from typing import Any, ClassVar, cast
 
 # Default configuration (can be overridden)
-DEFAULT_CONFIG: Dict[str, Any] = {
+DEFAULT_CONFIG: dict[str, Any] = {
     "logging.enabled": True,
     "logging.level": "WARNING",
     "logging.format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -38,7 +41,7 @@ class PerformanceLogger:
     def __init__(self, logger: logging.Logger) -> None:
         """Initialize with logger."""
         self.logger = logger
-        self.timings: Dict[str, List[float]] = {}
+        self.timings: dict[str, list[float]] = {}
         self._lock = threading.Lock()
 
     @contextmanager
@@ -64,7 +67,7 @@ class PerformanceLogger:
             log_method = getattr(self.logger, log_level.lower(), self.logger.debug)
             log_method(f"⏱️ {operation} completed in {elapsed:.3f}s")
 
-    def get_timings(self, operation: Optional[str] = None) -> Dict[str, List[float]]:
+    def get_timings(self, operation: str | None = None) -> dict[str, list[float]]:
         """Get recorded timings."""
         if operation:
             return {operation: self.timings.get(operation, [])}
@@ -98,7 +101,7 @@ class ContextFilter(logging.Filter):
     def __init__(self) -> None:
         """Initialize context filter."""
         super().__init__()
-        self.context: Dict[str, Any] = {}
+        self.context: dict[str, Any] = {}
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Attach context to log record."""
@@ -121,7 +124,7 @@ class Logger:
     def __init__(
         self,
         standard_logger: logging.Logger,
-        context_filter: Optional[ContextFilter] = None,
+        context_filter: ContextFilter | None = None,
     ) -> None:
         """Initialize logger."""
         self._logger = standard_logger
@@ -170,7 +173,7 @@ class Logger:
             self.info(msg)
 
     def log_data_summary(
-        self, df_name: str, shape: tuple[int, ...], dtypes: Dict[str, str]
+        self, df_name: str, shape: tuple[int, ...], dtypes: dict[str, str]
     ) -> None:
         """Log data summary."""
         if DEFAULT_CONFIG.get("logging.log_data_operations"):
@@ -198,7 +201,7 @@ class Logger:
         with self._perf_logger.track_time(operation, log_level):
             yield
 
-    def get_timings(self) -> Dict[str, List[float]]:
+    def get_timings(self) -> dict[str, list[float]]:
         """Get performance timings."""
         return self._perf_logger.get_timings()
 
@@ -216,9 +219,9 @@ class Logger:
 class LoggerFactory:
     """Factory for creating and managing loggers."""
 
-    _loggers: ClassVar[Dict[str, Logger]] = {}
-    _context_filter: ClassVar[Optional[ContextFilter]] = None
-    _perf_logger: ClassVar[Optional[PerformanceLogger]] = None
+    _loggers: ClassVar[dict[str, Logger]] = {}
+    _context_filter: ClassVar[ContextFilter | None] = None
+    _perf_logger: ClassVar[PerformanceLogger | None] = None
     _configured: ClassVar[bool] = False
     _lock: ClassVar[threading.Lock] = threading.Lock()
 

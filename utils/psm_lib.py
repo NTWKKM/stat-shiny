@@ -5,7 +5,9 @@ Propensity score calculation and matching without Streamlit dependencies.
 OPTIMIZED for Python 3.12 with strict type hints.
 """
 
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -23,9 +25,9 @@ logger = get_logger(__name__)
 def calculate_propensity_score(
     df: pd.DataFrame,
     treatment_col: str,
-    covariate_cols: List[str],
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[pd.Series, Dict[str, Any]]:
+    covariate_cols: list[str],
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[pd.Series, dict[str, Any]]:
     """
     Calculate propensity scores using logistic regression.
     """
@@ -87,8 +89,8 @@ def perform_matching(
         treated = df[df[treatment_col] == 1].copy()
         control = df[df[treatment_col] == 0].copy()
 
-        matched_pairs: List[int] = []
-        used_controls: Set[Any] = set()
+        matched_pairs: list[int] = []
+        used_controls: set[Any] = set()
 
         # Simple nearest neighbor matching
         for idx, treated_row in treated.iterrows():
@@ -118,7 +120,7 @@ def perform_matching(
 
 
 def compute_smd(
-    df: pd.DataFrame, treatment_col: str, covariate_cols: List[str]
+    df: pd.DataFrame, treatment_col: str, covariate_cols: list[str]
 ) -> pd.DataFrame:
     """
     Calculate Standardized Mean Difference (SMD) for balance checking.
@@ -206,7 +208,7 @@ def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def generate_psm_report(title: str, elements: List[Dict[str, Any]]) -> str:
+def generate_psm_report(title: str, elements: list[dict[str, Any]]) -> str:
     """
     Generate a simple HTML report for PSM results.
     """

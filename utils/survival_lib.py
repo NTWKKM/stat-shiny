@@ -29,7 +29,8 @@ from functools import lru_cache
 
 # Suppress DeprecationWarning from lifelines (datetime.utcnow)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="lifelines")
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -115,7 +116,7 @@ except (ImportError, AttributeError):
 # ==========================================
 
 
-def _standardize_numeric_cols(data: pd.DataFrame, cols: List[str]) -> None:
+def _standardize_numeric_cols(data: pd.DataFrame, cols: list[str]) -> None:
     """
     Standardize numeric columns in-place while preserving binary (0/1) columns.
     """
@@ -154,12 +155,12 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     return f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})"
 
 
-def _sort_groups_vectorized(groups: Sequence[Any]) -> List[Any]:
+def _sort_groups_vectorized(groups: Sequence[Any]) -> list[Any]:
     """
     OPTIMIZATION: Sort groups with vectorized key extraction (5x faster).
     """
 
-    def _sort_key(v: Any) -> Tuple[int, Union[float, str]]:
+    def _sort_key(v: Any) -> tuple[int, float | str]:
         s = str(v)
         try:
             return (0, float(s))
@@ -233,11 +234,11 @@ def calculate_survival_at_times(
     df: pd.DataFrame,
     duration_col: str,
     event_col: str,
-    group_col: Optional[str],
-    time_points: List[float],
+    group_col: str | None,
+    time_points: list[float],
     enable_comparison: bool = True,
     mcc_method: str = "fdr_bh",
-) -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
+) -> tuple[pd.DataFrame, pd.DataFrame | None]:
     """
     🆕 NEW: Calculate survival probabilities at specific time points (Robust Version)
     Includes enhanced event column validation and coercion to prevent KM fitter failures.
@@ -255,7 +256,7 @@ def calculate_survival_at_times(
         mcc_method: Method for multiple comparison correction (default: "fdr_bh")
 
     Returns:
-        Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
+        tuple[pd.DataFrame, pd.DataFrame | None]:
             - DataFrame with survival probabilities at each time point
             - DataFrame with pairwise comparison results (or None if not applicable)
     """
@@ -273,13 +274,13 @@ def calculate_survival_at_times(
 
     # Store KM fitters for comparison later
 
-    kmf_by_group: Dict[str, Tuple[KaplanMeierFitter, pd.Series]] = {}
+    kmf_by_group: dict[str, tuple[KaplanMeierFitter, pd.Series]] = {}
 
     # 1. Map known truthy/falsy values (handling strings, numbers, bools)
     # Truthy map: {"event", "dead", "1", 1, True} -> 1
     # Falsy map: {"censored", "alive", "0", 0, False} -> 0
     # Define converter outside loop to avoid redefinition
-    def _robust_event_converter(val: Any) -> Union[int, Any]:
+    def _robust_event_converter(val: Any) -> int | Any:
         if isinstance(val, str):
             v_lower = val.lower().strip()
             if v_lower in ["event", "dead", "1", "true"]:
@@ -574,7 +575,7 @@ def calculate_survival_at_times(
 
 
 def calculate_median_survival(
-    df: pd.DataFrame, duration_col: str, event_col: str, group_col: Optional[str]
+    df: pd.DataFrame, duration_col: str, event_col: str, group_col: str | None
 ) -> pd.DataFrame:
     """
     OPTIMIZED: Calculate Median Survival Time and 95% CI for each group.
@@ -680,9 +681,9 @@ def fit_km_logrank(
     df: pd.DataFrame,
     duration_col: str,
     event_col: str,
-    group_col: Optional[str],
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[go.Figure, pd.DataFrame, Optional[Dict[str, Any]]]:
+    group_col: str | None,
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[go.Figure, pd.DataFrame, dict[str, Any] | None]:
     """
     OPTIMIZED: Fit KM curves and perform Log-rank test.
     ✅ ENHANCED: Includes Chi-squared and Degrees of Freedom.
@@ -783,7 +784,7 @@ def fit_km_logrank(
     )
     fig.update_yaxes(range=[0, 1.05])
 
-    stats_data: Dict[str, Any] = {}
+    stats_data: dict[str, Any] = {}
     try:
         if len(groups) == 2 and group_col:
             g1, g2 = groups
@@ -824,9 +825,9 @@ def fit_nelson_aalen(
     df: pd.DataFrame,
     duration_col: str,
     event_col: str,
-    group_col: Optional[str],
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[go.Figure, pd.DataFrame, Optional[Dict[str, Any]]]:
+    group_col: str | None,
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[go.Figure, pd.DataFrame, dict[str, Any] | None]:
     """
     OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
     ✅ INTEGRATED: Missing data handling.
@@ -939,16 +940,16 @@ def fit_cox_ph(
     df: pd.DataFrame,
     duration_col: str,
     event_col: str,
-    covariate_cols: List[str],
-    var_meta: Optional[Dict[str, Any]] = None,
+    covariate_cols: list[str],
+    var_meta: dict[str, Any] | None = None,
     method: str = "auto",
-) -> Tuple[
-    Optional[Union[CoxPHFitter, Any]],
-    Optional[pd.DataFrame],
+) -> tuple[
+    CoxPHFitter | Any | None,
+    pd.DataFrame | None,
     pd.DataFrame,
-    Optional[str],
-    Optional[Dict[str, Any]],
-    Optional[Dict[str, Any]],
+    str | None,
+    dict[str, Any] | None,
+    dict[str, Any] | None,
 ]:
     """
     Fit Cox proportional hazards model.
@@ -1301,8 +1302,8 @@ def fit_cox_ph(
 
 
 def _fit_firth_cox(
-    data: pd.DataFrame, duration_col: str, event_col: str, covariate_cols: List[str]
-) -> Tuple[Any, pd.DataFrame, str]:
+    data: pd.DataFrame, duration_col: str, event_col: str, covariate_cols: list[str]
+) -> tuple[Any, pd.DataFrame, str]:
     """
     Internal helper: Fit Firth-penalized Cox PH model using firthmodels.
 
@@ -1348,7 +1349,7 @@ def _fit_firth_cox(
 
 def check_cph_assumptions(
     cph: CoxPHFitter, data: pd.DataFrame
-) -> Tuple[str, List[go.Figure]]:
+) -> tuple[str, list[go.Figure]]:
     """
     OPTIMIZED: Generate proportional hazards test report and Schoenfeld residual plots.
     """
@@ -1488,16 +1489,16 @@ def fit_km_landmark(
     df: pd.DataFrame,
     duration_col: str,
     event_col: str,
-    group_col: Optional[str],
+    group_col: str | None,
     landmark_time: float,
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[
-    Optional[go.Figure],
-    Optional[pd.DataFrame],
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[
+    go.Figure | None,
+    pd.DataFrame | None,
     int,
     int,
-    Optional[str],
-    Optional[Dict[str, Any]],
+    str | None,
+    dict[str, Any] | None,
 ]:
     """
     OPTIMIZED: Perform landmark-time Kaplan-Meier analysis.
@@ -1660,9 +1661,9 @@ def fit_km_landmark(
 
 def generate_report_survival(
     title: str,
-    elements: List[Dict[str, Any]],
-    missing_data_info: Optional[Dict[str, Any]] = None,
-    var_meta: Optional[Dict[str, Any]] = None,
+    elements: list[dict[str, Any]],
+    missing_data_info: dict[str, Any] | None = None,
+    var_meta: dict[str, Any] | None = None,
 ) -> str:
     """
     Generate complete HTML report with embedded plots and tables.

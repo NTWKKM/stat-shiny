@@ -12,7 +12,9 @@ Provides UI and server logic for:
 Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from __future__ import annotations
+
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -330,7 +332,7 @@ def survival_server(
     output: Any,
     session: Any,
     df: reactive.Value[Optional[pd.DataFrame]],
-    var_meta: reactive.Value[Dict[str, Any]],
+    var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[Optional[pd.DataFrame]],
     is_matched: reactive.Value[bool],
 ) -> None:
@@ -339,11 +341,11 @@ def survival_server(
     """
 
     # ==================== REACTIVE VALUES ====================
-    curves_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    landmark_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    cox_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    sg_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    tvc_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    curves_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
+    landmark_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
+    cox_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
+    sg_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
+    tvc_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
     tvc_long_data: reactive.Value[Optional[pd.DataFrame]] = reactive.Value(None)
 
     # ==================== DATASET SELECTION LOGIC ====================
@@ -402,7 +404,7 @@ def survival_server(
 
     # ==================== LABEL MAPPING LOGIC ====================
     @reactive.Calc
-    def label_map() -> Dict[str, str]:
+    def label_map() -> dict[str, str]:
         """Build a dictionary mapping raw column names to user-friendly labels from var_meta."""
         meta = var_meta.get()
         if not meta:
@@ -1269,7 +1271,7 @@ def survival_server(
         manual_str = input.tvc_manual_intervals()
         data = current_df()
 
-        intervals: List[float] = []
+        intervals: list[float] = []
         if method == "manual" and manual_str:
             try:
                 intervals = sorted(

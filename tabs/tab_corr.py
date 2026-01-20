@@ -10,11 +10,13 @@ Enhanced Features:
 Updated: Uses dataset selector pattern like tab_diag.py
 """
 
+from __future__ import annotations
+
 import html as _html
 import os
 import re
 import tempfile
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -41,7 +43,7 @@ def _safe_filename_part(s: str) -> str:
 logger = get_logger(__name__)
 
 
-def _auto_detect_icc_vars(cols: List[str]) -> List[str]:
+def _auto_detect_icc_vars(cols: list[str]) -> list[str]:
     """
     Auto-detect ICC/Rater variables based on column name patterns.
     """
@@ -280,7 +282,7 @@ def corr_server(
     output: Any,
     session: Any,
     df: reactive.Value[Optional[pd.DataFrame]],
-    var_meta: reactive.Value[Dict[str, Any]],
+    var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[Optional[pd.DataFrame]],
     is_matched: reactive.Value[bool],
 ) -> None:
@@ -294,7 +296,7 @@ def corr_server(
         output: Shiny output object used by the render decorators.
         session: Shiny session object for the current user session.
         df (reactive.Value[pd.DataFrame | None]): Primary dataset reactive; used as the default data source.
-        var_meta (reactive.Value[Dict[str, Any]]): Reactive dictionary of variable metadata (column attributes and labels).
+        var_meta (reactive.Value[dict[str, Any]]): Reactive dictionary of variable metadata (column attributes and labels).
         df_matched (reactive.Value[pd.DataFrame | None]): Optional matched dataset reactive used when the user selects the matched data source.
         is_matched (reactive.Value[bool]): Reactive boolean flag indicating whether a matched dataset is available/selected.
     """
@@ -302,16 +304,16 @@ def corr_server(
 
     # ==================== REACTIVE STATES ====================
 
-    corr_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(
+    corr_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(
         None
     )  # Pairwise result
-    matrix_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(
+    matrix_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(
         None
     )  # Matrix result
-    icc_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(
+    icc_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(
         None
     )  # ICC result
-    numeric_cols_list: reactive.Value[List[str]] = reactive.Value(
+    numeric_cols_list: reactive.Value[list[str]] = reactive.Value(
         []
     )  # List of numeric columns
 

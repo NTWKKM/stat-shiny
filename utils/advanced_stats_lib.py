@@ -9,7 +9,7 @@ This module provides utility functions for:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 
 
 def apply_mcc(
-    p_values: Union[List[float], pd.Series, np.ndarray],
+    p_values: list[float] | pd.Series | np.ndarray,
     method: str = "fdr_bh",
     alpha: float = 0.05,
 ) -> pd.Series:
@@ -99,8 +99,8 @@ def calculate_vif(
     df: pd.DataFrame,
     *,
     intercept: bool = True,
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Calculate Variance Inflation Factor (VIF) for each feature in a DataFrame.
 
@@ -113,7 +113,7 @@ def calculate_vif(
         var_meta (dict, optional): Variable metadata for missing value handling.
 
     Returns:
-        Tuple[pd.DataFrame, Dict[str, Any]]:
+        tuple[pd.DataFrame, dict[str, Any]]:
             - DataFrame with columns ['feature', 'VIF'].
             - Missing data info dictionary.
     """
@@ -211,7 +211,7 @@ def calculate_vif(
 
 def determine_best_ci_method(
     n_samples: int,
-    n_events: Optional[int] = None,
+    n_events: int | None = None,
     n_params: int = 1,
     model_type: str = "logistic",
 ) -> str:
@@ -253,7 +253,7 @@ def get_ci_configuration(
     n_events: int = 0,
     n_params: int = 1,
     model_type: str = "logistic",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Resolve the confidence-interval method and return configuration details, resolving "auto" to a concrete choice based on sample/events.
 

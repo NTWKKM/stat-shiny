@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import gc
 import html
 import json
 from itertools import combinations, islice
 
 # Use built-in list/dict/tuple for Python 3.9+ and typing for complex types
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd

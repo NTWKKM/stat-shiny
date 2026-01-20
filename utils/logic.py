@@ -4,11 +4,13 @@
 No Streamlit dependencies - pure statistical functions.
 """
 
+from __future__ import annotations
+
 import html
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Literal, Optional, TypedDict, Union, cast
+from typing import Any, Literal, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -73,14 +75,14 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
 
 # ✅ NEW: Type Definitions (Compatible with Python 3.9+)
-FitStatus = Union[Literal["OK"], str]
-MethodType = Literal["default", "bfgs", "firth", "auto"]
+type FitStatus = Literal["OK"] | str
+type MethodType = Literal["default", "bfgs", "firth", "auto"]
 
 
 class StatsMetrics(TypedDict):
     mcfadden: float
     nagelkerke: float
-    p_value: Optional[float]
+    p_value: float | None
 
 
 # Functional syntax for TypedDict to support 'or' as a key
@@ -91,7 +93,7 @@ ORResult = TypedDict(
         "ci_low": float,
         "ci_high": float,
         "p_value": float,
-        "p_adj": Optional[float],
+        "p_adj": float | None,
     },
 )
 
@@ -102,7 +104,7 @@ class AORResultEntry(TypedDict):
     l: float
     h: float
     p: float
-    lvl: Optional[str]
+    lvl: str | None
 
 
 # Functional syntax for InteractionResult due to 'or' keyword
@@ -110,7 +112,7 @@ InteractionResult = TypedDict(
     "InteractionResult",
     {
         "coef": float,
-        "or": Optional[float],
+        "or": float | None,
         "ci_low": float,
         "ci_high": float,
         "p_value": float,
@@ -125,8 +127,8 @@ class AORResult(TypedDict):
     ci_low: float
     ci_high: float
     p_value: float
-    p_adj: Optional[float]
-    label: Optional[str]  # Added for flexible labeling
+    p_adj: float | None
+    label: str | None  # Added for flexible labeling
 
 
 # ✅ NEW: Helper function to load static CSS
@@ -224,7 +226,7 @@ def clean_numeric_value(val):
     return np.nan
 
 
-def _robust_sort_key(x: Any) -> tuple[int, Union[float, str]]:
+def _robust_sort_key(x: Any) -> tuple[int, float | str]:
     """Sort key placing numeric values first."""
     try:
         if pd.isna(x):
@@ -241,9 +243,9 @@ def run_binary_logit(
     method: MethodType = "default",
     ci_method: str = "wald",
 ) -> tuple[
-    Optional[pd.Series],
-    Optional[pd.DataFrame],
-    Optional[pd.Series],
+    pd.Series | None,
+    pd.DataFrame | None,
+    pd.Series | None,
     FitStatus,
     StatsMetrics,
 ]:
@@ -258,9 +260,9 @@ def run_binary_logit(
 
     Returns:
         tuple:
-            params (Optional[pd.Series]): Estimated model coefficients indexed by predictor names (including intercept) or None on failure.
-            conf_int (Optional[pd.DataFrame]): Two-column DataFrame with lower and upper confidence bounds for each coefficient, or None on failure.
-            pvalues (Optional[pd.Series]): Two-sided p-values for each coefficient, or None on failure.
+            params (pd.Series | None): Estimated model coefficients indexed by predictor names (including intercept) or None on failure.
+            conf_int (pd.DataFrame | None): Two-column DataFrame with lower and upper confidence bounds for each coefficient, or None on failure.
+            pvalues (pd.Series | None): Two-sided p-values for each coefficient, or None on failure.
             status (FitStatus): "OK" on success or a short error message describing why fitting did not complete.
             stats_metrics (StatsMetrics): Dictionary containing fit metrics (mcfadden, nagelkerke, p_value) with NaN values when not available.
     """
@@ -347,7 +349,7 @@ def run_binary_logit(
         return None, None, None, err_msg, stats_metrics
 
 
-def get_label(col_name: str, var_meta: Optional[dict[str, Any]]) -> str:
+def get_label(col_name: str, var_meta: dict[str, Any] | None) -> str:
     """Create formatted label for column."""
     display_name = col_name
     secondary_label = ""
@@ -370,7 +372,7 @@ def get_label(col_name: str, var_meta: Optional[dict[str, Any]]) -> str:
         return f"<b>{safe_name}</b>"
 
 
-def fmt_p(val: Union[float, str, None]) -> str:
+def fmt_p(val: float | str | None) -> str:
     """Format p-value as string (e.g. '<0.001', '0.042')."""
     if pd.isna(val):
         return "-"
@@ -386,7 +388,7 @@ def fmt_p(val: Union[float, str, None]) -> str:
         return "-"
 
 
-def fmt_p_with_styling(val: Union[float, str, None]) -> str:
+def fmt_p_with_styling(val: float | str | None) -> str:
     """Format p-value with red highlighting if significant (p < 0.05)."""
     p_str = fmt_p(val)
     if p_str == "-":
@@ -404,7 +406,7 @@ def fmt_p_with_styling(val: Union[float, str, None]) -> str:
     return p_str
 
 
-def fmt_or_with_styling(or_val: Optional[float], ci_low: float, ci_high: float) -> str:
+def fmt_or_with_styling(or_val: float | None, ci_low: float, ci_high: float) -> str:
     """Format OR (95% CI) with bolding if significant (CI does not include 1.0)."""
     if or_val is None or pd.isna(or_val) or pd.isna(ci_low) or pd.isna(ci_high):
         return "-"
@@ -421,10 +423,10 @@ def fmt_or_with_styling(or_val: Optional[float], ci_low: float, ci_high: float) 
 def analyze_outcome(
     outcome_name: str,
     df: pd.DataFrame,
-    var_meta: Optional[dict[str, Any]] = None,
+    var_meta: dict[str, Any] | None = None,
     method: MethodType = "auto",
-    interaction_pairs: Optional[list[tuple[str, str]]] = None,
-    adv_stats: Optional[dict[str, Any]] = None,
+    interaction_pairs: list[tuple[str, str | None]] = None,
+    adv_stats: dict[str, Any] | None = None,
 ) -> tuple[
     str, dict[str, ORResult], dict[str, AORResult], dict[str, InteractionResult]
 ]:
@@ -434,10 +436,10 @@ def analyze_outcome(
     Parameters:
         outcome_name (str): Column name of the binary outcome in `df`.
         df (pd.DataFrame): Input dataset containing the outcome and candidate predictors.
-        var_meta (Optional[dict[str, Any]]): Optional variable metadata used to override automatic mode detection (categorical vs linear) and provide display labels.
+        var_meta (dict[str, Any] | None): Optional variable metadata used to override automatic mode detection (categorical vs linear) and provide display labels.
         method (MethodType): Fitting method preference: 'auto', 'default', 'bfgs', or 'firth'. 'auto' may select Firth when appropriate and available.
-        interaction_pairs (Optional[list[tuple[str, str]]]): Optional list of variable pairs for which interaction terms should be created and reported.
-        adv_stats (Optional[dict[str, Any]]): Optional advanced-statistics configuration. Recognized keys include:
+        interaction_pairs (list[tuple[str, str | None]]): Optional list of variable pairs for which interaction terms should be created and reported.
+        adv_stats (dict[str, Any] | None): Optional advanced-statistics configuration. Recognized keys include:
             - 'stats.mcc_enable' (bool): enable multiple-comparisons correction (MCC).
             - 'stats.mcc_method' (str): MCC method identifier (e.g., 'fdr_bh').
             - 'stats.mcc_alpha' (float): MCC significance level.

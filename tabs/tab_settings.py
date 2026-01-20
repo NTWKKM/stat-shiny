@@ -13,7 +13,9 @@ Usage:
     tab_settings.settings_server("settings", CONFIG)
 """
 
-from typing import Any, Dict, List, Optional, Union
+from __future__ import annotations
+
+from typing import Any
 
 from shiny import reactive, render, ui
 from shiny.session import get_current_session
