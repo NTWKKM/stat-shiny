@@ -92,6 +92,8 @@ app_ui = ui.page_navbar(
         # ✅ Link to external CSS file
         # 🟢 Fix: Remove leading / here as well
         ui.tags.link(rel="stylesheet", href="static/styles.css"),
+        # ✅ Custom JS Handlers
+        ui.tags.script(src="static/js/custom_handlers.js"),
     ),
 )
 

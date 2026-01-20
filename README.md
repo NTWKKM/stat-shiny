@@ -199,11 +199,13 @@ The app will be available at `http://localhost:8000`.
 
 ### Option 2: Running Tests
 
-To run the test suite, ensure you use the `pytest` from your virtual environment:
+To run the test suite, ensure you use the `pytest` from your virtual environment (assuming venv is named `.venv`):
 
 ```bash
 # Run all tests
 .venv/bin/pytest
+# Or if using a different venv name/activation:
+# python -m pytest
 
 # Run specific test
 .venv/bin/pytest tests/unit/test_statistics.py

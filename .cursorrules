@@ -7,4 +7,4 @@
 
 2. **Python Version**: This project strictly requires Python 3.12+. The system default (3.9) will fail.
 
-3. **Workflow**: If you need to run checking scripts, prefer the define workflows or use the `.venv` explicitly.
+3. **Workflow**: If you need to run checking scripts, prefer the defined workflows or use the `.venv` explicitly.

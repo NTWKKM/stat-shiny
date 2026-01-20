@@ -307,6 +307,7 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
         except Exception as e:
             res_means.set(f"Error: {e}")
             plot_means.set(None)
+            methods_means.set(None)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_props)
@@ -349,6 +350,7 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
         except Exception as e:
             res_props.set(f"Error: {e}")
             plot_props.set(None)
+            methods_props.set(None)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_surv)
@@ -397,6 +399,7 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
         except Exception as e:
             res_surv.set(f"Error: {e}")
             plot_surv.set(None)
+            methods_surv.set(None)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_corr)
@@ -433,6 +436,7 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
         except Exception as e:
             res_corr.set(f"Error: {e}")
             plot_corr.set(None)
+            methods_corr.set(None)
 
     # --- RENDERERS ---
 
