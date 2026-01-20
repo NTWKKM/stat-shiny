@@ -303,14 +303,13 @@ def data_server(
 
             # Linear: Continuous (Normal-ish)
             chol = np.random.normal(200, 40, n).astype(int).clip(100, 400)
-            
+
             # Binary Predictors
             statin = np.random.binomial(1, 0.4, n)
             kidney_dz = np.random.binomial(1, 0.15, n)
 
             # Poisson/Count: History of Falls (Rare count)
             falls = np.random.poisson(0.5, n)
-
 
             data = {
                 "ID": range(1, n + 1),
@@ -430,11 +429,11 @@ def data_server(
                     "map": {},
                 },
                 "Count_Hospital_Visits": {
-                    "type": "Continuous", # Treated as numeric
+                    "type": "Continuous",  # Treated as numeric
                     "label": "Hospital Visits (Count)",
                     "map": {},
                 },
-                 "History_Falls": {
+                "History_Falls": {
                     "type": "Continuous",
                     "label": "History of Falls (Count)",
                     "map": {},

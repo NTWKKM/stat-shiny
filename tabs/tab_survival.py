@@ -537,19 +537,24 @@ def survival_server(
         # Cox Regression
         # Auto-select some common covariates if available
         default_cox_covs = []
-        possible_covs = ["Age_Years", "Sex_Male", "Treatment_Group", "Comorb_", "Lab_", "BMI"]
+        possible_covs = [
+            "Age_Years",
+            "Sex_Male",
+            "Treatment_Group",
+            "Comorb_",
+            "Lab_",
+            "BMI",
+        ]
         for p in possible_covs:
             for c in cols:
-                if p in c and c not in [time_col, event_col, "ID"]:
-                     default_cox_covs.append(c)
-        
+                if p in c and c not in [default_time, default_event, "ID"]:
+                    default_cox_covs.append(c)
+
         # Limit default selection to avoid clutter
         default_cox_covs = default_cox_covs[:5]
 
         ui.update_selectize(
-            "cox_covariates", 
-            choices=choices_with_labels, 
-            selected=default_cox_covs
+            "cox_covariates", choices=choices_with_labels, selected=default_cox_covs
         )
 
         # Subgroup Analysis
