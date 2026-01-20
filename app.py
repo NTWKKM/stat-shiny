@@ -53,7 +53,8 @@ app_ui = ui.page_navbar(
     # --- 3. Diagnostic Tests Module ---
     ui.nav_panel("🧪 Diagnostic Tests", wrap_with_container(tab_diag.diag_ui("diag"))),
     # --- 4. Logistic Regression Module ---
-    ui.nav_panel("📊 Risk Factors", wrap_with_container(tab_logit.logit_ui("logit"))),
+    # --- 4. Regression Models Module ---
+    ui.nav_panel("📊 Regression Models", wrap_with_container(tab_logit.logit_ui("logit"))),
     # --- 5. Correlation & ICC Module ---
     ui.nav_panel("📈 Correlation & ICC", wrap_with_container(tab_corr.corr_ui("corr"))),
     # --- 6. Survival Analysis Module ---

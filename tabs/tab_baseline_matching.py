@@ -12,86 +12,20 @@ from shiny import module, reactive, render, req, ui
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils import psm_lib  # Import from utils
-from utils import table_one  # Import from utils
-from utils.formatting import create_missing_data_report_html
-from utils.plotly_html_renderer import plotly_figure_to_html
+from tabs import tab_sample_size  # Import Sample Size Tab
 
-logger = get_logger(__name__)
-COLORS = get_color_palette()
+# ... (Previous imports)
 
-
-# ==============================================================================
-# Helper Function (Pure Python)
-# ==============================================================================
-def _calculate_categorical_smd(
-    df: pd.DataFrame, treatment_col: str, cat_cols: list[str]
-) -> pd.DataFrame:
-    """
-    Compute standardized mean differences (SMD) for categorical covariates between treated and control groups.
-    """
-    if not cat_cols:
-        return pd.DataFrame(columns=["Variable", "SMD"])
-
-    smd_data = []
-    # Ensure columns exist before filtering
-    if treatment_col not in df.columns:
-        return pd.DataFrame(columns=["Variable", "SMD"])
-
-    treated = df[df[treatment_col] == 1]
-    control = df[df[treatment_col] == 0]
-
-    n_treated = len(treated)
-    n_control = len(control)
-
-    if n_treated == 0 or n_control == 0:
-        return pd.DataFrame(columns=["Variable", "SMD"])
-
-    for col in cat_cols:
-        if col not in df.columns:
-            continue
-        try:
-            categories = df[col].dropna().unique()
-            smd_squared_sum = 0
-
-            for cat in categories:
-                p_treated = (treated[col] == cat).sum() / n_treated
-                p_control = (control[col] == cat).sum() / n_control
-
-                p_pooled = (n_treated * p_treated + n_control * p_control) / (
-                    n_treated + n_control
-                )
-                variance = p_pooled * (1 - p_pooled) + 1e-8
-
-                smd_level = (p_treated - p_control) / np.sqrt(variance)
-                smd_squared_sum += smd_level**2
-
-            smd = np.sqrt(smd_squared_sum)
-            smd_data.append({"Variable": col, "SMD": smd})
-
-        except Exception as e:
-            logger.warning("Error calculating categorical SMD for %s: %s", col, e)
-            continue
-
-    return pd.DataFrame(smd_data)
-
-
-# ==============================================================================
-# UI Definition - Stacked Layout (Controls Top + Content Bottom)
-# ==============================================================================
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
     """
-    Constructs the baseline matching user interface as a tabbed Shiny component.
-
-    The UI contains four main subtabs: (1) Baseline Characteristics (Table 1) with controls to select grouping, variables, and generate/download the table; (2) Propensity Score Matching (PSM) with configuration, presets, advanced caliper settings, run controls, and results area; (3) Matched Data View with export, preview, summary statistics, and visualizations; and (4) Reference & Interpretation with guidance and workflow notes.
-
-    Returns:
-        ui.TagChild: A Shiny tabset UI component containing the complete baseline matching interface (Table 1, PSM, Matched Data View, and Reference & Interpretation).
+    Constructs the baseline matching user interface...
     """
     return ui.navset_tab(
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
         ui.nav_panel(
             "📊 Baseline Characteristics (Table 1)",
+            # ... (Existing content) ...
             # Control section (top)
             ui.card(
                 ui.card_header("📊 Table 1 Options"),
@@ -144,6 +78,7 @@ def baseline_matching_ui() -> ui.TagChild:
         # ===== SUBTAB 2: PROPENSITY SCORE MATCHING =====
         ui.nav_panel(
             "⚖️ Propensity Score Matching",
+            # ... (Existing content) ...
             # Control section (top)
             ui.card(
                 ui.card_header("⚖️ PSM Configuration"),
@@ -173,7 +108,7 @@ def baseline_matching_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.card(
-                        ui.card_header("Manual Selection:"),
+                        ui.card_header("Manual selection:"),
                         ui.input_select(
                             "sel_treat_col",
                             "💊 Treatment Variable (Binary):",
@@ -237,6 +172,7 @@ def baseline_matching_ui() -> ui.TagChild:
         # ===== SUBTAB 3: MATCHED DATA VIEW =====
         ui.nav_panel(
             "✅ Matched Data View",
+            # ... (Existing content) ...
             # Control section (top)
             ui.card(
                 ui.card_header("✅ Matched Data Actions"),
@@ -303,6 +239,11 @@ def baseline_matching_ui() -> ui.TagChild:
                     ),
                 ),
             ),
+        ),
+         # ===== SUBTAB 5: SAMPLE SIZE =====
+        ui.nav_panel(
+            "🔢 Sample Size",
+            tab_sample_size.sample_size_ui("sample_size"),
         ),
         # ===== SUBTAB 4: REFERENCE & INTERPRETATION =====
         ui.nav_panel(
@@ -418,6 +359,9 @@ def baseline_matching_server(
     """
     psm_results: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
     html_content: reactive.Value[Optional[str]] = reactive.Value(None)
+
+    # Call Sample Size Server
+    tab_sample_size.sample_size_server("sample_size")
 
     # -------------------------------------------------------------------------
     # HELPER: Get Current Data for Table 1
