@@ -21,7 +21,7 @@ from tabs import (
     tab_survival,
 )
 
-# from tabs._styling import get_shiny_css  # DEPRECATED: Now using external CSS file
+
 from tabs._common import wrap_with_container
 from utils.logic import HAS_FIRTH
 
