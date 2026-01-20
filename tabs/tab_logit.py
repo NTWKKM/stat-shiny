@@ -903,7 +903,9 @@ def logit_server(
         # Prefer "Outcome_" prefix or "Cured"/"Death"/"Event"
         default_logit_y = None
         for c in binary_cols:
-            if any(k in c.lower() for k in ["outcome", "cured", "death", "status", "event"]):
+            if any(
+                k in c.lower() for k in ["outcome", "cured", "death", "status", "event"]
+            ):
                 default_logit_y = c
                 break
         if not default_logit_y and binary_cols:
@@ -927,7 +929,7 @@ def logit_server(
             and (d[c].dropna() >= 0).all()
             and (d[c].dropna() % 1 == 0).all()
         ]
-        
+
         # Prefer "Count_" or "Visits" or "Falls"
         default_poisson_y = None
         for c in count_cols:
@@ -938,9 +940,9 @@ def logit_server(
             default_poisson_y = count_cols[0]
 
         ui.update_select(
-            "poisson_outcome", 
+            "poisson_outcome",
             choices=count_cols if count_cols else cols,
-            selected=default_poisson_y
+            selected=default_poisson_y,
         )
         ui.update_select("poisson_offset", choices=["None"] + cols)
         ui.update_selectize("poisson_exclude", choices=cols)
@@ -949,25 +951,32 @@ def logit_server(
         # Update Tab 3 (Linear Regression) Inputs
         # Identify continuous numeric columns for outcome
         numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(d[c])]
-        
+
         # Prefer "Lab_", "Cost", "Score"
         default_linear_y = None
         for c in numeric_cols:
             if any(k in c.lower() for k in ["lab_", "cost", "score", "chol", "hba1c"]):
                 default_linear_y = c
                 break
-        
+
         linear_outcome_choices = numeric_cols
-        ui.update_select("linear_outcome", choices=linear_outcome_choices, selected=default_linear_y)
-        
+        ui.update_select(
+            "linear_outcome", choices=linear_outcome_choices, selected=default_linear_y
+        )
+
         # Default predictors: exclude ID and outcome, pick numeric/categorical meaningful ones
         default_linear_x = [
-            c for c in cols 
-            if c != default_linear_y 
-            and c not in ["ID", "id_tvc"] 
+            c
+            for c in cols
+            if c != default_linear_y
+            and c not in ["ID", "id_tvc"]
             and not c.startswith("Time_")
-        ][:5] # limit to 5
-        ui.update_selectize("linear_predictors", choices=numeric_cols, selected=default_linear_x)
+        ][
+            :5
+        ]  # limit to 5
+        ui.update_selectize(
+            "linear_predictors", choices=numeric_cols, selected=default_linear_x
+        )
         ui.update_selectize("linear_exclude", choices=cols)
 
         # Update Tab 4 (Subgroup) Inputs
@@ -980,10 +989,10 @@ def logit_server(
         # Prefer Lab results for repeated measures
         default_rep_y = None
         for c in numeric_cols:
-             if "lab" in c.lower() or "score" in c.lower() or "bp" in c.lower():
-                 default_rep_y = c
-                 break
-        
+            if "lab" in c.lower() or "score" in c.lower() or "bp" in c.lower():
+                default_rep_y = c
+                break
+
         ui.update_select(
             "rep_outcome", choices=numeric_cols, selected=default_rep_y
         )  # LMM/GEE(Gaussian) usually numeric outcome
