@@ -16,7 +16,7 @@ import html as _html
 import os
 import re
 import tempfile
-from typing import Any, Optional, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -281,9 +281,9 @@ def corr_server(
     input: Any,
     output: Any,
     session: Any,
-    df: reactive.Value[Optional[pd.DataFrame]],
+    df: reactive.Value[pd.DataFrame | None],
     var_meta: reactive.Value[dict[str, Any]],
-    df_matched: reactive.Value[Optional[pd.DataFrame]],
+    df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
     """
@@ -304,13 +304,13 @@ def corr_server(
 
     # ==================== REACTIVE STATES ====================
 
-    corr_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(
+    corr_result: reactive.Value[dict[str, Any] | None] = reactive.Value(
         None
     )  # Pairwise result
-    matrix_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(
+    matrix_result: reactive.Value[dict[str, Any] | None] = reactive.Value(
         None
     )  # Matrix result
-    icc_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(
+    icc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(
         None
     )  # ICC result
     numeric_cols_list: reactive.Value[list[str]] = reactive.Value(
@@ -320,7 +320,7 @@ def corr_server(
     # ==================== DATASET SELECTION LOGIC ====================
 
     @reactive.Calc
-    def current_df() -> Optional[pd.DataFrame]:
+    def current_df() -> pd.DataFrame | None:
         """Select between original and matched dataset based on user preference."""
         if is_matched.get() and input.radio_corr_source() == "matched":
             return df_matched.get()

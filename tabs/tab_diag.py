@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -288,23 +288,23 @@ def diag_server(
     input: Any,
     output: Any,
     session: Any,
-    df: reactive.Value[Optional[pd.DataFrame]],
+    df: reactive.Value[pd.DataFrame | None],
     var_meta: reactive.Value[dict[str, Any]],
-    df_matched: reactive.Value[Optional[pd.DataFrame]],
+    df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
 
     # --- Reactive Results Storage ---
-    roc_html: reactive.Value[Optional[str]] = reactive.Value(None)
-    chi_html: reactive.Value[Optional[str]] = reactive.Value(None)
-    kappa_html: reactive.Value[Optional[str]] = reactive.Value(None)
-    desc_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    roc_html: reactive.Value[str | None] = reactive.Value(None)
+    chi_html: reactive.Value[str | None] = reactive.Value(None)
+    kappa_html: reactive.Value[str | None] = reactive.Value(None)
+    desc_html: reactive.Value[str | None] = reactive.Value(None)
     # --- Bland-Altman Reactives ---
-    ba_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    ba_html: reactive.Value[str | None] = reactive.Value(None)
     ba_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- DCA Reactives ---
-    dca_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    dca_html: reactive.Value[str | None] = reactive.Value(None)
     dca_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- Bland-Altman Inputs ---
@@ -425,7 +425,7 @@ def diag_server(
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
-    def current_df() -> Optional[pd.DataFrame]:
+    def current_df() -> pd.DataFrame | None:
         if is_matched.get() and input.radio_diag_source() == "matched":
             return df_matched.get()
         return df.get()

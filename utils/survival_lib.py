@@ -22,10 +22,10 @@ from __future__ import annotations
 import base64
 import html as _html
 import io
-import logging
+
 import numbers
 import warnings
-from functools import lru_cache
+
 
 # Suppress DeprecationWarning from lifelines (datetime.utcnow)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="lifelines")

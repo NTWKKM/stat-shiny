@@ -14,7 +14,7 @@ Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 
 from __future__ import annotations
 
-from typing import Any, Optional, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -333,9 +333,9 @@ def survival_server(
     input: Any,
     output: Any,
     session: Any,
-    df: reactive.Value[Optional[pd.DataFrame]],
+    df: reactive.Value[pd.DataFrame | None],
     var_meta: reactive.Value[dict[str, Any]],
-    df_matched: reactive.Value[Optional[pd.DataFrame]],
+    df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
     """
@@ -343,16 +343,16 @@ def survival_server(
     """
 
     # ==================== REACTIVE VALUES ====================
-    curves_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
-    landmark_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
-    cox_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
-    sg_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
-    tvc_result: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
-    tvc_long_data: reactive.Value[Optional[pd.DataFrame]] = reactive.Value(None)
+    curves_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    landmark_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    cox_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    sg_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    tvc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    tvc_long_data: reactive.Value[pd.DataFrame | None] = reactive.Value(None)
 
     # ==================== DATASET SELECTION LOGIC ====================
     @reactive.Calc
-    def current_df() -> Optional[pd.DataFrame]:
+    def current_df() -> pd.DataFrame | None:
         """Select between original and matched dataset based on user preference."""
         if is_matched.get() and input.radio_survival_source() == "matched":
             return df_matched.get()

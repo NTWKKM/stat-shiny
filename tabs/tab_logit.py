@@ -6,7 +6,7 @@ import json
 from itertools import combinations, islice
 
 # Use built-in list/dict/tuple for Python 3.9+ and typing for complex types
-from typing import Any, Optional, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -767,9 +767,9 @@ def logit_server(
     input: Any,
     output: Any,
     session: Any,
-    df: reactive.Value[Optional[pd.DataFrame]],
+    df: reactive.Value[pd.DataFrame | None],
     var_meta: reactive.Value[dict[str, Any]],
-    df_matched: reactive.Value[Optional[pd.DataFrame]],
+    df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
 
@@ -800,9 +800,9 @@ def logit_server(
     # Store Linear Regression results: {'html_fragment': str, 'html_full': str, 'plots': dict, 'results': dict}
     linear_res = reactive.Value(None)
     # Store subgroup results: SubgroupResult
-    subgroup_res: reactive.Value[Optional[SubgroupResult]] = reactive.Value(None)
+    subgroup_res: reactive.Value[SubgroupResult | None] = reactive.Value(None)
     # Store analyzer instance: SubgroupAnalysisLogit
-    subgroup_analyzer: reactive.Value[Optional[SubgroupAnalysisLogit]] = reactive.Value(
+    subgroup_analyzer: reactive.Value[SubgroupAnalysisLogit | None] = reactive.Value(
         None
     )
     # Store Repeated Measures results: {'results': DataFrame, 'plot': Figure, 'model_type': str}
@@ -833,7 +833,7 @@ def logit_server(
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
-    def current_df() -> Optional[pd.DataFrame]:
+    def current_df() -> pd.DataFrame | None:
         if is_matched.get() and input.radio_logit_source() == "matched":
             return df_matched.get()
         return df.get()
@@ -1055,7 +1055,7 @@ def logit_server(
         final_df = d.drop(columns=exclude, errors="ignore")
 
         # Parse interaction pairs from "var1 × var2" format
-        interaction_pairs: Optional[list[tuple[str, str]]] = None
+        interaction_pairs: list[tuple[str, str]] | None = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:
@@ -1303,7 +1303,7 @@ def logit_server(
         offset = offset_col if offset_col != "None" else None
 
         # Parse interaction pairs
-        interaction_pairs: Optional[list[tuple[str, str]]] = None
+        interaction_pairs: list[tuple[str, str]] | None = None
         if interactions_raw:
             interaction_pairs = []
             for pair_str in interactions_raw:

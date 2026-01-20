@@ -4,7 +4,7 @@ Calculates Net Benefit for prediction models.
 Reference: Vickers AJ, Elkin EB. Decision curve analysis: a novel method for evaluating prediction models. Med Decis Making. 2006.
 """
 
-from typing import Optional, Union
+
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,7 @@ def calculate_net_benefit(
     df: pd.DataFrame,
     truth_col: str,
     prob_col: str,
-    thresholds: Optional[Union[list[float], np.ndarray]] = None,
+    thresholds: list[float] | np.ndarray | None = None,
     model_name: str = "Model",
 ) -> pd.DataFrame:
     """
@@ -61,7 +61,7 @@ def calculate_net_benefit(
 def calculate_net_benefit_all(
     df: pd.DataFrame,
     truth_col: str,
-    thresholds: Optional[Union[list[float], np.ndarray]] = None,
+    thresholds: list[float] | np.ndarray | None = None,
 ) -> pd.DataFrame:
     """
     Calculate Net Benefit assuming ALL patients are treated (Prevalence strategy).
@@ -94,7 +94,7 @@ def calculate_net_benefit_all(
 
 
 def calculate_net_benefit_none(
-    thresholds: Optional[Union[list[float], np.ndarray]] = None,
+    thresholds: list[float] | np.ndarray | None = None,
 ) -> pd.DataFrame:
     """
     Calculate Net Benefit assuming NO patients are treated.
