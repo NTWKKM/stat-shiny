@@ -414,7 +414,8 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             margin=dict(l=20, r=20, t=40, b=20),
             height=300
         )
-        return plotly_figure_to_html(fig)
+        return ui.HTML(plotly_figure_to_html(fig))
+
 
     @render.ui
     def out_means_result():
