@@ -14,6 +14,10 @@ def causal_inference_ui():
     """UI for Causal Inference."""
     return ui.div(
         ui.h3("🎯 Causal Inference"),
+        # Dataset info and selector
+        ui.output_ui("ui_matched_info_ci"),
+        ui.output_ui("ui_dataset_selector_ci"),
+        ui.br(),
         ui.navset_tab(
             ui.nav_panel(
                 "⚖️ PSM & IPW",
@@ -34,6 +38,14 @@ def causal_inference_ui():
                         ),
                     ),
                     ui.card(
+                        ui.div(
+                            "💡 ",
+                            ui.strong("Need matched dataset?"),
+                            " Use ",
+                            ui.strong("Table 1 & Matching → PSM"),
+                            " to create balanced paired data for further analysis.",
+                            style="padding: 8px 12px; margin-bottom: 12px; background-color: rgba(23, 162, 184, 0.1); border-left: 3px solid #17a2b8; border-radius: 4px; font-size: 0.85em;",
+                        ),
                         ui.h4("Inverse Probability Weighting (IPW) Results"),
                         ui.output_ui("out_ipw_results"),
                         ui.h5("Standardized Mean Differences (Balance Check)"),
@@ -129,17 +141,57 @@ def causal_inference_server(
 ):
     """Server logic for Causal Inference."""
 
+    # --- Dataset Selection Logic ---
+    @reactive.Calc
+    def current_df():
+        if is_matched.get() and input.radio_ci_source() == "matched":
+            return df_matched.get()
+        return df.get()
+
+    @render.ui
+    def ui_matched_info_ci():
+        """Display matched dataset availability info."""
+        if is_matched.get():
+            return ui.div(
+                ui.tags.div(
+                    "✅ **Matched Dataset Available** - You can select it below for analysis",
+                    class_="alert alert-info",
+                )
+            )
+        return None
+
+    @render.ui
+    def ui_dataset_selector_ci():
+        """Render dataset selector radio buttons."""
+        if is_matched.get():
+            original = df.get()
+            matched = df_matched.get()
+            original_len = len(original) if original is not None else 0
+            matched_len = len(matched) if matched is not None else 0
+            return ui.input_radio_buttons(
+                "radio_ci_source",
+                "📊 Select Dataset:",
+                {
+                    "original": f"📊 Original ({original_len:,} rows)",
+                    "matched": f"✅ Matched ({matched_len:,} rows)",
+                },
+                selected="original",
+                inline=True,
+            )
+        return None
+
     # --- Update Choices ---
     @reactive.Effect
     def update_inputs():
-        if df.get() is None:
+        d = current_df()
+        if d is None:
             return
-        cols = list(df.get().columns)
-        num_cols = list(df.get().select_dtypes(include=np.number).columns)
-        cat_cols = list(df.get().select_dtypes(include=["object", "category"]).columns)
+        cols = list(d.columns)
+        num_cols = list(d.select_dtypes(include=np.number).columns)
+        cat_cols = list(d.select_dtypes(include=["object", "category"]).columns)
 
         # Heuristic for binary cols (0/1 or similar small unique count)
-        binary_cols = [c for c in cols if df.get()[c].nunique() == 2]
+        binary_cols = [c for c in cols if d[c].nunique() == 2]
 
         ui.update_select("psm_treatment", choices=binary_cols)
         ui.update_select("psm_outcome", choices=num_cols + binary_cols)
@@ -156,7 +208,7 @@ def causal_inference_server(
     @reactive.Effect
     @reactive.event(input.btn_run_psm)
     def run_psm_analysis():
-        d = df.get()
+        d = current_df()
         if d is None:
             return
 
@@ -234,7 +286,7 @@ def causal_inference_server(
         fig.add_vline(
             x=0.1, line_dash="dash", line_color="red", annotation_text="Threshold 0.1"
         )
-        return plotly_figure_to_html(fig)
+        return ui.HTML(plotly_figure_to_html(fig))
 
     # --- Stratified Logic ---
     strat_res = reactive.Value(None)
@@ -242,7 +294,7 @@ def causal_inference_server(
     @reactive.Effect
     @reactive.event(input.btn_run_strat)
     def run_stratified():
-        d = df.get()
+        d = current_df()
         if d is None:
             return
         try:
