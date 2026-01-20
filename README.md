@@ -47,12 +47,14 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- _common.py
 |   |-- _styling.py
 |   |-- _tvc_components.py
+|   |-- tab_advanced_inference.py
 |   |-- tab_advanced_stats.py
 |   |-- tab_baseline_matching.py
+|   |-- tab_causal_inference.py
+|   |-- tab_core_regression.py
 |   |-- tab_corr.py
 |   |-- tab_data.py
 |   |-- tab_diag.py
-|   |-- tab_logit.py
 |   |-- tab_sample_size.py
 |   |-- tab_settings.py
 |   `-- tab_survival.py
@@ -114,7 +116,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- update_css.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 # 🏥 Medical Statistical Tool (Shiny for Python)
@@ -123,136 +124,162 @@ A comprehensive, interactive web application for medical statistical analysis, b
 
 ## 🚀 Key Features
 
-The application is organized into modular tabs for different analytical workflows.
+This application is a complete statistical workbench organized into modular tabs:
 
 ### 📁 Data Management
 
-Upload CSV/Excel datasets, preview data, and check variable types.
+- **Comprehensive Data Control**: Upload CSV/Excel or load example datasets.
+- **Data Health Report**: Automated checks for missing values and data quality.
+- **Variable Configuration**: Interactive type casting and missing value handling.
 
-### 📋 Table 1 & Matching
+### 📋 Baseline & Matching
 
-- Generate standard "Table 1" baseline characteristics.
-- Perform **Propensity Score Matching (PSM)** to create balanced cohorts.
+- **Table 1 Generation**: Publication-ready baseline tables with p-values and standardized formatting.
+- **Propensity Score Matching (PSM)**: Advanced matching with customizable calipers and variable selection.
+- **Balance Diagnostics**: Love plots and Standardized Mean Differences (SMD) to verify matching quality.
+- **Matched Data Export**: seamless integration of matched cohorts into other analyses.
 
-### 🧪 Diagnostic Tests
+### 🔢 Sample Size & Power
 
-Calculate sensitivity, specificity, PPV, NPV, and visualize ROC curves.
+- **Calculators**: Power and sample size estimation for:
+  - **Means** (T-test)
+  - **Proportions** (Chi-Square)
+  - **Survival** (Log-Rank based on HR or Median)
+  - **Correlation** (Pearson)
 
-### 📊 Risk Factors (Logistic Regression)
+### 📈 Core Regression Models
 
-- Run Univariable and Multivariable Logistic Regression.
-- Visualize results with Forest Plots.
-- Supports **Firth's Regression** for rare events (requires `firthmodels` package; see installation).
-
-### 📈 Correlation & ICC
-
-Analyze Pearson/Spearman correlations and Intraclass Correlation Coefficients.
+- **GLM Framework**:
+  - **Logistic Regression**: Standard, Auto, and **Firth's Regression** (for rare events).
+  - **Count Models**: Poisson and Negative Binomial regression.
+  - **Linear Regression**: OLS with options for robust standard errors.
+- **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).
 
 ### ⏳ Survival Analysis
 
-- Kaplan-Meier survival curves.
-- Cox Proportional Hazards modeling.
+- **Visualizations**: Kaplan-Meier curves and Nelson-Aalen cumulative hazard plots.
+- **Cox Modeling**: Cox Proportional Hazards regression with forest plots.
+- **Advanced Techniques**:
+  - **Time-Varying Cox**: Handle covariates that change over time.
+  - **Landmark Analysis**: Address immortal time bias.
+  - **Subgroup Analysis**: Explore treatment effect heterogeneity.
 
-### ⚙️ Settings
+### 🎯 Causal Inference
 
-Configure analysis parameters (e.g., p-value thresholds, methods) and UI themes.
+- **Propensity Methods**: IPW (Inverse Probability Weighting) and PSM integration.
+- **Stratified Analysis**: Mantel-Haenszel odds ratios and Breslow-Day homogeneity tests.
+- **Sensitivity Analysis**: **E-Value** calculation for unmeasured confounding.
+- **Diagnostics**: Detailed covariate balance assessment.
 
-### 📝 Logging & Diagnostics
+### 🧪 Diagnostic Tests & Agreement
 
-- **Smart Logging**: Default log level set to `WARNING` for production to reduce noise.
-- **Performance Tracking**: Optional performance logging for optimization.
+- **Diagnostic Accuracy**: ROC Curves, AUC comparisons, and detailed metrics (Sens/Spec/PPV/NPV).
+- **Decision Curve Analysis (DCA)**: Assess clinical net benefit.
+- **Agreement Statistics**: Cohen's Kappa, Bland-Altman plots, and concordance metrics.
+- **Contingency Analysis**: Chi-Square, Fisher's Exact Test, Risk Ratios, and Odds Ratios.
 
-### 🧩 Missing Data Integration (Enhanced)
+### 🧩 Advanced Inference
 
-A professional-grade missing data handling system that surpasses standard tools:
+- **Mediation Analysis**: Decomposition into Direct (ADE) and Indirect (ACME) effects.
+- **Model Diagnostics**: Residual plots, Q-Q plots, Cook's distance for influence, and heteroscedasticity tests.
+- **Multicollinearity**: Variance Inflation Factor (VIF) analysis.
+- **Heterogeneity**: Statistics for meta-analysis contexts.
 
-- **Transparency**: Detailed "Missing Data Report" for every analysis (initial N, excluded N, missing breakdown).
-- **Consistency**: Unified "Complete-Case Analysis" strategy enforced across all 8 modules.
-- **Flexibility**: Define custom missing value codes (e.g., -99, 999) globally.
-- **Robustness**: Validation checks prevent crashes on insufficient data.
-- **Quality Assurance**: Protected by automated regression tests in CI/CD.
+### 🔗 Correlation & Reliability
+
+- **Correlation**: Pairwise Pearson/Spearman matrices with heatmap visualizations.
+- **Intraclass Correlation (ICC)**: Assess reliability and consistency.
+
+### ⚙️ Settings & Performance
+
+- **Customization**: NEJM-style p-value formatting, theme switching (Light/Dark), and plot sizing.
+- **Logging**: Configurable logging levels and file output.
+- **Performance**: Caching and multi-threading options for large datasets.
 
 ## 🛠️ Installation & Usage
 
 ### Option 1: Run Locally (Python)
 
-Ensure you have **Python 3.12+** installed (required for modern f-string syntax).
+ Ensure you have **Python 3.12+** installed (required for modern f-string syntax).
 
-1. **Clone the repository:**
+ 1. **Clone the repository:**
 
-```bash
-git clone https://huggingface.co/spaces/ntwkkm/shinystat
-cd shinystat
-```
+ ```bash
+ git clone https://huggingface.co/spaces/ntwkkm/shinystat
+ cd shinystat
+ ```
 
-1. **Install dependencies:**
-It is recommended to use a virtual environment.
+ 1. **Install dependencies:**
+ It is recommended to use a virtual environment.
 
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-# Optional: Install for Firth Regression support
-pip install firthmodels
+ ```bash
+ python -m venv venv
+ source venv/bin/activate  # On Windows: venv\Scripts\activate
+ pip install -r requirements.txt
+ ```
 
+ 1. **Run the app:**
 
-```
+ ```bash
+ shiny run app.py
+ ```
 
-1. **Run the app:**
-
-```bash
-shiny run app.py
-
-```
-
-The app will be available at `http://localhost:8000`.
+ The app will be available at `http://localhost:8000`.
 
 ### Option 2: Running Tests
 
-To run the test suite, ensure you use the `pytest` from your virtual environment (assuming venv is named `.venv`):
+ To run the test suite, ensure you use the `pytest` from your virtual environment (assuming venv is named `.venv`):
 
-```bash
-# Run all tests
-.venv/bin/pytest
-# Or if using a different venv name/activation:
-# python -m pytest
-
-# Run specific test
-.venv/bin/pytest tests/unit/test_statistics.py
-```
+ ```bash
+ # Run all tests
+ .venv/bin/pytest
+ # Or if using a different venv name/activation:
+ # python -m pytest
+ 
+ # Run specific test
+ .venv/bin/pytest tests/unit/test_statistics.py
+ ```
 
 ### Option 3: Run with Docker
 
-This project is containerized for easy deployment.
+ This project is containerized for easy deployment.
 
-1. **Build the image:**
+ 1. **Build the image:**
 
-```bash
-docker build -t medical-stat-tool .
-```
+ ```bash
+ docker build -t medical-stat-tool .
+ ```
 
-1. **Run the container:**
+ 1. **Run the container:**
 
-```bash
-docker run -p 7860:7860 medical-stat-tool
-```
+ ```bash
+ docker run -p 7860:7860 medical-stat-tool
+ ```
 
-Access the app at `http://localhost:7860`.
+ Access the app at `http://localhost:7860`.
 
 ## 💻 Tech Stack
 
 - **Framework**: [Shiny for Python](https://shiny.posit.co/py/)
-- **Data Processing**: Pandas, NumPy
-- **Statistics**: SciPy, Statsmodels, Scikit-learn, Lifelines
-- **Visualization**: Matplotlib, Seaborn, Plotly
-- **Deployment**: Docker / Hugging Face Spaces
+- **Data Processing**: Pandas, NumPy, OpenPyXL
+- **Statistics**:
+  - **Core**: SciPy, Statsmodels (OLS, GLM, GEE, MixedLM)
+  - **Machine Learning**: Scikit-learn
+  - **Survival**: Lifelines (KM, CoxPH)
+  - **Causal Inference**: EconML, PsmPy (implied)
+  - **Advanced**: FirthModels (Penalized Logistic)
+- **Visualization**: Plotly (Interactive), Matplotlib, Seaborn
+- **Quality & Testing**: Pytest, Playwright, Ruff
+- **Deployment**: Docker, Gunicorn/Uvicorn
 
 ## ✅ Deployment Features
 
-This application is designed for enterprise and restricted environments:
+ This application is designed for enterprise and restricted environments:
 
-- **Compatible with restricted platforms** - Hugging Face Private Spaces, corporate networks
-- **Uses Plotly CDN for interactive visualization** - No local widget servers required
+- **Hybrid Deployment**: Optimized for both **Hugging Face Spaces** (Docker) and **Posit Connect** (Python).
+- **Dependency Management**: Split requirements for Production (`requirements-prod.txt`) vs Development (`requirements.txt`).
+- **Network Friendly**: Uses Plotly CDN strategies or local serving considerations (configurable).
+- **Containerized**: Full Docker support with non-root user security practices (standard in HF Spaces).
 
 ## 📝 License
 
