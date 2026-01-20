@@ -349,6 +349,85 @@ def run_binary_logit(
         return None, None, None, err_msg, stats_metrics
 
 
+def run_glm(
+    y: pd.Series,
+    X: pd.DataFrame,
+    family_name: str = "Gaussian",
+    link_name: str = "identity",
+) -> tuple[
+    pd.Series | None,
+    pd.DataFrame | None,
+    pd.Series | None,
+    FitStatus,
+    dict[str, float],
+]:
+    """
+    Fit a Generalized Linear Model (GLM).
+
+    Parameters:
+        y (pd.Series): Outcome variable.
+        X (pd.DataFrame): Predictor variables (constant will be added).
+        family_name (str): Family name (Gaussian, Binomial, Poisson, Gamma, InverseGaussian).
+        link_name (str): Link function name (identity, log, logit, probit, cloglog, inverse, sqrt).
+
+    Returns:
+        tuple: params, conf_int, pvalues, status, fit_metrics
+    """
+    fit_metrics = {"aic": np.nan, "bic": np.nan, "deviance": np.nan}
+
+    # Initial Validation
+    if len(y) == 0 or X.empty or len(y) != len(X):
+        return None, None, None, "Invalid data dimensions", fit_metrics
+
+    try:
+        X_const = sm.add_constant(X, has_constant="add")
+
+        # Map Family
+        family_map = {
+            "Gaussian": sm.families.Gaussian,
+            "Binomial": sm.families.Binomial,
+            "Poisson": sm.families.Poisson,
+            "Gamma": sm.families.Gamma,
+            "InverseGaussian": sm.families.InverseGaussian,
+        }
+        family_cls = family_map.get(family_name, sm.families.Gaussian)
+
+        # Map Link
+        # Note: Not all links are valid for all families. Statsmodels checks this.
+        link_map = {
+            "identity": sm.families.links.identity(),
+            "log": sm.families.links.log(),
+            "logit": sm.families.links.logit(),
+            "probit": sm.families.links.probit(),
+            "cloglog": sm.families.links.cloglog(),
+            "inverse_power": sm.families.links.inverse_power(),
+            "sqrt": sm.families.links.sqrt(),
+        }
+        link_obj = link_map.get(link_name)  # If None, uses family default
+
+        # Instantiate Family with Link
+        if link_obj:
+            family_instance = family_cls(link=link_obj)
+        else:
+            family_instance = family_cls()
+
+        model = sm.GLM(y, X_const, family=family_instance)
+        result = model.fit()
+
+        fit_metrics = {
+            "aic": result.aic,
+            "bic": result.bic_llf,
+            "deviance": result.deviance,
+        }
+
+        return result.params, result.conf_int(), result.pvalues, "OK", fit_metrics
+
+    except Exception as e:
+        err_msg = str(e)
+        logger.error(f"GLM failed: {e}")
+        return None, None, None, err_msg, fit_metrics
+
+
 def get_label(col_name: str, var_meta: dict[str, Any] | None) -> str:
     """Create formatted label for column."""
     display_name = col_name
@@ -903,7 +982,7 @@ def analyze_outcome(
                 logger.warning(
                     "interaction_lib not available, skipping interaction terms"
                 )
-            except (ValueError, KeyError) as e:
+            except (ValueError, KeyError):
                 logger.exception("Failed to create interaction terms")
 
         multi_data = multi_df.dropna()
@@ -1208,9 +1287,9 @@ def analyze_outcome(
 
         html_rows.append(f"""<tr>
             <td>{lbl}</td>
-            <td>{res.get('desc_total','')}</td>
-            <td>{res.get('desc_neg','')}</td>
-            <td>{res.get('desc_pos','')}</td>
+            <td>{res.get('desc_total', '')}</td>
+            <td>{res.get('desc_neg', '')}</td>
+            <td>{res.get('desc_pos', '')}</td>
             <td>{coef_s}</td>
             <td>{or_s}</td>
             <td>{res.get('test_name', '-')}</td>

@@ -197,6 +197,7 @@ def calculate_sample_size_correlation(
     n = 3 + ((z_alpha + z_beta) / c) ** 2
     return np.ceil(n)
 
+
 def calculate_power_survival(
     total_events: float,
     ratio: float,
@@ -234,7 +235,7 @@ def calculate_power_correlation(
     # Ensure n > 3
     if n <= 3:
         return 0.0
-        
+
     z_beta = abs(c) * np.sqrt(n - 3) - z_alpha
     return float(stats.norm.cdf(z_beta))
 
@@ -278,7 +279,7 @@ def calculate_power_curve(
         try:
             pwr = np.nan
             fname = calc_func.__name__
-            
+
             if fname == "calculate_power_means":
                 n1 = np.ceil(total_n / (1 + ratio))
                 n2 = total_n - n1
@@ -292,7 +293,7 @@ def calculate_power_curve(
                 pwr = calc_func(total_events=total_n, ratio=ratio, **kwargs)
             elif fname == "calculate_power_correlation":
                 pwr = calc_func(n=total_n, **kwargs)
-            
+
             results.append({"total_n": total_n, "power": pwr})
 
         except Exception:
@@ -300,3 +301,38 @@ def calculate_power_curve(
 
     return pd.DataFrame(results)
 
+
+def generate_methods_text(study_design: str, params: dict) -> str:
+    """
+    Generate methods text for publication.
+    params dict should contain input parameters and calculated results.
+    """
+    text = f"Sample size calculation was performed for a {study_design} study. "
+
+    if study_design == "Independent Means (T-test)":
+        m1 = params.get("mean1")
+        m2 = params.get("mean2")
+        sd1 = params.get("sd1")
+        sd2 = params.get("sd2")
+
+        text += f"To detect a difference in means of {m1} versus {m2} "
+        text += f"(assuming SD1={sd1}, SD2={sd2}), "
+        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"a total sample size of {int(params['total'])} subjects ({int(params['n1'])} in group 1 and {int(params['n2'])} in group 2) is required."
+
+    elif study_design == "Independent Proportions":
+        text += f"To detect a difference between proportions of {params['p1']} and {params['p2']}, "
+        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"a total sample size of {int(params['total'])} subjects ({int(params['n1'])} in group 1 and {int(params['n2'])} in group 2) is required."
+
+    elif study_design == "Survival (Log-Rank)":
+        text += f"To detect a Hazard Ratio of {params['hr']:.2f}, "
+        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"a total of {int(params['total_events'])} events are required."
+
+    elif study_design == "Pearson Correlation":
+        text += f"To detect a correlation coefficient (r) of {params['r']}, "
+        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"a total sample size of {int(params['total'])} subjects is required."
+
+    return text
