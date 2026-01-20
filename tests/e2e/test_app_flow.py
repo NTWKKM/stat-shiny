@@ -151,7 +151,7 @@ class TestTabNavigation:
         # Wait for settings content to load
         page.wait_for_timeout(500)
         # Verify settings content is visible
-        expect(page.get_by_text("Configuration")).to_be_visible()
+        expect(page.get_by_text("Configuration", exact=True)).to_be_visible()
 
 
 # ============================================================================
