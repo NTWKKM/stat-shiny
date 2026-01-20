@@ -776,8 +776,6 @@ def compare_models(
 
             # Calculate likelihood ratio statistic vs null model
 
-
-
             results.append(
                 {
                     "Model": name,

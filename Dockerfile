@@ -20,8 +20,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /build
 
 # Install build dependencies (if needed for C extensions)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  gcc=$(apt-cache show gcc | grep -m1 Version | cut -d' ' -f2) \
+RUN set -o pipefail && apt-get update && apt-get install -y --no-install-recommends \
+  gcc="$(apt-cache show gcc | grep -m1 Version | cut -d' ' -f2)" \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy and install requirements
