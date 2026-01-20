@@ -784,7 +784,7 @@ ui.nav_panel(
 
 ## VII. Implementation Roadmap
 
-### Phase 1: Foundation (Week 1-2)
+### Phase 1: Foundation 
 **Priority: Critical**
 
 1. **Rename Tabs in app.py** (No structural changes)
@@ -802,7 +802,7 @@ ui.nav_panel(
    utils/decision_curve_lib.py          # DCA computation
    ```
 
-### Phase 2: Sample Size Implementation (Week 2-3)
+### Phase 2: Sample Size Implementation 
 **Priority: High** (Required for Methods section in papers)
 
 - Implement power calculations (t-test, proportions, survival, correlation)
@@ -810,7 +810,7 @@ ui.nav_panel(
 - Add copy-ready methods text generator
 - Full test coverage
 
-### Phase 3: Repeated Measures Implementation (Week 3-4)
+### Phase 3: Repeated Measures Implementation 
 **Priority: High** (Required for longitudinal studies)
 
 - Implement GEE with multiple correlation structures
@@ -818,7 +818,7 @@ ui.nav_panel(
 - Create trajectory plots
 - Model comparison (GEE vs LMM)
 
-### Phase 4: Decision Curve Analysis (Week 4-5)
+### Phase 4: Decision Curve Analysis 
 **Priority: Medium-High** (Increasingly required by top journals)
 
 - Calculate net benefit across thresholds
@@ -826,7 +826,7 @@ ui.nav_panel(
 - Clinical utility interpretation table
 - Multi-model comparison
 
-### Phase 5: GLM Enhancement (Week 5)
+### Phase 5: GLM Enhancement 
 **Priority: Medium** (Nice-to-have, enhances capabilities)
 
 - Extend logit_ui to include GLM options
@@ -940,22 +940,7 @@ plotly>=5.14.0                # Already in use
 
 ---
 
-## XII. Timeline Summary
-
-**Total Estimated Time: 5-6 weeks**
-
-| Phase | Module | Duration | Priority |
-|-------|--------|----------|----------|
-| 1 | Tab Reorganization | 1 week | 🔴 CRITICAL |
-| 2 | Sample Size | 1 week | 🔴 HIGH |
-| 3 | Repeated Measures | 1.5 weeks | 🔴 HIGH |
-| 4 | Decision Curve | 1 week | 🟠 MEDIUM |
-| 5 | GLM Enhancement | 0.5 weeks | 🟡 OPTIONAL |
-| | Testing + Docs | 1 week | 🔴 CRITICAL |
-
----
-
-## XIII. Conclusion
+## XII. Conclusion
 
 **stat-shiny** already has excellent analytical depth. By adding these 3 critical modules through strategic tab reorganization:
 
