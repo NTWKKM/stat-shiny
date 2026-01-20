@@ -400,13 +400,13 @@ def run_glm(
         # Map Link
         # Note: Not all links are valid for all families. Statsmodels checks this.
         link_map = {
-            "identity": sm.families.links.identity(),
-            "log": sm.families.links.log(),
-            "logit": sm.families.links.logit(),
-            "probit": sm.families.links.probit(),
-            "cloglog": sm.families.links.cloglog(),
-            "inverse_power": sm.families.links.inverse_power(),
-            "sqrt": sm.families.links.sqrt(),
+            "identity": sm.families.links.Identity(),
+            "log": sm.families.links.Log(),
+            "logit": sm.families.links.Logit(),
+            "probit": sm.families.links.Probit(),
+            "cloglog": sm.families.links.CLogLog(),
+            "inverse_power": sm.families.links.InversePower(),
+            "sqrt": sm.families.links.Sqrt(),
         }
         link_obj = link_map.get(link_name)  # If None, uses family default
 
