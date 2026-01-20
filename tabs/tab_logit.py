@@ -28,9 +28,15 @@ from utils.linear_lib import (
     format_stepwise_history,
     stepwise_selection,
 )
-from utils.logic import analyze_outcome
+from utils.logic import analyze_outcome, run_glm
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.poisson_lib import analyze_poisson_outcome
+from utils.repeated_measures_lib import (
+    create_trajectory_plot,
+    extract_model_results,
+    run_gee,
+    run_lmm,
+)
 from utils.subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 
 # Import internal modules
@@ -251,6 +257,82 @@ def logit_ui() -> ui.TagChild:
                         If variance >> mean, consider Negative Binomial regression.
                         """),
                     ),
+                ),
+            ),
+            # =====================================================================
+            # TAB 2.5: Generalized Linear Model (GLM)
+            # =====================================================================
+            ui.nav_panel(
+                "📈 Generalized Linear Model",
+                ui.card(
+                    ui.card_header("📈 GLM Options"),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Variable Selection:"),
+                            ui.input_select("glm_outcome", "Outcome (Y):", choices=[]),
+                            ui.h6("Distribution & Link:"),
+                            ui.input_select(
+                                "glm_family",
+                                "Family:",
+                                {
+                                    "Gaussian": "Gaussian (Continuous)",
+                                    "Binomial": "Binomial (Binary 0/1)",
+                                    "Poisson": "Poisson (Count)",
+                                    "Gamma": "Gamma (Continuous +)",
+                                    "InverseGaussian": "Inverse Gaussian",
+                                },
+                            ),
+                            ui.input_select(
+                                "glm_link",
+                                "Link Function:",
+                                {
+                                    "identity": "Identity",
+                                    "log": "Log",
+                                    "logit": "Logit",
+                                    "probit": "Probit",
+                                    "cloglog": "Cloglog",
+                                    "inverse_power": "Inverse",
+                                    "sqrt": "Sqrt",
+                                },
+                            ),
+                        ),
+                        ui.card(
+                            ui.card_header("Predictors:"),
+                            ui.input_selectize(
+                                "glm_predictors",
+                                "Select Predictors (X):",
+                                choices=[],
+                                multiple=True,
+                            ),
+                            ui.input_selectize(
+                                "glm_interactions",
+                                "Interactions (Optional):",
+                                choices=[],
+                                multiple=True,
+                                options={"placeholder": "Select variable pairs..."},
+                            ),
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.hr(),
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_glm",
+                            "🚀 Run GLM",
+                            class_="btn-primary btn-sm w-100",
+                        ),
+                        ui.download_button(
+                            "btn_dl_glm_report",
+                            "📥 Download Report",
+                            class_="btn-secondary btn-sm w-100",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                ),
+                ui.output_ui("out_glm_status"),
+                ui.navset_tab(
+                    ui.nav_panel("📋 Model Results", ui.output_ui("out_glm_report")),
+                    ui.nav_panel("🌳 Forest Plot", ui.output_ui("out_glm_forest")),
                 ),
             ),
             # =====================================================================
@@ -545,7 +627,86 @@ def logit_ui() -> ui.TagChild:
                 ),
             ),
             # =====================================================================
-            # TAB 5: Reference
+            # TAB 5: Repeated Measures
+            # =====================================================================
+            ui.nav_panel(
+                "🔄 Repeated Measures",
+                ui.card(
+                    ui.card_header("🔄 GEE & LMM Analysis"),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Variable Selection:"),
+                            ui.input_select("rep_outcome", "Outcome (Y):", choices=[]),
+                            ui.input_select(
+                                "rep_treatment", "Group/Treatment:", choices=[]
+                            ),
+                            ui.input_select("rep_time", "Time Variable:", choices=[]),
+                            ui.input_select("rep_subject", "Subject ID:", choices=[]),
+                        ),
+                        ui.card(
+                            ui.card_header("Model Settings:"),
+                            ui.input_radio_buttons(
+                                "rep_model_type",
+                                "Model Type:",
+                                {
+                                    "gee": "GEE (Generalized Estimating Equations)",
+                                    "lmm": "LMM (Linear Mixed Model)",
+                                },
+                            ),
+                            ui.panel_conditional(
+                                "input.rep_model_type === 'gee'",
+                                ui.input_select(
+                                    "rep_family",
+                                    "Family:",
+                                    {
+                                        "gaussian": "Gaussian (Continuous)",
+                                        "binomial": "Binomial (Binary)",
+                                        "poisson": "Poisson (Count)",
+                                        "gamma": "Gamma",
+                                    },
+                                ),
+                                ui.input_select(
+                                    "rep_cov_struct",
+                                    "Correlation:",
+                                    {
+                                        "exchangeable": "Exchangeable",
+                                        "independence": "Independence",
+                                        "ar1": "AR(1)",
+                                    },
+                                ),
+                            ),
+                            ui.panel_conditional(
+                                "input.rep_model_type === 'lmm'",
+                                ui.input_checkbox(
+                                    "rep_random_slope",
+                                    "Random Slope for Time",
+                                    value=False,
+                                ),
+                            ),
+                            ui.h6("Adjustments (Covariates):"),
+                            ui.input_selectize(
+                                "rep_covariates", label=None, choices=[], multiple=True
+                            ),
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.hr(),
+                    ui.input_action_button(
+                        "btn_run_repeated",
+                        "🚀 Run Analysis",
+                        class_="btn-primary btn-sm w-100",
+                    ),
+                ),
+                ui.output_ui("out_rep_status"),
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "📋 Model Results", ui.output_data_frame("out_rep_results")
+                    ),
+                    ui.nav_panel("📈 Trajectory Plot", ui.output_ui("out_rep_plot")),
+                ),
+            ),
+            # =====================================================================
+            # TAB 6: Reference
             # =====================================================================
             ui.nav_panel(
                 "ℹ️ Reference",
@@ -644,6 +805,12 @@ def logit_server(
     subgroup_analyzer: reactive.Value[Optional[SubgroupAnalysisLogit]] = reactive.Value(
         None
     )
+    # Store Repeated Measures results: {'results': DataFrame, 'plot': Figure, 'model_type': str}
+    repeated_res = reactive.Value(None)
+
+    # Store GLM results
+    glm_res = reactive.Value(None)
+    glm_processing = reactive.Value(False)
 
     # --- Cache Clearing on Tab Change ---
     @reactive.Effect
@@ -775,6 +942,20 @@ def logit_server(
         ui.update_select("sg_treatment", choices=cols)
         ui.update_select("sg_subgroup", choices=sg_cols)
         ui.update_selectize("sg_adjust", choices=cols)
+
+        # Update Tab 5 (Repeated Measures) Inputs
+        ui.update_select(
+            "rep_outcome", choices=numeric_cols
+        )  # LMM/GEE(Gaussian) usually numeric outcome
+        ui.update_select("rep_treatment", choices=cols)
+        ui.update_select("rep_time", choices=numeric_cols)  # Time usually numeric
+        ui.update_select("rep_subject", choices=cols)
+        ui.update_selectize("rep_covariates", choices=cols)
+
+        # Update Tab 2.5 (GLM) Inputs
+        ui.update_select("glm_outcome", choices=cols)
+        ui.update_selectize("glm_predictors", choices=cols)
+        ui.update_selectize("glm_interactions", choices=interaction_choices[:50])
 
     # --- Separation Warning Logic ---
     @render.ui
@@ -1478,7 +1659,6 @@ def logit_server(
     @render.ui
     def out_linear_stepwise():
         """Render stepwise variable selection results."""
-        res = linear_res.get()
 
         # Check if stepwise is enabled and data available
         if not input.linear_stepwise_enable():
@@ -1847,3 +2027,300 @@ def logit_server(
         if res:
             # Need to handle numpy types for JSON serialization
             yield json.dumps(res, indent=2, default=str)
+
+    # ==========================================================================
+    # LOGIC: Repeated Measures
+    # ==========================================================================
+    @reactive.Effect
+    @reactive.event(input.btn_run_repeated)
+    def _run_repeated():
+        d = current_df()
+
+        if d is None or d.empty:
+            ui.notification_show("Please load data first", type="error")
+            return
+
+        outcome = input.rep_outcome()
+        treatment = input.rep_treatment()
+        time_var = input.rep_time()
+        subject = input.rep_subject()
+
+        if not all([outcome, treatment, time_var, subject]):
+            ui.notification_show(
+                "Please select all required variables (Outcome, Treatment, Time, Subject)",
+                type="error",
+            )
+            return
+
+        model_type = input.rep_model_type()
+        covariates = list(input.rep_covariates()) if input.rep_covariates() else []
+
+        # Exclude rows with missing data in selected columns
+        cols_needed = [outcome, treatment, time_var, subject] + covariates
+        df_clean = d.dropna(subset=cols_needed).copy()
+
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message=f"Running {model_type.upper()}...", detail="Analyzing...")
+
+            try:
+                if model_type == "gee":
+                    results = run_gee(
+                        df_clean,
+                        outcome_col=outcome,
+                        treatment_col=treatment,
+                        time_col=time_var,
+                        subject_col=subject,
+                        covariates=covariates,
+                        cov_struct=input.rep_cov_struct(),
+                        family_str=input.rep_family(),
+                    )
+                else:  # lmm
+                    results = run_lmm(
+                        df_clean,
+                        outcome_col=outcome,
+                        treatment_col=treatment,
+                        time_col=time_var,
+                        subject_col=subject,
+                        covariates=covariates,
+                        random_slope=input.rep_random_slope(),
+                    )
+
+                # Check for error string
+                if isinstance(results, str):
+                    ui.notification_show(results, type="error")
+                    return
+
+                # Extract Results
+                df_res = extract_model_results(results, model_type)
+
+                # Create Plot
+                fig = create_trajectory_plot(
+                    df_clean,
+                    outcome_col=outcome,
+                    time_col=time_var,
+                    group_col=treatment,
+                    subject_col=subject,
+                )
+
+                repeated_res.set(
+                    {"results": df_res, "plot": fig, "model_type": model_type}
+                )
+
+                ui.notification_show(
+                    f"✅ {model_type.upper()} Analysis Complete!", type="message"
+                )
+
+            except Exception as e:
+                ui.notification_show(f"Error: {str(e)}", type="error")
+                logger.exception("Repeated measures error")
+
+    @render.ui
+    def out_rep_status():
+        res = repeated_res.get()
+        if res:
+            return ui.div(
+                ui.h5(f"✅ {res['model_type'].upper()} Analysis Complete"),
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+            )
+        return None
+
+    @render.data_frame
+    def out_rep_results():
+        res = repeated_res.get()
+        if res:
+            return render.DataGrid(res["results"])
+        return None
+
+    @render.ui
+    def out_rep_plot():
+        res = repeated_res.get()
+        if res and res["plot"]:
+            return ui.HTML(plotly_figure_to_html(res["plot"], include_plotlyjs="cdn"))
+        return ui.div(
+            "Run analysis to see trajectory plot.",
+            style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+        )
+
+    # --- GLM Logic (Tab 2.5) ---
+    @render.ui
+    def out_glm_status():
+        """Show processing status or success message."""
+        if glm_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "Running Generalized Linear Model... Please wait",
+                    class_="alert alert-info",
+                )
+            )
+        res = glm_res.get()
+        if res and isinstance(res, dict) and "fit_metrics" in res:
+            metrics = res["fit_metrics"]
+            return ui.div(
+                ui.h5(
+                    f"✅ Analysis Complete (AIC: {metrics.get('aic', 'N/A'):.2f}, Deviance: {metrics.get('deviance', 'N/A'):.2f})"
+                ),
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+            )
+        return None
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_glm)
+    def _run_glm():
+        d = current_df()
+        req(d is not None, input.glm_outcome(), input.glm_predictors())
+
+        glm_processing.set(True)
+        glm_res.set(None)
+
+        try:
+            # Prepare Data
+            outcome = input.glm_outcome()
+            predictors = list(input.glm_predictors())
+            interactions = list(input.glm_interactions())
+
+            # Simple interaction handling (create dummy cols in a copy)
+            X = d[predictors].copy()
+            y = pd.to_numeric(d[outcome], errors="coerce")
+
+            # Create interactions if any
+            if interactions:
+                for pair_str in interactions:
+                    if " × " in pair_str:
+                        v1, v2 = pair_str.split(" × ")
+                        if v1 in d.columns and v2 in d.columns:
+                            # Convert to numeric for interaction
+                            p1 = pd.to_numeric(d[v1], errors="coerce")
+                            p2 = pd.to_numeric(d[v2], errors="coerce")
+                            col_name = f"{v1}:{v2}"
+                            X[col_name] = p1 * p2
+
+            # Drop Data with NaNs
+            valid_idx = y.notna() & X.notna().all(axis=1)
+            y = y[valid_idx]
+            X = X[valid_idx]
+
+            # Run GLM
+            params, conf_int, pvalues, status, metrics = run_glm(
+                y, X, family_name=input.glm_family(), link_name=input.glm_link()
+            )
+
+            if status != "OK":
+                ui.notification_show(f"GLM Failed: {status}", type="error")
+                return
+
+            # Format Results for Forest Plot & Table
+            res_df = pd.DataFrame(
+                {
+                    "var": params.index,
+                    "coef": params.values,
+                    "ci_low": conf_int[0].values,
+                    "ci_high": conf_int[1].values,
+                    "p_value": pvalues.values,
+                }
+            )
+
+            # Exclude constant from forest plot usually
+            plot_df = res_df[res_df["var"] != "const"]
+
+            # Generate Forest Plot
+            forest_data = []
+            link = input.glm_link()
+            is_ratio = link in ["log", "logit", "cloglog"]
+
+            for _, row in plot_df.iterrows():
+                val = np.exp(row["coef"]) if is_ratio else row["coef"]
+                low = np.exp(row["ci_low"]) if is_ratio else row["ci_low"]
+                high = np.exp(row["ci_high"]) if is_ratio else row["ci_high"]
+
+                forest_data.append(
+                    {
+                        "label": row["var"],
+                        "mean": val,
+                        "lower": low,
+                        "upper": high,
+                        "p_value": row["p_value"],
+                        "is_ratio": is_ratio,
+                    }
+                )
+
+            fig = create_forest_plot(
+                forest_data,
+                title=f"GLM ({input.glm_family()}/{input.glm_link()}) Results",
+                x_label="Exp(Coef) [OR/RR]" if is_ratio else "Coefficient",
+            )
+
+            # Generate HTML Report
+            html_parts = [
+                f"<h4>GLM Results: {outcome}</h4>",
+                f"<p><b>Family:</b> {input.glm_family()} | <b>Link:</b> {input.glm_link()}</p>",
+                f"<p><b>AIC:</b> {metrics.get('aic', 'N/A'):.2f} | <b>Deviance:</b> {metrics.get('deviance', 'N/A'):.2f}</p>",
+                "<table class='table table-striped table-sm'>",
+                "<thead><tr><th>Variable</th><th>Coef</th><th>Exp(Coef)</th><th>95% CI</th><th>P-value</th></tr></thead>",
+                "<tbody>",
+            ]
+
+            for _, row in res_df.iterrows():
+                coef = row["coef"]
+                exp_coef = np.exp(coef)  # Always show exp coef for reference
+                ci_l = row["ci_low"]
+                ci_h = row["ci_high"]
+                p = row["p_value"]
+
+                p_fmt = f"{p:.4f}" if p >= 0.001 else "<0.001"
+                p_style = "color:red; font-weight:bold;" if p < 0.05 else ""
+
+                # CI Display based on link
+                if is_ratio:
+                    ci_disp = f"{np.exp(ci_l):.3f} - {np.exp(ci_h):.3f}"
+                else:
+                    ci_disp = f"{ci_l:.3f} - {ci_h:.3f}"
+
+                html_parts.append(
+                    f"<tr>"
+                    f"<td>{row['var']}</td>"
+                    f"<td>{coef:.3f}</td>"
+                    f"<td>{exp_coef:.3f}</td>"
+                    f"<td>{ci_disp}</td>"
+                    f"<td style='{p_style}'>{p_fmt}</td>"
+                    f"</tr>"
+                )
+            html_parts.append("</tbody></table>")
+
+            glm_res.set(
+                {
+                    "fit_metrics": metrics,
+                    "params": params,
+                    "forest_plot": fig,
+                    "html_report": "".join(html_parts),
+                }
+            )
+
+        except Exception as e:
+            ui.notification_show(f"Error: {str(e)}", type="error")
+            logger.exception("GLM Fatal Error")
+
+        finally:
+            glm_processing.set(False)
+
+    @render.ui
+    def out_glm_report():
+        res = glm_res.get()
+        if res and "html_report" in res:
+            return ui.HTML(res["html_report"])
+        return ui.div("Run GLM to see results.", class_="text-secondary p-3")
+
+    @render.ui
+    def out_glm_forest():
+        res = glm_res.get()
+        if res and "forest_plot" in res:
+            return ui.HTML(
+                plotly_figure_to_html(res["forest_plot"], include_plotlyjs="cdn")
+            )
+        return ui.div("Run GLM to see plots.", class_="text-secondary p-3")
+
+    @render.download(filename="glm_report.html")
+    def btn_dl_glm_report():
+        res = glm_res.get()
+        if res and "html_report" in res:
+            yield res["html_report"]

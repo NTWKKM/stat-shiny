@@ -7,7 +7,7 @@ import pandas as pd
 from shiny import module, reactive, render, req, ui
 
 from tabs._common import get_color_palette
-from utils import diag_test
+from utils import decision_curve_lib, diag_test
 from utils.formatting import create_missing_data_report_html
 
 COLORS = get_color_palette()
@@ -202,7 +202,29 @@ def diag_ui() -> ui.TagChild:
                 ui.br(),
                 ui.output_ui("out_desc_results"),
             ),
-            # TAB 5: Reference & Interpretation
+            # TAB 5: Decision Curve Analysis (DCA)
+            ui.nav_panel(
+                "📉 Decision Curve (DCA)",
+                ui.markdown("##### Decision Curve Analysis"),
+                ui.row(
+                    ui.column(4, ui.output_ui("ui_dca_truth")),
+                    ui.column(4, ui.output_ui("ui_dca_prob")),
+                    ui.column(
+                        4,
+                        ui.input_action_button(
+                            "btn_run_dca",
+                            "🚀 Run DCA",
+                            class_="btn-primary w-100",
+                            style="margin-top: 25px;",
+                        ),
+                    ),
+                ),
+                ui.br(),
+                ui.output_ui("ui_dca_status"),
+                ui.br(),
+                ui.output_ui("out_dca_results"),
+            ),
+            # TAB 6: Reference & Interpretation
             ui.nav_panel(
                 "ℹ️ Reference & Interpretation",
                 ui.markdown("""
@@ -277,6 +299,10 @@ def diag_server(
     # --- Bland-Altman Reactives ---
     ba_html: reactive.Value[Optional[str]] = reactive.Value(None)
     ba_processing: reactive.Value[bool] = reactive.Value(False)
+
+    # --- DCA Reactives ---
+    dca_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    dca_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- Bland-Altman Inputs ---
     @render.ui
@@ -1042,3 +1068,108 @@ def diag_server(
     @render.download(filename="descriptive_report.html")
     def btn_dl_desc_report():
         yield desc_html.get()
+
+    # --- DCA Logic ---
+    @render.ui
+    def ui_dca_truth():
+        cols = all_cols()
+        def_idx = 0
+        for i, c in enumerate(cols):
+            if "gold" in c.lower() or "standard" in c.lower() or "outcome" in c.lower():
+                def_idx = i
+                break
+        return ui.input_select(
+            "sel_dca_truth",
+            "Outcome (Truth):",
+            choices=cols,
+            selected=cols[def_idx] if cols else None,
+        )
+
+    @render.ui
+    def ui_dca_prob():
+        cols = all_cols()
+        score_idx = 0
+        for i, c in enumerate(cols):
+            if "score" in c.lower() or "prob" in c.lower() or "pred" in c.lower():
+                score_idx = i
+                break
+        return ui.input_select(
+            "sel_dca_prob",
+            "Prediction/Score (Probability):",
+            choices=cols,
+            selected=cols[score_idx] if cols else None,
+        )
+
+    @render.ui
+    def ui_dca_status():
+        if dca_processing.get():
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Calculating Decision Curve... Please wait",
+                    class_="alert alert-info",
+                )
+            )
+        return None
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_dca)
+    def _run_dca():
+        d = current_df()
+        req(d is not None, input.sel_dca_truth(), input.sel_dca_prob())
+
+        dca_processing.set(True)
+
+        try:
+            truth = input.sel_dca_truth()
+            prob = input.sel_dca_prob()
+
+            # Calculate Net Benefits
+            nb_model = decision_curve_lib.calculate_net_benefit(
+                d, truth, prob, model_name="Current Model"
+            )
+            nb_all = decision_curve_lib.calculate_net_benefit_all(d, truth)
+            nb_none = decision_curve_lib.calculate_net_benefit_none()
+
+            # Combine
+            df_dca = pd.concat([nb_model, nb_all, nb_none])
+
+            # Plot
+            fig = decision_curve_lib.create_dca_plot(df_dca)
+
+            # Report Generation using diag_test.generate_report helper
+            # Format table for display
+            df_disp = nb_model[
+                ["threshold", "net_benefit", "tp_rate", "fp_rate"]
+            ].copy()
+            df_disp = df_disp[
+                df_disp["threshold"].isin([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+            ]
+
+            rep = [
+                {
+                    "type": "text",
+                    "data": f"Decision Curve Analysis: {prob} (Model) vs {truth} (Outcome)",
+                },
+                {"type": "plot", "data": fig},
+                {
+                    "type": "table",
+                    "header": "Net Benefit (Model) at selected thresholds",
+                    "data": df_disp,
+                },
+            ]
+
+            html_content = diag_test.generate_report(f"DCA: {prob} vs {truth}", rep)
+            dca_html.set(html_content)
+
+        except Exception as e:
+            dca_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+
+        finally:
+            dca_processing.set(False)
+
+    @render.ui
+    def out_dca_results():
+        if dca_html.get():
+            return ui.HTML(dca_html.get())
+        return ui.div("Click 'Run DCA' to view results.", class_="text-secondary p-3")

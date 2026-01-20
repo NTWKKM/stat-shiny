@@ -1,6 +1,3 @@
-import numpy as np
-import pytest
-
 from utils import sample_size_lib
 
 
@@ -47,11 +44,10 @@ def test_calculate_sample_size_correlation():
     n = sample_size_lib.calculate_sample_size_correlation(0.8, 0.3)
     assert 80 < n < 90
 
+
 def test_calculate_power_survival():
     # HR=0.5, Alpha=0.05. Events approx 66 for 0.8 power.
-    power = sample_size_lib.calculate_power_survival(
-        total_events=66, ratio=1.0, h0=0.5
-    )
+    power = sample_size_lib.calculate_power_survival(total_events=66, ratio=1.0, h0=0.5)
     assert 0.75 < power < 0.85
 
 
@@ -64,23 +60,51 @@ def test_calculate_power_correlation():
 def test_calculate_power_curve():
     # Test with Means
     df = sample_size_lib.calculate_power_curve(
-        target_n=34, # ~17 per group from test_calculate_power_means
+        target_n=34,  # ~17 per group from test_calculate_power_means
         ratio=1.0,
         calc_func=sample_size_lib.calculate_power_means,
         mean1=0,
         mean2=5,
         sd1=5,
-        sd2=5
+        sd2=5,
     )
-    
+
     assert not df.empty
     assert "total_n" in df.columns
     assert "power" in df.columns
     assert len(df) > 10
-    
+
     # Check monotonic increase
     powers = df["power"].values
     # Check if Sorted (allowing small floating point equality or NaN at start if any)
     # Just check end > start
     assert powers[-1] > powers[0]
 
+
+def test_generate_methods_text():
+    # Test Means (T-test)
+    params_means = {
+        "mean1": 0,
+        "mean2": 5,
+        "sd1": 5,
+        "sd2": 5,
+        "power": 0.8,
+        "alpha": 0.05,
+        "total": 34,
+        "n1": 17,
+        "n2": 17,
+    }
+    text_means = sample_size_lib.generate_methods_text(
+        "Independent Means (T-test)", params_means
+    )
+    assert "Independent Means (T-test)" in text_means
+    assert "total sample size of 34 subjects" in text_means
+    assert "power of 80%" in text_means
+
+    # Test Survival
+    params_surv = {"hr": 0.5, "power": 0.8, "alpha": 0.05, "total_events": 66}
+    text_surv = sample_size_lib.generate_methods_text(
+        "Survival (Log-Rank)", params_surv
+    )
+    assert "Survival (Log-Rank)" in text_surv
+    assert "total of 66 events" in text_surv
