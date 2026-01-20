@@ -154,7 +154,9 @@ def load_static_css() -> str:
             with open(css_path, encoding="utf-8") as f:
                 return f.read()
         else:
-            logger.warning(f"CSS file not found at expected locations. Last checked: {css_path}")
+            logger.warning(
+                f"CSS file not found at expected locations. Last checked: {css_path}"
+            )
             return ""
     except Exception as e:
         logger.exception("Failed to load static CSS")
