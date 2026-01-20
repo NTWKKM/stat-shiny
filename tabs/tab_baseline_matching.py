@@ -21,6 +21,37 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
+def _calculate_categorical_smd(
+    df: pd.DataFrame, treatment_col: str, cat_cols: list[str]
+) -> pd.DataFrame:
+    """
+    Helper to match the structure expected by the code calling it.
+    This logic calculates SMD for categorical variables (one-hot encoded).
+    """
+    if not cat_cols:
+        return pd.DataFrame()
+
+    # Expand categorical columns to dummies
+    # Note: caller effectively does this too, but we need fresh access or reuse logic
+    # The caller passes 'df_ps' or 'df_m' which already has dummies if we look at line 660,
+    # BUT line 692 passes 'cat_cols' which are likely the ORIGINAL categorical column names.
+
+    # We will assume we need to re-encode to compute SMD or handle them.
+    # However, 'psm_lib.compute_smd' usually expects numeric/dummy columns.
+
+    try:
+        df_cat = pd.get_dummies(
+            df[cat_cols + [treatment_col]], columns=cat_cols, drop_first=True
+        )
+        # Identify the new dummy columns
+        dummy_cols = [c for c in df_cat.columns if c != treatment_col]
+
+        return psm_lib.compute_smd(df_cat, treatment_col, dummy_cols)
+    except Exception as e:
+        logger.warning(f"Failed to calculate categorical SMD: {e}")
+        return pd.DataFrame()
+
+
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
     """
