@@ -79,7 +79,7 @@ def _build_irr_interpretation_section(
     
     return f"""
         <div class='table-container' style='margin-top: 20px;'>
-            <div class='outcome-title'>💬 Rate Ratio Interpretations | การแปลผล Rate Ratio</div>
+            <div class='outcome-title'>💬 Rate Ratio Interpretations</div>
             <div class='summary-box' style='border-radius: 0 0 8px 8px;'>
                 <b style='color: {colors['primary_dark']}; font-size: 1.1em;'>Crude (Univariate) Analysis:</b><br>
                 <ul style='margin-top: 8px; line-height: 1.8;'>
@@ -313,9 +313,6 @@ def check_count_outcome(series: pd.Series) -> tuple[bool, str]:
         return False, f"Validation error: {e!s}"
 
 
-def interpret_irr(
-    irr: float, ci_low: float, ci_high: float, var_name: str = "", mode: str = "linear"
-) -> str:
     """
     Convert IRR (Incidence Rate Ratio) to human-readable interpretation.
 
@@ -327,14 +324,14 @@ def interpret_irr(
         mode: "linear" for continuous or "categorical" for categories
 
     Returns:
-        str: Human-readable interpretation in English and Thai
+        str: Human-readable interpretation in English
 
     Examples:
         >>> interpret_irr(1.25, 1.10, 1.42, "Age", "linear")
-        'Increase 25% per unit (95% CI: 10%-42%) | เพิ่มขึ้น 25% ต่อหน่วย (95% CI: 10%-42%)'
+        'Increase 25% per unit (95% CI: 10%-42%)'
 
         >>> interpret_irr(0.80, 0.65, 0.95, "Treatment", "categorical")
-        'Decrease 20% (95% CI: 35% decrease to 5% decrease) | ลดลง 20% (95% CI: ลดลง 35% ถึง 5%)'
+        'Decrease 20% (95% CI: 35% decrease to 5% decrease)'
     """
     try:
         # Calculate percentage change from IRR
@@ -345,45 +342,33 @@ def interpret_irr(
         # Determine effect direction
         if abs(pct_change) < 0.5:  # Essentially no change
             direction_en = "No significant change"
-            direction_th = "ไม่มีการเปลี่ยนแปลงที่มีนัยสำคัญ"
             detail_en = ""
-            detail_th = ""
         elif pct_change > 0:  # Increase
             direction_en = "Increase"
-            direction_th = "เพิ่มขึ้น"
             detail_en = f"{abs(pct_change):.1f}%"
-            detail_th = f"{abs(pct_change):.1f}%"
         else:  # Decrease
             direction_en = "Decrease"
-            direction_th = "ลดลง"
             detail_en = f"{abs(pct_change):.1f}%"
-            detail_th = f"{abs(pct_change):.1f}%"
 
         # Build interpretation based on mode
         if mode == "linear":
             unit_en = " per unit"
-            unit_th = " ต่อหน่วย"
         else:
             unit_en = ""
-            unit_th = ""
 
         # Format confidence interval
         if abs(pct_change) < 0.5:
             ci_en = f"(95% CI: IRR {ci_low:.2f}-{ci_high:.2f})"
-            ci_th = f"(95% CI: IRR {ci_low:.2f}-{ci_high:.2f})"
         else:
             ci_en = f"(95% CI: {pct_ci_low:+.1f}% to {pct_ci_high:+.1f}%)"
-            ci_th = f"(95% CI: {pct_ci_low:+.1f}% ถึง {pct_ci_high:+.1f}%)"
 
         # Combine into final interpretation
         if abs(pct_change) < 0.5:
             interp_en = f"{direction_en} {ci_en}"
-            interp_th = f"{direction_th} {ci_th}"
         else:
             interp_en = f"{direction_en} {detail_en}{unit_en} {ci_en}"
-            interp_th = f"{direction_th} {detail_th}{unit_th} {ci_th}"
 
-        return f"{interp_en} | {interp_th}"
+        return interp_en
 
     except Exception as e:
         logger.debug(f"Failed to interpret IRR: {e}")
