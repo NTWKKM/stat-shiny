@@ -4,8 +4,6 @@ Calculates Net Benefit for prediction models.
 Reference: Vickers AJ, Elkin EB. Decision curve analysis: a novel method for evaluating prediction models. Med Decis Making. 2006.
 """
 
-
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go

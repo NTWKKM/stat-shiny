@@ -33,7 +33,6 @@ from utils.data_cleaning import (
     handle_missing_for_analysis,
 )
 
-
 # Get unified color palette
 COLORS = get_color_palette()
 
