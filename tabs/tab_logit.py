@@ -900,7 +900,16 @@ def logit_server(
         sg_cols = [c for c in cols if 2 <= d[c].nunique() <= 10]
 
         # Update Tab 1 (Binary Logit) Inputs
-        ui.update_select("sel_outcome", choices=binary_cols)
+        # Prefer "Outcome_" prefix or "Cured"/"Death"/"Event"
+        default_logit_y = None
+        for c in binary_cols:
+            if any(k in c.lower() for k in ["outcome", "cured", "death", "status", "event"]):
+                default_logit_y = c
+                break
+        if not default_logit_y and binary_cols:
+            default_logit_y = binary_cols[0]
+
+        ui.update_select("sel_outcome", choices=binary_cols, selected=default_logit_y)
         ui.update_selectize("sel_exclude", choices=cols)
 
         # Generate interaction pair choices for Logit
@@ -918,7 +927,21 @@ def logit_server(
             and (d[c].dropna() >= 0).all()
             and (d[c].dropna() % 1 == 0).all()
         ]
-        ui.update_select("poisson_outcome", choices=count_cols if count_cols else cols)
+        
+        # Prefer "Count_" or "Visits" or "Falls"
+        default_poisson_y = None
+        for c in count_cols:
+            if any(k in c.lower() for k in ["count", "visit", "fall", "event"]):
+                default_poisson_y = c
+                break
+        if not default_poisson_y and count_cols:
+            default_poisson_y = count_cols[0]
+
+        ui.update_select(
+            "poisson_outcome", 
+            choices=count_cols if count_cols else cols,
+            selected=default_poisson_y
+        )
         ui.update_select("poisson_offset", choices=["None"] + cols)
         ui.update_selectize("poisson_exclude", choices=cols)
         ui.update_selectize("poisson_interactions", choices=interaction_choices[:50])
@@ -926,26 +949,43 @@ def logit_server(
         # Update Tab 3 (Linear Regression) Inputs
         # Identify continuous numeric columns for outcome
         numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(d[c])]
-        continuous_cols = [
-            c
-            for c in numeric_cols
-            if d[c].nunique() > 10  # More than 10 unique values suggests continuous
-        ]
-        # Fall back to all numeric if no continuous found
-        linear_outcome_choices = continuous_cols if continuous_cols else numeric_cols
-        ui.update_select("linear_outcome", choices=linear_outcome_choices)
-        ui.update_selectize("linear_predictors", choices=numeric_cols)
+        
+        # Prefer "Lab_", "Cost", "Score"
+        default_linear_y = None
+        for c in numeric_cols:
+            if any(k in c.lower() for k in ["lab_", "cost", "score", "chol", "hba1c"]):
+                default_linear_y = c
+                break
+        
+        linear_outcome_choices = numeric_cols
+        ui.update_select("linear_outcome", choices=linear_outcome_choices, selected=default_linear_y)
+        
+        # Default predictors: exclude ID and outcome, pick numeric/categorical meaningful ones
+        default_linear_x = [
+            c for c in cols 
+            if c != default_linear_y 
+            and c not in ["ID", "id_tvc"] 
+            and not c.startswith("Time_")
+        ][:5] # limit to 5
+        ui.update_selectize("linear_predictors", choices=numeric_cols, selected=default_linear_x)
         ui.update_selectize("linear_exclude", choices=cols)
 
         # Update Tab 4 (Subgroup) Inputs
-        ui.update_select("sg_outcome", choices=binary_cols)
+        ui.update_select("sg_outcome", choices=binary_cols, selected=default_logit_y)
         ui.update_select("sg_treatment", choices=cols)
         ui.update_select("sg_subgroup", choices=sg_cols)
         ui.update_selectize("sg_adjust", choices=cols)
 
         # Update Tab 5 (Repeated Measures) Inputs
+        # Prefer Lab results for repeated measures
+        default_rep_y = None
+        for c in numeric_cols:
+             if "lab" in c.lower() or "score" in c.lower() or "bp" in c.lower():
+                 default_rep_y = c
+                 break
+        
         ui.update_select(
-            "rep_outcome", choices=numeric_cols
+            "rep_outcome", choices=numeric_cols, selected=default_rep_y
         )  # LMM/GEE(Gaussian) usually numeric outcome
         ui.update_select("rep_treatment", choices=cols)
         ui.update_select("rep_time", choices=numeric_cols)  # Time usually numeric
@@ -953,8 +993,9 @@ def logit_server(
         ui.update_selectize("rep_covariates", choices=cols)
 
         # Update Tab 2.5 (GLM) Inputs
-        ui.update_select("glm_outcome", choices=cols)
-        ui.update_selectize("glm_predictors", choices=cols)
+        # Similar logic to linear but broader
+        ui.update_select("glm_outcome", choices=cols, selected=default_linear_y)
+        ui.update_selectize("glm_predictors", choices=cols, selected=default_linear_x)
         ui.update_selectize("glm_interactions", choices=interaction_choices[:50])
 
     # --- Separation Warning Logic ---
