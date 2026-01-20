@@ -119,6 +119,14 @@ def baseline_matching_ui() -> ui.TagChild:
             # Control section (top)
             ui.card(
                 ui.card_header("⚖️ PSM Configuration"),
+                ui.div(
+                    "💡 ",
+                    ui.strong("Need ATE directly?"),
+                    " Use ",
+                    ui.strong("Causal Inference → PSM & IPW"),
+                    " for Inverse Probability Weighting (keeps all data, no matching).",
+                    style=f"padding: 8px 12px; margin-bottom: 12px; background-color: {COLORS['info']}15; border-left: 3px solid {COLORS['info']}; border-radius: 4px; font-size: 0.85em;",
+                ),
                 ui.h5("Step 1️⃣: Configure Variables"),
                 ui.layout_columns(
                     ui.card(

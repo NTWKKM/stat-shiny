@@ -51,33 +51,29 @@ app_ui = ui.page_navbar(
     ),
     # --- 3. Diagnostic Tests Module ---
     ui.nav_panel("🧪 Diagnostic Tests", wrap_with_container(tab_diag.diag_ui("diag"))),
-    # --- 4. Logistic Regression Module ---
-    # --- 4. Core Regression Models Module ---
+    # --- 4. Correlation & ICC Module ---
+    ui.nav_panel("📈 Correlation & ICC", wrap_with_container(tab_corr.corr_ui("corr"))),
+    # --- 5. Core Regression Models Module ---
     ui.nav_panel(
         "📊 Core Regression Models",
         wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
     ),
-    # --- 5. Correlation & ICC Module ---
-    ui.nav_panel("📈 Correlation & ICC", wrap_with_container(tab_corr.corr_ui("corr"))),
-    # --- 7. Advanced Inference ---
+    # --- 6. Survival Analysis Module ---
     ui.nav_panel(
-        "🔍 Advanced Inference",
-        wrap_with_container(tab_advanced_inference.advanced_inference_ui("adv_inf")),
+        "⏳ Survival Analysis",
+        wrap_with_container(tab_survival.survival_ui("survival")),
     ),
-    # --- 8. Causal Inference ---
+    # --- 7. Causal Inference ---
     ui.nav_panel(
         "🎯 Causal Inference",
         wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
     ),
-    # --- 6. Survival Analysis Module ---
+    # --- 8. Advanced Inference ---
     ui.nav_panel(
-        "⏳ Survival Analysis",
-        wrap_with_container(
-            # ✅ Call survival_ui specifying only the ID (Namespace)
-            tab_survival.survival_ui("survival")
-        ),
+        "🔍 Advanced Inference",
+        wrap_with_container(tab_advanced_inference.advanced_inference_ui("adv_inf")),
     ),
-    # --- 7. Settings Module ---
+    # --- 9. Settings Module ---
     ui.nav_panel(
         "⚙️ Settings", wrap_with_container(tab_settings.settings_ui("settings"))
     ),
