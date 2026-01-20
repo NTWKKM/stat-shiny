@@ -21,6 +21,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 import scipy.stats as stats
@@ -1606,4 +1607,101 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
 
     html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
     html += "</body>\n</html>"
-    return html
+
+# ==============================================================================
+# Bland-Altman
+# ==============================================================================
+def calculate_bland_altman(
+    df: pd.DataFrame, col1: str, col2: str
+) -> tuple[dict[str, Any], go.Figure]:
+    """
+    Calculate Bland-Altman statistics and generate plot.
+
+    Returns:
+        tuple containing:
+        - dict: statistics {mean_diff, sd_diff, lower_loa, upper_loa, n}
+        - Figure: Plotly figure object
+    """
+    # 1. Clean Data
+    d = df[[col1, col2]].dropna()
+    data1 = pd.to_numeric(d[col1], errors='coerce')
+    data2 = pd.to_numeric(d[col2], errors='coerce')
+    d_clean = pd.concat([data1, data2], axis=1).dropna()
+    
+    if len(d_clean) < 2:
+        return {"error": "Not enough data"}, go.Figure()
+
+    v1 = d_clean[col1]
+    v2 = d_clean[col2]
+
+    # 2. Calculations
+    diffs = v1 - v2
+    means = (v1 + v2) / 2
+    
+    mean_diff = np.mean(diffs)
+    sd_diff = np.std(diffs, ddof=1)
+    n = len(diffs)
+    
+    # Limits of Agreement (1.96 SD)
+    loa_upper = mean_diff + 1.96 * sd_diff
+    loa_lower = mean_diff - 1.96 * sd_diff
+    
+    # CIs for Mean Diff, LoaUpper, LoaLower (approximate large sample SEs)
+    se_mean_diff = sd_diff / np.sqrt(n)
+    se_loa = np.sqrt(3 * sd_diff**2 / n)
+    
+    t_val = stats.t.ppf(0.975, n-1)
+    
+    ci_mean_diff = (mean_diff - t_val * se_mean_diff, mean_diff + t_val * se_mean_diff)
+    ci_loa_upper = (loa_upper - t_val * se_loa, loa_upper + t_val * se_loa)
+    ci_loa_lower = (loa_lower - t_val * se_loa, loa_lower + t_val * se_loa)
+
+    # 3. Plot
+    fig = go.Figure()
+    
+    # Scatter points
+    fig.add_trace(go.Scatter(
+        x=means, y=diffs, 
+        mode='markers', 
+        name='Data Points',
+        marker=dict(color=COLORS['primary'], opacity=0.6)
+    ))
+    
+    # Mean Diff Line
+    fig.add_trace(go.Scatter(
+        x=[min(means), max(means)], y=[mean_diff, mean_diff],
+        mode='lines', name='Mean Difference (Bias)',
+        line=dict(color='black', width=2)
+    ))
+    
+    # LoA Lines
+    fig.add_trace(go.Scatter(
+        x=[min(means), max(means)], y=[loa_upper, loa_upper],
+        mode='lines', name='+1.96 SD',
+        line=dict(color='red', width=2, dash='dash')
+    ))
+    fig.add_trace(go.Scatter(
+        x=[min(means), max(means)], y=[loa_lower, loa_lower],
+        mode='lines', name='-1.96 SD',
+        line=dict(color='red', width=2, dash='dash')
+    ))
+    
+    fig.update_layout(
+        title="Bland-Altman Plot",
+        xaxis_title=f"Mean of {col1} and {col2}",
+        yaxis_title=f"Difference ({col1} - {col2})",
+        template="simple_white"
+    )
+
+    stats_dict = {
+        "n": n,
+        "mean_diff": mean_diff,
+        "sd_diff": sd_diff,
+        "lower_loa": loa_lower,
+        "upper_loa": loa_upper,
+        "ci_mean_diff": ci_mean_diff,
+        "ci_loa_upper": ci_loa_upper,
+        "ci_loa_lower": ci_loa_lower
+    }
+    
+    return stats_dict, fig
