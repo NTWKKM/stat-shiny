@@ -139,6 +139,39 @@ def diag_ui() -> ui.TagChild:
                 ui.br(),
                 ui.output_ui("out_kappa_results"),
             ),
+            # TAB 4: Agreement (Bland-Altman)
+            ui.nav_panel(
+                "🤝 Agreement (Bland-Altman)",
+                ui.markdown("##### Bland-Altman Analysis (Continuous)"),
+                ui.row(
+                    ui.column(6, ui.output_ui("ui_ba_v1")),
+                    ui.column(6, ui.output_ui("ui_ba_v2")),
+                ),
+                ui.row(
+                    ui.column(
+                        6,
+                        ui.input_action_button(
+                            "btn_analyze_ba",
+                            "🚀 Analyze Agreement",
+                            class_="btn-primary w-100",
+                            width="100%",
+                        ),
+                    ),
+                    ui.column(
+                        6,
+                        ui.download_button(
+                            "btn_dl_ba_report",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                            width="100%",
+                        ),
+                    ),
+                ),
+                ui.br(),
+                ui.output_ui("ui_ba_status"),
+                ui.br(),
+                ui.output_ui("out_ba_results"),
+            ),
             # TAB 4: Descriptive
             ui.nav_panel(
                 "📊 Descriptive",
@@ -240,9 +273,95 @@ def diag_server(
     roc_html: reactive.Value[Optional[str]] = reactive.Value(None)
     chi_html: reactive.Value[Optional[str]] = reactive.Value(None)
     kappa_html: reactive.Value[Optional[str]] = reactive.Value(None)
-    desc_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    # --- Bland-Altman Reactives ---
+    ba_html: reactive.Value[Optional[str]] = reactive.Value(None)
+    ba_processing: reactive.Value[bool] = reactive.Value(False)
 
-    # --- Processing Status Indicators ---
+    # --- Bland-Altman Inputs ---
+    @render.ui
+    def ui_ba_v1():
+        cols = all_cols()
+        # Filter for numeric columns
+        d = current_df()
+        if d is not None:
+             cols = d.select_dtypes(include=[np.number]).columns.tolist()
+        return ui.input_select(
+            "sel_ba_v1", "Variable 1 (Method A):", choices=cols, selected=cols[0] if cols else None
+        )
+
+    @render.ui
+    def ui_ba_v2():
+        cols = all_cols()
+        d = current_df()
+        if d is not None:
+             cols = d.select_dtypes(include=[np.number]).columns.tolist()
+        return ui.input_select(
+            "sel_ba_v2", "Variable 2 (Method B):", choices=cols, selected=cols[1] if len(cols)>1 else None
+        )
+
+    @render.ui
+    def ui_ba_status():
+        if ba_processing.get():
+             return ui.div(
+                ui.tags.div(
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
+                    "📄 Calculating Bland-Altman statistics... Please wait",
+                    class_="alert alert-info",
+                )
+            )
+        return None
+
+    # --- Bland-Altman Logic ---
+    @reactive.Effect
+    @reactive.event(input.btn_analyze_ba)
+    def _run_ba():
+        d = current_df()
+        req(d is not None, input.sel_ba_v1(), input.sel_ba_v2())
+        
+        ba_processing.set(True)
+        try:
+            stats_res, fig = diag_test.calculate_bland_altman(
+                d, input.sel_ba_v1(), input.sel_ba_v2()
+            )
+            
+            if "error" in stats_res:
+                 ba_html.set(f"<div class='alert alert-danger'>Error: {stats_res['error']}</div>")
+            else:
+                 # Format stats for display
+                 stats_df = pd.DataFrame([{
+                     "Mean Difference (Bias)": f"{stats_res['mean_diff']:.4f}",
+                     "95% CI Bias": f"{stats_res['ci_mean_diff'][0]:.4f} to {stats_res['ci_mean_diff'][1]:.4f}",
+                     "Upper LoA (+1.96 SD)": f"{stats_res['upper_loa']:.4f}",
+                     "95% CI Upper LoA": f"{stats_res['ci_loa_upper'][0]:.4f} to {stats_res['ci_loa_upper'][1]:.4f}",
+                     "Lower LoA (-1.96 SD)": f"{stats_res['lower_loa']:.4f}",
+                     "95% CI Lower LoA": f"{stats_res['ci_loa_lower'][0]:.4f} to {stats_res['ci_loa_lower'][1]:.4f}",
+                     "SD of Diff": f"{stats_res['sd_diff']:.4f}",
+                     "N": stats_res['n']
+                 }]).T
+                 
+                 rep = [
+                     {"type": "text", "data": f"Bland-Altman Analysis: {input.sel_ba_v1()} vs {input.sel_ba_v2()}"},
+                     {"type": "plot", "data": fig},
+                     {"type": "table", "header": "Agreement Statistics", "data": stats_df}
+                 ]
+                 
+                 ba_html.set(diag_test.generate_report(f"Bland-Altman: {input.sel_ba_v1()} vs {input.sel_ba_v2()}", rep))
+                 
+        except Exception as e:
+            ba_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+        finally:
+            ba_processing.set(False)
+
+    @render.ui
+    def out_ba_results():
+        if ba_html.get():
+            return ui.HTML(ba_html.get())
+        return ui.div("Click 'Analyze Agreement' to view results.", class_="text-secondary p-3")
+
+    @render.download(filename="bland_altman_report.html")
+    def btn_dl_ba_report():
+        yield ba_html.get()
+
     roc_processing: reactive.Value[bool] = reactive.Value(False)
     chi_processing: reactive.Value[bool] = reactive.Value(False)
     kappa_processing: reactive.Value[bool] = reactive.Value(False)

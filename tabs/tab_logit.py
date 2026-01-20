@@ -677,13 +677,13 @@ def logit_server(
         d = current_df()
         if d is not None:
             return ui.div(
-                ui.h3("📈 Logistic Regression"),
+                ui.h3("📈 Regression Models"),
                 ui.p(
                     f"{len(d):,} rows | {len(d.columns)} columns",
                     class_="text-secondary mb-3",
                 ),
             )
-        return ui.h3("📈 Logistic Regression")
+        return ui.h3("📈 Regression Models")
 
     @render.ui
     def ui_matched_info():
