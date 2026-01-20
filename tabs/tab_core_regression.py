@@ -74,7 +74,17 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
 # UI Definition
 # ==============================================================================
 @module.ui
-def logit_ui() -> ui.TagChild:
+def core_regression_ui() -> ui.TagChild:
+    """
+    Constructs the main UI for the core regression module.
+
+    Structure:
+    - Binary Outcomes (formerly Binary Logistic)
+    - Continuous Outcomes (formerly Linear & Diagnostics)
+    - Count & Special (formerly Poisson & GLM)
+    - Repeated Measures (kept)
+    - Reference & Guidelines
+    """
     """
     Constructs the main UI for the regression module, providing controls and result panels for logistic, Poisson, and subgroup analyses.
 
@@ -96,10 +106,10 @@ def logit_ui() -> ui.TagChild:
         # Main Analysis Tabs
         ui.navset_tab(
             # =====================================================================
-            # TAB 1: Binary Logistic Regression
+            # TAB 1: Binary Outcomes (formerly Binary Logistic)
             # =====================================================================
             ui.nav_panel(
-                "📈 Binary Logistic Regression",
+                "📈 Binary Outcomes",
                 # Control section (top)
                 ui.card(
                     ui.card_header("📈 Analysis Options"),
@@ -166,176 +176,277 @@ def logit_ui() -> ui.TagChild:
                 ),
             ),
             # =====================================================================
-            # TAB 2: Poisson Regression
+            # TAB 3: Count & Special (formerly Poisson & GLM)
             # =====================================================================
             ui.nav_panel(
-                "📊 Poisson Regression",
-                # Control section (top)
-                ui.card(
-                    ui.card_header("📊 Poisson Analysis Options"),
-                    ui.layout_columns(
+                "🔢 Count & Special",
+                ui.navset_card_tab(
+                    ui.nav_panel(
+                        "📊 Poisson Regression",
+                        # Control section (top)
                         ui.card(
-                            ui.card_header("Variable Selection:"),
-                            ui.input_select(
-                                "poisson_outcome",
-                                "Select Count Outcome (Y):",
-                                choices=[],
+                            ui.card_header("📊 Poisson Analysis Options"),
+                            ui.layout_columns(
+                                ui.card(
+                                    ui.card_header("Variable Selection:"),
+                                    ui.input_select(
+                                        "poisson_outcome",
+                                        "Select Count Outcome (Y):",
+                                        choices=[],
+                                    ),
+                                    ui.input_select(
+                                        "poisson_offset",
+                                        "Offset Column (Optional):",
+                                        choices=["None"],
+                                    ),
+                                    ui.p(
+                                        "💡 Offset: Use for rate calculations (e.g., person-years, population)",
+                                        style="font-size: 0.8em; color: #666; margin-top: 4px;",
+                                    ),
+                                ),
+                                ui.card(
+                                    ui.card_header("Advanced Settings:"),
+                                    ui.h6("Exclude Variables (Optional):"),
+                                    ui.input_selectize(
+                                        "poisson_exclude",
+                                        label=None,
+                                        choices=[],
+                                        multiple=True,
+                                    ),
+                                ),
+                                col_widths=[6, 6],
                             ),
-                            ui.input_select(
-                                "poisson_offset",
-                                "Offset Column (Optional):",
-                                choices=["None"],
-                            ),
-                            ui.p(
-                                "💡 Offset: Use for rate calculations (e.g., person-years, population)",
-                                style="font-size: 0.8em; color: #666; margin-top: 4px;",
-                            ),
-                        ),
-                        ui.card(
-                            ui.card_header("Advanced Settings:"),
-                            ui.h6("Exclude Variables (Optional):"),
+                            # Interaction Pairs selector
+                            ui.h6("🔗 Interaction Pairs (Optional):"),
                             ui.input_selectize(
-                                "poisson_exclude", label=None, choices=[], multiple=True
+                                "poisson_interactions",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                options={
+                                    "placeholder": "Select variable pairs to test interactions..."
+                                },
+                            ),
+                            ui.hr(),
+                            ui.layout_columns(
+                                ui.input_action_button(
+                                    "btn_run_poisson",
+                                    "🚀 Run Poisson Regression",
+                                    class_="btn-primary btn-sm w-100",
+                                ),
+                                ui.download_button(
+                                    "btn_dl_poisson_report",
+                                    "📥 Download Report",
+                                    class_="btn-secondary btn-sm w-100",
+                                ),
+                                col_widths=[6, 6],
                             ),
                         ),
-                        col_widths=[6, 6],
-                    ),
-                    # Interaction Pairs selector
-                    ui.h6("🔗 Interaction Pairs (Optional):"),
-                    ui.input_selectize(
-                        "poisson_interactions",
-                        label=None,
-                        choices=[],
-                        multiple=True,
-                        options={
-                            "placeholder": "Select variable pairs to test interactions..."
-                        },
-                    ),
-                    ui.hr(),
-                    ui.layout_columns(
-                        ui.input_action_button(
-                            "btn_run_poisson",
-                            "🚀 Run Poisson Regression",
-                            class_="btn-primary btn-sm w-100",
+                        # Content section (bottom)
+                        ui.output_ui("out_poisson_status"),
+                        ui.navset_tab(
+                            ui.nav_panel(
+                                "🌳 Forest Plots",
+                                ui.output_ui("ui_poisson_forest_tabs"),
+                            ),
+                            ui.nav_panel(
+                                "📋 Detailed Report",
+                                ui.output_ui("out_poisson_html_report"),
+                            ),
+                            ui.nav_panel(
+                                "📚 Reference",
+                                ui.markdown("""
+                                ### Poisson Regression Reference
+                                
+                                **When to Use:**
+                                * Count outcomes (e.g., number of events, visits, infections)
+                                * Rate data with exposure offset (e.g., events per person-year)
+                                
+                                **Interpretation:**
+                                * **IRR > 1**: Higher incidence rate (Risk factor) 🔴
+                                * **IRR < 1**: Lower incidence rate (Protective) 🟢
+                                * **IRR = 1**: No effect on rate
+                                
+                                **Overdispersion:**
+                                If variance >> mean, consider Negative Binomial regression.
+                                """),
+                            ),
                         ),
-                        ui.download_button(
-                            "btn_dl_poisson_report",
-                            "📥 Download Report",
-                            class_="btn-secondary btn-sm w-100",
+                    ),
+                    ui.nav_panel(
+                        "📉 Negative Binomial",
+                        ui.card(
+                            ui.card_header("📉 Negative Binomial Analysis Options"),
+                            ui.layout_columns(
+                                ui.card(
+                                    ui.card_header("Variable Selection:"),
+                                    ui.input_select(
+                                        "nb_outcome",
+                                        "Select Count Outcome (Y):",
+                                        choices=[],
+                                    ),
+                                    ui.input_select(
+                                        "nb_offset",
+                                        "Offset Column (Optional):",
+                                        choices=["None"],
+                                    ),
+                                    ui.p(
+                                        "💡 Use when variance >> mean (Overdispersion)",
+                                        style="font-size: 0.8em; color: #666; margin-top: 4px;",
+                                    ),
+                                ),
+                                ui.card(
+                                    ui.card_header("Advanced Settings:"),
+                                    ui.h6("Exclude Variables (Optional):"),
+                                    ui.input_selectize(
+                                        "nb_exclude",
+                                        label=None,
+                                        choices=[],
+                                        multiple=True,
+                                    ),
+                                ),
+                                col_widths=[6, 6],
+                            ),
+                            ui.h6("🔗 Interaction Pairs (Optional):"),
+                            ui.input_selectize(
+                                "nb_interactions",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                options={
+                                    "placeholder": "Select variable pairs to test interactions..."
+                                },
+                            ),
+                            ui.hr(),
+                            ui.layout_columns(
+                                ui.input_action_button(
+                                    "btn_run_nb",
+                                    "🚀 Run Negative Binomial",
+                                    class_="btn-primary btn-sm w-100",
+                                ),
+                                ui.download_button(
+                                    "btn_dl_nb_report",
+                                    "📥 Download Report",
+                                    class_="btn-secondary btn-sm w-100",
+                                ),
+                                col_widths=[6, 6],
+                            ),
                         ),
-                        col_widths=[6, 6],
+                        ui.output_ui("out_nb_status"),
+                        ui.navset_tab(
+                            ui.nav_panel(
+                                "🌳 Forest Plots",
+                                ui.output_ui("ui_nb_forest_tabs"),
+                            ),
+                            ui.nav_panel(
+                                "📋 Detailed Report",
+                                ui.output_ui("out_nb_html_report"),
+                            ),
+                            ui.nav_panel(
+                                "📚 Reference",
+                                ui.markdown("""
+                                ### Negative Binomial Regression Reference
+                                
+                                **When to Use:**
+                                * Overdispersed count data (Variance > Mean)
+                                * When Poisson model shows lack of fit due to overdispersion
+                                
+                                **Interpretation:**
+                                * Similar to Poisson (IRR)
+                                * **Alpha**: Dispersion parameter estimated by the model
+                                * **IRR**: Incidence Rate Ratio
+                                """),
+                            ),
+                        ),
                     ),
-                ),
-                # Content section (bottom)
-                ui.output_ui("out_poisson_status"),
-                ui.navset_tab(
                     ui.nav_panel(
-                        "🌳 Forest Plots", ui.output_ui("ui_poisson_forest_tabs")
-                    ),
-                    ui.nav_panel(
-                        "📋 Detailed Report", ui.output_ui("out_poisson_html_report")
-                    ),
-                    ui.nav_panel(
-                        "📚 Reference",
-                        ui.markdown("""
-                        ### Poisson Regression Reference
-                        
-                        **When to Use:**
-                        * Count outcomes (e.g., number of events, visits, infections)
-                        * Rate data with exposure offset (e.g., events per person-year)
-                        
-                        **Interpretation:**
-                        * **IRR > 1**: Higher incidence rate (Risk factor) 🔴
-                        * **IRR < 1**: Lower incidence rate (Protective) 🟢
-                        * **IRR = 1**: No effect on rate
-                        
-                        **Overdispersion:**
-                        If variance >> mean, consider Negative Binomial regression.
-                        """),
+                        "📈 Generalized Linear Model",
+                        ui.card(
+                            ui.card_header("📈 GLM Options"),
+                            ui.layout_columns(
+                                ui.card(
+                                    ui.card_header("Variable Selection:"),
+                                    ui.input_select(
+                                        "glm_outcome", "Outcome (Y):", choices=[]
+                                    ),
+                                    ui.h6("Distribution & Link:"),
+                                    ui.input_select(
+                                        "glm_family",
+                                        "Family:",
+                                        {
+                                            "Gaussian": "Gaussian (Continuous)",
+                                            "Binomial": "Binomial (Binary 0/1)",
+                                            "Poisson": "Poisson (Count)",
+                                            "Gamma": "Gamma (Continuous +)",
+                                            "InverseGaussian": "Inverse Gaussian",
+                                        },
+                                    ),
+                                    ui.input_select(
+                                        "glm_link",
+                                        "Link Function:",
+                                        {
+                                            "identity": "Identity",
+                                            "log": "Log",
+                                            "logit": "Logit",
+                                            "probit": "Probit",
+                                            "cloglog": "Cloglog",
+                                            "inverse_power": "Inverse",
+                                            "sqrt": "Sqrt",
+                                        },
+                                    ),
+                                ),
+                                ui.card(
+                                    ui.card_header("Predictors:"),
+                                    ui.input_selectize(
+                                        "glm_predictors",
+                                        "Select Predictors (X):",
+                                        choices=[],
+                                        multiple=True,
+                                    ),
+                                    ui.input_selectize(
+                                        "glm_interactions",
+                                        "Interactions (Optional):",
+                                        choices=[],
+                                        multiple=True,
+                                        options={
+                                            "placeholder": "Select variable pairs..."
+                                        },
+                                    ),
+                                ),
+                                col_widths=[6, 6],
+                            ),
+                            ui.hr(),
+                            ui.layout_columns(
+                                ui.input_action_button(
+                                    "btn_run_glm",
+                                    "🚀 Run GLM",
+                                    class_="btn-primary btn-sm w-100",
+                                ),
+                                ui.download_button(
+                                    "btn_dl_glm_report",
+                                    "📥 Download Report",
+                                    class_="btn-secondary btn-sm w-100",
+                                ),
+                                col_widths=[6, 6],
+                            ),
+                        ),
+                        ui.output_ui("out_glm_status"),
+                        ui.navset_tab(
+                            ui.nav_panel(
+                                "📋 Model Results", ui.output_ui("out_glm_report")
+                            ),
+                            ui.nav_panel(
+                                "🌳 Forest Plot", ui.output_ui("out_glm_forest")
+                            ),
+                        ),
                     ),
                 ),
             ),
             # =====================================================================
-            # TAB 2.5: Generalized Linear Model (GLM)
+            # TAB 2: Continuous Outcomes (formerly Linear & Diagnostics)
             # =====================================================================
             ui.nav_panel(
-                "📈 Generalized Linear Model",
-                ui.card(
-                    ui.card_header("📈 GLM Options"),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Variable Selection:"),
-                            ui.input_select("glm_outcome", "Outcome (Y):", choices=[]),
-                            ui.h6("Distribution & Link:"),
-                            ui.input_select(
-                                "glm_family",
-                                "Family:",
-                                {
-                                    "Gaussian": "Gaussian (Continuous)",
-                                    "Binomial": "Binomial (Binary 0/1)",
-                                    "Poisson": "Poisson (Count)",
-                                    "Gamma": "Gamma (Continuous +)",
-                                    "InverseGaussian": "Inverse Gaussian",
-                                },
-                            ),
-                            ui.input_select(
-                                "glm_link",
-                                "Link Function:",
-                                {
-                                    "identity": "Identity",
-                                    "log": "Log",
-                                    "logit": "Logit",
-                                    "probit": "Probit",
-                                    "cloglog": "Cloglog",
-                                    "inverse_power": "Inverse",
-                                    "sqrt": "Sqrt",
-                                },
-                            ),
-                        ),
-                        ui.card(
-                            ui.card_header("Predictors:"),
-                            ui.input_selectize(
-                                "glm_predictors",
-                                "Select Predictors (X):",
-                                choices=[],
-                                multiple=True,
-                            ),
-                            ui.input_selectize(
-                                "glm_interactions",
-                                "Interactions (Optional):",
-                                choices=[],
-                                multiple=True,
-                                options={"placeholder": "Select variable pairs..."},
-                            ),
-                        ),
-                        col_widths=[6, 6],
-                    ),
-                    ui.hr(),
-                    ui.layout_columns(
-                        ui.input_action_button(
-                            "btn_run_glm",
-                            "🚀 Run GLM",
-                            class_="btn-primary btn-sm w-100",
-                        ),
-                        ui.download_button(
-                            "btn_dl_glm_report",
-                            "📥 Download Report",
-                            class_="btn-secondary btn-sm w-100",
-                        ),
-                        col_widths=[6, 6],
-                    ),
-                ),
-                ui.output_ui("out_glm_status"),
-                ui.navset_tab(
-                    ui.nav_panel("📋 Model Results", ui.output_ui("out_glm_report")),
-                    ui.nav_panel("🌳 Forest Plot", ui.output_ui("out_glm_forest")),
-                ),
-            ),
-            # =====================================================================
-            # TAB 3: Linear Regression (OLS)
-            # =====================================================================
-            ui.nav_panel(
-                "📐 Linear Regression",
+                "📉 Continuous Outcomes",
                 # Control section (top)
                 ui.card(
                     ui.card_header("📐 Linear Regression Options"),
@@ -516,112 +627,7 @@ def logit_ui() -> ui.TagChild:
                     ),
                 ),
             ),
-            # =====================================================================
-            # TAB 4: Subgroup Analysis
-            # =====================================================================
-            ui.nav_panel(
-                "🗣️ Subgroup Analysis",
-                # Control section (top)
-                ui.card(
-                    ui.card_header("🗣️ Subgroup Settings"),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Core Variables:"),
-                            ui.input_select(
-                                "sg_outcome", "Outcome (Binary):", choices=[]
-                            ),
-                            ui.input_select(
-                                "sg_treatment", "Treatment/Exposure:", choices=[]
-                            ),
-                            ui.input_select("sg_subgroup", "Stratify By:", choices=[]),
-                        ),
-                        ui.card(
-                            ui.card_header("Adjustment & Advanced:"),
-                            ui.input_selectize(
-                                "sg_adjust",
-                                "Adjustment Covariates:",
-                                choices=[],
-                                multiple=True,
-                            ),
-                            ui.input_numeric(
-                                "sg_min_n", "Min N per subgroup:", value=5, min=2
-                            ),
-                        ),
-                        col_widths=[6, 6],
-                    ),
-                    ui.accordion(
-                        ui.accordion_panel(
-                            "✏️ Custom Settings",
-                            ui.input_text(
-                                "sg_title",
-                                "Custom Title:",
-                                placeholder="Subgroup Analysis...",
-                            ),
-                        ),
-                        open=False,
-                    ),
-                    ui.hr(),
-                    ui.input_action_button(
-                        "btn_run_subgroup",
-                        "🚀 Run Subgroup Analysis",
-                        class_="btn-primary btn-sm w-100",
-                    ),
-                ),
-                # Content section (bottom)
-                ui.output_ui("out_subgroup_status"),
-                ui.navset_tab(
-                    ui.nav_panel(
-                        "🌳 Forest Plot",
-                        ui.output_ui("out_sg_forest_plot"),
-                        ui.hr(),
-                        ui.input_text(
-                            "txt_edit_forest_title",
-                            "Edit Plot Title:",
-                            placeholder="Enter new title...",
-                        ),
-                        ui.input_action_button(
-                            "btn_update_plot_title", "Update Title", class_="btn-sm"
-                        ),
-                    ),
-                    ui.nav_panel(
-                        "📂 Summary & Interpretation",
-                        ui.layout_columns(
-                            ui.value_box(
-                                "Overall OR", ui.output_text("val_overall_or")
-                            ),
-                            ui.value_box(
-                                "Overall P-value", ui.output_text("val_overall_p")
-                            ),
-                            ui.value_box(
-                                "Interaction P-value",
-                                ui.output_text("val_interaction_p"),
-                            ),
-                            col_widths=[4, 4, 4],
-                        ),
-                        ui.hr(),
-                        ui.output_ui("out_interpretation_box"),
-                        ui.h5("Detailed Results"),
-                        ui.output_data_frame("out_sg_table"),
-                        ui.output_ui("out_sg_missing_report"),
-                    ),
-                    ui.nav_panel(
-                        "💾 Exports",
-                        ui.h5("Download Results"),
-                        ui.layout_columns(
-                            ui.download_button(
-                                "dl_sg_html", "💿 HTML Plot", class_="btn-sm w-100"
-                            ),
-                            ui.download_button(
-                                "dl_sg_csv", "📋 CSV Results", class_="btn-sm w-100"
-                            ),
-                            ui.download_button(
-                                "dl_sg_json", "📁 JSON Data", class_="btn-sm w-100"
-                            ),
-                            col_widths=[4, 4, 4],
-                        ),
-                    ),
-                ),
-            ),
+            # (Subgroup Analysis Removed - Moved to Causal Inference Tab)
             # =====================================================================
             # TAB 5: Repeated Measures
             # =====================================================================
@@ -759,7 +765,7 @@ def logit_ui() -> ui.TagChild:
 # Server Logic
 # ==============================================================================
 @module.server
-def logit_server(
+def core_regression_server(
     input: Any,
     output: Any,
     session: Any,
@@ -792,6 +798,8 @@ def logit_server(
     logit_res = reactive.Value(None)
     # Store Poisson results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
     poisson_res = reactive.Value(None)
+    # Store Negative Binomial results
+    nb_res = reactive.Value(None)
     # Store Linear Regression results: {'html_fragment': str, 'html_full': str, 'plots': dict, 'results': dict}
     linear_res = reactive.Value(None)
     # Store subgroup results: SubgroupResult
@@ -812,6 +820,8 @@ def logit_server(
     @reactive.event(
         input.btn_run_logit,
         input.btn_run_poisson,
+        input.btn_run_nb,
+        input.btn_run_subgroup,
         input.btn_run_subgroup,
         input.btn_run_linear,
     )
@@ -942,6 +952,16 @@ def logit_server(
         ui.update_select("poisson_offset", choices=["None"] + cols)
         ui.update_selectize("poisson_exclude", choices=cols)
         ui.update_selectize("poisson_interactions", choices=interaction_choices[:50])
+
+        # Update Tab 2.5 (Negative Binomial) Inputs
+        ui.update_select(
+            "nb_outcome",
+            choices=count_cols if count_cols else cols,
+            selected=default_poisson_y,
+        )
+        ui.update_select("nb_offset", choices=["None"] + cols)
+        ui.update_selectize("nb_exclude", choices=cols)
+        ui.update_selectize("nb_interactions", choices=interaction_choices[:50])
 
         # Update Tab 3 (Linear Regression) Inputs
         # Identify continuous numeric columns for outcome
@@ -1514,6 +1534,222 @@ def logit_server(
             str: Full HTML document containing the Poisson analysis report, or nothing if no results are available.
         """
         res = poisson_res.get()
+        if res:
+            yield res["html_full"]
+
+    # ==========================================================================
+    # LOGIC: Negative Binomial Regression
+    # ==========================================================================
+    @reactive.Effect
+    @reactive.event(input.btn_run_nb)
+    def _run_nb():
+        d = current_df()
+        target = input.nb_outcome()
+        exclude = input.nb_exclude()
+        offset_col = input.nb_offset()
+        interactions_raw = input.nb_interactions()
+
+        if d is None or d.empty:
+            ui.notification_show("Please load data first", type="error")
+            return
+        if not target:
+            ui.notification_show("Please select a count outcome variable", type="error")
+            return
+
+        # Prepare data
+        final_df = d.drop(columns=exclude, errors="ignore")
+        offset = offset_col if offset_col != "None" else None
+
+        # Parse interaction pairs
+        interaction_pairs: list[tuple[str, str]] | None = None
+        if interactions_raw:
+            interaction_pairs = []
+            for pair_str in interactions_raw:
+                parts = pair_str.split(" × ")
+                if len(parts) == 2:
+                    interaction_pairs.append((parts[0].strip(), parts[1].strip()))
+            logger.info(f"NB: Using {len(interaction_pairs)} interaction pairs")
+
+        with ui.Progress(min=0, max=1) as p:
+            p.set(
+                message="Running Negative Binomial Regression...",
+                detail="Calculating...",
+            )
+
+            try:
+                # Run NB Logic (via refactored poisson_lib)
+                html_rep, irr_res, airr_res, interaction_res = analyze_poisson_outcome(
+                    target,
+                    final_df,
+                    var_meta=var_meta.get(),
+                    offset_col=offset,
+                    interaction_pairs=interaction_pairs,
+                    model_type="negative_binomial",
+                )
+            except Exception as e:
+                ui.notification_show(f"Error: {e!s}", type="error")
+                logger.exception("Negative Binomial regression error")
+                return
+
+            # Generate Forest Plots for IRR
+            fig_adj = None
+            fig_crude = None
+
+            if airr_res:
+                df_adj = pd.DataFrame(
+                    [{"variable": k, **v} for k, v in airr_res.items()]
+                )
+                if not df_adj.empty:
+                    fig_adj = create_forest_plot(
+                        df_adj,
+                        "airr",
+                        "ci_low",
+                        "ci_high",
+                        "variable",
+                        pval_col="p_value",
+                        title="<b>Multivariable: Adjusted IRR</b>",
+                        x_label="Adjusted IRR",
+                    )
+
+            if irr_res:
+                df_crude = pd.DataFrame(
+                    [{"variable": k, **v} for k, v in irr_res.items()]
+                )
+                if not df_crude.empty:
+                    fig_crude = create_forest_plot(
+                        df_crude,
+                        "irr",
+                        "ci_low",
+                        "ci_high",
+                        "variable",
+                        pval_col="p_value",
+                        title="<b>Univariable: Crude IRR</b>",
+                        x_label="Crude IRR",
+                    )
+
+            # --- MANUALLY CONSTRUCT COMPLETE REPORT (Combined Table + Plot) ---
+            nb_fragment_html = html_rep
+
+            # Append Adjusted Plot if available, else Crude
+            plot_html = ""
+            if fig_adj:
+                plot_html = fig_adj.to_html(full_html=False, include_plotlyjs="cdn")
+                nb_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+            elif fig_crude:
+                plot_html = fig_crude.to_html(full_html=False, include_plotlyjs="cdn")
+                nb_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+
+            # Wrap in standard HTML structure for standalone download correctness
+            wrapped_html = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Negative Binomial Regression Report: {html.escape(target)}</title>
+            </head>
+            <body>
+                <div class="report-container">
+                    {nb_fragment_html}
+                </div>
+            </body>
+            </html>
+            """
+            full_nb_html = wrapped_html
+
+            # Store Results
+            nb_res.set(
+                {
+                    "html_fragment": nb_fragment_html,
+                    "html_full": full_nb_html,
+                    "fig_adj": fig_adj,
+                    "fig_crude": fig_crude,
+                }
+            )
+
+            ui.notification_show("✅ NB Analysis Complete!", type="message")
+
+    # --- Render NB Results ---
+    @render.ui
+    def out_nb_status():
+        res = nb_res.get()
+        if res:
+            return ui.div(
+                ui.h5("✅ Negative Binomial Regression Complete"),
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+            )
+        return None
+
+    @render.ui
+    def out_nb_html_report():
+        res = nb_res.get()
+        if res:
+            return ui.card(
+                ui.card_header("📋 Report"),
+                ui.HTML(res["html_fragment"]),
+            )
+        return ui.card(
+            ui.card_header("📋 Report"),
+            ui.div(
+                "Run analysis to see detailed report.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+            ),
+        )
+
+    @render.ui
+    def ui_nb_forest_tabs():
+        res = nb_res.get()
+        if not res:
+            return ui.div(
+                "Run analysis to see forest plots.",
+                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+            )
+
+        tabs = []
+        if res["fig_crude"]:
+            tabs.append(ui.nav_panel("Crude IRR", ui.output_ui("out_nb_forest_crude")))
+        if res["fig_adj"]:
+            tabs.append(ui.nav_panel("Adjusted IRR", ui.output_ui("out_nb_forest_adj")))
+
+        if not tabs:
+            return ui.div("No forest plots available.", class_="text-muted")
+        return ui.navset_card_tab(*tabs)
+
+    @render.ui
+    def out_nb_forest_adj():
+        res = nb_res.get()
+        if res is None or not res.get("fig_adj"):
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+        html_str = plotly_figure_to_html(
+            res["fig_adj"],
+            div_id="plot_nb_forest_adj",
+            include_plotlyjs="cdn",
+            responsive=True,
+        )
+        return ui.HTML(html_str)
+
+    @render.ui
+    def out_nb_forest_crude():
+        res = nb_res.get()
+        if res is None or not res.get("fig_crude"):
+            return ui.div(
+                ui.markdown("⏳ *Waiting for results...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+        html_str = plotly_figure_to_html(
+            res["fig_crude"],
+            div_id="plot_nb_forest_crude",
+            include_plotlyjs="cdn",
+            responsive=True,
+        )
+        return ui.HTML(html_str)
+
+    @render.download(filename="nb_report.html")
+    def btn_dl_nb_report():
+        res = nb_res.get()
         if res:
             yield res["html_full"]
 

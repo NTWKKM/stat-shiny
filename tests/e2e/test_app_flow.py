@@ -76,7 +76,10 @@ class TestAppLoading:
         # Check for main navigation tabs
         expected_tabs = [
             "Data Management",
-            "Regression Models",
+            "Data Management",
+            "Core Regression Models",
+            "Advanced Inference",
+            "Causal Inference",
             "Survival Analysis",
             "Settings",
         ]
@@ -110,19 +113,37 @@ class TestTabNavigation:
         file_input = page.locator("input[type='file']").first
         expect(file_input).to_be_visible()
 
-    def test_navigate_to_regression_models(self, page: Page):
+    def test_navigate_to_core_regression_models(self, page: Page):
         """
-        ✅ Test navigation to Regression Models tab.
+        ✅ Test navigation to Core Regression Models tab.
 
         Given: The app is loaded
-        When: Clicking "Regression Models" tab
-        Then: Binary Logistic Regression section is visible
+        When: Clicking "Core Regression Models" tab
+        Then: Binary Outcomes section is visible
+        and: Count & Special tab contains GLM
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Regression Models").click()
+        page.get_by_role("tab", name="Core Regression Models").click()
 
-        expect(page.get_by_text("Binary Logistic Regression")).to_be_visible()
+        expect(page.get_by_text("Binary Outcomes").first).to_be_visible()
         expect(page.get_by_label("Select Outcome")).to_be_visible()
+
+        # Check for nested GLM structure
+        page.get_by_role("tab", name="Count & Special").click()
+        expect(page.get_by_role("tab", name="Generalized Linear Model")).to_be_visible()
+
+    def test_navigate_to_advanced_inference(self, page: Page):
+        """
+        ✅ Test navigation to Advanced Inference tab.
+
+        Given: The app is loaded
+        When: Clicking "Advanced Inference" tab
+        Then: Mediation Analysis section is visible
+        """
+        page.goto(BASE_URL)
+        page.get_by_role("tab", name="Advanced Inference").click()
+
+        expect(page.get_by_text("Mediation Analysis").first).to_be_visible()
 
     def test_navigate_to_survival_analysis(self, page: Page):
         """
@@ -136,6 +157,13 @@ class TestTabNavigation:
         page.get_by_role("tab", name="Survival Analysis").click()
 
         expect(page.get_by_text("Kaplan-Meier").first).to_be_visible()
+
+    def test_navigate_to_causal_inference(self, page: Page):
+        """Test navigation to the Causal Inference tab."""
+        page.goto(BASE_URL)
+        page.get_by_role("tab", name="Causal Inference").click()
+        expect(page.get_by_role("heading", name="🎯 Causal Inference")).to_be_visible()
+        expect(page.get_by_role("tab", name="PSM & IPW")).to_be_visible()
 
     def test_navigate_to_settings(self, page: Page):
         """
@@ -218,7 +246,7 @@ class TestRegressionModelsWorkflow:
         Then: Selector is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Regression Models").click()
+        page.get_by_role("tab", name="Core Regression Models").click()
 
         expect(page.get_by_label("Select Outcome")).to_be_visible()
 
@@ -231,7 +259,7 @@ class TestRegressionModelsWorkflow:
         Then: Button is present (may be disabled without data)
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Regression Models").click()
+        page.get_by_role("tab", name="Core Regression Models").click()
 
         # Wait for UI to fully load
         page.wait_for_timeout(500)
@@ -349,7 +377,9 @@ class TestErrorHandling:
 
         # Navigate through all tabs
         for tab_name in [
-            "Regression Models",
+            "Core Regression Models",
+            "Advanced Inference",
+            "Causal Inference",
             "Survival Analysis",
             "Settings",
             "Data Management",
