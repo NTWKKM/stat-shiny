@@ -107,8 +107,8 @@ class TestTabNavigation:
         page.get_by_role("tab", name="Data Management").click()
 
         # Verify file upload input exists
-        file_inputs = page.query_selector_all("input[type='file']")
-        assert len(file_inputs) > 0, "File upload input not found"
+        file_input = page.locator("input[type='file']").first
+        expect(file_input).to_be_visible()
 
     def test_navigate_to_regression_models(self, page: Page):
         """
@@ -309,6 +309,11 @@ class TestErrorHandling:
         Then: No JavaScript errors are logged
         """
         errors = []
+        console_errors = []
+        def on_console(msg):
+            if msg.type == "error":
+                console_errors.append(msg.text)
+        page.on("console", on_console)
         page.on("pageerror", lambda e: errors.append(str(e)))
 
         page.goto(BASE_URL)
@@ -316,7 +321,9 @@ class TestErrorHandling:
 
         # Filter out known non-critical errors if any
         # Assert no page errors occurred
-        assert not errors, f"JavaScript errors: {errors}"
+        assert not errors and not console_errors, (
+            f"JavaScript errors: {errors}; console errors: {console_errors}"
+        )
 
     def test_navigation_has_no_console_errors(self, page: Page):
         """
@@ -327,6 +334,11 @@ class TestErrorHandling:
         Then: No critical errors occur
         """
         errors = []
+        console_errors = []
+        def on_console(msg):
+            if msg.type == "error":
+                console_errors.append(msg.text)
+        page.on("console", on_console)
         page.on("pageerror", lambda e: errors.append(str(e)))
 
         page.goto(BASE_URL)
@@ -342,7 +354,9 @@ class TestErrorHandling:
             page.wait_for_timeout(300)
 
         # Check for critical errors only
-        assert not errors, f"JavaScript errors: {errors}"
+        assert not errors and not console_errors, (
+            f"JavaScript errors: {errors}; console errors: {console_errors}"
+        )
 
 
 # ============================================================================
