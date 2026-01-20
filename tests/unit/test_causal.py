@@ -102,10 +102,13 @@ def test_calculate_e_value():
 
 def test_calculate_ps_separation():
     """Test PS calculation with perfect separation."""
-    df = pd.DataFrame({
-        "X": np.linspace(0, 10, 20),
-        "Treatment": [0]*10 + [1]*10 # Perfect correlation with X if X is sorted
-    })
+    df = pd.DataFrame(
+        {
+            "X": np.linspace(0, 10, 20),
+            "Treatment": [0] * 10
+            + [1] * 10,  # Perfect correlation with X if X is sorted
+        }
+    )
     # This might log warning or return probabilities close to 0/1
     # statsmodels Logit might raise PerfectSeparationError
     try:
@@ -117,11 +120,13 @@ def test_calculate_ps_separation():
         # If it raises, that's also an acceptable outcome for perfect separation
         pass
 
+
 def test_check_balance_missing_cols():
     """Test error when cols are missing."""
     df = pd.DataFrame({"A": [1, 2], "T": [0, 1]})
     with pytest.raises(KeyError):
-        check_balance(df, "T", ["B"]) # B missing
+        check_balance(df, "T", ["B"])  # B missing
+
 
 def test_calculate_e_value_invalid():
     """Test invalid inputs for E-value."""
@@ -129,4 +134,3 @@ def test_calculate_e_value_invalid():
     res = calculate_e_value(-1.0)
     assert "error" in res
     assert "positive" in res["error"]
-

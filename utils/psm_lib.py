@@ -23,7 +23,9 @@ def calculate_propensity_score(
         cols_needed = [treatment] + covariates
         df_analysis = df_analysis.dropna(subset=cols_needed)
         missing_info["rows_after"] = len(df_analysis)
-        missing_info["rows_removed"] = missing_info["rows_before"] - missing_info["rows_after"]
+        missing_info["rows_removed"] = (
+            missing_info["rows_before"] - missing_info["rows_after"]
+        )
 
         X = df_analysis[covariates]
         X = sm.add_constant(X)
@@ -103,10 +105,12 @@ def perform_matching(
         return pd.DataFrame()
 
     # Combine matched pairs
-    matched_df = pd.concat([
-        df.loc[matched_treated_idx],
-        df.loc[matched_control_idx],
-    ])
+    matched_df = pd.concat(
+        [
+            df.loc[matched_treated_idx],
+            df.loc[matched_control_idx],
+        ]
+    )
 
     return matched_df
 
@@ -147,10 +151,12 @@ def compute_smd(
         pooled_sd = np.sqrt((var_t + var_c) / 2)
         smd = (mean_t - mean_c) / pooled_sd if pooled_sd > 0 else 0
 
-        results.append({
-            "Variable": cov,
-            "SMD": abs(smd),
-        })
+        results.append(
+            {
+                "Variable": cov,
+                "SMD": abs(smd),
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -181,28 +187,34 @@ def plot_love_plot(
     fig = go.Figure()
 
     # Add unmatched (pre) points
-    fig.add_trace(go.Scatter(
-        x=merged["SMD_pre"],
-        y=merged["Variable"],
-        mode="markers",
-        name="Unmatched",
-        marker=dict(symbol="circle", size=12, color="#e74c3c"),
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=merged["SMD_pre"],
+            y=merged["Variable"],
+            mode="markers",
+            name="Unmatched",
+            marker=dict(symbol="circle", size=12, color="#e74c3c"),
+        )
+    )
 
     # Add matched (post) points
-    fig.add_trace(go.Scatter(
-        x=merged["SMD_post"],
-        y=merged["Variable"],
-        mode="markers",
-        name="Matched",
-        marker=dict(symbol="diamond", size=12, color="#27ae60"),
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=merged["SMD_post"],
+            y=merged["Variable"],
+            mode="markers",
+            name="Matched",
+            marker=dict(symbol="diamond", size=12, color="#27ae60"),
+        )
+    )
 
     # Add reference lines
-    fig.add_vline(x=0.1, line_dash="dash", line_color="gray",
-                  annotation_text="0.1 threshold")
-    fig.add_vline(x=0.2, line_dash="dot", line_color="lightgray",
-                  annotation_text="0.2 threshold")
+    fig.add_vline(
+        x=0.1, line_dash="dash", line_color="gray", annotation_text="0.1 threshold"
+    )
+    fig.add_vline(
+        x=0.2, line_dash="dot", line_color="lightgray", annotation_text="0.2 threshold"
+    )
 
     fig.update_layout(
         title="Love Plot: SMD Before vs After Matching",
@@ -255,7 +267,9 @@ def generate_psm_report(title: str, elements: list[dict]) -> str:
         elif elem_type == "table" and data is not None:
             html_parts.append(data.to_html(index=False, classes="table"))
         elif elem_type == "plot" and data is not None:
-            plot_html = data.to_html(full_html=False, include_plotlyjs=False, div_id=f"plot_{i}")
+            plot_html = data.to_html(
+                full_html=False, include_plotlyjs=False, div_id=f"plot_{i}"
+            )
             html_parts.append(plot_html)
 
     html_parts.extend(["</body></html>"])
