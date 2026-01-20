@@ -34,8 +34,6 @@ from scipy import stats
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 
-# Internal imports
-
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
@@ -48,6 +46,9 @@ from utils.formatting import (
     format_ci_html,
     format_p_value,
 )
+
+# Internal imports
+
 
 logger = get_logger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
@@ -702,7 +703,7 @@ def stepwise_selection(
     }
 
 
-def format_stepwise_history(history: list[Dict]) -> pd.DataFrame:
+def format_stepwise_history(history: list[dict[str, Any]]) -> pd.DataFrame:
     """Format stepwise selection history as a DataFrame."""
     if not history:
         return pd.DataFrame()
