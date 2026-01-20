@@ -14,7 +14,7 @@ on:
 
 jobs:
   # ==========================================
-  # Unit Tests (Matrix: 3.11 - 3.14)
+  # Unit Tests (Matrix: 3.12 - 3.14)
   # ==========================================
   unit-tests:
     name: Unit Tests (Py ${{ matrix.python-version }})
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false # ถ้าเวอร์ชันหนึ่งพัง เวอร์ชันอื่นยังรันต่อ
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14-dev"]
+        python-version: ["3.12", "3.13", "3.14-dev"]
 
     steps:
       - name: Checkout code
@@ -95,7 +95,7 @@ jobs:
           retention-days: 7
 
   # ==========================================
-  # Integration Tests (Matrix: 3.11 - 3.14)
+  # Integration Tests (Matrix: 3.12 - 3.14)
   # ==========================================
   integration-tests:
     name: Integration Tests (Py ${{ matrix.python-version }})
@@ -103,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14-dev"]
+        python-version: ["3.12", "3.13", "3.14-dev"]
 
     steps:
       - name: Checkout code
