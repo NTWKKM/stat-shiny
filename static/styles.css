@@ -24,12 +24,21 @@
             --color-surface: #FFFFFF;
             
             /* Spacing System - INCREASED for better proportions */
+            --spacing-2xs: 2px;
+            --spacing-1-5xs: 6px;
             --spacing-xs: 4px;
             --spacing-sm: 8px;
+            --spacing-1-5sm: 12px;
             --spacing-md: 16px;       /* Increased from 12px */
             --spacing-lg: 20px;       /* Increased from 16px */
             --spacing-xl: 32px;       /* Increased from 24px */
             --spacing-2xl: 48px;      /* Increased from 32px */
+            
+            /* Component-Specific Spacing */
+            --spacing-card-vertical: 24px;
+            --spacing-section-vertical: 32px;
+            --spacing-input-gap: 8px;
+            --spacing-form-section: 20px;
             
             /* Border Radius */
             --radius-sm: 4px;
@@ -455,6 +464,59 @@
             color: #0F2440 !important;
             background-color: #E8EEF7;
             font-weight: 600;
+        }
+        
+        /* Dropdown Menu (nav_menu) Styles */
+        .navbar .dropdown-toggle {
+            color: #6B7280 !important;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 8px 16px !important;
+            margin: 0 4px;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+            background: transparent;
+            border: none;
+        }
+        
+        .navbar .dropdown-toggle:hover,
+        .navbar .dropdown-toggle:focus {
+            color: #1E3A5F !important;
+            background-color: #F8F9FA;
+        }
+        
+        .navbar .dropdown-toggle::after {
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+        
+        .navbar .dropdown-menu {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 8px 0;
+            min-width: 200px;
+            margin-top: 4px;
+        }
+        
+        .navbar .dropdown-item {
+            color: #1F2328;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 10px 20px;
+            transition: all var(--transition-fast);
+        }
+        
+        .navbar .dropdown-item:hover {
+            background-color: #F8F9FA;
+            color: #1E3A5F;
+        }
+        
+        .navbar .dropdown-item.active,
+        .navbar .dropdown-item:active {
+            background-color: #E8EEF7;
+            color: #0F2440;
         }
         
         /* Sidebar Navigation */

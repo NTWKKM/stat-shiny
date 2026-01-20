@@ -14,7 +14,9 @@ from shiny import module, reactive, render, req, ui
 
 from config import CONFIG
 from logger import get_logger
-from tabs._common import get_color_palette
+from tabs._common import (
+    get_color_palette,
+)
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import create_missing_data_report_html
 from utils.linear_lib import (

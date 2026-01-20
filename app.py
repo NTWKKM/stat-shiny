@@ -18,6 +18,7 @@ from tabs import (
     tab_corr,
     tab_data,  # 🟢 Data Module
     tab_diag,
+    tab_sample_size,  # 🟢 Sample Size Module
     tab_settings,
     tab_survival,
 )
@@ -42,41 +43,76 @@ footer_ui = ui.tags.div(
 )
 
 app_ui = ui.page_navbar(
-    # --- 1. Data Management Module ---
-    ui.nav_panel("📁 Data Management", wrap_with_container(tab_data.data_ui("data"))),
-    # --- 2. Table 1 & Matching Module ---
+    # ========================================
+    # 📁 TAB 1: DATA MANAGEMENT (Standalone)
+    # ========================================
+    ui.nav_panel(
+        "📁 Data Management",
+        wrap_with_container(tab_data.data_ui("data")),
+    ),
+    # ========================================
+    # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
+    # ========================================
     ui.nav_panel(
         "📋 Table 1 & Matching",
         wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
     ),
-    # --- 3. Diagnostic Tests Module ---
-    ui.nav_panel("🧪 Diagnostic Tests", wrap_with_container(tab_diag.diag_ui("diag"))),
-    # --- 4. Correlation & ICC Module ---
-    ui.nav_panel("📈 Correlation & ICC", wrap_with_container(tab_corr.corr_ui("corr"))),
-    # --- 5. Core Regression Models Module ---
-    ui.nav_panel(
-        "📊 Core Regression Models",
-        wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
+    # ========================================
+    # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
+    # ========================================
+    ui.nav_menu(
+        "📊 General Statistics",
+        ui.nav_panel(
+            "Diagnostic Tests",
+            wrap_with_container(tab_diag.diag_ui("diag")),
+        ),
+        ui.nav_panel(
+            "Correlation & ICC",
+            wrap_with_container(tab_corr.corr_ui("corr")),
+        ),
     ),
-    # --- 6. Survival Analysis Module ---
-    ui.nav_panel(
-        "⏳ Survival Analysis",
-        wrap_with_container(tab_survival.survival_ui("survival")),
+    # ========================================
+    # 🔬 TAB 4: ADVANCED MODELING (Dropdown)
+    # ========================================
+    ui.nav_menu(
+        "🔬 Advanced Modeling",
+        ui.nav_panel(
+            "Regression Analysis",
+            wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
+        ),
+        ui.nav_panel(
+            "Survival Analysis",
+            wrap_with_container(tab_survival.survival_ui("survival")),
+        ),
+        ui.nav_panel(
+            "Advanced Inference",
+            wrap_with_container(tab_advanced_inference.advanced_inference_ui("adv_inf")),
+        ),
     ),
-    # --- 7. Causal Inference ---
-    ui.nav_panel(
-        "🎯 Causal Inference",
-        wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
+    # ========================================
+    # 🏥 TAB 5: CLINICAL TOOLS (Dropdown)
+    # ========================================
+    ui.nav_menu(
+        "🏥 Clinical Tools",
+        ui.nav_panel(
+            "Sample Size Calculator",
+            wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
+        ),
+        ui.nav_panel(
+            "Causal Inference Methods",
+            wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
+        ),
     ),
-    # --- 8. Advanced Inference ---
+    # ========================================
+    # ⚙️ TAB 6: SETTINGS (Standalone)
+    # ========================================
     ui.nav_panel(
-        "🔍 Advanced Inference",
-        wrap_with_container(tab_advanced_inference.advanced_inference_ui("adv_inf")),
+        "⚙️ Settings",
+        wrap_with_container(tab_settings.settings_ui("settings")),
     ),
-    # --- 9. Settings Module ---
-    ui.nav_panel(
-        "⚙️ Settings", wrap_with_container(tab_settings.settings_ui("settings"))
-    ),
+    # ========================================
+    # NAVBAR OPTIONS
+    # ========================================
     title=CONFIG.get("ui.page_title", "Medical Stat Tool"),
     id="main_navbar",
     window_title="Medical Stat Tool",
@@ -191,7 +227,10 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # Because @module.server will automatically retrieve those values from ID "survival"
     tab_survival.survival_server("survival", df, var_meta, df_matched, is_matched)
 
-    # --- 7. Settings Module ---
+    # --- 7. Sample Size Calculator ---
+    tab_sample_size.sample_size_server("sample_size")
+
+    # --- 8. Settings Module ---
     tab_settings.settings_server("settings", CONFIG)
 
 
