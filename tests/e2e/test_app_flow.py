@@ -238,8 +238,7 @@ class TestRegressionModelsWorkflow:
 
         # Look for any run/analyze button
         run_buttons = page.get_by_role("button").filter(has_text="Run")
-        if run_buttons.count() > 0:
-            expect(run_buttons.first).to_be_visible()
+        expect(run_buttons.first).to_be_visible()
 
 
 # ============================================================================

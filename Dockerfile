@@ -21,7 +21,7 @@ WORKDIR /build
 
 # Install build dependencies (if needed for C extensions)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  gcc \
+  gcc=$(apt-cache show gcc | grep -m1 Version | cut -d' ' -f2) \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy and install requirements
