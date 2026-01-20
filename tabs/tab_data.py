@@ -290,6 +290,28 @@ def data_server(
             elif len(tvc_df) > n:
                 tvc_df = tvc_df.iloc[:n]
 
+            # [ADDED] Expanded Variables for Comprehensive Testing
+            # Poisson: Count Data
+            visits = np.random.poisson(2, n)
+            # Inflation for some high-risk patients
+            visits = np.where(group == 1, visits + np.random.poisson(1, n), visits)
+
+            # Linear/Gamma: Continuous (Skewed Cost)
+            cost_base = np.random.gamma(2, 2000, n)  # Mean ~ 4000
+            cost = cost_base + (diabetes * 1000) + (hypertension * 500) + (group * 2000)
+            cost = cost.round(2)
+
+            # Linear: Continuous (Normal-ish)
+            chol = np.random.normal(200, 40, n).astype(int).clip(100, 400)
+            
+            # Binary Predictors
+            statin = np.random.binomial(1, 0.4, n)
+            kidney_dz = np.random.binomial(1, 0.15, n)
+
+            # Poisson/Count: History of Falls (Rare count)
+            falls = np.random.poisson(0.5, n)
+
+
             data = {
                 "ID": range(1, n + 1),
                 "Treatment_Group": group,
@@ -298,9 +320,15 @@ def data_server(
                 "BMI_kgm2": bmi,
                 "Comorb_Diabetes": diabetes,
                 "Comorb_Hypertension": hypertension,
+                "Comorb_Kidney_Disease": kidney_dz,
+                "Medication_Statin": statin,
                 "Outcome_Cured": outcome_cured,
                 "Time_Months": time_obs,
                 "Status_Death": status_death,
+                "Count_Hospital_Visits": visits,
+                "History_Falls": falls,
+                "Cost_Treatment_USD": cost,
+                "Lab_Cholesterol_mgdL": chol,
                 "Gold_Standard_Disease": gold_std,
                 "Test_Score_Rapid": rapid_score,
                 "Diagnosis_Dr_A": rater_a,
@@ -358,6 +386,16 @@ def data_server(
                     "map": {0: "No", 1: "Yes"},
                     "label": "Hypertension",
                 },
+                "Comorb_Kidney_Disease": {
+                    "type": "Categorical",
+                    "map": {0: "No", 1: "Yes"},
+                    "label": "Kidney Disease",
+                },
+                "Medication_Statin": {
+                    "type": "Categorical",
+                    "map": {0: "No", 1: "Yes"},
+                    "label": "Statin Use",
+                },
                 "Outcome_Cured": {
                     "type": "Categorical",
                     "map": {0: "Not Cured", 1: "Cured"},
@@ -383,11 +421,32 @@ def data_server(
                     "map": {0: "Normal", 1: "Abnormal"},
                     "label": "Diagnosis (Dr. B)",
                 },
+                # Continuous & Count
                 "Age_Years": {"type": "Continuous", "label": "Age (Years)", "map": {}},
                 "BMI_kgm2": {"type": "Continuous", "label": "BMI (kg/m²)", "map": {}},
                 "Time_Months": {
                     "type": "Continuous",
                     "label": "Time (Months)",
+                    "map": {},
+                },
+                "Count_Hospital_Visits": {
+                    "type": "Continuous", # Treated as numeric
+                    "label": "Hospital Visits (Count)",
+                    "map": {},
+                },
+                 "History_Falls": {
+                    "type": "Continuous",
+                    "label": "History of Falls (Count)",
+                    "map": {},
+                },
+                "Cost_Treatment_USD": {
+                    "type": "Continuous",
+                    "label": "Treatment Cost ($)",
+                    "map": {},
+                },
+                "Lab_Cholesterol_mgdL": {
+                    "type": "Continuous",
+                    "label": "Cholesterol (mg/dL)",
                     "map": {},
                 },
                 "Test_Score_Rapid": {
