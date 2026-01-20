@@ -877,8 +877,14 @@ def baseline_matching_server(
         res = psm_results.get()
         if not res:
             return "-"
-        good = (res["smd_post"]["SMD"] < 0.1).sum()
-        total = len(res["smd_post"])
+        # Defensive checks for missing/empty SMD data
+        smd_post = res.get("smd_post")
+        if smd_post is None or smd_post.empty:
+            return "-"
+        if "SMD" not in smd_post.columns or smd_post["SMD"].dropna().empty:
+            return "-"
+        good = (smd_post["SMD"] < 0.1).sum()
+        total = len(smd_post)
         return f"{good}/{total}"
 
     @render.ui
@@ -886,12 +892,33 @@ def baseline_matching_server(
         res = psm_results.get()
         if not res:
             return "-"
-        merged = res["smd_pre"].merge(
-            res["smd_post"], on="Variable", suffixes=("_pre", "_post")
-        )
-        avg_pre = merged["SMD_pre"].mean()
-        avg_post = merged["SMD_post"].mean()
-        imp = ((avg_pre - avg_post) / avg_pre * 100) if avg_pre > 0 else 0
+        # Defensive checks for missing SMD DataFrames
+        smd_pre = res.get("smd_pre")
+        smd_post = res.get("smd_post")
+        if smd_pre is None or smd_post is None:
+            return "-"
+        if smd_pre.empty or smd_post.empty:
+            return "-"
+        # Merge and verify result has valid numeric data
+        try:
+            merged = smd_pre.merge(smd_post, on="Variable", suffixes=("_pre", "_post"))
+        except Exception:
+            return "-"
+        if merged.empty:
+            return "-"
+        if "SMD_pre" not in merged.columns or "SMD_post" not in merged.columns:
+            return "-"
+        # Check for non-empty numeric values
+        smd_pre_vals = merged["SMD_pre"].dropna()
+        smd_post_vals = merged["SMD_post"].dropna()
+        if smd_pre_vals.empty or smd_post_vals.empty:
+            return "-"
+        avg_pre = smd_pre_vals.mean()
+        avg_post = smd_post_vals.mean()
+        # Protect against avg_pre == 0 or NaN
+        if pd.isna(avg_pre) or pd.isna(avg_post) or avg_pre == 0:
+            return "-"
+        imp = (avg_pre - avg_post) / avg_pre * 100
         return f"{imp:.1f}%"
 
     @render.ui
@@ -1013,15 +1040,11 @@ def baseline_matching_server(
             {
                 "Stage": ["Before", "After"],
                 "Treated (1)": [
-                    (res["treat_pre_sum"] if "treat_pre_sum" in res else "-"),
+                    res["treat_pre_sum"],
                     res["treat_post_sum"],
                 ],
                 "Control (0)": [
-                    (
-                        res["df_ps_len"] - res["treat_pre_sum"]
-                        if "treat_pre_sum" in res
-                        else "-"
-                    ),
+                    res["df_ps_len"] - res["treat_pre_sum"],
                     (res["df_matched_len"] - res["treat_post_sum"]),
                 ],
             }
