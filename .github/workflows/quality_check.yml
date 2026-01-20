@@ -14,7 +14,7 @@ on:
 
 jobs:
   # ==========================================
-  # Unit Tests (Matrix: 3.11 - 3.14)
+  # Unit Tests (Matrix: 3.12 - 3.14)
   # ==========================================
   unit-tests:
     name: Unit Tests (Py ${{ matrix.python-version }})
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false # ถ้าเวอร์ชันหนึ่งพัง เวอร์ชันอื่นยังรันต่อ
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14-dev"]
+        python-version: ["3.12", "3.13", "3.14-dev"]
 
     steps:
       - name: Checkout code
@@ -95,7 +95,7 @@ jobs:
           retention-days: 7
 
   # ==========================================
-  # Integration Tests (Matrix: 3.11 - 3.14)
+  # Integration Tests (Matrix: 3.12 - 3.14)
   # ==========================================
   integration-tests:
     name: Integration Tests (Py ${{ matrix.python-version }})
@@ -103,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14-dev"]
+        python-version: ["3.12", "3.13", "3.14-dev"]
 
     steps:
       - name: Checkout code
@@ -149,18 +149,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 pylint black isort
+          pip install ruff
 
-      - name: Check imports with isort
-        run: isort --check-only . --skip venv
+      - name: Lint with Ruff
+        run: ruff check .
         continue-on-error: true
 
-      - name: Check formatting with black
-        run: black --check . --exclude venv
-        continue-on-error: true
-
-      - name: Lint with flake8
-        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Check formatting with Ruff
+        run: ruff format --check .
         continue-on-error: true
 
   # ==========================================

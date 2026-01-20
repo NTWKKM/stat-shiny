@@ -6,22 +6,24 @@ including analysis parameters, UI settings, logging configuration, and runtime o
 
 Usage:
     from config import CONFIG
-    
+
     # Access config
     print(CONFIG.get('analysis.logit_method'))
-    
+
     # Update config (runtime)
     CONFIG.update('analysis.logit_method', 'firth')
-    
+
     # Get with default
     value = CONFIG.get('some.nested.key', default='default_value')
 """
+
+from __future__ import annotations
 
 import json
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 from logger import get_logger
 
@@ -31,7 +33,7 @@ logger = get_logger(__name__)
 class ConfigManager:
     """
     Centralized configuration management with hierarchical key access.
-    
+
     Supports:
     - Nested dictionary access with dot notation
     - Default values and fallbacks
@@ -39,15 +41,15 @@ class ConfigManager:
     - Config validation
     - Runtime updates
     """
-    
-    def __init__(self, config_dict: Optional[Dict[str, Any]] = None) -> None:
+
+    def __init__(self, config_dict: dict[str, Any] | None = None) -> None:
         """
         Create a ConfigManager populated with the given configuration or the module defaults and apply environment variable overrides.
-        
+
         Parameters:
             config_dict (dict | None): Optional initial configuration dictionary to use instead of the built-in defaults. If None, the manager is initialized from the default configuration.
         """
-        self._config: Dict[str, Any] = config_dict or self._get_default_config()
+        self._config: dict[str, Any] = config_dict or self._get_default_config()
         self._env_prefix = "MEDSTAT_"
         self._load_env_overrides()
         self._sync_missing_legacy()
@@ -56,18 +58,20 @@ class ConfigManager:
         analysis = self._config.get("analysis", {})
         missing = analysis.get("missing", {})
         if isinstance(missing, dict):
-            analysis["missing_strategy"] = missing.get("strategy", analysis.get("missing_strategy"))
+            analysis["missing_strategy"] = missing.get(
+                "strategy", analysis.get("missing_strategy")
+            )
             analysis["missing_threshold_pct"] = missing.get(
                 "report_threshold_pct", analysis.get("missing_threshold_pct")
             )
-    
+
     @staticmethod
-    def _get_default_config() -> Dict[str, Any]:
+    def _get_default_config() -> dict[str, Any]:
         """
         Return the module's default nested configuration for the application.
-        
+
         Returns:
-            Dict[str, Any]: Default configuration dictionary with top-level sections:
+            dict[str, Any]: Default configuration dictionary with top-level sections:
             'analysis', 'stats', 'ui', 'logging', 'performance', 'validation', and 'debug'.
         """
         return {
@@ -78,23 +82,19 @@ class ConfigManager:
                 "logit_max_iter": 100,
                 "logit_screening_p": 0.20,  # Variables with p < this get into multivariate
                 "logit_min_cases": 10,  # Minimum cases for multivariate analysis
-    
                 # Variable Detection
                 "var_detect_threshold": 10,  # Unique values threshold for categorical/continuous
                 "var_detect_decimal_pct": 0.30,  # Decimal % for continuous classification
-    
                 # P-value Handling (NEJM-oriented defaults)
-                "pvalue_bounds_lower": 0.001,      # NEJM: show P<0.001 for smaller values
-                "pvalue_bounds_upper": 0.999,       # NEJM: often cap display at >0.99
+                "pvalue_bounds_lower": 0.001,  # NEJM: show P<0.001 for smaller values
+                "pvalue_bounds_upper": 0.999,  # NEJM: often cap display at >0.99
                 "pvalue_clip_tolerance": 0.00001,  # tighter tolerance for extreme p
                 "pvalue_format_small": "<0.001",
                 "pvalue_format_large": ">0.999",
-                "significance_level": 0.05,        # Added for utils/formatting.py
-    
+                "significance_level": 0.05,  # Added for utils/formatting.py
                 # Survival Analysis
                 "survival_method": "kaplan-meier",  # 'kaplan-meier', 'weibull'
                 "cox_method": "efron",  # 'efron', 'breslow'
-    
                 # Missing Data
                 "missing": {
                     "strategy": "complete-case",  # 'complete-case', 'drop', 'impute' (future)
@@ -121,47 +121,39 @@ class ConfigManager:
                 "page_title": "Medical Stat Tool",
                 "layout": "wide",
                 "theme": "light",  # 'light', 'dark', 'auto'
-                
                 # Sidebar
                 "sidebar_width": 300,
                 "show_sidebar_logo": True,
-                
                 # Tables
                 "table_max_rows": 1000,  # Max rows to display in data table
                 "table_pagination": True,
                 "table_decimal_places": 3,
-                
                 # Styles (Added for utils/formatting.py to centralize CSS)
                 "styles": {
                     "sig_p_value": "font-weight: bold; color: #d63384;",
-                    "sig_ci": "font-weight: bold; color: #198754;"
+                    "sig_ci": "font-weight: bold; color: #198754;",
                 },
-                
                 # Plots
                 "plot_width": 10,
                 "plot_height": 6,
                 "plot_dpi": 100,
                 "plot_style": "seaborn",
             },
-            
             # ========== LOGGING SETTINGS ==========
             "logging": {
                 "enabled": True,
                 "level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
                 "format": "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
                 "date_format": "%Y-%m-%d %H:%M:%S",
-                
                 # File Logging
                 "file_enabled": False,  # Set to True to enable file logging
                 "log_dir": "logs",
                 "log_file": "app.log",
                 "max_log_size": 10485760,  # 10MB in bytes
                 "backup_count": 5,
-                
                 # Console Logging
                 "console_enabled": True,
                 "console_level": "INFO",
-                
                 # What to Log
                 "log_file_operations": True,
                 "log_data_operations": True,
@@ -169,7 +161,6 @@ class ConfigManager:
                 "log_ui_events": False,  # Can be verbose
                 "log_performance": True,  # Timing information
             },
-            
             # ========== PERFORMANCE SETTINGS ==========
             "performance": {
                 "enable_caching": True,
@@ -177,7 +168,6 @@ class ConfigManager:
                 "enable_compression": False,
                 "num_threads": 4,
             },
-            
             # ========== VALIDATION SETTINGS ==========
             "validation": {
                 "strict_mode": False,  # Warn vs Error on validation failures
@@ -185,7 +175,6 @@ class ConfigManager:
                 "validate_outputs": True,
                 "auto_fix_errors": True,  # Try to fix issues automatically
             },
-            
             # ========== DEVELOPER SETTINGS ==========
             "debug": {
                 "enabled": False,
@@ -194,28 +183,30 @@ class ConfigManager:
                 "show_timings": False,
             },
         }
-    
+
     def _load_env_overrides(self) -> None:
         """
         Apply configuration overrides from environment variables that start with the MEDSTAT_ prefix.
         """
         for key, value in os.environ.items():
             if key.startswith(self._env_prefix):
-                parts = key[len(self._env_prefix):].lower().split('_')
+                parts = key[len(self._env_prefix) :].lower().split("_")
                 if len(parts) < 2:
                     continue
                 section = parts[0]
-                key_name = '_'.join(parts[1:])
+                key_name = "_".join(parts[1:])
                 try:
                     self.update(f"{section}.{key_name}", value)
                 except (KeyError, ValueError, TypeError) as e:
-                    warnings.warn(f"Failed to set env override {key}={value}: {e}", stacklevel=2)
-    
+                    warnings.warn(
+                        f"Failed to set env override {key}={value}: {e}", stacklevel=2
+                    )
+
     def get(self, key: str, default: Any = None) -> Any:
         """
         Retrieve a configuration value using a dot-separated key path.
         """
-        keys = key.split('.')
+        keys = key.split(".")
         value: Any = self._config
         for k in keys:
             if isinstance(value, dict) and k in value:
@@ -223,12 +214,12 @@ class ConfigManager:
             else:
                 return default
         return value
-    
+
     def update(self, key: str, value: Any) -> None:
         """
         Set an existing configuration value identified by a dot-separated path.
         """
-        keys = key.split('.')
+        keys = key.split(".")
         config = self._config
         for k in keys[:-1]:
             if k not in config:
@@ -240,12 +231,12 @@ class ConfigManager:
         config[final_key] = value
         if key.startswith("analysis.missing") or key.startswith("analysis.missing_"):
             self._sync_missing_legacy()
-    
+
     def set_nested(self, key: str, value: Any, create: bool = False) -> None:
         """
         Set a value in the configuration using a dot-separated path, optionally creating missing intermediate dictionaries.
         """
-        keys = key.split('.')
+        keys = key.split(".")
         config = self._config
         for k in keys[:-1]:
             if k not in config:
@@ -255,29 +246,31 @@ class ConfigManager:
                     raise KeyError(f"Config path '{k}' does not exist")
             config = config[k]
         config[keys[-1]] = value
-    
-    def get_section(self, section: str) -> Dict[str, Any]:
+
+    def get_section(self, section: str) -> dict[str, Any]:
         """
         Return a deep copy of a top-level configuration section.
         """
         import copy
+
         result = self.get(section, {})
         return copy.deepcopy(result) if isinstance(result, dict) else result
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """
         Get a deep copy of the entire configuration dictionary.
         """
         import copy
+
         return copy.deepcopy(self._config)
-    
-    def to_json(self, filepath: Optional[str] = None, pretty: bool = True) -> str:
+
+    def to_json(self, filepath: str | None = None, pretty: bool = True) -> str:
         """
         Serialize the current configuration to a JSON string.
         """
         try:
             json_str = json.dumps(self._config, indent=2 if pretty else None)
-        except (TypeError, ValueError) as e:
+        except (TypeError, ValueError):
             logger.exception("Failed to serialize config to JSON")
             json_str = "{}"
         if filepath:
@@ -286,31 +279,31 @@ class ConfigManager:
             except OSError:
                 logger.exception("Failed to write config to %s", filepath)
         return json_str
-    
-    def validate(self) -> Tuple[bool, List[str]]:
+
+    def validate(self) -> tuple[bool, list[str]]:
         """
         Validate key configuration constraints and collect any violations.
         """
         errors = []
-        screening_p = cast(Optional[float], self.get('analysis.logit_screening_p'))
+        screening_p = cast(float | None, self.get("analysis.logit_screening_p"))
         if screening_p is None or not (0 < screening_p < 1):
             errors.append("analysis.logit_screening_p must be between 0 and 1")
-        
-        lower = cast(Optional[float], self.get('analysis.pvalue_bounds_lower'))
-        upper = cast(Optional[float], self.get('analysis.pvalue_bounds_upper'))
+
+        lower = cast(float | None, self.get("analysis.pvalue_bounds_lower"))
+        upper = cast(float | None, self.get("analysis.pvalue_bounds_upper"))
         if lower is None or upper is None or not (lower < upper):
             errors.append("pvalue_bounds_lower must be < pvalue_bounds_upper")
-        
-        valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-        if self.get('logging.level') not in valid_levels:
+
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        if self.get("logging.level") not in valid_levels:
             errors.append(f"logging.level must be one of {valid_levels}")
-        
-        valid_methods = ['auto', 'firth', 'bfgs', 'default']
-        if self.get('analysis.logit_method') not in valid_methods:
+
+        valid_methods = ["auto", "firth", "bfgs", "default"]
+        if self.get("analysis.logit_method") not in valid_methods:
             errors.append(f"analysis.logit_method must be one of {valid_methods}")
-            
+
         return len(errors) == 0, errors
-    
+
     def __repr__(self) -> str:
         return f"ConfigManager({len(self._config)} sections)"
 
@@ -323,33 +316,33 @@ if __name__ == "__main__":
     """
     Example usage and testing
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Configuration Management System - Test")
-    print("="*60)
-    
+    print("=" * 60)
+
     # Test 1: Get values
     print("\n[Test 1] Getting configuration values:")
     print(f"  Logit method: {CONFIG.get('analysis.logit_method')}")
     print(f"  Logging level: {CONFIG.get('logging.level')}")
     print(f"  Log file enabled: {CONFIG.get('logging.file_enabled')}")
-    
+
     # Test 2: Get with default
     print("\n[Test 2] Getting with defaults:")
     print(f"  Nonexistent key: {CONFIG.get('some.fake.key', 'default_value')}")
-    
+
     # Test 3: Update config
     print("\n[Test 3] Updating configuration:")
     try:
-        CONFIG.update('logging.level', 'DEBUG')
+        CONFIG.update("logging.level", "DEBUG")
         print(f"  ✓ Updated logging.level to: {CONFIG.get('logging.level')}")
     except KeyError as e:
         print(f"  ✗ Error: {e}")
-    
+
     # Test 4: Get section
     print("\n[Test 4] Getting section:")
-    logging_section = CONFIG.get_section('logging')
+    logging_section = CONFIG.get_section("logging")
     print(f"  Logging section keys: {list(logging_section.keys())}")
-    
+
     # Test 5: Validate
     print("\n[Test 5] Validating configuration:")
     is_valid, validation_errors = CONFIG.validate()
@@ -359,12 +352,12 @@ if __name__ == "__main__":
             print(f"    ✗ {err}")
     else:
         print("    ✓ No errors found")
-    
+
     # Test 6: Export to JSON
     print("\n[Test 6] Exporting configuration:")
     json_output = CONFIG.to_json(pretty=False)
     print(f"  JSON length: {len(json_output)} characters")
-    
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)
     print("All tests completed!")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")

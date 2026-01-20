@@ -1,5 +1,4 @@
-"""
-⛳ Survival Analysis Module (Shiny) - MODERN MODULE PATTERN (UPDATED)
+"""⛳ Survival Analysis Module (Shiny) - MODERN MODULE PATTERN (UPDATED)
 
 Provides UI and server logic for:
 - Kaplan-Meier curves with log-rank tests (Enhanced)
@@ -8,49 +7,62 @@ Provides UI and server logic for:
 - Landmark analysis for late endpoints
 - Cox proportional hazards regression (with Model Stats)
 - Subgroup analysis for treatment heterogeneity
+- ⏱️ Time-Varying Covariates Cox (NEW)
 
 Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from shiny import module, reactive, render, req, ui
+from shiny import module, reactive, render, ui
 
-import survival_lib
+from tabs._tvc_components import (
+    detect_static_columns,
+    detect_tvc_columns,
+    format_interval_preview,
+    tvc_column_config_ui,
+    tvc_data_format_selector_ui,
+    tvc_data_preview_card_ui,
+    tvc_info_panel_ui,
+    tvc_model_config_ui,
+    tvc_risk_interval_picker_ui,
+)
+from utils import survival_lib
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.tvc_lib import create_tvc_forest_plot, fit_tvc_cox, generate_tvc_report
 
 try:
-    from subgroup_analysis_module import SubgroupAnalysisCox
+    from utils.subgroup_analysis_module import SubgroupAnalysisCox
 except ImportError:
     SubgroupAnalysisCox = None  # type: ignore
-    
+
 from logger import get_logger
 from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
-# ==============================================================================
+
+# ============================================================================
 # UI Definition - Modern Module Pattern
-# ==============================================================================
+# ============================================================================
 @module.ui
 def survival_ui() -> ui.TagChild:
     """Modern Shiny UI module - no namespace argument needed."""
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
-        
         # Dataset Info Box
         ui.output_ui("ui_matched_info"),
         ui.br(),
-        
         # Dataset Selector
         ui.output_ui("ui_dataset_selector"),
         ui.br(),
-        
         # Main Analysis Tabs
         ui.navset_tab(
             # TAB 1: Survival Curves (KM & Nelson-Aalen)
@@ -58,26 +70,20 @@ def survival_ui() -> ui.TagChild:
                 "📈 Survival Curves",
                 ui.card(
                     ui.card_header("Kaplan-Meier & Nelson-Aalen Curves"),
-                    
                     ui.layout_columns(
                         ui.input_select(
-                            "surv_time",
-                            "⛳ Time Variable:",
-                            choices=["Select..."]
+                            "surv_time", "⛳ Time Variable:", choices=["Select..."]
                         ),
                         ui.input_select(
                             "surv_event",
                             "🗣️ Event Variable (1=Event):",
-                            choices=["Select..."]
+                            choices=["Select..."],
                         ),
                         ui.input_select(
-                            "surv_group",
-                            "Compare Groups (Optional):",
-                            choices=["None"]
+                            "surv_group", "Compare Groups (Optional):", choices=["None"]
                         ),
-                        col_widths=[4, 4, 4]
+                        col_widths=[4, 4, 4],
                     ),
-                    
                     # ✅ NEW: Input for specific time points
                     ui.layout_columns(
                         ui.input_radio_buttons(
@@ -85,130 +91,133 @@ def survival_ui() -> ui.TagChild:
                             "Select Plot Type:",
                             choices={
                                 "km": "Kaplan-Meier (Survival Function)",
-                                "na": "Nelson-Aalen (Cumulative Hazard)"
+                                "na": "Nelson-Aalen (Cumulative Hazard)",
                             },
                             selected="km",
-                            inline=True
+                            inline=True,
                         ),
                         ui.input_text(
-                            "surv_time_points", 
-                            "🕰️ Survival Probability at (time units, comma separated):", 
-                            placeholder="e.g. 12, 36, 60 (Non-negative numbers only)"
+                            "surv_time_points",
+                            "🕰️ Survival Probability at (time units, comma separated):",
+                            placeholder="e.g. 12, 36, 60 (Non-negative numbers only)",
                         ),
-                        col_widths=[6, 6]
+                        col_widths=[6, 6],
                     ),
-                    
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_curves",
                             "🚀 Generate Curve",
                             class_="btn-primary w-100",
                         ),
-                        # ✅ FIXED: Use download_button
                         ui.download_button(
                             "btn_dl_curves",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
-                        col_widths=[6, 6]
+                        col_widths=[6, 6],
                     ),
-                    
                     ui.output_ui("out_curves_result"),
-                    full_screen=True
-                )
+                    full_screen=True,
+                ),
             ),
-            
             # TAB 2: Landmark Analysis
             ui.nav_panel(
                 "📊 Landmark Analysis",
                 ui.card(
                     ui.card_header("Landmark Analysis for Late Endpoints"),
-                    ui.markdown("**Principle:** Exclude patients with event/censoring before landmark time."),
-                    
+                    ui.markdown(
+                        "**Principle:** Exclude patients with event/censoring before landmark time."
+                    ),
                     ui.input_slider(
                         "landmark_t",
                         "Landmark Time (t):",
-                        min=0, max=100, value=10, step=1
+                        min=0,
+                        max=100,
+                        value=10,
+                        step=1,
                     ),
-                    
                     ui.input_select(
-                        "landmark_group",
-                        "Compare Group:",
-                        choices=["Select..."]
+                        "landmark_group", "Compare Group:", choices=["Select..."]
                     ),
-                    
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_landmark",
                             "🚀 Run Landmark Analysis",
                             class_="btn-primary w-100",
                         ),
-                        # ✅ FIXED: Use download_button
                         ui.download_button(
                             "btn_dl_landmark",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
-                        col_widths=[6, 6]
+                        col_widths=[6, 6],
                     ),
-                    
                     ui.output_ui("out_landmark_result"),
-                    full_screen=True
-                )
+                    full_screen=True,
+                ),
             ),
-            
             # TAB 3: Cox Regression
             ui.nav_panel(
                 "📈 Cox Regression",
                 ui.card(
                     ui.card_header("Cox Proportional Hazards Regression"),
-                    
-                    ui.input_checkbox_group(
+                    ui.layout_columns(
+                        ui.input_select(
+                            "cox_method",
+                            "🔧 Fitting Method:",
+                            choices={
+                                "auto": "Auto (lifelines → Firth fallback)",
+                                "lifelines": "Standard (lifelines CoxPHFitter)",
+                                "firth": "Firth (for rare events / small samples)",
+                            },
+                            selected="auto",
+                        ),
+                        col_widths=[12],
+                    ),
+                    ui.input_selectize(
                         "cox_covariates",
                         "Select Covariates (Predictors):",
                         choices=[],
-                        selected=[]
+                        selected=[],
+                        multiple=True,
+                        options={"placeholder": "Select predictors..."},
                     ),
-                    
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_cox",
                             "🚀 Run Cox Model",
                             class_="btn-primary w-100",
                         ),
-                        # ✅ FIXED: Use download_button
                         ui.download_button(
                             "btn_dl_cox",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
-                        col_widths=[6, 6]
+                        col_widths=[6, 6],
                     ),
-                    
                     ui.output_ui("out_cox_result"),
-                    full_screen=True
-                )
+                    full_screen=True,
+                ),
             ),
-            
             # TAB 4: Subgroup Analysis
             ui.nav_panel(
                 "🔛 Subgroup Analysis",
                 ui.card(
                     ui.card_header("Cox Subgroup Analysis - Treatment Heterogeneity"),
-                    
                     ui.layout_columns(
                         ui.input_select(
                             "sg_time", "Follow-up Time:", choices=["Select..."]
                         ),
                         ui.input_select(
-                            "sg_event", "Event Indicator (Binary):", choices=["Select..."]
+                            "sg_event",
+                            "Event Indicator (Binary):",
+                            choices=["Select..."],
                         ),
                         ui.input_select(
                             "sg_treatment", "Treatment/Exposure:", choices=["Select..."]
                         ),
-                        col_widths=[4, 4, 4]
+                        col_widths=[4, 4, 4],
                     ),
-                    
                     ui.layout_columns(
                         ui.input_select(
                             "sg_subgroup", "📌 Stratify By:", choices=["Select..."]
@@ -216,43 +225,84 @@ def survival_ui() -> ui.TagChild:
                         ui.input_checkbox_group(
                             "sg_adjust", "Adjustment Variables:", choices=[]
                         ),
-                        col_widths=[4, 8]
+                        col_widths=[4, 8],
                     ),
-                    
                     ui.accordion(
                         ui.accordion_panel(
                             "⚠️ Advanced Settings",
                             ui.input_numeric(
-                                "sg_min_n", "Min N per subgroup:", value=5, min=2, max=50
+                                "sg_min_n",
+                                "Min N per subgroup:",
+                                value=5,
+                                min=2,
+                                max=50,
                             ),
                             ui.input_numeric(
-                                "sg_min_events", "Min events per subgroup:", value=2, min=1, max=50
-                            )
+                                "sg_min_events",
+                                "Min events per subgroup:",
+                                value=2,
+                                min=1,
+                                max=50,
+                            ),
                         ),
-                        open=False
+                        open=False,
                     ),
-                    
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_sg",
                             "🚀 Run Subgroup Analysis",
-                            class_="btn-primary w-100"
+                            class_="btn-primary w-100",
                         ),
-                        # ✅ FIXED: Use download_button
                         ui.download_button(
                             "btn_dl_sg",
                             "📥 Download Report",
-                            class_="btn-secondary w-100"
+                            class_="btn-secondary w-100",
                         ),
-                        col_widths=[6, 6]
+                        col_widths=[6, 6],
                     ),
-                    
                     ui.output_ui("out_sg_result"),
-                    full_screen=True
-                )
+                    full_screen=True,
+                ),
             ),
-            
-            # TAB 5: Reference & Interpretation
+            # TAB 5: Time-Varying Cox (NEW)
+            ui.nav_panel(
+                "⏱️ Time-Varying Cox",
+                ui.card(
+                    ui.card_header(
+                        "Time-Dependent Survival Analysis (Time-Varying Covariates)"
+                    ),
+                    ui.layout_columns(
+                        tvc_data_format_selector_ui(),
+                        tvc_model_config_ui(),
+                        col_widths=[8, 4],
+                    ),
+                    ui.layout_columns(
+                        tvc_column_config_ui(), tvc_info_panel_ui(), col_widths=[8, 4]
+                    ),
+                    # Risk intervals (for wide format) + data preview
+                    ui.layout_columns(
+                        tvc_risk_interval_picker_ui(),
+                        tvc_data_preview_card_ui(),
+                        col_widths=[6, 6],
+                    ),
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_tvc",
+                            "🚀 Run Time-Varying Cox Model",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.download_button(
+                            "btn_dl_tvc",
+                            "📥 Download TVC Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.output_ui("out_tvc_result"),
+                    full_screen=True,
+                ),
+            ),
+            # TAB 6: Reference & Interpretation
             ui.nav_panel(
                 "ℹ️ Reference",
                 ui.card(
@@ -267,62 +317,47 @@ def survival_ui() -> ui.TagChild:
                     | **Landmark** | Late/surrogate endpoints | Filtered KM, immortal time removed |
                     | **Cox** | Multiple predictors of survival | HR, CI, p-value per variable + forest plot |
                     | **Subgroup Analysis** | Treatment effect heterogeneity | HR by subgroup, interaction test |
-                    """)
-                )
-            )
-        )
+                    | **Time-Varying Cox** | Time-dependent covariates | Dynamic HR, interval-based risk |
+                    """),
+                ),
+            ),
+        ),
     )
 
-# ==============================================================================
+
+# ============================================================================
 # Server Logic - Modern Module Pattern
-# ==============================================================================
+# ============================================================================
 @module.server
 def survival_server(
-    input: Any, 
-    output: Any, 
-    session: Any, 
-    df: reactive.Value[Optional[pd.DataFrame]], 
-    var_meta: reactive.Value[Dict[str, Any]],
-    df_matched: reactive.Value[Optional[pd.DataFrame]], 
-    is_matched: reactive.Value[bool]
+    input: Any,
+    output: Any,
+    session: Any,
+    df: reactive.Value[pd.DataFrame | None],
+    var_meta: reactive.Value[dict[str, Any]],
+    df_matched: reactive.Value[pd.DataFrame | None],
+    is_matched: reactive.Value[bool],
 ) -> None:
     """
-    Initialize server-side logic for the Survival Analysis Shiny module, wiring reactive state, dataset selection, input-choice auto-detection, and handlers for curves, landmark, Cox, and subgroup analyses.
-    
-    Parameters:
-        input: Shiny input bindings for UI controls used by the module.
-        output: Shiny output bindings for rendering UI elements from the module.
-        session: Shiny session object scoped to this module instance.
-        df (reactive.Value[Optional[pd.DataFrame]]): Reactive reference to the primary dataset.
-        var_meta (reactive.Value[Dict[str, Any]]): Reactive mapping of variable metadata used to derive user-friendly labels.
-        df_matched (reactive.Value[Optional[pd.DataFrame]]): Reactive reference to an optional matched dataset.
-        is_matched (reactive.Value[bool]): Reactive flag indicating whether matched data may be selected as the active dataset.
-    
-    Behavior:
-        - Maintains reactive result stores for survival curves, landmark analysis, Cox regression, and subgroup analysis.
-        - Exposes reactive utilities for selecting the current active dataset and mapping column names to display labels.
-        - Auto-detects sensible default columns for time, event, group, and subgroup inputs and updates input choices when the dataset changes.
-        - Implements handlers to run analyses (KM / Nelson–Aalen curves, landmark, Cox PH, subgroup) with input validation, notifications, and result storage.
-        - Renders UI outputs and generates downloadable HTML reports for each analysis type when results are available.
-    
-    Side effects:
-        - Updates Shiny inputs and outputs, shows/hides notifications, and writes reactive result state used by renderers and download handlers.
+    Initialize server-side logic for the Survival Analysis Shiny module, wiring reactive state, dataset selection, input-choice auto-detection, and handlers for curves, landmark, Cox, subgroup, and time-varying Cox analyses.
     """
-    
+
     # ==================== REACTIVE VALUES ====================
-    curves_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    landmark_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    cox_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    sg_result: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    
+    curves_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    landmark_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    cox_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    sg_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    tvc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    tvc_long_data: reactive.Value[pd.DataFrame | None] = reactive.Value(None)
+
     # ==================== DATASET SELECTION LOGIC ====================
     @reactive.Calc
-    def current_df() -> Optional[pd.DataFrame]:
+    def current_df() -> pd.DataFrame | None:
         """Select between original and matched dataset based on user preference."""
         if is_matched.get() and input.radio_survival_source() == "matched":
             return df_matched.get()
         return df.get()
-    
+
     @render.ui
     def ui_title_with_summary():
         """Display title with dataset summary."""
@@ -332,11 +367,11 @@ def survival_server(
                 ui.h3("⛳ Survival Analysis"),
                 ui.p(
                     f"{len(d):,} rows | {len(d.columns)} columns",
-                    class_="text-secondary mb-3"
-                )
+                    class_="text-secondary mb-3",
+                ),
             )
         return ui.h3("⛳ Survival Analysis")
-    
+
     @render.ui
     def ui_matched_info():
         """Display matched dataset availability info."""
@@ -344,11 +379,11 @@ def survival_server(
             return ui.div(
                 ui.tags.div(
                     "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info"
+                    class_="alert alert-info",
                 )
             )
         return None
-    
+
     @render.ui
     def ui_dataset_selector():
         """Render dataset selector radio buttons."""
@@ -362,22 +397,24 @@ def survival_server(
                 "📊 Select Dataset:",
                 {
                     "original": f"📊 Original Data ({original_len:,} rows)",
-                    "matched": f"✅ Matched Data ({matched_len:,} rows)"
+                    "matched": f"✅ Matched Data ({matched_len:,} rows)",
                 },
                 selected="matched",
-                inline=True
+                inline=True,
             )
         return None
-    
+
     # ==================== LABEL MAPPING LOGIC ====================
     @reactive.Calc
-    def label_map() -> Dict[str, str]:
+    def label_map() -> dict[str, str]:
         """Build a dictionary mapping raw column names to user-friendly labels from var_meta."""
         meta = var_meta.get()
         if not meta:
             return {}
         try:
-            return {item.get('name', k): item.get('label', k) for k, item in meta.items()}
+            return {
+                item.get("name", k): item.get("label", k) for k, item in meta.items()
+            }
         except (AttributeError, TypeError, KeyError):
             return {}
 
@@ -392,15 +429,17 @@ def survival_server(
         data = current_df()
         if data is None:
             return
-            
-        # Update Dropdowns
+
         cols = data.columns.tolist()
         numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
 
         # --- AUTO-DETECTION LOGIC ---
-        # (Same detection logic as before)
-        time_keywords = ['time', 'day', 'month', 'year', 'range', 'followup', 'fu']
+        time_keywords = ["time", "day", "month", "year", "range", "followup", "fu"]
         default_time = "Select..."
+
+        # 🟢 Dynamic Slider Max Logic
+        max_time_val = 100
+
         for kw in time_keywords:
             matched = [c for c in numeric_cols if kw in c.lower()]
             if matched:
@@ -409,7 +448,24 @@ def survival_server(
         if default_time == "Select..." and numeric_cols:
             default_time = numeric_cols[0]
 
-        event_keywords = ['status', 'event', 'death', 'cure', 'survive', 'died', 'outcome']
+        # Get max time from default_time column
+        if default_time != "Select..." and default_time in data.columns:
+            try:
+                max_t = data[default_time].max()
+                if pd.notna(max_t):
+                    max_time_val = int(np.ceil(max_t))
+            except Exception:
+                pass
+
+        event_keywords = [
+            "status",
+            "event",
+            "death",
+            "cure",
+            "survive",
+            "died",
+            "outcome",
+        ]
         default_event = "Select..."
         for kw in event_keywords:
             matched = [c for c in cols if kw in c.lower()]
@@ -418,48 +474,171 @@ def survival_server(
                 break
         if default_event == "Select..." and cols:
             default_event = cols[0]
-            
+
         # Detect groups
-        compare_keywords = ['treatment', 'group', 'comorbid', 'comorb', 'dz', 'lab', 'diag', 'sex', 'age']
+        compare_keywords = [
+            "treatment",
+            "group",
+            "comorbid",
+            "comorb",
+            "dz",
+            "lab",
+            "diag",
+            "sex",
+            "age",
+        ]
         default_compare = "Select..."
         for kw in compare_keywords:
             matched = [c for c in cols if kw in c.lower()]
             if matched:
                 default_compare = matched[0]
                 break
-        
+
         # Detect Subgroup
-        subgr_keywords = ['comorbid', 'comorb', 'group', 'control', 'contr', 'ctr', 'dz', 'lab', 'diag', 'sex', 'age']
+        subgr_keywords = [
+            "comorbid",
+            "comorb",
+            "group",
+            "control",
+            "contr",
+            "ctr",
+            "dz",
+            "lab",
+            "diag",
+            "sex",
+            "age",
+        ]
         default_subgr = "Select..."
         for kw in subgr_keywords:
             matched = [c for c in cols if kw in c.lower()]
             if matched:
                 default_subgr = matched[0]
                 break
-            
-        # Update UI choices with labels if available
+
+        # Update UI choices with labels
         choices_with_labels = {c: get_label(c) for c in cols}
         num_choices_with_labels = {c: get_label(c) for c in numeric_cols}
 
         # KM Curves
-        ui.update_select("surv_time", choices=num_choices_with_labels, selected=default_time)
-        ui.update_select("surv_event", choices=choices_with_labels, selected=default_event)
+        ui.update_select(
+            "surv_time", choices=num_choices_with_labels, selected=default_time
+        )
+        ui.update_select(
+            "surv_event", choices=choices_with_labels, selected=default_event
+        )
         ui.update_select("surv_group", choices={"None": "None", **choices_with_labels})
-        
+
         # Landmark Analysis
-        ui.update_select("landmark_group", choices=choices_with_labels, selected=default_compare)
-        
+        ui.update_select(
+            "landmark_group", choices=choices_with_labels, selected=default_compare
+        )
+        ui.update_slider("landmark_t", max=max_time_val, value=min(10, max_time_val))
+
         # Cox Regression
-        ui.update_checkbox_group("cox_covariates", choices=choices_with_labels)
-        
+        # Auto-select some common covariates if available
+        default_cox_covs = []
+        possible_covs = [
+            "Age_Years",
+            "Sex_Male",
+            "Treatment_Group",
+            "Comorb_",
+            "Lab_",
+            "BMI",
+        ]
+        for p in possible_covs:
+            for c in cols:
+                if p in c and c not in [default_time, default_event, "ID"]:
+                    default_cox_covs.append(c)
+
+        # Limit default selection to avoid clutter
+        default_cox_covs = default_cox_covs[:5]
+
+        ui.update_selectize(
+            "cox_covariates", choices=choices_with_labels, selected=default_cox_covs
+        )
+
         # Subgroup Analysis
-        ui.update_select("sg_time", choices=num_choices_with_labels, selected=default_time)
-        ui.update_select("sg_event", choices=choices_with_labels, selected=default_event)
-        ui.update_select("sg_treatment", choices=choices_with_labels, selected=default_compare)
-        ui.update_select("sg_subgroup", choices=choices_with_labels, selected=default_subgr)
+        ui.update_select(
+            "sg_time", choices=num_choices_with_labels, selected=default_time
+        )
+        ui.update_select(
+            "sg_event", choices=choices_with_labels, selected=default_event
+        )
+        ui.update_select(
+            "sg_treatment", choices=choices_with_labels, selected=default_compare
+        )
+        ui.update_select(
+            "sg_subgroup", choices=choices_with_labels, selected=default_subgr
+        )
         ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
 
-    # ==================== 1. CURVES LOGIC (KM/NA) ====================
+        # TVC: Column configuration (use specialized detection for long-format TVC data)
+        if len(cols) > 0:
+            # Auto-detect long-format TVC columns by name
+            tvc_id_default = "id_tvc" if "id_tvc" in cols else cols[0]
+            tvc_start_default = (
+                "time_start" if "time_start" in numeric_cols else default_time
+            )
+            tvc_stop_default = (
+                "time_stop" if "time_stop" in numeric_cols else default_time
+            )
+            tvc_event_default = (
+                "status_event" if "status_event" in cols else default_event
+            )
+
+            ui.update_select(
+                "tvc_id_col",
+                choices={c: get_label(c) for c in cols},
+                selected=tvc_id_default,
+            )
+            ui.update_select(
+                "tvc_start_col",
+                choices=num_choices_with_labels,
+                selected=tvc_start_default,
+            )
+            ui.update_select(
+                "tvc_stop_col",
+                choices=num_choices_with_labels,
+                selected=tvc_stop_default,
+            )
+            ui.update_select(
+                "tvc_event_col", choices=choices_with_labels, selected=tvc_event_default
+            )
+
+            # Detect TVC and Static columns
+            # Priority: exact matches for example data columns, then fallback to prefix detection
+            tvc_auto = []
+            if "TVC_Value" in cols:
+                tvc_auto = ["TVC_Value"]
+            else:
+                tvc_auto = detect_tvc_columns(data)
+
+            static_auto = []
+            if "Static_Age" in cols:
+                static_auto = [c for c in cols if c.startswith("Static_")]
+            else:
+                exclude_for_static = [
+                    tvc_id_default,
+                    tvc_start_default,
+                    tvc_stop_default,
+                    tvc_event_default,
+                ] + tvc_auto
+                static_auto = detect_static_columns(
+                    data, exclude_cols=exclude_for_static
+                )
+
+            ui.update_checkbox_group(
+                "tvc_tvc_cols",
+                choices={c: get_label(c) for c in tvc_auto},
+                selected=tvc_auto,
+            )
+            ui.update_checkbox_group(
+                "tvc_static_cols",
+                choices={c: get_label(c) for c in static_auto},
+                selected=static_auto,
+            )
+
+    # ==================== 1. CURVES LOGIC (KM / Nelson-Aalen) ====================
     @reactive.Effect
     @reactive.event(input.btn_run_curves)
     def _run_curves():
@@ -469,83 +648,88 @@ def survival_server(
         event_col = input.surv_event()
         group_col = input.surv_group()
         plot_type = input.plot_type()
-        
+
         if data is None or time_col == "Select..." or event_col == "Select...":
-            ui.notification_show("Please select Time and Event variables", type="warning")
+            ui.notification_show(
+                "Please select Time and Event variables", type="warning"
+            )
             return
-            
-        if group_col == "None": 
+
+        if group_col == "None":
             group_col = None
-            
-        # ✅ NEW: Parse and validate time points
+
+        # Parse and validate time points
         time_points: list[float] = []
         raw_tp = input.surv_time_points()
         if raw_tp:
             try:
-                # 1. Split and clean input
-                parts = [p.strip() for p in raw_tp.split(',') if p.strip()]
+                parts = [p.strip() for p in raw_tp.split(",") if p.strip()]
                 parsed_values = []
-                
-                # 2. Strict validation loop
+
                 for p in parts:
                     try:
                         val = float(p)
                     except ValueError:
-                        # Validation for non-numeric input
-                        raise ValueError(f"Non-numeric value detected: '{p}'. Please enter numbers only.") from None
-                        
+                        raise ValueError(
+                            f"Non-numeric value detected: '{p}'. Please enter numbers only."
+                        ) from None
+
                     if val < 0:
-                        # Validation for negative numbers
-                        raise ValueError(f"Time points must be non-negative. Found: {val}")
-                    
+                        raise ValueError(
+                            f"Time points must be non-negative. Found: {val}"
+                        )
+
                     parsed_values.append(val)
-                
-                # 3. Check for duplicates
+
                 unique_points = sorted(set(parsed_values))
                 if len(unique_points) < len(parsed_values):
-                    # Surface notification for duplication, but proceed with cleanup
-                    ui.notification_show("⚠️ Duplicate time points were found and removed.", type="warning")
-                
+                    ui.notification_show(
+                        "⚠️ Duplicate time points were found and removed.",
+                        type="warning",
+                    )
+
                 time_points = unique_points
-                
+
             except ValueError as e:
-                # Stop execution if validation fails
                 ui.notification_show(f"Input Error: {str(e)}", type="error")
-                return 
-        
+                return
+
         try:
             ui.notification_show("Generating curves...", duration=None, id="run_curves")
-            
-            # ✅ NEW: Calculate survival at fixed times if requested
+
             surv_at_times_df = None
             if time_points:
                 surv_at_times_df = survival_lib.calculate_survival_at_times(
                     data, time_col, event_col, group_col, time_points
                 )
-            
-            medians = None # Initialize medians
-            
+
+            medians = None
+
             if plot_type == "km":
                 fig, stats, missing_info = survival_lib.fit_km_logrank(
                     data, time_col, event_col, group_col, var_meta=var_meta.get()
                 )
-                medians = survival_lib.calculate_median_survival(data, time_col, event_col, group_col) # Uses raw data still if not updated, but acceptable for median
-                
+                medians = survival_lib.calculate_median_survival(
+                    data, time_col, event_col, group_col
+                )
+
             else:
                 fig, stats, missing_info = survival_lib.fit_nelson_aalen(
                     data, time_col, event_col, group_col, var_meta=var_meta.get()
                 )
-            
-            curves_result.set({
-                'fig': fig, 
-                'stats': stats, 
-                'medians': medians,
-                'surv_at_times': surv_at_times_df,
-                'plot_type': plot_type,
-                'missing_data_info': missing_info
-            })
+
+            curves_result.set(
+                {
+                    "fig": fig,
+                    "stats": stats,
+                    "medians": medians,
+                    "surv_at_times": surv_at_times_df,
+                    "plot_type": plot_type,
+                    "missing_data_info": missing_info,
+                }
+            )
             ui.notification_remove("run_curves")
-            
+
         except Exception as e:
             ui.notification_remove("run_curves")
             ui.notification_show(f"Error: {e}", type="error")
@@ -553,119 +737,110 @@ def survival_server(
 
     @render.ui
     def out_curves_result():
-        """
-        Assemble and return the UI card displaying survival-curve outputs and related statistics.
-        
-        When results are available, the card contains the plot, a summary statistics table, and optionally a median survival table and a survival-at-specific-times table. If no results are present, returns a centered placeholder message informing the user that results will appear here.
-        
-        Returns:
-            ui.Element: A Shiny UI element (card or placeholder div) representing the curves results panel.
-        """
+        """Assemble and return the UI card displaying survival-curve outputs and related statistics."""
         res = curves_result.get()
         if res is None:
             return ui.div(
                 ui.markdown("*Results will appear here...*"),
-                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;"
+                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;",
             )
-        
+
         elements = [
             ui.card_header("📈 Plot"),
             ui.output_ui("out_curves_plot"),
-            ui.card_header("📄 Log-Rank Test / Summary Statistics"), # Update header title
-            ui.output_data_frame("out_curves_table")
+            ui.card_header("📄 Log-Rank Test / Summary Statistics"),
+            ui.output_data_frame("out_curves_table"),
         ]
-        
-        # ✅ NEW: Render Medians Table separately if it exists
-        if res.get('medians') is not None:
-             elements.append(ui.card_header("⏱️ Median Survival Time"))
-             elements.append(ui.output_data_frame("out_medians_table"))
-        
-        # ✅ NEW: Add table for survival at specific times
-        if res.get('surv_at_times') is not None:
+
+        if res.get("medians") is not None:
+            elements.append(ui.card_header("⏱️ Median Survival Time"))
+            elements.append(ui.output_data_frame("out_medians_table"))
+
+        if res.get("surv_at_times") is not None:
             elements.append(ui.card_header("🕰️ Survival Probability at Specific Times"))
             elements.append(ui.output_data_frame("out_surv_times_table"))
-            
+
         return ui.card(*elements)
 
     @render.ui
     def out_curves_plot():
-        """
-        Render the survival curves Plotly figure or a waiting placeholder.
-        
-        If curve results are available in `curves_result`, returns a Shiny UI element containing the Plotly figure HTML; otherwise returns a centered div with a "Waiting for results..." message.
-        
-        Returns:
-            ui element: HTML containing the Plotly figure when results exist, or a div with a waiting message otherwise.
-        """
+        """Render the survival curves Plotly figure or a waiting placeholder."""
         res = curves_result.get()
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;"
+                style="color: #999; text-align: center; padding: 20px;",
             )
         html_str = plotly_figure_to_html(
-            res['fig'],
+            res["fig"],
             div_id="plot_curves_km_na",
-            include_plotlyjs='cdn',
-            responsive=True
+            include_plotlyjs="cdn",
+            responsive=True,
         )
         return ui.HTML(html_str)
 
     @render.data_frame
     def out_curves_table():
-        """
-        Render the curves statistics DataGrid when curve results are available.
-        
-        Returns:
-            DataGrid or None: A DataGrid built from the latest curves result 'stats' entry, or `None` if no results are present.
-        """
+        """Render the curves statistics DataGrid when curve results are available."""
         res = curves_result.get()
-        return render.DataGrid(res['stats']) if res else None
+        return render.DataGrid(res["stats"]) if res else None
 
-    # ✅ NEW: Renderer for Medians Table
     @render.data_frame
     def out_medians_table():
+        """Render the median survival table."""
         res = curves_result.get()
-        return render.DataGrid(res['medians']) if res and res.get('medians') is not None else None
+        return (
+            render.DataGrid(res["medians"])
+            if res and res.get("medians") is not None
+            else None
+        )
 
     @render.data_frame
     def out_surv_times_table():
+        """Render the survival at specific times table."""
         res = curves_result.get()
-        return render.DataGrid(res['surv_at_times']) if res and res.get('surv_at_times') is not None else None
-    
+        return (
+            render.DataGrid(res["surv_at_times"])
+            if res and res.get("surv_at_times") is not None
+            else None
+        )
+
     @render.download(filename="survival_report.html")
     def btn_dl_curves():
         """Download survival curves report."""
         res = curves_result.get()
         if not res:
-            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
             yield "No results"
             return
-        
+
         elements = [
-            {'type': 'header', 'data': f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km')=='km' else 'Nelson-Aalen'})"},
-            {'type': 'plot', 'data': res['fig']},
-            {'type': 'header', 'data': 'Statistics'},
-            {'type': 'table', 'data': res['stats']}
+            {
+                "type": "header",
+                "data": f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km') == 'km' else 'Nelson-Aalen'})",
+            },
+            {"type": "plot", "data": res["fig"]},
+            {"type": "header", "data": "Statistics"},
+            {"type": "table", "data": res["stats"]},
         ]
-        
-        # ✅ NEW: Add Medians to download report
-        if res.get('medians') is not None:
-            elements.append({'type': 'header', 'data': 'Median Survival Time'})
-            elements.append({'type': 'table', 'data': res['medians']})
-        
-        if res.get('surv_at_times') is not None:
-            elements.append({'type': 'header', 'data': 'Survival Probability at Fixed Times'})
-            elements.append({'type': 'table', 'data': res['surv_at_times']})
-            
+
+        if res.get("medians") is not None:
+            elements.append({"type": "header", "data": "Median Survival Time"})
+            elements.append({"type": "table", "data": res["medians"]})
+
+        if res.get("surv_at_times") is not None:
+            elements.append(
+                {"type": "header", "data": "Survival Probability at Fixed Times"}
+            )
+            elements.append({"type": "table", "data": res["surv_at_times"]})
+
         yield survival_lib.generate_report_survival(
-            "Survival Analysis", 
-            elements, 
-            missing_data_info=res.get('missing_data_info'),
-            var_meta=var_meta.get()
+            "Survival Analysis",
+            elements,
+            missing_data_info=res.get("missing_data_info"),
+            var_meta=var_meta.get(),
         )
 
-    # ==================== 2. LANDMARK LOGIC ====================
+    # ==================== 2. LANDMARK ANALYSIS LOGIC ====================
     @reactive.Effect
     @reactive.event(input.btn_run_landmark)
     def _run_landmark():
@@ -675,29 +850,33 @@ def survival_server(
         event_col = input.surv_event()
         group_col = input.landmark_group()
         t = input.landmark_t()
-        
+
         if data is None or group_col == "Select...":
             ui.notification_show("Please configure variables properly", type="warning")
             return
 
         try:
-            ui.notification_show("Running Landmark Analysis...", duration=None, id="run_landmark")
+            ui.notification_show(
+                "Running Landmark Analysis...", duration=None, id="run_landmark"
+            )
             fig, stats, n_pre, n_post, err, missing_info = survival_lib.fit_km_landmark(
                 data, time_col, event_col, group_col, t, var_meta=var_meta.get()
             )
-            
+
             if err:
                 ui.notification_show(err, type="error")
             else:
-                landmark_result.set({
-                    'fig': fig, 
-                    'stats': stats, 
-                    'n_pre': n_pre, 
-                    'n_post': n_post, 
-                    't': t,
-                    'missing_data_info': missing_info
-                })
-            
+                landmark_result.set(
+                    {
+                        "fig": fig,
+                        "stats": stats,
+                        "n_pre": n_pre,
+                        "n_post": n_post,
+                        "t": t,
+                        "missing_data_info": missing_info,
+                    }
+                )
+
             ui.notification_remove("run_landmark")
         except Exception as e:
             ui.notification_remove("run_landmark")
@@ -706,78 +885,64 @@ def survival_server(
 
     @render.ui
     def out_landmark_result():
-        """
-        Render the landmark analysis result card containing the plot and summary statistics.
-        
-        Returns:
-            ui (shiny UI object) : A card with a header, a summary line showing total N and included N at the landmark time, the landmark plot output, and the landmark statistics table; returns `None` if no landmark results are available.
-        """
+        """Render the landmark analysis result card containing the plot and summary statistics."""
         res = landmark_result.get()
-        if res is None: 
+        if res is None:
             return None
         return ui.card(
             ui.card_header("📈 Landmark Plot"),
             ui.div(
-                ui.markdown(f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"),
-                style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};"
+                ui.markdown(
+                    f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"
+                ),
+                style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};",
             ),
             ui.output_ui("out_landmark_plot"),
-            ui.output_data_frame("out_landmark_table")
+            ui.output_data_frame("out_landmark_table"),
         )
 
     @render.ui
     def out_landmark_plot():
-        """
-        Render the landmark analysis plot or a waiting placeholder if results are not available.
-        
-        Returns:
-            ui_element: A Shiny UI element containing the plot HTML when landmark results exist, or a centered waiting message placeholder otherwise.
-        """
+        """Render the landmark analysis plot or a waiting placeholder if results are not available."""
         res = landmark_result.get()
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;"
+                style="color: #999; text-align: center; padding: 20px;",
             )
         html_str = plotly_figure_to_html(
-            res['fig'],
+            res["fig"],
             div_id="plot_landmark_analysis",
-            include_plotlyjs='cdn',
-            responsive=True
+            include_plotlyjs="cdn",
+            responsive=True,
         )
         return ui.HTML(html_str)
 
     @render.data_frame
     def out_landmark_table():
-        """
-        Render a data grid containing landmark analysis statistics if results are available.
-        
-        Returns:
-            DataGrid or None: A DataGrid built from the stored landmark `stats` when landmark results exist, otherwise `None`.
-        """
+        """Render a data grid containing landmark analysis statistics if results are available."""
         res = landmark_result.get()
-        return render.DataGrid(res['stats']) if res else None
+        return render.DataGrid(res["stats"]) if res else None
 
     @render.download(filename="landmark_report.html")
     def btn_dl_landmark():
         """Download landmark analysis report."""
         res = landmark_result.get()
         if not res:
-            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
             yield "No results"
             return
-            
+
         elements = [
-            {'type': 'header', 'data': f'Landmark Analysis (t={res["t"]})'},
-            {'type': 'plot', 'data': res['fig']},
-            {'type': 'header', 'data': 'Statistics'},
-            {'type': 'table', 'data': res['stats']}
+            {"type": "header", "data": f"Landmark Analysis (t={res['t']})"},
+            {"type": "plot", "data": res["fig"]},
+            {"type": "header", "data": "Statistics"},
+            {"type": "table", "data": res["stats"]},
         ]
         yield survival_lib.generate_report_survival(
-            "Landmark Analysis", 
+            "Landmark Analysis",
             elements,
-            missing_data_info=res.get('missing_data_info'),
-            var_meta=var_meta.get()
+            missing_data_info=res.get("missing_data_info"),
+            var_meta=var_meta.get(),
         )
 
     # ==================== 3. COX REGRESSION LOGIC ====================
@@ -791,43 +956,64 @@ def survival_server(
         covars = input.cox_covariates()
 
         if data is None or time_col == "Select..." or event_col == "Select...":
-            ui.notification_show("Please select Time and Event variables", type="warning")
+            ui.notification_show(
+                "Please select Time and Event variables", type="warning"
+            )
             return
-        
+
         if not covars:
             ui.notification_show("Select at least one covariate", type="warning")
             return
-            
+
         try:
             ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
-            
-            # ✅ NEW: Capture model_stats and missing_info
-            cph, res_df, clean_data, err, model_stats, missing_info = survival_lib.fit_cox_ph(
-                data, time_col, event_col, list(covars), var_meta=var_meta.get()
+
+            cox_method = input.cox_method()
+
+            cph, res_df, clean_data, err, model_stats, missing_info = (
+                survival_lib.fit_cox_ph(
+                    data,
+                    time_col,
+                    event_col,
+                    list(covars),
+                    var_meta=var_meta.get(),
+                    method=cox_method,
+                )
             )
-            
+
             if err:
                 ui.notification_show(err, type="error")
                 ui.notification_remove("run_cox")
                 return
-            
-            # 2. Forest Plot
+
+            # Forest Plot
             forest_fig = survival_lib.create_forest_plot_cox(res_df)
-            
-            # 3. Check Assumptions (Schoenfeld)
-            assump_text, assump_plots = survival_lib.check_cph_assumptions(cph, clean_data)
-            
-            cox_result.set({
-                'results_df': res_df,
-                'forest_fig': forest_fig,
-                'assumptions_text': assump_text,
-                'assumptions_plots': assump_plots,
-                'model_stats': model_stats,
-                'missing_data_info': missing_info
-            })
-            
+
+            # Check Assumptions (Schoenfeld) - only for lifelines CoxPHFitter
+            from lifelines import CoxPHFitter
+
+            if isinstance(cph, CoxPHFitter):
+                assump_text, assump_plots = survival_lib.check_cph_assumptions(
+                    cph, clean_data
+                )
+            else:
+                # Firth Cox PH doesn't support Schoenfeld residuals
+                assump_text = "⚠️ Proportional Hazards assumption test is not available for Firth Cox PH models."
+                assump_plots = []
+
+            cox_result.set(
+                {
+                    "results_df": res_df,
+                    "forest_fig": forest_fig,
+                    "assumptions_text": assump_text,
+                    "assumptions_plots": assump_plots,
+                    "model_stats": model_stats,
+                    "missing_data_info": missing_info,
+                }
+            )
+
             ui.notification_remove("run_cox")
-            
+
         except Exception as e:
             ui.notification_remove("run_cox")
             ui.notification_show(f"Cox error: {e}", type="error")
@@ -835,103 +1021,82 @@ def survival_server(
 
     @render.ui
     def out_cox_result():
-        """
-        Render the Cox proportional hazards model results card for the UI.
-        
-        Displays model summary statistics (if available), the results data table, a forest plot, and proportional-hazards (Schoenfeld residuals) outputs. If no Cox results are present, nothing is rendered.
-        
-        Returns:
-            A Shiny UI card containing model stats, the results data frame, the forest plot output placeholder, and the PH-assumption output placeholder, or `None` if no results are available.
-        """
+        """Render the Cox proportional hazards model results card for the UI."""
         res = cox_result.get()
-        if res is None: 
+        if res is None:
             return None
-        
-        # ✅ NEW: Format Model Stats using Shiny Tag Helpers instead of raw HTML (Safe interpolation)
+
         stats_ui = None
-        if res.get('model_stats'):
-            s = res['model_stats']
+        if res.get("model_stats"):
+            s = res["model_stats"]
             stats_ui = ui.div(
-                ui.div(ui.strong("C-index: "), str(s.get('Concordance Index (C-index)', '-'))),
-                ui.div(ui.strong("AIC: "), str(s.get('AIC', '-'))),
-                ui.div(ui.strong("Events: "), f"{s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}" ),
-                style='display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;'
+                ui.div(
+                    ui.strong("C-index: "),
+                    str(s.get("Concordance Index (C-index)", "-")),
+                ),
+                ui.div(ui.strong("AIC: "), str(s.get("AIC", "-"))),
+                ui.div(
+                    ui.strong("Events: "),
+                    f"{s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}",
+                ),
+                style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
             )
-        
+
         return ui.card(
             ui.card_header("📄 Cox Results"),
-            stats_ui, # Display stats using safe tag object
+            stats_ui,
             ui.output_data_frame("out_cox_table"),
-            
             ui.card_header("🌳 Forest Plot"),
             ui.output_ui("out_cox_forest"),
-            
             ui.card_header("🔍 PH Assumption (Schoenfeld Residuals)"),
-            ui.output_ui("out_cox_assumptions_ui")
+            ui.output_ui("out_cox_assumptions_ui"),
         )
 
     @render.data_frame
     def out_cox_table():
-        """
-        Render a data grid showing Cox regression results if available.
-        
-        Returns:
-            DataGrid or None: A DataGrid component containing the Cox results table, or None when no results are present.
-        """
+        """Render a data grid showing Cox regression results if available."""
         res = cox_result.get()
-        return render.DataGrid(res['results_df']) if res else None
+        return render.DataGrid(res["results_df"]) if res else None
 
     @render.ui
     def out_cox_forest():
-        """
-        Render the Cox regression forest plot if available; otherwise show a waiting placeholder.
-        
-        Returns:
-            ui_element: A Shiny UI element containing the Plotly-generated forest plot HTML when results exist, or a centered waiting message if results are not yet available.
-        """
+        """Render the Cox regression forest plot if available; otherwise show a waiting placeholder."""
         res = cox_result.get()
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;"
+                style="color: #999; text-align: center; padding: 20px;",
             )
         html_str = plotly_figure_to_html(
-            res['forest_fig'],
+            res["forest_fig"],
             div_id="plot_cox_forest",
-            include_plotlyjs='cdn',
-            responsive=True
+            include_plotlyjs="cdn",
+            responsive=True,
         )
         return ui.HTML(html_str)
 
     @render.ui
     def out_cox_assumptions_ui():
-        """
-        Render the proportional hazards assumption section for Cox regression, including interpretation text and any diagnostic plots.
-        
-        Returns:
-            ui.div or None: A UI container with the interpretation text and zero or more Plotly diagnostic plots when Cox results are available; `None` if no Cox results exist.
-        """
+        """Render the proportional hazards assumption section for Cox regression."""
         res = cox_result.get()
-        if not res: 
+        if not res:
             return None
-        
-        # Display Text Report
+
         elements = [
             ui.div(
                 ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}"),
-                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};"
+                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};",
             )
         ]
-        
-        # Display Plots
-        if res['assumptions_plots']:
+
+        if res["assumptions_plots"]:
             html_plots = ""
-            for i, fig in enumerate(res['assumptions_plots']):
-                include_js = 'cdn' if i == 0 else False
+            for i, fig in enumerate(res["assumptions_plots"]):
+                include_js = "cdn" if i == 0 else False
                 html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
-            
+
             elements.append(ui.HTML(html_plots))
-            
+
         return ui.div(*elements)
 
     @render.download(filename="cox_report.html")
@@ -939,31 +1104,31 @@ def survival_server(
         """Download Cox regression report."""
         res = cox_result.get()
         if not res:
-            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
             yield "No results"
             return
 
         elements = [
-            {'type': 'header', 'data': 'Cox Proportional Hazards Regression'},
+            {"type": "header", "data": "Cox Proportional Hazards Regression"},
         ]
-        
-        # Add model stats to report
-        if res.get('model_stats'):
-            s = res['model_stats']
-            stats_text = f"C-index: {s.get('Concordance Index (C-index)')}, AIC: {s.get('AIC')}, Events: {s.get('Number of Events')}"
-            elements.append({'type': 'text', 'data': stats_text})
 
-        elements.extend([
-            {'type': 'table', 'data': res['results_df']},
-            {'type': 'plot', 'data': res['forest_fig']},
-            {'type': 'header', 'data': 'PH Assumptions'},
-            {'type': 'text', 'data': res['assumptions_text']}
-        ])
+        if res.get("model_stats"):
+            s = res["model_stats"]
+            stats_text = f"C-index: {s.get('Concordance Index (C-index)')}, AIC: {s.get('AIC')}, Events: {s.get('Number of Events')}"
+            elements.append({"type": "text", "data": stats_text})
+
+        elements.extend(
+            [
+                {"type": "table", "data": res["results_df"]},
+                {"type": "plot", "data": res["forest_fig"]},
+                {"type": "header", "data": "PH Assumptions"},
+                {"type": "text", "data": res["assumptions_text"]},
+            ]
+        )
         yield survival_lib.generate_report_survival(
-            "Cox Regression", 
-            elements, 
-            missing_data_info=res.get('missing_data_info'),
-            var_meta=var_meta.get()
+            "Cox Regression",
+            elements,
+            missing_data_info=res.get("missing_data_info"),
+            var_meta=var_meta.get(),
         )
 
     # ==================== 4. SUBGROUP LOGIC ====================
@@ -974,23 +1139,24 @@ def survival_server(
         if SubgroupAnalysisCox is None:
             ui.notification_show("Subgroup module not found", type="error")
             return
-            
+
         data = current_df()
         time = input.sg_time()
         event = input.sg_event()
         treat = input.sg_treatment()
         subgroup = input.sg_subgroup()
         adjust = input.sg_adjust()
-        
+
         if any(x == "Select..." for x in [time, event, treat, subgroup]):
             ui.notification_show("Please select all required variables", type="warning")
             return
-            
+
         try:
-            ui.notification_show("Running Subgroup Analysis...", duration=None, id="run_sg")
-            
-            # Ensure SubgroupAnalysisCox is treated as a class we can instantiate
-            analyzer = SubgroupAnalysisCox(data) # type: ignore
+            ui.notification_show(
+                "Running Subgroup Analysis...", duration=None, id="run_sg"
+            )
+
+            analyzer = SubgroupAnalysisCox(data)  # type: ignore
             result, _, error = analyzer.analyze(
                 duration_col=time,
                 event_col=event,
@@ -999,19 +1165,19 @@ def survival_server(
                 adjustment_cols=list(adjust) if adjust else None,
                 min_subgroup_n=input.sg_min_n(),
                 min_events=input.sg_min_events(),
-                var_meta=var_meta.get()
+                var_meta=var_meta.get(),
             )
             if error:
                 ui.notification_show(error, type="error")
                 ui.notification_remove("run_sg")
                 return
-            
+
             # Generate forest plot
             forest_fig = analyzer.create_forest_plot()
-            result['forest_plot'] = forest_fig
-            result['interaction_table'] = analyzer.results
+            result["forest_plot"] = forest_fig
+            result["interaction_table"] = analyzer.results
             sg_result.set(result)
-            
+
             ui.notification_remove("run_sg")
         except Exception as e:
             ui.notification_remove("run_sg")
@@ -1020,87 +1186,535 @@ def survival_server(
 
     @render.ui
     def out_sg_result():
-        """
-        Builds the UI card displaying subgroup analysis results.
-        
-        Includes a "Subgroup Forest Plot" section when the result contains a `forest_plot` and an "Interaction Analysis" data table when the result contains an `interaction_table`.
-        
-        Returns:
-            ui.card: Card with available subgroup result sections, or `None` if no results are present.
-        """
+        """Builds the UI card displaying subgroup analysis results."""
         res = sg_result.get()
-        if res is None: 
+        if res is None:
             return None
-        
+
         elements = []
-        if 'forest_plot' in res:
+        if "forest_plot" in res:
             elements.append(ui.card_header("🌳 Subgroup Forest Plot"))
             elements.append(ui.output_ui("out_sg_forest"))
-            
-        if 'interaction_table' in res:
+
+        if "interaction_table" in res:
             elements.append(ui.card_header("📄 Interaction Analysis"))
             elements.append(ui.output_data_frame("out_sg_table"))
-            
+
         # Missing Data Report
-        if 'missing_data_info' in res:
+        if "missing_data_info" in res:
             elements.append(ui.card_header("⚠️ Missing Data Report"))
-            elements.append(ui.HTML(create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {})))
-            
+            elements.append(
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res["missing_data_info"], var_meta.get() or {}
+                    )
+                )
+            )
+
         return ui.card(*elements)
 
     @render.ui
     def out_sg_forest():
-        """
-        Render the subgroup analysis forest plot or a placeholder when results are unavailable.
-        
-        Returns:
-            A Shiny UI element containing the subgroup forest plot as HTML when a plot is present; otherwise a centered placeholder message indicating either that results are pending or that no forest plot is available.
-        """
+        """Render the subgroup analysis forest plot or a placeholder when results are unavailable."""
         res = sg_result.get()
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;"
+                style="color: #999; text-align: center; padding: 20px;",
             )
-        fig = res.get('forest_plot')
+        fig = res.get("forest_plot")
         if fig is None:
             return ui.div(
                 ui.markdown("⏳ *No forest plot available...*"),
-                style="color: #999; text-align: center; padding: 20px;"
+                style="color: #999; text-align: center; padding: 20px;",
             )
         html_str = plotly_figure_to_html(
-            fig,
-            div_id="plot_subgroup_forest",
-            include_plotlyjs='cdn',
-            responsive=True
+            fig, div_id="plot_subgroup_forest", include_plotlyjs="cdn", responsive=True
         )
         return ui.HTML(html_str)
-        
+
     @render.data_frame
     def out_sg_table():
-        """
-        Render the subgroup interaction analysis table when subgroup results are available.
-        
-        Returns:
-            DataGrid: A data grid rendering of `interaction_table` from the stored subgroup result, or `None` if no result exists.
-        """
+        """Render the subgroup interaction analysis table when subgroup results are available."""
         res = sg_result.get()
-        return render.DataGrid(res.get('interaction_table')) if res else None
+        return render.DataGrid(res.get("interaction_table")) if res else None
 
     @render.download(filename="subgroup_report.html")
     def btn_dl_sg():
         """Download subgroup analysis report."""
         res = sg_result.get()
         if not res:
-            # ✅ FIXED: Changed from b"No results" to "No results" (str) to match success path
             yield "No results"
             return
-            
+
         elements = [
-            {'type': 'header', 'data': 'Cox Subgroup Analysis'},
-            {'type': 'plot', 'data': res.get('forest_plot')},
-            {'type': 'header', 'data': 'Results'},
-            {'type': 'table', 'data': res.get('interaction_table')}
+            {"type": "header", "data": "Cox Subgroup Analysis"},
+            {"type": "plot", "data": res.get("forest_plot")},
+            {"type": "header", "data": "Results"},
+            {"type": "table", "data": res.get("interaction_table")},
         ]
-        elements = [e for e in elements if e.get('data') is not None]
+        elements = [e for e in elements if e.get("data") is not None]
         yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
+
+    # ==================== 5. TIME-VARYING COX LOGIC (NEW) ====================
+    @reactive.Effect
+    async def _update_tvc_manual_interval_visibility():
+        """Show/hide manual interval input based on method selection."""
+        method = input.tvc_interval_method()
+        display_style = "block" if method == "manual" else "none"
+        await session.send_custom_message(
+            "set_element_style",
+            {"id": "tvc_manual_interval_div", "style": {"display": display_style}},
+        )
+
+    # --- TVC Interval Presets ---
+    @reactive.Effect
+    @reactive.event(input.btn_tvc_preset_quarterly)
+    def _set_quarterly_intervals():
+        """Set manual intervals to Quarterly (every 3 months up to 24m)."""
+        ui.update_text("tvc_manual_intervals", value="0, 3, 6, 9, 12, 15, 18, 21, 24")
+
+    @reactive.Effect
+    @reactive.event(input.btn_tvc_preset_biannual)
+    def _set_biannual_intervals():
+        """Set manual intervals to Biannual (every 6 months up to 48m)."""
+        ui.update_text("tvc_manual_intervals", value="0, 6, 12, 18, 24, 30, 36, 42, 48")
+
+    @reactive.Effect
+    @reactive.event(input.btn_tvc_preset_yearly)
+    def _set_yearly_intervals():
+        """Set manual intervals to Yearly (every 12 months up to 60m)."""
+        ui.update_text("tvc_manual_intervals", value="0, 12, 24, 36, 48, 60")
+
+    @reactive.Effect
+    async def _update_tvc_interval_preview():
+        """Update risk interval preview text when settings change."""
+        method = input.tvc_interval_method()
+        manual_str = input.tvc_manual_intervals()
+        data = current_df()
+
+        intervals: list[float] = []
+        if method == "manual" and manual_str:
+            try:
+                intervals = sorted(
+                    set(
+                        float(x.strip())
+                        for x in manual_str.split(",")
+                        if x.strip() != ""
+                    )
+                )
+            except ValueError:
+                intervals = []
+        elif data is not None:
+            # Simple auto intervals using quartiles of a numeric time column
+            # In Wide format, tvc_stop_col acts as fallback time col if input.surv_time() is not relevant
+            # But let's verify if surv_time() is mapped. Usually user sets tvc_stop_col.
+            time_col = input.tvc_stop_col()
+            if time_col != "Select..." and time_col in data.columns:
+                # Ensure numeric
+                if pd.api.types.is_numeric_dtype(data[time_col]):
+                    qs = data[time_col].quantile([0, 0.25, 0.5, 0.75, 1.0]).tolist()
+                    intervals = sorted(set(qs))
+
+        preview = (
+            format_interval_preview(intervals)
+            if intervals
+            else "Intervals will appear here"
+        )
+        await session.send_custom_message(
+            "set_inner_text", {"id": "tvc_interval_preview", "text": preview}
+        )
+
+    @reactive.Effect
+    def _update_tvc_preview_table():
+        """Update long-format data preview whenever inputs change significantly."""
+        data = current_df()
+        if data is None:
+            return
+
+        fmt = input.tvc_data_format()
+        id_col = input.tvc_id_col()
+        start_col = input.tvc_start_col()
+        stop_col = input.tvc_stop_col()
+        event_col = input.tvc_event_col()
+        tvc_cols = list(input.tvc_tvc_cols())
+        static_cols = list(input.tvc_static_cols())
+
+        # Basic validation
+        if any(c == "Select..." for c in [id_col, stop_col, event_col]):
+            return
+
+        try:
+            long_df = None
+
+            if fmt == "wide":
+                # Preview transformation for Wide format
+                method = input.tvc_interval_method()
+                manual_str = input.tvc_manual_intervals()
+                risk_intervals = None
+
+                if method == "manual" and manual_str:
+                    try:
+                        risk_intervals = sorted(
+                            set(
+                                float(x.strip())
+                                for x in manual_str.split(",")
+                                if x.strip() != ""
+                            )
+                        )
+                    except ValueError:
+                        pass  # Ignore invalid manual input during preview
+
+                from utils.tvc_lib import transform_wide_to_long
+
+                long_df, _ = transform_wide_to_long(
+                    data,
+                    id_col=id_col,
+                    time_col=stop_col,
+                    event_col=event_col,
+                    tvc_cols=tvc_cols,
+                    static_cols=static_cols,
+                    risk_intervals=risk_intervals,
+                    interval_method=method,
+                )
+            else:
+                # Long format: Use data directly
+                # Ensure start_col is selected
+                if start_col == "Select...":
+                    return
+
+                # Prevent duplicate columns selection
+                req_cols = (
+                    [id_col, start_col, stop_col, event_col] + tvc_cols + static_cols
+                )
+                # Remove duplicates while preserving order
+                unique_cols = list(dict.fromkeys(req_cols))
+
+                long_df = data[unique_cols].copy()
+
+            if long_df is not None:
+                # Sort if possible (might fail if columns missing or duplicates)
+                try:
+                    sort_cols = [c for c in [id_col, stop_col] if c in long_df.columns]
+                    # Also rename columns to standard start/stop if transformed?
+                    # transform_wide_to_long returns 'start_time', 'stop_time'
+                    # But input values are retained. If we are in wide mode, id_col is preserved.
+                    if fmt == "wide":
+                        # Standardize sort column names for transformed data
+                        if "start" in long_df.columns:
+                            long_df = long_df.sort_values([id_col, "stop"])
+                    else:
+                        long_df = long_df.sort_values(sort_cols)
+                except Exception as e:
+                    logger.warning(f"Sort preview failed: {e}")
+
+                tvc_long_data.set(long_df)
+        except Exception:
+            logger.exception("TVC preview update error")
+
+    @render.ui
+    def tvc_preview_summary():
+        """Render a summary of the long-format data preview."""
+        long_df = tvc_long_data.get()
+        if long_df is None:
+            return ui.markdown("*No long-format data available yet.*")
+
+        id_col = input.tvc_id_col()
+        n_patients = long_df[id_col].nunique()
+        n_rows = len(long_df)
+        n_events = long_df[input.tvc_event_col()].sum()
+
+        return ui.markdown(
+            f"**Patients:** {n_patients:,} | **Intervals:** {n_rows:,} | **Events:** {int(n_events):,}"
+        )
+
+    @render.data_frame
+    def tvc_preview_table():
+        """Render the first 50 rows of long-format data preview."""
+        long_df = tvc_long_data.get()
+        if long_df is None:
+            return None
+
+        preview_df = long_df.head(50)
+        return render.DataGrid(preview_df)
+
+    @reactive.Effect
+    async def _update_tvc_ui_labels():
+        """Update input labels based on data format selection."""
+        fmt = input.tvc_data_format()
+        if fmt == "wide":
+            ui.update_select("tvc_stop_col", label="⏱️ Follow-up Time:")
+            await session.send_custom_message(
+                "set_element_style",
+                {"id": "div_tvc_start_col", "style": {"display": "none"}},
+            )
+        else:
+            ui.update_select("tvc_stop_col", label="⏱️ Interval Stop Time:")
+            await session.send_custom_message(
+                "set_element_style",
+                {"id": "div_tvc_start_col", "style": {"display": "block"}},
+            )
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_tvc)
+    def _run_tvc():
+        """Run Time-Varying Cox model using long-format data."""
+        data = current_df()
+        if data is None:
+            ui.notification_show("No dataset available", type="warning")
+            return
+
+        id_col = input.tvc_id_col()
+        start_col = input.tvc_start_col()
+        stop_col = input.tvc_stop_col()  # In Wide format, this acts as 'Time'
+        event_col = input.tvc_event_col()
+        tvc_cols = list(input.tvc_tvc_cols())
+        static_cols = list(input.tvc_static_cols())
+        penalizer = float(input.tvc_penalizer())
+
+        # Validation
+        if any(x == "Select..." for x in [id_col, stop_col, event_col]):
+            ui.notification_show(
+                "Please configure ID, time, and event columns", type="warning"
+            )
+            return
+
+        if not tvc_cols and not static_cols:
+            ui.notification_show("Please select at least one covariate", type="warning")
+            return
+
+        try:
+            ui.notification_show(
+                "Fitting Time-Varying Cox Model...", duration=None, id="run_tvc"
+            )
+
+            # --- 1. Handle Data Format (Long vs Wide) ---
+            fmt = input.tvc_data_format()
+
+            if fmt == "wide":
+                # In Wide format, user selected:
+                # - ID: Input ID
+                # - Follow-up Time: mapped from tvc_stop_col input (label it clearly in UI if possible, but reusing input is fine)
+                # - Event: Input Event
+                # - Intervals: From picker
+                logger.info("Transforming Wide -> Long for TVC...")
+
+                # Get interval method settings
+                method = input.tvc_interval_method()
+                manual_str = input.tvc_manual_intervals()
+                risk_intervals = None
+
+                if method == "manual" and manual_str:
+                    try:
+                        risk_intervals = sorted(
+                            set(
+                                float(x.strip())
+                                for x in manual_str.split(",")
+                                if x.strip() != ""
+                            )
+                        )
+                    except ValueError:
+                        ui.notification_show("Invalid manual intervals", type="error")
+                        ui.notification_remove("run_tvc")
+                        return
+
+                from utils.tvc_lib import transform_wide_to_long
+
+                long_df, trans_err = transform_wide_to_long(
+                    data,
+                    id_col=id_col,
+                    time_col=stop_col,  # Reusing stop_col input as 'Time' for Wide format
+                    event_col=event_col,
+                    tvc_cols=tvc_cols,
+                    static_cols=static_cols,
+                    risk_intervals=risk_intervals,
+                    interval_method=method,
+                )
+
+                if trans_err:
+                    ui.notification_show(trans_err, type="error")
+                    logger.error(f"TVC Transformation Error: {trans_err}")
+                    ui.notification_remove("run_tvc")
+                    return
+
+                fit_data = long_df
+                # For long format fitting, start/stop are fixed names from transformation
+                # transform_wide_to_long outputs 'start' and 'stop' columns (see tvc_lib.py lines 284-285)
+                fit_start = "start"
+                fit_stop = "stop"
+
+                # Update cols list for fitting (tvc cols are now single column 'tvc_val'...?
+                # Wait, transform_wide_to_long preserves column names but fills them?
+                # ... checking tvc_lib.py -> uses same names for TVC cols in output
+
+            else:
+                # Long format: Use data directly
+                long_df_pre = tvc_long_data.get()
+                if long_df_pre is not None:
+                    fit_data = long_df_pre
+                else:
+                    # Construct from fresh selection, ensuring unique columns
+                    req_cols = (
+                        [id_col, start_col, stop_col, event_col]
+                        + tvc_cols
+                        + static_cols
+                    )
+                    unique_cols = list(dict.fromkeys(req_cols))
+                    fit_data = data[unique_cols].copy()
+
+                fit_start = start_col
+                fit_stop = stop_col
+
+            # --- 2. Fit Model ---
+            from utils.tvc_lib import (  # Import here to ensure availability
+                check_tvc_assumptions,
+            )
+
+            cph, res_df, clean_data, err, stats, missing_info = fit_tvc_cox(
+                fit_data,
+                start_col=fit_start,
+                stop_col=fit_stop,
+                event_col=event_col,
+                tvc_cols=tvc_cols,
+                static_cols=static_cols,
+                penalizer=penalizer,
+                var_meta=var_meta.get(),
+            )
+
+            if err:
+                ui.notification_show(err, type="error")
+                ui.notification_remove("run_tvc")
+                return
+
+            # Forest plot
+            forest_fig = create_tvc_forest_plot(res_df)
+
+            # --- 3. Diagnostics (Specialized for TVC) ---
+            assumption_text, assumption_plots = check_tvc_assumptions(
+                cph,
+                clean_data,
+                start_col=fit_start,
+                stop_col=fit_stop,
+                event_col=event_col,
+            )
+
+            tvc_result.set(
+                {
+                    "results_df": res_df,
+                    "forest_fig": forest_fig,
+                    "assumptions_text": assumption_text,
+                    "assumptions_plots": assumption_plots,
+                    "model_stats": stats,
+                    "missing_data_info": missing_info,
+                }
+            )
+
+            ui.notification_remove("run_tvc")
+        except Exception as e:
+            ui.notification_remove("run_tvc")
+            ui.notification_show(f"TVC model error: {e}", type="error")
+            logger.exception("TVC model error")
+
+    @render.ui
+    def out_tvc_result():
+        """Render the Time-Varying Cox model results card."""
+        res = tvc_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("*Results will appear here after running the model.*"),
+                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;",
+            )
+
+        stats_ui = None
+        if res.get("model_stats"):
+            s = res["model_stats"]
+            stats_ui = ui.div(
+                ui.div(ui.strong("C-index: "), str(s.get("Concordance Index", "-"))),
+                ui.div(ui.strong("AIC: "), str(s.get("AIC", "-"))),
+                ui.div(
+                    ui.strong("Events: "),
+                    f"{s.get('N Events', '-')}/{s.get('N Observations', '-')}",
+                ),
+                style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
+            )
+
+        return ui.card(
+            ui.card_header("📄 Time-Varying Cox Results"),
+            stats_ui,
+            ui.output_data_frame("out_tvc_table"),
+            ui.card_header("🌳 Forest Plot"),
+            ui.output_ui("out_tvc_forest"),
+            ui.card_header("🔍 Diagnostics"),
+            ui.output_ui("out_tvc_assumptions_ui"),
+        )
+
+    @render.data_frame
+    def out_tvc_table():
+        """Render TVC Cox results table."""
+        res = tvc_result.get()
+        return render.DataGrid(res["results_df"]) if res else None
+
+    @render.ui
+    def out_tvc_forest():
+        """Render TVC Cox forest plot."""
+        res = tvc_result.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Waiting for TVC results...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+        html_str = plotly_figure_to_html(
+            res["forest_fig"],
+            div_id="plot_tvc_forest",
+            include_plotlyjs="cdn",
+            responsive=True,
+        )
+        return ui.HTML(html_str)
+
+    @render.ui
+    def out_tvc_assumptions_ui():
+        """Render diagnostics for TVC model."""
+        res = tvc_result.get()
+        if not res:
+            return None
+
+        elements = [
+            ui.div(
+                ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}"),
+                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};",
+            )
+        ]
+
+        if res["assumptions_plots"]:
+            html_plots = ""
+            for i, fig in enumerate(res["assumptions_plots"]):
+                include_js = "cdn" if i == 0 else False
+                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
+            elements.append(ui.HTML(html_plots))
+
+        return ui.div(*elements)
+
+    @render.download(filename="tvc_report.html")
+    def btn_dl_tvc():
+        """Download TVC Cox analysis report."""
+        res = tvc_result.get()
+        if not res:
+            yield "No results"
+            return
+
+        elements = [
+            {"type": "header", "data": "Time-Varying Cox Regression"},
+            {"type": "table", "data": res["results_df"]},
+            {"type": "plot", "data": res["forest_fig"]},
+            {"type": "header", "data": "Diagnostics"},
+            {"type": "text", "data": res["assumptions_text"]},
+        ]
+
+        html = generate_tvc_report(
+            "Time-Varying Cox Regression",
+            elements,
+            stats=res.get("model_stats", {}),
+            missing_data_info=res.get("missing_data_info", {}),
+            var_meta=var_meta.get(),
+        )
+        yield html
