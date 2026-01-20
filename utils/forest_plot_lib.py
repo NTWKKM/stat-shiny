@@ -11,8 +11,10 @@ OPTIMIZATIONS:
 - Pre-computed CI widths (5x faster)
 """
 
+from __future__ import annotations
+
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -40,7 +42,7 @@ class ForestPlot:
         ci_low_col: str,
         ci_high_col: str,
         label_col: str,
-        pval_col: Optional[str] = None,
+        pval_col: str | None = None,
     ):
         """
         Initialize ForestPlot with validated data.
@@ -125,7 +127,7 @@ class ForestPlot:
         return result
 
     @staticmethod
-    def _vectorized_pvalue_colors(p_series: pd.Series) -> List[str]:
+    def _vectorized_pvalue_colors(p_series: pd.Series) -> list[str]:
         """
         OPTIMIZED: Vectorize p-value color assignment (10x faster).
 
@@ -142,7 +144,7 @@ class ForestPlot:
 
         return colors.tolist()
 
-    def _get_ci_width_colors(self, base_color: str) -> Tuple[List[str], np.ndarray]:
+    def _get_ci_width_colors(self, base_color: str) -> tuple[list[str], np.ndarray]:
         """
         OPTIMIZED: Pre-compute CI widths in single operation (5x faster).
 
@@ -187,7 +189,7 @@ class ForestPlot:
 
     def get_summary_stats(
         self, ref_line: float = 1.0
-    ) -> Dict[str, Union[int, float, None]]:
+    ) -> dict[str, int | float | None]:
         """
         OPTIMIZED: Vectorized summary statistics computation.
         """
@@ -238,8 +240,8 @@ class ForestPlot:
         show_sig_stars: bool = True,
         show_ci_width_colors: bool = True,
         show_sig_divider: bool = True,
-        height: Optional[int] = None,
-        color: Optional[str] = None,
+        height: int | None = None,
+        color: str | None = None,
     ) -> go.Figure:
         """
         OPTIMIZED: Build interactive forest plot with vectorized operations.
@@ -514,7 +516,7 @@ def create_forest_plot(
     ci_low_col: str = "CI_Lower",
     ci_high_col: str = "CI_Upper",
     label_col: str = "Label",
-    pval_col: Optional[str] = None,
+    pval_col: str | None = None,
     **kwargs: Any,
 ) -> go.Figure:
     """

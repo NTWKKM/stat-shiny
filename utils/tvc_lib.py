@@ -32,7 +32,9 @@ References:
     - lifelines docs: https://lifelines.readthedocs.io/en/latest/api_reference/lifelines.CoxTimeVaryingFitter.html
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from __future__ import annotations
+
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -54,7 +56,7 @@ logger = get_logger(__name__)
 
 def validate_long_format(
     df: pd.DataFrame, id_col: str, start_col: str, stop_col: str, event_col: str
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Validate that a dataset is in proper long format for TVC Cox analysis.
 
@@ -66,7 +68,7 @@ def validate_long_format(
         event_col: Column name for event indicator (0/1)
 
     Returns:
-        Tuple[bool, Optional[str]]: (is_valid, error_message)
+        tuple[bool, str | None]: (is_valid, error_message)
             - is_valid=True if all checks pass
             - error_message contains specific issue if validation fails
 
@@ -133,11 +135,11 @@ def transform_wide_to_long(
     id_col: str,
     time_col: str,
     event_col: str,
-    tvc_cols: Optional[List[str]] = None,
-    static_cols: Optional[List[str]] = None,
-    risk_intervals: Optional[List[float]] = None,
+    tvc_cols: list[str] | None = None,
+    static_cols: list[str] | None = None,
+    risk_intervals: list[float] | None = None,
     interval_method: str = "quantile",
-) -> Tuple[pd.DataFrame, Optional[str]]:
+) -> tuple[pd.DataFrame, str | None]:
     """
     Transform wide-format survival data to long format for time-varying covariate analysis.
 
@@ -165,7 +167,7 @@ def transform_wide_to_long(
         interval_method: "quantile" (auto) or "manual" (user-specified)
 
     Returns:
-        Tuple[pd.DataFrame, Optional[str]]: (long_data, error_message)
+        tuple[pd.DataFrame, str | None]: (long_data, error_message)
             - long_data: DataFrame in long format, ready for CoxTimeVaryingFitter
             - error_message: If transformation fails, contains error details
 
@@ -363,17 +365,17 @@ def fit_tvc_cox(
     start_col: str,
     stop_col: str,
     event_col: str,
-    tvc_cols: List[str],
-    static_cols: Optional[List[str]] = None,
+    tvc_cols: list[str],
+    static_cols: list[str] | None = None,
     penalizer: float = 0.0,
-    var_meta: Optional[Dict[str, Any]] = None,
-) -> Tuple[
-    Optional[CoxTimeVaryingFitter],
-    Optional[pd.DataFrame],
-    Optional[pd.DataFrame],
-    Optional[str],
-    Dict[str, Any],
-    Optional[Dict[str, Any]],
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[
+    CoxTimeVaryingFitter | None,
+    pd.DataFrame | None,
+    pd.DataFrame | None,
+    str | None,
+    dict[str, Any],
+    dict[str, Any] | None,
 ]:
     """
     Fit Cox proportional hazards model with time-varying covariates.
@@ -628,7 +630,7 @@ def check_tvc_assumptions(
     start_col: str,
     stop_col: str,
     event_col: str,
-) -> Tuple[str, List[go.Figure]]:
+) -> tuple[str, list[go.Figure]]:
     """
     Check proportional hazards assumptions for TVC Cox model.
 
@@ -648,7 +650,7 @@ def check_tvc_assumptions(
         event_col: Column name for event indicator
 
     Returns:
-        Tuple[str, List[go.Figure]]:
+        tuple[str, list[go.Figure]]:
         - interpretation_text: HTML-formatted interpretation of diagnostics
         - diagnostic_plots: List of Plotly figures for visualization
     """
@@ -882,10 +884,10 @@ def create_tvc_forest_plot(results_df: pd.DataFrame) -> go.Figure:
 
 def generate_tvc_report(
     title: str,
-    elements: List[Dict[str, Any]],
-    stats: Dict[str, Any],
-    missing_data_info: Dict[str, Any],
-    var_meta: Optional[Dict[str, Any]] = None,
+    elements: list[dict[str, Any]],
+    stats: dict[str, Any],
+    missing_data_info: dict[str, Any],
+    var_meta: dict[str, Any] | None = None,
 ) -> str:
     """
     Generate HTML report for TVC Cox analysis with standard application styling.

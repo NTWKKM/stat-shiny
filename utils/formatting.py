@@ -4,8 +4,9 @@ Consolidated from logic.py, table_one.py, and diag_test.py
 Driven by central configuration from config.py
 """
 
+from __future__ import annotations
+
 import html as _html
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd

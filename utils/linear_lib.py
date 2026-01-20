@@ -17,9 +17,11 @@ and returns β coefficients with full diagnostic support.
 ✅ Integrated with existing data_cleaning, formatting, and plotly_html_renderer utilities
 """
 
+from __future__ import annotations
+
 import html as _html
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
+from typing import Any, Literal, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -114,8 +116,8 @@ class DiagnosticResult(TypedDict):
 
 
 def validate_ols_inputs(
-    df: pd.DataFrame, outcome_col: str, predictor_cols: List[str]
-) -> Tuple[bool, str]:
+    df: pd.DataFrame, outcome_col: str, predictor_cols: list[str]
+) -> tuple[bool, str]:
     """
     Validate inputs for OLS regression.
 
@@ -152,10 +154,10 @@ def validate_ols_inputs(
 def prepare_data_for_ols(
     df: pd.DataFrame,
     outcome_col: str,
-    predictor_cols: List[str],
-    var_meta: Optional[Dict[str, Any]] = None,
+    predictor_cols: list[str],
+    var_meta: dict[str, Any] | None = None,
     min_sample_size: int = 10,
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Prepare data for OLS regression analysis.
 
@@ -262,7 +264,7 @@ def prepare_data_for_ols(
 def run_ols_regression(
     df: pd.DataFrame,
     outcome_col: str,
-    predictor_cols: List[str],
+    predictor_cols: list[str],
     robust_se: bool = False,
     cov_type: str = "nonrobust",
 ) -> OLSResult:
@@ -343,7 +345,7 @@ def run_ols_regression(
 def run_robust_regression(
     df: pd.DataFrame,
     outcome_col: str,
-    predictor_cols: List[str],
+    predictor_cols: list[str],
     m_estimator: str = "huber",
 ) -> OLSResult:
     """
@@ -447,7 +449,7 @@ def extract_coefficients(model) -> pd.DataFrame:
     return coef_df
 
 
-def calculate_vif_for_ols(df: pd.DataFrame, predictor_cols: List[str]) -> pd.DataFrame:
+def calculate_vif_for_ols(df: pd.DataFrame, predictor_cols: list[str]) -> pd.DataFrame:
     """
     Calculate Variance Inflation Factor (VIF) for each predictor.
 
@@ -516,13 +518,13 @@ def calculate_vif_for_ols(df: pd.DataFrame, predictor_cols: List[str]) -> pd.Dat
 def stepwise_selection(
     df: pd.DataFrame,
     outcome_col: str,
-    candidate_cols: List[str],
+    candidate_cols: list[str],
     direction: Literal["forward", "backward", "both"] = "both",
     criterion: Literal["aic", "bic", "pvalue"] = "aic",
     p_enter: float = 0.05,
     p_remove: float = 0.10,
     max_iterations: int = 100,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Perform stepwise variable selection for OLS regression.
 
@@ -557,7 +559,7 @@ def stepwise_selection(
         else:  # pvalue - return negative log-likelihood (lower is better)
             return -model.llf
 
-    def fit_model(var_list: List[str]):
+    def fit_model(var_list: list[str]):
         """Fit OLS model with given variables."""
         if not var_list:
             # Null model with intercept only
@@ -702,7 +704,7 @@ def stepwise_selection(
     }
 
 
-def format_stepwise_history(history: List[Dict]) -> pd.DataFrame:
+def format_stepwise_history(history: list[Dict]) -> pd.DataFrame:
     """Format stepwise selection history as a DataFrame."""
     if not history:
         return pd.DataFrame()
@@ -735,7 +737,7 @@ def format_stepwise_history(history: List[Dict]) -> pd.DataFrame:
 
 
 def compare_models(
-    df: pd.DataFrame, outcome_col: str, model_specs: List[Dict[str, Any]]
+    df: pd.DataFrame, outcome_col: str, model_specs: list[dict[str, Any]]
 ) -> pd.DataFrame:
     """
     Compare multiple OLS models using AIC, BIC, and adjusted R².
@@ -875,11 +877,11 @@ def format_model_comparison(comparison_df: pd.DataFrame) -> str:
 def bootstrap_ols(
     df: pd.DataFrame,
     outcome_col: str,
-    predictor_cols: List[str],
+    predictor_cols: list[str],
     n_bootstrap: int = 1000,
     ci_level: float = 0.95,
-    random_state: Optional[int] = None,
-) -> Dict[str, Any]:
+    random_state: int | None = None,
+) -> dict[str, Any]:
     """
     Calculate bootstrap confidence intervals for OLS regression coefficients.
 
@@ -1015,7 +1017,7 @@ def bootstrap_ols(
 
 
 def format_bootstrap_results(
-    boot_results: Dict[str, Any], ci_method: Literal["percentile", "bca"] = "percentile"
+    boot_results: dict[str, Any], ci_method: Literal["percentile", "bca"] = "percentile"
 ) -> pd.DataFrame:
     """
     Format bootstrap results for display.
@@ -1059,7 +1061,7 @@ def format_bootstrap_results(
 
 
 def create_bootstrap_distribution_plot(
-    boot_results: Dict[str, Any], variable_idx: int = 0
+    boot_results: dict[str, Any], variable_idx: int = 0
 ) -> go.Figure:
     """
     Create histogram of bootstrap distribution for a coefficient.
@@ -1149,7 +1151,7 @@ def create_bootstrap_distribution_plot(
 # ==============================================================================
 
 
-def run_diagnostic_tests(results: OLSResult) -> List[DiagnosticResult]:
+def run_diagnostic_tests(results: OLSResult) -> list[DiagnosticResult]:
     """
     Run comprehensive diagnostic tests on OLS results.
 
@@ -1164,7 +1166,7 @@ def run_diagnostic_tests(results: OLSResult) -> List[DiagnosticResult]:
     Returns:
         List of DiagnosticResult dictionaries
     """
-    diagnostics: List[DiagnosticResult] = []
+    diagnostics: list[DiagnosticResult] = []
     residuals = results["residuals"]
 
     # 1. Shapiro-Wilk test for normality
@@ -1262,7 +1264,7 @@ def run_diagnostic_tests(results: OLSResult) -> List[DiagnosticResult]:
 # ==============================================================================
 
 
-def create_diagnostic_plots(results: OLSResult) -> Dict[str, go.Figure]:
+def create_diagnostic_plots(results: OLSResult) -> dict[str, go.Figure]:
     """
     Create Plotly diagnostic plots for OLS assumption checking.
 
@@ -1567,8 +1569,8 @@ def create_residuals_vs_leverage_plot(
 
 
 def format_ols_results(
-    results: OLSResult, var_meta: Optional[Dict[str, Any]] = None
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    results: OLSResult, var_meta: dict[str, Any] | None = None
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Format OLS results for presentation.
 
@@ -1638,12 +1640,12 @@ def format_ols_results(
 def generate_report(
     outcome_name: str,
     results: OLSResult,
-    diagnostics: List[DiagnosticResult],
-    plots: Dict[str, go.Figure],
+    diagnostics: list[DiagnosticResult],
+    plots: dict[str, go.Figure],
     formatted_coef: pd.DataFrame,
     vif_table: pd.DataFrame,
-    missing_data_info: Dict[str, Any],
-    var_meta: Optional[Dict[str, Any]] = None,
+    missing_data_info: dict[str, Any],
+    var_meta: dict[str, Any] | None = None,
     regression_type: str = "ols",
 ) -> str:
     """
@@ -1933,13 +1935,13 @@ def generate_report(
 def analyze_linear_outcome(
     outcome_name: str,
     df: pd.DataFrame,
-    predictor_cols: Optional[List[str]] = None,
-    var_meta: Optional[Dict[str, Any]] = None,
-    exclude_cols: Optional[List[str]] = None,
+    predictor_cols: list[str] | None = None,
+    var_meta: dict[str, Any] | None = None,
+    exclude_cols: list[str] | None = None,
     regression_type: Literal["ols", "robust"] = "ols",
     robust_estimator: str = "huber",
     robust_se: bool = False,
-) -> Tuple[str, OLSResult, Dict[str, go.Figure], Dict[str, Any]]:
+) -> tuple[str, OLSResult, dict[str, go.Figure], dict[str, Any]]:
     """
     Perform complete linear regression analysis.
 
