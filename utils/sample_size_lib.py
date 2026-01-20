@@ -7,7 +7,10 @@ Implements computations for Study Design:
 - Correlation
 """
 
+from typing import Any
+
 import numpy as np
+import pandas as pd
 import statsmodels.stats.power as smp
 import statsmodels.stats.proportion as smprop
 from scipy import stats
@@ -193,3 +196,107 @@ def calculate_sample_size_correlation(
     c = 0.5 * np.log((1 + r) / (1 - r))
     n = 3 + ((z_alpha + z_beta) / c) ** 2
     return np.ceil(n)
+
+def calculate_power_survival(
+    total_events: float,
+    ratio: float,
+    h0: float,
+    h1: float = 0,
+    alpha: float = 0.05,
+    mode: str = "hr",
+) -> float:
+    """Calculate Power for Log-Rank Test given number of events."""
+    if mode == "median":
+        hr = h0 / h1
+    else:
+        hr = h0
+
+    z_alpha = stats.norm.ppf(1 - alpha / 2)
+
+    # E = (z_alpha + z_beta)^2 * ( (1+k)^2 / (k * ln(HR)^2) )
+    # z_beta = sqrt( E * k * ln(HR)^2 / (1+k)^2 ) - z_alpha
+
+    num = total_events * ratio * (np.log(hr)) ** 2
+    den = (1 + ratio) ** 2
+
+    z_beta = np.sqrt(num / den) - z_alpha
+    return float(stats.norm.cdf(z_beta))
+
+
+def calculate_power_correlation(
+    n: float, r: float, alpha: float = 0.05, alternative: str = "two-sided"
+) -> float:
+    """Calculate Power for Pearson Correlation given N."""
+    z_alpha = stats.norm.ppf(1 - alpha / 2)
+    c = 0.5 * np.log((1 + r) / (1 - r))
+
+    # z_beta = C * sqrt(N - 3) - z_alpha
+    # Ensure n > 3
+    if n <= 3:
+        return 0.0
+        
+    z_beta = abs(c) * np.sqrt(n - 3) - z_alpha
+    return float(stats.norm.cdf(z_beta))
+
+
+def calculate_power_curve(
+    target_n: int,
+    ratio: float,
+    calc_func: callable,
+    **kwargs: Any,
+) -> pd.DataFrame:
+    """
+    Generate data for Power Curve (Power vs Sample Size).
+
+    Args:
+        target_n: The calculated total sample size (or events)
+        ratio: Allocation ratio (n2/n1)
+        calc_func: The power calculation function to use
+        **kwargs: Additional arguments for calc_func
+
+    Returns:
+        pd.DataFrame with columns ['total_n', 'power']
+    """
+    # Define range: ~50% to ~150% of target_n, or specific range if total_n is small
+    n_center = max(20, target_n)
+
+    # Generate ~30 points
+    n_min = max(10, int(n_center * 0.5))
+    n_max = max(n_min + 20, int(n_center * 1.5))
+
+    # If range is too small, expand it
+    if n_max - n_min < 20:
+        n_max = n_min + 20
+
+    # Generate evenly spaced sample sizes
+    n_values = np.linspace(n_min, n_max, 30).astype(int)
+    n_values = np.unique(n_values)  # Remove duplicates
+
+    results = []
+
+    for total_n in n_values:
+        try:
+            pwr = np.nan
+            fname = calc_func.__name__
+            
+            if fname == "calculate_power_means":
+                n1 = np.ceil(total_n / (1 + ratio))
+                n2 = total_n - n1
+                pwr = calc_func(n1, n2, **kwargs)
+            elif fname == "calculate_power_proportions":
+                n1 = np.ceil(total_n / (1 + ratio))
+                n2 = total_n - n1
+                pwr = calc_func(n1, n2, **kwargs)
+            elif fname == "calculate_power_survival":
+                # total_n here represents total_events
+                pwr = calc_func(total_events=total_n, ratio=ratio, **kwargs)
+            elif fname == "calculate_power_correlation":
+                pwr = calc_func(n=total_n, **kwargs)
+            
+            results.append({"total_n": total_n, "power": pwr})
+
+        except Exception:
+            continue
+
+    return pd.DataFrame(results)
+

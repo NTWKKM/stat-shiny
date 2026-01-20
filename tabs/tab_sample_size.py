@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
+import plotly.express as px
 from shiny import module, reactive, render, ui
 
+from tabs._common import get_color_palette
 from utils import sample_size_lib
+from utils.plotly_html_renderer import plotly_figure_to_html
+
+COLORS = get_color_palette()
 
 
 @module.ui
@@ -53,7 +59,9 @@ def sample_size_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.card(
-                        ui.card_header("Results"), ui.output_ui("out_means_result")
+                        ui.card_header("Results"),
+                        ui.output_ui("out_means_result"),
+                        ui.output_ui("out_means_plot"),
                     ),
                 ),
             ),
@@ -109,7 +117,9 @@ def sample_size_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.card(
-                        ui.card_header("Results"), ui.output_ui("out_props_result")
+                        ui.card_header("Results"),
+                        ui.output_ui("out_props_result"),
+                        ui.output_ui("out_props_plot"),
                     ),
                 ),
             ),
@@ -171,6 +181,7 @@ def sample_size_ui() -> ui.TagChild:
                     ui.card(
                         ui.card_header("Results"),
                         ui.output_ui("out_surv_result"),
+                        ui.output_ui("out_surv_plot"),
                         ui.markdown(
                             "*Note: This calculates required number of EVENTS, not total subjects.*"
                         ),
@@ -213,8 +224,13 @@ def sample_size_ui() -> ui.TagChild:
                             class_="btn-primary w-100",
                         ),
                     ),
-                    ui.card(ui.card_header("Results"), ui.output_ui("out_corr_result")),
+                    ui.card(
+                        ui.card_header("Results"),
+                        ui.output_ui("out_corr_result"),
+                        ui.output_ui("out_corr_plot"),
+                    ),
                 ),
+
             ),
         ),
     )
@@ -225,9 +241,13 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
 
     # --- RESULT HOLDERS ---
     res_means = reactive.Value(None)
+    plot_means = reactive.Value(None)
     res_props = reactive.Value(None)
+    plot_props = reactive.Value(None)
     res_surv = reactive.Value(None)
+    plot_surv = reactive.Value(None)
     res_corr = reactive.Value(None)
+    plot_corr = reactive.Value(None)
 
     # --- CALCULATORS ---
 
@@ -245,8 +265,23 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
                 alpha=input.ss_means_alpha(),
             )
             res_means.set(res)
+            
+            # Power Curve
+            df_plot = sample_size_lib.calculate_power_curve(
+                target_n=int(res["total"]),
+                ratio=input.ss_means_ratio(),
+                calc_func=sample_size_lib.calculate_power_means,
+                mean1=input.ss_mean1(),
+                mean2=input.ss_mean2(),
+                sd1=input.ss_sd1(),
+                sd2=input.ss_sd2(),
+                alpha=input.ss_means_alpha(),
+            )
+            plot_means.set(df_plot)
+            
         except Exception as e:
             res_means.set(f"Error: {e}")
+            plot_means.set(None)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_props)
@@ -260,8 +295,21 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
                 alpha=input.ss_props_alpha(),
             )
             res_props.set(res)
+            
+            # Power Curve
+            df_plot = sample_size_lib.calculate_power_curve(
+                target_n=int(res["total"]),
+                ratio=input.ss_props_ratio(),
+                calc_func=sample_size_lib.calculate_power_proportions,
+                p1=input.ss_p1(),
+                p2=input.ss_p2(),
+                alpha=input.ss_props_alpha(),
+            )
+            plot_props.set(df_plot)
+            
         except Exception as e:
             res_props.set(f"Error: {e}")
+            plot_props.set(None)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_surv)
@@ -283,8 +331,22 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
                 mode=input.ss_surv_mode(),
             )
             res_surv.set(res)
+            
+            # Power Curve (Events)
+            df_plot = sample_size_lib.calculate_power_curve(
+                target_n=int(res["total_events"]),
+                ratio=input.ss_surv_ratio(),
+                calc_func=sample_size_lib.calculate_power_survival,
+                h0=h0,
+                h1=h1,
+                alpha=input.ss_surv_alpha(),
+                mode=input.ss_surv_mode(),
+            )
+            plot_surv.set(df_plot)
+            
         except Exception as e:
             res_surv.set(f"Error: {e}")
+            plot_surv.set(None)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_corr)
@@ -296,8 +358,20 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
                 alpha=input.ss_corr_alpha(),
             )
             res_corr.set(res)
+            
+            # Power Curve
+            df_plot = sample_size_lib.calculate_power_curve(
+                target_n=int(res),
+                ratio=1.0, # Not used for corr, but required arg
+                calc_func=sample_size_lib.calculate_power_correlation,
+                r=input.ss_corr_r(),
+                alpha=input.ss_corr_alpha(),
+            )
+            plot_corr.set(df_plot)
+            
         except Exception as e:
             res_corr.set(f"Error: {e}")
+            plot_corr.set(None)
 
     # --- RENDERERS ---
 
@@ -314,14 +388,49 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             ui.p(f"Group 2 (n2): {int(res['n2'])}"),
             style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
         )
+        
+    def _render_power_curve_plot(df: pd.DataFrame | None, x_label: str = "Sample Size (Total N)"):
+        if df is None or df.empty:
+            return None
+        
+        fig = px.line(
+            df, 
+            x="total_n", 
+            y="power", 
+            title="Power Curve", 
+            markers=True,
+            labels={"total_n": x_label, "power": "Power (1-β)"},
+            template="plotly_white"
+        )
+        # Add threshold line
+        fig.add_hline(
+            y=0.8, 
+            line_dash="dash", 
+            line_color="red", 
+            annotation_text="80% Power", 
+            annotation_position="bottom right"
+        )
+        fig.update_layout(
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=300
+        )
+        return plotly_figure_to_html(fig)
 
     @render.ui
     def out_means_result():
         return _render_n_result(res_means.get())
+        
+    @render.ui
+    def out_means_plot():
+         return _render_power_curve_plot(plot_means.get())
 
     @render.ui
     def out_props_result():
         return _render_n_result(res_props.get())
+        
+    @render.ui
+    def out_props_plot():
+         return _render_power_curve_plot(plot_props.get())
 
     @render.ui
     def out_surv_result():
@@ -342,6 +451,10 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             ),
             style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
         )
+        
+    @render.ui
+    def out_surv_plot():
+         return _render_power_curve_plot(plot_surv.get(), x_label="Number of Events")
 
     @render.ui
     def out_corr_result():
@@ -355,3 +468,7 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             ui.h2(f"Total N = {int(res)}", class_="text-primary text-center"),
             style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
         )
+        
+    @render.ui
+    def out_corr_plot():
+         return _render_power_curve_plot(plot_corr.get())
