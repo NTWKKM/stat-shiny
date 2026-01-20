@@ -76,7 +76,7 @@ class TestAppLoading:
         # Check for main navigation tabs
         expected_tabs = [
             "Data Management",
-            "Risk Factors",
+            "Regression Models",
             "Survival Analysis",
             "Settings",
         ]
@@ -110,16 +110,16 @@ class TestTabNavigation:
         file_inputs = page.query_selector_all("input[type='file']")
         assert len(file_inputs) > 0, "File upload input not found"
 
-    def test_navigate_to_risk_factors(self, page: Page):
+    def test_navigate_to_regression_models(self, page: Page):
         """
-        ✅ Test navigation to Risk Factors tab.
+        ✅ Test navigation to Regression Models tab.
 
         Given: The app is loaded
-        When: Clicking "Risk Factors" tab
+        When: Clicking "Regression Models" tab
         Then: Binary Logistic Regression section is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Risk Factors").click()
+        page.get_by_role("tab", name="Regression Models").click()
 
         expect(page.get_by_text("Binary Logistic Regression")).to_be_visible()
         expect(page.get_by_label("Select Outcome")).to_be_visible()
@@ -200,8 +200,8 @@ class TestDataManagementWorkflow:
 # ============================================================================
 
 
-class TestRiskFactorsWorkflow:
-    """Tests for risk factors analysis workflow.
+class TestRegressionModelsWorkflow:
+    """Tests for regression models analysis workflow.
 
     Verifies logistic regression UI elements and interaction.
     """
@@ -210,12 +210,12 @@ class TestRiskFactorsWorkflow:
         """
         ✅ Test that outcome selector is visible.
 
-        Given: The app is on Risk Factors tab
+        Given: The app is on Regression Models tab
         When: Looking for outcome selector
         Then: Selector is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Risk Factors").click()
+        page.get_by_role("tab", name="Regression Models").click()
 
         expect(page.get_by_label("Select Outcome")).to_be_visible()
 
@@ -223,12 +223,12 @@ class TestRiskFactorsWorkflow:
         """
         ✅ Test that analysis run button exists.
 
-        Given: The app is on Risk Factors tab
+        Given: The app is on Regression Models tab
         When: Looking for run button
         Then: Button is present (may be disabled without data)
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Risk Factors").click()
+        page.get_by_role("tab", name="Regression Models").click()
 
         # Wait for UI to fully load
         page.wait_for_timeout(500)
@@ -325,7 +325,7 @@ class TestErrorHandling:
 
         # Navigate through all tabs
         for tab_name in [
-            "Risk Factors",
+            "Regression Models",
             "Survival Analysis",
             "Settings",
             "Data Management",
