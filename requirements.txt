@@ -58,3 +58,4 @@ playwright>=1.40.0
 # ==============================================================================
 ruff>=0.4.0
 pillow>=10.3.0 # not directly required, pinned by Snyk to avoid a vulnerability
+fonttools>=4.61.0 # not directly required, pinned by Snyk to avoid a vulnerability
