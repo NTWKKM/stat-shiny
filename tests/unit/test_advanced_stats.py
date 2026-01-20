@@ -100,6 +100,7 @@ def test_calculate_vif_collinear():
     assert vif_df[vif_df["feature"] == "x"]["VIF"].iloc[0] > 10
 
 
+@pytest.mark.filterwarnings("ignore:divide by zero:RuntimeWarning")
 def test_calculate_vif_constant_handling():
     """Test that VIF adds constant internally if needed."""
     df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [2, 4, 6, 8]})  # Perfect correlation
@@ -109,6 +110,7 @@ def test_calculate_vif_constant_handling():
     assert "const" not in vif_df["feature"].values
 
 
+@pytest.mark.filterwarnings("ignore:divide by zero:RuntimeWarning")
 def test_calculate_vif_with_nans():
     """Test VIF handles (drops) NaNs rows."""
     df = pd.DataFrame({"a": [1, 2, 3, np.nan], "b": [5, 6, 7, 8], "c": [9, 10, 11, 12]})
