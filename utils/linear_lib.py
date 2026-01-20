@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import html as _html
 import warnings
-from typing import Any, Literal, TypedDict
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 import numpy as np
 import pandas as pd
