@@ -310,9 +310,11 @@ class TestErrorHandling:
         """
         errors = []
         console_errors = []
+
         def on_console(msg):
             if msg.type == "error":
                 console_errors.append(msg.text)
+
         page.on("console", on_console)
         page.on("pageerror", lambda e: errors.append(str(e)))
 
@@ -335,9 +337,11 @@ class TestErrorHandling:
         """
         errors = []
         console_errors = []
+
         def on_console(msg):
             if msg.type == "error":
                 console_errors.append(msg.text)
+
         page.on("console", on_console)
         page.on("pageerror", lambda e: errors.append(str(e)))
 
