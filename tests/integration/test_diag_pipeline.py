@@ -110,4 +110,4 @@ class TestDiagnosticPipeline:
         assert stats_df is not None
         assert not stats_df.empty
         # Check that ICC statistic is present in results
-        assert any("ICC" in str(val) for val in stats_df.values.flatten())
+        assert any("ICC" in str(t) for t in stats_df["Type"].values)
