@@ -267,7 +267,9 @@ def detect_outliers(
                 std = cleaned.std()
 
                 if std == 0:
-                    logger.warning("Standard deviation is zero, cannot use z-score method")
+                    logger.warning(
+                        "Standard deviation is zero, cannot use z-score method"
+                    )
                     return outlier_mask, stats
 
                 z_scores = np.abs((cleaned - mean) / std)
@@ -330,7 +332,9 @@ def handle_outliers(
                 # Flag/Remove outliers (set to NaN)
                 result = cleaned.copy()
                 result[outlier_mask] = np.nan
-                logger.info(f"Handled {stats['outlier_count']} outliers via '{action}' (set to NaN)")
+                logger.info(
+                    f"Handled {stats['outlier_count']} outliers via '{action}' (set to NaN)"
+                )
 
             case "winsorize":
                 # Winsorize outliers to boundary values

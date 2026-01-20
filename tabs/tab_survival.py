@@ -14,7 +14,7 @@ Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 import pandas as pd

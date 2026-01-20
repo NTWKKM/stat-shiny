@@ -16,7 +16,7 @@ import html as _html
 import os
 import re
 import tempfile
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 import pandas as pd

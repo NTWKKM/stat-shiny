@@ -23,7 +23,7 @@ import json
 import os
 import warnings
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 from logger import get_logger
 
