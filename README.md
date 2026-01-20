@@ -30,44 +30,30 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- app.py
 |-- asgi.py
 |-- config.py
-|-- correlation.py
-|-- diag_test.py
 |-- firthmodels.md
-|-- forest_plot_lib.py
-|-- interaction_lib.py
 |-- logger.py
-|-- logic.py
 |-- md /
-|   |-- 260110 Multiple Comparison Corrections.md
-|   |-- 260110executive-summary.md
-|   |-- 260110implementation-guide.md
-|   |-- 260110stat-shiny-review.md
-|   |-- CACHE_INTEGRATION_GUIDE.md
-|   |-- MIGRATION_NOTES.md
-|   |-- Migration from shinywidgets to HTML-Plotly.md
-|   |-- Missing Data Integration Walkthrough.md
-|   |-- OPTIMIZATION.md
-|   |-- fix_table_one.md
-|   `-- missing_data_implementation_plan.md
-|-- poisson_lib.py
-|-- psm_lib.py
+|   `-- 20.1.26_stat-shiny-analysis v2
+|-- pyproject.toml
 |-- pytest.ini
+|-- requirements-prod.txt
 |-- requirements.txt
 |-- static /
+|   |-- js /
+|   |   `-- custom_handlers.js
 |   `-- styles.css
-|-- subgroup_analysis_module.py
-|-- survival_lib.py
-|-- table_one.py
 |-- tabs /
 |   |-- __init__.py
 |   |-- _common.py
 |   |-- _styling.py
+|   |-- _tvc_components.py
 |   |-- tab_advanced_stats.py
 |   |-- tab_baseline_matching.py
 |   |-- tab_corr.py
 |   |-- tab_data.py
 |   |-- tab_diag.py
 |   |-- tab_logit.py
+|   |-- tab_sample_size.py
 |   |-- tab_settings.py
 |   `-- tab_survival.py
 |-- tests /
@@ -86,24 +72,48 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |   |-- test_subgroup_pipeline.py
 |   |   |-- test_survival_pipeline.py
 |   |   `-- test_table_one_pipeline.py
+|   |-- test_bland_altman.py
 |   |-- test_color_palette.py
+|   |-- test_dca.py
+|   |-- test_diag_returns.py
+|   |-- test_glm.py
 |   |-- test_plotly_html_rendering.py
+|   |-- test_repeated_measures.py
+|   |-- test_sample_size.py
 |   `-- unit /
 |       |-- test_advanced_stats.py
 |       |-- test_data_cleaning.py
 |       |-- test_data_cleaning_workflow.py
+|       |-- test_formatting.py
+|       |-- test_linear_lib.py
 |       |-- test_missing_data.py
 |       |-- test_statistics.py
+|       |-- test_tvc_lib.py
 |       `-- verify_table_one.py
-|-- utils /
-|   |-- __init__.py
-|   |-- advanced_stats_lib.py
-|   |-- data_cleaning.py
-|   |-- formatting.py
-|   |-- plotly_html_renderer.py
-|   `-- update_css.py
-`-- wakeup coderabbitai
+`-- utils /
+    |-- __init__.py
+    |-- advanced_stats_lib.py
+    |-- correlation.py
+    |-- data_cleaning.py
+    |-- decision_curve_lib.py
+    |-- diag_test.py
+    |-- forest_plot_lib.py
+    |-- formatting.py
+    |-- interaction_lib.py
+    |-- linear_lib.py
+    |-- logic.py
+    |-- plotly_html_renderer.py
+    |-- poisson_lib.py
+    |-- psm_lib.py
+    |-- repeated_measures_lib.py
+    |-- sample_size_lib.py
+    |-- subgroup_analysis_module.py
+    |-- survival_lib.py
+    |-- table_one.py
+    |-- tvc_lib.py
+    `-- update_css.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
