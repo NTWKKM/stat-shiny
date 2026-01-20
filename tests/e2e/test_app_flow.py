@@ -315,8 +315,8 @@ class TestErrorHandling:
         page.wait_for_timeout(1000)  # Wait for any async errors
 
         # Filter out known non-critical errors if any
-        critical_errors = [e for e in errors if "critical" in e.lower()]
-        assert len(critical_errors) == 0, f"JavaScript errors: {critical_errors}"
+        # Assert no page errors occurred
+        assert not errors, f"JavaScript errors: {errors}"
 
     def test_navigation_has_no_console_errors(self, page: Page):
         """
