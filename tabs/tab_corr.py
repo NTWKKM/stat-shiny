@@ -380,6 +380,18 @@ def corr_server(
         data = current_df()
         if data is not None:
             cols = data.select_dtypes(include=[np.number]).columns.tolist()
+
+            # TVC columns to exclude from correlation analyses
+            tvc_cols_to_exclude = [
+                "id_tvc",
+                "time_start",
+                "time_stop",
+                "status_event",
+                "TVC_Value",
+                "Static_Age",
+                "Static_Sex",
+            ]
+            cols = [c for c in cols if c not in tvc_cols_to_exclude]
             numeric_cols_list.set(cols)
 
             if cols:
@@ -399,7 +411,7 @@ def corr_server(
                     selected=final_cols[1] if len(final_cols) > 1 else final_cols[0],
                 )
 
-                # Matrix selector (Use all cols or filtered? Usually matrix uses all, but let's default to filtered if available)
+                # Matrix selector
                 ui.update_selectize("matrix_vars", choices=cols, selected=cols[:5])
 
                 # ICC selector
