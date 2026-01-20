@@ -16,7 +16,6 @@ Driven by central configuration from config.py
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 import numpy as np
@@ -475,7 +474,7 @@ def validate_data_quality(df: pd.DataFrame) -> dict[str, Any]:
         # Check for duplicate rows
         duplicate_count = df.duplicated().sum()
         if duplicate_count > 0:
-            warning = f"Found {duplicate_count} duplicate rows ({(duplicate_count/len(df))*100:.2f}%)"
+            warning = f"Found {duplicate_count} duplicate rows ({(duplicate_count / len(df)) * 100:.2f}%)"
             results["warnings"].append(warning)
             logger.warning(warning)
 
@@ -583,7 +582,7 @@ def clean_dataframe(
                         df_cleaned[col] = cleaned_col.values
 
                         action_msg = (
-                            f"Converted to numeric ({non_na_ratio*100:.1f}% valid)"
+                            f"Converted to numeric ({non_na_ratio * 100:.1f}% valid)"
                         )
                         if coerced_na > 0:
                             action_msg += f", set {coerced_na} problematic cells to NaN"

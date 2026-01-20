@@ -24,7 +24,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestPoissonPipeline:
-
     @pytest.fixture
     def count_data(self):
         """Create dataset for count data analysis"""

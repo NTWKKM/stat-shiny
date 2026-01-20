@@ -13,23 +13,18 @@ Updated: Uses dataset selector pattern like tab_diag.py
 from __future__ import annotations
 
 import html as _html
-import os
 import re
-import tempfile
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from shiny import module, reactive, render, req, ui
+from shiny import module, reactive, render, ui
 
 from logger import get_logger
 from tabs._common import get_color_palette
-from utils import correlation  # Import from utils
-from utils import diag_test  # Import for ICC calculation
-from utils.data_cleaning import (
-    apply_missing_values_to_df,
-    get_missing_summary_df,
-    handle_missing_for_analysis,
+from utils import (
+    correlation,  # Import from utils
+    diag_test,  # Import for ICC calculation
 )
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
@@ -481,7 +476,7 @@ def corr_server(
         r2 = float(stats["R-squared (R²)"])
         interp_html = f"""
         <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
-                    border-left: 4px solid {COLORS['primary']}; 
+                    border-left: 4px solid {COLORS["primary"]}; 
                     padding: 14px 15px; 
                     margin: 16px 0; 
                     border-radius: 5px;'>
@@ -742,12 +737,12 @@ def corr_server(
                     padding: 15px; 
                     margin: 20px 0;'>
             <h4 style='color: #e65100; margin-top: 0;'>📊 Matrix Summary</h4>
-            <p><strong>Variables:</strong> {summary['n_variables']}</p>
-            <p><strong>Correlations Computed:</strong> {summary['n_correlations']} (unique pairs)</p>
-            <p><strong>Mean |Correlation|:</strong> {summary['mean_correlation']:.3f}</p>
+            <p><strong>Variables:</strong> {summary["n_variables"]}</p>
+            <p><strong>Correlations Computed:</strong> {summary["n_correlations"]} (unique pairs)</p>
+            <p><strong>Mean |Correlation|:</strong> {summary["mean_correlation"]:.3f}</p>
             <p><strong>Strongest Positive:</strong> {strongest_pos}</p>
             <p><strong>Strongest Negative:</strong> {strongest_neg}</p>
-            <p><strong>Significant Correlations (p<0.05):</strong> {summary['n_significant']} ({summary['pct_significant']:.1f}%)</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {summary["n_significant"]} ({summary["pct_significant"]:.1f}%)</p>
         </div>
         """
 
@@ -840,13 +835,13 @@ def corr_server(
         # Add summary statistics
         summary_text = f"""
         <h3>Matrix Summary Statistics</h3>
-        <p><strong>Correlations Computed:</strong> {_html.escape(str(summary['n_correlations']))} unique pairs</p>
-        <p><strong>Mean |Correlation|:</strong> {_html.escape(str(summary['mean_correlation']))}</p>
-        <p><strong>Maximum |Correlation|:</strong> {summary['max_correlation']:.3f}</p>
-        <p><strong>Minimum |Correlation|:</strong> {summary['min_correlation']:.3f}</p>
-        <p><strong>Significant Correlations (p<0.05):</strong> {summary['n_significant']} out of {summary['n_correlations']} ({summary['pct_significant']:.1f}%)</p>
-        <p><strong>Strongest Positive:</strong> {summary['strongest_positive']}</p>
-        <p><strong>Strongest Negative:</strong> {summary['strongest_negative']}</p>
+        <p><strong>Correlations Computed:</strong> {_html.escape(str(summary["n_correlations"]))} unique pairs</p>
+        <p><strong>Mean |Correlation|:</strong> {_html.escape(str(summary["mean_correlation"]))}</p>
+        <p><strong>Maximum |Correlation|:</strong> {summary["max_correlation"]:.3f}</p>
+        <p><strong>Minimum |Correlation|:</strong> {summary["min_correlation"]:.3f}</p>
+        <p><strong>Significant Correlations (p<0.05):</strong> {summary["n_significant"]} out of {summary["n_correlations"]} ({summary["pct_significant"]:.1f}%)</p>
+        <p><strong>Strongest Positive:</strong> {summary["strongest_positive"]}</p>
+        <p><strong>Strongest Negative:</strong> {summary["strongest_negative"]}</p>
         """
 
         elements.append({"type": "summary", "data": summary_text})
@@ -984,12 +979,12 @@ def corr_server(
         if interp_parts:
             interp_html = f"""
             <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
-                        border-left: 4px solid {COLORS['primary']}; 
+                        border-left: 4px solid {COLORS["primary"]}; 
                         padding: 14px 15px; 
                         margin: 16px 0; 
                         border-radius: 5px;'>
                 <strong>📊 Interpretation:</strong><br>
-                {'<br>'.join(interp_parts)}
+                {"<br>".join(interp_parts)}
             </div>
             """
         else:

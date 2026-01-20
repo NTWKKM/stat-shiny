@@ -282,7 +282,7 @@ class TestSurvivalAnalysisWorkflow:
         # Check for time-related selectors - ensure at least one is visible (the one on active tab)
         # Note: Regression > Repeated Measures also has "Time Variable" (hidden), so we must filter for visibility
         time_selectors = page.get_by_label("Time Variable")
-        found_visible = False
+        # found_visible = False
         # Retry logic handled by Playwright assertions usually, but for iterating multiple locators we need care
         # We'll use a specific expect on the visible one if possible, or just assertion logic
 

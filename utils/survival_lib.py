@@ -24,9 +24,6 @@ import html as _html
 import io
 import numbers
 import warnings
-
-# Suppress DeprecationWarning from lifelines (datetime.utcnow)
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="lifelines")
 from collections.abc import Sequence
 from typing import Any
 
@@ -55,6 +52,9 @@ from utils.data_cleaning import (
 )
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import create_missing_data_report_html
+
+# Suppress DeprecationWarning from lifelines (datetime.utcnow)
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="lifelines")
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -513,7 +513,6 @@ def calculate_survival_at_times(
                             and not pd.isna(var1)
                             and not pd.isna(var2)
                         ):
-
                             diff = s1 - s2
                             se_diff = np.sqrt(var1 + var2)
 
@@ -971,7 +970,6 @@ def fit_cox_ph(
     Returns:
         Tuple of (fitted_model, results_df, cleaned_data, error_msg, model_stats, missing_info)
     """
-    from typing import Literal
 
     cols_to_check = [duration_col, event_col, *covariate_cols]
     missing = [c for c in cols_to_check if c not in df.columns]
@@ -1308,7 +1306,6 @@ def _fit_firth_cox(
     Returns:
         Tuple of (fitted_model, results_df, method_name)
     """
-    from scipy import stats as scipy_stats
 
     # Prepare data for FirthCoxPH
     X = data[covariate_cols].values.astype(float)
@@ -1467,8 +1464,8 @@ def generate_forest_plot_cox_html(res_df: pd.DataFrame) -> str:
         return f"<p>Error generating forest plot: {e}</p>"
 
     interp_html = f"""
-    <div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS.get('primary', '#218084')}; border-radius:4px;'>
-        <h4 style='color:{COLORS.get('primary_dark', '#1f8085')}; margin-top:0;'>💡 Interpretation Guide</h4>
+    <div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid {COLORS.get("primary", "#218084")}; border-radius:4px;'>
+        <h4 style='color:{COLORS.get("primary_dark", "#1f8085")}; margin-top:0;'>💡 Interpretation Guide</h4>
         <ul style='margin:10px 0; padding-left:20px;'>
             <li><b>HR > 1:</b> Increased hazard (Risk Factor) 🚠</li>
             <li><b>HR < 1:</b> Decreased hazard (Protective Factor) 🟢</li>

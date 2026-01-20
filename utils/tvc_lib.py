@@ -34,14 +34,12 @@ References:
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from lifelines import CoxTimeVaryingFitter
-from lifelines.statistics import proportional_hazard_test
-from scipy import stats as sp_stats
 
 from logger import get_logger
 from utils.data_cleaning import handle_missing_for_analysis
@@ -260,7 +258,6 @@ def transform_wide_to_long(
         # Critical columns that must be present: ID, Time, Event
         critical_cols = [id_col, time_col, event_col]
         # Also include covariates to ensure consistent cleaning (optional but recommended)
-        processing_cols = critical_cols + (tvc_cols or []) + (static_cols or [])
 
         # We use 'complete-case' on critical columns essentially, but for TVC we might want to be careful.
         # Let's clean rows that have missing values in CRITICAL columns first.
@@ -698,8 +695,8 @@ def check_tvc_assumptions(
                     )
 
                     quartile_coefs.append(cph_q.params_.to_dict())
-                    quartile_labels.append(f"Q{q+1}")
-                except:
+                    quartile_labels.append(f"Q{q + 1}")
+                except Exception:
                     pass
 
         # --- Diagnostic 2: Partial Likelihood Residuals ---
@@ -1052,7 +1049,9 @@ def generate_tvc_report(
                     (
                         f'<span class="sig-p">{val:.4f}</span>'
                         if not pd.isna(pv) and pv < 0.05
-                        else f"{val:.4f}" if isinstance(val, float) else str(val)
+                        else f"{val:.4f}"
+                        if isinstance(val, float)
+                        else str(val)
                     )
                     for val, pv in zip(d_styled["p-value"], p_vals)
                 ]
