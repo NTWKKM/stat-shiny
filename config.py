@@ -17,11 +17,13 @@ Usage:
     value = CONFIG.get('some.nested.key', default='default_value')
 """
 
+from __future__ import annotations
+
 import json
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 from logger import get_logger
 
@@ -40,14 +42,14 @@ class ConfigManager:
     - Runtime updates
     """
 
-    def __init__(self, config_dict: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, config_dict: dict[str, Any] | None = None) -> None:
         """
         Create a ConfigManager populated with the given configuration or the module defaults and apply environment variable overrides.
 
         Parameters:
             config_dict (dict | None): Optional initial configuration dictionary to use instead of the built-in defaults. If None, the manager is initialized from the default configuration.
         """
-        self._config: Dict[str, Any] = config_dict or self._get_default_config()
+        self._config: dict[str, Any] = config_dict or self._get_default_config()
         self._env_prefix = "MEDSTAT_"
         self._load_env_overrides()
         self._sync_missing_legacy()
@@ -64,12 +66,12 @@ class ConfigManager:
             )
 
     @staticmethod
-    def _get_default_config() -> Dict[str, Any]:
+    def _get_default_config() -> dict[str, Any]:
         """
         Return the module's default nested configuration for the application.
 
         Returns:
-            Dict[str, Any]: Default configuration dictionary with top-level sections:
+            dict[str, Any]: Default configuration dictionary with top-level sections:
             'analysis', 'stats', 'ui', 'logging', 'performance', 'validation', and 'debug'.
         """
         return {
@@ -245,7 +247,7 @@ class ConfigManager:
             config = config[k]
         config[keys[-1]] = value
 
-    def get_section(self, section: str) -> Dict[str, Any]:
+    def get_section(self, section: str) -> dict[str, Any]:
         """
         Return a deep copy of a top-level configuration section.
         """
@@ -254,7 +256,7 @@ class ConfigManager:
         result = self.get(section, {})
         return copy.deepcopy(result) if isinstance(result, dict) else result
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Get a deep copy of the entire configuration dictionary.
         """
@@ -262,7 +264,7 @@ class ConfigManager:
 
         return copy.deepcopy(self._config)
 
-    def to_json(self, filepath: Optional[str] = None, pretty: bool = True) -> str:
+    def to_json(self, filepath: str | None = None, pretty: bool = True) -> str:
         """
         Serialize the current configuration to a JSON string.
         """
@@ -278,7 +280,7 @@ class ConfigManager:
                 logger.exception("Failed to write config to %s", filepath)
         return json_str
 
-    def validate(self) -> Tuple[bool, List[str]]:
+    def validate(self) -> tuple[bool, list[str]]:
         """
         Validate key configuration constraints and collect any violations.
         """

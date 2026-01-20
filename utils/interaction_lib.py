@@ -5,7 +5,9 @@ Handles creation and analysis of interaction effects between variables
 Compatible with both Logistic and Poisson regression
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -20,9 +22,9 @@ logger = get_logger(__name__)
 
 def create_interaction_terms(
     df: pd.DataFrame,
-    interaction_pairs: List[Tuple[str, str]],
-    mode_map: Optional[Dict[str, str]] = None,
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    interaction_pairs: list[tuple[str, str]],
+    mode_map: dict[str, str] | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Create interaction variables from pairs of predictors.
 
@@ -110,8 +112,8 @@ def test_interaction_significance(
     X_base: pd.DataFrame,
     X_with_int: pd.DataFrame,
     model_type: str = "logit",
-    offset: Optional[pd.Series] = None,
-) -> Dict[str, Union[float, int, bool]]:
+    offset: pd.Series | None = None,
+) -> dict[str, float | int | bool]:
     """
     Test if adding interaction terms significantly improves model fit.
 
@@ -176,9 +178,9 @@ def format_interaction_results(
     params: pd.Series,
     conf_int: pd.DataFrame,
     pvalues: pd.Series,
-    interaction_meta: Dict[str, Any],
+    interaction_meta: dict[str, Any],
     model_type: str = "logit",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Format interaction results for display.
     """
@@ -218,7 +220,7 @@ def format_interaction_results(
     return results
 
 
-def interpret_interaction(results: Dict[str, Any], model_type: str = "logit") -> str:
+def interpret_interaction(results: dict[str, Any], model_type: str = "logit") -> str:
     """
     Generate interpretation text for interaction results.
     """
@@ -266,7 +268,7 @@ def interpret_interaction(results: Dict[str, Any], model_type: str = "logit") ->
 
 
 def generate_interaction_html_table(
-    results: Dict[str, Any], model_type: str = "logit"
+    results: dict[str, Any], model_type: str = "logit"
 ) -> str:
     """
     Generate HTML table for interaction results.

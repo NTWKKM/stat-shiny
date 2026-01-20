@@ -10,9 +10,12 @@ OPTIMIZATIONS:
 - Vectorized categorical comparisons
 """
 
+from __future__ import annotations
+
 import html as _html
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -36,7 +39,7 @@ try:
     from tabs._common import get_color_palette
 except ImportError:
 
-    def get_color_palette() -> Dict[str, str]:
+    def get_color_palette() -> dict[str, str]:
         return {
             "primary": "#1B7E8F",
             "primary_dark": "#0D4D57",
@@ -76,7 +79,7 @@ def check_normality(series: pd.Series) -> bool:
         return False
 
 
-def format_p(p: Union[float, str]) -> str:
+def format_p(p: float | str) -> str:
     """
     Format p-value for display.
     """
@@ -100,9 +103,9 @@ def get_stats_continuous(series: pd.Series) -> str:
 
 def get_stats_categorical_data(
     series: pd.Series,
-    var_meta: Optional[Dict[str, Any]] = None,
-    col_name: Optional[str] = None,
-) -> Tuple[pd.Series, int, pd.Series]:
+    var_meta: dict[str, Any] | None = None,
+    col_name: str | None = None,
+) -> tuple[pd.Series, int, pd.Series]:
     """
     Get categorical counts with optional mapping.
     """
@@ -139,7 +142,7 @@ def get_stats_categorical_data(
 
 
 def get_stats_categorical_str(
-    counts: Union[pd.Series, Dict[Any, int]], total: int
+    counts: pd.Series | dict[Any, int], total: int
 ) -> str:
     """✅ FIXED: รองรับทั้ง Series และ dict พร้อมการตรวจสอบที่ดีขึ้น"""
     if isinstance(counts, dict):
@@ -294,8 +297,8 @@ def calculate_smd(
     g2_val: Any,
     *,
     is_cat: bool,
-    mapped_series: Optional[pd.Series] = None,
-    cats: Optional[List[Any]] = None,
+    mapped_series: pd.Series | None = None,
+    cats: list[Any] | None = None,
 ) -> str:
     """
     OPTIMIZED: Calculate standardized mean difference (SMD) with vectorization.
@@ -358,7 +361,7 @@ def calculate_smd(
         return "-"
 
 
-def calculate_p_continuous(data_groups: List[pd.Series]) -> Tuple[float, str]:
+def calculate_p_continuous(data_groups: list[pd.Series]) -> tuple[float, str]:
     """
     Calculate p-value for continuous variables.
     """
@@ -400,7 +403,7 @@ def calculate_p_continuous(data_groups: List[pd.Series]) -> Tuple[float, str]:
 
 def calculate_p_categorical(
     df: pd.DataFrame, col: str, group_col: str
-) -> Tuple[float, str]:
+) -> tuple[float, str]:
     """
     Calculate p-value for categorical variables.
     """
@@ -430,9 +433,9 @@ def calculate_p_categorical(
 
 def generate_table(
     df: pd.DataFrame,
-    selected_vars: List[str],
-    group_col: Optional[str],
-    var_meta: Optional[Dict[str, Any]],
+    selected_vars: list[str],
+    group_col: str | None,
+    var_meta: dict[str, Any] | None,
     or_style: str = "all_levels",
 ) -> str:
     """
@@ -555,7 +558,7 @@ def generate_table(
     if show_or:
         group_vals = [g["val"] for g in groups]
 
-        def _sort_key(v: Any) -> Tuple[int, Union[float, str]]:
+        def _sort_key(v: Any) -> tuple[int, float | str]:
             s = str(v)
             try:
                 return (0, float(s))

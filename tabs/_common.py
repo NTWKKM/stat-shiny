@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from shiny.ui import TagChild
@@ -20,7 +22,7 @@ def wrap_with_container(content: "TagChild") -> "TagChild":
 
 
 def simple_card(
-    title: str, *args: "TagChild", footer: Optional["TagChild"] = None, **kwargs: Any
+    title: str, *args: "TagChild", footer: "TagChild" | None = None, **kwargs: Any
 ) -> "TagChild":
     """
     Creates a Standard Bootstrap Card (Compatible with new CSS).
@@ -52,13 +54,13 @@ def simple_card(
     return ui.card(*components, **kwargs)
 
 
-def get_color_palette() -> Dict[str, str]:
+def get_color_palette() -> dict[str, str]:
     """
     Returns a unified color palette dictionary for all modules.
     Ensures consistency across the application.
 
     Returns:
-        Dict[str, str]: A dictionary mapping color names to hex codes.
+        dict[str, str]: A dictionary mapping color names to hex codes.
     """
     return {
         # Primary colors - Navy Blue theme
@@ -81,12 +83,12 @@ def get_color_palette() -> Dict[str, str]:
     }
 
 
-def get_color_info() -> Dict[str, Any]:
+def get_color_info() -> dict[str, Any]:
     """
     Returns information about the color palette for documentation.
 
     Returns:
-        Dict[str, Any]: Metadata about the design system.
+        dict[str, Any]: Metadata about the design system.
     """
     return {
         "theme": "Professional Medical Analytics - Navy Blue with Smoke White Navbar",

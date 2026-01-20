@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from shiny import App, Inputs, Outputs, Session, reactive, ui
 from shiny.types import FileInfo
@@ -103,15 +105,15 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # --- Reactive State (Global) ---
 
     # Type hints added for better clarity, though specific DataFrame type isn't enforceble at runtime
-    df: reactive.Value[Optional[Any]] = reactive.Value(None)
-    var_meta: reactive.Value[Dict[str, Any]] = reactive.Value({})
-    uploaded_file_info: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
+    df: reactive.Value[Any | None] = reactive.Value(None)
+    var_meta: reactive.Value[dict[str, Any]] = reactive.Value({})
+    uploaded_file_info: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
 
     # Matched data state (Shared across tabs)
-    df_matched: reactive.Value[Optional[Any]] = reactive.Value(None)
+    df_matched: reactive.Value[Any | None] = reactive.Value(None)
     is_matched: reactive.Value[bool] = reactive.Value(False)
-    matched_treatment_col: reactive.Value[Optional[str]] = reactive.Value(None)
-    matched_covariates: reactive.Value[List[str]] = reactive.Value([])
+    matched_treatment_col: reactive.Value[str | None] = reactive.Value(None)
+    matched_covariates: reactive.Value[list[str]] = reactive.Value([])
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:
