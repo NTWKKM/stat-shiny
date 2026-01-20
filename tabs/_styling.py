@@ -57,32 +57,32 @@ def get_shiny_css():
             --color-background: {COLORS["background"]};
             --color-surface: {COLORS["surface"]};
             
-            /* Spacing System */
+            /* Spacing System - INCREASED for better proportions */
             --spacing-xs: 4px;
             --spacing-sm: 8px;
-            --spacing-md: 12px;
-            --spacing-lg: 16px;
-            --spacing-xl: 24px;
-            --spacing-2xl: 32px;
+            --spacing-md: 16px;       /* Increased from 12px */
+            --spacing-lg: 20px;       /* Increased from 16px */
+            --spacing-xl: 32px;       /* Increased from 24px */
+            --spacing-2xl: 48px;      /* Increased from 32px */
             
             /* Border Radius */
             --radius-sm: 4px;
             --radius-md: 6px;
-            --radius-lg: 8px;
-            --radius-xl: 12px;
+            --radius-lg: 12px;        /* Increased from 8px for softer look */
+            --radius-xl: 16px;
             
-            /* Shadows */
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-            --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
-            --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.15);
+            /* Shadows - Softened */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
             
             /* Transitions */
             --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
             --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
             
             /* Typography */
-            --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             --font-family-mono: 'Courier New', monospace;
         }}
         
@@ -118,18 +118,18 @@ def get_shiny_css():
         .app-container {{
             max-width: 1400px;
             margin: 0 auto;
-            padding: 16px 24px 32px;
+            padding: 24px 32px 48px; /* Increased Padding */
         }}
         
         /* Add top margin to app-container when it follows navbar */
         .navbar ~ .app-container {{
-            margin-top: 8px;
+            margin-top: 16px;
         }}
         
         /* Responsive padding on mobile */
         @media (max-width: 768px) {{
             .app-container {{
-                padding: 12px 16px 24px;
+                padding: 16px 20px 32px;
             }}
         }}
         
@@ -226,50 +226,52 @@ def get_shiny_css():
         .card {{
             border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
+            box-shadow: var(--shadow-sm); /* Softer shadow */
             transition: all var(--transition-normal);
             background-color: {COLORS["surface"]};
             overflow: hidden;
-            margin-bottom: 12px;  /* Reduced vertical spacing between cards */
+            margin-bottom: 24px;  /* Increased vertical spacing */
         }}
         
         .card:hover {{
-            box-shadow: var(--shadow-lg);
-            border-color: {COLORS["primary_light"]};
+            box-shadow: var(--shadow-md);
+            border-color: {COLORS["neutral"]};
         }}
         
         .card-header {{
-            background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%);
+            background: #FAFAFA; /* Very light gray, effectively transparent appeal */
             border: none;
-            border-bottom: 2px solid {COLORS["primary_dark"]};
+            border-bottom: 1px solid {COLORS["border"]};
             font-weight: 600;
-            color: white;
-            padding: var(--spacing-lg) var(--spacing-lg);
+            color: {COLORS["primary_dark"]}; /* Dark text instead of white */
+            padding: 16px 24px; /* Spacious header */
             font-size: 15px;
             text-transform: none;
+            display: flex;
+            align-items: center;
         }}
         
         .card-body {{
-            padding: 14px 16px;  /* Slightly tighter padding */
+            padding: 24px 24px;  /* Increased padding for "uncluttered" look */
             line-height: 1.6;
         }}
         
         .card-footer {{
-            background-color: {COLORS["background"]};
+            background-color: #FAFAFA;
             border-top: 1px solid {COLORS["border"]};
-            padding: var(--spacing-md) var(--spacing-lg);
+            padding: 16px 24px;
         }}
         
         /* ===========================
-           BUTTONS
+           BUTTONS - Flat & Modern
            =========================== */
         
         .btn {{
-            border: none;
+            border: 1px solid transparent;
             border-radius: var(--radius-md);
-            font-weight: 600;
-            font-size: 13px;
-            padding: 10px 16px;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 8px 16px;
             transition: all var(--transition-fast);
             cursor: pointer;
             display: inline-flex;
@@ -278,6 +280,7 @@ def get_shiny_css():
             gap: var(--spacing-sm);
             white-space: nowrap;
             user-select: none;
+            box-shadow: none; /* Removed heavy shadows */
         }}
         
         .btn:focus {{
@@ -286,55 +289,50 @@ def get_shiny_css():
         }}
         
         .btn:disabled {{
-            opacity: 0.5;
+            opacity: 0.6;
             cursor: not-allowed;
+            pointer-events: none;
         }}
         
-        /* Primary Buttons */
+        /* Primary Buttons - Flat */
         .btn-primary {{
-            background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%);
+            background-color: {COLORS["primary"]};
             color: white;
-            box-shadow: 0 2px 4px rgba(30, 58, 95, 0.2);
+            border-color: {COLORS["primary"]};
         }}
         
         .btn-primary:hover:not(:disabled) {{
-            background: linear-gradient(135deg, {COLORS["primary_dark"]} 0%, {COLORS["primary_dark"]} 100%);
-            box-shadow: 0 4px 12px rgba(30, 58, 95, 0.35);
+            background-color: {COLORS["primary_dark"]};
+            border-color: {COLORS["primary_dark"]};
             transform: translateY(-1px);
         }}
         
         .btn-primary:active:not(:disabled) {{
             transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(30, 58, 95, 0.25);
         }}
         
-        /* Secondary Buttons */
+        /* Secondary Buttons - Outline style mostly */
         .btn-secondary {{
-            background-color: {COLORS["primary_light"]};
-            color: {COLORS["primary_dark"]};
-            border: 1px solid {COLORS["primary"]};
+            background-color: white;
+            color: {COLORS["text"]};
+            border-color: {COLORS["border"]};
         }}
         
         .btn-secondary:hover:not(:disabled) {{
-            background-color: {COLORS["primary"]};
-            color: white;
-            box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
-        }}
-        
-        .btn-secondary:active:not(:disabled) {{
-            background-color: {COLORS["primary_dark"]};
+            background-color: {COLORS["smoke_white"]};
+            border-color: {COLORS["neutral"]};
+            color: {COLORS["primary"]};
         }}
         
         /* Success Buttons */
         .btn-success {{
             background-color: {COLORS["success"]};
             color: white;
-            box-shadow: 0 2px 4px rgba(34, 167, 101, 0.2);
+            border-color: {COLORS["success"]};
         }}
         
         .btn-success:hover:not(:disabled) {{
             filter: brightness(0.9);
-            box-shadow: 0 4px 12px rgba(34, 167, 101, 0.35);
             transform: translateY(-1px);
         }}
         
@@ -342,12 +340,11 @@ def get_shiny_css():
         .btn-danger {{
             background-color: {COLORS["danger"]};
             color: white;
-            box-shadow: 0 2px 4px rgba(231, 72, 86, 0.2);
+            border-color: {COLORS["danger"]};
         }}
         
         .btn-danger:hover:not(:disabled) {{
             filter: brightness(0.9);
-            box-shadow: 0 4px 12px rgba(231, 72, 86, 0.35);
             transform: translateY(-1px);
         }}
         
@@ -355,46 +352,41 @@ def get_shiny_css():
         .btn-warning {{
             background-color: {COLORS["warning"]};
             color: #000;
-            box-shadow: 0 2px 4px rgba(255, 185, 0, 0.2);
-        }}
-        
-        .btn-warning:hover:not(:disabled) {{
-            filter: brightness(0.95);
-            box-shadow: 0 4px 12px rgba(255, 185, 0, 0.3);
-            transform: translateY(-1px);
+            border-color: {COLORS["warning"]};
         }}
         
         /* Outline Buttons */
         .btn-outline-primary {{
-            border: 2px solid {COLORS["primary"]};
+            border: 1px solid {COLORS["primary"]};
             color: {COLORS["primary"]};
             background-color: transparent;
         }}
         
         .btn-outline-primary:hover:not(:disabled) {{
             background-color: {COLORS["primary_light"]};
+            color: {COLORS["primary_dark"]};
         }}
         
         /* ===========================
-           FORM INPUTS
+           FORM INPUTS - More Spacious
            =========================== */
         
         .form-control {{
             border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-md);
-            padding: var(--spacing-sm) var(--spacing-md);
+            padding: 10px 14px; /* Larger touch area */
             font-size: 14px;
             font-family: var(--font-family-base);
             background-color: {COLORS["surface"]};
             color: {COLORS["text"]};
-            transition: all var(--transition-fast);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
             line-height: 1.5;
         }}
         
         .form-control:focus {{
             border-color: {COLORS["primary"]};
             background-color: {COLORS["surface"]};
-            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1); /* Soft focus ring */
             outline: none;
         }}
         
@@ -404,8 +396,9 @@ def get_shiny_css():
         }}
         
         .form-control:disabled {{
-            background-color: {COLORS["background"]};
-            opacity: 0.6;
+            background-color: {COLORS["smoke_white"]};
+            border-color: {COLORS["border"]};
+            color: {COLORS["text_secondary"]};
             cursor: not-allowed;
         }}
         
@@ -413,18 +406,17 @@ def get_shiny_css():
         .form-select {{
             border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-md);
-            padding: var(--spacing-sm) var(--spacing-md);
+            padding: 10px 36px 10px 14px;
             font-size: 14px;
             background-color: {COLORS["surface"]};
             color: {COLORS["text"]};
             transition: all var(--transition-fast);
             cursor: pointer;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='{COLORS["primary_dark"].replace("#", "%23")}' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='{COLORS["text_secondary"].replace("#", "%23")}' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right var(--spacing-md) center;
+            background-position: right 14px center;
             background-size: 16px;
-            padding-right: 36px;
         }}
         
         .form-select:focus {{
@@ -435,10 +427,10 @@ def get_shiny_css():
         
         /* Form Label */
         .form-label {{
-            font-weight: 600;
-            font-size: 13px;
+            font-weight: 500;
+            font-size: 14px;
             color: {COLORS["text"]};
-            margin-bottom: var(--spacing-sm);
+            margin-bottom: 6px;
             display: block;
         }}
         
@@ -447,9 +439,9 @@ def get_shiny_css():
             color: {COLORS["danger"]};
         }}
         
-        /* Form Group */
+        /* Form Group - Better Separation */
         .form-group {{
-            margin-bottom: var(--spacing-lg);
+            margin-bottom: 24px;
         }}
         
         /* Textarea */
@@ -464,16 +456,16 @@ def get_shiny_css():
            =========================== */
         
         .navbar {{
-            background-color: {COLORS["smoke_white"]} !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            background-color: {COLORS["surface"]} !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Very subtle shadow */
             border-bottom: 1px solid {COLORS["border"]};
-            padding: var(--spacing-md) var(--spacing-lg);
+            padding: 12px 24px;
         }}
         
         .navbar-brand {{
             color: {COLORS["primary_dark"]} !important;
             font-weight: 700;
-            font-size: 18px;
+            font-size: 19px;
             letter-spacing: -0.5px;
         }}
         
@@ -482,20 +474,21 @@ def get_shiny_css():
             color: {COLORS["text_secondary"]} !important;
             font-weight: 500;
             font-size: 14px;
-            padding: var(--spacing-sm) var(--spacing-md) !important;
-            margin: 0 var(--spacing-sm);
-            border-radius: var(--radius-sm);
+            padding: 8px 16px !important;
+            margin: 0 4px;
+            border-radius: var(--radius-md);
             transition: all var(--transition-fast);
         }}
         
         .navbar .nav-link:hover {{
             color: {COLORS["primary"]} !important;
-            background-color: rgba(30, 58, 95, 0.08);
+            background-color: {COLORS["smoke_white"]};
         }}
         
         .navbar .nav-link.active {{
             color: {COLORS["primary_dark"]} !important;
             background-color: {COLORS["primary_light"]};
+            font-weight: 600;
         }}
         
         /* Sidebar Navigation */
@@ -503,16 +496,14 @@ def get_shiny_css():
         .bslib-sidebar-layout .sidebar-content .nav-link {{
             color: rgba(255, 255, 255, 0.85) !important;
             font-weight: 500;
-            padding: var(--spacing-md) var(--spacing-lg) !important;
+            padding: 12px 16px !important;
             border-radius: var(--radius-sm);
             transition: all var(--transition-fast);
-            margin: var(--spacing-xs) 0;
+            margin: 4px 0;
         }}
         
         .sidebar .nav-link:hover,
-        .sidebar .nav-link.active,
-        .bslib-sidebar-layout .sidebar-content .nav-link:hover,
-        .bslib-sidebar-layout .sidebar-content .nav-link.active {{
+        .sidebar .nav-link.active {{
             color: #ffffff !important;
             background-color: rgba(255, 255, 255, 0.15) !important;
         }}
@@ -522,48 +513,37 @@ def get_shiny_css():
            =========================== */
         
         .nav-tabs {{
-            border-bottom: 2px solid {COLORS["border"]};
-            margin-bottom: var(--spacing-lg);
+            border-bottom: 1px solid {COLORS["border"]};
+            margin-bottom: 24px;
         }}
         
         .nav-tabs .nav-link {{
             color: {COLORS["text_secondary"]};
             border: none;
-            border-bottom: 3px solid transparent;
+            border-bottom: 2px solid transparent;
             font-weight: 600;
-            padding: var(--spacing-md) var(--spacing-lg);
-            margin-bottom: -2px;
+            padding: 12px 20px;
+            margin-bottom: -1px;
             transition: all var(--transition-fast);
             font-size: 14px;
         }}
         
         .nav-tabs .nav-link:hover {{
-            border-bottom-color: {COLORS["primary_light"]};
+            border-bottom-color: {COLORS["neutral"]};
             color: {COLORS["primary"]};
+            background-color: transparent;
         }}
         
         .nav-tabs .nav-link.active {{
-            color: {COLORS["primary_dark"]};
+            color: {COLORS["primary"]};
             background-color: transparent;
             border-bottom-color: {COLORS["primary"]};
         }}
         
-        /* Subtabs */
-        .nav-item .nav-link[role="tab"]:not(.active) {{
-            color: {COLORS["text_secondary"]} !important;
-            font-weight: 500;
-            padding: var(--spacing-sm) var(--spacing-md);
-        }}
-        
+        /* Subtabs - Pills style often mostly used inside spacing */
         .nav-item .nav-link[role="tab"]:not(.active):hover {{
             color: {COLORS["primary"]} !important;
-            background-color: {COLORS["primary_light"]};
-        }}
-        
-        .nav-item .nav-link[role="tab"].active {{
-            color: {COLORS["primary_dark"]} !important;
-            background-color: {COLORS["primary_light"]};
-            font-weight: 600;
+            background-color: {COLORS["smoke_white"]};
         }}
         
         /* ===========================
@@ -573,35 +553,36 @@ def get_shiny_css():
         .alert {{
             border-radius: var(--radius-lg);
             border: 1px solid;
-            padding: var(--spacing-md) var(--spacing-lg);
-            margin-bottom: var(--spacing-lg);
+            padding: 16px 20px;
+            margin-bottom: 24px;
             display: flex;
             align-items: flex-start;
-            gap: var(--spacing-md);
+            gap: 16px;
+            box-shadow: var(--shadow-sm);
         }}
         
         .alert-success {{
-            background-color: rgba(34, 167, 101, 0.08);
-            border-color: {COLORS["success"]};
-            color: {COLORS["success"]};
+            background-color: #ECFDF5;
+            border-color: #A7F3D0;
+            color: #065F46;
         }}
         
         .alert-danger {{
-            background-color: rgba(231, 72, 86, 0.08);
-            border-color: {COLORS["danger"]};
-            color: {COLORS["danger"]};
+            background-color: #FEF2F2;
+            border-color: #FECACA;
+            color: #991B1B;
         }}
         
         .alert-warning {{
-            background-color: rgba(255, 185, 0, 0.08);
-            border-color: {COLORS["warning"]};
-            color: #856404;
+            background-color: #FFFBEB;
+            border-color: #FDE68A;
+            color: #92400E;
         }}
         
         .alert-info {{
-            background-color: rgba(30, 58, 95, 0.08);
-            border-color: {COLORS["primary"]};
-            color: {COLORS["primary_dark"]};
+            background-color: #EFF6FF;
+            border-color: #BFDBFE;
+            color: #1E40AF;
         }}
         
         /* ===========================
@@ -610,38 +591,42 @@ def get_shiny_css():
         
         .table {{
             font-size: 13px;
-            border-collapse: collapse;
-            margin-bottom: var(--spacing-lg);
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            margin-bottom: 24px;
+            border: 1px solid {COLORS["border"]};
+            border-radius: var(--radius-lg);
+            overflow: hidden; /* For border radius */
         }}
         
         .table thead th {{
-            background: linear-gradient(135deg, {COLORS["primary_dark"]} 0%, {COLORS["primary"]} 100%);
-            color: white;
-            border: none;
+            background-color: #F8F9FA; /* Light Gray Header */
+            color: {COLORS["text"]};
+            border-bottom: 1px solid {COLORS["border"]};
             font-weight: 600;
-            padding: var(--spacing-md);
+            padding: 12px 16px;
             text-align: left;
-            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.05em;
         }}
         
         .table tbody td {{
             border-bottom: 1px solid {COLORS["border"]};
-            padding: var(--spacing-md);
+            padding: 12px 16px;
             vertical-align: middle;
+            color: {COLORS["text"]};
         }}
         
-        .table tbody tr {{
-            transition: background-color var(--transition-fast);
-        }}
-        
-        .table tbody tr:nth-child(even) {{
-            background-color: {COLORS["background"]};
+        .table tbody tr:last-child td {{
+            border-bottom: none;
         }}
         
         .table tbody tr:hover {{
-            background-color: {COLORS["primary_light"]};
+            background-color: {COLORS["smoke_white"]};
         }}
-
+        
         .sig-p {{
             color: #fff;
             background-color: {COLORS["danger"]};
@@ -651,22 +636,29 @@ def get_shiny_css():
         }}
 
         .shiny-table th, table.dataframe th {{
-            background-color: {COLORS["background"]} !important;
+            background-color: #FAFAFA !important;
             color: {COLORS["text"]} !important;
             font-weight: 600;
+            border-bottom: 1px solid {COLORS["border"]} !important;
         }}
         
-        /* Table Responsiveness - Enable horizontal scrolling on mobile */
+        /* Table Responsiveness */
         .table-responsive {{
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-lg);
+            border: 1px solid {COLORS["border"]};
+        }}
+
+        .table-responsive .table {{
+            border: none;
+            border-radius: 0;
+            margin-bottom: 0;
         }}
         
-        /* Error Cell Highlighting - For data quality issues */
+        /* Error Cell Highlighting */
         .cell-error {{
-            background-color: #fee !important;
-            border: 1px solid {COLORS["danger"]} !important;
+            background-color: #FEF2F2 !important;
             color: {COLORS["danger"]} !important;
             font-weight: 600 !important;
         }}
@@ -686,59 +678,34 @@ def get_shiny_css():
             white-space: nowrap;
         }}
         
-        .badge-primary {{
-            background-color: {COLORS["primary"]};
-            color: white;
-        }}
-        
-        .badge-success {{
-            background-color: {COLORS["success"]};
-            color: white;
-        }}
-        
-        .badge-danger {{
-            background-color: {COLORS["danger"]};
-            color: white;
-        }}
-        
-        .badge-warning {{
-            background-color: {COLORS["warning"]};
-            color: #000;
-        }}
-        
-        .badge-info {{
-            background-color: {COLORS["info"]};
-            color: white;
-        }}
-        
         /* Status Badge (Custom) */
         .status-badge {{
             display: inline-flex;
             align-items: center;
-            gap: var(--spacing-sm);
-            padding: var(--spacing-sm) var(--spacing-md);
-            border-radius: var(--radius-lg);
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px; /* Pill shape */
             font-weight: 600;
             font-size: 12px;
             border: 1px solid;
         }}
         
         .status-badge.matched {{
-            background-color: rgba(34, 167, 101, 0.1);
-            color: {COLORS["success"]};
-            border-color: {COLORS["success"]};
+            background-color: #ECFDF5;
+            color: #065F46;
+            border-color: #A7F3D0;
         }}
         
         .status-badge.unmatched {{
-            background-color: rgba(231, 72, 86, 0.1);
-            color: {COLORS["danger"]};
-            border-color: {COLORS["danger"]};
+            background-color: #FEF2F2;
+            color: #991B1B;
+            border-color: #FECACA;
         }}
         
         .status-badge.warning {{
-            background-color: rgba(255, 185, 0, 0.1);
-            color: {COLORS["warning"]};
-            border-color: {COLORS["warning"]};
+            background-color: #FFFBEB;
+            color: #92400E;
+            border-color: #FDE68A;
         }}
         
         /* ===========================
@@ -749,55 +716,9 @@ def get_shiny_css():
             color: {COLORS["primary"]} !important;
         }}
         
-        .text-primary-dark {{
-            color: {COLORS["primary_dark"]} !important;
-        }}
-        
-        .text-success {{
-            color: {COLORS["success"]} !important;
-        }}
-        
-        .text-danger {{
-            color: {COLORS["danger"]} !important;
-        }}
-        
-        .text-warning {{
-            color: {COLORS["warning"]} !important;
-        }}
-        
-        .text-info {{
-            color: {COLORS["info"]} !important;
-        }}
-        
-        .text-secondary {{
-            color: {COLORS["text_secondary"]} !important;
-        }}
-        
-        .text-muted {{
-            color: {COLORS["text_secondary"]} !important;
-            opacity: 0.8;
-        }}
-        
-        .bg-primary {{
-            background-color: {COLORS["primary"]} !important;
-            color: white;
-        }}
-        
-        .bg-primary-light {{
-            background-color: {COLORS["primary_light"]} !important;
-        }}
-        
-        .bg-surface {{
-            background-color: {COLORS["surface"]} !important;
-        }}
-        
-        .bg-background {{
-            background-color: {COLORS["background"]} !important;
-        }}
-        
         .border-primary {{
-            border: 1px solid {COLORS["primary"]} !important;
-            border-radius: var(--radius-md);
+             border: 1px solid {COLORS["primary"]} !important;
+             border-radius: var(--radius-md);
         }}
         
         .border-top {{
