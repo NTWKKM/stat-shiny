@@ -23,7 +23,7 @@ import json
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from logger import get_logger
 
@@ -285,12 +285,12 @@ class ConfigManager:
         Validate key configuration constraints and collect any violations.
         """
         errors = []
-        screening_p = cast(Optional[float], self.get("analysis.logit_screening_p"))
+        screening_p = cast(float | None, self.get("analysis.logit_screening_p"))
         if screening_p is None or not (0 < screening_p < 1):
             errors.append("analysis.logit_screening_p must be between 0 and 1")
 
-        lower = cast(Optional[float], self.get("analysis.pvalue_bounds_lower"))
-        upper = cast(Optional[float], self.get("analysis.pvalue_bounds_upper"))
+        lower = cast(float | None, self.get("analysis.pvalue_bounds_lower"))
+        upper = cast(float | None, self.get("analysis.pvalue_bounds_upper"))
         if lower is None or upper is None or not (lower < upper):
             errors.append("pvalue_bounds_lower must be < pvalue_bounds_upper")
 

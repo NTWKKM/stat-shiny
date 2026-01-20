@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from typing import Any, Optional, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -362,11 +362,11 @@ def baseline_matching_server(
     input: Any,
     output: Any,
     session: Any,
-    df: reactive.Value[Optional[pd.DataFrame]],
+    df: reactive.Value[pd.DataFrame | None],
     var_meta: reactive.Value[dict[str, Any]],
-    df_matched: reactive.Value[Optional[pd.DataFrame]],
+    df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
-    matched_treatment_col: reactive.Value[Optional[str]],
+    matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
 
@@ -393,8 +393,8 @@ def baseline_matching_server(
         matched_treatment_col (reactive.Value[Optional[str]]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
         matched_covariates (reactive.Value[list[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
     """
-    psm_results: reactive.Value[Optional[dict[str, Any]]] = reactive.Value(None)
-    html_content: reactive.Value[Optional[str]] = reactive.Value(None)
+    psm_results: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    html_content: reactive.Value[str | None] = reactive.Value(None)
 
     # Call Sample Size Server
     tab_sample_size.sample_size_server("sample_size")
@@ -403,7 +403,7 @@ def baseline_matching_server(
     # HELPER: Get Current Data for Table 1
     # -------------------------------------------------------------------------
     @reactive.Calc
-    def current_t1_data() -> tuple[Optional[pd.DataFrame], str]:
+    def current_t1_data() -> tuple[pd.DataFrame | None, str]:
         if (
             is_matched.get()
             and input.radio_dataset_source() == "matched"

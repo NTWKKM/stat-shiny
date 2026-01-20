@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import html as _html
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
+from typing import Any, Literal, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -35,15 +35,13 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 
 # Internal imports
-from config import CONFIG
+
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
     apply_missing_values_to_df,
     clean_numeric_vector,
-    detect_missing_in_variable,
     get_missing_summary_df,
-    handle_missing_for_analysis,
 )
 from utils.formatting import (
     create_missing_data_report_html,
