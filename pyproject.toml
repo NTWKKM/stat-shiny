@@ -1,0 +1,21 @@
+# Medical Statistical Tool (stat-shiny)
+# IMPORTANT: Requires Python 3.12+ for modern f-string syntax
+
+[project]
+name = "stat-shiny"
+requires-python = ">=3.12"
+description = "Medical statistical analysis web app built with Shiny for Python"
+
+[tool.isort]
+profile = "black"
+skip = [".venv", "venv", ".git", "__pycache__"]
+skip_glob = ["**/venv/*", "**/.venv/*"]
+
+[tool.black]
+exclude = '''
+/(
+    \.venv
+    | venv
+)/
+'''
+

@@ -8,6 +8,15 @@ app_port: 7860
 pinned: false
 ---
 
+<!-- AI-READABLE-REQUIREMENTS-START -->
+> **⚠️ IMPORTANT FOR AI AGENTS**: This project requires **Python 3.12+** due to the use of modern Python syntax features (nested f-strings with list comprehensions). Python versions below 3.12 will cause SyntaxErrors.
+>
+> | Requirement | Version   |
+> | ----------- | --------- |
+> | Python      | **≥ 3.12** |
+> | pip         | Latest    |
+<!-- AI-READABLE-REQUIREMENTS-END -->
+
 [Hugging Face Space](https://huggingface.co/spaces/ntwkkm/shinystat)
 
 [--- REPOSITORY-TREE-START ---]
@@ -157,7 +166,7 @@ A professional-grade missing data handling system that surpasses standard tools:
 
 ### Option 1: Run Locally (Python)
 
-Ensure you have Python 3.10+ installed.
+Ensure you have **Python 3.12+** installed (required for modern f-string syntax).
 
 1. **Clone the repository:**
 
