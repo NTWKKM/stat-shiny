@@ -7,7 +7,6 @@ OPTIMIZED for Python 3.12 with strict type hints and TypedDict.
 
 from __future__ import annotations
 
-import warnings
 from typing import Any, TypedDict
 
 import numpy as np
@@ -23,7 +22,6 @@ from utils.data_cleaning import (
     handle_missing_for_analysis,
 )
 from utils.forest_plot_lib import create_forest_plot
-from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -91,7 +89,7 @@ class SubgroupAnalysisLogit:
             raise ValueError(f"Subgroup '{subgroup_col}' must have 2+ categories")
 
         if len(self.df) < 10:
-            raise ValueError(f"Minimum 10 observations required")
+            raise ValueError("Minimum 10 observations required")
 
         logger.info("Input validation passed")
         return True
@@ -468,7 +466,7 @@ class SubgroupAnalysisCox:
             raise ValueError(f"Subgroup '{subgroup_col}' must have 2+ categories")
 
         if len(self.df) < 10:
-            raise ValueError(f"Minimum 10 observations required")
+            raise ValueError("Minimum 10 observations required")
 
         logger.info("Input validation passed")
         return True
@@ -487,7 +485,6 @@ class SubgroupAnalysisCox:
         """Perform Cox subgroup analysis."""
         try:
             from lifelines import CoxPHFitter
-            from scipy import stats
 
             self.validate_inputs(
                 duration_col, event_col, treatment_col, subgroup_col, adjustment_cols

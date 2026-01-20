@@ -42,20 +42,20 @@ def get_shiny_css():
            =========================== */
         
         :root {{
-            --color-primary: {COLORS['primary']};
-            --color-primary-dark: {COLORS['primary_dark']};
-            --color-primary-light: {COLORS['primary_light']};
-            --color-smoke-white: {COLORS['smoke_white']};
-            --color-success: {COLORS['success']};
-            --color-danger: {COLORS['danger']};
-            --color-warning: {COLORS['warning']};
-            --color-info: {COLORS['info']};
-            --color-neutral: {COLORS['neutral']};
-            --color-text: {COLORS['text']};
-            --color-text-secondary: {COLORS['text_secondary']};
-            --color-border: {COLORS['border']};
-            --color-background: {COLORS['background']};
-            --color-surface: {COLORS['surface']};
+            --color-primary: {COLORS["primary"]};
+            --color-primary-dark: {COLORS["primary_dark"]};
+            --color-primary-light: {COLORS["primary_light"]};
+            --color-smoke-white: {COLORS["smoke_white"]};
+            --color-success: {COLORS["success"]};
+            --color-danger: {COLORS["danger"]};
+            --color-warning: {COLORS["warning"]};
+            --color-info: {COLORS["info"]};
+            --color-neutral: {COLORS["neutral"]};
+            --color-text: {COLORS["text"]};
+            --color-text-secondary: {COLORS["text_secondary"]};
+            --color-border: {COLORS["border"]};
+            --color-background: {COLORS["background"]};
+            --color-surface: {COLORS["surface"]};
             
             /* Spacing System */
             --spacing-xs: 4px;
@@ -94,14 +94,14 @@ def get_shiny_css():
             text-align: center;
             padding: var(--spacing-xl) 0;
             margin-top: var(--spacing-2xl);
-            border-top: 1px solid {COLORS['border']};
-            color: {COLORS['text_secondary']};
+            border-top: 1px solid {COLORS["border"]};
+            color: {COLORS["text_secondary"]};
             font-size: 13px;
-            background-color: {COLORS['surface']};
+            background-color: {COLORS["surface"]};
         }}
         
         .report-footer a {{
-            color: {COLORS['primary']};
+            color: {COLORS["primary"]};
             text-decoration: none;
             font-weight: 600;
         }}
@@ -145,8 +145,8 @@ def get_shiny_css():
         
         body {{
             font-family: var(--font-family-base);
-            background-color: {COLORS['background']};
-            color: {COLORS['text']};
+            background-color: {COLORS["background"]};
+            color: {COLORS["text"]};
             line-height: 1.6;
             margin: 0;
             padding: 0;
@@ -160,7 +160,7 @@ def get_shiny_css():
             font-size: 28px;
             font-weight: 700;
             margin: var(--spacing-lg) 0;
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             letter-spacing: -0.5px;
         }}
         
@@ -168,7 +168,7 @@ def get_shiny_css():
             font-size: 24px;
             font-weight: 600;
             margin: var(--spacing-lg) 0 var(--spacing-md) 0;
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             letter-spacing: -0.3px;
         }}
         
@@ -176,28 +176,28 @@ def get_shiny_css():
             font-size: 20px;
             font-weight: 600;
             margin: var(--spacing-md) 0;
-            color: {COLORS['primary']};
+            color: {COLORS["primary"]};
         }}
         
         h4 {{
             font-size: 17px;
             font-weight: 600;
             margin: var(--spacing-md) 0;
-            color: {COLORS['primary']};
+            color: {COLORS["primary"]};
         }}
         
         h5 {{
             font-size: 15px;
             font-weight: 600;
             margin: var(--spacing-sm) 0;
-            color: {COLORS['text']};
+            color: {COLORS["text"]};
         }}
         
         h6 {{
             font-size: 13px;
             font-weight: 600;
             margin: var(--spacing-sm) 0;
-            color: {COLORS['text_secondary']};
+            color: {COLORS["text_secondary"]};
         }}
         
         p {{
@@ -207,14 +207,14 @@ def get_shiny_css():
         }}
         
         a {{
-            color: {COLORS['primary']};
+            color: {COLORS["primary"]};
             text-decoration: none;
             transition: color var(--transition-fast);
             font-weight: 500;
         }}
         
         a:hover {{
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             text-decoration: underline;
         }}
         
@@ -224,24 +224,24 @@ def get_shiny_css():
            =========================== */
         
         .card {{
-            border: 1px solid {COLORS['border']};
+            border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             transition: all var(--transition-normal);
-            background-color: {COLORS['surface']};
+            background-color: {COLORS["surface"]};
             overflow: hidden;
             margin-bottom: 12px;  /* Reduced vertical spacing between cards */
         }}
         
         .card:hover {{
             box-shadow: var(--shadow-lg);
-            border-color: {COLORS['primary_light']};
+            border-color: {COLORS["primary_light"]};
         }}
         
         .card-header {{
-            background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
+            background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%);
             border: none;
-            border-bottom: 2px solid {COLORS['primary_dark']};
+            border-bottom: 2px solid {COLORS["primary_dark"]};
             font-weight: 600;
             color: white;
             padding: var(--spacing-lg) var(--spacing-lg);
@@ -255,8 +255,8 @@ def get_shiny_css():
         }}
         
         .card-footer {{
-            background-color: {COLORS['background']};
-            border-top: 1px solid {COLORS['border']};
+            background-color: {COLORS["background"]};
+            border-top: 1px solid {COLORS["border"]};
             padding: var(--spacing-md) var(--spacing-lg);
         }}
         
@@ -281,7 +281,7 @@ def get_shiny_css():
         }}
         
         .btn:focus {{
-            outline: 2px solid {COLORS['primary']};
+            outline: 2px solid {COLORS["primary"]};
             outline-offset: 2px;
         }}
         
@@ -292,13 +292,13 @@ def get_shiny_css():
         
         /* Primary Buttons */
         .btn-primary {{
-            background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
+            background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%);
             color: white;
             box-shadow: 0 2px 4px rgba(30, 58, 95, 0.2);
         }}
         
         .btn-primary:hover:not(:disabled) {{
-            background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary_dark']} 100%);
+            background: linear-gradient(135deg, {COLORS["primary_dark"]} 0%, {COLORS["primary_dark"]} 100%);
             box-shadow: 0 4px 12px rgba(30, 58, 95, 0.35);
             transform: translateY(-1px);
         }}
@@ -310,24 +310,24 @@ def get_shiny_css():
         
         /* Secondary Buttons */
         .btn-secondary {{
-            background-color: {COLORS['primary_light']};
-            color: {COLORS['primary_dark']};
-            border: 1px solid {COLORS['primary']};
+            background-color: {COLORS["primary_light"]};
+            color: {COLORS["primary_dark"]};
+            border: 1px solid {COLORS["primary"]};
         }}
         
         .btn-secondary:hover:not(:disabled) {{
-            background-color: {COLORS['primary']};
+            background-color: {COLORS["primary"]};
             color: white;
             box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
         }}
         
         .btn-secondary:active:not(:disabled) {{
-            background-color: {COLORS['primary_dark']};
+            background-color: {COLORS["primary_dark"]};
         }}
         
         /* Success Buttons */
         .btn-success {{
-            background-color: {COLORS['success']};
+            background-color: {COLORS["success"]};
             color: white;
             box-shadow: 0 2px 4px rgba(34, 167, 101, 0.2);
         }}
@@ -340,7 +340,7 @@ def get_shiny_css():
         
         /* Danger Buttons */
         .btn-danger {{
-            background-color: {COLORS['danger']};
+            background-color: {COLORS["danger"]};
             color: white;
             box-shadow: 0 2px 4px rgba(231, 72, 86, 0.2);
         }}
@@ -353,7 +353,7 @@ def get_shiny_css():
         
         /* Warning Buttons */
         .btn-warning {{
-            background-color: {COLORS['warning']};
+            background-color: {COLORS["warning"]};
             color: #000;
             box-shadow: 0 2px 4px rgba(255, 185, 0, 0.2);
         }}
@@ -366,13 +366,13 @@ def get_shiny_css():
         
         /* Outline Buttons */
         .btn-outline-primary {{
-            border: 2px solid {COLORS['primary']};
-            color: {COLORS['primary']};
+            border: 2px solid {COLORS["primary"]};
+            color: {COLORS["primary"]};
             background-color: transparent;
         }}
         
         .btn-outline-primary:hover:not(:disabled) {{
-            background-color: {COLORS['primary_light']};
+            background-color: {COLORS["primary_light"]};
         }}
         
         /* ===========================
@@ -380,47 +380,47 @@ def get_shiny_css():
            =========================== */
         
         .form-control {{
-            border: 1px solid {COLORS['border']};
+            border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-md);
             padding: var(--spacing-sm) var(--spacing-md);
             font-size: 14px;
             font-family: var(--font-family-base);
-            background-color: {COLORS['surface']};
-            color: {COLORS['text']};
+            background-color: {COLORS["surface"]};
+            color: {COLORS["text"]};
             transition: all var(--transition-fast);
             line-height: 1.5;
         }}
         
         .form-control:focus {{
-            border-color: {COLORS['primary']};
-            background-color: {COLORS['surface']};
+            border-color: {COLORS["primary"]};
+            background-color: {COLORS["surface"]};
             box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
             outline: none;
         }}
         
         .form-control::placeholder {{
-            color: {COLORS['text_secondary']};
+            color: {COLORS["text_secondary"]};
             opacity: 0.7;
         }}
         
         .form-control:disabled {{
-            background-color: {COLORS['background']};
+            background-color: {COLORS["background"]};
             opacity: 0.6;
             cursor: not-allowed;
         }}
         
         /* Select/Dropdown */
         .form-select {{
-            border: 1px solid {COLORS['border']};
+            border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-md);
             padding: var(--spacing-sm) var(--spacing-md);
             font-size: 14px;
-            background-color: {COLORS['surface']};
-            color: {COLORS['text']};
+            background-color: {COLORS["surface"]};
+            color: {COLORS["text"]};
             transition: all var(--transition-fast);
             cursor: pointer;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='{COLORS['primary_dark'].replace('#', '%23')}' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='{COLORS["primary_dark"].replace("#", "%23")}' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right var(--spacing-md) center;
             background-size: 16px;
@@ -428,7 +428,7 @@ def get_shiny_css():
         }}
         
         .form-select:focus {{
-            border-color: {COLORS['primary']};
+            border-color: {COLORS["primary"]};
             box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
             outline: none;
         }}
@@ -437,14 +437,14 @@ def get_shiny_css():
         .form-label {{
             font-weight: 600;
             font-size: 13px;
-            color: {COLORS['text']};
+            color: {COLORS["text"]};
             margin-bottom: var(--spacing-sm);
             display: block;
         }}
         
         .form-label.required::after {{
             content: ' *';
-            color: {COLORS['danger']};
+            color: {COLORS["danger"]};
         }}
         
         /* Form Group */
@@ -464,14 +464,14 @@ def get_shiny_css():
            =========================== */
         
         .navbar {{
-            background-color: {COLORS['smoke_white']} !important;
+            background-color: {COLORS["smoke_white"]} !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            border-bottom: 1px solid {COLORS['border']};
+            border-bottom: 1px solid {COLORS["border"]};
             padding: var(--spacing-md) var(--spacing-lg);
         }}
         
         .navbar-brand {{
-            color: {COLORS['primary_dark']} !important;
+            color: {COLORS["primary_dark"]} !important;
             font-weight: 700;
             font-size: 18px;
             letter-spacing: -0.5px;
@@ -479,7 +479,7 @@ def get_shiny_css():
         
         /* Navbar Text & Links */
         .navbar .nav-link {{
-            color: {COLORS['text_secondary']} !important;
+            color: {COLORS["text_secondary"]} !important;
             font-weight: 500;
             font-size: 14px;
             padding: var(--spacing-sm) var(--spacing-md) !important;
@@ -489,13 +489,13 @@ def get_shiny_css():
         }}
         
         .navbar .nav-link:hover {{
-            color: {COLORS['primary']} !important;
+            color: {COLORS["primary"]} !important;
             background-color: rgba(30, 58, 95, 0.08);
         }}
         
         .navbar .nav-link.active {{
-            color: {COLORS['primary_dark']} !important;
-            background-color: {COLORS['primary_light']};
+            color: {COLORS["primary_dark"]} !important;
+            background-color: {COLORS["primary_light"]};
         }}
         
         /* Sidebar Navigation */
@@ -522,12 +522,12 @@ def get_shiny_css():
            =========================== */
         
         .nav-tabs {{
-            border-bottom: 2px solid {COLORS['border']};
+            border-bottom: 2px solid {COLORS["border"]};
             margin-bottom: var(--spacing-lg);
         }}
         
         .nav-tabs .nav-link {{
-            color: {COLORS['text_secondary']};
+            color: {COLORS["text_secondary"]};
             border: none;
             border-bottom: 3px solid transparent;
             font-weight: 600;
@@ -538,31 +538,31 @@ def get_shiny_css():
         }}
         
         .nav-tabs .nav-link:hover {{
-            border-bottom-color: {COLORS['primary_light']};
-            color: {COLORS['primary']};
+            border-bottom-color: {COLORS["primary_light"]};
+            color: {COLORS["primary"]};
         }}
         
         .nav-tabs .nav-link.active {{
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             background-color: transparent;
-            border-bottom-color: {COLORS['primary']};
+            border-bottom-color: {COLORS["primary"]};
         }}
         
         /* Subtabs */
         .nav-item .nav-link[role="tab"]:not(.active) {{
-            color: {COLORS['text_secondary']} !important;
+            color: {COLORS["text_secondary"]} !important;
             font-weight: 500;
             padding: var(--spacing-sm) var(--spacing-md);
         }}
         
         .nav-item .nav-link[role="tab"]:not(.active):hover {{
-            color: {COLORS['primary']} !important;
-            background-color: {COLORS['primary_light']};
+            color: {COLORS["primary"]} !important;
+            background-color: {COLORS["primary_light"]};
         }}
         
         .nav-item .nav-link[role="tab"].active {{
-            color: {COLORS['primary_dark']} !important;
-            background-color: {COLORS['primary_light']};
+            color: {COLORS["primary_dark"]} !important;
+            background-color: {COLORS["primary_light"]};
             font-weight: 600;
         }}
         
@@ -582,26 +582,26 @@ def get_shiny_css():
         
         .alert-success {{
             background-color: rgba(34, 167, 101, 0.08);
-            border-color: {COLORS['success']};
-            color: {COLORS['success']};
+            border-color: {COLORS["success"]};
+            color: {COLORS["success"]};
         }}
         
         .alert-danger {{
             background-color: rgba(231, 72, 86, 0.08);
-            border-color: {COLORS['danger']};
-            color: {COLORS['danger']};
+            border-color: {COLORS["danger"]};
+            color: {COLORS["danger"]};
         }}
         
         .alert-warning {{
             background-color: rgba(255, 185, 0, 0.08);
-            border-color: {COLORS['warning']};
+            border-color: {COLORS["warning"]};
             color: #856404;
         }}
         
         .alert-info {{
             background-color: rgba(30, 58, 95, 0.08);
-            border-color: {COLORS['primary']};
-            color: {COLORS['primary_dark']};
+            border-color: {COLORS["primary"]};
+            color: {COLORS["primary_dark"]};
         }}
         
         /* ===========================
@@ -615,7 +615,7 @@ def get_shiny_css():
         }}
         
         .table thead th {{
-            background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary']} 100%);
+            background: linear-gradient(135deg, {COLORS["primary_dark"]} 0%, {COLORS["primary"]} 100%);
             color: white;
             border: none;
             font-weight: 600;
@@ -625,7 +625,7 @@ def get_shiny_css():
         }}
         
         .table tbody td {{
-            border-bottom: 1px solid {COLORS['border']};
+            border-bottom: 1px solid {COLORS["border"]};
             padding: var(--spacing-md);
             vertical-align: middle;
         }}
@@ -635,24 +635,24 @@ def get_shiny_css():
         }}
         
         .table tbody tr:nth-child(even) {{
-            background-color: {COLORS['background']};
+            background-color: {COLORS["background"]};
         }}
         
         .table tbody tr:hover {{
-            background-color: {COLORS['primary_light']};
+            background-color: {COLORS["primary_light"]};
         }}
 
         .sig-p {{
             color: #fff;
-            background-color: {COLORS['danger']};
+            background-color: {COLORS["danger"]};
             padding: 2px 6px;
             border-radius: 3px;
             font-weight: 600;
         }}
 
         .shiny-table th, table.dataframe th {{
-            background-color: {COLORS['background']} !important;
-            color: {COLORS['text']} !important;
+            background-color: {COLORS["background"]} !important;
+            color: {COLORS["text"]} !important;
             font-weight: 600;
         }}
         
@@ -666,8 +666,8 @@ def get_shiny_css():
         /* Error Cell Highlighting - For data quality issues */
         .cell-error {{
             background-color: #fee !important;
-            border: 1px solid {COLORS['danger']} !important;
-            color: {COLORS['danger']} !important;
+            border: 1px solid {COLORS["danger"]} !important;
+            color: {COLORS["danger"]} !important;
             font-weight: 600 !important;
         }}
         
@@ -687,27 +687,27 @@ def get_shiny_css():
         }}
         
         .badge-primary {{
-            background-color: {COLORS['primary']};
+            background-color: {COLORS["primary"]};
             color: white;
         }}
         
         .badge-success {{
-            background-color: {COLORS['success']};
+            background-color: {COLORS["success"]};
             color: white;
         }}
         
         .badge-danger {{
-            background-color: {COLORS['danger']};
+            background-color: {COLORS["danger"]};
             color: white;
         }}
         
         .badge-warning {{
-            background-color: {COLORS['warning']};
+            background-color: {COLORS["warning"]};
             color: #000;
         }}
         
         .badge-info {{
-            background-color: {COLORS['info']};
+            background-color: {COLORS["info"]};
             color: white;
         }}
         
@@ -725,20 +725,20 @@ def get_shiny_css():
         
         .status-badge.matched {{
             background-color: rgba(34, 167, 101, 0.1);
-            color: {COLORS['success']};
-            border-color: {COLORS['success']};
+            color: {COLORS["success"]};
+            border-color: {COLORS["success"]};
         }}
         
         .status-badge.unmatched {{
             background-color: rgba(231, 72, 86, 0.1);
-            color: {COLORS['danger']};
-            border-color: {COLORS['danger']};
+            color: {COLORS["danger"]};
+            border-color: {COLORS["danger"]};
         }}
         
         .status-badge.warning {{
             background-color: rgba(255, 185, 0, 0.1);
-            color: {COLORS['warning']};
-            border-color: {COLORS['warning']};
+            color: {COLORS["warning"]};
+            border-color: {COLORS["warning"]};
         }}
         
         /* ===========================
@@ -746,69 +746,69 @@ def get_shiny_css():
            =========================== */
         
         .text-primary {{
-            color: {COLORS['primary']} !important;
+            color: {COLORS["primary"]} !important;
         }}
         
         .text-primary-dark {{
-            color: {COLORS['primary_dark']} !important;
+            color: {COLORS["primary_dark"]} !important;
         }}
         
         .text-success {{
-            color: {COLORS['success']} !important;
+            color: {COLORS["success"]} !important;
         }}
         
         .text-danger {{
-            color: {COLORS['danger']} !important;
+            color: {COLORS["danger"]} !important;
         }}
         
         .text-warning {{
-            color: {COLORS['warning']} !important;
+            color: {COLORS["warning"]} !important;
         }}
         
         .text-info {{
-            color: {COLORS['info']} !important;
+            color: {COLORS["info"]} !important;
         }}
         
         .text-secondary {{
-            color: {COLORS['text_secondary']} !important;
+            color: {COLORS["text_secondary"]} !important;
         }}
         
         .text-muted {{
-            color: {COLORS['text_secondary']} !important;
+            color: {COLORS["text_secondary"]} !important;
             opacity: 0.8;
         }}
         
         .bg-primary {{
-            background-color: {COLORS['primary']} !important;
+            background-color: {COLORS["primary"]} !important;
             color: white;
         }}
         
         .bg-primary-light {{
-            background-color: {COLORS['primary_light']} !important;
+            background-color: {COLORS["primary_light"]} !important;
         }}
         
         .bg-surface {{
-            background-color: {COLORS['surface']} !important;
+            background-color: {COLORS["surface"]} !important;
         }}
         
         .bg-background {{
-            background-color: {COLORS['background']} !important;
+            background-color: {COLORS["background"]} !important;
         }}
         
         .border-primary {{
-            border: 1px solid {COLORS['primary']} !important;
+            border: 1px solid {COLORS["primary"]} !important;
             border-radius: var(--radius-md);
         }}
         
         .border-top {{
-            border-top: 2px solid {COLORS['border']} !important;
+            border-top: 2px solid {COLORS["border"]} !important;
             padding-top: var(--spacing-lg);
             margin-top: var(--spacing-lg);
         }}
         
         .divider {{
             height: 1px;
-            background-color: {COLORS['border']};
+            background-color: {COLORS["border"]};
             margin: var(--spacing-lg) 0;
         }}
         
@@ -897,8 +897,8 @@ def get_shiny_css():
            =========================== */
         
         .stat-box {{
-            background-color: {COLORS['surface']};
-            border: 1px solid {COLORS['border']};
+            background-color: {COLORS["surface"]};
+            border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-lg);
             padding: var(--spacing-lg);
             text-align: center;
@@ -908,13 +908,13 @@ def get_shiny_css():
         
         .stat-box:hover {{
             box-shadow: var(--shadow-md);
-            border-color: {COLORS['primary_light']};
+            border-color: {COLORS["primary_light"]};
         }}
         
         .stat-box-label {{
             font-size: 12px;
             font-weight: 600;
-            color: {COLORS['text_secondary']};
+            color: {COLORS["text_secondary"]};
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: var(--spacing-sm);
@@ -923,20 +923,20 @@ def get_shiny_css():
         .stat-box-value {{
             font-size: 28px;
             font-weight: 700;
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             line-height: 1;
         }}
         
         .stat-box-subtext {{
             font-size: 12px;
-            color: {COLORS['text_secondary']};
+            color: {COLORS["text_secondary"]};
             margin-top: var(--spacing-sm);
         }}
         
         /* Info Box / Panel */
         .info-panel {{
-            background-color: {COLORS['primary_light']};
-            border-left: 4px solid {COLORS['primary']};
+            background-color: {COLORS["primary_light"]};
+            border-left: 4px solid {COLORS["primary"]};
             border-radius: 0 var(--radius-md) var(--radius-md) 0;
             padding: var(--spacing-lg);
             margin-bottom: var(--spacing-lg);
@@ -944,17 +944,17 @@ def get_shiny_css():
         
         .info-panel.success {{
             background-color: rgba(34, 167, 101, 0.1);
-            border-left-color: {COLORS['success']};
+            border-left-color: {COLORS["success"]};
         }}
         
         .info-panel.danger {{
             background-color: rgba(231, 72, 86, 0.1);
-            border-left-color: {COLORS['danger']};
+            border-left-color: {COLORS["danger"]};
         }}
         
         .info-panel.warning {{
             background-color: rgba(255, 185, 0, 0.1);
-            border-left-color: {COLORS['warning']};
+            border-left-color: {COLORS["warning"]};
         }}
         
         /* Data Grid Container */
@@ -970,20 +970,20 @@ def get_shiny_css():
         
         .missing-data-section {{
             background-color: #f0f7ff;
-            border-left: 4px solid {COLORS['primary']};
+            border-left: 4px solid {COLORS["primary"]};
             padding: var(--spacing-lg);
             margin: var(--spacing-xl) 0;
             border-radius: 0 var(--radius-md) var(--radius-md) 0;
         }}
         
         .missing-data-section h4 {{
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             margin-top: 0;
             margin-bottom: var(--spacing-md);
         }}
         
         .missing-data-section h5 {{
-            color: {COLORS['text']};
+            color: {COLORS["text"]};
             margin-top: var(--spacing-lg);
             margin-bottom: var(--spacing-sm);
         }}
@@ -999,13 +999,13 @@ def get_shiny_css():
         .missing-table td {{
             padding: var(--spacing-sm) var(--spacing-md);
             text-align: left;
-            border-bottom: 1px solid {COLORS['border']};
+            border-bottom: 1px solid {COLORS["border"]};
         }}
         
         .missing-table th {{
             background-color: #e8f1ff;
             font-weight: 600;
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
         }}
         
         .missing-table tr.high-missing {{
@@ -1019,7 +1019,7 @@ def get_shiny_css():
         
         .warning-box {{
             background-color: #fff3cd;
-            border: 1px solid {COLORS['warning']};
+            border: 1px solid {COLORS["warning"]};
             padding: var(--spacing-md);
             border-radius: var(--radius-md);
             margin-top: var(--spacing-md);
@@ -1042,18 +1042,18 @@ def get_shiny_css():
         /* Missing config column styling */
         .variable-config-column {{
             padding-right: var(--spacing-md);
-            border-right: 1px solid {COLORS['border']};
+            border-right: 1px solid {COLORS["border"]};
         }}
         
         .missing-config-column {{
-            background-color: {COLORS['background']};
+            background-color: {COLORS["background"]};
             padding: var(--spacing-md);
             border-radius: var(--radius-md);
         }}
         
         .missing-config-column h5,
         .missing-config-column h6 {{
-            color: {COLORS['primary']};
+            color: {COLORS["primary"]};
             margin-bottom: var(--spacing-md);
         }}
         
@@ -1156,8 +1156,8 @@ def style_card_header(title: str, icon: str = "") -> str:
     COLORS = get_color_palette()
     return f"""
     <div style="
-        background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
-        border-bottom: 2px solid {COLORS['primary_dark']};
+        background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%);
+        border-bottom: 2px solid {COLORS["primary_dark"]};
         padding: 14px 16px;
         font-weight: 600;
         color: white;

@@ -27,8 +27,6 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 from shiny import ui
 
@@ -480,6 +478,6 @@ def format_interval_preview(intervals: list[float]) -> str:
     interval_strings = []
 
     for i in range(len(intervals) - 1):
-        interval_strings.append(f"[{intervals[i]}-{intervals[i+1]}]")
+        interval_strings.append(f"[{intervals[i]}-{intervals[i + 1]}]")
 
     return ", ".join(interval_strings)

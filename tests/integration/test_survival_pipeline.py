@@ -25,7 +25,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestSurvivalPipeline:
-
     @pytest.fixture
     def survival_data(self):
         """Create realistic survival dataset"""

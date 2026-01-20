@@ -10,8 +10,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-from htmltools import HTML, div
 from shiny import module, reactive, render, req, ui
 
 from config import CONFIG
@@ -22,9 +20,7 @@ from utils.formatting import create_missing_data_report_html
 from utils.linear_lib import (
     analyze_linear_outcome,
     bootstrap_ols,
-    compare_models,
     format_bootstrap_results,
-    format_model_comparison,
     format_stepwise_history,
     stepwise_selection,
 )
@@ -772,7 +768,6 @@ def logit_server(
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
-
     # --- State Management ---
     # Store main logit results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
     """
@@ -971,9 +966,7 @@ def logit_server(
             if c != default_linear_y
             and c not in ["ID", "id_tvc"]
             and not c.startswith("Time_")
-        ][
-            :5
-        ]  # limit to 5
+        ][:5]  # limit to 5
         ui.update_selectize(
             "linear_predictors", choices=numeric_cols, selected=default_linear_x
         )

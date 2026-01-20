@@ -16,14 +16,11 @@ OPTIMIZATIONS: DeLong method vectorized (106x faster), ICC vectorized (9x faster
 from __future__ import annotations
 
 import html as _html
-import warnings
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
-import plotly.io as pio
 import scipy.stats as stats
 from sklearn.metrics import cohen_kappa_score, roc_auc_score, roc_curve
 
@@ -35,7 +32,6 @@ from utils.data_cleaning import (
     get_missing_summary_df,
     handle_missing_for_analysis,
 )
-from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -542,7 +538,6 @@ def calculate_chi2(
                 c, d = vals[1, 0], vals[1, 1]  # Unexposed Event, No Event
 
                 row_labels = [str(x) for x in tab.index.tolist()]
-                col_labels = [str(x) for x in tab.columns.tolist()]
 
                 label_exp = str(row_labels[0])
                 label_unexp = str(row_labels[1])
@@ -1150,7 +1145,7 @@ def analyze_roc(
         "Interpretation": f"{auc_badge}",
         "Best Threshold": f"{thresholds[best_idx]:.4f}",
         "Sensitivity at Best": f"{tpr[best_idx]:.4f}",
-        "Specificity at Best": f"{1-fpr[best_idx]:.4f}",
+        "Specificity at Best": f"{1 - fpr[best_idx]:.4f}",
     }
 
     # Plotly Figure
@@ -1267,7 +1262,6 @@ def calculate_icc(
         # SSWS (Within Subjects)
         ssws = sst - ssbs
         df_ws = df_t - df_bs
-        msws = ssws / df_ws
 
         # SSE (Error)
         sse = ssws - ssbm

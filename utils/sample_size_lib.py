@@ -317,22 +317,22 @@ def generate_methods_text(study_design: str, params: dict) -> str:
 
         text += f"To detect a difference in means of {m1} versus {m2} "
         text += f"(assuming SD1={sd1}, SD2={sd2}), "
-        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"with a power of {params['power'] * 100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
         text += f"a total sample size of {int(params['total'])} subjects ({int(params['n1'])} in group 1 and {int(params['n2'])} in group 2) is required."
 
     elif study_design == "Independent Proportions":
         text += f"To detect a difference between proportions of {params['p1']} and {params['p2']}, "
-        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"with a power of {params['power'] * 100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
         text += f"a total sample size of {int(params['total'])} subjects ({int(params['n1'])} in group 1 and {int(params['n2'])} in group 2) is required."
 
     elif study_design == "Survival (Log-Rank)":
         text += f"To detect a Hazard Ratio of {params['hr']:.2f}, "
-        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"with a power of {params['power'] * 100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
         text += f"a total of {int(params['total_events'])} events are required."
 
     elif study_design == "Pearson Correlation":
         text += f"To detect a correlation coefficient (r) of {params['r']}, "
-        text += f"with a power of {params['power']*100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
+        text += f"with a power of {params['power'] * 100:.0f}% and a two-sided significant level (alpha) of {params['alpha']}, "
         text += f"a total sample size of {int(params['total'])} subjects is required."
 
     return text

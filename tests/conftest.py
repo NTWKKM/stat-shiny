@@ -57,9 +57,9 @@ def start_shiny_server(request):
     if not app_path.exists():
         raise FileNotFoundError(f"❌ app.py not found at {app_path}")
 
-    print(f"\n{'='*70}")
-    print(f"🚀 Starting Shiny Server for E2E Tests")
-    print(f"{'='*70}")
+    print(f"\n{'=' * 70}")
+    print("🚀 Starting Shiny Server for E2E Tests")
+    print(f"{'=' * 70}")
 
     # ────────────────────────────────────────────────────────────────────
     # Step 2: Start Shiny server (Redirect output to a Temp File)

@@ -293,7 +293,6 @@ def diag_server(
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
-
     # --- Reactive Results Storage ---
     roc_html: reactive.Value[str | None] = reactive.Value(None)
     chi_html: reactive.Value[str | None] = reactive.Value(None)

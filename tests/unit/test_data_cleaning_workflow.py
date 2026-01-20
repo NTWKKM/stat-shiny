@@ -24,8 +24,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from utils.data_cleaning import (
     clean_dataframe,
-    clean_numeric,
-    clean_numeric_vector,
     detect_outliers,
     handle_outliers,
     validate_data_quality,
@@ -71,10 +69,10 @@ def test_original_data_preservation():
 
     # Verify original data is unchanged
     assert original_data.loc[0, "age"] == original_age_0, "Original data was modified!"
-    assert (
-        original_data.loc[4, "weight"] == original_weight_4
-    ), "Original data was modified!"
-    assert original_data.dtypes["age"] == object, "Original dtype was modified!"
+    assert original_data.loc[4, "weight"] == original_weight_4, (
+        "Original data was modified!"
+    )
+    assert original_data.dtypes["age"] == "object", "Original dtype was modified!"
 
     print("\n✓ TEST PASSED: Original data preserved")
 
@@ -125,12 +123,12 @@ def test_cleaned_data_improvement():
         np.float64,
         float,
     ], "Numeric column not converted"
-    assert (
-        cleaned_df.loc[0, "numeric_with_issues"] == 100.0
-    ), "First value not cleaned correctly"
-    assert (
-        cleaned_df.loc[1, "numeric_with_issues"] == 1234.56
-    ), "Second value not cleaned correctly"
+    assert cleaned_df.loc[0, "numeric_with_issues"] == 100.0, (
+        "First value not cleaned correctly"
+    )
+    assert cleaned_df.loc[1, "numeric_with_issues"] == 1234.56, (
+        "Second value not cleaned correctly"
+    )
 
     print("\n✓ TEST PASSED: Cleaned data has better quality")
 
@@ -177,15 +175,15 @@ def test_table_one_workflow():
     assert html_output is not None, "generate_table returned None!"
     assert isinstance(html_output, str), "generate_table did not return a string!"
     assert len(html_output) > 0, "generate_table returned empty string!"
-    assert (
-        "<table" in html_output.lower()
-    ), "HTML output does not contain a table element!"
-    assert (
-        "age" in html_output.lower() or "Age (years)" in html_output
-    ), "HTML output missing age variable!"
-    assert (
-        "weight" in html_output.lower() or "Weight (kg)" in html_output
-    ), "HTML output missing weight variable!"
+    assert "<table" in html_output.lower(), (
+        "HTML output does not contain a table element!"
+    )
+    assert "age" in html_output.lower() or "Age (years)" in html_output, (
+        "HTML output missing age variable!"
+    )
+    assert "weight" in html_output.lower() or "Weight (kg)" in html_output, (
+        "HTML output missing weight variable!"
+    )
 
     print(f"\nHTML output length: {len(html_output)} characters")
     print(f"Contains <table>: {'<table' in html_output.lower()}")
@@ -194,12 +192,12 @@ def test_table_one_workflow():
     )
 
     # Verify original data is unchanged
-    assert original_data["age"].equals(
-        original_age
-    ), "Original age column was modified!"
-    assert original_data["weight"].equals(
-        original_weight
-    ), "Original weight column was modified!"
+    assert original_data["age"].equals(original_age), (
+        "Original age column was modified!"
+    )
+    assert original_data["weight"].equals(original_weight), (
+        "Original weight column was modified!"
+    )
     assert original_data.loc[0, "age"] == ">50", "Original data was modified!"
 
     print(f"\nOriginal age[0] still: {original_data.loc[0, 'age']}")
@@ -266,9 +264,9 @@ def test_edge_cases():
     )
     # FIX: Renamed unused 'report' to '_report'
     cleaned_mixed, _report = clean_dataframe(mixed_df)
-    assert pd.api.types.is_numeric_dtype(
-        cleaned_mixed["mixed"]
-    ), "Mixed type column not cleaned!"
+    assert pd.api.types.is_numeric_dtype(cleaned_mixed["mixed"]), (
+        "Mixed type column not cleaned!"
+    )
     print("  ✓ Mixed types handled correctly")
 
     # Test 4: Special characters
@@ -286,9 +284,9 @@ def test_edge_cases():
     )
     # FIX: Renamed unused 'report' to '_report'
     cleaned_special, _report = clean_dataframe(special_df)
-    assert pd.api.types.is_numeric_dtype(
-        cleaned_special["special"]
-    ), "Special characters not handled!"
+    assert pd.api.types.is_numeric_dtype(cleaned_special["special"]), (
+        "Special characters not handled!"
+    )
     assert cleaned_special.loc[0, "special"] == 1000.0, "Dollar sign not removed!"
     assert cleaned_special.loc[1, "special"] == 500.0, "Euro sign not removed!"
     print("  ✓ Special characters handled correctly")

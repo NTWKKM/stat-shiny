@@ -24,7 +24,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestForestPlotLib:
-
     @pytest.fixture
     def ready_to_plot_df(self):
         """Create a DataFrame formatted exactly for the forest plot function"""

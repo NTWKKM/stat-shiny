@@ -9,7 +9,7 @@ from shiny import module, reactive, render, ui
 from shiny.types import FileInfo
 
 from logger import get_logger
-from tabs._common import get_color_palette, wrap_with_container
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
@@ -132,7 +132,6 @@ def data_server(
     matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
-
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
     # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
     data_issues: reactive.Value[list[dict[str, Any]]] = reactive.Value([])
@@ -890,9 +889,7 @@ def data_server(
         return ui.card(
             ui.card_header(
                 ui.div(
-                    ui.tags.span(
-                        "⚠️ Data Quality Report", class_="fw-bold text-danger"
-                    ),
+                    ui.tags.span("⚠️ Data Quality Report", class_="fw-bold text-danger"),
                     ui.tags.span(
                         f"Found {len(issues)} potential issues",
                         class_="badge bg-danger ms-2",
