@@ -83,6 +83,7 @@ def test_analyze_mediation_empty_data():
     with pytest.raises(ValueError, match="No valid data"):
         analyze_mediation(df, "Y", "X", "M")
 
+
 def test_analyze_mediation_missing_columns():
     """Test error when columns are missing from data."""
     df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
@@ -91,12 +92,12 @@ def test_analyze_mediation_missing_columns():
     try:
         result = analyze_mediation(df, outcome="Y", treatment="A", mediator="B")
     except KeyError:
-        return # Acceptable to fail with KeyError
+        return  # Acceptable to fail with KeyError
     except ValueError as e:
         if "not found" in str(e).lower() or "columns" in str(e).lower():
             return
         raise e
-    
+
     # If it returns result with error key
     if result and "error" in result:
         assert True
@@ -106,6 +107,7 @@ def test_analyze_mediation_missing_columns():
         # logic.py usually handles missing columns gracefully?
         pass
 
+
 def test_analyze_mediation_constant_variable():
     """Test handling of constant variables."""
     np.random.seed(42)
@@ -113,20 +115,21 @@ def test_analyze_mediation_constant_variable():
     # X is constant
     X = np.ones(n)
     M = np.random.normal(0, 1, n)
-    Y = 0.5*M + np.random.normal(0, 1, n)
+    Y = 0.5 * M + np.random.normal(0, 1, n)
     df = pd.DataFrame({"X": X, "M": M, "Y": Y})
-    
+
     # This might log warnings or return specific error dict
     result = analyze_mediation(df, outcome="Y", treatment="X", mediator="M")
     assert result is not None
+
 
 def test_analyze_mediation_perfect_collinearity():
     """Test perfect correlation between Treatment and Mediator."""
     n = 50
     X = np.random.normal(0, 1, n)
     M = X  # Perfect correlation
-    Y = 2*X + np.random.normal(0, 1, n)
+    Y = 2 * X + np.random.normal(0, 1, n)
     df = pd.DataFrame({"X": X, "M": M, "Y": Y})
-    
+
     result = analyze_mediation(df, outcome="Y", treatment="X", mediator="M")
     assert result is not None
