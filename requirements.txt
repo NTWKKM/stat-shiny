@@ -43,7 +43,6 @@ seaborn>=0.12.0
 requests>=2.32.4
 jinja2>=3.1.6
 openpyxl>=3.1.0
-zipp>=3.19.1  # Pinned by Snyk to avoid vulnerability
 
 # ==============================================================================
 # 🧪 Testing
@@ -57,3 +56,10 @@ playwright>=1.40.0
 # 📝 Code Quality (Ruff replaces black, flake8, isort)
 # ==============================================================================
 ruff>=0.4.0
+
+# ==============================================================================
+# 🔒 Security Pins (Transitive Dependencies)
+# ==============================================================================
+pillow>=10.3.0  # Pinned by Snyk to avoid vulnerability
+fonttools>=4.61.0  # Pinned by Snyk to avoid vulnerability
+zipp>=3.19.1  # Pinned by Snyk to avoid vulnerability
