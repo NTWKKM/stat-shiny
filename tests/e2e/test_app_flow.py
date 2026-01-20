@@ -150,8 +150,8 @@ class TestTabNavigation:
 
         # Wait for settings content to load
         page.wait_for_timeout(500)
-        # Verify settings content is visible
-        expect(page.get_by_text("Configuration", exact=True)).to_be_visible()
+        # Verify the Analysis sub-tab (default) is visible
+        expect(page.get_by_text("Analysis Parameters", exact=True)).to_be_visible()
 
 
 # ============================================================================
@@ -194,6 +194,8 @@ class TestDataManagementWorkflow:
 
         file_input = page.query_selector("input[type='file']")
         assert file_input is not None, "File input not found"
+        accept = (file_input.get_attribute("accept") or "").lower()
+        assert "csv" in accept, f"Unexpected accept types: {accept}"
 
 
 # ============================================================================
@@ -288,7 +290,7 @@ class TestSurvivalAnalysisWorkflow:
         # We'll use a specific expect on the visible one if possible, or just assertion logic
 
         # Better approach: verify that *some* Time Variable input is visible
-        expect(time_selectors.locator("visible=true").first).to_be_visible()
+        expect(time_selectors.filter(visible=True).first).to_be_visible()
 
 
 # ============================================================================
@@ -341,8 +343,7 @@ class TestErrorHandling:
             page.wait_for_timeout(300)
 
         # Check for critical errors only
-        critical_errors = [e for e in errors if "critical" in e.lower()]
-        assert len(critical_errors) == 0, f"Errors during navigation: {critical_errors}"
+        assert not errors, f"JavaScript errors: {errors}"
 
 
 # ============================================================================

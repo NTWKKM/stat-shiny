@@ -1096,7 +1096,11 @@ def diag_server(
 
     @render.download(filename="descriptive_report.html")
     def btn_dl_desc_report():
-        yield desc_html.get()
+        content = desc_html.get()
+        if content:
+            yield content
+        else:
+            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
 
     # --- DCA Logic ---
     @render.ui
@@ -1205,4 +1209,8 @@ def diag_server(
 
     @render.download(filename="dca_report.html")
     def btn_dl_dca_report():
-        yield dca_html.get()
+        content = dca_html.get()
+        if content:
+            yield content
+        else:
+            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
