@@ -1130,7 +1130,7 @@ def get_shiny_css():
         .tvc-preset-label {{
             margin-right: 10px; 
             font-weight: 600; 
-            color: #555;
+            color: {COLORS["text_secondary"]};
         }}
         
         .tvc-preset-btn {{

@@ -150,7 +150,8 @@ class TestTabNavigation:
 
         # Wait for settings content to load
         page.wait_for_timeout(500)
-        # Settings tab should show some configuration options
+        # Verify settings content is visible
+        expect(page.get_by_text("Configuration")).to_be_visible()
 
 
 # ============================================================================
@@ -176,9 +177,9 @@ class TestDataManagementWorkflow:
         page.get_by_role("tab", name="Data Management").click()
 
         # Look for example data button
-        example_btn = page.get_by_role("button", name="Generate Example Data")
-        if example_btn.is_visible():
-            expect(example_btn).to_be_enabled()
+        example_btn = page.get_by_role("button", name="Load Example Data")
+        expect(example_btn).to_be_visible()
+        expect(example_btn).to_be_enabled()
 
     def test_file_upload_input_accepts_csv(self, page: Page):
         """

@@ -9,17 +9,11 @@ Tests the complete flow of functions from logic.py AND visualization:
 4. Integration with Forest Plot (forest_plot_lib)
 """
 
-import os
-import sys
-
-# Add parent directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from utils.forest_plot_lib import create_forest_plot  # Import forest plot lib
+from utils.forest_plot_lib import create_forest_plot
 from utils.logic import (
     analyze_outcome,
     clean_numeric_value,

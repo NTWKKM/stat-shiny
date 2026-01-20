@@ -386,11 +386,11 @@ def baseline_matching_server(
         input: Shiny input object for reading UI control values (not documented here).
         output: Shiny output object for registering UI/data outputs (not documented here).
         session: Shiny session object (not documented here).
-        df (reactive.Value[Optional[pd.DataFrame]]): Reactive source of the original dataset used for Table 1 and PSM.
+        df (reactive.Value[pd.DataFrame | None]): Reactive source of the original dataset used for Table 1 and PSM.
         var_meta (reactive.Value[dict[str, Any]]): Reactive metadata for variables (labels, types, display hints) used when generating Table 1.
-        df_matched (reactive.Value[Optional[pd.DataFrame]]): Reactive holder for the matched dataset; set by the PSM routine and consumed by matched-data views and exports.
+        df_matched (reactive.Value[pd.DataFrame | None]): Reactive holder for the matched dataset; set by the PSM routine and consumed by matched-data views and exports.
         is_matched (reactive.Value[bool]): Reactive flag indicating whether matched data is available; updated once matching completes successfully.
-        matched_treatment_col (reactive.Value[Optional[str]]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
+        matched_treatment_col (reactive.Value[str | None]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
         matched_covariates (reactive.Value[list[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
     """
     psm_results: reactive.Value[dict[str, Any] | None] = reactive.Value(None)

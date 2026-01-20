@@ -210,15 +210,25 @@ def diag_ui() -> ui.TagChild:
                 "📉 Decision Curve (DCA)",
                 ui.markdown("##### Decision Curve Analysis"),
                 ui.row(
-                    ui.column(4, ui.output_ui("ui_dca_truth")),
-                    ui.column(4, ui.output_ui("ui_dca_prob")),
+                    ui.column(6, ui.output_ui("ui_dca_truth")),
+                    ui.column(6, ui.output_ui("ui_dca_prob")),
+                ),
+                ui.row(
                     ui.column(
-                        4,
+                        6,
                         ui.input_action_button(
                             "btn_run_dca",
                             "🚀 Run DCA",
                             class_="btn-primary w-100",
-                            style="margin-top: 25px;",
+                        ),
+                    ),
+                    ui.column(
+                        6,
+                        ui.download_button(
+                            "btn_dl_dca_report",
+                            "📥 Download Report",
+                            class_="btn-outline-primary w-100",
+                            width="100%",
                         ),
                     ),
                 ),
@@ -415,7 +425,11 @@ def diag_server(
 
     @render.download(filename="bland_altman_report.html")
     def btn_dl_ba_report():
-        yield ba_html.get()
+        content = ba_html.get()
+        if content:
+            yield content
+        else:
+            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
 
     roc_processing: reactive.Value[bool] = reactive.Value(False)
     chi_processing: reactive.Value[bool] = reactive.Value(False)
@@ -1188,3 +1202,7 @@ def diag_server(
         if dca_html.get():
             return ui.HTML(dca_html.get())
         return ui.div("Click 'Run DCA' to view results.", class_="text-secondary p-3")
+
+    @render.download(filename="dca_report.html")
+    def btn_dl_dca_report():
+        yield dca_html.get()

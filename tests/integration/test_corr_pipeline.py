@@ -8,17 +8,10 @@ Tests the correlation analysis workflow:
 3. Output format verification (including Summary Stats)
 """
 
-import os
-import sys
-
 import numpy as np
 import pandas as pd
 import pytest
 
-# Add parent directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-# Import correlation module
 from utils.correlation import compute_correlation_matrix
 
 pytestmark = pytest.mark.integration
