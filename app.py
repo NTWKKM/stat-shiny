@@ -182,11 +182,12 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 static_assets_path = Path(__file__).parent / "static"
 
 # ✅ Create Shiny app instance
-# Specify static_assets so /static/styles.css works on Cloud
+# Specify static_assets so /static/styles.css works on Cloud (Posit Connect)
 app = App(
     app_ui,
     server,
-    # 🟢 Fix: Change to Dictionary to correctly mount path "/static"
-    # If only path is provided, content goes to root (/), causing /static/styles.css not found
+    # 🟢 Mount static directory to /static path
+    # This ensures that when we link to "static/styles.css", it resolves correctly
+    # in both local/Posit (where it's handled here) and Docker/ASGI (where Starlette handles it, but this doesn't hurt)
     static_assets={"/static": str(static_assets_path)},
 )
