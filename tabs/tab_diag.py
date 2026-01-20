@@ -469,22 +469,12 @@ def diag_server(
             )
         return None
 
-    # Get all columns (excluding TVC columns)
+    # Get all columns
     @reactive.Calc
     def all_cols() -> list[str]:
         d = current_df()
         if d is not None:
-            # TVC columns to exclude from diagnostic analyses
-            tvc_cols_to_exclude = [
-                "id_tvc",
-                "time_start",
-                "time_stop",
-                "status_event",
-                "TVC_Value",
-                "Static_Age",
-                "Static_Sex",
-            ]
-            return [c for c in d.columns.tolist() if c not in tvc_cols_to_exclude]
+            return d.columns.tolist()
         return []
 
     # --- ROC Inputs UI ---

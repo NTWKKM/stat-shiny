@@ -150,24 +150,15 @@ def data_server(
             np.random.seed(42)
             n = 1600
 
-            # =================================================================
-            # ENHANCED SIMULATION: Medical Variables for All Stat Modules
-            # =================================================================
-
-            # --- DEMOGRAPHICS & BASELINE ---
+            # --- Simulation Logic (Same as original) ---
             age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
             sex = np.random.binomial(1, 0.5, n)
             bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
 
-            # Smoking status (0=Never, 1=Former, 2=Current) - for subgroup analysis
-            smoking_status = np.random.choice([0, 1, 2], size=n, p=[0.4, 0.35, 0.25])
-
-            # --- TREATMENT ASSIGNMENT (Propensity-based) ---
             logit_treat = -4.5 + (0.05 * age) + (0.08 * bmi) + (0.2 * sex)
             p_treat = 1 / (1 + np.exp(-logit_treat))
             group = np.random.binomial(1, p_treat, n)
 
-            # --- COMORBIDITIES ---
             logit_dm = -5 + (0.04 * age) + (0.1 * bmi)
             p_dm = 1 / (1 + np.exp(-logit_dm))
             diabetes = np.random.binomial(1, p_dm, n)
@@ -176,16 +167,6 @@ def data_server(
             p_ht = 1 / (1 + np.exp(-logit_ht))
             hypertension = np.random.binomial(1, p_ht, n)
 
-            # CKD Stage (1-5) - for subgroup/ordinal analysis
-            ckd_prob = 0.02 * (age - 30) / 65 + 0.1 * diabetes + 0.08 * hypertension
-            ckd_prob = np.clip(ckd_prob, 0.05, 0.8)
-            ckd_stage = np.where(
-                np.random.random(n) < ckd_prob,
-                np.random.choice([2, 3, 4, 5], size=n, p=[0.4, 0.35, 0.2, 0.05]),
-                1,
-            )
-
-            # --- SURVIVAL OUTCOMES ---
             lambda_base = 0.002
             linear_predictor = (
                 0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
@@ -197,127 +178,49 @@ def data_server(
             time_obs = np.maximum(time_obs, 0.5)
             status_death = (surv_time <= censor_time).astype(int)
 
-            # --- BINARY OUTCOMES ---
             logit_cure = 0.5 + 1.2 * group - 0.04 * age - 0.5 * diabetes
             p_cure = 1 / (1 + np.exp(-logit_cure))
             outcome_cured = np.random.binomial(1, p_cure, n)
 
-            # --- DIAGNOSTIC TEST VARIABLES ---
             gold_std = np.random.binomial(1, 0.3, n)
-
-            # Continuous test score (for ROC)
             rapid_score = np.where(
                 gold_std == 0, np.random.normal(20, 10, n), np.random.normal(50, 15, n)
             )
             rapid_score = np.clip(rapid_score, 0, 100).round(1)
 
-            # Prediction probability (for DCA) - model predicted probability
-            logit_pred = -2 + 0.03 * age + 0.5 * diabetes + 0.4 * hypertension
-            prediction_probability = (1 / (1 + np.exp(-logit_pred))).round(3)
-            prediction_probability = np.clip(prediction_probability, 0.01, 0.99)
-
-            # --- RATER AGREEMENT VARIABLES (Kappa) ---
             rater_a = np.where(
                 gold_std == 1,
                 np.random.binomial(1, 0.85, n),
                 np.random.binomial(1, 0.10, n),
             )
+
             agree_prob = 0.85
             rater_b = np.where(
                 np.random.binomial(1, agree_prob, n) == 1, rater_a, 1 - rater_a
             )
 
-            # Additional diagnostic raters (for multi-rater Kappa)
-            biomarker_troponin = np.where(
-                gold_std == 1,
-                np.random.binomial(1, 0.80, n),
-                np.random.binomial(1, 0.05, n),
-            )
-            ecg_abnormal = np.where(
-                gold_std == 1,
-                np.random.binomial(1, 0.75, n),
-                np.random.binomial(1, 0.12, n),
-            )
-            imaging_xray = np.where(
-                gold_std == 1,
-                np.random.binomial(1, 0.70, n),
-                np.random.binomial(1, 0.08, n),
-            )
-
-            # --- LABORATORY VALUES (Continuous) ---
             hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
             glucose = (hba1c * 15) + np.random.normal(0, 15, n)
             glucose = glucose.round(0)
 
-            # Kidney function (for correlation analysis)
-            creatinine = np.where(
-                ckd_stage >= 3,
-                np.random.normal(2.0 + 0.5 * (ckd_stage - 3), 0.5, n),
-                np.random.normal(1.0, 0.2, n),
-            ).round(2)
-            creatinine = np.clip(creatinine, 0.5, 8.0)
-
-            # eGFR (inversely related to creatinine)
-            egfr = (175 * np.power(creatinine, -1.154) * np.power(age, -0.203)).round(1)
-            egfr = np.where(sex == 0, egfr * 0.742, egfr)  # Female adjustment
-            egfr = np.clip(egfr, 5, 120)
-
-            # Lipid profile (for correlation matrix)
-            ldl_cholesterol = np.random.normal(120, 35, n).round(0).clip(40, 250)
-            total_cholesterol = (ldl_cholesterol + np.random.normal(80, 20, n)).round(0)
-            total_cholesterol = np.clip(total_cholesterol, 100, 350)
-
-            # --- VITAL SIGNS (for Bland-Altman, ICC) ---
             icc_rater1 = np.random.normal(120, 15, n).round(1)
             icc_rater2 = icc_rater1 + 5 + np.random.normal(0, 4, n)
             icc_rater2 = icc_rater2.round(1)
 
-            # Diastolic BP (for correlation with systolic)
-            vital_diasbp = (icc_rater1 * 0.6 + np.random.normal(10, 8, n)).round(1)
-            vital_diasbp = np.clip(vital_diasbp, 50, 110)
+            # [UPDATED] Time-Varying Covariates (Long Format) for TVC Module Testing
+            # [UPDATED] Time-Varying Covariates (Long Format)
+            # Generate EXACTLY n rows of TVC intervals to match the main dataset size.
+            # This creates a "Hybrid" dataset:
+            # - Rows 0-1599 are independent patients for standard analysis.
+            # - Rows 0-1599 ALSO represent intervals for ~500 TVC patients for TVC analysis.
 
-            # Heart rate (for repeated measures)
-            vital_heartrate = np.random.normal(75, 12, n).round(0).clip(50, 120)
-
-            # --- COUNT DATA (for Poisson Regression) ---
-            # Hospital length of stay (count outcome)
-            los_base = 3 + 0.1 * age + 2 * diabetes + 1.5 * hypertension
-            hospital_los = np.random.poisson(los_base).clip(1, 60)
-
-            # Clinic visit count (potential offset variable)
-            visit_count = np.random.poisson(4 + 0.05 * age).clip(1, 20)
-
-            # Event count (for rate analysis)
-            hypoglycemia_events = np.where(
-                diabetes == 1,
-                np.random.poisson(1.5, n),
-                np.random.poisson(0.2, n),
-            ).clip(0, 10)
-
-            # Risk score (CHADS2-like, 0-6)
-            chads2_score = (
-                (age >= 75).astype(int)
-                + hypertension
-                + diabetes
-                + np.random.binomial(1, 0.15, n)  # CHF
-                + np.random.binomial(1, 0.1, n)  # Stroke
-            ).clip(0, 6)
-
-            # --- REPEATED MEASURES STRUCTURE ---
-            # Subject ID for repeated measures (mapping to ~400 subjects with 4 visits)
-            subject_id = np.tile(np.arange(1, 401), 4)[:n]
-            visit_number = np.repeat([1, 2, 3, 4], 400)[:n]
-            measurement_time = np.repeat([0, 3, 6, 12], 400)[:n]  # Months
-
-            # =================================================================
-            # TIME-VARYING COVARIATES (Hybrid Long Format)
-            # =================================================================
             tvc_intervals_template = [0, 3, 6, 12, 24]
             tvc_data_rows = []
             current_row_count = 0
             tvc_patient_id = 1
 
             while current_row_count < n:
+                # Generate a patient profile
                 p_age = np.random.randint(30, 80)
                 p_sex = np.random.choice([0, 1])
                 p_max_followup = np.random.uniform(3, 30)
@@ -326,6 +229,7 @@ def data_server(
                 baseline_val = np.random.normal(50, 10)
                 current_val = baseline_val
 
+                # Generate intervals for this patient
                 patient_intervals = []
                 for i in range(len(tvc_intervals_template) - 1):
                     start_t = tvc_intervals_template[i]
@@ -335,6 +239,8 @@ def data_server(
                         break
 
                     actual_stop = min(stop_t, p_max_followup)
+
+                    # Fix zero-length intervals
                     r_start = round(start_t, 1)
                     r_stop = round(actual_stop, 1)
                     if r_stop <= r_start:
@@ -363,6 +269,7 @@ def data_server(
                     if actual_stop >= p_max_followup:
                         break
 
+                # Add to main list, but trim if exceeding n
                 for row in patient_intervals:
                     if current_row_count >= n:
                         break
@@ -373,7 +280,9 @@ def data_server(
 
             tvc_df = pd.DataFrame(tvc_data_rows)
 
+            # Verify length (should be exactly n)
             if len(tvc_df) < n:
+                # Pad if somehow short (unlikely loop logic, but safe fallback)
                 padding = pd.DataFrame(
                     np.nan, index=range(n - len(tvc_df)), columns=tvc_df.columns
                 )
@@ -381,57 +290,26 @@ def data_server(
             elif len(tvc_df) > n:
                 tvc_df = tvc_df.iloc[:n]
 
-            # =================================================================
-            # BUILD FINAL DATAFRAME
-            # =================================================================
             data = {
-                # --- Identifiers ---
                 "ID": range(1, n + 1),
-                "Subject_ID": subject_id,
-                # --- Demographics ---
                 "Treatment_Group": group,
                 "Age_Years": age,
                 "Sex_Male": sex,
                 "BMI_kgm2": bmi,
-                "Smoking_Status": smoking_status,
-                # --- Comorbidities ---
                 "Comorb_Diabetes": diabetes,
                 "Comorb_Hypertension": hypertension,
-                "CKD_Stage": ckd_stage,
-                # --- Outcomes ---
                 "Outcome_Cured": outcome_cured,
                 "Time_Months": time_obs,
                 "Status_Death": status_death,
-                # --- Diagnostic Tests ---
                 "Gold_Standard_Disease": gold_std,
                 "Test_Score_Rapid": rapid_score,
-                "Prediction_Probability": prediction_probability,
                 "Diagnosis_Dr_A": rater_a,
                 "Diagnosis_Dr_B": rater_b,
-                "Biomarker_Troponin_Positive": biomarker_troponin,
-                "ECG_Abnormal": ecg_abnormal,
-                "Imaging_XRay_Abnormal": imaging_xray,
-                # --- Laboratory Values ---
                 "Lab_HbA1c": hba1c,
                 "Lab_Glucose": glucose,
-                "Lab_Creatinine": creatinine,
-                "Lab_eGFR": egfr,
-                "Lab_LDL_Cholesterol": ldl_cholesterol,
-                "Lab_Total_Cholesterol": total_cholesterol,
-                # --- Vital Signs ---
                 "ICC_SysBP_Rater1": icc_rater1,
                 "ICC_SysBP_Rater2": icc_rater2,
-                "Vital_DiasBP": vital_diasbp,
-                "Vital_HeartRate": vital_heartrate,
-                # --- Count Data (Poisson) ---
-                "Hospital_LengthOfStay": hospital_los,
-                "Visit_Count": visit_count,
-                "Hypoglycemia_Events": hypoglycemia_events,
-                "Risk_Score_CHADS2": chads2_score,
-                # --- Repeated Measures ---
-                "Visit_Number": visit_number,
-                "Measurement_Time_Months": measurement_time,
-                # --- TVC Columns (Hybrid) ---
+                # TVC Columns (Hybrid - mapped to rows)
                 "id_tvc": tvc_df["id_tvc"].values,
                 "time_start": tvc_df["time_start"].values,
                 "time_stop": tvc_df["time_stop"].values,
@@ -458,17 +336,8 @@ def data_server(
                         )
                         new_df.loc[valid_mask & random_mask, col] = np.nan
 
-            # =================================================================
-            # VARIABLE METADATA
-            # =================================================================
+            # Meta logic for example data remains explicit
             meta = {
-                # --- Identifiers ---
-                "Subject_ID": {
-                    "type": "Continuous",
-                    "label": "Subject ID (Repeated Measures)",
-                    "map": {},
-                },
-                # --- Demographics ---
                 "Treatment_Group": {
                     "type": "Categorical",
                     "map": {0: "Standard Care", 1: "New Drug"},
@@ -479,14 +348,6 @@ def data_server(
                     "map": {0: "Female", 1: "Male"},
                     "label": "Sex",
                 },
-                "Age_Years": {"type": "Continuous", "label": "Age (Years)", "map": {}},
-                "BMI_kgm2": {"type": "Continuous", "label": "BMI (kg/m²)", "map": {}},
-                "Smoking_Status": {
-                    "type": "Categorical",
-                    "map": {0: "Never", 1: "Former", 2: "Current"},
-                    "label": "Smoking Status",
-                },
-                # --- Comorbidities ---
                 "Comorb_Diabetes": {
                     "type": "Categorical",
                     "map": {0: "No", 1: "Yes"},
@@ -497,12 +358,6 @@ def data_server(
                     "map": {0: "No", 1: "Yes"},
                     "label": "Hypertension",
                 },
-                "CKD_Stage": {
-                    "type": "Categorical",
-                    "map": {1: "Stage 1", 2: "Stage 2", 3: "Stage 3", 4: "Stage 4", 5: "Stage 5"},
-                    "label": "CKD Stage",
-                },
-                # --- Outcomes ---
                 "Outcome_Cured": {
                     "type": "Categorical",
                     "map": {0: "Not Cured", 1: "Cured"},
@@ -513,26 +368,10 @@ def data_server(
                     "map": {0: "Censored/Alive", 1: "Dead"},
                     "label": "Status (Death)",
                 },
-                "Time_Months": {
-                    "type": "Continuous",
-                    "label": "Follow-up Time (Months)",
-                    "map": {},
-                },
-                # --- Diagnostic Tests ---
                 "Gold_Standard_Disease": {
                     "type": "Categorical",
                     "map": {0: "Healthy", 1: "Disease"},
                     "label": "Gold Standard",
-                },
-                "Test_Score_Rapid": {
-                    "type": "Continuous",
-                    "label": "Rapid Test Score (0-100)",
-                    "map": {},
-                },
-                "Prediction_Probability": {
-                    "type": "Continuous",
-                    "label": "Predicted Probability",
-                    "map": {},
                 },
                 "Diagnosis_Dr_A": {
                     "type": "Categorical",
@@ -544,102 +383,35 @@ def data_server(
                     "map": {0: "Normal", 1: "Abnormal"},
                     "label": "Diagnosis (Dr. B)",
                 },
-                "Biomarker_Troponin_Positive": {
-                    "type": "Categorical",
-                    "map": {0: "Negative", 1: "Positive"},
-                    "label": "Troponin (Elevated)",
+                "Age_Years": {"type": "Continuous", "label": "Age (Years)", "map": {}},
+                "BMI_kgm2": {"type": "Continuous", "label": "BMI (kg/m²)", "map": {}},
+                "Time_Months": {
+                    "type": "Continuous",
+                    "label": "Time (Months)",
+                    "map": {},
                 },
-                "ECG_Abnormal": {
-                    "type": "Categorical",
-                    "map": {0: "Normal", 1: "Abnormal"},
-                    "label": "ECG Finding",
+                "Test_Score_Rapid": {
+                    "type": "Continuous",
+                    "label": "Rapid Test Score (0-100)",
+                    "map": {},
                 },
-                "Imaging_XRay_Abnormal": {
-                    "type": "Categorical",
-                    "map": {0: "Normal", 1: "Abnormal"},
-                    "label": "Chest X-Ray Finding",
-                },
-                # --- Laboratory Values ---
                 "Lab_HbA1c": {"type": "Continuous", "label": "HbA1c (%)", "map": {}},
                 "Lab_Glucose": {
                     "type": "Continuous",
                     "label": "Fasting Glucose (mg/dL)",
                     "map": {},
                 },
-                "Lab_Creatinine": {
-                    "type": "Continuous",
-                    "label": "Serum Creatinine (mg/dL)",
-                    "map": {},
-                },
-                "Lab_eGFR": {
-                    "type": "Continuous",
-                    "label": "eGFR (mL/min/1.73m²)",
-                    "map": {},
-                },
-                "Lab_LDL_Cholesterol": {
-                    "type": "Continuous",
-                    "label": "LDL Cholesterol (mg/dL)",
-                    "map": {},
-                },
-                "Lab_Total_Cholesterol": {
-                    "type": "Continuous",
-                    "label": "Total Cholesterol (mg/dL)",
-                    "map": {},
-                },
-                # --- Vital Signs ---
                 "ICC_SysBP_Rater1": {
                     "type": "Continuous",
-                    "label": "Systolic BP - Rater 1 (mmHg)",
+                    "label": "Sys BP (Rater 1)",
                     "map": {},
                 },
                 "ICC_SysBP_Rater2": {
                     "type": "Continuous",
-                    "label": "Systolic BP - Rater 2 (mmHg)",
+                    "label": "Sys BP (Rater 2)",
                     "map": {},
                 },
-                "Vital_DiasBP": {
-                    "type": "Continuous",
-                    "label": "Diastolic BP (mmHg)",
-                    "map": {},
-                },
-                "Vital_HeartRate": {
-                    "type": "Continuous",
-                    "label": "Heart Rate (bpm)",
-                    "map": {},
-                },
-                # --- Count Data (Poisson) ---
-                "Hospital_LengthOfStay": {
-                    "type": "Continuous",
-                    "label": "Length of Stay (days)",
-                    "map": {},
-                },
-                "Visit_Count": {
-                    "type": "Continuous",
-                    "label": "Clinic Visits (count)",
-                    "map": {},
-                },
-                "Hypoglycemia_Events": {
-                    "type": "Continuous",
-                    "label": "Hypoglycemia Episodes",
-                    "map": {},
-                },
-                "Risk_Score_CHADS2": {
-                    "type": "Continuous",
-                    "label": "CHADS2 Score (0-6)",
-                    "map": {},
-                },
-                # --- Repeated Measures ---
-                "Visit_Number": {
-                    "type": "Continuous",
-                    "label": "Visit Number",
-                    "map": {},
-                },
-                "Measurement_Time_Months": {
-                    "type": "Continuous",
-                    "label": "Measurement Time (Months)",
-                    "map": {},
-                },
-                # --- TVC Long-format columns ---
+                # TVC Long-format columns
                 "id_tvc": {"type": "Continuous", "label": "TVC Patient ID", "map": {}},
                 "time_start": {
                     "type": "Continuous",

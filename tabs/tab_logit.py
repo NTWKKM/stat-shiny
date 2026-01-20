@@ -893,18 +893,6 @@ def logit_server(
 
         cols = d.columns.tolist()
 
-        # TVC columns to exclude from regression analyses
-        tvc_cols_to_exclude = [
-            "id_tvc",
-            "time_start",
-            "time_stop",
-            "status_event",
-            "TVC_Value",
-            "Static_Age",
-            "Static_Sex",
-        ]
-        cols = [c for c in cols if c not in tvc_cols_to_exclude]
-
         # Identify binary columns for outcomes
         binary_cols = [c for c in cols if d[c].nunique() == 2]
 
