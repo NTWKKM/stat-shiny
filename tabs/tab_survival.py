@@ -174,11 +174,13 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[12],
                     ),
-                    ui.input_checkbox_group(
+                    ui.input_selectize(
                         "cox_covariates",
                         "Select Covariates (Predictors):",
                         choices=[],
                         selected=[],
+                        multiple=True,
+                        options={"placeholder": "Select predictors..."},
                     ),
                     ui.layout_columns(
                         ui.input_action_button(
@@ -533,7 +535,22 @@ def survival_server(
         ui.update_slider("landmark_t", max=max_time_val, value=min(10, max_time_val))
 
         # Cox Regression
-        ui.update_checkbox_group("cox_covariates", choices=choices_with_labels)
+        # Auto-select some common covariates if available
+        default_cox_covs = []
+        possible_covs = ["Age_Years", "Sex_Male", "Treatment_Group", "Comorb_", "Lab_", "BMI"]
+        for p in possible_covs:
+            for c in cols:
+                if p in c and c not in [time_col, event_col, "ID"]:
+                     default_cox_covs.append(c)
+        
+        # Limit default selection to avoid clutter
+        default_cox_covs = default_cox_covs[:5]
+
+        ui.update_selectize(
+            "cox_covariates", 
+            choices=choices_with_labels, 
+            selected=default_cox_covs
+        )
 
         # Subgroup Analysis
         ui.update_select(
