@@ -27,9 +27,9 @@ from tabs._common import get_color_palette
 def get_shiny_css():
     """
     Provide the full CSS stylesheet implementing the Navy Blue theme for Shiny apps.
-    
+
     Includes root variables (colors, spacing, radii, shadows, transitions, typography), Bootstrap-compatible component styles (.card, .card-header, .btn, .form-control, .nav-tabs, etc.), utility classes, custom components, and responsive adjustments.
-    
+
     Returns:
         css (str): An HTML string containing a <style>...</style> block with the complete CSS for the theme.
     """
@@ -1175,7 +1175,11 @@ def _hex_to_rgb(hex_color: str) -> str:
     if len(hex_color) != 6:
         return "0, 0, 0"  # Fallback for invalid input
     try:
-        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        r, g, b = (
+            int(hex_color[0:2], 16),
+            int(hex_color[2:4], 16),
+            int(hex_color[4:6], 16),
+        )
     except ValueError:
         return "0, 0, 0"  # Fallback for non-hex characters
     return f"{r}, {g}, {b}"

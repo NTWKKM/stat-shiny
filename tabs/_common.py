@@ -3,13 +3,14 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 if TYPE_CHECKING:
     from shiny.ui import TagChild
 
+
 def wrap_with_container(content: "TagChild") -> "TagChild":
     """
     Wraps UI content with the .app-container CSS class.
-    
+
     Args:
         content: The UI content (TagChild) to wrap.
-    
+
     Returns:
         A shiny.ui.div element with class='app-container'.
     """
@@ -18,7 +19,9 @@ def wrap_with_container(content: "TagChild") -> "TagChild":
     return ui.div(content, class_="app-container")
 
 
-def simple_card(title: str, *args: "TagChild", footer: Optional["TagChild"] = None, **kwargs: Any) -> "TagChild":
+def simple_card(
+    title: str, *args: "TagChild", footer: Optional["TagChild"] = None, **kwargs: Any
+) -> "TagChild":
     """
     Creates a Standard Bootstrap Card (Compatible with new CSS).
     Automatically wraps content in .card, .card-header, and .card-body.
@@ -37,26 +40,23 @@ def simple_card(title: str, *args: "TagChild", footer: Optional["TagChild"] = No
     # Note: shiny.ui.card automatically generates the '.card' class
     # shiny.ui.card_header generates '.card-header'
     # shiny.ui.card_body (if used) generates '.card-body'
-    
+
     components = [
         ui.card_header(title),
-        ui.card_body(*args) # Wrap content in card-body for proper padding
+        ui.card_body(*args),  # Wrap content in card-body for proper padding
     ]
-    
+
     if footer is not None:
         components.append(ui.card_footer(footer))
 
-    return ui.card(
-        *components,
-        **kwargs
-    )
+    return ui.card(*components, **kwargs)
 
 
 def get_color_palette() -> Dict[str, str]:
     """
     Returns a unified color palette dictionary for all modules.
     Ensures consistency across the application.
-    
+
     Returns:
         Dict[str, str]: A dictionary mapping color names to hex codes.
     """
@@ -84,7 +84,7 @@ def get_color_palette() -> Dict[str, str]:
 def get_color_info() -> Dict[str, Any]:
     """
     Returns information about the color palette for documentation.
-    
+
     Returns:
         Dict[str, Any]: Metadata about the design system.
     """

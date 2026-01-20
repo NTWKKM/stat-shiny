@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
-from utils import diag_test
 from tabs._common import get_color_palette
+from utils import diag_test
 from utils.formatting import create_missing_data_report_html
 
 COLORS = get_color_palette()
+
 
 # ==============================================================================
 # UI Definition
@@ -18,15 +19,12 @@ def diag_ui() -> ui.TagChild:
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
-
         # Dataset Info Box
         ui.output_ui("ui_matched_info"),
         ui.br(),
-
         # Dataset Selector
         ui.output_ui("ui_dataset_selector"),
         ui.br(),
-
         # Tabs for different analyses
         ui.navset_tab(
             # TAB 1: ROC Curve & AUC
@@ -67,9 +65,7 @@ def diag_ui() -> ui.TagChild:
             # TAB 2: Chi-Square & Risk Analysis
             ui.nav_panel(
                 "🎲 Chi-Square & Risk (2x2)",
-                ui.markdown(
-                    "##### Chi-Square & Risk Analysis (2x2 Contingency Table)"
-                ),
+                ui.markdown("##### Chi-Square & Risk Analysis (2x2 Contingency Table)"),
                 ui.row(
                     ui.column(3, ui.output_ui("ui_chi_v1")),
                     ui.column(3, ui.output_ui("ui_chi_v2")),
@@ -174,8 +170,7 @@ def diag_ui() -> ui.TagChild:
             # TAB 5: Reference & Interpretation
             ui.nav_panel(
                 "ℹ️ Reference & Interpretation",
-                ui.markdown(
-                    """
+                ui.markdown("""
                     ## 📚 Reference & Interpretation Guide
 
                     💡 **Tip:** This section provides detailed explanations and interpretation rules for all the diagnostic tests.
@@ -219,8 +214,7 @@ def diag_ui() -> ui.TagChild:
                     - **Median:** Middle value (robust to outliers)
                     - **SD (Standard Deviation):** Spread of data around mean
                     - **Q1/Q3:** 25th and 75th percentiles
-                    """
-                ),
+                    """),
             ),
         ),
     )
@@ -231,13 +225,13 @@ def diag_ui() -> ui.TagChild:
 # ==============================================================================
 @module.server
 def diag_server(
-    input: Any, 
-    output: Any, 
-    session: Any, 
-    df: reactive.Value[Optional[pd.DataFrame]], 
-    var_meta: reactive.Value[Dict[str, Any]], 
-    df_matched: reactive.Value[Optional[pd.DataFrame]], 
-    is_matched: reactive.Value[bool]
+    input: Any,
+    output: Any,
+    session: Any,
+    df: reactive.Value[Optional[pd.DataFrame]],
+    var_meta: reactive.Value[Dict[str, Any]],
+    df_matched: reactive.Value[Optional[pd.DataFrame]],
+    is_matched: reactive.Value[bool],
 ) -> None:
 
     # --- Reactive Results Storage ---
@@ -351,23 +345,19 @@ def diag_server(
         truth_col = input.sel_roc_truth()
         d = current_df()
         if d is not None and truth_col and truth_col in d.columns:
-            unique_vals = sorted(
-                [str(x) for x in d[truth_col].dropna().unique()]
-            )
+            unique_vals = sorted([str(x) for x in d[truth_col].dropna().unique()])
             default_pos_idx = 0
             # Force default to "1" or "1.0" if available
             if "1" in unique_vals:
                 default_pos_idx = unique_vals.index("1")
             elif "1.0" in unique_vals:
                 default_pos_idx = unique_vals.index("1.0")
-                
+
             return ui.input_select(
                 "sel_roc_pos_label",
                 "Positive Label (1):",
                 choices=unique_vals,
-                selected=unique_vals[default_pos_idx]
-                if unique_vals
-                else None,
+                selected=unique_vals[default_pos_idx] if unique_vals else None,
             )
         return ui.input_select(
             "sel_roc_pos_label",
@@ -379,9 +369,7 @@ def diag_server(
     @render.ui
     def ui_chi_v1():
         cols = all_cols()
-        v1_idx = next(
-            (i for i, c in enumerate(cols) if c == "Treatment_Group"), 0
-        )
+        v1_idx = next((i for i, c in enumerate(cols) if c == "Treatment_Group"), 0)
         return ui.input_select(
             "sel_chi_v1",
             "Variable 1 (Exposure/Row):",
@@ -423,13 +411,15 @@ def diag_server(
             class_="text-secondary text-sm",
         )
 
-    def get_pos_label_settings(df_input: pd.DataFrame, col_name: str) -> tuple[list[str], int]:
+    def get_pos_label_settings(
+        df_input: pd.DataFrame, col_name: str
+    ) -> tuple[list[str], int]:
         if df_input is None or col_name not in df_input.columns:
             return [], 0
         unique_vals = [str(x) for x in df_input[col_name].dropna().unique()]
         unique_vals.sort()
         default_idx = 0
-        
+
         # Prioritize "1" then "1.0", then "0"
         if "1" in unique_vals:
             default_idx = unique_vals.index("1")
@@ -437,14 +427,14 @@ def diag_server(
             default_idx = unique_vals.index("1.0")
         elif "0" in unique_vals:
             default_idx = unique_vals.index("0")
-            
+
         return unique_vals, default_idx
 
     @render.ui
     def ui_chi_v1_pos():
         v1_col = input.sel_chi_v1()
         d = current_df()
-        if d is None: 
+        if d is None:
             return None
         v1_uv, v1_idx = get_pos_label_settings(d, v1_col)
         if not v1_uv:
@@ -463,7 +453,7 @@ def diag_server(
     def ui_chi_v2_pos():
         v2_col = input.sel_chi_v2()
         d = current_df()
-        if d is None: 
+        if d is None:
             return None
         v2_uv, v2_idx = get_pos_label_settings(d, v2_col)
         if not v2_uv:
@@ -521,9 +511,7 @@ def diag_server(
             ):
                 kv2_idx = i
                 break
-        kv1_idx = next(
-            (i for i, c in enumerate(cols) if c == input.sel_kappa_v1()), 0
-        )
+        kv1_idx = next((i for i, c in enumerate(cols) if c == input.sel_kappa_v1()), 0)
         if kv2_idx == kv1_idx and len(cols) > 1:
             kv2_idx = min(kv1_idx + 1, len(cols) - 1)
         return ui.input_select(
@@ -546,9 +534,7 @@ def diag_server(
     @render.ui
     def ui_desc_var():
         cols = all_cols()
-        return ui.input_select(
-            "sel_desc_var", "Select Variable:", choices=cols
-        )
+        return ui.input_select("sel_desc_var", "Select Variable:", choices=cols)
 
     # --- ROC Status & Results ---
     @render.ui
@@ -556,9 +542,7 @@ def diag_server(
         if roc_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Generating ROC curve and statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -570,9 +554,7 @@ def diag_server(
         if chi_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Calculating Chi-Square statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -584,9 +566,7 @@ def diag_server(
         if kappa_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Calculating Kappa statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -598,9 +578,7 @@ def diag_server(
         if desc_processing.get():
             return ui.div(
                 ui.tags.div(
-                    ui.tags.span(
-                        class_="spinner-border spinner-border-sm me-2"
-                    ),
+                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
                     "📄 Calculating descriptive statistics... Please wait",
                     class_="alert alert-info",
                 )
@@ -629,13 +607,11 @@ def diag_server(
                 score_col,
                 method=method,
                 pos_label_user=pos_label,
-                var_meta=var_meta.get() or {}
+                var_meta=var_meta.get() or {},
             )
 
             if err:
-                roc_html.set(
-                    f"<div class='alert alert-danger'>📄 Error: {err}</div>"
-                )
+                roc_html.set(f"<div class='alert alert-danger'>📄 Error: {err}</div>")
             else:
                 rep = [
                     {
@@ -658,7 +634,9 @@ def diag_server(
                 # Add statistics table
                 if res is not None:
                     # Filter out missing_data_info/metadata from the main stats table
-                    res_display = {k: v for k, v in res.items() if k != 'missing_data_info'}
+                    res_display = {
+                        k: v for k, v in res.items() if k != "missing_data_info"
+                    }
                     rep.append(
                         {
                             "type": "table",
@@ -676,13 +654,17 @@ def diag_server(
                             "data": coords,
                         }
                     )
-                
+
                 # Missing Data Report
-                if res and 'missing_data_info' in res:
-                    rep.append({
-                        "type": "html",
-                        "data": create_missing_data_report_html(res['missing_data_info'], var_meta.get() or {})
-                    })
+                if res and "missing_data_info" in res:
+                    rep.append(
+                        {
+                            "type": "html",
+                            "data": create_missing_data_report_html(
+                                res["missing_data_info"], var_meta.get() or {}
+                            ),
+                        }
+                    )
 
                 html_report = diag_test.generate_report(
                     f"ROC Analysis Report ({method})", rep
@@ -724,7 +706,7 @@ def diag_server(
                 method=input.radio_chi_method(),
                 v1_pos=input.sel_chi_v1_pos(),
                 v2_pos=input.sel_chi_v2_pos(),
-                var_meta=var_meta.get() or {}
+                var_meta=var_meta.get() or {},
             )
 
             if tab is not None:
@@ -768,13 +750,17 @@ def diag_server(
                             "data": risk,
                         }
                     )
-                
+
                 # Missing Data Report
                 if missing_info:
-                    rep.append({
-                        "type": "html",
-                        "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
-                    })
+                    rep.append(
+                        {
+                            "type": "html",
+                            "data": create_missing_data_report_html(
+                                missing_info, var_meta.get() or {}
+                            ),
+                        }
+                    )
 
                 chi_html.set(
                     diag_test.generate_report(
@@ -784,8 +770,8 @@ def diag_server(
                 )
             else:
                 chi_html.set(
-                f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
-            )
+                    f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
+                )
 
         finally:
             # Clear processing flag
@@ -795,9 +781,7 @@ def diag_server(
     def out_chi_results():
         if chi_html.get():
             return ui.HTML(chi_html.get())
-        return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
-        )
+        return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="chi2_report.html")
     def btn_dl_chi_report():
@@ -815,13 +799,13 @@ def diag_server(
 
         try:
             res, err, conf, missing_info = diag_test.calculate_kappa(
-                d, input.sel_kappa_v1(), input.sel_kappa_v2(),
-                var_meta=var_meta.get() or {}
+                d,
+                input.sel_kappa_v1(),
+                input.sel_kappa_v2(),
+                var_meta=var_meta.get() or {},
             )
             if err:
-                kappa_html.set(
-                    "<div class='alert alert-danger'>{}</div>".format(err)
-                )
+                kappa_html.set("<div class='alert alert-danger'>{}</div>".format(err))
             else:
                 rep = [
                     {
@@ -839,13 +823,17 @@ def diag_server(
                         "data": conf,
                     },
                 ]
-                
+
                 # Missing Data Report
                 if missing_info:
-                    rep.append({
-                        "type": "html",
-                        "data": create_missing_data_report_html(missing_info, var_meta.get() or {})
-                    })
+                    rep.append(
+                        {
+                            "type": "html",
+                            "data": create_missing_data_report_html(
+                                missing_info, var_meta.get() or {}
+                            ),
+                        }
+                    )
 
                 kappa_html.set(
                     diag_test.generate_report(
@@ -862,9 +850,7 @@ def diag_server(
     def out_kappa_results():
         if kappa_html.get():
             return ui.HTML(kappa_html.get())
-        return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
-        )
+        return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="kappa_report.html")
     def btn_dl_kappa_report():
@@ -881,9 +867,7 @@ def diag_server(
         desc_processing.set(True)
 
         try:
-            res = diag_test.calculate_descriptive(
-                d, input.sel_desc_var()
-            )
+            res = diag_test.calculate_descriptive(d, input.sel_desc_var())
             if res is not None:
                 desc_html.set(
                     diag_test.generate_report(
@@ -906,9 +890,7 @@ def diag_server(
     def out_desc_results():
         if desc_html.get():
             return ui.HTML(desc_html.get())
-        return ui.div(
-            "Results will appear here.", class_="text-secondary p-3"
-        )
+        return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="descriptive_report.html")
     def btn_dl_desc_report():

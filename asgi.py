@@ -21,13 +21,12 @@ routes = [
 ]
 
 # 3. Add GZip middleware
-middleware = [
-    Middleware(GZipMiddleware, minimum_size=1000)
-]
+middleware = [Middleware(GZipMiddleware, minimum_size=1000)]
 
 # 4. Create the combined app (use this to run Gunicorn)
 app = Starlette(routes=routes, middleware=middleware)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=7860)
