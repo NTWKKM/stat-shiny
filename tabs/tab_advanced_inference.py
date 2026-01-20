@@ -23,6 +23,10 @@ def advanced_inference_ui():
     """UI for Advanced Inference."""
     return ui.div(
         ui.h3("🔍 Advanced Inference"),
+        # Dataset info and selector
+        ui.output_ui("ui_matched_info_ai"),
+        ui.output_ui("ui_dataset_selector_ai"),
+        ui.br(),
         ui.navset_tab(
             ui.nav_panel(
                 "🎯 Mediation Analysis",
@@ -161,9 +165,48 @@ def advanced_inference_server(
     mediation_results = reactive.Value(None)
     vif_results = reactive.Value(None)
 
+    # --- Dataset Selection Logic ---
+    @reactive.Calc
+    def current_df():
+        if is_matched.get() and input.radio_ai_source() == "matched":
+            return df_matched.get()
+        return df.get()
+
+    @render.ui
+    def ui_matched_info_ai():
+        """Display matched dataset availability info."""
+        if is_matched.get():
+            return ui.div(
+                ui.tags.div(
+                    "✅ **Matched Dataset Available** - You can select it below for analysis",
+                    class_="alert alert-info",
+                )
+            )
+        return None
+
+    @render.ui
+    def ui_dataset_selector_ai():
+        """Render dataset selector radio buttons."""
+        if is_matched.get():
+            original = df.get()
+            matched = df_matched.get()
+            original_len = len(original) if original is not None else 0
+            matched_len = len(matched) if matched is not None else 0
+            return ui.input_radio_buttons(
+                "radio_ai_source",
+                "📊 Select Dataset:",
+                {
+                    "original": f"📊 Original ({original_len:,} rows)",
+                    "matched": f"✅ Matched ({matched_len:,} rows)",
+                },
+                selected="original",
+                inline=True,
+            )
+        return None
+
     @reactive.Effect
     def _update_inputs():
-        d = df.get()
+        d = current_df()
         if d is not None:
             cols = d.columns.tolist()
             ui.update_select("med_outcome", choices=cols)
@@ -178,13 +221,13 @@ def advanced_inference_server(
     @reactive.Effect
     @reactive.event(input.btn_run_mediation)
     def _run_mediation():
-        if df.get() is None:
+        if current_df() is None:
             ui.notification_show("Load data first", type="error")
             return
 
         try:
             results = analyze_mediation(
-                data=df.get(),
+                data=current_df(),
                 outcome=input.med_outcome(),
                 treatment=input.med_treatment(),
                 mediator=input.med_mediator(),
@@ -228,7 +271,7 @@ def advanced_inference_server(
     @reactive.Effect
     @reactive.event(input.btn_run_collinearity)
     def _run_collinearity():
-        if df.get() is None:
+        if current_df() is None:
             ui.notification_show("Load data first", type="error")
             return
 
@@ -238,7 +281,7 @@ def advanced_inference_server(
             return
 
         try:
-            res = calculate_vif(df.get(), predictors)
+            res = calculate_vif(current_df(), predictors)
             vif_results.set(res)
         except Exception as e:
             ui.notification_show(f"Error: {str(e)}", type="error")
@@ -250,14 +293,14 @@ def advanced_inference_server(
     @render.ui
     def plot_corr_heatmap():
         """Render correlation heatmap for selected predictors using Plotly."""
-        if df.get() is None:
+        if current_df() is None:
             return None
         predictors = list(input.coll_vars())
         if not predictors or len(predictors) < 2:
             return None
 
         # Calculate correlation matrix
-        d = df.get()[predictors].select_dtypes(include=[np.number]).dropna()
+        d = current_df()[predictors].select_dtypes(include=[np.number]).dropna()
         if d.empty:
             return None
 
@@ -284,12 +327,12 @@ def advanced_inference_server(
     @reactive.Effect
     @reactive.event(input.btn_run_diag)
     def _run_diagnostics():
-        if df.get() is None:
+        if current_df() is None:
             ui.notification_show("Load data first", type="error")
             return
 
         try:
-            d = df.get().dropna()
+            d = current_df().dropna()
             y_col = input.diag_outcome()
             x_col = input.diag_predictor()
             covars = list(input.diag_covariates()) if input.diag_covariates() else []
@@ -360,7 +403,7 @@ def advanced_inference_server(
             return None
 
         # Show top influential points
-        d = df.get().iloc[res["influential_points"]]
+        d = current_df().iloc[res["influential_points"]]
         return d.head(10)  # Show top 10
 
     @render.text
