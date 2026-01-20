@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from shiny import module, reactive, render, req, ui
+from shiny import module, reactive, render, ui
 
 from tabs._tvc_components import (
     detect_static_columns,
@@ -454,7 +454,7 @@ def survival_server(
                 max_t = data[default_time].max()
                 if pd.notna(max_t):
                     max_time_val = int(np.ceil(max_t))
-            except:
+            except Exception:
                 pass
 
         event_keywords = [
@@ -816,7 +816,7 @@ def survival_server(
         elements = [
             {
                 "type": "header",
-                "data": f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km')=='km' else 'Nelson-Aalen'})",
+                "data": f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km') == 'km' else 'Nelson-Aalen'})",
             },
             {"type": "plot", "data": res["fig"]},
             {"type": "header", "data": "Statistics"},
@@ -933,7 +933,7 @@ def survival_server(
             return
 
         elements = [
-            {"type": "header", "data": f'Landmark Analysis (t={res["t"]})'},
+            {"type": "header", "data": f"Landmark Analysis (t={res['t']})"},
             {"type": "plot", "data": res["fig"]},
             {"type": "header", "data": "Statistics"},
             {"type": "table", "data": res["stats"]},

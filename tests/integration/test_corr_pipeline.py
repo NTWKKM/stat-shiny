@@ -25,7 +25,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestCorrelationPipeline:
-
     @pytest.fixture
     def corr_data(self):
         """Create dataset with known correlations"""

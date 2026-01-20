@@ -4,17 +4,16 @@ from pathlib import Path
 from typing import Any
 
 from shiny import App, Inputs, Outputs, Session, reactive, ui
-from shiny.types import FileInfo
 
 # Import Config/Logger
 from config import CONFIG
 from logger import LoggerFactory, get_logger
 
 # Import Tabs Modules
-from tabs import tab_data  # 🟢 Data Module
 from tabs import (
     tab_baseline_matching,
     tab_corr,
+    tab_data,  # 🟢 Data Module
     tab_diag,
     tab_logit,
     tab_settings,

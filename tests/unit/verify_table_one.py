@@ -109,7 +109,7 @@ def test_edge_cases():
     df_single_group = df_test.copy()
     df_single_group["Treatment_Group"] = 0
     try:
-        html = generate_table(
+        generate_table(
             df=df_single_group,
             selected_vars=["Age", "Sex"],
             group_col="Treatment_Group",
@@ -122,7 +122,7 @@ def test_edge_cases():
     # Test 3.2: Non-existent column
     print("Test 3.2: Non-existent column")
     try:
-        html = generate_table(
+        generate_table(
             df=df_test,
             selected_vars=["Age", "NonExistentColumn"],
             group_col="Treatment_Group",

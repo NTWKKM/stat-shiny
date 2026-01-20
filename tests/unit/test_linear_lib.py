@@ -12,8 +12,6 @@ Tests cover:
 8. Report generation
 """
 
-from unittest.mock import MagicMock, patch
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -33,7 +31,6 @@ from utils.linear_lib import (
     analyze_linear_outcome,
     calculate_vif_for_ols,
     create_diagnostic_plots,
-    extract_coefficients,
     format_ols_results,
     prepare_data_for_ols,
     run_diagnostic_tests,

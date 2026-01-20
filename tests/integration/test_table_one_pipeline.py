@@ -30,7 +30,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestTableOnePipeline:
-
     @pytest.fixture
     def table_one_data(self):
         """Create realistic dataset for Table 1"""

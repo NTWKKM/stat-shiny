@@ -149,18 +149,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 pylint black isort
+          pip install ruff
 
-      - name: Check imports with isort
-        run: isort --check-only . --skip venv
+      - name: Lint with Ruff
+        run: ruff check .
         continue-on-error: true
 
-      - name: Check formatting with black
-        run: black --check . --exclude venv
-        continue-on-error: true
-
-      - name: Lint with flake8
-        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Check formatting with Ruff
+        run: ruff format --check .
         continue-on-error: true
 
   # ==========================================

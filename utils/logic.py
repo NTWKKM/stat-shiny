@@ -10,7 +10,7 @@ import html
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -22,11 +22,9 @@ from logger import get_logger
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
 from utils.data_cleaning import (
-    apply_missing_values_to_df,
     get_missing_summary_df,
     handle_missing_for_analysis,
 )
-from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
@@ -101,8 +99,8 @@ ORResult = TypedDict(
 class AORResultEntry(TypedDict):
     coef: float
     aor: float
-    l: float
-    h: float
+    ci_low: float
+    ci_high: float
     p: float
     lvl: str | None
 
@@ -158,7 +156,7 @@ def load_static_css() -> str:
                 f"CSS file not found at expected locations. Last checked: {css_path}"
             )
             return ""
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to load static CSS")
         return ""
 
@@ -667,7 +665,7 @@ def analyze_outcome(
     or_results: dict[str, ORResult] = {}
 
     # Univariate analysis
-    logger.info(f"Starting univariate analysis for {len(sorted_cols)-1} variables")
+    logger.info(f"Starting univariate analysis for {len(sorted_cols) - 1} variables")
     for col in sorted_cols:
         if (
             col == outcome_name
@@ -772,8 +770,9 @@ def analyze_outcome(
                             if d_name in params:
                                 coef = params[d_name]
                                 odd = np.exp(coef)
-                                ci_l, ci_h = np.exp(conf.loc[d_name][0]), np.exp(
-                                    conf.loc[d_name][1]
+                                ci_l, ci_h = (
+                                    np.exp(conf.loc[d_name][0]),
+                                    np.exp(conf.loc[d_name][1]),
                                 )
                                 pv = pvals[d_name]
 
@@ -800,8 +799,9 @@ def analyze_outcome(
                             d_name = f"{col}::{lvl}"
                             if d_name in params:
                                 odd = np.exp(params[d_name])
-                                ci_l, ci_h = np.exp(conf.loc[d_name][0]), np.exp(
-                                    conf.loc[d_name][1]
+                                ci_l, ci_h = (
+                                    np.exp(conf.loc[d_name][0]),
+                                    np.exp(conf.loc[d_name][1]),
                                 )
                                 or_lines_styled.append(
                                     fmt_or_with_styling(odd, ci_l, ci_h)
@@ -856,8 +856,9 @@ def analyze_outcome(
                 if status == "OK" and "x" in params:
                     coef = params["x"]
                     odd = np.exp(coef)
-                    ci_l, ci_h = np.exp(hex_conf.loc["x"][0]), np.exp(
-                        hex_conf.loc["x"][1]
+                    ci_l, ci_h = (
+                        np.exp(hex_conf.loc["x"][0]),
+                        np.exp(hex_conf.loc["x"][1]),
                     )
                     pv = pvals["x"]
 
@@ -1041,8 +1042,9 @@ def analyze_outcome(
                             if d_name in params:
                                 coef = params[d_name]
                                 aor = np.exp(coef)
-                                ci_low, ci_high = np.exp(conf.loc[d_name][0]), np.exp(
-                                    conf.loc[d_name][1]
+                                ci_low, ci_high = (
+                                    np.exp(conf.loc[d_name][0]),
+                                    np.exp(conf.loc[d_name][1]),
                                 )
                                 pv = pvals[d_name]
                                 aor_entries.append(
@@ -1050,8 +1052,8 @@ def analyze_outcome(
                                         "lvl": lvl,
                                         "coef": coef,
                                         "aor": aor,
-                                        "l": ci_low,
-                                        "h": ci_high,
+                                        "ci_low": ci_low,
+                                        "ci_high": ci_high,
                                         "p": pv,
                                     }
                                 )
@@ -1066,15 +1068,16 @@ def analyze_outcome(
                         if var in params:
                             coef = params[var]
                             aor = np.exp(coef)
-                            ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(
-                                conf.loc[var][1]
+                            ci_low, ci_high = (
+                                np.exp(conf.loc[var][0]),
+                                np.exp(conf.loc[var][1]),
                             )
                             pv = pvals[var]
                             results_db[var]["multi_res"] = {
                                 "coef": coef,
                                 "aor": aor,
-                                "l": ci_low,
-                                "h": ci_high,
+                                "ci_low": ci_low,
+                                "ci_high": ci_high,
                                 "p": pv,
                             }
                             aor_results[var] = {
@@ -1249,7 +1252,9 @@ def analyze_outcome(
                     p_txt = fmt_p_with_styling(item["p"])
                     acoef_lines.append(f"{item['coef']:.3f}")
                     aor_lines.append(
-                        fmt_or_with_styling(item["aor"], item["l"], item["h"])
+                        fmt_or_with_styling(
+                            item["aor"], item["ci_low"], item["ci_high"]
+                        )
                     )
                     ap_lines.append(p_txt)
                 aor_s, acoef_s, ap_s = (
@@ -1263,7 +1268,7 @@ def analyze_outcome(
                 else:
                     acoef_s = "-"
                 aor_s = fmt_or_with_styling(
-                    multi_res["aor"], multi_res["l"], multi_res["h"]
+                    multi_res["aor"], multi_res["ci_low"], multi_res["ci_high"]
                 )
                 ap_s = fmt_p_with_styling(multi_res["p"])
 
@@ -1294,12 +1299,12 @@ def analyze_outcome(
 
         html_rows.append(f"""<tr>
             <td>{lbl}</td>
-            <td>{res.get('desc_total', '')}</td>
-            <td>{res.get('desc_neg', '')}</td>
-            <td>{res.get('desc_pos', '')}</td>
+            <td>{res.get("desc_total", "")}</td>
+            <td>{res.get("desc_neg", "")}</td>
+            <td>{res.get("desc_pos", "")}</td>
             <td>{coef_s}</td>
             <td>{or_s}</td>
-            <td>{res.get('test_name', '-')}</td>
+            <td>{res.get("test_name", "-")}</td>
             <td>{p_col_display}</td>
             {f"<td>{p_adj_uni_s}</td>" if mcc_enable else ""}
             <td>{acoef_s}</td>
@@ -1327,8 +1332,8 @@ def analyze_outcome(
                 int_p_adj = fmt_p_with_styling(val)
 
             html_rows.append(
-                f"""<tr style='background-color: {COLORS['primary_light']};'>
-                <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
+                f"""<tr style='background-color: {COLORS["primary_light"]};'>
+                <td><b>🔗 {int_label}</b><br><small style='color: {COLORS["text_secondary"]};'>(Interaction)</small></td>
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
@@ -1361,25 +1366,25 @@ def analyze_outcome(
         body {{
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             padding: 20px;
-            background-color: {COLORS['background']};
-            color: {COLORS['text']};
+            background-color: {COLORS["background"]};
+            color: {COLORS["text"]};
             line-height: 1.6;
         }}
         .table-container {{
-            background: {COLORS['surface']};
+            background: {COLORS["surface"]};
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
             overflow-x: auto;
             margin-bottom: 16px;
-            border: 1px solid {COLORS['border']};
+            border: 1px solid {COLORS["border"]};
         }}
         table {{ width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }}
-        th {{ background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary']} 100%); color: white; padding: 12px; }}
-        td {{ padding: 12px; border-bottom: 1px solid {COLORS['border']}; }}
-        .outcome-title {{ background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; }}
-        .summary-box {{ background-color: {COLORS['primary_light']}; padding: 14px; border-radius: 0 0 8px 8px; }}
-        .sig-p {{ color: #fff; background-color: {COLORS['danger']}; padding: 2px 6px; border-radius: 3px; }}
-        .alert {{ background-color: rgba(231, 72, 86, 0.08); border: 1px solid {COLORS['danger']}; padding: 12px; color: {COLORS['danger']}; }}
+        th {{ background: linear-gradient(135deg, {COLORS["primary_dark"]} 0%, {COLORS["primary"]} 100%); color: white; padding: 12px; }}
+        td {{ padding: 12px; border-bottom: 1px solid {COLORS["border"]}; }}
+        .outcome-title {{ background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; }}
+        .summary-box {{ background-color: {COLORS["primary_light"]}; padding: 14px; border-radius: 0 0 8px 8px; }}
+        .sig-p {{ color: #fff; background-color: {COLORS["danger"]}; padding: 2px 6px; border-radius: 3px; }}
+        .alert {{ background-color: rgba(231, 72, 86, 0.08); border: 1px solid {COLORS["danger"]}; padding: 12px; color: {COLORS["danger"]}; }}
         """
 
     css_styles = f"<style>{css_content}</style>"
@@ -1409,17 +1414,28 @@ def analyze_outcome(
     </table>
     <div class='summary-box'>
         <b>Method:</b> {preferred_method.capitalize()} Logit<br>
-        <div style='margin-top: 8px; padding-top: 8px; border-top: 1px solid {COLORS['border']}; font-size: 0.9em; color: {COLORS['text_secondary']};'>
+        <div style='margin-top: 8px; padding-top: 8px; border-top: 1px solid {
+        COLORS["border"]
+    }; font-size: 0.9em; color: {COLORS["text_secondary"]};'>
             <b>Selection:</b> Variables with Crude P &lt; 0.20 (n={final_n_multi})<br>
             <b>Modes:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit)<br>
-            <b>CI Method:</b> {effective_ci_method.capitalize()} {f"({ci_note})" if ci_note else ""}
+            <b>CI Method:</b> {effective_ci_method.capitalize()} {
+        f"({ci_note})" if ci_note else ""
+    }
             {model_fit_html}
             {vif_html}
-            {f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs" if interaction_pairs else ""}
+            {
+        f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs"
+        if interaction_pairs
+        else ""
+    }
         </div>
     <!-- Missing Data Section -->
-    {create_missing_data_report_html(missing_data_info, var_meta or {})
-        if CONFIG.get("analysis.missing.report_missing", True) else ""}
+    {
+        create_missing_data_report_html(missing_data_info, var_meta or {})
+        if CONFIG.get("analysis.missing.report_missing", True)
+        else ""
+    }
     </div><br>"""
 
     # Return fragment with embedded styles (No <html> wrapper)

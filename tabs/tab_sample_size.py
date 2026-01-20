@@ -241,7 +241,6 @@ def sample_size_ui() -> ui.TagChild:
 
 @module.server
 def sample_size_server(input: Any, output: Any, session: Any) -> None:
-
     # --- RESULT HOLDERS ---
     res_means = reactive.Value(None)
     plot_means = reactive.Value(None)

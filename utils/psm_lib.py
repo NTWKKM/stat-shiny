@@ -17,7 +17,6 @@ from sklearn.linear_model import LogisticRegression
 from config import CONFIG
 from logger import get_logger
 from utils.data_cleaning import apply_missing_values_to_df, get_missing_summary_df
-from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 
@@ -112,7 +111,7 @@ def perform_matching(
                     used_controls.add(min_dist_idx)
 
         matched_df = df.loc[matched_pairs].copy()
-        logger.info(f"Matched {len(matched_pairs)//2} pairs (caliper={caliper})")
+        logger.info(f"Matched {len(matched_pairs) // 2} pairs (caliper={caliper})")
         return matched_df
     except Exception as e:
         logger.error(f"Matching error: {e}")

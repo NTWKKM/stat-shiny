@@ -25,7 +25,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestInteractionPipeline:
-
     @pytest.fixture
     def interaction_data(self):
         """Create dataset with known interaction effects"""

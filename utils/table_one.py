@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import html as _html
 import warnings
-from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -27,11 +26,9 @@ from logger import get_logger
 from utils.data_cleaning import (
     apply_missing_values_to_df,
     clean_dataframe,
-    clean_numeric,
     clean_numeric_vector,
     get_missing_summary_df,
     handle_missing_for_analysis,
-    validate_data_quality,
 )
 from utils.formatting import create_missing_data_report_html
 
@@ -269,7 +266,7 @@ def calculate_or_continuous_logit(
         except (np.linalg.LinAlgError, ValueError, RuntimeError):
             try:
                 result = model.fit(method="bfgs", disp=0)
-            except:
+            except Exception:
                 return "-"
 
         coef = result.params[feature_col]
@@ -396,7 +393,7 @@ def calculate_p_continuous(data_groups: list[pd.Series]) -> tuple[float, str]:
         return p, test_name
     except Exception as e:
         logger.error(f"P-value calculation error: {e}")
-        return np.nan, f"Error"
+        return np.nan, "Error"
 
 
 def calculate_p_categorical(
@@ -426,7 +423,7 @@ def calculate_p_categorical(
         return p_chi2, test_name
     except Exception as e:
         logger.error(f"Categorical p-value error: {e}")
-        return np.nan, f"Error"
+        return np.nan, "Error"
 
 
 def generate_table(
@@ -457,7 +454,7 @@ def generate_table(
     COLORS = get_color_palette()
 
     if or_style not in ("all_levels", "simple"):
-        raise ValueError(f"or_style must be 'all_levels' or 'simple'")
+        raise ValueError("or_style must be 'all_levels' or 'simple'")
 
     missing_cfg = CONFIG.get("analysis.missing", {}) or {}
     strategy = missing_cfg.get("strategy", "complete-case")
@@ -578,8 +575,8 @@ def generate_table(
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             padding: 0;
             margin: 0;
-            background-color: {COLORS['background']};
-            color: {COLORS['text']};
+            background-color: {COLORS["background"]};
+            color: {COLORS["text"]};
             line-height: 1.6;
         }}
         
@@ -596,20 +593,20 @@ def generate_table(
         .header h1 {{
             font-size: 28px;
             font-weight: 600;
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             margin-bottom: 10px;
         }}
         
         .header p {{
             font-size: 14px;
-            color: {COLORS['text_secondary']};
+            color: {COLORS["text_secondary"]};
         }}
         
         .table-wrapper {{
-            background: {COLORS['surface']};
+            background: {COLORS["surface"]};
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
-            border: 1px solid {COLORS['border']};
+            border: 1px solid {COLORS["border"]};
             overflow-x: auto;
         }}
         
@@ -620,7 +617,7 @@ def generate_table(
         }}
         
         thead {{
-            background-color: {COLORS['primary_dark']};
+            background-color: {COLORS["primary_dark"]};
         }}
         
         th {{
@@ -628,15 +625,15 @@ def generate_table(
             padding: 14px 12px;
             text-align: center;
             font-weight: 600;
-            border: 1px solid {COLORS['primary']};
+            border: 1px solid {COLORS["primary"]};
             border-right: 1px solid rgba(255, 255, 255, 0.2);
-            background-color: {COLORS['primary_dark']};
+            background-color: {COLORS["primary_dark"]};
             white-space: nowrap;
         }}
         
         th:first-child {{
             text-align: left;
-            border-right: 1px solid {COLORS['primary']};
+            border-right: 1px solid {COLORS["primary"]};
         }}
         
         th:last-child {{
@@ -644,7 +641,7 @@ def generate_table(
         }}
         
         tbody tr {{
-            border-bottom: 1px solid {COLORS['border']};
+            border-bottom: 1px solid {COLORS["border"]};
             transition: background-color 0.2s ease;
         }}
         
@@ -653,23 +650,23 @@ def generate_table(
         }}
         
         tbody tr:nth-child(even) {{
-            background-color: {COLORS['primary_light']};
+            background-color: {COLORS["primary_light"]};
         }}
         
         tbody tr:hover {{
-            background-color: {COLORS['primary_light']};
+            background-color: {COLORS["primary_light"]};
         }}
         
         td {{
             padding: 12px;
-            border: 1px solid {COLORS['border']};
-            border-right: 1px solid {COLORS['border']};
-            color: {COLORS['text']};
+            border: 1px solid {COLORS["border"]};
+            border-right: 1px solid {COLORS["border"]};
+            color: {COLORS["text"]};
         }}
         
         td:first-child {{
             font-weight: 500;
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
             max-width: 250px;
         }}
         
@@ -679,12 +676,12 @@ def generate_table(
         
         /* P-value coloring */
         .p-significant {{
-            color: {COLORS['danger']};
+            color: {COLORS["danger"]};
             font-weight: 600;
         }}
         
         .p-not-significant {{
-            color: {COLORS['success']};
+            color: {COLORS["success"]};
         }}
         
         /* Data cell styling */
@@ -697,19 +694,19 @@ def generate_table(
         .footer-section {{
             margin-top: 30px;
             padding: 20px;
-            background-color: {COLORS['primary_light']};
+            background-color: {COLORS["primary_light"]};
             border-radius: 6px;
-            border-left: 4px solid {COLORS['primary']};
+            border-left: 4px solid {COLORS["primary"]};
         }}
         
         .footer-note {{
             font-size: 12px;
-            color: {COLORS['text_secondary']};
+            color: {COLORS["text_secondary"]};
             line-height: 1.8;
         }}
         
         .footer-note strong {{
-            color: {COLORS['primary_dark']};
+            color: {COLORS["primary_dark"]};
         }}
         
         .footer-note ul {{

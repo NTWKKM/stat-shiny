@@ -15,7 +15,7 @@ import statsmodels.api as sm
 from scipy.stats import chi2
 
 from logger import get_logger
-from utils.logic import COLORS, clean_numeric_value, fmt_p_with_styling
+from utils.logic import clean_numeric_value, fmt_p_with_styling
 
 logger = get_logger(__name__)
 
@@ -193,8 +193,9 @@ def format_interaction_results(
 
         coef = params[int_name]
         effect = np.exp(coef)
-        ci_low, ci_high = np.exp(conf_int.loc[int_name][0]), np.exp(
-            conf_int.loc[int_name][1]
+        ci_low, ci_high = (
+            np.exp(conf_int.loc[int_name][0]),
+            np.exp(conf_int.loc[int_name][1]),
         )
         pval = pvalues[int_name]
 
@@ -285,11 +286,11 @@ def generate_interaction_html_table(
         sig_marker = "✓" if res["significant"] else ""
 
         rows.append(f"""<tr>
-            <td>{res['label']}</td>
-            <td>{res['type']}</td>
-            <td>{res['coef']:.4f}</td>
-            <td>{effect_val:.3f} ({res['ci_low']:.3f}-{res['ci_high']:.3f})</td>
-            <td>{fmt_p_with_styling(res['p_value'])}</td>
+            <td>{res["label"]}</td>
+            <td>{res["type"]}</td>
+            <td>{res["coef"]:.4f}</td>
+            <td>{effect_val:.3f} ({res["ci_low"]:.3f}-{res["ci_high"]:.3f})</td>
+            <td>{fmt_p_with_styling(res["p_value"])}</td>
             <td>{sig_marker}</td>
         </tr>""")
 
@@ -306,7 +307,7 @@ def generate_interaction_html_table(
             </tr>
         </thead>
         <tbody>
-            {''.join(rows)}
+            {"".join(rows)}
         </tbody>
     </table>
     </div>"""

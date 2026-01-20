@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import html as _html
 import warnings
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -775,9 +775,8 @@ def compare_models(
             model = smf.ols(formula, data=df).fit()
 
             # Calculate likelihood ratio statistic vs null model
-            null_model = smf.ols(f"Q('{outcome_col}') ~ 1", data=df).fit()
-            lr_stat = 2 * (model.llf - null_model.llf)
-            lr_pvalue = 1 - stats.chi2.cdf(lr_stat, len(predictors))
+
+
 
             results.append(
                 {
@@ -859,9 +858,7 @@ def format_model_comparison(comparison_df: pd.DataFrame) -> str:
             )
 
     # Highlight best model
-    if "Best Model" in comparison_df.columns:
-        best_idx = comparison_df[comparison_df["Best Model"] == True].index
-        # Will be handled in HTML styling
+    # Will be handled in HTML styling
 
     return df_display.to_html(
         index=False, escape=False, classes="table table-striped table-hover", border=0
@@ -1218,7 +1215,9 @@ def run_diagnostic_tests(results: OLSResult) -> list[DiagnosticResult]:
     dw_interpretation = (
         "No autocorrelation"
         if 1.5 <= dw <= 2.5
-        else "Positive autocorrelation" if dw < 1.5 else "Negative autocorrelation"
+        else "Positive autocorrelation"
+        if dw < 1.5
+        else "Negative autocorrelation"
     )
     diagnostics.append(
         {
@@ -1715,7 +1714,7 @@ def generate_report(
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px;">
             <div class="metric-box" style="background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <div style="font-size: 0.85em; color: #666;">Sample Size</div>
-                <div style="font-size: 1.5em; font-weight: bold; color: #333;">{results['n_obs']:,}</div>
+                <div style="font-size: 1.5em; font-weight: bold; color: #333;">{results["n_obs"]:,}</div>
             </div>
             <div class="metric-box" style="background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <div style="font-size: 0.85em; color: #666;">R²</div>
@@ -1807,10 +1806,10 @@ def generate_report(
             )
             diag_rows.append(f"""
             <tr>
-                <td>{status} {_html.escape(d['test_name'])}</td>
-                <td>{d['statistic']:.4f}</td>
+                <td>{status} {_html.escape(d["test_name"])}</td>
+                <td>{d["statistic"]:.4f}</td>
                 <td>{p_fmt}</td>
-                <td>{_html.escape(d['interpretation'])}</td>
+                <td>{_html.escape(d["interpretation"])}</td>
             </tr>
             """)
 
@@ -1827,7 +1826,7 @@ def generate_report(
                     </tr>
                 </thead>
                 <tbody>
-                    {''.join(diag_rows)}
+                    {"".join(diag_rows)}
                 </tbody>
             </table>
         </div>
@@ -1892,7 +1891,7 @@ def generate_report(
     # --- Formula Section ---
     html_parts.append(f"""
     <div class="formula-section" style="margin-bottom: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; font-family: monospace;">
-        <strong>Model Formula:</strong> {_html.escape(results['formula'])}
+        <strong>Model Formula:</strong> {_html.escape(results["formula"])}
     </div>
     """)
 

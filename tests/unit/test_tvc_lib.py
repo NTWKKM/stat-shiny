@@ -69,7 +69,6 @@ def long_data():
 
 
 class TestTVCUtils:
-
     def test_validate_long_format_valid(self, long_data):
         is_valid, msg = validate_long_format(long_data, "id", "start", "stop", "event")
         assert is_valid

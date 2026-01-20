@@ -349,9 +349,9 @@ class TestLogisticRegression:
         assert "age" in params.index, "Age coefficient should exist"
 
         # Age coefficient should be positive (matches synthetic pattern)
-        assert (
-            params["age"] > 0
-        ), f"Expected positive age coefficient, got {params['age']}"
+        assert params["age"] > 0, (
+            f"Expected positive age coefficient, got {params['age']}"
+        )
 
         # Model quality checks
         assert metrics["mcfadden"] > 0, "McFadden R² should be > 0"
@@ -630,7 +630,7 @@ class TestROCAnalysis:
 
     def test_analyze_roc_perfect_classifier(self):
         """✅ Test ROC with perfect classifier (AUC=1.0)."""
-        n = 100
+        # n = 100
         df = pd.DataFrame(
             {
                 "outcome": [0] * 50 + [1] * 50,
@@ -818,7 +818,7 @@ class TestMedianSurvival:
 
     def test_calculate_median_survival_missing_column(self, dummy_df):
         """✅ Test with missing columns."""
-        with pytest.raises(ValueError, match="[Mm]issing|not found") as exc_info:
+        with pytest.raises(ValueError, match="[Mm]issing|not found"):
             calculate_median_survival(dummy_df, "nonexistent_time", "event", "exposure")
 
 

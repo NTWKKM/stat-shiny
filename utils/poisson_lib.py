@@ -21,17 +21,17 @@ import statsmodels.api as sm
 import statsmodels.genmod.generalized_linear_model
 
 # Suppress statsmodels FutureWarning for BIC calculation
-statsmodels.genmod.generalized_linear_model.SET_USE_BIC_LLF(True)
-
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
-    apply_missing_values_to_df,
     get_missing_summary_df,
     handle_missing_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
+
+# Suppress statsmodels FutureWarning for BIC calculation
+statsmodels.genmod.generalized_linear_model.SET_USE_BIC_LLF(True)
 
 logger = get_logger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
@@ -71,8 +71,8 @@ def _build_irr_interpretation_section(
                 )
         adjusted_list = "".join(adjusted_items)
         adjusted_html = f"""
-                <div style='margin-top: 16px; padding-top: 12px; border-top: 1px solid {colors['border']};'>
-                    <b style='color: {colors['primary_dark']}; font-size: 1.1em;'>Adjusted (Multivariate) Analysis:</b><br>
+                <div style='margin-top: 16px; padding-top: 12px; border-top: 1px solid {colors["border"]};'>
+                    <b style='color: {colors["primary_dark"]}; font-size: 1.1em;'>Adjusted (Multivariate) Analysis:</b><br>
                     <ul style='margin-top: 8px; line-height: 1.8;'>
                         {adjusted_list}
                     </ul>
@@ -83,7 +83,7 @@ def _build_irr_interpretation_section(
         <div class='table-container' style='margin-top: 20px;'>
             <div class='outcome-title'>💬 Rate Ratio Interpretations</div>
             <div class='summary-box' style='border-radius: 0 0 8px 8px;'>
-                <b style='color: {colors['primary_dark']}; font-size: 1.1em;'>Crude (Univariate) Analysis:</b><br>
+                <b style='color: {colors["primary_dark"]}; font-size: 1.1em;'>Crude (Univariate) Analysis:</b><br>
                 <ul style='margin-top: 8px; line-height: 1.8;'>
                     {crude_html}
                 </ul>
@@ -410,7 +410,6 @@ def analyze_poisson_outcome(
         from utils.logic import (
             _robust_sort_key,
             clean_numeric_value,
-            fmt_p,
             fmt_p_with_styling,
             get_label,
         )
@@ -483,7 +482,7 @@ def analyze_poisson_outcome(
 
         # Univariate analysis
         logger.info(
-            f"Starting univariate Poisson analysis for {len(sorted_cols)-1} variables"
+            f"Starting univariate Poisson analysis for {len(sorted_cols) - 1} variables"
         )
 
         for col in sorted_cols:
@@ -598,8 +597,9 @@ def analyze_poisson_outcome(
                                 if d_name in params:
                                     coef = params[d_name]
                                     irr = np.exp(coef)
-                                    ci_l, ci_h = np.exp(conf.loc[d_name][0]), np.exp(
-                                        conf.loc[d_name][1]
+                                    ci_l, ci_h = (
+                                        np.exp(conf.loc[d_name][0]),
+                                        np.exp(conf.loc[d_name][1]),
                                     )
                                     pv = pvals[d_name]
 
@@ -798,9 +798,10 @@ def analyze_poisson_outcome(
                                 if d_name in params:
                                     coef = params[d_name]
                                     airr = np.exp(coef)
-                                    ci_low, ci_high = np.exp(
-                                        conf.loc[d_name][0]
-                                    ), np.exp(conf.loc[d_name][1])
+                                    ci_low, ci_high = (
+                                        np.exp(conf.loc[d_name][0]),
+                                        np.exp(conf.loc[d_name][1]),
+                                    )
                                     pv = pvals[d_name]
                                     airr_entries.append(
                                         {
@@ -831,8 +832,9 @@ def analyze_poisson_outcome(
                             if var in params:
                                 coef = params[var]
                                 airr = np.exp(coef)
-                                ci_low, ci_high = np.exp(conf.loc[var][0]), np.exp(
-                                    conf.loc[var][1]
+                                ci_low, ci_high = (
+                                    np.exp(conf.loc[var][0]),
+                                    np.exp(conf.loc[var][1]),
                                 )
                                 pv = pvals[var]
                                 results_db[var]["multi_res"] = {
@@ -884,26 +886,26 @@ def analyze_poisson_outcome(
             body {{
                 font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
                 padding: 20px;
-                background-color: {COLORS['background']};
-                color: {COLORS['text']};
+                background-color: {COLORS["background"]};
+                color: {COLORS["text"]};
                 line-height: 1.6;
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
             }}
             
             .table-container {{
-                background: {COLORS['surface']};
+                background: {COLORS["surface"]};
                 border-radius: 8px;
                 box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
                 overflow-x: auto;
                 margin-bottom: 16px;
-                border: 1px solid {COLORS['border']};
+                border: 1px solid {COLORS["border"]};
                 transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             }}
             
             .table-container:hover {{
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
-                border-color: {COLORS['primary_light']};
+                border-color: {COLORS["primary_light"]};
             }}
             
             table {{
@@ -914,7 +916,7 @@ def analyze_poisson_outcome(
             }}
             
             th {{
-                background: linear-gradient(135deg, {COLORS['primary_dark']} 0%, {COLORS['primary']} 100%);
+                background: linear-gradient(135deg, {COLORS["primary_dark"]} 0%, {COLORS["primary"]} 100%);
                 color: white;
                 padding: 12px;
                 text-align: left;
@@ -926,7 +928,7 @@ def analyze_poisson_outcome(
             
             td {{
                 padding: 12px;
-                border-bottom: 1px solid {COLORS['border']};
+                border-bottom: 1px solid {COLORS["border"]};
                 vertical-align: middle;
             }}
             
@@ -935,40 +937,40 @@ def analyze_poisson_outcome(
             }}
             
             tbody tr:nth-child(even) {{
-                background-color: {COLORS['background']};
+                background-color: {COLORS["background"]};
             }}
             
             tbody tr:hover {{
-                background-color: {COLORS['primary_light']};
+                background-color: {COLORS["primary_light"]};
             }}
             
             .outcome-title {{
-                background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_dark']} 100%);
+                background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%);
                 color: white;
                 padding: 15px 16px;
                 font-weight: 600;
                 font-size: 15px;
                 border-radius: 8px 8px 0 0;
-                border-bottom: 2px solid {COLORS['primary_dark']};
+                border-bottom: 2px solid {COLORS["primary_dark"]};
             }}
             
             .summary-box {{
-                background-color: {COLORS['primary_light']};
-                border-top: 2px solid {COLORS['border']};
+                background-color: {COLORS["primary_light"]};
+                border-top: 2px solid {COLORS["border"]};
                 padding: 14px 16px;
                 font-size: 0.9em;
-                color: {COLORS['text']};
+                color: {COLORS["text"]};
                 border-radius: 0 0 8px 8px;
                 line-height: 1.6;
             }}
             
             .summary-box b {{
-                color: {COLORS['primary_dark']};
+                color: {COLORS["primary_dark"]};
             }}
             
             .sig-p {{
                 color: #fff;
-                background-color: {COLORS['danger']};
+                background-color: {COLORS["danger"]};
                 font-weight: bold;
                 padding: 2px 6px;
                 border-radius: 3px;
@@ -976,21 +978,21 @@ def analyze_poisson_outcome(
             }}
             
             .sheet-header td {{
-                background-color: {COLORS['primary_light']};
-                color: {COLORS['primary_dark']};
+                background-color: {COLORS["primary_light"]};
+                color: {COLORS["primary_dark"]};
                 font-weight: bold;
                 padding: 10px 12px;
-                border-top: 2px solid {COLORS['primary']};
-                border-bottom: 1px solid {COLORS['primary']};
+                border-top: 2px solid {COLORS["primary"]};
+                border-bottom: 1px solid {COLORS["primary"]};
                 font-size: 13px;
             }}
             
             .alert {{
                 background-color: rgba(231, 72, 86, 0.08);
-                border: 1px solid {COLORS['danger']};
+                border: 1px solid {COLORS["danger"]};
                 border-radius: 6px;
                 padding: 12px 16px;
-                color: {COLORS['danger']};
+                color: {COLORS["danger"]};
                 margin-bottom: 16px;
                 display: flex;
                 align-items: flex-start;
@@ -998,7 +1000,7 @@ def analyze_poisson_outcome(
             }}
             
             h1, h2, h3 {{
-                color: {COLORS['primary_dark']};
+                color: {COLORS["primary_dark"]};
                 margin-top: 24px;
                 margin-bottom: 16px;
             }}
@@ -1072,10 +1074,10 @@ def analyze_poisson_outcome(
 
             html_rows.append(f"""<tr>
                 <td>{lbl}</td>
-                <td>{res.get('desc_total','')}</td>
+                <td>{res.get("desc_total", "")}</td>
                 <td>{coef_s}</td>
                 <td>{irr_s}</td>
-                <td>{res.get('test_name', '-')}</td>
+                <td>{res.get("test_name", "-")}</td>
                 <td>{p_col_display}</td>
                 <td>{acoef_s}</td>
                 <td>{airr_s}</td>
@@ -1097,7 +1099,7 @@ def analyze_poisson_outcome(
                 int_p = fmt_p_with_styling(res.get("p_value", 1))
 
                 html_rows.append(f"""<tr style='background-color: #fff9f0;'>
-                    <td><b>🔗 {int_label}</b><br><small style='color: {COLORS['text_secondary']};'>(Interaction)</small></td>
+                    <td><b>🔗 {int_label}</b><br><small style='color: {COLORS["text_secondary"]};'>(Interaction)</small></td>
                     <td>-</td>
                     <td>-</td>
                     <td>-</td>
@@ -1116,8 +1118,8 @@ def analyze_poisson_outcome(
         model_fit_html = ""
         if mv_metrics_text:
             model_fit_html = f"""<div style='margin-top: 8px; padding-top: 8px; 
-                                            border-top: 1px dashed {COLORS['border']}; 
-                                            color: {COLORS['primary_dark']};'>
+                                            border-top: 1px dashed {COLORS["border"]}; 
+                                            color: {COLORS["primary_dark"]};'>
                 <b>Model Fit:</b> {mv_metrics_text}
             </div>"""
 
@@ -1142,7 +1144,9 @@ def analyze_poisson_outcome(
         # Complete HTML report with professional styling
         html_table = f"""{css_styles}
         <div id='{outcome_name}' class='table-container'>
-            <div class='outcome-title'>📊 Poisson Regression: {outcome_name} (n={total_n}){offset_info}</div>
+            <div class='outcome-title'>📊 Poisson Regression: {outcome_name} (n={
+            total_n
+        }){offset_info}</div>
             <table>
                 <thead>
                     <tr>
@@ -1162,9 +1166,11 @@ def analyze_poisson_outcome(
             <div class='summary-box'>
                 <b>Method:</b> Poisson GLM (Generalized Linear Model)<br>
                 <div style='margin-top: 8px; padding-top: 8px; 
-                            border-top: 1px solid {COLORS['border']}; 
-                            font-size: 0.9em; color: {COLORS['text_secondary']};'>
-                    <b>Selection Criteria:</b> Variables with Crude P &lt; 0.20 included in multivariate model (n={final_n_multi})<br>
+                            border-top: 1px solid {COLORS["border"]}; 
+                            font-size: 0.9em; color: {COLORS["text_secondary"]};'>
+                    <b>Selection Criteria:</b> Variables with Crude P &lt; 0.20 included in multivariate model (n={
+            final_n_multi
+        })<br>
                     <b>Interpretation:</b> IRR = Incidence Rate Ratio (Rate in exposed / Rate in unexposed)<br>
                     <b>Visual Indicators:</b> 📊 Categorical (vs Reference) | 📉 Linear (Per-unit increase)
                     {model_fit_html}
@@ -1175,8 +1181,11 @@ def analyze_poisson_outcome(
         <!-- IRR Interpretations Section -->
         {_build_irr_interpretation_section(irr_results, airr_results, COLORS)}
         <!-- Missing Data Section -->
-        {create_missing_data_report_html(missing_data_info, var_meta or {})
-            if CONFIG.get("analysis.missing.report_missing", True) else ""}
+        {
+            create_missing_data_report_html(missing_data_info, var_meta or {})
+            if CONFIG.get("analysis.missing.report_missing", True)
+            else ""
+        }
         <br>"""
 
         return html_table, irr_results, airr_results, interaction_results

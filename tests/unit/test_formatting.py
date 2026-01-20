@@ -13,7 +13,6 @@ Run with: pytest tests/unit/test_formatting.py -v
 """
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from utils.formatting import (

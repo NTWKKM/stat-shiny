@@ -6,14 +6,15 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-from shiny import module, reactive, render, req, ui
+from shiny import module, reactive, render, ui
 
 from logger import get_logger
 from tabs import tab_sample_size  # Import Sample Size Tab
 from tabs._common import get_color_palette
-from utils import psm_lib  # Import from utils
-from utils import table_one
+from utils import (
+    psm_lib,  # Import from utils
+    table_one,
+)
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
 
@@ -369,7 +370,6 @@ def baseline_matching_server(
     matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
-
     # -------------------------------------------------------------------------
     # SHARED REACTIVE VALUES
     # -------------------------------------------------------------------------
@@ -1009,7 +1009,6 @@ def baseline_matching_server(
         if not res:
             return None
 
-        treat_col = res["final_treat_col"]
         comp_data = pd.DataFrame(
             {
                 "Stage": ["Before", "After"],
@@ -1044,7 +1043,7 @@ def baseline_matching_server(
                 res["smd_post"], on="Variable", suffixes=("_before", "_after")
             )
             elements = [
-                {"type": "text", "data": f"PSM Report"},
+                {"type": "text", "data": "PSM Report"},
                 {"type": "table", "data": merged},
                 {"type": "plot", "data": fig},
             ]

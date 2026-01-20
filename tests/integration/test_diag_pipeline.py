@@ -19,7 +19,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestDiagnosticPipeline:
-
     @pytest.fixture
     def diagnostic_data(self):
         """Create dataset for diagnostic tests"""

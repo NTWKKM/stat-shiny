@@ -270,7 +270,7 @@ class ConfigManager:
         """
         try:
             json_str = json.dumps(self._config, indent=2 if pretty else None)
-        except (TypeError, ValueError) as e:
+        except (TypeError, ValueError):
             logger.exception("Failed to serialize config to JSON")
             json_str = "{}"
         if filepath:

@@ -30,7 +30,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestPSMPipeline:
-
     @pytest.fixture
     def psm_data(self):
         """Create observational dataset for matching"""
@@ -100,7 +99,7 @@ class TestPSMPipeline:
 
         # Ideally, matching should improve balance (reduce SMD)
         # Checking average SMD reduction
-        avg_smd_pre = smd_pre["SMD"].mean()
+        # avg_smd_pre = smd_pre["SMD"].mean()
         avg_smd_post = smd_post["SMD"].mean()
 
         # Note: In random data this might not always be true, but statistically likely

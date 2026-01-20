@@ -22,7 +22,6 @@ pytestmark = pytest.mark.integration
 
 
 class TestSubgroupAnalysisPipeline:
-
     @pytest.fixture
     def subgroup_data(self):
         """Create dataset for subgroup analysis"""
