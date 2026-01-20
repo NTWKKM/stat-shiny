@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -10,16 +10,16 @@ import plotly.graph_objects as go
 from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
+from tabs import tab_sample_size  # Import Sample Size Tab
 from tabs._common import get_color_palette
 from utils import psm_lib  # Import from utils
-from tabs import tab_sample_size  # Import Sample Size Tab
-
 from utils import table_one
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
+
 
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
@@ -245,7 +245,7 @@ def baseline_matching_ui() -> ui.TagChild:
                 ),
             ),
         ),
-         # ===== SUBTAB 5: SAMPLE SIZE =====
+        # ===== SUBTAB 5: SAMPLE SIZE =====
         ui.nav_panel(
             "🔢 Sample Size",
             tab_sample_size.sample_size_ui("sample_size"),

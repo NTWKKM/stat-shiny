@@ -141,9 +141,7 @@ def get_stats_categorical_data(
     return counts, total, mapped_series
 
 
-def get_stats_categorical_str(
-    counts: pd.Series | dict[Any, int], total: int
-) -> str:
+def get_stats_categorical_str(counts: pd.Series | dict[Any, int], total: int) -> str:
     """✅ FIXED: รองรับทั้ง Series และ dict พร้อมการตรวจสอบที่ดีขึ้น"""
     if isinstance(counts, dict):
         counts = pd.Series(counts)

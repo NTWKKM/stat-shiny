@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import html
 import warnings
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -49,24 +49,26 @@ def _build_irr_interpretation_section(
     # Check if we should display
     has_sig_irr = any(v.get("p_value", 1) < 0.05 for v in irr_results.values())
     has_sig_airr = any(v.get("p_value", 1) < 0.05 for v in airr_results.values())
-    
+
     if not (irr_results or airr_results) or not (has_sig_irr or has_sig_airr):
         return ""
-    
+
     # Build crude analysis list
     crude_items = []
     for k, v in irr_results.items():
         if v.get("p_value", 1) < 0.05 and v.get("interpretation"):
             crude_items.append(f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>")
     crude_html = "".join(crude_items)
-    
+
     # Build adjusted analysis section
     adjusted_html = ""
     if airr_results and has_sig_airr:
         adjusted_items = []
         for k, v in airr_results.items():
             if v.get("p_value", 1) < 0.05 and v.get("interpretation"):
-                adjusted_items.append(f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>")
+                adjusted_items.append(
+                    f"<li><b>{k}:</b> {v.get('interpretation', 'N/A')}</li>"
+                )
         adjusted_list = "".join(adjusted_items)
         adjusted_html = f"""
                 <div style='margin-top: 16px; padding-top: 12px; border-top: 1px solid {colors['border']};'>
@@ -76,7 +78,7 @@ def _build_irr_interpretation_section(
                     </ul>
                 </div>
                 """
-    
+
     return f"""
         <div class='table-container' style='margin-top: 20px;'>
             <div class='outcome-title'>💬 Rate Ratio Interpretations</div>
@@ -313,6 +315,13 @@ def check_count_outcome(series: pd.Series) -> tuple[bool, str]:
         return False, f"Validation error: {e!s}"
 
 
+def interpret_irr(
+    irr: float,
+    ci_low: float,
+    ci_high: float,
+    var_name: str = "",
+    mode: str = "linear",
+) -> str:
     """
     Convert IRR (Incidence Rate Ratio) to human-readable interpretation.
 
@@ -381,9 +390,7 @@ def analyze_poisson_outcome(
     var_meta: dict[str, Any] | None = None,
     offset_col: str | None = None,
     interaction_pairs: list[tuple[str, str | None]] = None,
-) -> tuple[
-    str, dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None
-]:
+) -> tuple[str, dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     """
     Perform Poisson regression analysis for count outcome.
 

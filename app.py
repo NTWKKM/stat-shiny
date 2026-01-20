@@ -20,8 +20,6 @@ from tabs import (
     tab_settings,
     tab_survival,
 )
-
-
 from tabs._common import wrap_with_container
 from utils.logic import HAS_FIRTH
 
@@ -54,7 +52,9 @@ app_ui = ui.page_navbar(
     ui.nav_panel("🧪 Diagnostic Tests", wrap_with_container(tab_diag.diag_ui("diag"))),
     # --- 4. Logistic Regression Module ---
     # --- 4. Regression Models Module ---
-    ui.nav_panel("📊 Regression Models", wrap_with_container(tab_logit.logit_ui("logit"))),
+    ui.nav_panel(
+        "📊 Regression Models", wrap_with_container(tab_logit.logit_ui("logit"))
+    ),
     # --- 5. Correlation & ICC Module ---
     ui.nav_panel("📈 Correlation & ICC", wrap_with_container(tab_corr.corr_ui("corr"))),
     # --- 6. Survival Analysis Module ---

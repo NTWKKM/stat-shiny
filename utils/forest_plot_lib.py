@@ -187,9 +187,7 @@ class ForestPlot:
 
         return marker_colors, ci_normalized
 
-    def get_summary_stats(
-        self, ref_line: float = 1.0
-    ) -> dict[str, int | float | None]:
+    def get_summary_stats(self, ref_line: float = 1.0) -> dict[str, int | float | None]:
         """
         OPTIMIZED: Vectorized summary statistics computation.
         """
