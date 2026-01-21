@@ -31,7 +31,7 @@ def data_ui() -> ui.TagChild:
     return ui.layout_sidebar(
         ui.sidebar(
             ui.div(
-                ui.h4("⚙️ Controls", class_="mb-3 text-primary"),
+                ui.h4("⚙️ Data Controls", class_="mb-3 text-primary"),
                 ui.input_action_button(
                     "btn_load_example",
                     "📄 Load Example Data",
@@ -39,12 +39,11 @@ def data_ui() -> ui.TagChild:
                 ),
                 ui.input_file(
                     "file_upload",
-                    "📂 Upload Data (.csv, .xlsx)",
+                    "📂 Upload CSV/Excel",
                     accept=[".csv", ".xlsx"],
                     multiple=False,
                     width="100%",
                 ),
-
                 ui.output_ui("ui_file_metadata"),
                 ui.hr(),
                 ui.div(
@@ -65,78 +64,63 @@ def data_ui() -> ui.TagChild:
         ui.div(
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
-            # 1. Variable Configuration Accordion (Expandable, Open by Default)
-            ui.accordion(
-                ui.accordion_panel(
-                    "🛠️ Variable Configuration",
-                    ui.layout_columns(
-                        ui.div(
-                            create_input_group(
-                                "Select Variable",
-                                ui.input_select(
-                                    "sel_var_edit",
-                                    create_tooltip_label(
-                                        "Variable to Edit",
-                                        "Select a variable to change its type or mappings.",
-                                    ),
-                                    choices=["Select..."],
-                                    width="100%",
-                                ),
-                                ui.markdown("""
-                                    > [!NOTE]
-                                    > **Categorical Mapping**: 
-                                    > Format as `0=Control, 1=Treat`.
-                                    """),
-                                type="required",
-                            ),
-                            ui.div(
-                                ui.output_ui("ui_var_settings"),
-                                class_="mt-3"
-                            ),
-                        ),
-                        # RIGHT COLUMN: Missing Data Configuration
-                        create_input_group(
-                            "Missing Data",
-                            create_tooltip_label(
-                                "Missing Value Codes",
-                                "Enter values to be treated as NaN (e.g. -99 or 999).",
-                            ),
-                            ui.input_text(
-                                "txt_missing_codes",
-                                "Codes (comma separated):",
-                                placeholder="e.g., -99, 999",
-                                value="",
-                            ),
-                            ui.output_ui("ui_missing_preview"),
-                            ui.input_action_button(
-                                "btn_save_missing",
-                                "💾 Save Config",
-                                class_="btn-secondary w-100 mt-2",
-                            ),
-                            type="advanced",
-                        ),
-                        col_widths=(6, 6),
-                    ),
+            # 1. Variable Settings Card (3-column layout with Missing Data Config)
+            ui.card(
+                ui.card_header(
+                    ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")
                 ),
-                id="acc_var_config",
-                open=True,
-                class_="mb-3 shadow-sm border-0 w-100",
+                ui.layout_columns(
+                    # LEFT COLUMN: Variable Selection
+                    ui.div(
+                        ui.input_select(
+                            "sel_var_edit",
+                            "Select Variable to Edit:",
+                            choices=["Select..."],
+                            width="100%",
+                        ),
+                        ui.markdown("""
+                            > [!NOTE]
+                            > **Categorical Mapping**: 
+                            > Format as `0=Control, 1=Treat`.
+                            """),
+                        class_="p-2",
+                    ),
+                    # MIDDLE COLUMN: Variable Settings
+                    ui.div(ui.output_ui("ui_var_settings"), class_="p-2"),
+                    # RIGHT COLUMN: Missing Data Configuration
+                    ui.div(
+                        ui.h6(
+                            "🔍 Missing Data", style="margin-top: 0; color: #0066cc;"
+                        ),
+                        ui.input_text(
+                            "txt_missing_codes",
+                            "Missing Value Codes:",
+                            placeholder="e.g., -99, -999, 99",
+                            value="",
+                        ),
+                        ui.output_ui("ui_missing_preview"),
+                        ui.input_action_button(
+                            "btn_save_missing",
+                            "💾 Save Missing Config",
+                            class_="btn-secondary w-100 mt-2",
+                        ),
+                        class_="p-2",
+                        style="background-color: #f8f9fa; border-radius: 6px;",
+                    ),
+                    col_widths=(3, 6, 3),
+                ),
+                class_="mb-3 shadow-sm border-0",
             ),
             # 2. Data Preview Card
             ui.card(
                 ui.card_header(ui.tags.span("📄 Data Preview", class_="fw-bold")),
-                ui.div(
-                    ui.output_ui("ui_preview_area"),
-                    class_="flex-fill overflow-auto", # Enable internal scrolling
-                    style="min-height: 0;" # allow shrinking to fit flex container
-                ),
+                ui.output_ui("ui_preview_area"),
+                height="600px",
                 full_screen=True,
-                class_="shadow-sm border-0 flex-fill d-flex flex-column w-100", # Flex grow to fill space
-                style="min-height: 500px;", # Prevent shrinking too much
+                class_="shadow-sm border-0",
             ),
-            class_="app-container d-flex flex-column h-100", # Flex container for column layout
+            class_="p-3",
         ),
-        fillable=True, # Allow sidebar layout to fill height
     )
 
 
