@@ -132,7 +132,7 @@ def tvc_column_config_ui() -> ui.TagChild:
             """),
         ui.input_checkbox_group(
             "tvc_static_cols",
-            "Select Static Covariates (Optional):",
+            "Select Static Covariates:",
             choices={},
             selected=[],
         ),

@@ -102,7 +102,7 @@ def survival_ui() -> ui.TagChild:
                             ui.input_select(
                                 "surv_group",
                                 create_tooltip_label(
-                                    "Compare Groups (Optional)",
+                                    "Compare Groups",
                                     "Stratify by categorical variable.",
                                 ),
                                 choices=["None"],
