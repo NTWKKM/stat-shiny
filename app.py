@@ -48,7 +48,7 @@ app_ui = ui.page_fluid(
     # ♿ Accessibility: Skip Links
     ui.div(
         ui.a("Skip to main content", href="#main-content", class_="skip-link"),
-        ui.a("Skip to sidebar navigation", href="#main-nav", class_="skip-link"),
+        ui.a("Skip to navigation", href="#main-nav", class_="skip-link"),
         ui.a("Skip to footer", href="#footer", class_="skip-link"),
         class_="skip-links",
     ),
@@ -68,125 +68,123 @@ app_ui = ui.page_fluid(
         # ✅ Custom JS Handlers
         ui.tags.script(src="static/js/custom_handlers.js"),
     ),
-    # Header with Title
-    ui.row(
-        ui.column(
-            12,
-            ui.h2(
-                "🏥 Medical Stat Tool",
-                class_="app-title mt-3 mb-4 ps-3",
-                style="color: var(--primary); font-weight: 700;",
-            ),
-        )
-    ),
-    # Mobile Menu Toggle (Visible only on mobile)
-    ui.div(
-        ui.input_action_button(
-            "mobile_menu_btn", "☰ Menu", class_="btn-sm w-100 mb-2"
+    ui.page_navbar(
+        # ========================================
+        # 🏠 TAB 0: HOME
+        # ========================================
+        ui.nav_panel(
+            "🏠 Home",
+            wrap_with_container(tab_home.home_ui("home")),
+            value="home",
         ),
-        class_="d-md-none px-3 pt-2",
-    ),
-    # Main Navigation (Sticky Sidebar) wrapped in ID for skip link
-    ui.div(
-        ui.navset_pill_list(
-            # ========================================
-            # 🏠 TAB 0: HOME
-            # ========================================
-            ui.nav_panel(
-                "🏠 Home",
-                wrap_with_container(tab_home.home_ui("home")),
-            ),
-            # ========================================
-            # 📁 TAB 1: DATA MANAGEMENT (Standalone)
-            # ========================================
-            ui.nav_panel(
-                "📁 Data",
-                wrap_with_container(tab_data.data_ui("data")),
-            ),
-            # ========================================
-            # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
-            # ========================================
-            ui.nav_panel(
-                "📋 Table 1",
-                wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
-            ),
-            # ========================================
-            # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
-            # ========================================
-            ui.nav_menu(
-                "📊 General Stats",
-                ui.nav_panel(
-                    "Diagnostic Tests",
-                    wrap_with_container(tab_diag.diag_ui("diag")),
-                ),
-                ui.nav_panel(
-                    "Correlation Analysis",
-                    wrap_with_container(tab_corr.corr_ui("corr")),
-                ),
-                ui.nav_panel(
-                    "Agreement & Reliability",
-                    wrap_with_container(tab_agreement.agreement_ui("agreement")),
-                ),
-            ),
-            # ========================================
-            # 🔬 TAB 4: ADVANCED MODELING (Dropdown)
-            # ========================================
-            ui.nav_menu(
-                "🔬 Modeling",
-                ui.nav_panel(
-                    "Regression Analysis",
-                    wrap_with_container(
-                        tab_core_regression.core_regression_ui("core_reg")
-                    ),
-                ),
-                ui.nav_panel(
-                    "Survival Analysis",
-                    wrap_with_container(tab_survival.survival_ui("survival")),
-                ),
-                ui.nav_panel(
-                    "Advanced Regression",
-                    wrap_with_container(
-                        tab_advanced_inference.advanced_inference_ui("adv_inf")
-                    ),
-                ),
-            ),
-            # ========================================
-            # 🏥 TAB 5: CLINICAL TOOLS (Dropdown)
-            # ========================================
-            ui.nav_menu(
-                "🏥 Clinical",
-                ui.nav_panel(
-                    "Sample Size Calculator",
-                    wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
-                ),
-                ui.nav_panel(
-                    "Causal Methods",
-                    wrap_with_container(
-                        tab_causal_inference.causal_inference_ui("causal")
-                    ),
-                ),
-            ),
-            # ========================================
-            # ⚙️ TAB 6: SETTINGS (Standalone)
-            # ========================================
-            ui.nav_panel(
-                "⚙️ Settings",
-                wrap_with_container(tab_settings.settings_ui("settings")),
-            ),
-            id="main_nav",
-            widths=(2, 10),
-            well=False,
+        # ========================================
+        # 📁 TAB 1: DATA MANAGEMENT (Standalone)
+        # ========================================
+        ui.nav_panel(
+            "📁 Data",
+            wrap_with_container(tab_data.data_ui("data")),
+            value="data",
         ),
-        id="main-content",
-        role="main",
-    ),
-    # Footer
-    ui.div(
-        footer_ui,
-        class_="main-footer",
-        style="margin-left: 16.66666667%;",  # Offset for sidebar (2/12 = 16.67%)
-        id="footer",
-        role="contentinfo",
+        # ========================================
+        # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
+        # ========================================
+        ui.nav_panel(
+            "📋 Table 1",
+            wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
+            value="bm",
+        ),
+        # ========================================
+        # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
+        # ========================================
+        ui.nav_menu(
+            "📊 Stats",
+            ui.nav_panel(
+                "Diagnostic Tests",
+                wrap_with_container(tab_diag.diag_ui("diag")),
+                value="Diagnostic Tests",
+            ),
+            ui.nav_panel(
+                "Correlation Analysis",
+                wrap_with_container(tab_corr.corr_ui("corr")),
+                value="Correlation Analysis",
+            ),
+            ui.nav_panel(
+                "Agreement & Reliability",
+                wrap_with_container(tab_agreement.agreement_ui("agreement")),
+                value="Agreement & Reliability",
+            ),
+        ),
+        # ========================================
+        # 🔬 TAB 4: ADVANCED MODELING (Dropdown)
+        # ========================================
+        ui.nav_menu(
+            "🔬 Modeling",
+            ui.nav_panel(
+                "Regression Analysis",
+                wrap_with_container(
+                    tab_core_regression.core_regression_ui("core_reg")
+                ),
+                value="Regression Analysis",
+            ),
+            ui.nav_panel(
+                "Survival Analysis",
+                wrap_with_container(tab_survival.survival_ui("survival")),
+                value="Survival Analysis",
+            ),
+            ui.nav_panel(
+                "Advanced Regression",
+                wrap_with_container(
+                    tab_advanced_inference.advanced_inference_ui("adv_inf")
+                ),
+                value="Advanced Regression",
+            ),
+        ),
+        # ========================================
+        # 🏥 TAB 5: CLINICAL TOOLS (Dropdown)
+        # ========================================
+        ui.nav_menu(
+            "🏥 Clinical",
+            ui.nav_panel(
+                "Sample Size Calculator",
+                wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
+                value="Sample Size Calculator",
+            ),
+            ui.nav_panel(
+                "Causal Methods",
+                wrap_with_container(
+                    tab_causal_inference.causal_inference_ui("causal")
+                ),
+                value="Causal Methods",
+            ),
+        ),
+        # ========================================
+        # ⚙️ TAB 6: SETTINGS (Standalone)
+        # ========================================
+        ui.nav_panel(
+            "⚙️ Settings",
+            wrap_with_container(tab_settings.settings_ui("settings")),
+            value="settings",
+        ),
+        title=ui.tags.a(
+            "🏥 Medical Stat Tool",
+            href="#",
+            onclick="document.querySelector('.navbar-nav .nav-link[data-value=\\'home\\']').click(); return false;",
+            style="color: var(--color-primary); font-weight: 700; text-decoration: none;",
+        ),
+        id="main_nav",
+        header=ui.tags.head(
+            ui.tags.style(
+                """
+                .navbar-brand { font-size: 1.5rem !important; }
+                """
+            )
+        ),
+        footer=ui.div(
+            footer_ui,
+            class_="main-footer",
+            id="footer",
+            role="contentinfo",
+        ),
     ),
     title=CONFIG.get("ui.page_title", "Medical Stat Tool"),
 )

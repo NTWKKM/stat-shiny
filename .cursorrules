@@ -8,3 +8,10 @@
 2. **Python Version**: This project strictly requires Python 3.12+. The system default (3.9) will fail.
 
 3. **Workflow**: If you need to run checking scripts, prefer the defined workflows or use the `.venv` explicitly.
+
+4. **CSS Modification**:
+   - **NEVER** edit `static/styles.css` directly. It is an auto-generated file.
+   - To change styles, modify the `get_shiny_css()` function in `tabs/_styling.py`.
+   - After modifying the Python file, regenerate the CSS by running:
+     `.venv/bin/python utils/update_css.py`
+   - Always commit both the `.py` source and the generated `.css` file.

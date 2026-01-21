@@ -1,6 +1,12 @@
 """
 🎨 Shiny UI Styling Module - Professional Navy Blue Medical Analytics Theme
 
+⚠️ SOURCE OF TRUTH FOR CSS:
+Modify this file to update 'static/styles.css'.
+After editing, run: python utils/update_css.py
+"""
+
+
 Provides comprehensive CSS utilities, styled components, and helper functions for consistent
 UI styling across all Shiny modules using a professional Navy Blue theme with enhanced
 visual hierarchy, spacing, and modern design patterns.
@@ -615,23 +621,6 @@ def get_shiny_css():
         .navbar .dropdown-item:active {{
             background-color: {COLORS["primary_light"]};
             color: {COLORS["primary_dark"]};
-        }}
-        
-        /* Sidebar Navigation */
-        .sidebar .nav-link,
-        .bslib-sidebar-layout .sidebar-content .nav-link {{
-            color: rgba(255, 255, 255, 0.85) !important;
-            font-weight: 500;
-            padding: 12px 16px !important;
-            border-radius: var(--radius-sm);
-            transition: all var(--transition-fast);
-            margin: 4px 0;
-        }}
-        
-        .sidebar .nav-link:hover,
-        .sidebar .nav-link.active {{
-            color: #ffffff !important;
-            background-color: rgba(255, 255, 255, 0.15) !important;
         }}
         
         /* ===========================
