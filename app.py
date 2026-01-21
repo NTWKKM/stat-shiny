@@ -9,7 +9,8 @@ from shiny import App, Inputs, Outputs, Session, reactive, ui
 from config import CONFIG
 from logger import LoggerFactory, get_logger
 
-# Import Tabs Modules
+
+# Import Tabs Modules (Verified)
 from tabs import (
     tab_advanced_inference,
     tab_agreement,  # 🟢 Agreement Module
