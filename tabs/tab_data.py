@@ -44,13 +44,7 @@ def data_ui() -> ui.TagChild:
                     multiple=False,
                     width="100%",
                 ),
-                ui.div(
-                    ui.tags.span(
-                        "✅ Supported: .csv, .xlsx", class_="badge bg-info mt-1 me-1"
-                    ),
-                    ui.tags.span("📦 Max: 100MB", class_="badge bg-secondary mt-1"),
-                    class_="mb-3",
-                ),
+
                 ui.output_ui("ui_file_metadata"),
                 ui.hr(),
                 ui.div(
@@ -131,13 +125,18 @@ def data_ui() -> ui.TagChild:
             # 2. Data Preview Card
             ui.card(
                 ui.card_header(ui.tags.span("📄 Data Preview", class_="fw-bold")),
-                ui.output_ui("ui_preview_area"),
-                height="600px",
+                ui.div(
+                    ui.output_ui("ui_preview_area"),
+                    class_="flex-fill overflow-auto", # Enable internal scrolling
+                    style="min-height: 0;" # allow shrinking to fit flex container
+                ),
                 full_screen=True,
-                class_="shadow-sm border-0",
+                class_="shadow-sm border-0 flex-fill d-flex flex-column", # Flex grow to fill space
+                style="min-height: 500px;", # Prevent shrinking too much
             ),
-            class_="app-container",
+            class_="app-container d-flex flex-column h-100", # Flex container for column layout
         ),
+        fillable=True, # Allow sidebar layout to fill height
     )
 
 
