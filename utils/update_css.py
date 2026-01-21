@@ -4,8 +4,8 @@
 This script regenerates 'static/styles.css' by extracting CSS from 'tabs/_styling.py'.
 Run this after making changes to the styling module.
 """
-import re
 
+import re
 import sys
 from pathlib import Path
 
