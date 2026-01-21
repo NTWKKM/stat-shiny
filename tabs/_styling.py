@@ -1316,21 +1316,13 @@ def get_shiny_css():
         }}
         
         .form-section-required::before {{
-            content: "● REQUIRED";
-            color: {COLORS["danger"]};
-            font-size: 12px;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 4px;
+            content: "";
+            display: none;
         }}
         
         .form-section-optional::before {{
-            content: "○ OPTIONAL";
-            color: {COLORS["text_secondary"]};
-            font-size: 12px;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 4px;
+            content: "";
+            display: none;
         }}
         
         .form-section-advanced {{
