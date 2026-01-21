@@ -29,265 +29,280 @@ def sample_size_ui() -> ui.TagChild:
             # --- 1. MEANS (T-Test) ---
             ui.nav_panel(
                 "📊 Means (T-test)",
-                ui.card(
-                    ui.card_header("Means (T-test) Setup"),
-                    ui.layout_columns(
-                        create_input_group(
-                            "Group 1",
-                            ui.input_numeric("ss_mean1", "Mean Group 1:", value=0),
-                            ui.input_numeric("ss_sd1", "SD Group 1:", value=10),
-                            type="required",
-                        ),
-                        create_input_group(
-                            "Group 2",
-                            ui.input_numeric("ss_mean2", "Mean Group 2:", value=5),
-                            ui.input_numeric("ss_sd2", "SD Group 2:", value=10),
-                            type="required",
-                        ),
-                        col_widths=[6, 6],
-                    ),
-                    ui.accordion(
-                        ui.accordion_panel(
-                            "⚙️ Statistical Parameters (Power, Alpha)",
-                            ui.layout_columns(
-                                ui.input_slider(
-                                    "ss_means_power",
-                                    "Power (1-β):",
-                                    min=0.5,
-                                    max=0.99,
-                                    value=0.8,
-                                    step=0.01,
-                                ),
-                                ui.input_slider(
-                                    "ss_means_alpha",
-                                    "Alpha (Sig. Level):",
-                                    min=0.001,
-                                    max=0.2,
-                                    value=0.05,
-                                    step=0.001,
-                                ),
-                                col_widths=[6, 6],
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Means (T-test) Setup"),
+                        ui.layout_columns(
+                            create_input_group(
+                                "Group 1",
+                                ui.input_numeric("ss_mean1", "Mean Group 1:", value=0),
+                                ui.input_numeric("ss_sd1", "SD Group 1:", value=10),
+                                type="required",
                             ),
-                            ui.input_numeric(
-                                "ss_means_ratio",
-                                "Allocation Ratio (N2/N1):",
-                                value=1,
-                                min=0.1,
-                                step=0.1,
+                            create_input_group(
+                                "Group 2",
+                                ui.input_numeric("ss_mean2", "Mean Group 2:", value=5),
+                                ui.input_numeric("ss_sd2", "SD Group 2:", value=10),
+                                type="required",
                             ),
+                            col_widths=[6, 6],
                         ),
-                        open=False,
+                        ui.accordion(
+                            ui.accordion_panel(
+                                "⚙️ Statistical Parameters (Power, Alpha)",
+                                ui.layout_columns(
+                                    ui.input_slider(
+                                        "ss_means_power",
+                                        "Power (1-β):",
+                                        min=0.5,
+                                        max=0.99,
+                                        value=0.8,
+                                        step=0.01,
+                                    ),
+                                    ui.input_slider(
+                                        "ss_means_alpha",
+                                        "Alpha (Sig. Level):",
+                                        min=0.001,
+                                        max=0.2,
+                                        value=0.05,
+                                        step=0.001,
+                                    ),
+                                    col_widths=[6, 6],
+                                ),
+                                ui.input_numeric(
+                                    "ss_means_ratio",
+                                    "Allocation Ratio (N2/N1):",
+                                    value=1,
+                                    min=0.1,
+                                    step=0.1,
+                                ),
+                            ),
+                            open=False,
+                        ),
+                        ui.output_ui("out_means_validation"),
+                        ui.hr(),
+                        ui.input_action_button(
+                            "btn_calc_means",
+                            "🚀 Calculate N",
+                            class_="btn-primary w-100",
+                        ),
                     ),
-                    ui.output_ui("out_means_validation"),
-                    ui.hr(),
-                    ui.input_action_button(
-                        "btn_calc_means",
-                        "🚀 Calculate N",
-                        class_="btn-primary w-100",
+                    create_results_container(
+                        "Results",
+                        ui.output_ui("out_means_result"),
+                        ui.output_ui("out_means_plot"),
+                        ui.output_ui("out_means_methods"),
                     ),
-                ),
-                create_results_container(
-                    "Results",
-                    ui.output_ui("out_means_result"),
-                    ui.output_ui("out_means_plot"),
-                    ui.output_ui("out_means_methods"),
+                    col_widths=[5, 7],
                 ),
             ),
             # --- 2. PROPORTIONS (Chi-Sq) ---
             ui.nav_panel(
                 "🎲 Proportions",
-                ui.card(
-                    ui.card_header("Proportions Setup"),
-                    ui.layout_columns(
-                        create_input_group(
-                            "Expected Proportions",
-                            ui.input_numeric(
-                                "ss_p1",
-                                "Proportion 1 (0-1):",
-                                value=0.1,
-                                min=0,
-                                max=1,
-                                step=0.01,
-                            ),
-                            ui.input_numeric(
-                                "ss_p2",
-                                "Proportion 2 (0-1):",
-                                value=0.2,
-                                min=0,
-                                max=1,
-                                step=0.01,
-                            ),
-                            type="required",
-                        ),
-                        col_widths=[12],
-                    ),
-                    ui.accordion(
-                        ui.accordion_panel(
-                            "⚙️ Statistical Parameters",
-                            ui.layout_columns(
-                                ui.input_slider(
-                                    "ss_props_power",
-                                    "Power (1-β):",
-                                    min=0.5,
-                                    max=0.99,
-                                    value=0.8,
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Proportions Setup"),
+                        ui.layout_columns(
+                            create_input_group(
+                                "Expected Proportions",
+                                ui.input_numeric(
+                                    "ss_p1",
+                                    "Proportion 1 (0-1):",
+                                    value=0.1,
+                                    min=0,
+                                    max=1,
                                     step=0.01,
                                 ),
-                                ui.input_slider(
-                                    "ss_props_alpha",
-                                    "Alpha (Sig. Level):",
-                                    min=0.001,
-                                    max=0.2,
-                                    value=0.05,
-                                    step=0.001,
+                                ui.input_numeric(
+                                    "ss_p2",
+                                    "Proportion 2 (0-1):",
+                                    value=0.2,
+                                    min=0,
+                                    max=1,
+                                    step=0.01,
                                 ),
-                                col_widths=[6, 6],
+                                type="required",
                             ),
-                            ui.input_numeric(
-                                "ss_props_ratio",
-                                "Allocation Ratio (N2/N1):",
-                                value=1,
-                                min=0.1,
-                                step=0.1,
-                            ),
+                            col_widths=[12],
                         ),
-                        open=False,
+                        ui.accordion(
+                            ui.accordion_panel(
+                                "⚙️ Statistical Parameters",
+                                ui.layout_columns(
+                                    ui.input_slider(
+                                        "ss_props_power",
+                                        "Power (1-β):",
+                                        min=0.5,
+                                        max=0.99,
+                                        value=0.8,
+                                        step=0.01,
+                                    ),
+                                    ui.input_slider(
+                                        "ss_props_alpha",
+                                        "Alpha (Sig. Level):",
+                                        min=0.001,
+                                        max=0.2,
+                                        value=0.05,
+                                        step=0.001,
+                                    ),
+                                    col_widths=[6, 6],
+                                ),
+                                ui.input_numeric(
+                                    "ss_props_ratio",
+                                    "Allocation Ratio (N2/N1):",
+                                    value=1,
+                                    min=0.1,
+                                    step=0.1,
+                                ),
+                            ),
+                            open=False,
+                        ),
+                        ui.output_ui("out_props_validation"),
+                        ui.hr(),
+                        ui.input_action_button(
+                            "btn_calc_props",
+                            "🚀 Calculate N",
+                            class_="btn-primary w-100",
+                        ),
                     ),
-                    ui.output_ui("out_props_validation"),
-                    ui.hr(),
-                    ui.input_action_button(
-                        "btn_calc_props",
-                        "🚀 Calculate N",
-                        class_="btn-primary w-100",
+                    create_results_container(
+                        "Results",
+                        ui.output_ui("out_props_result"),
+                        ui.output_ui("out_props_plot"),
+                        ui.output_ui("out_props_methods"),
                     ),
-                ),
-                create_results_container(
-                    "Results",
-                    ui.output_ui("out_props_result"),
-                    ui.output_ui("out_props_plot"),
-                    ui.output_ui("out_props_methods"),
+                    col_widths=[5, 7],
                 ),
             ),
             # --- 3. SURVIVAL (Log-Rank) ---
             ui.nav_panel(
                 "⏳ Survival (Log-Rank)",
-                ui.card(
-                    ui.card_header("Survival Analysis Setup"),
-                    create_input_group(
-                        "Input Mode",
-                        ui.input_radio_buttons(
-                            "ss_surv_mode",
-                            "Input Mode:",
-                            {"hr": "Hazard Ratio", "median": "Median Survival Time"},
-                        ),
-                        type="optional",
-                    ),
-                    create_input_group(
-                        "Parameters",
-                        ui.panel_conditional(
-                            "input.ss_surv_mode == 'hr'",
-                            ui.input_numeric(
-                                "ss_surv_hr", "Hazard Ratio (HR):", value=2.0, min=0.001
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Survival Analysis Setup"),
+                        create_input_group(
+                            "Input Mode",
+                            ui.input_radio_buttons(
+                                "ss_surv_mode",
+                                "Input Mode:",
+                                {"hr": "Hazard Ratio", "median": "Median Survival Time"},
                             ),
+                            type="optional",
                         ),
-                        ui.panel_conditional(
-                            "input.ss_surv_mode == 'median'",
-                            ui.input_numeric(
-                                "ss_surv_m1", "Median Survival 1:", value=12
+                        create_input_group(
+                            "Parameters",
+                            ui.panel_conditional(
+                                "input.ss_surv_mode == 'hr'",
+                                ui.input_numeric(
+                                    "ss_surv_hr",
+                                    "Hazard Ratio (HR):",
+                                    value=2.0,
+                                    min=0.001,
+                                ),
+                            ),
+                            ui.panel_conditional(
+                                "input.ss_surv_mode == 'median'",
+                                ui.input_numeric(
+                                    "ss_surv_m1", "Median Survival 1:", value=12
+                                ),
+                                ui.input_numeric(
+                                    "ss_surv_m2", "Median Survival 2:", value=24
+                                ),
+                            ),
+                            ui.input_slider(
+                                "ss_surv_power",
+                                "Power (1-β):",
+                                min=0.5,
+                                max=0.99,
+                                value=0.8,
+                                step=0.01,
+                            ),
+                            ui.input_slider(
+                                "ss_surv_alpha",
+                                "Alpha (Sig. Level):",
+                                min=0.001,
+                                max=0.2,
+                                value=0.05,
+                                step=0.001,
                             ),
                             ui.input_numeric(
-                                "ss_surv_m2", "Median Survival 2:", value=24
+                                "ss_surv_ratio",
+                                "Ratio (N2/N1):",
+                                value=1,
+                                min=0.1,
+                                step=0.1,
                             ),
+                            type="required",
                         ),
-                        ui.input_slider(
-                            "ss_surv_power",
-                            "Power (1-β):",
-                            min=0.5,
-                            max=0.99,
-                            value=0.8,
-                            step=0.01,
+                        ui.output_ui("out_surv_validation"),
+                        ui.hr(),
+                        ui.input_action_button(
+                            "btn_calc_surv",
+                            "🚀 Calculate Events",
+                            class_="btn-primary w-100",
                         ),
-                        ui.input_slider(
-                            "ss_surv_alpha",
-                            "Alpha (Sig. Level):",
-                            min=0.001,
-                            max=0.2,
-                            value=0.05,
-                            step=0.001,
-                        ),
-                        ui.input_numeric(
-                            "ss_surv_ratio",
-                            "Ratio (N2/N1):",
-                            value=1,
-                            min=0.1,
-                            step=0.1,
-                        ),
-                        type="required",
                     ),
-                    ui.output_ui("out_surv_validation"),
-                    ui.hr(),
-                    ui.input_action_button(
-                        "btn_calc_surv",
-                        "🚀 Calculate Events",
-                        class_="btn-primary w-100",
+                    create_results_container(
+                        "Results",
+                        ui.output_ui("out_surv_result"),
+                        ui.output_ui("out_surv_plot"),
+                        ui.output_ui("out_surv_methods"),
+                        ui.markdown(
+                            "*Note: This calculates required number of EVENTS, not total subjects.*"
+                        ),
                     ),
-                ),
-                create_results_container(
-                    "Results",
-                    ui.output_ui("out_surv_result"),
-                    ui.output_ui("out_surv_plot"),
-                    ui.output_ui("out_surv_methods"),
-                    ui.markdown(
-                        "*Note: This calculates required number of EVENTS, not total subjects.*"
-                    ),
+                    col_widths=[5, 7],
                 ),
             ),
             # --- 4. CORRELATION ---
             ui.nav_panel(
                 "📈 Correlation",
-                ui.card(
-                    ui.card_header("Correlation Setup"),
-                    create_input_group(
-                        "Parameters",
-                        ui.input_numeric(
-                            "ss_corr_r",
-                            "Expected Correlation (r):",
-                            value=0.3,
-                            min=-1,
-                            max=1,
-                            step=0.05,
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Correlation Setup"),
+                        create_input_group(
+                            "Parameters",
+                            ui.input_numeric(
+                                "ss_corr_r",
+                                "Expected Correlation (r):",
+                                value=0.3,
+                                min=-1,
+                                max=1,
+                                step=0.05,
+                            ),
+                            ui.input_slider(
+                                "ss_corr_power",
+                                "Power (1-β):",
+                                min=0.5,
+                                max=0.99,
+                                value=0.8,
+                                step=0.01,
+                            ),
+                            ui.input_slider(
+                                "ss_corr_alpha",
+                                "Alpha (Sig. Level):",
+                                min=0.001,
+                                max=0.2,
+                                value=0.05,
+                                step=0.001,
+                            ),
+                            type="required",
                         ),
-                        ui.input_slider(
-                            "ss_corr_power",
-                            "Power (1-β):",
-                            min=0.5,
-                            max=0.99,
-                            value=0.8,
-                            step=0.01,
+                        ui.output_ui("out_corr_validation"),
+                        ui.hr(),
+                        ui.input_action_button(
+                            "btn_calc_corr",
+                            "🚀 Calculate N",
+                            class_="btn-primary w-100",
                         ),
-                        ui.input_slider(
-                            "ss_corr_alpha",
-                            "Alpha (Sig. Level):",
-                            min=0.001,
-                            max=0.2,
-                            value=0.05,
-                            step=0.001,
-                        ),
-                        type="required",
                     ),
-                    ui.output_ui("out_corr_validation"),
-                    ui.hr(),
-                    ui.input_action_button(
-                        "btn_calc_corr",
-                        "🚀 Calculate N",
-                        class_="btn-primary w-100",
+                    create_results_container(
+                        "Results",
+                        ui.output_ui("out_corr_result"),
+                        ui.output_ui("out_corr_plot"),
+                        ui.output_ui("out_corr_methods"),
                     ),
-                ),
-                create_results_container(
-                    "Results",
-                    ui.output_ui("out_corr_result"),
-                    ui.output_ui("out_corr_plot"),
-                    ui.output_ui("out_corr_methods"),
+                    col_widths=[5, 7],
                 ),
             ),
         ),

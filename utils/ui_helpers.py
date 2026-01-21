@@ -49,9 +49,8 @@ def create_tooltip_label(label, tooltip_text, id=None):
     Returns:
         ui.Tag: A styled label with tooltip.
     """
-    help_icon = ui.tags.span("?", class_="help-icon", title=tooltip_text)
-
-    return ui.div(label, help_icon, class_="label-with-help", id=id)
+    # Removed "?" icon as requested by user. Tooltip is attached to the label container.
+    return ui.div(label, class_="label-with-help", title=tooltip_text, id=id)
 
 
 def create_input_with_help(input_tag, help_text):

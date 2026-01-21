@@ -16,6 +16,7 @@ from config import CONFIG
 from logger import get_logger
 from tabs._common import (
     get_color_palette,
+    select_variable_by_keyword,
 )
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import create_missing_data_report_html
@@ -908,16 +909,10 @@ def core_regression_server(
         sg_cols = [c for c in cols if 2 <= d[c].nunique() <= 10]
 
         # Update Tab 1 (Binary Logit) Inputs
-        # Prefer "Outcome_" prefix or "Cured"/"Death"/"Event"
-        default_logit_y = None
-        for c in binary_cols:
-            if any(
-                k in c.lower() for k in ["outcome", "cured", "death", "status", "event"]
-            ):
-                default_logit_y = c
-                break
-        if not default_logit_y and binary_cols:
-            default_logit_y = binary_cols[0]
+        # Update Tab 1 (Binary Logit) Inputs
+        default_logit_y = select_variable_by_keyword(
+            binary_cols, ["outcome", "cured", "death", "status", "event"]
+        )
 
         ui.update_select("sel_outcome", choices=binary_cols, selected=default_logit_y)
         ui.update_selectize("sel_exclude", choices=cols)
@@ -939,11 +934,9 @@ def core_regression_server(
         ]
 
         # Prefer "Count_" or "Visits" or "Falls"
-        default_poisson_y = None
-        for c in count_cols:
-            if any(k in c.lower() for k in ["count", "visit", "fall", "event"]):
-                default_poisson_y = c
-                break
+        default_poisson_y = select_variable_by_keyword(
+            count_cols, ["count", "visit", "fall", "event"]
+        )
         if not default_poisson_y and count_cols:
             default_poisson_y = count_cols[0]
 
@@ -971,11 +964,9 @@ def core_regression_server(
         numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(d[c])]
 
         # Prefer "Lab_", "Cost", "Score"
-        default_linear_y = None
-        for c in numeric_cols:
-            if any(k in c.lower() for k in ["lab_", "cost", "score", "chol", "hba1c"]):
-                default_linear_y = c
-                break
+        default_linear_y = select_variable_by_keyword(
+            numeric_cols, ["lab_", "cost", "score", "chol", "hba1c"]
+        )
 
         linear_outcome_choices = numeric_cols
         ui.update_select(
@@ -1003,11 +994,9 @@ def core_regression_server(
 
         # Update Tab 5 (Repeated Measures) Inputs
         # Prefer Lab results for repeated measures
-        default_rep_y = None
-        for c in numeric_cols:
-            if "lab" in c.lower() or "score" in c.lower() or "bp" in c.lower():
-                default_rep_y = c
-                break
+        default_rep_y = select_variable_by_keyword(
+            numeric_cols, ["lab", "score", "bp"], default_to_first=True
+        )
 
         ui.update_select(
             "rep_outcome", choices=numeric_cols, selected=default_rep_y

@@ -8,6 +8,7 @@ from shiny import module, reactive, render, ui
 
 from tabs._common import (
     get_color_palette,
+    select_variable_by_keyword,
 )
 from utils.collinearity_lib import calculate_vif
 from utils.heterogeneity_lib import calculate_heterogeneity
@@ -234,14 +235,34 @@ def advanced_inference_server(
         d = current_df()
         if d is not None:
             cols = d.columns.tolist()
-            ui.update_select("med_outcome", choices=cols)
-            ui.update_select("med_treatment", choices=cols)
-            ui.update_select("med_mediator", choices=cols)
-            ui.update_selectize("med_confounders", choices=cols)
-            ui.update_selectize("coll_vars", choices=cols)
-            ui.update_select("diag_outcome", choices=cols)
-            ui.update_select("diag_predictor", choices=cols)
-            ui.update_selectize("diag_covariates", choices=cols)
+            # -- Mediation Defaults --
+            def_med_out = select_variable_by_keyword(cols, ["outcome", "cured", "event", "status"], default_to_first=True)
+            def_med_treat = select_variable_by_keyword(cols, ["treatment", "group", "exposure"], default_to_first=True)
+            # Find a mediator (something with 'score', 'lab', 'level') that isn't outcome/treatment
+            rem_for_med = [c for c in cols if c not in [def_med_out, def_med_treat]]
+            def_med_mediator = select_variable_by_keyword(rem_for_med, ["score", "lab", "measure", "mediator"], default_to_first=True)
+
+            ui.update_select("med_outcome", choices=cols, selected=def_med_out)
+            ui.update_select("med_treatment", choices=cols, selected=def_med_treat)
+            ui.update_select("med_mediator", choices=cols, selected=def_med_mediator)
+            ui.update_selectize("med_confounders", choices=cols, selected=[]) # Confounders usually manual
+
+            # -- Collinearity Defaults --
+            # Select all numeric columns by default or keys like 'age', 'bmi', 'lab'
+            def_coll_vars = [c for c in cols if any(k in c.lower() for k in ["age", "bmi", "lab", "score", "value"])]
+            # If none found, just pick first 3 cols to avoid empty
+            if not def_coll_vars:
+                 def_coll_vars = cols[:3] if len(cols) >= 3 else cols
+            ui.update_selectize("coll_vars", choices=cols, selected=def_coll_vars)
+
+            # -- Diagnostics Defaults --
+            def_diag_out = select_variable_by_keyword(cols, ["outcome", "value", "score", "y"], default_to_first=True)
+            rem_for_diag = [c for c in cols if c != def_diag_out]
+            def_diag_pred = select_variable_by_keyword(rem_for_diag, ["treatment", "age", "bmi", "x"], default_to_first=True)
+            
+            ui.update_select("diag_outcome", choices=cols, selected=def_diag_out)
+            ui.update_select("diag_predictor", choices=cols, selected=def_diag_pred)
+            ui.update_selectize("diag_covariates", choices=cols, selected=[])
 
     @reactive.Effect
     @reactive.event(input.btn_run_mediation)

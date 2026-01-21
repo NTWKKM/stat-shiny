@@ -8,6 +8,7 @@ from shiny import module, reactive, render, req, ui
 from logger import get_logger
 from tabs._common import (
     get_color_palette,
+    select_variable_by_keyword,
 )
 from utils import decision_curve_lib, diag_test
 from utils.formatting import create_missing_data_report_html
@@ -349,31 +350,27 @@ def diag_server(
     @render.ui
     def ui_roc_truth():
         cols = all_cols()
-        def_idx = 0
-        for i, c in enumerate(cols):
-            if "gold" in c.lower() or "standard" in c.lower():
-                def_idx = i
-                break
+        default_v = select_variable_by_keyword(
+            cols, ["gold", "standard", "outcome", "truth"], default_to_first=True
+        )
         return ui.input_select(
             "sel_roc_truth",
             "Gold Standard (Binary):",
             choices=cols,
-            selected=cols[def_idx] if cols else None,
+            selected=default_v,
         )
 
     @render.ui
     def ui_roc_score():
         cols = all_cols()
-        score_idx = 0
-        for i, c in enumerate(cols):
-            if "score" in c.lower():
-                score_idx = i
-                break
+        default_v = select_variable_by_keyword(
+            cols, ["score", "prob", "predict"], default_to_first=True
+        )
         return ui.input_select(
             "sel_roc_score",
             "Test Score (Continuous):",
             choices=cols,
-            selected=cols[score_idx] if cols else None,
+            selected=default_v,
         )
 
     @render.ui
@@ -414,26 +411,27 @@ def diag_server(
     @render.ui
     def ui_chi_v1():
         cols = all_cols()
-        v1_idx = next((i for i, c in enumerate(cols) if c == "Treatment_Group"), 0)
+        default_v = select_variable_by_keyword(
+            cols, ["treatment", "group", "exposure"], default_to_first=True
+        )
         return ui.input_select(
             "sel_chi_v1",
             "Variable 1 (Exposure/Row):",
             choices=cols,
-            selected=cols[v1_idx] if cols else None,
+            selected=default_v,
         )
 
     @render.ui
     def ui_chi_v2():
         cols = all_cols()
-        v2_idx = next(
-            (i for i, c in enumerate(cols) if c == "Outcome_Cured"),
-            min(1, len(cols) - 1),
+        default_v = select_variable_by_keyword(
+            cols, ["outcome", "cured", "disease", "status"], default_to_first=True
         )
         return ui.input_select(
             "sel_chi_v2",
             "Variable 2 (Outcome/Col):",
             choices=cols,
-            selected=cols[v2_idx] if cols else None,
+            selected=default_v,
         )
 
     @render.ui
