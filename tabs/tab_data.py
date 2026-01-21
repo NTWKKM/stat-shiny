@@ -155,11 +155,8 @@ def data_server(
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
     # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
     data_issues: reactive.Value[list[dict[str, Any]]] = reactive.Value([])
-
     # --- 1. Data Loading Logic ---
-    @reactive.Effect
-    @reactive.event(lambda: input.btn_load_example())
-    def _():
+    def generate_example_data_logic():
         logger.info("Generating example data...")
         is_loading_data.set(True)
         data_issues.set([])  # Reset issues
@@ -537,8 +534,17 @@ def data_server(
             ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {e}", type="error")
 
-        finally:
             is_loading_data.set(False)
+
+    @reactive.Effect
+    @reactive.event(input.btn_load_example)
+    def _():
+        generate_example_data_logic()
+
+    @reactive.Effect
+    @reactive.event(input.btn_load_example_trigger)
+    def _():
+        generate_example_data_logic()
 
     # --- Data Upload Confirmation Modal ---
     @render.ui
