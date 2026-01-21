@@ -81,7 +81,7 @@ app_ui = ui.page_fluid(
         # 📁 TAB 1: DATA MANAGEMENT (Standalone)
         # ========================================
         ui.nav_panel(
-            "📁 Data",
+            "📁 Data Management",
             wrap_with_container(tab_data.data_ui("data")),
             value="data",
         ),
@@ -89,7 +89,7 @@ app_ui = ui.page_fluid(
         # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
         # ========================================
         ui.nav_panel(
-            "📋 Table 1",
+            "📋 Table 1 & Matching",
             wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
             value="bm",
         ),
@@ -97,7 +97,7 @@ app_ui = ui.page_fluid(
         # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
         # ========================================
         ui.nav_menu(
-            "📊 Stats",
+            "📊 General Statistics",
             ui.nav_panel(
                 "Diagnostic Tests",
                 wrap_with_container(tab_diag.diag_ui("diag")),
@@ -118,7 +118,7 @@ app_ui = ui.page_fluid(
         # 🔬 TAB 4: ADVANCED MODELING (Dropdown)
         # ========================================
         ui.nav_menu(
-            "🔬 Modeling",
+            "🔬 Advanced Statistics",
             ui.nav_panel(
                 "Regression Analysis",
                 wrap_with_container(
@@ -143,7 +143,7 @@ app_ui = ui.page_fluid(
         # 🏥 TAB 5: CLINICAL TOOLS (Dropdown)
         # ========================================
         ui.nav_menu(
-            "🏥 Clinical",
+            "🏥 Clinical Research Tools",
             ui.nav_panel(
                 "Sample Size Calculator",
                 wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
@@ -161,7 +161,7 @@ app_ui = ui.page_fluid(
         # ⚙️ TAB 6: SETTINGS (Standalone)
         # ========================================
         ui.nav_panel(
-            "⚙️ Settings",
+            "⚙️ System Settings",
             wrap_with_container(tab_settings.settings_ui("settings")),
             value="settings",
         ),
@@ -255,14 +255,13 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     tab_settings.settings_server("settings", CONFIG)
 
     # --- Lazy Loading (Heavy/Secondary Tabs) ---
-    # Store loaded state in session to prevent re-initialization
-    if "loaded_modules" not in session.user_data:
-        session.user_data["loaded_modules"] = set()
+    # Store loaded state locally in the server function
+    loaded_modules: set[str] = set()
 
     @reactive.Effect
     def _lazy_load_tabs():
         current_tab = input.main_nav()
-        loaded = session.user_data["loaded_modules"]
+        loaded = loaded_modules
 
         # Helper to load module once
         def load_module(name, loader_func):
@@ -286,7 +285,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         elif current_tab == "Agreement & Reliability":
             load_module("agreement", lambda: tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched))
 
-        # Advanced Modeling
+        # Advanced Statistics
         elif current_tab == "Regression Analysis":
             load_module("core_reg", lambda: tab_core_regression.core_regression_server("core_reg", df, var_meta, df_matched, is_matched))
             

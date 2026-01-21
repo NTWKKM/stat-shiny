@@ -152,19 +152,6 @@ def core_regression_ui() -> ui.TagChild:
                             ),
                             type="required",
                         ),
-                        create_input_group(
-                            "Method & Settings",
-                            ui.input_radio_buttons(
-                                "radio_method",
-                                "Regression Method:",
-                                {
-                                    "auto": "Auto (Recommended)",
-                                    "bfgs": "Standard (MLE)",
-                                    "firth": "Firth's (Penalized)",
-                                },
-                            ),
-                            type="required",
-                        ),
                         col_widths=[6, 6],
                     ),
                     ui.output_ui("out_logit_validation"),

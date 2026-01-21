@@ -4,8 +4,6 @@
 ⚠️ SOURCE OF TRUTH FOR CSS:
 Modify this file to update 'static/styles.css'.
 After editing, run: python utils/update_css.py
-"""
-
 
 Provides comprehensive CSS utilities, styled components, and helper functions for consistent
 UI styling across all Shiny modules using a professional Navy Blue theme with enhanced
@@ -568,6 +566,11 @@ def get_shiny_css():
             color: {COLORS["primary_dark"]} !important;
             background-color: {COLORS["primary_light"]};
             font-weight: 600;
+        }}
+        
+        /* Hide Home tab from navbar links (accessible via title) */
+        .navbar-nav .nav-link[data-value="home"] {{
+            display: none !important;
         }}
         
         /* Dropdown Menu (nav_menu) Styles */
