@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from shiny.ui import TagChild
@@ -19,10 +19,6 @@ def wrap_with_container(content: "TagChild") -> "TagChild":
     from shiny import ui  # Import inside function to avoid circular imports
 
     return ui.div(content, class_="app-container")
-
-
-
-
 
 
 def get_color_palette() -> dict[str, str]:

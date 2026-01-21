@@ -22,7 +22,6 @@ from utils.ui_helpers import (
     create_input_group,
     create_results_container,
     create_tooltip_label,
-    create_workflow_indicator,
 )
 
 logger = get_logger(__name__)
@@ -45,7 +44,6 @@ def baseline_matching_ui() -> ui.TagChild:
                 ui.output_ui("ui_dataset_selector_t1"),
                 ui.output_ui("ui_data_info_t1"),
                 ui.hr(),
-
                 ui.layout_columns(
                     create_input_group(
                         "Configuration",
@@ -108,7 +106,6 @@ def baseline_matching_ui() -> ui.TagChild:
             # Control section (top)
             ui.card(
                 ui.card_header("⚖️ PSM Configuration"),
-
                 ui.div(
                     "💡 ",
                     ui.strong("Need ATE directly?"),
@@ -205,7 +202,6 @@ def baseline_matching_ui() -> ui.TagChild:
             # Control section (top)
             ui.card(
                 ui.card_header("✅ Matched Data Actions"),
-
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("Export Options:"),
@@ -416,14 +412,22 @@ def baseline_matching_server(
         cols = d.columns.tolist()
 
         # Table 1
-        def_t1_group = select_variable_by_keyword(cols, ["group", "treatment", "exposure"], default_to_first=True)
-        ui.update_select("sel_group_col", choices=["None"] + cols, selected=def_t1_group)
+        def_t1_group = select_variable_by_keyword(
+            cols, ["group", "treatment", "exposure"], default_to_first=True
+        )
+        ui.update_select(
+            "sel_group_col", choices=["None"] + cols, selected=def_t1_group
+        )
         ui.update_selectize("sel_t1_vars", choices=cols, selected=cols)
 
         # PSM
         binary_cols = [c for c in cols if d[c].nunique() == 2]
-        def_psm_treat = select_variable_by_keyword(binary_cols, ["treatment", "group", "exposure"], default_to_first=True)
-        def_psm_out = select_variable_by_keyword(cols, ["outcome", "cured", "death", "event"], default_to_first=False)
+        def_psm_treat = select_variable_by_keyword(
+            binary_cols, ["treatment", "group", "exposure"], default_to_first=True
+        )
+        def_psm_out = select_variable_by_keyword(
+            cols, ["outcome", "cured", "death", "event"], default_to_first=False
+        )
         # default_to_first=False for outcome because PSM optional selection often defaults to None/Skip
 
         ui.update_select("sel_treat_col", choices=cols, selected=def_psm_treat)
@@ -530,7 +534,7 @@ def baseline_matching_server(
         return create_empty_state_ui(
             message="No Table 1 Generated",
             sub_message="Select variables and click '📊 Generate Table 1' to view baseline characteristics.",
-            icon="📋"
+            icon="📋",
         )
 
     @render.download(filename="table1.html")
@@ -763,7 +767,7 @@ def baseline_matching_server(
             return create_empty_state_ui(
                 message="No Matching Results",
                 sub_message="Configure parameters and click '🚀 Run Propensity Score Matching' to see results.",
-                icon="⚖️"
+                icon="⚖️",
             )
 
         # Display results with nested tabs
@@ -792,7 +796,7 @@ def baseline_matching_server(
                     ui.tags.blockquote(
                         "🔍 Interpretability Guide: Standardized mean differences (SMD) < 0.1 indicate good balance. "
                         "Ideally, all variables in the Love Plot should be within the vertical dashed lines.",
-                        style="border-left: 4px solid #ccc; padding-left: 10px; margin-top: 10px; color: #555; background: #f9f9f9; padding: 10px;"
+                        style="border-left: 4px solid #ccc; padding-left: 10px; margin-top: 10px; color: #555; background: #f9f9f9; padding: 10px;",
                     ),
                 ),
                 # Missing Data Report

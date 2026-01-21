@@ -1,4 +1,3 @@
-
 from shiny import ui
 
 
@@ -245,14 +244,14 @@ def create_skeleton_loader_ui(rows=3, show_chart=False):
         ui.Tag: A styled skeleton loader container.
     """
     items = []
-    
+
     # Text skeletons
     for i in range(rows):
         width_class = "skeleton-text" if i % 2 == 0 else "skeleton-text-sm"
         items.append(ui.div(class_=f"skeleton {width_class}"))
-        
+
     # Chart skeleton
     if show_chart:
         items.append(ui.div(class_="skeleton skeleton-chart"))
-        
+
     return ui.div(*items, class_="skeleton-container")

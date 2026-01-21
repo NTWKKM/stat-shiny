@@ -334,17 +334,16 @@ def corr_server(
                 default_cv1 = select_variable_by_keyword(
                     final_cols, ["lab", "value", "score"], default_to_first=True
                 )
-                
+
                 # For cv2, try to find a different variable
                 remaining_cols = [c for c in final_cols if c != default_cv1]
                 default_cv2 = select_variable_by_keyword(
                     remaining_cols, ["lab", "value", "score"], default_to_first=True
                 )
-                
+
                 # If we couldn't find a different second variable (e.g. only 1 col), fallback
                 if not default_cv2 and final_cols:
-                     default_cv2 = final_cols[0]
-
+                    default_cv2 = final_cols[0]
 
                 # Pairwise selectors
                 ui.update_select("cv1", choices=final_cols, selected=default_cv1)
@@ -905,5 +904,3 @@ def corr_server(
         if alerts:
             return ui.div(*alerts)
         return None
-
-

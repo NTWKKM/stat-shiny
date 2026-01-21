@@ -7,10 +7,7 @@ Consolidating Agreement and Reliability analysis:
 - ICC (Intraclass Correlation for continuous reliability)
 """
 
-from tabs._common import (
-    get_color_palette,
-    select_variable_by_keyword,
-)
+import re
 from typing import Any
 
 import numpy as np
@@ -18,6 +15,9 @@ import pandas as pd
 from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
+from tabs._common import (
+    select_variable_by_keyword,
+)
 from utils import correlation, diag_test
 from utils.formatting import create_missing_data_report_html
 from utils.ui_helpers import (
@@ -242,8 +242,6 @@ def agreement_server(
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
-
-
     # --- Reactive Results ---
     kappa_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     ba_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
@@ -308,15 +306,19 @@ def agreement_server(
             start_sel = cols[0] if cols else None
             # Intelligent fallback for second rater
             end_sel = cols[1] if len(cols) > 1 else start_sel
-            
+
             # Try to smart-select raters if keyword match
-            default_rater1 = select_variable_by_keyword(cols, ["rater1", "obs1", "method1"], default_to_first=True)
+            default_rater1 = select_variable_by_keyword(
+                cols, ["rater1", "obs1", "method1"], default_to_first=True
+            )
             default_rater2 = None
             if default_rater1:
-                 # Try to find rater2, excluding rater1
-                 rem_cols = [c for c in cols if c != default_rater1]
-                 default_rater2 = select_variable_by_keyword(rem_cols, ["rater2", "obs2", "method2"], default_to_first=True)
-            
+                # Try to find rater2, excluding rater1
+                rem_cols = [c for c in cols if c != default_rater1]
+                default_rater2 = select_variable_by_keyword(
+                    rem_cols, ["rater2", "obs2", "method2"], default_to_first=True
+                )
+
             if default_rater1 and default_rater2:
                 start_sel = default_rater1
                 end_sel = default_rater2
@@ -325,18 +327,23 @@ def agreement_server(
             ui.update_select("sel_kappa_v2", choices=cols, selected=end_sel)
 
             # Bland-Altman Selectors (Numeric only)
-            default_ba1 = select_variable_by_keyword(num_cols, ["method_a", "measure_1", "test_1", "gold"], default_to_first=True)
+            default_ba1 = select_variable_by_keyword(
+                num_cols,
+                ["method_a", "measure_1", "test_1", "gold"],
+                default_to_first=True,
+            )
             # Find distinct second variable
             rem_num = [c for c in num_cols if c != default_ba1]
-            default_ba2 = select_variable_by_keyword(rem_num, ["method_b", "measure_2", "test_2", "new"], default_to_first=True)
-            
-            if not default_ba2 and num_cols:
-                 default_ba2 = num_cols[0]
-
-
-            ui.update_select(
-                "sel_ba_v1", choices=num_cols, selected=default_ba1
+            default_ba2 = select_variable_by_keyword(
+                rem_num,
+                ["method_b", "measure_2", "test_2", "new"],
+                default_to_first=True,
             )
+
+            if not default_ba2 and num_cols:
+                default_ba2 = num_cols[0]
+
+            ui.update_select("sel_ba_v1", choices=num_cols, selected=default_ba1)
             ui.update_select(
                 "sel_ba_v2",
                 choices=num_cols,
