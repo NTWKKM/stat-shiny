@@ -134,7 +134,7 @@ def baseline_matching_ui() -> ui.TagChild:
                         ui.input_select(
                             "sel_outcome_col",
                             create_tooltip_label(
-                                "Outcome Variable", "Optional, excluded from matching."
+                                "Outcome Variable", "Excluded from matching."
                             ),
                             choices=[],
                         ),

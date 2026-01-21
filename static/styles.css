@@ -1278,21 +1278,13 @@
         }
         
         .form-section-required::before {
-            content: "● REQUIRED";
-            color: #E74856;
-            font-size: 12px;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 4px;
+            content: "";
+            display: none;
         }
         
         .form-section-optional::before {
-            content: "○ OPTIONAL";
-            color: #6B7280;
-            font-size: 12px;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 4px;
+            content: "";
+            display: none;
         }
         
         .form-section-advanced {

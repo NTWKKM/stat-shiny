@@ -166,7 +166,7 @@ def core_regression_ui() -> ui.TagChild:
                                 "sel_exclude", label=None, choices=[], multiple=True
                             ),
                             # Interaction Pairs selector
-                            ui.h6("🔗 Interaction Pairs (Optional):"),
+                            ui.h6("🔗 Interaction Pairs:"),
                             ui.input_selectize(
                                 "sel_interactions",
                                 label=None,
@@ -227,7 +227,7 @@ def core_regression_ui() -> ui.TagChild:
                                     ui.input_select(
                                         "poisson_offset",
                                         create_tooltip_label(
-                                            "Offset Column (Optional)",
+                                            "Offset Column",
                                             "Use for rate calculations (e.g., person-years).",
                                         ),
                                         choices=["None"],
@@ -254,7 +254,7 @@ def core_regression_ui() -> ui.TagChild:
                             ui.div(
                                 create_input_group(
                                     "Model Refinement",
-                                    ui.h6("🔗 Interaction Pairs (Optional):"),
+                                    ui.h6("🔗 Interaction Pairs:"),
                                     ui.input_selectize(
                                         "poisson_interactions",
                                         label=None,
@@ -307,7 +307,7 @@ def core_regression_ui() -> ui.TagChild:
                                     ui.input_select(
                                         "nb_offset",
                                         create_tooltip_label(
-                                            "Offset Column (Optional)",
+                                            "Offset Column",
                                             "Use for rate calculations.",
                                         ),
                                         choices=["None"],
@@ -333,7 +333,7 @@ def core_regression_ui() -> ui.TagChild:
                             ui.div(
                                 create_input_group(
                                     "Model Refinement",
-                                    ui.h6("🔗 Interaction Pairs (Optional):"),
+                                    ui.h6("🔗 Interaction Pairs:"),
                                     ui.input_selectize(
                                         "nb_interactions",
                                         label=None,
@@ -423,7 +423,7 @@ def core_regression_ui() -> ui.TagChild:
                                     ),
                                     ui.input_selectize(
                                         "glm_interactions",
-                                        "Interactions (Optional):",
+                                        "Interactions:",
                                         choices=[],
                                         multiple=True,
                                         options={
