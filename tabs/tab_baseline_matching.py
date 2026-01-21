@@ -44,10 +44,7 @@ def baseline_matching_ui() -> ui.TagChild:
                 ui.output_ui("ui_dataset_selector_t1"),
                 ui.output_ui("ui_data_info_t1"),
                 ui.hr(),
-                create_workflow_indicator(
-                    ["1. Baseline Check", "2. Run Matching", "3. Verify Balance"], 0
-                ),
-                ui.br(),
+
                 ui.layout_columns(
                     create_input_group(
                         "Configuration",
@@ -110,9 +107,7 @@ def baseline_matching_ui() -> ui.TagChild:
             # Control section (top)
             ui.card(
                 ui.card_header("⚖️ PSM Configuration"),
-                create_workflow_indicator(
-                    ["1. Baseline Check", "2. Run Matching", "3. Verify Balance"], 1
-                ),
+
                 ui.div(
                     "💡 ",
                     ui.strong("Need ATE directly?"),
@@ -209,10 +204,7 @@ def baseline_matching_ui() -> ui.TagChild:
             # Control section (top)
             ui.card(
                 ui.card_header("✅ Matched Data Actions"),
-                create_workflow_indicator(
-                    ["1. Baseline Check", "2. Run Matching", "3. Verify Balance"], 2
-                ),
-                ui.br(),
+
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("Export Options:"),
