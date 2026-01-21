@@ -82,16 +82,16 @@ def diag_ui() -> ui.TagChild:
                 ),
                 ui.div(
                     ui.h5("💡 Interpretation Guide"),
-                    ui.ul(
-                        ui.li(
+                    ui.tags.ul(
+                        ui.tags.li(
                             ui.strong("Sensitivity (True Positive Rate)"),
                             ": How well the test detects the disease/outcome.",
                         ),
-                        ui.li(
+                        ui.tags.li(
                             ui.strong("Specificity (True Negative Rate)"),
                             ": How well the test correctly excludes healthy people.",
                         ),
-                        ui.li(
+                        ui.tags.li(
                             ui.strong("AUC (Area Under Curve)"),
                             ": 0.5 = Random Guessing, 1.0 = Perfect. >0.8 is generally considered good.",
                         ),
@@ -142,16 +142,16 @@ def diag_ui() -> ui.TagChild:
                 create_results_container("Results", ui.output_ui("out_chi_results")),
                 ui.div(
                     ui.h5("💡 Interpretation Guide"),
-                    ui.ul(
-                        ui.li(
+                    ui.tags.ul(
+                        ui.tags.li(
                             ui.strong("P-Value < 0.05"),
                             ": Statistically significant association between the two variables.",
                         ),
-                        ui.li(
+                        ui.tags.li(
                             ui.strong("Odds Ratio (OR)"),
                             ": > 1 means increased odds of outcome; < 1 means decreased odds.",
                         ),
-                        ui.li(
+                        ui.tags.li(
                             ui.strong("Risk Ratio (RR)"),
                             ": > 1 means increased risk; < 1 means decreased risk.",
                         ),
