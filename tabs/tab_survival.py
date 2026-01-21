@@ -35,6 +35,15 @@ from utils import survival_lib
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.tvc_lib import create_tvc_forest_plot, fit_tvc_cox, generate_tvc_report
+from utils.ui_helpers import (
+    create_empty_state_ui,
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_results_container,
+    create_skeleton_loader_ui,
+    create_tooltip_label,
+)
 
 try:
     from utils.subgroup_analysis_module import SubgroupAnalysisCox
@@ -73,38 +82,59 @@ def survival_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("Kaplan-Meier & Nelson-Aalen Curves"),
                     ui.layout_columns(
-                        ui.input_select(
-                            "surv_time", "⛳ Time Variable:", choices=["Select..."]
+                        create_input_group(
+                            "Variable Selection",
+                            ui.input_select(
+                                "surv_time",
+                                create_tooltip_label(
+                                    "Time Variable", "Time to event/censoring."
+                                ),
+                                choices=["Select..."],
+                            ),
+                            ui.input_select(
+                                "surv_event",
+                                create_tooltip_label(
+                                    "Event Variable (1=Event)",
+                                    "Select the binary outcome column. '1' must indicate the event occurred (e.g., Death), '0' indicates censoring.",
+                                ),
+                                choices=["Select..."],
+                            ),
+                            ui.input_select(
+                                "surv_group",
+                                create_tooltip_label(
+                                    "Compare Groups (Optional)",
+                                    "Stratify by categorical variable.",
+                                ),
+                                choices=["None"],
+                            ),
+                            type="required",
                         ),
-                        ui.input_select(
-                            "surv_event",
-                            "🗣️ Event Variable (1=Event):",
-                            choices=["Select..."],
-                        ),
-                        ui.input_select(
-                            "surv_group", "Compare Groups (Optional):", choices=["None"]
-                        ),
-                        col_widths=[4, 4, 4],
-                    ),
-                    # ✅ NEW: Input for specific time points
-                    ui.layout_columns(
-                        ui.input_radio_buttons(
-                            "plot_type",
-                            "Select Plot Type:",
-                            choices={
-                                "km": "Kaplan-Meier (Survival Function)",
-                                "na": "Nelson-Aalen (Cumulative Hazard)",
-                            },
-                            selected="km",
-                            inline=True,
-                        ),
-                        ui.input_text(
-                            "surv_time_points",
-                            "🕰️ Survival Probability at (time units, comma separated):",
-                            placeholder="e.g. 12, 36, 60 (Non-negative numbers only)",
+                        create_input_group(
+                            "Plot Settings",
+                            ui.input_radio_buttons(
+                                "plot_type",
+                                "Select Plot Type:",
+                                choices={
+                                    "km": "Kaplan-Meier (Survival Function)",
+                                    "na": "Nelson-Aalen (Cumulative Hazard)",
+                                },
+                                selected="km",
+                                inline=True,
+                            ),
+                            ui.input_text(
+                                "surv_time_points",
+                                create_tooltip_label(
+                                    "Survival Probability at (times)",
+                                    "Comma-separated time points (e.g., 12, 24).",
+                                ),
+                                placeholder="e.g. 12, 36, 60 (Non-negative numbers only)",
+                            ),
+                            type="required",
                         ),
                         col_widths=[6, 6],
                     ),
+                    ui.output_ui("out_curves_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_curves",
@@ -118,8 +148,12 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("out_curves_result"),
-                    full_screen=True,
+                ),
+                ui.output_ui(
+                    "out_curves_status"
+                ),  # Placeholder for loading state if needed
+                create_results_container(
+                    "Analysis Results", ui.output_ui("out_curves_result")
                 ),
             ),
             # TAB 2: Landmark Analysis
@@ -127,20 +161,46 @@ def survival_ui() -> ui.TagChild:
                 "📊 Landmark Analysis",
                 ui.card(
                     ui.card_header("Landmark Analysis for Late Endpoints"),
-                    ui.markdown(
-                        "**Principle:** Exclude patients with event/censoring before landmark time."
+                    ui.div(
+                        ui.markdown(
+                            """
+                            **ℹ️ Principle:** Landmark analysis is useful when the treatment effect is delayed (e.g., immune-oncology) or violates proportional hazards initially.
+                            
+                            **How it works:**
+                            1. Select a "Landmark Time" (t).
+                            2. Patients who died/censored *before* t are **excluded**.
+                            3. Analysis is performed only on patients who survived to time t, resetting their "start" time to t.
+                            """
+                        ),
+                        style=f"padding: 15px; margin-bottom: 20px; background-color: {COLORS['info']}10; border-left: 4px solid {COLORS['info']}; border-radius: 4px;",
                     ),
-                    ui.input_slider(
-                        "landmark_t",
-                        "Landmark Time (t):",
-                        min=0,
-                        max=100,
-                        value=10,
-                        step=1,
+                    ui.layout_columns(
+                        create_input_group(
+                            "Settings",
+                            create_tooltip_label(
+                                "Landmark Time (t)", "Time point for landmark analysis."
+                            ),
+                            ui.input_slider(
+                                "landmark_t",
+                                label=None,
+                                min=0,
+                                max=100,
+                                value=10,
+                                step=1,
+                            ),
+                            ui.input_select(
+                                "landmark_group",
+                                create_tooltip_label(
+                                    "Compare Group", "Group variable for comparison."
+                                ),
+                                choices=["Select..."],
+                            ),
+                            type="required",
+                        ),
+                        col_widths=[6],
                     ),
-                    ui.input_select(
-                        "landmark_group", "Compare Group:", choices=["Select..."]
-                    ),
+                    ui.output_ui("out_landmark_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_landmark",
@@ -154,8 +214,10 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("out_landmark_result"),
-                    full_screen=True,
+                ),
+                ui.output_ui("out_landmark_status"),
+                create_results_container(
+                    "Landmark Analysis Results", ui.output_ui("out_landmark_result")
                 ),
             ),
             # TAB 3: Cox Regression
@@ -164,26 +226,38 @@ def survival_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("Cox Proportional Hazards Regression"),
                     ui.layout_columns(
-                        ui.input_select(
-                            "cox_method",
-                            "🔧 Fitting Method:",
-                            choices={
-                                "auto": "Auto (lifelines → Firth fallback)",
-                                "lifelines": "Standard (lifelines CoxPHFitter)",
-                                "firth": "Firth (for rare events / small samples)",
-                            },
-                            selected="auto",
+                        create_input_group(
+                            "Model Configuration",
+                            ui.input_select(
+                                "cox_method",
+                                create_tooltip_label(
+                                    "Fitting Method", "Algorithm for model estimation."
+                                ),
+                                choices={
+                                    "auto": "Auto (lifelines → Firth fallback)",
+                                    "lifelines": "Standard (lifelines CoxPHFitter)",
+                                    "firth": "Firth (for rare events / small samples)",
+                                },
+                                selected="auto",
+                            ),
+                            create_tooltip_label(
+                                "Select Covariates (Predictors)",
+                                "Variables to adjust for in the model.",
+                            ),
+                            ui.input_selectize(
+                                "cox_covariates",
+                                label=None,
+                                choices=[],
+                                selected=[],
+                                multiple=True,
+                                options={"placeholder": "Select predictors..."},
+                            ),
+                            type="required",
                         ),
                         col_widths=[12],
                     ),
-                    ui.input_selectize(
-                        "cox_covariates",
-                        "Select Covariates (Predictors):",
-                        choices=[],
-                        selected=[],
-                        multiple=True,
-                        options={"placeholder": "Select predictors..."},
-                    ),
+                    ui.output_ui("out_cox_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_cox",
@@ -197,8 +271,10 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("out_cox_result"),
-                    full_screen=True,
+                ),
+                ui.output_ui("out_cox_status"),
+                create_results_container(
+                    "Cox Model Results", ui.output_ui("out_cox_result")
                 ),
             ),
             # TAB 4: Subgroup Analysis
@@ -207,48 +283,79 @@ def survival_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("Cox Subgroup Analysis - Treatment Heterogeneity"),
                     ui.layout_columns(
-                        ui.input_select(
-                            "sg_time", "Follow-up Time:", choices=["Select..."]
+                        create_input_group(
+                            "Variables",
+                            ui.input_select(
+                                "sg_time",
+                                create_tooltip_label(
+                                    "Follow-up Time", "Time to event/censoring."
+                                ),
+                                choices=["Select..."],
+                            ),
+                            ui.input_select(
+                                "sg_event",
+                                create_tooltip_label(
+                                    "Event Indicator", "1=Event, 0=Censored."
+                                ),
+                                choices=["Select..."],
+                            ),
+                            ui.input_select(
+                                "sg_treatment",
+                                create_tooltip_label(
+                                    "Treatment/Exposure",
+                                    "Primary variable of interest.",
+                                ),
+                                choices=["Select..."],
+                            ),
+                            type="required",
                         ),
-                        ui.input_select(
-                            "sg_event",
-                            "Event Indicator (Binary):",
-                            choices=["Select..."],
+                        create_input_group(
+                            "Stratification & Adjustment",
+                            ui.input_select(
+                                "sg_subgroup",
+                                create_tooltip_label(
+                                    "Stratify By",
+                                    "Categorical variable defining subgroups.",
+                                ),
+                                choices=["Select..."],
+                            ),
+                            create_tooltip_label(
+                                "Adjustment Variables",
+                                "Covariates to adjust for within subgroups.",
+                            ),
+                            ui.input_checkbox_group(
+                                "sg_adjust", label=None, choices=[]
+                            ),
+                            type="required",
                         ),
-                        ui.input_select(
-                            "sg_treatment", "Treatment/Exposure:", choices=["Select..."]
-                        ),
-                        col_widths=[4, 4, 4],
-                    ),
-                    ui.layout_columns(
-                        ui.input_select(
-                            "sg_subgroup", "📌 Stratify By:", choices=["Select..."]
-                        ),
-                        ui.input_checkbox_group(
-                            "sg_adjust", "Adjustment Variables:", choices=[]
-                        ),
-                        col_widths=[4, 8],
+                        col_widths=[6, 6],
                     ),
                     ui.accordion(
                         ui.accordion_panel(
                             "⚠️ Advanced Settings",
-                            ui.input_numeric(
-                                "sg_min_n",
-                                "Min N per subgroup:",
-                                value=5,
-                                min=2,
-                                max=50,
-                            ),
-                            ui.input_numeric(
-                                "sg_min_events",
-                                "Min events per subgroup:",
-                                value=2,
-                                min=1,
-                                max=50,
+                            create_input_group(
+                                "Minimum Counts",
+                                ui.input_numeric(
+                                    "sg_min_n",
+                                    "Min N per subgroup:",
+                                    value=5,
+                                    min=2,
+                                    max=50,
+                                ),
+                                ui.input_numeric(
+                                    "sg_min_events",
+                                    "Min events per subgroup:",
+                                    value=2,
+                                    min=1,
+                                    max=50,
+                                ),
+                                type="advanced",
                             ),
                         ),
                         open=False,
                     ),
+                    ui.output_ui("out_sg_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_sg",
@@ -262,8 +369,10 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("out_sg_result"),
-                    full_screen=True,
+                ),
+                ui.output_ui("out_sg_status"),
+                create_results_container(
+                    "Subgroup Analysis Results", ui.output_ui("out_sg_result")
                 ),
             ),
             # TAB 5: Time-Varying Cox (NEW)
@@ -287,6 +396,8 @@ def survival_ui() -> ui.TagChild:
                         tvc_data_preview_card_ui(),
                         col_widths=[6, 6],
                     ),
+                    ui.output_ui("out_tvc_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_tvc",
@@ -300,8 +411,10 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("out_tvc_result"),
-                    full_screen=True,
+                ),
+                ui.output_ui("out_tvc_status"),
+                create_results_container(
+                    "Analysis Results", ui.output_ui("out_tvc_result")
                 ),
             ),
             # TAB 6: Reference & Interpretation
@@ -351,6 +464,13 @@ def survival_server(
     sg_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     tvc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     tvc_long_data: reactive.Value[pd.DataFrame | None] = reactive.Value(None)
+
+    # Running States
+    curves_is_running = reactive.Value(False)
+    lm_is_running = reactive.Value(False)
+    cox_is_running = reactive.Value(False)
+    sg_is_running = reactive.Value(False)
+    tvc_is_running = reactive.Value(False)
 
     # ==================== DATASET SELECTION LOGIC ====================
     @reactive.Calc
@@ -697,6 +817,8 @@ def survival_server(
                 return
 
         try:
+            curves_is_running.set(True)
+            curves_result.set(None)  # Clear previous
             ui.notification_show("Generating curves...", duration=None, id="run_curves")
 
             surv_at_times_df = None
@@ -734,18 +856,32 @@ def survival_server(
 
         except Exception as e:
             ui.notification_remove("run_curves")
-            ui.notification_show(f"Error: {e}", type="error")
+            err_msg = f"Curve error: {e!s}"
+            curves_result.set({"error": err_msg})
+            ui.notification_show("Analysis failed", type="error")
             logger.exception("Curve error")
+        finally:
+            curves_is_running.set(False)
 
     @render.ui
     def out_curves_result():
         """Assemble and return the UI card displaying survival-curve outputs and related statistics."""
+        if curves_is_running.get():
+            return ui.div(
+                create_loading_state("Generating survival curves..."),
+                create_skeleton_loader_ui(rows=3, show_chart=True),
+            )
+
         res = curves_result.get()
         if res is None:
-            return ui.div(
-                ui.markdown("*Results will appear here...*"),
-                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;",
+            return create_empty_state_ui(
+                message="No Survival Curves",
+                sub_message="Configure settings and click '🚀 Generate Curve' to visualize survival.",
+                icon="📈",
             )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         elements = [
             ui.card_header("📈 Plot"),
@@ -762,7 +898,7 @@ def survival_server(
             elements.append(ui.card_header("🕰️ Survival Probability at Specific Times"))
             elements.append(ui.output_data_frame("out_surv_times_table"))
 
-        return ui.card(*elements)
+        return ui.div(*elements)
 
     @render.ui
     def out_curves_plot():
@@ -858,6 +994,8 @@ def survival_server(
             return
 
         try:
+            lm_is_running.set(True)
+            landmark_result.set(None)
             ui.notification_show(
                 "Running Landmark Analysis...", duration=None, id="run_landmark"
             )
@@ -883,15 +1021,33 @@ def survival_server(
         except Exception as e:
             ui.notification_remove("run_landmark")
             logger.exception("Landmark error")
-            ui.notification_show(f"Landmark analysis error: {e}", type="error")
+            err_msg = f"Landmark analysis error: {e!s}"
+            landmark_result.set({"error": err_msg})
+            ui.notification_show("Analysis failed", type="error")
+        finally:
+            lm_is_running.set(False)
 
     @render.ui
     def out_landmark_result():
         """Render the landmark analysis result card containing the plot and summary statistics."""
+        if lm_is_running.get():
+            return ui.div(
+                create_loading_state("Running Landmark Analysis..."),
+                create_skeleton_loader_ui(rows=3, show_chart=True),
+            )
+
         res = landmark_result.get()
         if res is None:
-            return None
-        return ui.card(
+            return create_empty_state_ui(
+                message="No Landmark Analysis",
+                sub_message="Configure parameters and click '🚀 Run Landmark Analysis' to account for immune-delayed effects.",
+                icon="📊",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        return ui.div(
             ui.card_header("📈 Landmark Plot"),
             ui.div(
                 ui.markdown(
@@ -968,6 +1124,8 @@ def survival_server(
             return
 
         try:
+            cox_is_running.set(True)
+            cox_result.set(None)
             ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
 
             cox_method = input.cox_method()
@@ -1018,15 +1176,32 @@ def survival_server(
 
         except Exception as e:
             ui.notification_remove("run_cox")
-            ui.notification_show(f"Cox error: {e}", type="error")
+            err_msg = f"Cox error: {e!s}"
+            cox_result.set({"error": err_msg})
+            ui.notification_show("Analysis failed", type="error")
             logger.exception("Cox Error")
+        finally:
+            cox_is_running.set(False)
 
     @render.ui
     def out_cox_result():
         """Render the Cox proportional hazards model results card for the UI."""
+        if cox_is_running.get():
+            return ui.div(
+                create_loading_state("Fitting Cox Proportional Hazards Model..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
+            )
+
         res = cox_result.get()
         if res is None:
-            return None
+            return create_empty_state_ui(
+                message="No Cox Model Results",
+                sub_message="Select covariates and run the model.",
+                icon="📄",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         stats_ui = None
         if res.get("model_stats"):
@@ -1044,7 +1219,7 @@ def survival_server(
                 style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
             )
 
-        return ui.card(
+        return ui.div(
             ui.card_header("📄 Cox Results"),
             stats_ui,
             ui.output_data_frame("out_cox_table"),
@@ -1154,6 +1329,8 @@ def survival_server(
             return
 
         try:
+            sg_is_running.set(True)
+            sg_result.set(None)
             ui.notification_show(
                 "Running Subgroup Analysis...", duration=None, id="run_sg"
             )
@@ -1183,15 +1360,32 @@ def survival_server(
             ui.notification_remove("run_sg")
         except Exception as e:
             ui.notification_remove("run_sg")
-            ui.notification_show(f"Error: {e}", type="error")
+            err_msg = f"Subgroup analysis error: {e!s}"
+            sg_result.set({"error": err_msg})
+            ui.notification_show("Analysis failed", type="error")
             logger.exception("Subgroup analysis error")
+        finally:
+            sg_is_running.set(False)
 
     @render.ui
     def out_sg_result():
         """Builds the UI card displaying subgroup analysis results."""
+        if sg_is_running.get():
+            return ui.div(
+                create_loading_state("Running Subgroup Analysis..."),
+                create_skeleton_loader_ui(rows=3, show_chart=True),
+            )
+
         res = sg_result.get()
         if res is None:
-            return None
+            return create_empty_state_ui(
+                message="No Subgroup Analysis",
+                sub_message="Define subgroups and run analysis to detect treatment heterogeneity.",
+                icon="🔛",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         elements = []
         if "forest_plot" in res:
@@ -1213,7 +1407,7 @@ def survival_server(
                 )
             )
 
-        return ui.card(*elements)
+        return ui.div(*elements)
 
     @render.ui
     def out_sg_forest():
@@ -1486,6 +1680,8 @@ def survival_server(
             return
 
         try:
+            tvc_is_running.set(True)
+            tvc_result.set(None)
             ui.notification_show(
                 "Fitting Time-Varying Cox Model...", duration=None, id="run_tvc"
             )
@@ -1614,18 +1810,32 @@ def survival_server(
             ui.notification_remove("run_tvc")
         except Exception as e:
             ui.notification_remove("run_tvc")
-            ui.notification_show(f"TVC model error: {e}", type="error")
-            logger.exception("TVC model error")
+            err_msg = f"TVC Error: {e!s}"
+            tvc_result.set({"error": err_msg})
+            ui.notification_show("Analysis failed", type="error")
+            logger.exception("TVC Execution Error")
+        finally:
+            tvc_is_running.set(False)
 
     @render.ui
     def out_tvc_result():
-        """Render the Time-Varying Cox model results card."""
+        """Render the Time-Varying Cox regression results card."""
+        if tvc_is_running.get():
+            return ui.div(
+                create_loading_state("Fitting Time-Varying Cox Model..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
+            )
+
         res = tvc_result.get()
         if res is None:
-            return ui.div(
-                ui.markdown("*Results will appear here after running the model.*"),
-                style=f"color: {COLORS['text_secondary']}; text-align: center; padding: 20px;",
+            return create_empty_state_ui(
+                message="No Time-Varying Cox Results",
+                sub_message="Configure manual intervals or long format data and run model.",
+                icon="⏱️",
             )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         stats_ui = None
         if res.get("model_stats"):
@@ -1640,7 +1850,7 @@ def survival_server(
                 style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
             )
 
-        return ui.card(
+        return ui.div(
             ui.card_header("📄 Time-Varying Cox Results"),
             stats_ui,
             ui.output_data_frame("out_tvc_table"),
@@ -1720,3 +1930,143 @@ def survival_server(
             var_meta=var_meta.get(),
         )
         yield html
+
+    # ==================== VALIDATION LOGIC ====================
+    @render.ui
+    def out_curves_validation():
+        d = current_df()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if time_col == "Select..." or event_col == "Select...":
+            return None  # Wait for selection
+
+        if time_col == event_col:
+            alerts.append(
+                create_error_alert(
+                    "Time and Event variables must be different.",
+                    title="Configuration Error",
+                )
+            )
+
+        if event_col in d.columns and d[event_col].nunique() > 2:
+            alerts.append(
+                create_error_alert(
+                    f"Event variable '{event_col}' should be binary (0/1). It has {d[event_col].nunique()} unique values.",
+                    title="Warning",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_landmark_validation():
+        d = current_df()
+        time_col = input.surv_time()
+        lm_t = input.landmark_t()
+
+        if d is None or d.empty or time_col == "Select..." or time_col not in d.columns:
+            return None
+        alerts = []
+
+        max_time = d[time_col].max()
+        if lm_t >= max_time:
+            alerts.append(
+                create_error_alert(
+                    f"Landmark time ({lm_t}) must be less than the maximum follow-up time ({max_time}).",
+                    title="Invalid Landmark",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_cox_validation():
+        d = current_df()
+        covs = input.cox_covariates()
+        time_col = input.surv_time()
+        event_col = input.surv_event()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not covs:
+            return None  # Silent if empty
+
+        if time_col in covs or event_col in covs:
+            alerts.append(
+                create_error_alert(
+                    "Time or Event variable cannot be used as a covariate.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_sg_validation():
+        d = current_df()
+        subgroup = input.sg_subgroup()
+        treatment = input.sg_treatment()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if subgroup == "Select...":
+            return None
+
+        if subgroup == treatment:
+            alerts.append(
+                create_error_alert(
+                    "Subgroup variable cannot be the same as the Treatment variable.",
+                    title="Configuration Error",
+                )
+            )
+
+        if subgroup in d.columns and d[subgroup].nunique() > 10:
+            alerts.append(
+                create_error_alert(
+                    f"Subgroup variable '{subgroup}' has {d[subgroup].nunique()} levels. Recommended < 10.",
+                    title="Warning",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_tvc_validation():
+        d = current_df()
+        fmt = input.tvc_data_format()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if fmt == "wide":
+            # Check ID column uniqueness for wide format (should be unique per subject)
+            id_col = input.tvc_id_col()
+            if id_col and id_col in d.columns:
+                if d[id_col].duplicated().any():
+                    alerts.append(
+                        create_error_alert(
+                            f"ID column '{id_col}' contains duplicates. Wide format requires unique IDs.",
+                            title="Data Format Error",
+                        )
+                    )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None

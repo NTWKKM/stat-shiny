@@ -19,6 +19,13 @@ from utils.model_diagnostics_lib import (
     run_reset_test,
 )
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.ui_helpers import (
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_placeholder_state,
+    create_results_container,
+)
 
 COLORS = get_color_palette()
 
@@ -27,100 +34,94 @@ COLORS = get_color_palette()
 def advanced_inference_ui():
     """UI for Advanced Inference."""
     return ui.div(
-        ui.h3("🔍 Advanced Inference"),
-        # Dataset info and selector
-        ui.output_ui("ui_matched_info_ai"),
-        ui.output_ui("ui_dataset_selector_ai"),
-        ui.br(),
+        # Title + Data Summary inline
+        ui.div(
+            ui.h3("🔍 Advanced Inference"),
+            ui.output_ui("ui_matched_info_ai"),
+            ui.output_ui("ui_dataset_selector_ai"),
+            class_="d-flex justify-content-between align-items-center mb-3",
+        ),
         ui.navset_tab(
             ui.nav_panel(
                 "🎯 Mediation Analysis",
                 ui.card(
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Variables"),
-                            ui.input_select("med_outcome", "Outcome (Y):", choices=[]),
-                            ui.input_select(
-                                "med_treatment", "Treatment (X):", choices=[]
-                            ),
-                            ui.input_select(
-                                "med_mediator", "Mediator (M):", choices=[]
-                            ),
-                            ui.input_selectize(
-                                "med_confounders",
-                                "Confounders (C):",
-                                choices=[],
-                                multiple=True,
-                            ),
+                    ui.card_header("Mediation Analysis"),
+                    create_input_group(
+                        "Variables",
+                        ui.input_select("med_outcome", "Outcome (Y):", choices=[]),
+                        ui.input_select("med_treatment", "Treatment (X):", choices=[]),
+                        ui.input_select("med_mediator", "Mediator (M):", choices=[]),
+                        ui.input_selectize(
+                            "med_confounders",
+                            "Confounders (C):",
+                            choices=[],
+                            multiple=True,
                         ),
-                        ui.card(
-                            ui.card_header("Action"),
-                            ui.input_action_button(
-                                "btn_run_mediation",
-                                "🚀 Run Mediation",
-                                class_="btn-primary w-100",
-                            ),
-                        ),
+                        type="required",
                     ),
-                    ui.output_ui("out_mediation_status"),
+                    ui.output_ui("out_mediation_validation"),
+                    ui.hr(),
+                    ui.input_action_button(
+                        "btn_run_mediation",
+                        "🚀 Run Mediation",
+                        class_="btn-primary w-100",
+                    ),
                 ),
-                ui.output_data_frame("tbl_mediation"),
+                ui.output_ui("out_mediation_status"),
+                create_results_container(
+                    "Results", ui.output_ui("out_mediation_container")
+                ),
             ),
             ui.nav_panel(
                 "🔬 Collinearity",
                 ui.card(
-                    ui.input_selectize(
-                        "coll_vars", "Predictors:", choices=[], multiple=True
+                    ui.card_header("Collinearity Diagnostic"),
+                    create_input_group(
+                        "Variables",
+                        ui.input_selectize(
+                            "coll_vars", "Predictors:", choices=[], multiple=True
+                        ),
+                        type="required",
                     ),
+                    ui.output_ui("out_coll_validation"),
+                    ui.hr(),
                     ui.input_action_button(
-                        "btn_run_collinearity", "Analyze", class_="btn-primary"
+                        "btn_run_collinearity", "Analyze", class_="btn-primary w-100"
                     ),
                 ),
-                ui.output_data_frame("tbl_vif"),
-                ui.output_ui("plot_corr_heatmap"),
+                create_results_container(
+                    "VIF Results", ui.output_ui("out_vif_container")
+                ),
             ),
             ui.nav_panel(
                 "📊 Model Diagnostics",
                 ui.card(
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Input Data"),
-                            ui.input_select("diag_outcome", "Outcome (Y):", choices=[]),
-                            ui.input_select(
-                                "diag_predictor", "Main Predictor (X):", choices=[]
-                            ),
-                            ui.input_selectize(
-                                "diag_covariates",
-                                "Covariates:",
-                                choices=[],
-                                multiple=True,
-                            ),
+                    ui.card_header("Model Diagnostics (OLS)"),
+                    create_input_group(
+                        "Model Specification",
+                        ui.input_select("diag_outcome", "Outcome (Y):", choices=[]),
+                        ui.input_select(
+                            "diag_predictor", "Main Predictor (X):", choices=[]
                         ),
-                        ui.card(
-                            ui.card_header("Action"),
-                            ui.input_action_button(
-                                "btn_run_diag",
-                                "🚀 Run Diagnostics",
-                                class_="btn-primary w-100",
-                            ),
+                        ui.input_selectize(
+                            "diag_covariates",
+                            "Covariates:",
+                            choices=[],
+                            multiple=True,
                         ),
+                        type="required",
                     ),
-                    ui.output_ui("out_diag_status"),
+                    ui.output_ui("out_diag_validation"),
+                    ui.hr(),
+                    ui.input_action_button(
+                        "btn_run_diag",
+                        "🚀 Run Diagnostics",
+                        class_="btn-primary w-100",
+                    ),
                 ),
-                ui.navset_tab(
-                    ui.nav_panel("📋 Tests", ui.output_data_frame("tbl_diagnostics")),
-                    ui.nav_panel(
-                        "📉 Plots",
-                        ui.layout_columns(
-                            ui.output_plot("plot_residuals"),
-                            ui.output_plot("plot_qq"),
-                        ),
-                    ),
-                    ui.nav_panel(
-                        "⚠️ Influence",
-                        ui.output_data_frame("tbl_cooks"),
-                        ui.output_text_verbatim("txt_cooks_summary"),
-                    ),
+                ui.output_ui("out_diag_status"),
+                create_results_container(
+                    "Diagnostic Results", ui.output_ui("out_diag_container")
                 ),
             ),
             ui.nav_panel(
@@ -130,32 +131,41 @@ def advanced_inference_ui():
                     ui.p(
                         "Enter comma-separated values for effect sizes and variances."
                     ),
-                    ui.input_text("het_effects", "Effect Sizes (e.g., 0.5, 0.4, 0.6):"),
-                    ui.input_text(
-                        "het_variances", "Variances (e.g., 0.01, 0.02, 0.015):"
+                    create_input_group(
+                        "Data Inputs",
+                        ui.input_text(
+                            "het_effects", "Effect Sizes (e.g., 0.5, 0.4, 0.6):"
+                        ),
+                        ui.input_text(
+                            "het_variances", "Variances (e.g., 0.01, 0.02, 0.015):"
+                        ),
+                        type="required",
                     ),
+                    ui.output_ui("out_het_validation"),
+                    ui.hr(),
                     ui.input_action_button(
                         "btn_run_het",
                         "🚀 Calculate Heterogeneity",
-                        class_="btn-primary",
+                        class_="btn-primary w-100",
                     ),
                 ),
-                ui.output_data_frame("tbl_heterogeneity"),
+                create_results_container("Results", ui.output_ui("out_het_container")),
             ),
             ui.nav_panel(
                 "ℹ️ Reference",
-                ui.markdown("""
-                    ### Advanced Inference Reference
-                    
-                    **Mediation Analysis:**
-                    * **ACME**: Average Causal Mediation Effect (Indirect Effect)
-                    * **ADE**: Average Direct Effect
-                    * **Total Effect**: ACME + ADE
-                    
-                    **Collinearity:**
-                    * **VIF > 5-10**: High multicollinearity
-                    * **Tolerance < 0.1**: High multicollinearity
-                 """),
+                ui.card(
+                    ui.card_header("Advanced Inference Reference"),
+                    ui.markdown("""
+                        **Mediation Analysis:**
+                        * **ACME**: Average Causal Mediation Effect (Indirect Effect)
+                        * **ADE**: Average Direct Effect
+                        * **Total Effect**: ACME + ADE
+                        
+                        **Collinearity:**
+                        * **VIF > 5-10**: High multicollinearity
+                        * **Tolerance < 0.1**: High multicollinearity
+                     """),
+                ),
             ),
         ),
     )
@@ -169,6 +179,16 @@ def advanced_inference_server(
 
     mediation_results = reactive.Value(None)
     vif_results = reactive.Value(None)
+    diag_results = reactive.Value(None)
+    diag_plot_data = reactive.Value(None)
+    cooks_results = reactive.Value(None)
+    het_results = reactive.Value(None)
+
+    # Running States
+    med_is_running = reactive.Value(False)
+    coll_is_running = reactive.Value(False)
+    diag_is_running = reactive.Value(False)
+    het_is_running = reactive.Value(False)
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
@@ -231,6 +251,12 @@ def advanced_inference_server(
             return
 
         try:
+            med_is_running.set(True)
+            mediation_results.set(None)
+            ui.notification_show(
+                "Running Mediation Analysis...", duration=None, id="run_med"
+            )
+
             results = analyze_mediation(
                 data=current_df(),
                 outcome=input.med_outcome(),
@@ -241,9 +267,30 @@ def advanced_inference_server(
                 else None,
             )
             mediation_results.set(results)
+            ui.notification_remove("run_med")
             ui.notification_show("Mediation Analysis Complete", type="message")
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+            ui.notification_remove("run_med")
+            ui.notification_show("Analysis failed", type="error")
+            mediation_results.set({"error": f"Error: {str(e)}"})
+        finally:
+            med_is_running.set(False)
+
+    @render.ui
+    def out_mediation_container():
+        if med_is_running.get():
+            return create_loading_state("Running Mediation Analysis...")
+
+        res = mediation_results.get()
+        if res is None:
+            return create_placeholder_state(
+                "Select variables and run mediation analysis.", icon="🎯"
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        return ui.output_data_frame("tbl_mediation")
 
     @render.ui
     def out_mediation_status():
@@ -254,7 +301,7 @@ def advanced_inference_server(
     @render.data_frame
     def tbl_mediation():
         res = mediation_results.get()
-        if res:
+        if res and "error" not in res:
             return pd.DataFrame(
                 {
                     "Effect": [
@@ -286,14 +333,47 @@ def advanced_inference_server(
             return
 
         try:
+            coll_is_running.set(True)
+            vif_results.set(None)
+            ui.notification_show("Calculating VIF...", duration=None, id="run_vif")
+
             res = calculate_vif(current_df(), predictors)
             vif_results.set(res)
+
+            ui.notification_remove("run_vif")
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+            ui.notification_remove("run_vif")
+            ui.notification_show("Analysis failed", type="error")
+            vif_results.set({"error": f"Error: {str(e)}"})
+        finally:
+            coll_is_running.set(False)
+
+    @render.ui
+    def out_vif_container():
+        if coll_is_running.get():
+            return create_loading_state("Calculating Collinearity Diagnostics...")
+
+        res = vif_results.get()
+        if res is None:
+            return create_placeholder_state(
+                "Select predictors to check for multicollinearity.", icon="🔬"
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        return ui.div(
+            ui.output_data_frame("tbl_vif"),
+            ui.h5("Correlation Heatmap", class_="mt-4"),
+            ui.output_ui("plot_corr_heatmap"),
+        )
 
     @render.data_frame
     def tbl_vif():
-        return vif_results.get()
+        res = vif_results.get()
+        if res and "error" not in res:
+            return res
+        return None
 
     @render.ui
     def plot_corr_heatmap():
@@ -325,9 +405,7 @@ def advanced_inference_server(
         return plotly_figure_to_html(fig)
 
     # --- Model Diagnostics Logic ---
-    diag_results = reactive.Value(None)
-    diag_plot_data = reactive.Value(None)
-    cooks_results = reactive.Value(None)
+    # (Reactive values moved to top init block)
 
     @reactive.Effect
     @reactive.event(input.btn_run_diag)
@@ -337,6 +415,10 @@ def advanced_inference_server(
             return
 
         try:
+            diag_is_running.set(True)
+            diag_results.set(None)
+            ui.notification_show("Running Diagnostics...", duration=None, id="run_diag")
+
             d = current_df().dropna()
             y_col = input.diag_outcome()
             x_col = input.diag_predictor()
@@ -363,15 +445,50 @@ def advanced_inference_server(
             diag_plot_data.set(res_plots)
             cooks_results.set(res_cooks)
 
+            ui.notification_remove("run_diag")
             ui.notification_show("Diagnostics Complete", type="message")
 
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+            ui.notification_remove("run_diag")
+            ui.notification_show("Analysis failed", type="error")
+            diag_results.set({"error": f"Error: {str(e)}"})
+        finally:
+            diag_is_running.set(False)
+
+    @render.ui
+    def out_diag_container():
+        if diag_is_running.get():
+            return create_loading_state("Running Model Diagnostics...")
+
+        res = diag_results.get()
+        if res is None:
+            return create_placeholder_state(
+                "Define model parameters and run diagnostics.", icon="📊"
+            )
+
+        if isinstance(res, dict) and "error" in res:
+            return create_error_alert(res["error"])
+
+        return ui.navset_tab(
+            ui.nav_panel("📋 Tests", ui.output_data_frame("tbl_diagnostics")),
+            ui.nav_panel(
+                "📉 Plots",
+                ui.layout_columns(
+                    ui.output_plot("plot_residuals"),
+                    ui.output_plot("plot_qq"),
+                ),
+            ),
+            ui.nav_panel(
+                "⚠️ Influence",
+                ui.output_data_frame("tbl_cooks"),
+                ui.output_text_verbatim("txt_cooks_summary"),
+            ),
+        )
 
     @render.data_frame
     def tbl_diagnostics():
         res = diag_results.get()
-        if res:
+        if res and not (isinstance(res, dict) and "error" in res):
             return pd.DataFrame(res)
         return None
 
@@ -420,18 +537,24 @@ def advanced_inference_server(
             return "No influential points detected (Cook's D < 4/n)"
         return f"Detected {res['n_influential']} influential points (Cook's D > {res['threshold']:.4f})"
 
-    # --- Heterogeneity Logic ---
-    het_results = reactive.Value(None)
+    # --- Heterogeneity Logic --- (het_results in init)
 
     @reactive.Effect
     @reactive.event(input.btn_run_het)
     def _run_heterogeneity():
         try:
+            het_is_running.set(True)
+            het_results.set(None)
+            ui.notification_show(
+                "Calculating Heterogeneity...", duration=None, id="run_het"
+            )
+
             eff_str = input.het_effects()
             var_str = input.het_variances()
 
             if not eff_str or not var_str:
                 ui.notification_show("Enter effects and variances", type="error")
+                ui.notification_remove("run_het")
                 return
 
             effects = [float(x.strip()) for x in eff_str.split(",") if x.strip()]
@@ -439,20 +562,139 @@ def advanced_inference_server(
 
             if len(effects) != len(variances):
                 ui.notification_show("Mismatched lengths", type="error")
+                ui.notification_remove("run_het")
                 return
 
             res = calculate_heterogeneity(effects, variances)
             het_results.set(res)
+            ui.notification_remove("run_het")
 
         except ValueError:
+            ui.notification_remove("run_het")
             ui.notification_show("Invalid numeric input", type="error")
+            het_results.set({"error": "Invalid numeric input"})
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+            ui.notification_remove("run_het")
+            ui.notification_show("Analysis failed", type="error")
+            het_results.set({"error": f"Error: {str(e)}"})
+        finally:
+            het_is_running.set(False)
+
+    @render.ui
+    def out_het_container():
+        if het_is_running.get():
+            return create_loading_state("Calculating Heterogeneity Statistics...")
+
+        res = het_results.get()
+        if res is None:
+            return create_placeholder_state(
+                "Enter effect sizes and variances to test for heterogeneity.", icon="🏥"
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        return ui.output_data_frame("tbl_heterogeneity")
 
     @render.data_frame
     def tbl_heterogeneity():
         res = het_results.get()
-        if res:
+        if res and "error" not in res:
             # Format single row DF
             return pd.DataFrame([res])
+        return None
+
+    # ==================== VALIDATION LOGIC ====================
+    @render.ui
+    def out_mediation_validation():
+        outcome = input.med_outcome()
+        treatment = input.med_treatment()
+        mediator = input.med_mediator()
+
+        alerts = []
+        if not outcome or not treatment or not mediator:
+            return None
+
+        if len({outcome, treatment, mediator}) < 3:
+            alerts.append(
+                create_error_alert(
+                    "Outcome, Treatment, and Mediator must be different variables.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_coll_validation():
+        preds = input.coll_vars()
+        alerts = []
+
+        if not preds:
+            return None
+
+        if len(preds) < 2:
+            alerts.append(
+                create_error_alert(
+                    "Please select at least 2 predictors for collinearity analysis.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_diag_validation():
+        outcome = input.diag_outcome()
+        pred = input.diag_predictor()
+
+        alerts = []
+        if not outcome or not pred:
+            return None
+
+        if outcome == pred:
+            alerts.append(
+                create_error_alert(
+                    "Outcome and Predictor must be different variables.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_het_validation():
+        eff_str = input.het_effects()
+        var_str = input.het_variances()
+
+        alerts = []
+        if not eff_str or not var_str:
+            return None
+
+        try:
+            effects = [float(x.strip()) for x in eff_str.split(",") if x.strip()]
+            variances = [float(x.strip()) for x in var_str.split(",") if x.strip()]
+
+            if len(effects) != len(variances):
+                alerts.append(
+                    create_error_alert(
+                        f"Mismatch: Found {len(effects)} effects and {len(variances)} variances.",
+                        title="Data Error",
+                    )
+                )
+        except ValueError:
+            alerts.append(
+                create_error_alert(
+                    "Please enter valid comma-separated numbers.", title="Format Error"
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
         return None

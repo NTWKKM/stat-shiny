@@ -9,7 +9,6 @@ Consolidating Agreement and Reliability analysis:
 
 from __future__ import annotations
 
-import html as _html
 import re
 from typing import Any
 
@@ -18,12 +17,15 @@ import pandas as pd
 from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
-from tabs._common import (
-    get_color_palette,
-)
 from utils import correlation, diag_test
 from utils.formatting import create_missing_data_report_html
-from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.ui_helpers import (
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_placeholder_state,
+    create_results_container,
+)
 
 logger = get_logger(__name__)
 
@@ -64,16 +66,30 @@ def agreement_ui() -> ui.TagChild:
                 "🤝 Cohen's Kappa",
                 ui.card(
                     ui.card_header("🤝 Cohen's Kappa (Categorical Data)"),
-                    ui.layout_columns(
-                        ui.input_select(
-                            "sel_kappa_v1", "Rater/Method 1:", choices=["Select..."]
+                    create_input_group(
+                        "Rater/Method Selection",
+                        ui.row(
+                            ui.column(
+                                6,
+                                ui.input_select(
+                                    "sel_kappa_v1",
+                                    "Rater/Method 1:",
+                                    choices=["Select..."],
+                                ),
+                            ),
+                            ui.column(
+                                6,
+                                ui.input_select(
+                                    "sel_kappa_v2",
+                                    "Rater/Method 2:",
+                                    choices=["Select..."],
+                                ),
+                            ),
                         ),
-                        ui.input_select(
-                            "sel_kappa_v2", "Rater/Method 2:", choices=["Select..."]
-                        ),
-                        col_widths=[6, 6],
+                        type="required",
                     ),
-                    ui.output_ui("ui_kappa_warning"),
+                    ui.output_ui("out_kappa_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_analyze_kappa",
@@ -87,9 +103,10 @@ def agreement_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("ui_kappa_status"),
+                ),
+                create_results_container(
+                    "Kappa Results",
                     ui.output_ui("out_kappa_results"),
-                    full_screen=True,
                 ),
             ),
             # TAB 2: Bland-Altman (Continuous Agreement)
@@ -97,15 +114,30 @@ def agreement_ui() -> ui.TagChild:
                 "📉 Bland-Altman",
                 ui.card(
                     ui.card_header("📉 Bland-Altman Analysis (Continuous Data)"),
-                    ui.layout_columns(
-                        ui.input_select(
-                            "sel_ba_v1", "Variable 1 (Method A):", choices=["Select..."]
+                    create_input_group(
+                        "Variable Selection",
+                        ui.row(
+                            ui.column(
+                                6,
+                                ui.input_select(
+                                    "sel_ba_v1",
+                                    "Variable 1 (Method A):",
+                                    choices=["Select..."],
+                                ),
+                            ),
+                            ui.column(
+                                6,
+                                ui.input_select(
+                                    "sel_ba_v2",
+                                    "Variable 2 (Method B):",
+                                    choices=["Select..."],
+                                ),
+                            ),
                         ),
-                        ui.input_select(
-                            "sel_ba_v2", "Variable 2 (Method B):", choices=["Select..."]
-                        ),
-                        col_widths=[6, 6],
+                        type="required",
                     ),
+                    ui.output_ui("out_ba_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_analyze_ba",
@@ -119,9 +151,10 @@ def agreement_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("ui_ba_status"),
+                ),
+                create_results_container(
+                    "Bland-Altman Results",
                     ui.output_ui("out_ba_results"),
-                    full_screen=True,
                 ),
             ),
             # TAB 3: ICC (Reliability)
@@ -129,13 +162,19 @@ def agreement_ui() -> ui.TagChild:
                 "🔍 Reliability (ICC)",
                 ui.card(
                     ui.card_header("🔍 Intraclass Correlation Coefficient"),
-                    ui.input_selectize(
-                        "icc_vars",
-                        "Select Variables (Raters/Methods) - Select 2+:",
-                        choices=["Select..."],
-                        multiple=True,
-                        selected=[],
+                    create_input_group(
+                        "Variable Selection (2+ Raters/Methods)",
+                        ui.input_selectize(
+                            "icc_vars",
+                            "Select Variables (Raters/Methods):",
+                            choices=["Select..."],
+                            multiple=True,
+                            selected=[],
+                        ),
+                        type="required",
                     ),
+                    ui.output_ui("out_icc_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_icc",
@@ -151,8 +190,10 @@ def agreement_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
+                ),
+                create_results_container(
+                    "ICC Results",
                     ui.output_ui("out_icc_result"),
-                    full_screen=True,
                 ),
             ),
             # TAB 4: Reference
@@ -200,15 +241,16 @@ def agreement_server(
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
 ) -> None:
-    COLORS = get_color_palette()
+
 
     # --- Reactive Results ---
-    kappa_html: reactive.Value[str | None] = reactive.Value(None)
-    ba_html: reactive.Value[str | None] = reactive.Value(None)
+    kappa_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    ba_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     icc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
 
     kappa_processing: reactive.Value[bool] = reactive.Value(False)
     ba_processing: reactive.Value[bool] = reactive.Value(False)
+    icc_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- Dataset Logic ---
     @reactive.Calc
@@ -282,22 +324,8 @@ def agreement_server(
             ui.update_selectize("icc_vars", choices=num_cols, selected=icc_defaults)
 
     # ==================== KAPPA ANALYSIS ====================
-    @render.ui
-    def ui_kappa_warning():
-        if input.sel_kappa_v1() == input.sel_kappa_v2():
-            return ui.div(
-                ui.markdown("⚠️ Please select different variables."),
-                class_="alert alert-warning",
-            )
-        return None
 
-    @render.ui
-    def ui_kappa_status():
-        if kappa_processing.get():
-            return ui.div(
-                "⏳ Calculating Kappa...", class_="alert alert-info spinner-border-sm"
-            )
-        return None
+    # (Kappa Status removed)
 
     @reactive.Effect
     @reactive.event(input.btn_analyze_kappa)
@@ -307,12 +335,15 @@ def agreement_server(
         req(d is not None, v1, v2)
 
         kappa_processing.set(True)
+        kappa_res.set(None)
+
         try:
             res, err, conf, missing_info = diag_test.calculate_kappa(
                 d, v1, v2, var_meta=var_meta.get() or {}
             )
             if err:
-                kappa_html.set(f"<div class='alert alert-danger'>{err}</div>")
+                kappa_res.set({"error": err})
+                ui.notification_show("Analysis failed", type="error")
             else:
                 rep = [
                     {"type": "text", "data": f"Agreement: {v1} vs {v2}"},
@@ -332,30 +363,45 @@ def agreement_server(
                             ),
                         }
                     )
-                kappa_html.set(diag_test.generate_report(f"Kappa: {v1} vs {v2}", rep))
+                kappa_res.set(
+                    {"html": diag_test.generate_report(f"Kappa: {v1} vs {v2}", rep)}
+                )
         except Exception as e:
             logger.exception("Kappa failed")
-            kappa_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+            kappa_res.set({"error": f"Error: {str(e)}"})
+            ui.notification_show("Analysis failed", type="error")
         finally:
             kappa_processing.set(False)
 
     @render.ui
     def out_kappa_results():
-        return ui.HTML(kappa_html.get()) if kappa_html.get() else None
+        if kappa_processing.get():
+            return create_loading_state("Calculating Kappa Statistics...")
+
+        res = kappa_res.get()
+        if res is None:
+            return create_placeholder_state(
+                "Select two variables and click 'Calculate Kappa' to see results.",
+                icon="🤝",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        if "html" in res:
+            return ui.HTML(res["html"])
+        return None
 
     @render.download(filename="kappa_report.html")
     def btn_dl_kappa_report():
-        yield kappa_html.get()
+        res = kappa_res.get()
+        if res and "html" in res:
+            yield res["html"]
+        else:
+            yield "No report available."
 
     # ==================== BLAND-ALTMAN ANALYSIS ====================
-    @render.ui
-    def ui_ba_status():
-        if ba_processing.get():
-            return ui.div(
-                "⏳ Calculating Bland-Altman...",
-                class_="alert alert-info spinner-border-sm",
-            )
-        return None
+    # (Bland-Altman Status removed)
 
     @reactive.Effect
     @reactive.event(input.btn_analyze_ba)
@@ -365,12 +411,13 @@ def agreement_server(
         req(d is not None, v1, v2)
 
         ba_processing.set(True)
+        ba_res.set(None)
+
         try:
             stats_res, fig = diag_test.calculate_bland_altman(d, v1, v2)
             if "error" in stats_res:
-                ba_html.set(
-                    f"<div class='alert alert-danger'>Error: {stats_res['error']}</div>"
-                )
+                ba_res.set({"error": stats_res["error"]})
+                ui.notification_show("Analysis failed", type="error")
             else:
                 stats_df = pd.DataFrame(
                     [
@@ -395,20 +442,46 @@ def agreement_server(
                         "data": stats_df,
                     },
                 ]
-                ba_html.set(diag_test.generate_report(f"Bland-Altman: {v1} vs {v2}", rep))
+                ba_res.set(
+                    {
+                        "html": diag_test.generate_report(
+                            f"Bland-Altman: {v1} vs {v2}", rep
+                        )
+                    }
+                )
         except Exception as e:
             logger.exception("Bland-Altman failed")
-            ba_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+            ba_res.set({"error": f"Error: {str(e)}"})
+            ui.notification_show("Analysis failed", type="error")
         finally:
             ba_processing.set(False)
 
     @render.ui
     def out_ba_results():
-        return ui.HTML(ba_html.get()) if ba_html.get() else None
+        if ba_processing.get():
+            return create_loading_state("Generating Bland-Altman analysis...")
+
+        res = ba_res.get()
+        if res is None:
+            return create_placeholder_state(
+                "Select two variables and click 'Analyze Agreement' to see results.",
+                icon="📉",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        if "html" in res:
+            return ui.HTML(res["html"])
+        return None
 
     @render.download(filename="bland_altman_report.html")
     def btn_dl_ba_report():
-        yield ba_html.get()
+        res = ba_res.get()
+        if res and "html" in res:
+            yield res["html"]
+        else:
+            yield "No report available."
 
     # ==================== ICC ANALYSIS ====================
     @reactive.Effect
@@ -420,32 +493,56 @@ def agreement_server(
             ui.notification_show("Select at least 2 variables", type="warning")
             return
 
-        with ui.Progress(min=0, max=1) as p:
-            p.set(message="Calculating ICC...")
+        icc_processing.set(True)
+        icc_result.set(None)
+
+        try:
+            # Show notification as fallback/supplement
+            ui.notification_show("Calculating ICC...", duration=None, id="run_icc")
+
             res_df, err, anova_df = diag_test.calculate_icc(d, list(cols))
 
-        if err:
-            ui.notification_show(f"Error: {err}", type="error")
-            icc_result.set(None)
-        else:
-            icc_result.set(
-                {
-                    "results_df": res_df,
-                    "anova_df": anova_df,
-                    "variables": list(cols),
-                    "data_label": (
-                        "Matched Data"
-                        if is_matched.get() and input.radio_source() == "matched"
-                        else "Original Data"
-                    ),
-                }
-            )
+            if err:
+                ui.notification_show("Analysis failed", type="error")
+                ui.notification_remove("run_icc")
+                icc_result.set({"error": err})
+            else:
+                icc_result.set(
+                    {
+                        "results_df": res_df,
+                        "anova_df": anova_df,
+                        "variables": list(cols),
+                        "data_label": (
+                            "Matched Data"
+                            if is_matched.get() and input.radio_source() == "matched"
+                            else "Original Data"
+                        ),
+                    }
+                )
+                ui.notification_remove("run_icc")
+        except Exception as e:
+            ui.notification_remove("run_icc")
+            ui.notification_show("Analysis failed", type="error")
+            icc_result.set({"error": f"Error: {str(e)}"})
+        finally:
+            icc_processing.set(False)
 
     @render.ui
     def out_icc_result():
+        if icc_processing.get():
+            return create_loading_state(
+                "Calculating Intraclass Correlation Coefficient..."
+            )
+
         result = icc_result.get()
         if result is None:
-            return ui.markdown("*Results will appear here*")
+            return create_placeholder_state(
+                "Select raters/methods and click 'Calculate ICC' to see results.",
+                icon="🔍",
+            )
+
+        if "error" in result:
+            return create_error_alert(result["error"])
 
         res_df = result["results_df"]
         interp_parts = []
@@ -474,20 +571,20 @@ def agreement_server(
         </div>
         """
 
-        return ui.card(
-            ui.card_header("ICC Results"),
+        return ui.div(
+            ui.h5("ICC Results"),
             ui.markdown(f"**Data:** {result['data_label']}"),
             ui.HTML(interp_html),
-            ui.card_header("ICC Table"),
+            ui.h5("ICC Table"),
             render.DataGrid(res_df, width="100%"),
-            ui.card_header("ANOVA Table"),
+            ui.h5("ANOVA Table"),
             render.DataGrid(result["anova_df"], width="100%"),
         )
 
     @render.download(filename="icc_report.html")
     def btn_dl_icc():
         result = icc_result.get()
-        if not result:
+        if not result or "error" in result:
             yield b"No Data"
             return
         elements = [
@@ -496,3 +593,89 @@ def agreement_server(
             {"type": "table", "header": "ANOVA Table", "data": result["anova_df"]},
         ]
         yield correlation.generate_report("ICC Report", elements).encode("utf-8")
+
+    # ==================== VALIDATION LOGIC ====================
+    @render.ui
+    def out_kappa_validation():
+        d = current_df()
+        v1 = input.sel_kappa_v1()
+        v2 = input.sel_kappa_v2()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not v1 or not v2:
+            return None
+
+        if v1 == v2:
+            alerts.append(
+                create_error_alert(
+                    "Rater 1 and Rater 2 must be different variables.",
+                    title="Configuration Error",
+                )
+            )
+
+        # Check cardinality - Kappa is for categorical
+        for v in [v1, v2]:
+            if v in d.columns:
+                if d[v].nunique() > 20:
+                    alerts.append(
+                        create_error_alert(
+                            f"Variable '{v}' has {d[v].nunique()} unique values. Kappa is intended for categorical/nominal data with few categories.",
+                            title="Warning",
+                        )
+                    )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_ba_validation():
+        d = current_df()
+        v1 = input.sel_ba_v1()
+        v2 = input.sel_ba_v2()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not v1 or not v2:
+            return None
+
+        if v1 == v2:
+            alerts.append(
+                create_error_alert(
+                    "Method A and Method B must be different variables.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_icc_validation():
+        d = current_df()
+        cols = input.icc_vars()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not cols:
+            return None
+
+        if len(cols) < 2:
+            alerts.append(
+                create_error_alert(
+                    "Please select at least 2 raters/methods for ICC.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None

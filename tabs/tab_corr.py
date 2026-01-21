@@ -27,6 +27,14 @@ from tabs._common import (
 from utils import correlation  # Import from utils
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.ui_helpers import (
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_placeholder_state,
+    create_results_container,
+    create_tooltip_label,
+)
 
 
 def _safe_filename_part(s: str) -> str:
@@ -35,7 +43,6 @@ def _safe_filename_part(s: str) -> str:
 
 
 logger = get_logger(__name__)
-
 
 
 @module.ui
@@ -59,11 +66,15 @@ def corr_ui() -> ui.TagChild:
             ui.nav_panel(
                 "📈 Pairwise Correlation",
                 ui.card(
-                    ui.card_header("📈 Continuous Correlation Analysis"),
-                    ui.layout_columns(
+                    ui.card_header("Pairwise Correlation Analysis"),
+                    create_input_group(
+                        "Variables & Method",
                         ui.input_select(
                             "coeff_type",
-                            "Correlation Coefficient:",
+                            create_tooltip_label(
+                                "Correlation Coefficient",
+                                "Pearson for linear, Spearman for monotonic/ranked.",
+                            ),
                             choices={"pearson": "Pearson", "spearman": "Spearman"},
                             selected="pearson",
                         ),
@@ -73,67 +84,71 @@ def corr_ui() -> ui.TagChild:
                         ui.input_select(
                             "cv2", "Variable 2 (Y-axis):", choices=["Select..."]
                         ),
-                        col_widths=[3, 4, 4],
+                        type="required",
                     ),
+                    ui.output_ui("out_corr_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_corr",
                             "📈 Analyze Correlation",
-                            class_="btn-primary",
-                            width="100%",
+                            class_="btn-primary w-100",
                         ),
-                        # ✅ CHANGED: Use download_button
                         ui.download_button(
                             "btn_dl_corr",
                             "📥 Download Report",
-                            class_="btn-secondary",
-                            width="100%",
+                            class_="btn-secondary w-100",
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("out_corr_result"),
-                    full_screen=True,
+                ),
+                create_results_container(
+                    "Correlation Results", ui.output_ui("out_corr_result")
                 ),
             ),
             # TAB 2: Matrix/Heatmap (New!)
             ui.nav_panel(
                 "📊 Matrix/Heatmap",
                 ui.card(
-                    ui.card_header("📊 Correlation Matrix & Heatmap"),
-                    ui.input_selectize(
-                        "matrix_vars",
-                        "Select Variables (Multi-select):",
-                        choices=["Select..."],
-                        multiple=True,
-                        selected=[],
+                    ui.card_header("Correlation Matrix & Heatmap"),
+                    create_input_group(
+                        "Variables & Method",
+                        ui.input_selectize(
+                            "matrix_vars",
+                            create_tooltip_label(
+                                "Select Variables (Multi-select)",
+                                "Choose continuous variables for matrix.",
+                            ),
+                            choices=["Select..."],
+                            multiple=True,
+                            selected=[],
+                        ),
+                        ui.input_select(
+                            "matrix_method",
+                            "Correlation Method:",
+                            choices={"pearson": "Pearson", "spearman": "Spearman"},
+                            selected="pearson",
+                        ),
+                        type="required",
                     ),
-                    ui.input_select(
-                        "matrix_method",
-                        "Correlation Method:",
-                        choices={"pearson": "Pearson", "spearman": "Spearman"},
-                        selected="pearson",
-                    ),
+                    ui.output_ui("out_matrix_validation"),
+                    ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_matrix",
                             "🎨 Generate Heatmap",
-                            class_="btn-primary",
-                            width="100%",
+                            class_="btn-primary w-100",
                         ),
-                        # ✅ CHANGED: Use download_button
                         ui.download_button(
                             "btn_dl_matrix",
                             "📥 Download Report",
-                            class_="btn-secondary",
-                            width="100%",
+                            class_="btn-secondary w-100",
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.output_ui("out_matrix_result"),
-                    full_screen=True,
                 ),
+                create_results_container("Results", ui.output_ui("out_matrix_result")),
             ),
-
             # TAB 4: Reference & Interpretation
             ui.nav_panel(
                 "📖 Reference",
@@ -172,7 +187,6 @@ def corr_ui() -> ui.TagChild:
                             * Wider CI = less precise estimate (usually with small samples)
                             """),
                         ),
-
                         col_widths=[6, 6],
                     ),
                     ui.card(
@@ -182,8 +196,6 @@ def corr_ui() -> ui.TagChild:
                         * **A:** R² tells you the proportion of variance in Y that is explained by X. 
                         For example, R² = 0.64 means 64% of the variation in Y is explained by X.
 
-
-
                         **Q: What if p-value is significant but r is low (0.1)?**
                         * **A:** P-value means it's likely not zero. With large samples, tiny correlations 
                         can be "significant". **Focus on r-value magnitude** for clinical relevance.
@@ -191,11 +203,8 @@ def corr_ui() -> ui.TagChild:
                         **Q: How to interpret confidence intervals?**
                         * **A:** If 95% CI includes 0, the correlation is not statistically significant. 
                         Narrow CI = more precise estimate, Wide CI = less precise (need more data).
-                        
-
                         """),
                     ),
-                    full_screen=True,
                 ),
             ),
         ),
@@ -241,6 +250,10 @@ def corr_server(
     numeric_cols_list: reactive.Value[list[str]] = reactive.Value(
         []
     )  # List of numeric columns
+
+    # Running States
+    corr_is_running = reactive.Value(False)
+    matrix_is_running = reactive.Value(False)
 
     # ==================== DATASET SELECTION LOGIC ====================
 
@@ -327,8 +340,6 @@ def corr_server(
                 # Matrix selector (Use all cols or filtered? Usually matrix uses all, but let's default to filtered if available)
                 ui.update_selectize("matrix_vars", choices=cols, selected=cols[:5])
 
-
-
     # ==================== PAIRWISE CORRELATION ====================
 
     @reactive.Effect
@@ -353,42 +364,64 @@ def corr_server(
             ui.notification_show("Please select different variables", type="warning")
             return
 
-        with ui.Progress(min=0, max=1) as p:
-            p.set(message="Calculating correlation...", detail="This may take a moment")
-            res_stats, err, fig = correlation.calculate_correlation(
-                data, col1, col2, method=method, var_meta=var_meta.get() or {}
-            )
-
-        if err:
-            ui.notification_show(f"Error: {err}", type="error")
+        try:
+            corr_is_running.set(True)
             corr_result.set(None)
-        else:
-            # Determine data label
-            if is_matched.get() and input.radio_corr_source() == "matched":
-                data_label = f"✅ Matched Data ({len(data)} rows)"
-            else:
-                data_label = f"📊 Original Data ({len(data)} rows)"
 
-            corr_result.set(
-                {
-                    "stats": res_stats,
-                    "figure": fig,
-                    "method": method,
-                    "var1": col1,
-                    "var2": col2,
-                    "data_label": data_label,
-                }
-            )
-            ui.notification_show("✅ Correlation analysis complete", type="default")
+            # Using progress here is still fine, but our loading state in result area is better UX
+            # We can keep the progress bar for additional feedback or remove it.
+            # I will keep it for now as it doesn't hurt.
+            with ui.Progress(min=0, max=1) as p:
+                p.set(
+                    message="Calculating correlation...",
+                    detail="This may take a moment",
+                )
+                res_stats, err, fig = correlation.calculate_correlation(
+                    data, col1, col2, method=method, var_meta=var_meta.get() or {}
+                )
+
+            if err:
+                corr_result.set({"error": err})
+                ui.notification_show("Analysis failed", type="error")
+            else:
+                # Determine data label
+                if is_matched.get() and input.radio_corr_source() == "matched":
+                    data_label = f"✅ Matched Data ({len(data)} rows)"
+                else:
+                    data_label = f"📊 Original Data ({len(data)} rows)"
+
+                corr_result.set(
+                    {
+                        "stats": res_stats,
+                        "figure": fig,
+                        "method": method,
+                        "var1": col1,
+                        "var2": col2,
+                        "data_label": data_label,
+                    }
+                )
+                ui.notification_show("✅ Correlation analysis complete", type="default")
+        except Exception as e:
+            logger.exception("Correlation analysis failed")
+            corr_result.set({"error": f"Analysis Error: {str(e)}"})
+            ui.notification_show("Analysis failed", type="error")
+        finally:
+            corr_is_running.set(False)
 
     @render.ui
     def out_corr_result():
         """Display pairwise correlation results."""
+        if corr_is_running.get():
+            return create_loading_state("Calculating correlation...")
+
         result = corr_result.get()
         if result is None:
-            return ui.markdown(
-                "*Results will appear here after clicking '📈 Analyze Correlation'*"
+            return create_placeholder_state(
+                "Select two variables and click 'Analyze Correlation'.", icon="📈"
             )
+
+        if "error" in result:
+            return create_error_alert(result["error"])
 
         stats = result["stats"]
 
@@ -411,10 +444,11 @@ def corr_server(
         </div>
         """
 
-        return ui.card(
-            ui.card_header("Results"),
-            ui.markdown(f"**Data Source:** {result['data_label']}"),
-            ui.markdown(f"**Method:** {result['method'].title()}"),
+        return ui.div(
+            ui.row(
+                ui.column(6, ui.markdown(f"**Data Source:** {result['data_label']}")),
+                ui.column(6, ui.markdown(f"**Method:** {result['method'].title()}")),
+            ),
             ui.output_data_frame("out_corr_table"),
             ui.HTML(interp_html),
             # Missing Data Report
@@ -423,10 +457,8 @@ def corr_server(
                     stats.get("missing_data_info", {}), var_meta.get() or {}
                 )
             ),
-            ui.card_header("Scatter Plot"),
-            ui.output_ui(
-                "out_corr_plot_widget"
-            ),  # ✅ FIX: Use ui.output_ui instead of output_widget
+            ui.h5("Scatter Plot", class_="mt-4 mb-3"),
+            ui.output_ui("out_corr_plot_widget"),
         )
 
     @render.data_frame
@@ -438,7 +470,7 @@ def corr_server(
             A DataGrid showing metrics (Method; Correlation Coefficient (r); 95% CI Lower; 95% CI Upper; R-squared (R²); P-value; Sample Size (N); Interpretation) for the computed correlation, or `None` if no correlation result is available.
         """
         result = corr_result.get()
-        if result is None:
+        if result is None or "error" in result:
             return None
 
         # Create formatted table
@@ -504,7 +536,7 @@ def corr_server(
     def btn_dl_corr():
         """Generate and download correlation report."""
         result = corr_result.get()
-        if result is None:
+        if result is None or "error" in result:
             yield b"No results available"
             return
 
@@ -599,54 +631,65 @@ def corr_server(
             ui.notification_show("Please select at least 2 variables", type="warning")
             return
 
-        with ui.Progress(min=0, max=1) as p:
-            p.set(
-                message="Generating Heatmap...",
-                detail=f"Processing {len(cols)} variables",
-            )
-            corr_matrix, fig, summary = correlation.compute_correlation_matrix(
-                data, list(cols), method=method, var_meta=var_meta.get() or {}
-            )
-
-        if corr_matrix is not None:
-            # Determine data label
-            if is_matched.get() and input.radio_corr_source() == "matched":
-                data_label = f"✅ Matched Data ({len(data)} rows)"
-            else:
-                data_label = f"📊 Original Data ({len(data)} rows)"
-
-            matrix_result.set(
-                {
-                    "matrix": corr_matrix,
-                    "figure": fig,
-                    "method": method,
-                    "summary": summary,
-                    "data_label": data_label,
-                    "strategy": summary.get("missing_data_info", {}).get(
-                        "strategy", "pairwise-complete"
-                    ),
-                }
-            )
-            ui.notification_show("✅ Heatmap generated!", type="default")
-        else:
+        try:
+            matrix_is_running.set(True)
             matrix_result.set(None)
-            ui.notification_show("Failed to generate matrix", type="error")
+
+            with ui.Progress(min=0, max=1) as p:
+                p.set(
+                    message="Generating Heatmap...",
+                    detail=f"Processing {len(cols)} variables",
+                )
+                corr_matrix, fig, summary = correlation.compute_correlation_matrix(
+                    data, list(cols), method=method, var_meta=var_meta.get() or {}
+                )
+
+            if corr_matrix is not None:
+                # Determine data label
+                if is_matched.get() and input.radio_corr_source() == "matched":
+                    data_label = f"✅ Matched Data ({len(data)} rows)"
+                else:
+                    data_label = f"📊 Original Data ({len(data)} rows)"
+
+                matrix_result.set(
+                    {
+                        "matrix": corr_matrix,
+                        "figure": fig,
+                        "method": method,
+                        "summary": summary,
+                        "data_label": data_label,
+                        "strategy": summary.get("missing_data_info", {}).get(
+                            "strategy", "pairwise-complete"
+                        ),
+                    }
+                )
+                ui.notification_show("✅ Heatmap generated!", type="default")
+            else:
+                matrix_result.set({"error": "Failed to generate correlation matrix"})
+                ui.notification_show("Analysis failed", type="error")
+        except Exception as e:
+            logger.exception("Matrix analysis failed")
+            matrix_result.set({"error": f"Error: {str(e)}"})
+            ui.notification_show("Analysis failed", type="error")
+        finally:
+            matrix_is_running.set(False)
 
     @render.ui
     def out_matrix_result():
         """
         Render the matrix/heatmap results card for the current analysis.
-
-        When no matrix result is available, returns a markdown placeholder instructing the user to generate the heatmap.
-
-        Returns:
-            A Shiny UI element: a card containing the data source and method, a formatted matrix summary, the heatmap output slot, and the correlation table output.
         """
+        if matrix_is_running.get():
+            return create_loading_state("Generating Correlation Matrix & Heatmap...")
+
         result = matrix_result.get()
         if result is None:
-            return ui.markdown(
-                "*Results will appear here after clicking '🎨 Generate Heatmap'*"
+            return create_placeholder_state(
+                "Select variables and click 'Generate Heatmap'.", icon="📊"
             )
+
+        if "error" in result:
+            return create_error_alert(result["error"])
 
         summary = result["summary"]
 
@@ -670,11 +713,10 @@ def corr_server(
         </div>
         """
 
-        return ui.card(
-            ui.card_header("Matrix Results"),
-            ui.markdown(f"**Data Source:** {result['data_label']}"),
-            ui.markdown(f"**Method:** {result['method'].title()}"),
-            ui.markdown(f"**Missing Data Strategy:** {result['strategy'].title()}"),
+        return ui.div(
+            ui.markdown(
+                f"**Data Source:** {result['data_label']} | **Method:** {result['method'].title()} | **Missing Data Strategy:** {result['strategy'].title()}"
+            ),
             ui.HTML(summary_html),
             # Missing Data Report
             ui.HTML(
@@ -682,9 +724,9 @@ def corr_server(
                     summary.get("missing_data_info", {}), var_meta.get() or {}
                 )
             ),
-            ui.card_header("Heatmap"),
-            ui.output_ui("out_heatmap_widget"),  # ✅ FIX: Use ui.output_ui
-            ui.card_header("Correlation Table"),
+            ui.h5("Heatmap", class_="mt-4 mb-3"),
+            ui.output_ui("out_heatmap_widget"),
+            ui.h5("Correlation Table", class_="mt-4 mb-3"),
             ui.markdown("*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"),
             ui.output_data_frame("out_matrix_table"),
         )
@@ -722,7 +764,7 @@ def corr_server(
             ui_element (shiny.ui.output/DataGrid) or None: A DataGrid rendering of the matrix when results are available, otherwise None.
         """
         result = matrix_result.get()
-        if result is None:
+        if result is None or "error" in result:
             return None
         # Add index as a column for better display in DataGrid
         df_display = (
@@ -743,7 +785,7 @@ def corr_server(
     def btn_dl_matrix():
         """Generate and download matrix report."""
         result = matrix_result.get()
-        if result is None:
+        if result is None or "error" in result:
             yield b"No results available"
             return
 
@@ -770,24 +812,17 @@ def corr_server(
 
         elements.append({"type": "summary", "data": summary_text})
 
-        # Add heatmap
-        elements.append(
-            {"type": "plot", "header": "Correlation Heatmap", "data": result["figure"]}
-        )
-
         # Add matrix table
         elements.append(
             {"type": "table", "header": "Correlation Matrix", "data": result["matrix"]}
         )
 
+        # Add heatmap
         elements.append(
-            {
-                "type": "note",
-                "data": "Significance levels: * p<0.05, ** p<0.01, *** p<0.001",
-            }
+            {"type": "plot", "header": "Correlation Heatmap", "data": result["figure"]}
         )
 
-        # Missing Data Report (moved to end)
+        # Missing Data Report
         if "missing_data_info" in summary:
             elements.append(
                 {
@@ -800,8 +835,58 @@ def corr_server(
 
         # Generate HTML
         html_content = correlation.generate_report(
-            title=f"Correlation Matrix Analysis ({result['method'].title()})",
-            elements=elements,
+            title="Correlation Matrix Analysis", elements=elements
         )
 
         yield html_content.encode("utf-8")
+
+    # ==================== VALIDATION LOGIC ====================
+    @render.ui
+    def out_corr_validation():
+        d = current_df()
+        cv1 = input.cv1()
+        cv2 = input.cv2()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not cv1 or not cv2:
+            return None
+
+        if cv1 == cv2:
+            alerts.append(
+                create_error_alert(
+                    "Please select different variables.", title="Configuration Error"
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_matrix_validation():
+        d = current_df()
+        cols = input.matrix_vars()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not cols:
+            return None
+
+        if len(cols) < 2:
+            alerts.append(
+                create_error_alert(
+                    "Please select at least 2 variables for the matrix.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+

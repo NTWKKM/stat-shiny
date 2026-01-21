@@ -10,6 +10,13 @@ from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.psm_lib import calculate_ipw, calculate_ps, check_balance
 from utils.sensitivity_lib import calculate_e_value
 from utils.stratified_lib import breslow_day, mantel_haenszel
+from utils.ui_helpers import (
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_placeholder_state,
+    create_results_container,
+)
 
 COLORS = get_color_palette()
 
@@ -28,33 +35,42 @@ def causal_inference_ui():
                 "⚖️ PSM & IPW",
                 ui.layout_sidebar(
                     ui.sidebar(
-                        ui.input_select(
-                            "psm_treatment", "Treatment Variable (Binary)", choices=[]
+                        create_input_group(
+                            "Model Specification",
+                            ui.input_select(
+                                "psm_treatment",
+                                "Treatment Variable (Binary)",
+                                choices=[],
+                            ),
+                            ui.input_select(
+                                "psm_outcome", "Outcome Variable", choices=[]
+                            ),
+                            ui.input_selectize(
+                                "psm_covariates",
+                                "Covariates for Matching",
+                                choices=[],
+                                multiple=True,
+                            ),
+                            type="required",
                         ),
-                        ui.input_select("psm_outcome", "Outcome Variable", choices=[]),
-                        ui.input_selectize(
-                            "psm_covariates",
-                            "Covariates for Matching",
-                            choices=[],
-                            multiple=True,
-                        ),
+                        ui.output_ui("out_psm_validation"),
+                        ui.br(),
                         ui.input_action_button(
-                            "btn_run_psm", "Run Analysis", class_="btn-primary"
+                            "btn_run_psm", "Run Analysis", class_="btn-primary w-100"
                         ),
                     ),
-                    ui.card(
+                    ui.div(
                         ui.div(
                             "💡 ",
                             ui.strong("Need matched dataset?"),
                             " Use ",
-                            ui.strong("Table 1 & Matching → PSM"),
-                            " to create balanced paired data for further analysis.",
-                            style="padding: 8px 12px; margin-bottom: 12px; background-color: rgba(23, 162, 184, 0.1); border-left: 3px solid #17a2b8; border-radius: 4px; font-size: 0.85em;",
+                            ui.strong("Clinical → Table 1 & Matching"),
+                            " to create balanced paired data first.",
+                            style="padding: 10px; margin-bottom: 20px; background-color: var(--bs-info-bg-subtle, #e0faff); border-left: 4px solid var(--bs-info); border-radius: 4px;",
                         ),
-                        ui.h4("Inverse Probability Weighting (IPW) Results"),
-                        ui.output_ui("out_ipw_results"),
-                        ui.h5("Standardized Mean Differences (Balance Check)"),
-                        ui.output_data_frame("out_balance_table"),
+                        create_results_container(
+                            "IPW & Balance Results", ui.output_ui("out_psm_container")
+                        ),
                     ),
                 ),
             ),
@@ -62,28 +78,31 @@ def causal_inference_ui():
                 "📊 Stratified Analysis",
                 ui.layout_sidebar(
                     ui.sidebar(
-                        ui.input_select(
-                            "strat_treatment", "Treatment/Exposure (Binary)", choices=[]
+                        create_input_group(
+                            "Variables",
+                            ui.input_select(
+                                "strat_treatment",
+                                "Treatment/Exposure (Binary)",
+                                choices=[],
+                            ),
+                            ui.input_select(
+                                "strat_outcome", "Outcome (Binary)", choices=[]
+                            ),
+                            ui.input_select(
+                                "strat_stratum", "Stratification Variable", choices=[]
+                            ),
+                            type="required",
                         ),
-                        ui.input_select(
-                            "strat_outcome", "Outcome (Binary)", choices=[]
-                        ),
-                        ui.input_select(
-                            "strat_stratum", "Stratification Variable", choices=[]
-                        ),
+                        ui.output_ui("out_strat_validation"),
+                        ui.br(),
                         ui.input_action_button(
                             "btn_run_strat",
                             "Run Stratified Analysis",
-                            class_="btn-primary",
+                            class_="btn-primary w-100",
                         ),
                     ),
-                    ui.card(
-                        ui.h4("Mantel-Haenszel Odds Ratio"),
-                        ui.output_ui("out_mh_results"),
-                        ui.h4("Test for Homogeneity (Breslow-Day / Interaction)"),
-                        ui.output_ui("out_homogeneity_results"),
-                        ui.h5("Stratum-Specific Estimates"),
-                        ui.output_data_frame("out_stratum_table"),
+                    create_results_container(
+                        "Stratified Results", ui.output_ui("out_strat_container")
                     ),
                 ),
             ),
@@ -91,28 +110,39 @@ def causal_inference_ui():
                 "🔍 Sensitivity Analysis",
                 ui.layout_sidebar(
                     ui.sidebar(
-                        ui.input_numeric(
-                            "sens_est", "Observed Estimate (RR or OR)", 2.0, step=0.1
+                        create_input_group(
+                            "Parameters",
+                            ui.input_numeric(
+                                "sens_est",
+                                "Observed Estimate (RR or OR)",
+                                2.0,
+                                step=0.1,
+                            ),
+                            ui.input_numeric(
+                                "sens_lower", "Lower CI Limit", 1.5, step=0.1
+                            ),
+                            ui.input_numeric(
+                                "sens_upper", "Upper CI Limit", 3.0, step=0.1
+                            ),
+                            type="required",
                         ),
-                        ui.input_numeric("sens_lower", "Lower CI Limit", 1.5, step=0.1),
-                        ui.input_numeric("sens_upper", "Upper CI Limit", 3.0, step=0.1),
+                        ui.output_ui("out_sens_validation"),
+                        ui.br(),
                         ui.input_action_button(
-                            "btn_calc_evalue", "Calculate E-Value", class_="btn-primary"
+                            "btn_calc_evalue",
+                            "Calculate E-Value",
+                            class_="btn-primary w-100",
                         ),
                     ),
-                    ui.card(
-                        ui.h4("E-Value for Unmeasured Confounding"),
-                        ui.output_ui("out_evalue_results"),
-                        ui.markdown("""
-                        **Interpretation:** The E-value is the minimum strength of association that an unmeasured confounder would need to have with both the treatment and the outcome to fully explain away a specific treatment-outcome association, conditional on the measured covariates.
-                        """),
+                    create_results_container(
+                        "E-Value Results", ui.output_ui("out_eval_container")
                     ),
                 ),
             ),
             ui.nav_panel(
                 "⚖️ Balance Diagnostics",
-                ui.card(
-                    ui.card_header("Love Plot (Covariate Balance)"),
+                create_results_container(
+                    "Love Plot (Covariate Balance)",
                     ui.output_ui("plot_love"),
                 ),
             ),
@@ -210,6 +240,11 @@ def causal_inference_server(
     psm_res = reactive.Value(None)
     balance_res = reactive.Value(None)
 
+    # Running States
+    psm_is_running = reactive.Value(False)
+    strat_is_running = reactive.Value(False)
+    eval_is_running = reactive.Value(False)
+
     @reactive.Effect
     @reactive.event(input.btn_run_psm)
     def run_psm_analysis():
@@ -218,12 +253,17 @@ def causal_inference_server(
             return
 
         try:
+            psm_is_running.set(True)
+            psm_res.set(None)
+            ui.notification_show("Running PSM/IPW...", duration=None, id="run_psm")
+
             treatment = input.psm_treatment()
             outcome = input.psm_outcome()
             covs = list(input.psm_covariates())
 
             if not treatment or not outcome or not covs:
                 ui.notification_show("Please select all PSM variables.", type="warning")
+                ui.notification_remove("run_psm")
                 return
 
             # Calulate PS
@@ -252,23 +292,42 @@ def causal_inference_server(
             )
             balance_res.set(bal)
 
+            ui.notification_remove("run_psm")
             ui.notification_show("PSM/IPW Analysis Complete", type="message")
 
         except Exception as e:
-            ui.notification_show(f"Analysis Error: {str(e)}", type="error")
+            ui.notification_remove("run_psm")
+            ui.notification_show("Analysis failed", type="error")
+            psm_res.set({"error": f"Analysis Error: {str(e)}"})
+        finally:
+            psm_is_running.set(False)
 
     @render.ui
-    def out_ipw_results():
+    def out_psm_container():
+        if psm_is_running.get():
+            return create_loading_state("Running PSM & IPW Analysis...")
+
         res = psm_res.get()
         if res is None:
-            return None
-        if "error" in res:
-            return ui.div(f"Error: {res['error']}", style="color: red;")
+            return create_placeholder_state(
+                "Select variables and run analysis.", icon="⚖️"
+            )
 
-        return ui.div(
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        ipw_div = ui.div(
             ui.p(f"ATE Estimate: {res['ATE']:.4f}"),
             ui.p(f"95% CI: [{res['CI_Lower']:.4f}, {res['CI_Upper']:.4f}]"),
             ui.p(f"P-value: {res['p_value']:.4f}"),
+        )
+
+        return ui.div(
+            ui.h5("Inverse Probability Weighting (IPW)"),
+            ipw_div,
+            ui.hr(),
+            ui.h5("Standardized Mean Differences (Balance Check)"),
+            ui.output_data_frame("out_balance_table"),
         )
 
     @render.data_frame
@@ -303,6 +362,12 @@ def causal_inference_server(
         if d is None:
             return
         try:
+            strat_is_running.set(True)
+            strat_res.set(None)
+            ui.notification_show(
+                "Running Stratified Analysis...", duration=None, id="run_strat"
+            )
+
             mh = mantel_haenszel(
                 d, input.strat_outcome(), input.strat_treatment(), input.strat_stratum()
             )
@@ -311,39 +376,63 @@ def causal_inference_server(
             )
 
             strat_res.set({"mh": mh, "bd": bd})
+            ui.notification_remove("run_strat")
         except Exception as e:
-            ui.notification_show(f"Stratified Error: {str(e)}", type="error")
+            ui.notification_remove("run_strat")
+            ui.notification_show("Analysis failed", type="error")
+            strat_res.set({"error": f"Stratified Error: {str(e)}"})
+        finally:
+            strat_is_running.set(False)
 
     @render.ui
-    def out_mh_results():
+    def out_strat_container():
+        if strat_is_running.get():
+            return create_loading_state("Running Stratified Analysis...")
+
         res = strat_res.get()
         if not res:
-            return None
+            return create_placeholder_state(
+                "Select variables and run stratified analysis.", icon="📊"
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        # Prepare helper text
         mh = res["mh"]
-        if "error" in mh:
-            return ui.div(f"Error: {mh['error']}")
-
-        return ui.div(ui.h5(f"Mantel-Haenszel OR: {mh['MH_OR']:.4f}"))
-
-    @render.ui
-    def out_homogeneity_results():
-        res = strat_res.get()
-        if not res:
-            return None
         bd = res["bd"]
+
+        mh_ui = (
+            create_error_alert(mh["error"])
+            if "error" in mh
+            else ui.div(ui.h5(f"Mantel-Haenszel OR: {mh['MH_OR']:.4f}"))
+        )
+
+        bd_ui = None
         if "error" in bd:
-            return ui.div(f"Error: {bd['error']}")
+            bd_ui = create_error_alert(bd["error"])
+        else:
+            bd_ui = ui.div(
+                ui.p(f"Test: {bd.get('test')}"),
+                ui.p(f"P-value: {bd.get('p_value'):.4f}"),
+                ui.p(f"Conclusion: {bd.get('conclusion')}"),
+            )
 
         return ui.div(
-            ui.p(f"Test: {bd.get('test')}"),
-            ui.p(f"P-value: {bd.get('p_value'):.4f}"),
-            ui.p(f"Conclusion: {bd.get('conclusion')}"),
+            ui.h5("Mantel-Haenszel Odds Ratio"),
+            mh_ui,
+            ui.br(),
+            ui.h5("Test for Homogeneity (Breslow-Day / Interaction)"),
+            bd_ui,
+            ui.br(),
+            ui.h5("Stratum-Specific Estimates"),
+            ui.output_data_frame("out_stratum_table"),
         )
 
     @render.data_frame
     def out_stratum_table():
         res = strat_res.get()
-        if not res or "error" in res["mh"]:
+        if not res or "error" in res or "error" in res["mh"]:
             return None
         return res["mh"]["Strata_Results"]
 
@@ -354,19 +443,120 @@ def causal_inference_server(
     @reactive.event(input.btn_calc_evalue)
     def run_evalue():
         try:
+            eval_is_running.set(True)
+            eval_res.set(None)
+
             res = calculate_e_value(
                 input.sens_est(), input.sens_lower(), input.sens_upper()
             )
             eval_res.set(res)
         except Exception as e:
-            ui.notification_show(str(e), type="error")
+            ui.notification_show("Analysis failed", type="error")
+            eval_res.set({"error": f"Error: {str(e)}"})
+        finally:
+            eval_is_running.set(False)
 
     @render.ui
-    def out_evalue_results():
+    def out_eval_container():
+        if eval_is_running.get():
+            return create_loading_state("Calculating E-Value...")
+
         res = eval_res.get()
         if not res:
-            return None
+            return create_placeholder_state(
+                "Enter parameters and calculate E-Value.", icon="🔍"
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
         return ui.div(
-            ui.h5(f"E-Value for Estimate: {res['e_value_estimate']}"),
-            ui.p(f"E-Value for CI Limit: {res['e_value_ci_limit']}"),
+            ui.h5("E-Value for Unmeasured Confounding"),
+            ui.div(
+                ui.h5(f"E-Value for Estimate: {res['e_value_estimate']}"),
+                ui.p(f"E-Value for CI Limit: {res['e_value_ci_limit']}"),
+            ),
+            ui.br(),
+            ui.markdown("""
+            **Interpretation:** The E-value is the minimum strength of association that an unmeasured confounder would need to have with both the treatment and the outcome to fully explain away a specific treatment-outcome association, conditional on the measured covariates.
+            """),
         )
+
+    # ==================== VALIDATION LOGIC ====================
+    @render.ui
+    def out_psm_validation():
+        outcome = input.psm_outcome()
+        treatment = input.psm_treatment()
+        covs = input.psm_covariates()
+
+        alerts = []
+        if not outcome or not treatment:
+            return None
+
+        if outcome == treatment:
+            alerts.append(
+                create_error_alert(
+                    "Outcome and Treatment variables must be different.",
+                    title="Configuration Error",
+                )
+            )
+
+        if covs and (outcome in covs or treatment in covs):
+            alerts.append(
+                create_error_alert(
+                    "Covariates cannot include Outcome or Treatment variables.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_strat_validation():
+        outcome = input.strat_outcome()
+        treatment = input.strat_treatment()
+        stratum = input.strat_stratum()
+
+        alerts = []
+        if not outcome or not treatment or not stratum:
+            return None
+
+        if len({outcome, treatment, stratum}) < 3:
+            alerts.append(
+                create_error_alert(
+                    "Outcome, Treatment, and Stratum variables must be different.",
+                    title="Configuration Error",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_sens_validation():
+        est = input.sens_est()
+        lower = input.sens_lower()
+        upper = input.sens_upper()
+
+        alerts = []
+        if est < 0 or lower < 0 or upper < 0:
+            alerts.append(
+                create_error_alert(
+                    "Values should generally be non-negative (ratios).", title="Warning"
+                )
+            )
+
+        if not (lower <= est <= upper) and not (upper <= est <= lower):
+            alerts.append(
+                create_error_alert(
+                    "Estimate usually falls between Lower and Upper CI limits.",
+                    title="Check Values",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None

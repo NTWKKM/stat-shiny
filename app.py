@@ -9,7 +9,6 @@ from shiny import App, Inputs, Outputs, Session, reactive, ui
 from config import CONFIG
 from logger import LoggerFactory, get_logger
 
-
 # Import Tabs Modules (Verified)
 from tabs import (
     tab_advanced_inference,
@@ -20,6 +19,7 @@ from tabs import (
     tab_corr,
     tab_data,  # 🟢 Data Module
     tab_diag,
+    tab_home,  # 🏠 Home Module
     tab_sample_size,  # 🟢 Sample Size Module
     tab_settings,
     tab_survival,
@@ -44,92 +44,16 @@ footer_ui = ui.tags.div(
     style="text-align: center; padding: 20px 0; border-top: 1px solid #e5e5e5; margin-top: 40px; color: #666;",
 )
 
-app_ui = ui.page_navbar(
-    # ========================================
-    # 📁 TAB 1: DATA MANAGEMENT (Standalone)
-    # ========================================
-    ui.nav_panel(
-        "📁 Data Management",
-        wrap_with_container(tab_data.data_ui("data")),
+app_ui = ui.page_fluid(
+    # ♿ Accessibility: Skip Links
+    ui.div(
+        ui.a("Skip to main content", href="#main-content", class_="skip-link"),
+        ui.a("Skip to sidebar navigation", href="#main-nav", class_="skip-link"),
+        ui.a("Skip to footer", href="#footer", class_="skip-link"),
+        class_="skip-links",
     ),
-    # ========================================
-    # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
-    # ========================================
-    ui.nav_panel(
-        "📋 Table 1 & Matching",
-        wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
-    ),
-    # ========================================
-    # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
-    # ========================================
-    ui.nav_menu(
-        "📊 General Statistics",
-        ui.nav_panel(
-            "Diagnostic Tests",
-            wrap_with_container(tab_diag.diag_ui("diag")),
-        ),
-        ui.nav_panel(
-            "Correlation Analysis",
-            wrap_with_container(tab_corr.corr_ui("corr")),
-        ),
-        ui.nav_panel(
-            "Agreement & Reliability",
-            wrap_with_container(tab_agreement.agreement_ui("agreement")),
-        ),
-    ),
-    # ========================================
-    # 🔬 TAB 4: ADVANCED MODELING (Dropdown)
-    # ========================================
-    ui.nav_menu(
-        "🔬 Advanced Modeling",
-        ui.nav_panel(
-            "Regression Analysis",
-            wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
-        ),
-        ui.nav_panel(
-            "Survival Analysis",
-            wrap_with_container(tab_survival.survival_ui("survival")),
-        ),
-        ui.nav_panel(
-            "Advanced Inference",
-            wrap_with_container(tab_advanced_inference.advanced_inference_ui("adv_inf")),
-        ),
-    ),
-    # ========================================
-    # 🏥 TAB 5: CLINICAL TOOLS (Dropdown)
-    # ========================================
-    ui.nav_menu(
-        "🏥 Clinical Tools",
-        ui.nav_panel(
-            "Sample Size Calculator",
-            wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
-        ),
-        ui.nav_panel(
-            "Causal Inference Methods",
-            wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
-        ),
-    ),
-    # ========================================
-    # ⚙️ TAB 6: SETTINGS (Standalone)
-    # ========================================
-    ui.nav_panel(
-        "⚙️ Settings",
-        wrap_with_container(tab_settings.settings_ui("settings")),
-    ),
-    # ========================================
-    # NAVBAR OPTIONS
-    # ========================================
-    title=CONFIG.get("ui.page_title", "Medical Stat Tool"),
-    id="main_navbar",
-    window_title="Medical Stat Tool",
-    # 🟢 Add Footer here (will appear at the bottom of every Tab)
-    footer=footer_ui,
-    # 🟢 Fix: Remove inverse=True (Deprecated)
-    navbar_options=ui.navbar_options(),
     # ⬇⬇⬇ inject theme CSS (EXTERNAL - Optimized for performance)
-    # ✅ CSS is loaded from /static/styles.css (served by WSGI server)
-    # ✅ Browser will cache the CSS file for better performance
-    header=ui.tags.head(
+    ui.tags.head(
         ui.tags.meta(charset="utf-8"),
         ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
         # ✅ Google Fonts: Inter
@@ -138,14 +62,133 @@ app_ui = ui.page_navbar(
             rel="stylesheet",
         ),
         # ✅ Preload CSS for faster loading
-        # 🟢 Fix: Remove leading / to make it a relative path (supports Posit Connect subpath)
         ui.tags.link(rel="preload", href="static/styles.css", as_="style"),
         # ✅ Link to external CSS file
-        # 🟢 Fix: Remove leading / here as well
         ui.tags.link(rel="stylesheet", href="static/styles.css"),
         # ✅ Custom JS Handlers
         ui.tags.script(src="static/js/custom_handlers.js"),
     ),
+    # Header with Title
+    ui.row(
+        ui.column(
+            12,
+            ui.h2(
+                "🏥 Medical Stat Tool",
+                class_="app-title mt-3 mb-4 ps-3",
+                style="color: var(--primary); font-weight: 700;",
+            ),
+        )
+    ),
+    # Mobile Menu Toggle (Visible only on mobile)
+    ui.div(
+        ui.input_action_button(
+            "mobile_menu_btn", "☰ Menu", class_="btn-sm w-100 mb-2"
+        ),
+        class_="d-md-none px-3 pt-2",
+    ),
+    # Main Navigation (Sticky Sidebar) wrapped in ID for skip link
+    ui.div(
+        ui.navset_pill_list(
+            # ========================================
+            # 🏠 TAB 0: HOME
+            # ========================================
+            ui.nav_panel(
+                "🏠 Home",
+                wrap_with_container(tab_home.home_ui("home")),
+            ),
+            # ========================================
+            # 📁 TAB 1: DATA MANAGEMENT (Standalone)
+            # ========================================
+            ui.nav_panel(
+                "📁 Data",
+                wrap_with_container(tab_data.data_ui("data")),
+            ),
+            # ========================================
+            # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
+            # ========================================
+            ui.nav_panel(
+                "📋 Table 1",
+                wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
+            ),
+            # ========================================
+            # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
+            # ========================================
+            ui.nav_menu(
+                "📊 General Stats",
+                ui.nav_panel(
+                    "Diagnostic Tests",
+                    wrap_with_container(tab_diag.diag_ui("diag")),
+                ),
+                ui.nav_panel(
+                    "Correlation Analysis",
+                    wrap_with_container(tab_corr.corr_ui("corr")),
+                ),
+                ui.nav_panel(
+                    "Agreement & Reliability",
+                    wrap_with_container(tab_agreement.agreement_ui("agreement")),
+                ),
+            ),
+            # ========================================
+            # 🔬 TAB 4: ADVANCED MODELING (Dropdown)
+            # ========================================
+            ui.nav_menu(
+                "🔬 Modeling",
+                ui.nav_panel(
+                    "Regression Analysis",
+                    wrap_with_container(
+                        tab_core_regression.core_regression_ui("core_reg")
+                    ),
+                ),
+                ui.nav_panel(
+                    "Survival Analysis",
+                    wrap_with_container(tab_survival.survival_ui("survival")),
+                ),
+                ui.nav_panel(
+                    "Advanced Regression",
+                    wrap_with_container(
+                        tab_advanced_inference.advanced_inference_ui("adv_inf")
+                    ),
+                ),
+            ),
+            # ========================================
+            # 🏥 TAB 5: CLINICAL TOOLS (Dropdown)
+            # ========================================
+            ui.nav_menu(
+                "🏥 Clinical",
+                ui.nav_panel(
+                    "Sample Size Calculator",
+                    wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
+                ),
+                ui.nav_panel(
+                    "Causal Methods",
+                    wrap_with_container(
+                        tab_causal_inference.causal_inference_ui("causal")
+                    ),
+                ),
+            ),
+            # ========================================
+            # ⚙️ TAB 6: SETTINGS (Standalone)
+            # ========================================
+            ui.nav_panel(
+                "⚙️ Settings",
+                wrap_with_container(tab_settings.settings_ui("settings")),
+            ),
+            id="main_nav",
+            widths=(2, 10),
+            well=False,
+        ),
+        id="main-content",
+        role="main",
+    ),
+    # Footer
+    ui.div(
+        footer_ui,
+        class_="main-footer",
+        style="margin-left: 16.66666667%;",  # Offset for sidebar (2/12 = 16.67%)
+        id="footer",
+        role="contentinfo",
+    ),
+    title=CONFIG.get("ui.page_title", "Medical Stat Tool"),
 )
 
 
@@ -183,7 +226,12 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # 3. CALL MODULES SERVER
     # ==========================================
 
-    # --- 1. Data Management ---
+    # ==========================================
+    # 3. CALL MODULES SERVER (LAZY LOADING)
+    # ==========================================
+
+    # --- Eager Loading (Core Tabs) ---
+    tab_home.home_server("home")
 
     tab_data.data_server(
         "data",
@@ -196,7 +244,6 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         matched_covariates,
     )
 
-    # --- 2. Table 1 & Matching ---
     tab_baseline_matching.baseline_matching_server(
         "bm",
         df,
@@ -207,40 +254,56 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         matched_covariates,
     )
 
-    # --- 3. Diagnostic Tests ---
-    tab_diag.diag_server("diag", df, var_meta, df_matched, is_matched)
-
-    # --- 4. Core Regression ---
-    tab_core_regression.core_regression_server(
-        "core_reg", df, var_meta, df_matched, is_matched
-    )
-
-    # --- 5. Correlation & ICC ---
-    tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched)
-
-    # --- 6. Agreement & Reliability ---
-    tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched)
-
-    # --- 7. Advanced Inference ---
-    tab_advanced_inference.advanced_inference_server(
-        "adv_inf", df, var_meta, df_matched, is_matched
-    )
-
-    # --- 8. Causal Inference ---
-    tab_causal_inference.causal_inference_server(
-        "causal", df, var_meta, df_matched, is_matched
-    )
-
-    # --- 6. Survival Analysis Module ---
-    # ✅ Fix here: No need to pass input, output, session manually anymore
-    # Because @module.server will automatically retrieve those values from ID "survival"
-    tab_survival.survival_server("survival", df, var_meta, df_matched, is_matched)
-
-    # --- 7. Sample Size Calculator ---
-    tab_sample_size.sample_size_server("sample_size")
-
-    # --- 8. Settings Module ---
     tab_settings.settings_server("settings", CONFIG)
+
+    # --- Lazy Loading (Heavy/Secondary Tabs) ---
+    # Store loaded state in session to prevent re-initialization
+    if "loaded_modules" not in session.user_data:
+        session.user_data["loaded_modules"] = set()
+
+    @reactive.Effect
+    def _lazy_load_tabs():
+        current_tab = input.main_nav()
+        loaded = session.user_data["loaded_modules"]
+
+        # Helper to load module once
+        def load_module(name, loader_func):
+            if name not in loaded:
+                with ui.Progress(min=0, max=1) as p:
+                    p.set(message=f"Loading {name} module...", detail="This may take a moment")
+                    logger.info(f"⚡ Lazy Loading Module: {name}")
+                    loader_func()
+                    loaded.add(name)
+
+        # Map tab names (from UI) to module loaders
+        # Note: Tab names must match ui.nav_panel titles EXACTLY
+        
+        # General Stats
+        if current_tab == "Diagnostic Tests":
+            load_module("diag", lambda: tab_diag.diag_server("diag", df, var_meta, df_matched, is_matched))
+            
+        elif current_tab == "Correlation Analysis":
+            load_module("corr", lambda: tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched))
+            
+        elif current_tab == "Agreement & Reliability":
+            load_module("agreement", lambda: tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched))
+
+        # Advanced Modeling
+        elif current_tab == "Regression Analysis":
+            load_module("core_reg", lambda: tab_core_regression.core_regression_server("core_reg", df, var_meta, df_matched, is_matched))
+            
+        elif current_tab == "Survival Analysis":
+            load_module("survival", lambda: tab_survival.survival_server("survival", df, var_meta, df_matched, is_matched))
+            
+        elif current_tab == "Advanced Regression":
+            load_module("adv_inf", lambda: tab_advanced_inference.advanced_inference_server("adv_inf", df, var_meta, df_matched, is_matched))
+            
+        # Clinical
+        elif current_tab == "Causal Methods":
+            load_module("causal", lambda: tab_causal_inference.causal_inference_server("causal", df, var_meta, df_matched, is_matched))
+            
+        elif current_tab == "Sample Size Calculator":
+            load_module("sample_size", lambda: tab_sample_size.sample_size_server("sample_size"))
 
 
 # ==========================================

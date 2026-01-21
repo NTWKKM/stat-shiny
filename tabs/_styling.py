@@ -57,16 +57,27 @@ def get_shiny_css():
             --color-background: {COLORS["background"]};
             --color-surface: {COLORS["surface"]};
             
+            /* ADDED: Semantic States (Audit Section 9) */
+            --color-modified: #8B5CF6;    /* Purple - user has modified */
+            --color-processing: #3B82F6;  /* Blue - computation running */
+            --color-valid: #10B981;       /* Green - validation passed */
+            --color-attention: #F59E0B;   /* Amber - needs attention */
+            
+            /* ADDED: Feedback States (Audit Section 9) */
+            --color-step-complete: #10B981;
+            --color-step-current: #1E3A5F;
+            --color-step-pending: #D1D5DB;
+
             /* Spacing System - INCREASED for better proportions */
             --spacing-2xs: 2px;
             --spacing-1-5xs: 6px;
             --spacing-xs: 4px;
             --spacing-sm: 8px;
             --spacing-1-5sm: 12px;
-            --spacing-md: 16px;       /* Increased from 12px */
-            --spacing-lg: 20px;       /* Increased from 16px */
-            --spacing-xl: 32px;       /* Increased from 24px */
-            --spacing-2xl: 48px;      /* Increased from 32px */
+            --spacing-md: 16px;
+            --spacing-lg: 20px;
+            --spacing-xl: 32px;
+            --spacing-2xl: 48px;
             
             /* Component-Specific Spacing */
             --spacing-card-vertical: 24px;
@@ -77,7 +88,7 @@ def get_shiny_css():
             /* Border Radius */
             --radius-sm: 4px;
             --radius-md: 6px;
-            --radius-lg: 12px;        /* Increased from 8px for softer look */
+            --radius-lg: 12px;
             --radius-xl: 16px;
             
             /* Shadows - Softened */
@@ -93,6 +104,14 @@ def get_shiny_css():
             /* Typography */
             --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             --font-family-mono: 'Courier New', monospace;
+            
+            /* ADDED: Typography Scale (Audit Section 9) */
+            --text-display: 32px / 1.2;
+            --text-heading: 24px / 1.3;
+            --text-subheading: 18px / 1.4;
+            --text-body: 14px / 1.6;
+            --text-caption: 12px / 1.5;
+            --text-code: 13px / 1.4;
         }}
         
         * {{
@@ -301,6 +320,51 @@ def get_shiny_css():
             opacity: 0.6;
             cursor: not-allowed;
             pointer-events: none;
+        }}
+
+        /* ADDED: Button Size Variants (Audit Section 9) */
+        .btn-sm {{
+            padding: 4px 12px;
+            font-size: 13px;
+        }}
+        
+        .btn-lg {{
+            padding: 12px 24px;
+            font-size: 16px;
+        }}
+        
+        /* ADDED: Button State Variants (Audit Section 9) */
+        .btn-loading {{
+            position: relative;
+            color: transparent !important;
+            pointer-events: none;
+        }}
+        
+        .btn-loading::after {{
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 50%;
+            margin-top: -8px;
+            margin-left: -8px;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }}
+        
+        .btn-outline {{
+            background-color: transparent;
+            border: 1px solid {COLORS["border"]};
+            color: {COLORS["text"]};
+        }}
+        
+        .btn-outline:hover {{
+            border-color: {COLORS["primary"]};
+            color: {COLORS["primary"]};
+            background-color: {COLORS["smoke_white"]};
         }}
         
         /* Primary Buttons - Flat */
@@ -769,7 +833,125 @@ def get_shiny_css():
             color: #92400E;
             border-color: #FDE68A;
         }}
+
+        /* ===========================
+           FEEDBACK & LOADING STATES
+           =========================== */
         
+        /* Enhanced Loading State */
+        .loading-state {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            color: {COLORS["text_secondary"]};
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            height: 100%;
+            min-height: 200px;
+        }}
+
+        .spinner {{
+            width: 40px;
+            height: 40px;
+            border: 3px solid {COLORS["smoke_white"]};
+            border-top: 3px solid {COLORS["primary"]};
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }}
+
+        @keyframes spin {{
+            0% {{ transform: rotate(0deg); }}
+            100% {{ transform: rotate(360deg); }}
+        }}
+
+        /* Placeholder State */
+        .placeholder-state {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            color: {COLORS["text_secondary"]};
+            background-color: {COLORS["smoke_white"]};
+            border: 2px dashed {COLORS["border"]};
+            border-radius: var(--radius-lg);
+            text-align: center;
+            min-height: 200px;
+        }}
+        
+        .placeholder-icon {{
+            font-size: 32px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }}
+
+        /* Validation & Error Messages */
+        .validation-error {{
+            color: {COLORS["danger"]};
+            font-size: 13px;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }}
+
+        .error-alert-card {{
+            border-left: 4px solid {COLORS["danger"]};
+            background-color: #FEF2F2;
+        }}
+        
+        /* ===========================
+           ACCESSIBILITY
+           =========================== */
+
+        /* Skip Navigation Links */
+        .skip-links {{
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            z-index: 9999;
+        }}
+
+        .skip-link:focus {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: auto;
+            height: auto;
+            background: {COLORS["primary"]};
+            color: white;
+            padding: 12px 20px;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 0 0 var(--radius-md) 0;
+            outline: 3px solid {COLORS["warning"]};
+            box-shadow: var(--shadow-xl);
+        }}
+
+        /* Enhanced Focus Indicators */
+        *:focus-visible {{
+            outline: 3px solid {COLORS["primary"]};
+            outline-offset: 2px;
+            border-radius: 2px;
+        }}
+
+        /* Screen Reader Only */
+        .sr-only {{
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }}
+
         /* ===========================
            UTILITY CLASSES
            =========================== */
@@ -1119,6 +1301,292 @@ def get_shiny_css():
         .tvc-preset-btn {{
             margin-right: 5px !important;
         }}
+
+        /* ===========================
+           UX/UI IMPROVEMENTS
+           =========================== */
+        
+        .form-section {{
+            background: {COLORS["surface"]};
+            border: 1px solid {COLORS["border"]};
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }}
+        
+        .form-section-title {{
+            color: {COLORS["primary"]};
+            font-size: 16px;
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .form-section-required::before {{
+            content: "● REQUIRED";
+            color: {COLORS["danger"]};
+            font-size: 12px;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }}
+        
+        .form-section-optional::before {{
+            content: "○ OPTIONAL";
+            color: {COLORS["text_secondary"]};
+            font-size: 12px;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }}
+        
+        .form-section-advanced {{
+            background: {COLORS["smoke_white"]};
+            border-left: 4px solid {COLORS["warning"]};
+        }}
+        
+        .results-section {{
+            margin-top: var(--spacing-2xl);
+            padding-top: var(--spacing-xl);
+            border-top: 2px solid {COLORS["border"]};
+        }}
+        
+        .results-header {{
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            gap: 12px;
+        }}
+        
+        .results-title {{
+            margin: 0;
+            color: {COLORS["primary_dark"]};
+        }}
+        
+        .stat-table {{
+            font-size: 13px;
+        }}
+        
+        .stat-table th {{
+            background-color: {COLORS["smoke_white"]};
+            font-weight: 600;
+        }}
+        
+        .stat-table .sig-p {{
+            background-color: {COLORS["success"]};
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }}
+        
+        .stat-table td {{
+            font-family: var(--font-family-mono);
+        }}
+        
+        .help-icon {{
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            background: {COLORS["primary"]};
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 12px;
+            cursor: help;
+            margin-left: 4px;
+            font-weight: 700;
+            line-height: 18px;
+        }}
+        
+        .input-help-text {{
+            font-size: 12px;
+            color: {COLORS["text_secondary"]};
+            margin-top: 6px;
+            padding: 8px;
+            background: {COLORS["smoke_white"]};
+            border-left: 3px solid {COLORS["primary"]};
+            border-radius: 4px;
+            display: block;
+        }}
+        
+        .label-with-help {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }}
+        
+        .workflow-progress {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px;
+            background: {COLORS["primary_light"]};
+            border-radius: var(--radius-lg);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }}
+        
+        .step {{
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: {COLORS["text_secondary"]};
+            background: {COLORS["surface"]};
+            border: 1px solid {COLORS["border"]};
+        }}
+        
+        .step.active {{
+            background: {COLORS["primary"]};
+            color: white;
+            border-color: {COLORS["primary"]};
+        }}
+        
+        .step-divider {{
+            color: {COLORS["neutral"]};
+        }}
+        
+        .loading-state {{
+            text-align: center;
+            padding: 60px 20px;
+            color: {COLORS["text_secondary"]};
+        }}
+        
+        .spinner {{
+            animation: spin 1s linear infinite;
+            color: {COLORS["primary"]};
+            margin-bottom: var(--spacing-md);
+        }}
+        
+        @keyframes spin {{
+            from {{ transform: rotate(0deg); }}
+            to {{ transform: rotate(360deg); }}
+        }}
+        
+        .placeholder-state {{
+            text-align: center;
+            padding: 40px 20px;
+            color: {COLORS["neutral"]};
+            background: {COLORS["smoke_white"]};
+            border-radius: var(--radius-lg);
+            border: 1px dashed {COLORS["border"]};
+        }}
+        
+        .skip-links {{
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+        }}
+        
+        .skip-link:focus {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 9999;
+            background: {COLORS["primary"]};
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            outline: 2px solid {COLORS["warning"]};
+        }}
+        /* ===========================
+           SECTION 7: EMPTY STATE & SKELETON
+           =========================== */
+        
+        /* 7.1 Empty State Handling */
+        .empty-state {{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            background: linear-gradient(135deg, #F8F9FA 0%, #E8EEF7 100%);
+            border-radius: var(--radius-lg);
+            border: 1px dashed var(--color-border);
+            text-align: center;
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-lg);
+        }}
+
+        .empty-state-content {{
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-md);
+        }}
+
+        .empty-state-icon {{
+            font-size: 64px;
+            line-height: 1;
+            margin-bottom: var(--spacing-md);
+            opacity: 0.5;
+            filter: grayscale(1);
+        }}
+        
+        .empty-state h3 {{
+            font-size: var(--text-heading);
+            color: var(--color-text);
+            margin-bottom: var(--spacing-xs);
+        }}
+        
+        .empty-state p {{
+            font-size: var(--text-body);
+            color: var(--color-text-secondary);
+            margin-bottom: var(--spacing-lg);
+        }}
+        
+        /* 7.2 Skeleton Loaders */
+        .skeleton-container {{
+            width: 100%;
+            padding: var(--spacing-md);
+        }}
+
+        .skeleton {{
+            background: linear-gradient(
+                90deg,
+                #F0F0F0 0%,
+                #E8E8E8 50%,
+                #F0F0F0 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+        }}
+
+        .skeleton-text {{
+            height: 16px;
+            width: 80%;
+        }}
+        
+        .skeleton-text-sm {{
+            height: 12px;
+            width: 60%;
+        }}
+
+        .skeleton-chart {{
+            height: 300px;
+            width: 100%;
+            border-radius: var(--radius-md);
+        }}
+        
+        .skeleton-card {{
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            background: white;
+            margin-bottom: var(--spacing-lg);
+        }}
+
+        @keyframes shimmer {{
+            0% {{ background-position: 200% 0; }}
+            100% {{ background-position: -200% 0; }}
+        }}
+
     </style>
     """
 

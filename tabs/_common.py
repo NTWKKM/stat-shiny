@@ -233,7 +233,11 @@ def form_section(
     elements = [header]
     if description:
         elements.append(
-            ui.p(description, class_="text-muted", style="font-size: 13px; margin-bottom: 16px;")
+            ui.p(
+                description,
+                class_="text-muted",
+                style="font-size: 13px; margin-bottom: 16px;",
+            )
         )
     elements.extend(content)
 
