@@ -185,7 +185,10 @@ def sample_size_ui() -> ui.TagChild:
                             ui.input_radio_buttons(
                                 "ss_surv_mode",
                                 "Input Mode:",
-                                {"hr": "Hazard Ratio", "median": "Median Survival Time"},
+                                {
+                                    "hr": "Hazard Ratio",
+                                    "median": "Median Survival Time",
+                                },
                             ),
                             type="optional",
                         ),

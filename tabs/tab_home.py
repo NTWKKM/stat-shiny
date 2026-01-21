@@ -1,13 +1,8 @@
 from shiny import module, ui
 
-from tabs._styling import get_color_code
-
 
 @module.ui
 def home_ui():
-    primary_color = get_color_code("primary")
-    primary_dark = get_color_code("primary_dark")
-
     return ui.div(
         # Features Grid
         ui.div(

@@ -12,8 +12,6 @@ from logger import get_logger
 from tabs._common import get_color_palette
 from utils.ui_helpers import (
     create_empty_state_ui,
-    create_input_group,
-    create_tooltip_label,
 )
 
 logger = get_logger(__name__)
@@ -141,6 +139,7 @@ def data_server(
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
     # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
     data_issues: reactive.Value[list[dict[str, Any]]] = reactive.Value([])
+
     # --- 1. Data Loading Logic ---
     def generate_example_data_logic():
         logger.info("Generating example data...")

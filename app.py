@@ -121,9 +121,7 @@ app_ui = ui.page_fluid(
             "🔬 Advanced Statistics",
             ui.nav_panel(
                 "Regression Analysis",
-                wrap_with_container(
-                    tab_core_regression.core_regression_ui("core_reg")
-                ),
+                wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
                 value="Regression Analysis",
             ),
             ui.nav_panel(
@@ -151,9 +149,7 @@ app_ui = ui.page_fluid(
             ),
             ui.nav_panel(
                 "Causal Methods",
-                wrap_with_container(
-                    tab_causal_inference.causal_inference_ui("causal")
-                ),
+                wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
                 value="Causal Methods",
             ),
         ),
@@ -267,40 +263,80 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         def load_module(name, loader_func):
             if name not in loaded:
                 with ui.Progress(min=0, max=1) as p:
-                    p.set(message=f"Loading {name} module...", detail="This may take a moment")
+                    p.set(
+                        message=f"Loading {name} module...",
+                        detail="This may take a moment",
+                    )
                     logger.info(f"⚡ Lazy Loading Module: {name}")
                     loader_func()
                     loaded.add(name)
 
         # Map tab names (from UI) to module loaders
         # Note: Tab names must match ui.nav_panel titles EXACTLY
-        
+
         # General Stats
         if current_tab == "Diagnostic Tests":
-            load_module("diag", lambda: tab_diag.diag_server("diag", df, var_meta, df_matched, is_matched))
-            
+            load_module(
+                "diag",
+                lambda: tab_diag.diag_server(
+                    "diag", df, var_meta, df_matched, is_matched
+                ),
+            )
+
         elif current_tab == "Correlation Analysis":
-            load_module("corr", lambda: tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched))
-            
+            load_module(
+                "corr",
+                lambda: tab_corr.corr_server(
+                    "corr", df, var_meta, df_matched, is_matched
+                ),
+            )
+
         elif current_tab == "Agreement & Reliability":
-            load_module("agreement", lambda: tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched))
+            load_module(
+                "agreement",
+                lambda: tab_agreement.agreement_server(
+                    "agreement", df, var_meta, df_matched, is_matched
+                ),
+            )
 
         # Advanced Statistics
         elif current_tab == "Regression Analysis":
-            load_module("core_reg", lambda: tab_core_regression.core_regression_server("core_reg", df, var_meta, df_matched, is_matched))
-            
+            load_module(
+                "core_reg",
+                lambda: tab_core_regression.core_regression_server(
+                    "core_reg", df, var_meta, df_matched, is_matched
+                ),
+            )
+
         elif current_tab == "Survival Analysis":
-            load_module("survival", lambda: tab_survival.survival_server("survival", df, var_meta, df_matched, is_matched))
-            
+            load_module(
+                "survival",
+                lambda: tab_survival.survival_server(
+                    "survival", df, var_meta, df_matched, is_matched
+                ),
+            )
+
         elif current_tab == "Advanced Regression":
-            load_module("adv_inf", lambda: tab_advanced_inference.advanced_inference_server("adv_inf", df, var_meta, df_matched, is_matched))
-            
+            load_module(
+                "adv_inf",
+                lambda: tab_advanced_inference.advanced_inference_server(
+                    "adv_inf", df, var_meta, df_matched, is_matched
+                ),
+            )
+
         # Clinical
         elif current_tab == "Causal Methods":
-            load_module("causal", lambda: tab_causal_inference.causal_inference_server("causal", df, var_meta, df_matched, is_matched))
-            
+            load_module(
+                "causal",
+                lambda: tab_causal_inference.causal_inference_server(
+                    "causal", df, var_meta, df_matched, is_matched
+                ),
+            )
+
         elif current_tab == "Sample Size Calculator":
-            load_module("sample_size", lambda: tab_sample_size.sample_size_server("sample_size"))
+            load_module(
+                "sample_size", lambda: tab_sample_size.sample_size_server("sample_size")
+            )
 
 
 # ==========================================
