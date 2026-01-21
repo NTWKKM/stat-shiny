@@ -71,11 +71,14 @@ def data_ui() -> ui.TagChild:
         ui.div(
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
+            
             # 1. Variable Configuration Accordion (Expandable, Open by Default)
+            # [Adjusted] ใช้ Bootstrap Grid (row/col) แทน layout_columns เพื่อแก้ปัญหา Auto size จนเล็กเกินไป
             ui.accordion(
                 ui.accordion_panel(
                     "🛠️ Variable Configuration",
-                    ui.layout_columns(
+                    ui.div(
+                        # Left Column: Variable Selection & Settings
                         ui.div(
                             create_input_group(
                                 "Select Variable",
@@ -99,39 +102,49 @@ def data_ui() -> ui.TagChild:
                                 ui.output_ui("ui_var_settings"),
                                 class_="mt-3"
                             ),
+                            class_="col-md-6 col-12" # On medium screens+, take half width. On small, take full.
                         ),
-                        # RIGHT COLUMN: Missing Data Configuration
-                        create_input_group(
-                            "Missing Data",
-                            create_tooltip_label(
-                                "Missing Value Codes",
-                                "Enter values to be treated as NaN (e.g. -99 or 999).",
+                        # Right Column: Missing Data Configuration
+                        ui.div(
+                            create_input_group(
+                                "Missing Data",
+                                create_tooltip_label(
+                                    "Missing Value Codes",
+                                    "Enter values to be treated as NaN (e.g. -99 or 999).",
+                                ),
+                                ui.input_text(
+                                    "txt_missing_codes",
+                                    "Codes (comma separated):",
+                                    placeholder="e.g., -99, 999",
+                                    value="",
+                                ),
+                                ui.output_ui("ui_missing_preview"),
+                                ui.input_action_button(
+                                    "btn_save_missing",
+                                    "💾 Save Config",
+                                    class_="btn-secondary w-100 mt-2",
+                                ),
+                                type="advanced",
                             ),
-                            ui.input_text(
-                                "txt_missing_codes",
-                                "Codes (comma separated):",
-                                placeholder="e.g., -99, 999",
-                                value="",
-                            ),
-                            ui.output_ui("ui_missing_preview"),
-                            ui.input_action_button(
-                                "btn_save_missing",
-                                "💾 Save Config",
-                                class_="btn-secondary w-100 mt-2",
-                            ),
-                            type="advanced",
+                            class_="col-md-6 col-12" # On medium screens+, take half width. On small, take full.
                         ),
-                        col_widths=(6, 6),
+                        class_="row g-4" # g-4 adds consistent gap between columns
                     ),
                 ),
                 id="acc_var_config",
                 open=True,
                 class_="mb-3 shadow-sm border-0",
             ),
+            
             # 2. Data Preview Card
+            # [Adjusted] เพิ่ม overflow-x: auto เพื่อแก้ปัญหากรณีตารางยาวเกิน container แล้วล้นออกนอกกรอบ
             ui.card(
                 ui.card_header(ui.tags.span("📄 Data Preview", class_="fw-bold")),
-                ui.output_ui("ui_preview_area"),
+                ui.div(
+                    ui.output_ui("ui_preview_area"),
+                    class_="table-responsive", # Class helper for horizontal scrolling
+                    style="overflow-x: auto; width: 100%;" # Force scroll on overflow
+                ),
                 height="600px",
                 full_screen=True,
                 class_="shadow-sm border-0",
@@ -158,6 +171,7 @@ def data_server(
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
     # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
     data_issues: reactive.Value[list[dict[str, Any]]] = reactive.Value([])
+    
     # --- 1. Data Loading Logic ---
     def generate_example_data_logic():
         logger.info("Generating example data...")
@@ -935,14 +949,6 @@ def data_server(
         if is_matched.get():
             return ui.input_action_button("btn_clear_match", "🔄 Clear Matched Data")
         return None
-
-    @reactive.Effect
-    @reactive.event(lambda: input.btn_clear_match())
-    def _():
-        df_matched.set(None)
-        is_matched.set(False)
-        matched_treatment_col.set(None)
-        matched_covariates.set([])
 
     # --- New: Data Health Report Renderer ---
     @render.ui
