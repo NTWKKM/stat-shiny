@@ -66,13 +66,8 @@ def start_shiny_server(request):
     # ────────────────────────────────────────────────────────────────────
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
-
-    # Initialize variables for safe cleanup in finally block
-    log_file = None
-    process = None
-
     try:
-        # ย้ายการสร้างไฟล์ชั่วคราวเข้ามาใน try เพื่อป้องกัน FD leak หากขั้นตอนหลังจากนี้พัง
+        # Restore temporary log file behavior
         log_file = tempfile.NamedTemporaryFile(delete=False, mode="w+")
 
         try:
@@ -88,7 +83,7 @@ def start_shiny_server(request):
                     "8000",
                     str(app_path),
                 ],
-                stdout=log_file,  # พ่น Log ลงไฟล์เพื่อกัน Buffer เต็ม
+                stdout=log_file,
                 stderr=subprocess.STDOUT,
                 env=env,
                 cwd=str(project_root),
@@ -107,7 +102,6 @@ def start_shiny_server(request):
         print("⏳ Waiting for server (max 60s)...", end="", flush=True)
 
         while time.time() - start_time < 60:
-            # ตรวจสอบว่าแอปพังกลางคันหรือไม่
             if process.poll() is not None:
                 log_file.close()
                 with open(log_file.name, encoding="utf-8", errors="replace") as f:
