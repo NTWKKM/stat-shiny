@@ -1107,32 +1107,38 @@ def core_regression_server(
                     [{"variable": v.get("label", k), **v} for k, v in aor_res.items()]
                 )
                 if not df_adj.empty:
-                    fig_adj = create_forest_plot(
-                        df_adj,
-                        "aor",
-                        "ci_low",
-                        "ci_high",
-                        "variable",
-                        pval_col="p_value",
-                        title="<b>Multivariable: Adjusted OR</b>",
-                        x_label="Adjusted OR",
-                    )
+                    try:
+                        fig_adj = create_forest_plot(
+                            df_adj,
+                            "aor",
+                            "ci_low",
+                            "ci_high",
+                            "variable",
+                            pval_col="p_value",
+                            title="<b>Multivariable: Adjusted OR</b>",
+                            x_label="Adjusted OR",
+                        )
+                    except ValueError as e:
+                        logger.warning("Logit Adjusted Forest Plot creation failed: %s", e)
 
             if or_res:
                 df_crude = pd.DataFrame(
                     [{"variable": v.get("label", k), **v} for k, v in or_res.items()]
                 )
                 if not df_crude.empty:
-                    fig_crude = create_forest_plot(
-                        df_crude,
-                        "or",
-                        "ci_low",
-                        "ci_high",
-                        "variable",
-                        pval_col="p_value",
-                        title="<b>Univariable: Crude OR</b>",
-                        x_label="Crude OR",
-                    )
+                    try:
+                        fig_crude = create_forest_plot(
+                            df_crude,
+                            "or",
+                            "ci_low",
+                            "ci_high",
+                            "variable",
+                            pval_col="p_value",
+                            title="<b>Univariable: Crude OR</b>",
+                            x_label="Crude OR",
+                        )
+                    except ValueError as e:
+                        logger.warning("Logit Crude Forest Plot creation failed: %s", e)
 
             # --- MANUALLY CONSTRUCT COMPLETE REPORT (Table + Plots) ---
             # 1. Create Fragment for UI (Table + Plots)
@@ -1354,32 +1360,38 @@ def core_regression_server(
                     [{"variable": k, **v} for k, v in airr_res.items()]
                 )
                 if not df_adj.empty:
-                    fig_adj = create_forest_plot(
-                        df_adj,
-                        "airr",
-                        "ci_low",
-                        "ci_high",
-                        "variable",
-                        pval_col="p_value",
-                        title="<b>Multivariable: Adjusted IRR</b>",
-                        x_label="Adjusted IRR",
-                    )
+                    try:
+                        fig_adj = create_forest_plot(
+                            df_adj,
+                            "airr",
+                            "ci_low",
+                            "ci_high",
+                            "variable",
+                            pval_col="p_value",
+                            title="<b>Multivariable: Adjusted IRR</b>",
+                            x_label="Adjusted IRR",
+                        )
+                    except ValueError as e:
+                        logger.warning("Poisson Adjusted Forest Plot creation failed: %s", e)
 
             if irr_res:
                 df_crude = pd.DataFrame(
                     [{"variable": k, **v} for k, v in irr_res.items()]
                 )
                 if not df_crude.empty:
-                    fig_crude = create_forest_plot(
-                        df_crude,
-                        "irr",
-                        "ci_low",
-                        "ci_high",
-                        "variable",
-                        pval_col="p_value",
-                        title="<b>Univariable: Crude IRR</b>",
-                        x_label="Crude IRR",
-                    )
+                    try:
+                        fig_crude = create_forest_plot(
+                            df_crude,
+                            "irr",
+                            "ci_low",
+                            "ci_high",
+                            "variable",
+                            pval_col="p_value",
+                            title="<b>Univariable: Crude IRR</b>",
+                            x_label="Crude IRR",
+                        )
+                    except ValueError as e:
+                        logger.warning("Poisson Crude Forest Plot creation failed: %s", e)
 
             # --- MANUALLY CONSTRUCT COMPLETE REPORT (Combined Table + Plot) ---
             # Unlike logic.py, poisson_lib might return just the table HTML.
@@ -1602,32 +1614,38 @@ def core_regression_server(
                     [{"variable": k, **v} for k, v in airr_res.items()]
                 )
                 if not df_adj.empty:
-                    fig_adj = create_forest_plot(
-                        df_adj,
-                        "airr",
-                        "ci_low",
-                        "ci_high",
-                        "variable",
-                        pval_col="p_value",
-                        title="<b>Multivariable: Adjusted IRR</b>",
-                        x_label="Adjusted IRR",
-                    )
+                    try:
+                        fig_adj = create_forest_plot(
+                            df_adj,
+                            "airr",
+                            "ci_low",
+                            "ci_high",
+                            "variable",
+                            pval_col="p_value",
+                            title="<b>Multivariable: Adjusted IRR</b>",
+                            x_label="Adjusted IRR",
+                        )
+                    except ValueError as e:
+                        logger.warning("NB Adjusted Forest Plot creation failed: %s", e)
 
             if irr_res:
                 df_crude = pd.DataFrame(
                     [{"variable": k, **v} for k, v in irr_res.items()]
                 )
                 if not df_crude.empty:
-                    fig_crude = create_forest_plot(
-                        df_crude,
-                        "irr",
-                        "ci_low",
-                        "ci_high",
-                        "variable",
-                        pval_col="p_value",
-                        title="<b>Univariable: Crude IRR</b>",
-                        x_label="Crude IRR",
-                    )
+                    try:
+                        fig_crude = create_forest_plot(
+                            df_crude,
+                            "irr",
+                            "ci_low",
+                            "ci_high",
+                            "variable",
+                            pval_col="p_value",
+                            title="<b>Univariable: Crude IRR</b>",
+                            x_label="Crude IRR",
+                        )
+                    except ValueError as e:
+                        logger.warning("NB Crude Forest Plot creation failed: %s", e)
 
             # --- MANUALLY CONSTRUCT COMPLETE REPORT (Combined Table + Plot) ---
             nb_fragment_html = html_rep
@@ -2525,11 +2543,21 @@ def core_regression_server(
                     }
                 )
 
-            fig = create_forest_plot(
-                forest_data,
-                title=f"GLM ({input.glm_family()}/{input.glm_link()}) Results",
-                x_label="Exp(Coef) [OR/RR]" if is_ratio else "Coefficient",
-            )
+            try:
+                forest_df = pd.DataFrame(forest_data)
+                fig = create_forest_plot(
+                    forest_df,
+                    estimate_col="mean",
+                    ci_low_col="lower",
+                    ci_high_col="upper",
+                    label_col="label",
+                    pval_col="p_value",
+                    title=f"GLM ({input.glm_family()}/{input.glm_link()}) Results",
+                    x_label="Exp(Coef) [OR/RR]" if is_ratio else "Coefficient",
+                )
+            except ValueError as e:
+                logger.warning("GLM Forest Plot creation failed: %s", e)
+                fig = None
 
             # Generate HTML Report
             html_parts = [

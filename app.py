@@ -10,8 +10,8 @@ from config import CONFIG
 from logger import LoggerFactory, get_logger
 
 # Import Tabs Modules
-from tabs import (
     tab_advanced_inference,
+    tab_agreement,  # 🟢 Agreement Module
     tab_baseline_matching,
     tab_causal_inference,
     tab_core_regression,
@@ -67,8 +67,12 @@ app_ui = ui.page_navbar(
             wrap_with_container(tab_diag.diag_ui("diag")),
         ),
         ui.nav_panel(
-            "Correlation & ICC",
+            "Correlation Analysis",
             wrap_with_container(tab_corr.corr_ui("corr")),
+        ),
+        ui.nav_panel(
+            "Agreement & Reliability",
+            wrap_with_container(tab_agreement.agreement_ui("agreement")),
         ),
     ),
     # ========================================
@@ -211,6 +215,9 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 
     # --- 5. Correlation & ICC ---
     tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched)
+
+    # --- 6. Agreement & Reliability ---
+    tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched)
 
     # --- 7. Advanced Inference ---
     tab_advanced_inference.advanced_inference_server(
