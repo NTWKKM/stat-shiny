@@ -88,7 +88,7 @@ def tvc_column_config_ui() -> ui.TagChild:
     """
     return ui.card(
         ui.card_header("⚙️ Column Configuration"),
-        ui.markdown("**Required columns for Time-Varying Cox analysis:**"),
+        ui.markdown("**Columns for Time-Varying Cox analysis:**"),
         # --- Identification & Time Columns ---
         ui.div(ui.strong("Identification & Time"), class_="text-muted mt-3 mb-2"),
         ui.layout_columns(

@@ -474,8 +474,8 @@
         }
         
         .form-label.required::after {
-            content: ' *';
-            color: #E74856;
+            content: "";
+            display: none;
         }
         
         /* Form Group - Better Separation */

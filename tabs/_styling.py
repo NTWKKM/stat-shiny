@@ -512,8 +512,8 @@ def get_shiny_css():
         }}
         
         .form-label.required::after {{
-            content: ' *';
-            color: {COLORS["danger"]};
+            content: "";
+            display: none;
         }}
         
         /* Form Group - Better Separation */
