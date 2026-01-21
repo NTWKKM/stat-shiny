@@ -1,0 +1,498 @@
+"""
+🤝 Agreement & Reliability Analysis Module
+
+Consolidating Agreement and Reliability analysis:
+- Cohen's Kappa (Inter-rater agreement for categorical data)
+- Bland-Altman (Method comparison for continuous data)
+- ICC (Intraclass Correlation for continuous reliability)
+"""
+
+from __future__ import annotations
+
+import html as _html
+import re
+from typing import Any
+
+import numpy as np
+import pandas as pd
+from shiny import module, reactive, render, req, ui
+
+from logger import get_logger
+from tabs._common import (
+    get_color_palette,
+)
+from utils import correlation, diag_test
+from utils.formatting import create_missing_data_report_html
+from utils.plotly_html_renderer import plotly_figure_to_html
+
+logger = get_logger(__name__)
+
+
+def _safe_filename_part(s: str) -> str:
+    s = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(s).strip())
+    return s[:80] or "value"
+
+
+def _auto_detect_icc_vars(cols: list[str]) -> list[str]:
+    """Auto-detect ICC/Rater variables based on column name patterns."""
+    icc_patterns = ["icc", "rater", "method", "observer", "judge"]
+    detected = []
+    for col in cols:
+        col_lower = col.lower()
+        for pattern in icc_patterns:
+            if pattern in col_lower:
+                detected.append(col)
+                break
+    return detected
+
+
+@module.ui
+def agreement_ui() -> ui.TagChild:
+    return ui.div(
+        # Title + Data Summary inline
+        ui.output_ui("ui_title_with_summary"),
+        # Dataset Info Box
+        ui.output_ui("ui_matched_info"),
+        ui.br(),
+        # Dataset Selector
+        ui.output_ui("ui_dataset_selector"),
+        ui.br(),
+        # Main Analysis Tabs
+        ui.navset_tab(
+            # TAB 1: Kappa (Categorical Agreement)
+            ui.nav_panel(
+                "🤝 Cohen's Kappa",
+                ui.card(
+                    ui.card_header("🤝 Cohen's Kappa (Categorical Data)"),
+                    ui.layout_columns(
+                        ui.input_select(
+                            "sel_kappa_v1", "Rater/Method 1:", choices=["Select..."]
+                        ),
+                        ui.input_select(
+                            "sel_kappa_v2", "Rater/Method 2:", choices=["Select..."]
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.output_ui("ui_kappa_warning"),
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_analyze_kappa",
+                            "🚀 Calculate Kappa",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.download_button(
+                            "btn_dl_kappa_report",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.output_ui("ui_kappa_status"),
+                    ui.output_ui("out_kappa_results"),
+                    full_screen=True,
+                ),
+            ),
+            # TAB 2: Bland-Altman (Continuous Agreement)
+            ui.nav_panel(
+                "📉 Bland-Altman",
+                ui.card(
+                    ui.card_header("📉 Bland-Altman Analysis (Continuous Data)"),
+                    ui.layout_columns(
+                        ui.input_select(
+                            "sel_ba_v1", "Variable 1 (Method A):", choices=["Select..."]
+                        ),
+                        ui.input_select(
+                            "sel_ba_v2", "Variable 2 (Method B):", choices=["Select..."]
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_analyze_ba",
+                            "🚀 Analyze Agreement",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.download_button(
+                            "btn_dl_ba_report",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.output_ui("ui_ba_status"),
+                    ui.output_ui("out_ba_results"),
+                    full_screen=True,
+                ),
+            ),
+            # TAB 3: ICC (Reliability)
+            ui.nav_panel(
+                "🔍 Reliability (ICC)",
+                ui.card(
+                    ui.card_header("🔍 Intraclass Correlation Coefficient"),
+                    ui.input_selectize(
+                        "icc_vars",
+                        "Select Variables (Raters/Methods) - Select 2+:",
+                        choices=["Select..."],
+                        multiple=True,
+                        selected=[],
+                    ),
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_icc",
+                            "🔍 Calculate ICC",
+                            class_="btn-primary",
+                            width="100%",
+                        ),
+                        ui.download_button(
+                            "btn_dl_icc",
+                            "📥 Download Report",
+                            class_="btn-secondary",
+                            width="100%",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.output_ui("out_icc_result"),
+                    full_screen=True,
+                ),
+            ),
+            # TAB 4: Reference
+            ui.nav_panel(
+                "ℹ️ Reference",
+                ui.card(
+                    ui.card_header("📚 Agreement & Reliability Guide"),
+                    ui.markdown("""
+                    ### 🤝 Cohen's Kappa
+                    Used for **categorical (groups)** data to measure agreement between two raters/methods.
+                    - **Kappa > 0.8:** Excellent agreement
+                    - **Kappa 0.6-0.8:** Substantial agreement
+                    - **Kappa 0.4-0.6:** Moderate agreement
+                    - **Kappa < 0.4:** Poor to Fair agreement
+
+                    ### 📉 Bland-Altman Plot
+                    Used for **continuous** data to compare two measurement methods.
+                    - **Bias (Mean Difference):** How much one method differs from the other on average.
+                    - **Limits of Agreement (LoA):** The range (Mean ± 1.96 SD) where 95% of differences lie.
+                    - Ideally, 95% of points should be within the LoA lines.
+
+                    ### 🔍 Intraclass Correlation (ICC)
+                    Used for **continuous** data to measure reliability among 2 or more raters.
+                    - **ICC(2,1) Absolute Agreement:** Use when exact scores must match.
+                    - **ICC(3,1) Consistency:** Use when ranking consistency matters.
+                    - **Interpretation:**
+                        - **> 0.90:** Excellent Reliability ✅
+                        - **0.75 - 0.90:** Good Reliability
+                        - **0.50 - 0.75:** Moderate Reliability ⚠️
+                        - **< 0.50:** Poor Reliability ❌
+                    """),
+                ),
+            ),
+        ),
+    )
+
+
+@module.server
+def agreement_server(
+    input: Any,
+    output: Any,
+    session: Any,
+    df: reactive.Value[pd.DataFrame | None],
+    var_meta: reactive.Value[dict[str, Any]],
+    df_matched: reactive.Value[pd.DataFrame | None],
+    is_matched: reactive.Value[bool],
+) -> None:
+    COLORS = get_color_palette()
+
+    # --- Reactive Results ---
+    kappa_html: reactive.Value[str | None] = reactive.Value(None)
+    ba_html: reactive.Value[str | None] = reactive.Value(None)
+    icc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+
+    kappa_processing: reactive.Value[bool] = reactive.Value(False)
+    ba_processing: reactive.Value[bool] = reactive.Value(False)
+
+    # --- Dataset Logic ---
+    @reactive.Calc
+    def current_df() -> pd.DataFrame | None:
+        if is_matched.get() and input.radio_source() == "matched":
+            return df_matched.get()
+        return df.get()
+
+    @render.ui
+    def ui_title_with_summary():
+        d = current_df()
+        if d is not None:
+            return ui.div(
+                ui.h3("🤝 Agreement & Reliability Analysis"),
+                ui.p(
+                    f"{len(d):,} rows | {len(d.columns)} columns",
+                    class_="text-secondary mb-3",
+                ),
+            )
+        return ui.h3("🤝 Agreement & Reliability Analysis")
+
+    @render.ui
+    def ui_matched_info():
+        if is_matched.get():
+            return ui.div(
+                ui.tags.div(
+                    "✅ **Matched Dataset Available** - You can select it below",
+                    class_="alert alert-info",
+                )
+            )
+        return None
+
+    @render.ui
+    def ui_dataset_selector():
+        if is_matched.get():
+            return ui.input_radio_buttons(
+                "radio_source",
+                "📄 Select Dataset:",
+                {"original": "Original Data", "matched": "Matched Data"},
+                selected="matched",
+                inline=True,
+            )
+        return None
+
+    # --- Update Columns ---
+    @reactive.Effect
+    def _update_cols():
+        d = current_df()
+        if d is not None:
+            cols = d.columns.tolist()
+            num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
+
+            # Kappa Selectors (Uses all cols, but typically categorical)
+            start_sel = cols[0] if cols else None
+            end_sel = cols[1] if len(cols) > 1 else start_sel
+            ui.update_select("sel_kappa_v1", choices=cols, selected=start_sel)
+            ui.update_select("sel_kappa_v2", choices=cols, selected=end_sel)
+
+            # Bland-Altman Selectors (Numeric only)
+            ui.update_select(
+                "sel_ba_v1", choices=num_cols, selected=num_cols[0] if num_cols else ""
+            )
+            ui.update_select(
+                "sel_ba_v2",
+                choices=num_cols,
+                selected=num_cols[1] if len(num_cols) > 1 else "",
+            )
+
+            # ICC Selector
+            icc_defaults = _auto_detect_icc_vars(num_cols)
+            ui.update_selectize("icc_vars", choices=num_cols, selected=icc_defaults)
+
+    # ==================== KAPPA ANALYSIS ====================
+    @render.ui
+    def ui_kappa_warning():
+        if input.sel_kappa_v1() == input.sel_kappa_v2():
+            return ui.div(
+                ui.markdown("⚠️ Please select different variables."),
+                class_="alert alert-warning",
+            )
+        return None
+
+    @render.ui
+    def ui_kappa_status():
+        if kappa_processing.get():
+            return ui.div(
+                "⏳ Calculating Kappa...", class_="alert alert-info spinner-border-sm"
+            )
+        return None
+
+    @reactive.Effect
+    @reactive.event(input.btn_analyze_kappa)
+    def _run_kappa():
+        d = current_df()
+        v1, v2 = input.sel_kappa_v1(), input.sel_kappa_v2()
+        req(d is not None, v1, v2)
+
+        kappa_processing.set(True)
+        try:
+            res, err, conf, missing_info = diag_test.calculate_kappa(
+                d, v1, v2, var_meta=var_meta.get() or {}
+            )
+            if err:
+                kappa_html.set(f"<div class='alert alert-danger'>{err}</div>")
+            else:
+                rep = [
+                    {"type": "text", "data": f"Agreement: {v1} vs {v2}"},
+                    {"type": "table", "header": "Kappa Statistics", "data": res},
+                    {
+                        "type": "contingency_table",
+                        "header": "Confusion Matrix",
+                        "data": conf,
+                    },
+                ]
+                if missing_info:
+                    rep.append(
+                        {
+                            "type": "html",
+                            "data": create_missing_data_report_html(
+                                missing_info, var_meta.get() or {}
+                            ),
+                        }
+                    )
+                kappa_html.set(diag_test.generate_report(f"Kappa: {v1} vs {v2}", rep))
+        except Exception as e:
+            logger.exception("Kappa failed")
+            kappa_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+        finally:
+            kappa_processing.set(False)
+
+    @render.ui
+    def out_kappa_results():
+        return ui.HTML(kappa_html.get()) if kappa_html.get() else None
+
+    @render.download(filename="kappa_report.html")
+    def btn_dl_kappa_report():
+        yield kappa_html.get()
+
+    # ==================== BLAND-ALTMAN ANALYSIS ====================
+    @render.ui
+    def ui_ba_status():
+        if ba_processing.get():
+            return ui.div(
+                "⏳ Calculating Bland-Altman...",
+                class_="alert alert-info spinner-border-sm",
+            )
+        return None
+
+    @reactive.Effect
+    @reactive.event(input.btn_analyze_ba)
+    def _run_ba():
+        d = current_df()
+        v1, v2 = input.sel_ba_v1(), input.sel_ba_v2()
+        req(d is not None, v1, v2)
+
+        ba_processing.set(True)
+        try:
+            stats_res, fig = diag_test.calculate_bland_altman(d, v1, v2)
+            if "error" in stats_res:
+                ba_html.set(
+                    f"<div class='alert alert-danger'>Error: {stats_res['error']}</div>"
+                )
+            else:
+                stats_df = pd.DataFrame(
+                    [
+                        {
+                            "Mean Diff (Bias)": f"{stats_res['mean_diff']:.4f}",
+                            "95% CI Bias": f"{stats_res['ci_mean_diff'][0]:.4f} - {stats_res['ci_mean_diff'][1]:.4f}",
+                            "Upper LoA": f"{stats_res['upper_loa']:.4f}",
+                            "Lower LoA": f"{stats_res['lower_loa']:.4f}",
+                            "N": stats_res["n"],
+                        }
+                    ]
+                ).T
+                rep = [
+                    {
+                        "type": "text",
+                        "data": f"Bland-Altman: {v1} vs {v2}",
+                    },
+                    {"type": "plot", "data": fig},
+                    {
+                        "type": "table",
+                        "header": "Agreement Statistics",
+                        "data": stats_df,
+                    },
+                ]
+                ba_html.set(diag_test.generate_report(f"Bland-Altman: {v1} vs {v2}", rep))
+        except Exception as e:
+            logger.exception("Bland-Altman failed")
+            ba_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+        finally:
+            ba_processing.set(False)
+
+    @render.ui
+    def out_ba_results():
+        return ui.HTML(ba_html.get()) if ba_html.get() else None
+
+    @render.download(filename="bland_altman_report.html")
+    def btn_dl_ba_report():
+        yield ba_html.get()
+
+    # ==================== ICC ANALYSIS ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_icc)
+    def _run_icc():
+        d = current_df()
+        cols = input.icc_vars()
+        if d is None or not cols or len(cols) < 2:
+            ui.notification_show("Select at least 2 variables", type="warning")
+            return
+
+        with ui.Progress(min=0, max=1) as p:
+            p.set(message="Calculating ICC...")
+            res_df, err, anova_df = diag_test.calculate_icc(d, list(cols))
+
+        if err:
+            ui.notification_show(f"Error: {err}", type="error")
+            icc_result.set(None)
+        else:
+            icc_result.set(
+                {
+                    "results_df": res_df,
+                    "anova_df": anova_df,
+                    "variables": list(cols),
+                    "data_label": (
+                        "Matched Data"
+                        if is_matched.get() and input.radio_source() == "matched"
+                        else "Original Data"
+                    ),
+                }
+            )
+
+    @render.ui
+    def out_icc_result():
+        result = icc_result.get()
+        if result is None:
+            return ui.markdown("*Results will appear here*")
+
+        res_df = result["results_df"]
+        interp_parts = []
+        for _, row in res_df.iterrows():
+            val = row.get("ICC", 0)
+            if pd.isna(val):
+                continue
+            strength = (
+                "Excellent"
+                if val > 0.9
+                else "Good"
+                if val > 0.75
+                else "Moderate"
+                if val > 0.5
+                else "Poor"
+            )
+            icon = "✅" if val > 0.75 else "⚠️" if val > 0.5 else "❌"
+            interp_parts.append(
+                f"{icon} <strong>{row.get('Type')}</strong> = {val:.3f}: {strength}"
+            )
+
+        interp_html = f"""
+        <div class="alert alert-light border-start border-4 border-primary">
+            <h5>📊 Interpretation</h5>
+            {"<br>".join(interp_parts)}
+        </div>
+        """
+
+        return ui.card(
+            ui.card_header("ICC Results"),
+            ui.markdown(f"**Data:** {result['data_label']}"),
+            ui.HTML(interp_html),
+            ui.card_header("ICC Table"),
+            render.DataGrid(res_df, width="100%"),
+            ui.card_header("ANOVA Table"),
+            render.DataGrid(result["anova_df"], width="100%"),
+        )
+
+    @render.download(filename="icc_report.html")
+    def btn_dl_icc():
+        result = icc_result.get()
+        if not result:
+            yield b"No Data"
+            return
+        elements = [
+            {"type": "text", "data": f"Data: {result['data_label']}"},
+            {"type": "table", "header": "ICC Results", "data": result["results_df"]},
+            {"type": "table", "header": "ANOVA Table", "data": result["anova_df"]},
+        ]
+        yield correlation.generate_report("ICC Report", elements).encode("utf-8")

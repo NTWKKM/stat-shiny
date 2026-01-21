@@ -110,73 +110,7 @@ def diag_ui() -> ui.TagChild:
                 ui.br(),
                 ui.output_ui("out_chi_results"),
             ),
-            # TAB 3: Agreement (Kappa)
-            ui.nav_panel(
-                "🤝 Agreement (Kappa)",
-                ui.markdown("##### Agreement Analysis (Cohen's Kappa)"),
-                ui.row(
-                    ui.column(6, ui.output_ui("ui_kappa_v1")),
-                    ui.column(6, ui.output_ui("ui_kappa_v2")),
-                ),
-                ui.output_ui("ui_kappa_warning"),
-                ui.row(
-                    ui.column(
-                        6,
-                        ui.input_action_button(
-                            "btn_analyze_kappa",
-                            "🚀 Calculate Kappa",
-                            class_="btn-primary w-100",
-                            width="100%",
-                        ),
-                    ),
-                    ui.column(
-                        6,
-                        ui.download_button(
-                            "btn_dl_kappa_report",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
-                            width="100%",
-                        ),
-                    ),
-                ),
-                ui.br(),
-                ui.output_ui("ui_kappa_status"),  # Status message area
-                ui.br(),
-                ui.output_ui("out_kappa_results"),
-            ),
-            # TAB 4: Agreement (Bland-Altman)
-            ui.nav_panel(
-                "🤝 Agreement (Bland-Altman)",
-                ui.markdown("##### Bland-Altman Analysis (Continuous)"),
-                ui.row(
-                    ui.column(6, ui.output_ui("ui_ba_v1")),
-                    ui.column(6, ui.output_ui("ui_ba_v2")),
-                ),
-                ui.row(
-                    ui.column(
-                        6,
-                        ui.input_action_button(
-                            "btn_analyze_ba",
-                            "🚀 Analyze Agreement",
-                            class_="btn-primary w-100",
-                            width="100%",
-                        ),
-                    ),
-                    ui.column(
-                        6,
-                        ui.download_button(
-                            "btn_dl_ba_report",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
-                            width="100%",
-                        ),
-                    ),
-                ),
-                ui.br(),
-                ui.output_ui("ui_ba_status"),
-                ui.br(),
-                ui.output_ui("out_ba_results"),
-            ),
+
             # TAB 4: Descriptive
             ui.nav_panel(
                 "📊 Descriptive",
@@ -254,7 +188,7 @@ def diag_ui() -> ui.TagChild:
                     | My test is a **score** (e.g., 0-100) and I want to see how well it predicts a **disease** (Yes/No)? | **ROC Curve & AUC** | Risk Score vs Diabetes |
                     | I want to find the **best cut-off** value for my test score? | **ROC Curve (Youden Index)** | Finding optimal BP for Hypertension |
                     | Are these two **groups** (e.g., Treatment vs Control) different in outcome (Cured vs Not Cured)? | **Chi-Square** | Drug A vs Placebo on Recovery |
-                    | Do two doctors **agree** on the same diagnosis? | **Cohen's Kappa** | Radiologist A vs Radiologist B |
+
                     | I just want to summarize **one variable** (Mean, Count)? | **Descriptive** | Age distribution |
 
                     ### ⚖️ Interpretation Guidelines
@@ -273,13 +207,7 @@ def diag_ui() -> ui.TagChild:
                     - **Risk Ratio (RR):** Similar interpretation as OR
                     - Use **Fisher's Exact Test** when expected counts < 5
 
-                    #### Cohen's Kappa
-                    - **Kappa > 0.8:** Almost perfect/excellent agreement
-                    - **Kappa 0.6-0.8:** Substantial agreement
-                    - **Kappa 0.4-0.6:** Moderate agreement
-                    - **Kappa 0.2-0.4:** Fair agreement
-                    - **Kappa 0.0-0.2:** Slight agreement
-                    - **Kappa < 0:** Poor agreement (worse than chance)
+
 
                     ### 📊 Descriptive Statistics
                     - **Mean:** Average value (affected by outliers)
@@ -308,134 +236,19 @@ def diag_server(
     # --- Reactive Results Storage ---
     roc_html: reactive.Value[str | None] = reactive.Value(None)
     chi_html: reactive.Value[str | None] = reactive.Value(None)
-    kappa_html: reactive.Value[str | None] = reactive.Value(None)
+    # --- Descriptive Reactives ---
     desc_html: reactive.Value[str | None] = reactive.Value(None)
-    # --- Bland-Altman Reactives ---
-    ba_html: reactive.Value[str | None] = reactive.Value(None)
-    ba_processing: reactive.Value[bool] = reactive.Value(False)
-
+    desc_processing: reactive.Value[bool] = reactive.Value(False)
+    
     # --- DCA Reactives ---
     dca_html: reactive.Value[str | None] = reactive.Value(None)
     dca_processing: reactive.Value[bool] = reactive.Value(False)
 
-    # --- Bland-Altman Inputs ---
-    @render.ui
-    def ui_ba_v1():
-        cols = all_cols()
-        # Filter for numeric columns
-        d = current_df()
-        if d is not None:
-            cols = d.select_dtypes(include=[np.number]).columns.tolist()
-        return ui.input_select(
-            "sel_ba_v1",
-            "Variable 1 (Method A):",
-            choices=cols,
-            selected=cols[0] if cols else None,
-        )
 
-    @render.ui
-    def ui_ba_v2():
-        cols = all_cols()
-        d = current_df()
-        if d is not None:
-            cols = d.select_dtypes(include=[np.number]).columns.tolist()
-        return ui.input_select(
-            "sel_ba_v2",
-            "Variable 2 (Method B):",
-            choices=cols,
-            selected=cols[1] if len(cols) > 1 else None,
-        )
-
-    @render.ui
-    def ui_ba_status():
-        if ba_processing.get():
-            return ui.div(
-                ui.tags.div(
-                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
-                    "📄 Calculating Bland-Altman statistics... Please wait",
-                    class_="alert alert-info",
-                )
-            )
-        return None
-
-    # --- Bland-Altman Logic ---
-    @reactive.Effect
-    @reactive.event(input.btn_analyze_ba)
-    def _run_ba():
-        d = current_df()
-        req(d is not None, input.sel_ba_v1(), input.sel_ba_v2())
-
-        ba_processing.set(True)
-        try:
-            stats_res, fig = diag_test.calculate_bland_altman(
-                d, input.sel_ba_v1(), input.sel_ba_v2()
-            )
-
-            if "error" in stats_res:
-                ba_html.set(
-                    f"<div class='alert alert-danger'>Error: {stats_res['error']}</div>"
-                )
-            else:
-                # Format stats for display
-                stats_df = pd.DataFrame(
-                    [
-                        {
-                            "Mean Difference (Bias)": f"{stats_res['mean_diff']:.4f}",
-                            "95% CI Bias": f"{stats_res['ci_mean_diff'][0]:.4f} to {stats_res['ci_mean_diff'][1]:.4f}",
-                            "Upper LoA (+1.96 SD)": f"{stats_res['upper_loa']:.4f}",
-                            "95% CI Upper LoA": f"{stats_res['ci_loa_upper'][0]:.4f} to {stats_res['ci_loa_upper'][1]:.4f}",
-                            "Lower LoA (-1.96 SD)": f"{stats_res['lower_loa']:.4f}",
-                            "95% CI Lower LoA": f"{stats_res['ci_loa_lower'][0]:.4f} to {stats_res['ci_loa_lower'][1]:.4f}",
-                            "SD of Diff": f"{stats_res['sd_diff']:.4f}",
-                            "N": stats_res["n"],
-                        }
-                    ]
-                ).T
-
-                rep = [
-                    {
-                        "type": "text",
-                        "data": f"Bland-Altman Analysis: {input.sel_ba_v1()} vs {input.sel_ba_v2()}",
-                    },
-                    {"type": "plot", "data": fig},
-                    {
-                        "type": "table",
-                        "header": "Agreement Statistics",
-                        "data": stats_df,
-                    },
-                ]
-
-                ba_html.set(
-                    diag_test.generate_report(
-                        f"Bland-Altman: {input.sel_ba_v1()} vs {input.sel_ba_v2()}", rep
-                    )
-                )
-
-        except Exception as e:
-            logger.exception("Bland-Altman analysis failed")
-            ba_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
-        finally:
-            ba_processing.set(False)
-
-    @render.ui
-    def out_ba_results():
-        if ba_html.get():
-            return ui.HTML(ba_html.get())
-        return ui.div(
-            "Click 'Analyze Agreement' to view results.", class_="text-secondary p-3"
-        )
-
-    @render.download(filename="bland_altman_report.html")
-    def btn_dl_ba_report():
-        content = ba_html.get()
-        if content:
-            yield content
-        else:
-            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
 
     roc_processing: reactive.Value[bool] = reactive.Value(False)
     chi_processing: reactive.Value[bool] = reactive.Value(False)
-    kappa_processing: reactive.Value[bool] = reactive.Value(False)
+
     desc_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- Dataset Selection Logic ---
@@ -671,56 +484,7 @@ def diag_server(
     def ui_chi_empty():
         return ui.div()
 
-    # --- Kappa Inputs UI ---
-    @render.ui
-    def ui_kappa_v1():
-        cols = all_cols()
-        kv1_idx = 0
-        for i, col in enumerate(cols):
-            if (
-                "dr_a" in col.lower()
-                or "rater_1" in col.lower()
-                or "diagnosis_a" in col.lower()
-            ):
-                kv1_idx = i
-                break
-        return ui.input_select(
-            "sel_kappa_v1",
-            "Rater/Method 1:",
-            choices=cols,
-            selected=cols[kv1_idx] if cols else None,
-        )
 
-    @render.ui
-    def ui_kappa_v2():
-        cols = all_cols()
-        kv2_idx = min(1, len(cols) - 1)
-        for i, col in enumerate(cols):
-            if (
-                "dr_b" in col.lower()
-                or "rater_2" in col.lower()
-                or "diagnosis_b" in col.lower()
-            ):
-                kv2_idx = i
-                break
-        kv1_idx = next((i for i, c in enumerate(cols) if c == input.sel_kappa_v1()), 0)
-        if kv2_idx == kv1_idx and len(cols) > 1:
-            kv2_idx = min(kv1_idx + 1, len(cols) - 1)
-        return ui.input_select(
-            "sel_kappa_v2",
-            "Rater/Method 2:",
-            choices=cols,
-            selected=cols[kv2_idx] if cols else None,
-        )
-
-    @render.ui
-    def ui_kappa_warning():
-        if input.sel_kappa_v1() == input.sel_kappa_v2():
-            return ui.div(
-                ui.markdown("⚠️ Please select two different columns for Kappa."),
-                class_="alert alert-warning",
-            )
-        return None
 
     # --- Descriptive Inputs UI ---
     @render.ui
@@ -753,17 +517,7 @@ def diag_server(
             )
         return None
 
-    @render.ui
-    def ui_kappa_status():
-        if kappa_processing.get():
-            return ui.div(
-                ui.tags.div(
-                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
-                    "📄 Calculating Kappa statistics... Please wait",
-                    class_="alert alert-info",
-                )
-            )
-        return None
+
 
     @render.ui
     def ui_desc_status():
@@ -985,77 +739,7 @@ def diag_server(
     def btn_dl_chi_report():
         yield chi_html.get()
 
-    # --- Kappa Analysis Logic ---
-    @reactive.Effect
-    @reactive.event(input.btn_analyze_kappa)
-    def _run_kappa():
-        d = current_df()
-        req(d is not None, input.sel_kappa_v1(), input.sel_kappa_v2())
 
-        # Set processing flag
-        kappa_processing.set(True)
-
-        try:
-            res, err, conf, missing_info = diag_test.calculate_kappa(
-                d,
-                input.sel_kappa_v1(),
-                input.sel_kappa_v2(),
-                var_meta=var_meta.get() or {},
-            )
-            if err:
-                kappa_html.set("<div class='alert alert-danger'>{}</div>".format(err))
-            else:
-                rep = [
-                    {
-                        "type": "text",
-                        "data": f"Agreement Analysis: {input.sel_kappa_v1()} vs {input.sel_kappa_v2()}",
-                    },
-                    {
-                        "type": "table",
-                        "header": "Kappa Statistics",
-                        "data": res,
-                    },
-                    {
-                        "type": "contingency_table",
-                        "header": "Confusion Matrix (Crosstab)",
-                        "data": conf,
-                    },
-                ]
-
-                # Missing Data Report
-                if missing_info:
-                    rep.append(
-                        {
-                            "type": "html",
-                            "data": create_missing_data_report_html(
-                                missing_info, var_meta.get() or {}
-                            ),
-                        }
-                    )
-
-                kappa_html.set(
-                    diag_test.generate_report(
-                        f"Kappa: {input.sel_kappa_v1()} vs {input.sel_kappa_v2()}",
-                        rep,
-                    )
-                )
-
-        except Exception as e:
-            logger.exception("Kappa analysis failed")
-            kappa_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
-        finally:
-            # Clear processing flag
-            kappa_processing.set(False)
-
-    @render.ui
-    def out_kappa_results():
-        if kappa_html.get():
-            return ui.HTML(kappa_html.get())
-        return ui.div("Results will appear here.", class_="text-secondary p-3")
-
-    @render.download(filename="kappa_report.html")
-    def btn_dl_kappa_report():
-        yield kappa_html.get()
 
     # --- Descriptive Analysis Logic ---
     @reactive.Effect

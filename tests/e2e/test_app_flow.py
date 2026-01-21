@@ -256,7 +256,8 @@ class TestRegressionModelsWorkflow:
         """
         page.goto(BASE_URL)
         page.get_by_role("button", name="🔬 Advanced Modeling").click()
-        page.get_by_role("link", name="Regression Analysis").click()
+        # FIX: Use locator with dropdown-menu instead of get_by_role('link')
+        page.locator(".dropdown-menu").get_by_text("Regression Analysis").click()
 
         expect(page.get_by_label("Select Outcome (Y)")).to_be_visible()
 
@@ -270,7 +271,8 @@ class TestRegressionModelsWorkflow:
         """
         page.goto(BASE_URL)
         page.get_by_role("button", name="🔬 Advanced Modeling").click()
-        page.get_by_role("link", name="Regression Analysis").click()
+        # FIX: Use locator with dropdown-menu instead of get_by_role('link')
+        page.locator(".dropdown-menu").get_by_text("Regression Analysis").click()
 
         # Wait for UI to fully load
         page.wait_for_timeout(500)

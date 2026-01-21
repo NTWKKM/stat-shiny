@@ -24,9 +24,7 @@ from logger import get_logger
 from tabs._common import (
     get_color_palette,
 )
-from utils import (
     correlation,  # Import from utils
-    diag_test,  # Import for ICC calculation
 )
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
@@ -40,24 +38,7 @@ def _safe_filename_part(s: str) -> str:
 logger = get_logger(__name__)
 
 
-def _auto_detect_icc_vars(cols: list[str]) -> list[str]:
-    """
-    Auto-detect ICC/Rater variables based on column name patterns.
-    """
-    icc_patterns = ["icc", "rater", "method", "observer", "judge"]
-    detected = []
 
-    for col in cols:
-        col_lower = col.lower()
-        for pattern in icc_patterns:
-            if pattern in col_lower:
-                detected.append(col)
-                break
-
-    return detected
-
-
-# ✅ Use @module.ui decorator
 @module.ui
 def corr_ui() -> ui.TagChild:
     """
@@ -153,38 +134,7 @@ def corr_ui() -> ui.TagChild:
                     full_screen=True,
                 ),
             ),
-            # TAB 3: ICC (Reliability)
-            ui.nav_panel(
-                "🔍 Reliability (ICC)",
-                ui.card(
-                    ui.card_header("🔍 Intraclass Correlation Coefficient"),
-                    ui.input_selectize(
-                        "icc_vars",
-                        "Select Variables (Raters/Methods) - Select 2+:",
-                        choices=["Select..."],
-                        multiple=True,
-                        selected=[],
-                    ),
-                    ui.layout_columns(
-                        ui.input_action_button(
-                            "btn_run_icc",
-                            "🔍 Calculate ICC",
-                            class_="btn-primary",
-                            width="100%",
-                        ),
-                        # ✅ CHANGED: Use download_button
-                        ui.download_button(
-                            "btn_dl_icc",
-                            "📥 Download Report",
-                            class_="btn-secondary",
-                            width="100%",
-                        ),
-                        col_widths=[6, 6],
-                    ),
-                    ui.output_ui("out_icc_result"),
-                    full_screen=True,
-                ),
-            ),
+
             # TAB 4: Reference & Interpretation
             ui.nav_panel(
                 "📖 Reference",
@@ -223,23 +173,7 @@ def corr_ui() -> ui.TagChild:
                             * Wider CI = less precise estimate (usually with small samples)
                             """),
                         ),
-                        ui.card(
-                            ui.card_header("🔍 ICC (Reliability)"),
-                            ui.markdown("""
-                            **Concept:** Measures the reliability or agreement between **two or more 
-                            raters/methods** measuring the same thing.
 
-                            **Common Types:**
-                            * **ICC(2,1) Absolute Agreement:** Use when exact scores must match.
-                            * **ICC(3,1) Consistency:** Use when ranking consistency matters.
-
-                            **Interpretation of ICC Value:**
-                            * **> 0.90:** Excellent Reliability ✅
-                            * **0.75 - 0.90:** Good Reliability
-                            * **0.50 - 0.75:** Moderate Reliability ⚠️
-                            * **< 0.50:** Poor Reliability ❌
-                            """),
-                        ),
                         col_widths=[6, 6],
                     ),
                     ui.card(
@@ -249,9 +183,7 @@ def corr_ui() -> ui.TagChild:
                         * **A:** R² tells you the proportion of variance in Y that is explained by X. 
                         For example, R² = 0.64 means 64% of the variation in Y is explained by X.
 
-                        **Q: Why use ICC instead of Pearson for reliability?**
-                        * **A:** Pearson only measures linearity. If Rater A always gives exactly 10 points 
-                        higher than Rater B, Pearson = 1.0 but they don't agree! ICC accounts for this.
+
 
                         **Q: What if p-value is significant but r is low (0.1)?**
                         * **A:** P-value means it's likely not zero. With large samples, tiny correlations 
@@ -261,8 +193,7 @@ def corr_ui() -> ui.TagChild:
                         * **A:** If 95% CI includes 0, the correlation is not statistically significant. 
                         Narrow CI = more precise estimate, Wide CI = less precise (need more data).
                         
-                        **Q: How many variables do I need for ICC?**
-                        * **A:** At least 2 (to compare two raters/methods). More raters = more reliable ICC.
+
                         """),
                     ),
                     full_screen=True,
@@ -307,9 +238,7 @@ def corr_server(
     matrix_result: reactive.Value[dict[str, Any] | None] = reactive.Value(
         None
     )  # Matrix result
-    icc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(
-        None
-    )  # ICC result
+
     numeric_cols_list: reactive.Value[list[str]] = reactive.Value(
         []
     )  # List of numeric columns
@@ -399,13 +328,7 @@ def corr_server(
                 # Matrix selector (Use all cols or filtered? Usually matrix uses all, but let's default to filtered if available)
                 ui.update_selectize("matrix_vars", choices=cols, selected=cols[:5])
 
-                # ICC selector
-                icc_vars = _auto_detect_icc_vars(cols)
-                ui.update_selectize(
-                    "icc_vars",
-                    choices=cols,
-                    selected=icc_vars,  # ✅ Auto-selects ICC vars directly
-                )
+
 
     # ==================== PAIRWISE CORRELATION ====================
 
@@ -884,215 +807,4 @@ def corr_server(
 
         yield html_content.encode("utf-8")
 
-    # ==================== ICC ANALYSIS (FIXED INTERPRETATION) ====================
 
-    @reactive.Effect
-    @reactive.event(input.btn_run_icc)
-    def _run_icc():
-        """Run ICC analysis."""
-        data = current_df()
-
-        if data is None:
-            ui.notification_show("No data available", type="error")
-            return
-
-        cols = input.icc_vars()
-
-        if not cols or len(cols) < 2:
-            ui.notification_show(
-                "Please select at least 2 variables for ICC", type="warning"
-            )
-            return
-
-        with ui.Progress(min=0, max=1) as p:
-            p.set(message="Calculating ICC...", detail="Computing variance components")
-            res_df, err, anova_df = diag_test.calculate_icc(data, list(cols))
-
-        if err:
-            ui.notification_show(f"Error: {err}", type="error")
-            icc_result.set(None)
-        else:
-            # Determine data label
-            if is_matched.get() and input.radio_corr_source() == "matched":
-                data_label = f"✅ Matched Data ({len(data)} rows)"
-            else:
-                data_label = f"📊 Original Data ({len(data)} rows)"
-
-            icc_result.set(
-                {
-                    "results_df": res_df,
-                    "anova_df": anova_df,
-                    "data_label": data_label,
-                    "variables": list(cols),
-                }
-            )
-            ui.notification_show("✅ ICC analysis complete", type="default")
-
-    @render.ui
-    def out_icc_result():
-        """Display ICC analysis results."""
-        result = icc_result.get()
-        if result is None:
-            return ui.markdown(
-                "*Results will appear here after clicking '🔍 Calculate ICC'*"
-            )
-
-        res_df = result["results_df"]
-        interp_parts = []
-
-        # ✅ FIX: Iterate through all rows to ensure we capture whatever ICC types are returned
-        # This handles cases where column names might be 'ICC1', 'ICC2', 'ICC(2,1)', etc.
-        for _idx, row in res_df.iterrows():
-            icc_type = str(row.get("Type", "Unknown"))
-            icc_val = row.get("ICC", 0)
-
-            # Skip if ICC is NaN
-            if pd.isna(icc_val):
-                continue
-
-            # Determine strength
-            if icc_val > 0.90:
-                strength = "Excellent"
-                icon = "✅"
-            elif icc_val > 0.75:
-                strength = "Good"
-                icon = "👍"
-            elif icc_val > 0.50:
-                strength = "Moderate"
-                icon = "⚠️"
-            else:
-                strength = "Poor"
-                icon = "❌"
-
-            # Determine context based on Type name for clearer reading
-            context = ""
-            type_upper = icc_type.upper()
-            if "ICC(2,1)" in icc_type or "ICC2" == type_upper:
-                context = "(Absolute Agreement)"
-            elif "ICC(3,1)" in icc_type or "ICC3" == type_upper:
-                context = "(Consistency)"
-            elif "K" in type_upper:
-                context = "(Average Measures)"
-
-            interp_parts.append(
-                f"{icon} <strong>{icc_type}</strong> = {icc_val:.3f}: {strength} reliability {context}"
-            )
-
-        if interp_parts:
-            interp_html = f"""
-            <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
-                        border-left: 4px solid {COLORS["primary"]}; 
-                        padding: 14px 15px; 
-                        margin: 16px 0; 
-                        border-radius: 5px;'>
-                <strong>📊 Interpretation:</strong><br>
-                {"<br>".join(interp_parts)}
-            </div>
-            """
-        else:
-            interp_html = ""
-
-        return ui.card(
-            ui.card_header("ICC Results"),
-            ui.markdown(f"**Data Source:** {result['data_label']}"),
-            ui.markdown(f"**Variables:** {', '.join(result['variables'])}"),
-            ui.HTML(interp_html),
-            ui.card_header("Single Measures ICC"),
-            ui.output_data_frame("out_icc_table"),
-            ui.card_header("ANOVA Table (Reference)"),
-            ui.output_data_frame("out_icc_anova_table"),
-        )
-
-    @render.data_frame
-    def out_icc_table():
-        """Render ICC results table."""
-        result = icc_result.get()
-        if result is None:
-            return None
-        return render.DataGrid(result["results_df"], width="100%")
-
-    @render.data_frame
-    def out_icc_anova_table():
-        """Render ANOVA table."""
-        result = icc_result.get()
-        if result is None:
-            return None
-        return render.DataGrid(result["anova_df"], width="100%")
-
-    # ✅ CHANGED: Logic for downloading file
-    @render.download(filename=lambda: "icc_analysis.html")
-    def btn_dl_icc():
-        """Generate and download ICC report."""
-        result = icc_result.get()
-        if result is None:
-            yield b"No results available"
-            return
-
-        # Build report elements
-        elements = [
-            {"type": "text", "data": f"Data Source: {result['data_label']}"},
-            {"type": "text", "data": f"Variables: {', '.join(result['variables'])}"},
-            {
-                "type": "text",
-                "data": f"Number of Raters/Methods: {len(result['variables'])}",
-            },
-        ]
-
-        # Add ICC interpretation
-        res_df = result["results_df"]
-        interp_text = []
-
-        for _idx, row in res_df.iterrows():
-            icc_type = str(row.get("Type", "Unknown"))
-            icc_val = row.get("ICC", 0)
-            if pd.isna(icc_val):
-                continue
-
-            if icc_val > 0.90:
-                strength = "Excellent"
-            elif icc_val > 0.75:
-                strength = "Good"
-            elif icc_val > 0.50:
-                strength = "Moderate"
-            else:
-                strength = "Poor"
-
-            interp_text.append(f"{icc_type} = {icc_val:.3f} ({strength})")
-
-        if interp_text:
-            elements.append({"type": "interpretation", "data": " | ".join(interp_text)})
-
-        # Add ICC table
-        elements.append(
-            {"type": "table", "header": "ICC Results", "data": result["results_df"]}
-        )
-
-        # Add ANOVA table
-        elements.append(
-            {
-                "type": "table",
-                "header": "ANOVA Table (Variance Components)",
-                "data": result["anova_df"],
-            }
-        )
-
-        # Add notes
-        elements.append(
-            {
-                "type": "note",
-                "data": "ICC(2,1): Two-way random effects, absolute agreement. Use when exact score agreement is important.",
-            }
-        )
-        elements.append(
-            {
-                "type": "note",
-                "data": "ICC(3,1): Two-way mixed effects, consistency. Use when relative ranking consistency is important.",
-            }
-        )
-
-        # Generate HTML
-        html_content = correlation.generate_report(
-            title=f"ICC Analysis: {', '.join(result['variables'])}", elements=elements
-        )
-
-        yield html_content.encode("utf-8")
