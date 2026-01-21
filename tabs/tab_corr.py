@@ -24,8 +24,7 @@ from logger import get_logger
 from tabs._common import (
     get_color_palette,
 )
-    correlation,  # Import from utils
-)
+from utils import correlation  # Import from utils
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
 
@@ -806,5 +805,3 @@ def corr_server(
         )
 
         yield html_content.encode("utf-8")
-
-
