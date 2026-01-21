@@ -120,7 +120,7 @@ def data_ui() -> ui.TagChild:
                 ),
                 id="acc_var_config",
                 open=True,
-                class_="mb-3 shadow-sm border-0",
+                class_="mb-3 shadow-sm border-0 w-100",
             ),
             # 2. Data Preview Card
             ui.card(
@@ -131,7 +131,7 @@ def data_ui() -> ui.TagChild:
                     style="min-height: 0;" # allow shrinking to fit flex container
                 ),
                 full_screen=True,
-                class_="shadow-sm border-0 flex-fill d-flex flex-column", # Flex grow to fill space
+                class_="shadow-sm border-0 flex-fill d-flex flex-column w-100", # Flex grow to fill space
                 style="min-height: 500px;", # Prevent shrinking too much
             ),
             class_="app-container d-flex flex-column h-100", # Flex container for column layout
