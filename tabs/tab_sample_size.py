@@ -9,6 +9,13 @@ from shiny import module, reactive, render, ui
 from tabs._common import get_color_palette
 from utils import sample_size_lib
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.ui_helpers import (
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_placeholder_state,
+    create_results_container,
+)
 
 COLORS = get_color_palette()
 
@@ -22,120 +29,161 @@ def sample_size_ui() -> ui.TagChild:
             # --- 1. MEANS (T-Test) ---
             ui.nav_panel(
                 "📊 Means (T-test)",
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Input Parameters"),
-                        ui.input_numeric("ss_mean1", "Mean Group 1:", value=0),
-                        ui.input_numeric("ss_mean2", "Mean Group 2:", value=5),
-                        ui.input_numeric("ss_sd1", "SD Group 1:", value=10),
-                        ui.input_numeric("ss_sd2", "SD Group 2:", value=10),
-                        ui.input_slider(
-                            "ss_means_power",
-                            "Power (1-β):",
-                            min=0.5,
-                            max=0.99,
-                            value=0.8,
-                            step=0.01,
+                ui.card(
+                    ui.card_header("Means (T-test) Setup"),
+                    ui.layout_columns(
+                        create_input_group(
+                            "Group 1",
+                            ui.input_numeric("ss_mean1", "Mean Group 1:", value=0),
+                            ui.input_numeric("ss_sd1", "SD Group 1:", value=10),
+                            type="required",
                         ),
-                        ui.input_slider(
-                            "ss_means_alpha",
-                            "Alpha (Sig. Level):",
-                            min=0.001,
-                            max=0.2,
-                            value=0.05,
-                            step=0.001,
+                        create_input_group(
+                            "Group 2",
+                            ui.input_numeric("ss_mean2", "Mean Group 2:", value=5),
+                            ui.input_numeric("ss_sd2", "SD Group 2:", value=10),
+                            type="required",
                         ),
-                        ui.input_numeric(
-                            "ss_means_ratio",
-                            "Ratio (N2/N1):",
-                            value=1,
-                            min=0.1,
-                            step=0.1,
-                        ),
-                        ui.input_action_button(
-                            "btn_calc_means",
-                            "🚀 Calculate N",
-                            class_="btn-primary w-100",
-                        ),
+                        col_widths=[6, 6],
                     ),
-                    ui.card(
-                        ui.card_header("Results"),
-                        ui.output_ui("out_means_result"),
-                        ui.output_ui("out_means_plot"),
-                        ui.output_ui("out_means_methods"),
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "⚙️ Statistical Parameters (Power, Alpha)",
+                            ui.layout_columns(
+                                ui.input_slider(
+                                    "ss_means_power",
+                                    "Power (1-β):",
+                                    min=0.5,
+                                    max=0.99,
+                                    value=0.8,
+                                    step=0.01,
+                                ),
+                                ui.input_slider(
+                                    "ss_means_alpha",
+                                    "Alpha (Sig. Level):",
+                                    min=0.001,
+                                    max=0.2,
+                                    value=0.05,
+                                    step=0.001,
+                                ),
+                                col_widths=[6, 6],
+                            ),
+                            ui.input_numeric(
+                                "ss_means_ratio",
+                                "Allocation Ratio (N2/N1):",
+                                value=1,
+                                min=0.1,
+                                step=0.1,
+                            ),
+                        ),
+                        open=False,
                     ),
+                    ui.output_ui("out_means_validation"),
+                    ui.hr(),
+                    ui.input_action_button(
+                        "btn_calc_means",
+                        "🚀 Calculate N",
+                        class_="btn-primary w-100",
+                    ),
+                ),
+                create_results_container(
+                    "Results",
+                    ui.output_ui("out_means_result"),
+                    ui.output_ui("out_means_plot"),
+                    ui.output_ui("out_means_methods"),
                 ),
             ),
             # --- 2. PROPORTIONS (Chi-Sq) ---
             ui.nav_panel(
                 "🎲 Proportions",
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Input Parameters"),
-                        ui.input_numeric(
-                            "ss_p1",
-                            "Proportion 1 (0-1):",
-                            value=0.1,
-                            min=0,
-                            max=1,
-                            step=0.01,
+                ui.card(
+                    ui.card_header("Proportions Setup"),
+                    ui.layout_columns(
+                        create_input_group(
+                            "Expected Proportions",
+                            ui.input_numeric(
+                                "ss_p1",
+                                "Proportion 1 (0-1):",
+                                value=0.1,
+                                min=0,
+                                max=1,
+                                step=0.01,
+                            ),
+                            ui.input_numeric(
+                                "ss_p2",
+                                "Proportion 2 (0-1):",
+                                value=0.2,
+                                min=0,
+                                max=1,
+                                step=0.01,
+                            ),
+                            type="required",
                         ),
-                        ui.input_numeric(
-                            "ss_p2",
-                            "Proportion 2 (0-1):",
-                            value=0.2,
-                            min=0,
-                            max=1,
-                            step=0.01,
-                        ),
-                        ui.input_slider(
-                            "ss_props_power",
-                            "Power (1-β):",
-                            min=0.5,
-                            max=0.99,
-                            value=0.8,
-                            step=0.01,
-                        ),
-                        ui.input_slider(
-                            "ss_props_alpha",
-                            "Alpha (Sig. Level):",
-                            min=0.001,
-                            max=0.2,
-                            value=0.05,
-                            step=0.001,
-                        ),
-                        ui.input_numeric(
-                            "ss_props_ratio",
-                            "Ratio (N2/N1):",
-                            value=1,
-                            min=0.1,
-                            step=0.1,
-                        ),
-                        ui.input_action_button(
-                            "btn_calc_props",
-                            "🚀 Calculate N",
-                            class_="btn-primary w-100",
-                        ),
+                        col_widths=[12],
                     ),
-                    ui.card(
-                        ui.card_header("Results"),
-                        ui.output_ui("out_props_result"),
-                        ui.output_ui("out_props_plot"),
-                        ui.output_ui("out_props_methods"),
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "⚙️ Statistical Parameters",
+                            ui.layout_columns(
+                                ui.input_slider(
+                                    "ss_props_power",
+                                    "Power (1-β):",
+                                    min=0.5,
+                                    max=0.99,
+                                    value=0.8,
+                                    step=0.01,
+                                ),
+                                ui.input_slider(
+                                    "ss_props_alpha",
+                                    "Alpha (Sig. Level):",
+                                    min=0.001,
+                                    max=0.2,
+                                    value=0.05,
+                                    step=0.001,
+                                ),
+                                col_widths=[6, 6],
+                            ),
+                            ui.input_numeric(
+                                "ss_props_ratio",
+                                "Allocation Ratio (N2/N1):",
+                                value=1,
+                                min=0.1,
+                                step=0.1,
+                            ),
+                        ),
+                        open=False,
                     ),
+                    ui.output_ui("out_props_validation"),
+                    ui.hr(),
+                    ui.input_action_button(
+                        "btn_calc_props",
+                        "🚀 Calculate N",
+                        class_="btn-primary w-100",
+                    ),
+                ),
+                create_results_container(
+                    "Results",
+                    ui.output_ui("out_props_result"),
+                    ui.output_ui("out_props_plot"),
+                    ui.output_ui("out_props_methods"),
                 ),
             ),
             # --- 3. SURVIVAL (Log-Rank) ---
             ui.nav_panel(
                 "⏳ Survival (Log-Rank)",
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Input Parameters"),
+                ui.card(
+                    ui.card_header("Survival Analysis Setup"),
+                    create_input_group(
+                        "Input Mode",
                         ui.input_radio_buttons(
                             "ss_surv_mode",
                             "Input Mode:",
                             {"hr": "Hazard Ratio", "median": "Median Survival Time"},
                         ),
+                        type="optional",
+                    ),
+                    create_input_group(
+                        "Parameters",
                         ui.panel_conditional(
                             "input.ss_surv_mode == 'hr'",
                             ui.input_numeric(
@@ -174,29 +222,33 @@ def sample_size_ui() -> ui.TagChild:
                             min=0.1,
                             step=0.1,
                         ),
-                        ui.input_action_button(
-                            "btn_calc_surv",
-                            "🚀 Calculate Events",
-                            class_="btn-primary w-100",
-                        ),
+                        type="required",
                     ),
-                    ui.card(
-                        ui.card_header("Results"),
-                        ui.output_ui("out_surv_result"),
-                        ui.output_ui("out_surv_plot"),
-                        ui.output_ui("out_surv_methods"),
-                        ui.markdown(
-                            "*Note: This calculates required number of EVENTS, not total subjects.*"
-                        ),
+                    ui.output_ui("out_surv_validation"),
+                    ui.hr(),
+                    ui.input_action_button(
+                        "btn_calc_surv",
+                        "🚀 Calculate Events",
+                        class_="btn-primary w-100",
+                    ),
+                ),
+                create_results_container(
+                    "Results",
+                    ui.output_ui("out_surv_result"),
+                    ui.output_ui("out_surv_plot"),
+                    ui.output_ui("out_surv_methods"),
+                    ui.markdown(
+                        "*Note: This calculates required number of EVENTS, not total subjects.*"
                     ),
                 ),
             ),
             # --- 4. CORRELATION ---
             ui.nav_panel(
                 "📈 Correlation",
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Input Parameters"),
+                ui.card(
+                    ui.card_header("Correlation Setup"),
+                    create_input_group(
+                        "Parameters",
                         ui.input_numeric(
                             "ss_corr_r",
                             "Expected Correlation (r):",
@@ -221,18 +273,21 @@ def sample_size_ui() -> ui.TagChild:
                             value=0.05,
                             step=0.001,
                         ),
-                        ui.input_action_button(
-                            "btn_calc_corr",
-                            "🚀 Calculate N",
-                            class_="btn-primary w-100",
-                        ),
+                        type="required",
                     ),
-                    ui.card(
-                        ui.card_header("Results"),
-                        ui.output_ui("out_corr_result"),
-                        ui.output_ui("out_corr_plot"),
-                        ui.output_ui("out_corr_methods"),
+                    ui.output_ui("out_corr_validation"),
+                    ui.hr(),
+                    ui.input_action_button(
+                        "btn_calc_corr",
+                        "🚀 Calculate N",
+                        class_="btn-primary w-100",
                     ),
+                ),
+                create_results_container(
+                    "Results",
+                    ui.output_ui("out_corr_result"),
+                    ui.output_ui("out_corr_plot"),
+                    ui.output_ui("out_corr_methods"),
                 ),
             ),
         ),
@@ -257,11 +312,22 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
     methods_surv = reactive.Value(None)
     methods_corr = reactive.Value(None)
 
+    # Running States
+    means_is_running = reactive.Value(False)
+    props_is_running = reactive.Value(False)
+    surv_is_running = reactive.Value(False)
+    corr_is_running = reactive.Value(False)
+
     # --- CALCULATORS ---
 
     @reactive.Effect
     @reactive.event(input.btn_calc_means)
     def _calc_means():
+        means_is_running.set(True)
+        res_means.set(None)
+        plot_means.set(None)
+        methods_means.set(None)
+
         try:
             res = sample_size_lib.calculate_sample_size_means(
                 power=input.ss_means_power(),
@@ -305,13 +371,20 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             methods_means.set(txt)
 
         except Exception as e:
-            res_means.set(f"Error: {e}")
+            res_means.set({"error": f"Error: {e!s}"})
             plot_means.set(None)
             methods_means.set(None)
+        finally:
+            means_is_running.set(False)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_props)
     def _calc_props():
+        props_is_running.set(True)
+        res_props.set(None)
+        plot_props.set(None)
+        methods_props.set(None)
+
         try:
             res = sample_size_lib.calculate_sample_size_proportions(
                 power=input.ss_props_power(),
@@ -348,13 +421,20 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             )
             methods_props.set(txt)
         except Exception as e:
-            res_props.set(f"Error: {e}")
+            res_props.set({"error": f"Error: {e!s}"})
             plot_props.set(None)
             methods_props.set(None)
+        finally:
+            props_is_running.set(False)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_surv)
     def _calc_surv():
+        surv_is_running.set(True)
+        res_surv.set(None)
+        plot_surv.set(None)
+        methods_surv.set(None)
+
         try:
             h0 = (
                 input.ss_surv_hr()
@@ -397,13 +477,20 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             )
             methods_surv.set(txt)
         except Exception as e:
-            res_surv.set(f"Error: {e}")
+            res_surv.set({"error": f"Error: {e!s}"})
             plot_surv.set(None)
             methods_surv.set(None)
+        finally:
+            surv_is_running.set(False)
 
     @reactive.Effect
     @reactive.event(input.btn_calc_corr)
     def _calc_corr():
+        corr_is_running.set(True)
+        res_corr.set(None)
+        plot_corr.set(None)
+        methods_corr.set(None)
+
         try:
             res = sample_size_lib.calculate_sample_size_correlation(
                 power=input.ss_corr_power(),
@@ -434,17 +521,20 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             )
             methods_corr.set(txt)
         except Exception as e:
-            res_corr.set(f"Error: {e}")
+            res_corr.set({"error": f"Error: {e!s}"})
             plot_corr.set(None)
             methods_corr.set(None)
+        finally:
+            corr_is_running.set(False)
 
     # --- RENDERERS ---
 
     def _render_n_result(res):
         if res is None:
-            return ui.p("Enter parameters and click Calculate.", style="color: grey;")
-        if isinstance(res, str):  # Error
-            return ui.div(res, class_="text-danger")
+            return None
+
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         return ui.div(
             ui.h2(f"Total N = {int(res['total'])}", class_="text-primary text-center"),
@@ -482,7 +572,16 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
 
     @render.ui
     def out_means_result():
-        return _render_n_result(res_means.get())
+        if means_is_running.get():
+            return create_loading_state("Calculating sample size for Means...")
+
+        res = res_means.get()
+        if res is None:
+            return create_placeholder_state(
+                "Configure parameters and click 'Calculate N'.", icon="📊"
+            )
+
+        return _render_n_result(res)
 
     @render.ui
     def out_means_plot():
@@ -490,7 +589,16 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
 
     @render.ui
     def out_props_result():
-        return _render_n_result(res_props.get())
+        if props_is_running.get():
+            return create_loading_state("Calculating sample size for Proportions...")
+
+        res = res_props.get()
+        if res is None:
+            return create_placeholder_state(
+                "Configure parameters and click 'Calculate N'.", icon="🎲"
+            )
+
+        return _render_n_result(res)
 
     @render.ui
     def out_props_plot():
@@ -498,11 +606,17 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
 
     @render.ui
     def out_surv_result():
+        if surv_is_running.get():
+            return create_loading_state("Calculating sample size for Survival...")
+
         res = res_surv.get()
         if res is None:
-            return ui.p("Enter parameters and click Calculate.", style="color: grey;")
-        if isinstance(res, str):
-            return ui.div(res, class_="text-danger")
+            return create_placeholder_state(
+                "Configure parameters and click 'Calculate Events'.", icon="⏳"
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         return ui.div(
             ui.h2(
@@ -522,11 +636,17 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
 
     @render.ui
     def out_corr_result():
+        if corr_is_running.get():
+            return create_loading_state("Calculating sample size for Correlation...")
+
         res = res_corr.get()
         if res is None:
-            return ui.p("Enter parameters and click Calculate.", style="color: grey;")
-        if isinstance(res, str):
-            return ui.div(res, class_="text-danger")
+            return create_placeholder_state(
+                "Configure parameters and click 'Calculate N'.", icon="📈"
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         return ui.div(
             ui.h2(f"Total N = {int(res)}", class_="text-primary text-center"),
@@ -567,3 +687,93 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
     @render.ui
     def out_corr_methods():
         return _render_methods_text(methods_corr.get())
+
+    # ==================== VALIDATION LOGIC ====================
+    @render.ui
+    def out_means_validation():
+        sd1 = input.ss_sd1()
+        sd2 = input.ss_sd2()
+        ratio = input.ss_means_ratio()
+
+        alerts = []
+        if sd1 <= 0 or sd2 <= 0:
+            alerts.append(
+                create_error_alert(
+                    "Standard Deviations must be positive (> 0).",
+                    title="Invalid Parameter",
+                )
+            )
+
+        if ratio <= 0:
+            alerts.append(
+                create_error_alert(
+                    "Ratio (N2/N1) must be positive (> 0).", title="Invalid Parameter"
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_props_validation():
+        p1 = input.ss_p1()
+        p2 = input.ss_p2()
+        alerts = []
+
+        if not (0 <= p1 <= 1) or not (0 <= p2 <= 1):
+            alerts.append(
+                create_error_alert(
+                    "Proportions must be between 0 and 1.", title="Invalid Parameter"
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_surv_validation():
+        mode = input.ss_surv_mode()
+        alerts = []
+
+        if mode == "hr":
+            hr = input.ss_surv_hr()
+            if hr <= 0:
+                alerts.append(
+                    create_error_alert(
+                        "Hazard Ratio must be positive (> 0).",
+                        title="Invalid Parameter",
+                    )
+                )
+        elif mode == "median":
+            m1 = input.ss_surv_m1()
+            m2 = input.ss_surv_m2()
+            if m1 <= 0 or m2 <= 0:
+                alerts.append(
+                    create_error_alert(
+                        "Median Survival Times must be positive (> 0).",
+                        title="Invalid Parameter",
+                    )
+                )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_corr_validation():
+        r = input.ss_corr_r()
+        alerts = []
+
+        if not (-1 <= r <= 1):
+            alerts.append(
+                create_error_alert(
+                    "Correlation (r) must be between -1 and 1.",
+                    title="Invalid Parameter",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None

@@ -22,4 +22,32 @@ $(document).ready(function () {
             console.warn("set_inner_text: Element with id '" + message.id + "' not found.");
         }
     });
+    // Mobile Menu Logic
+    function initMobileMenu() {
+        var sidebar = $('.nav-pills').closest('[class*="col-"]');
+
+        // Initial state
+        if ($(window).width() < 768) {
+            sidebar.hide();
+        }
+
+        // Toggle button handler
+        $(document).on('click', '#mobile_menu_btn', function () {
+            sidebar.toggle();
+        });
+
+        // Safe resize handler
+        $(window).resize(function () {
+            if ($(window).width() >= 768) {
+                sidebar.show();
+            } else {
+                // Start hidden on mobile resize? Or keep state? Keep state is better.
+            }
+        });
+    }
+
+    // Initialize when Shiny connects (ensures DOM is ready)
+    $(document).on('shiny:connected', function () {
+        initMobileMenu();
+    });
 });

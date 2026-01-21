@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
@@ -12,6 +11,14 @@ from tabs._common import (
 )
 from utils import decision_curve_lib, diag_test
 from utils.formatting import create_missing_data_report_html
+from utils.ui_helpers import (
+    create_empty_state_ui,
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_results_container,
+    create_skeleton_loader_ui,
+)
 
 logger = get_logger(__name__)
 
@@ -37,184 +44,219 @@ def diag_ui() -> ui.TagChild:
             # TAB 1: ROC Curve & AUC
             ui.nav_panel(
                 "📈 ROC Curve & AUC",
-                ui.markdown("##### ROC Curve Analysis"),
-                ui.row(
-                    ui.column(3, ui.output_ui("ui_roc_truth")),
-                    ui.column(3, ui.output_ui("ui_roc_score")),
-                    ui.column(3, ui.output_ui("ui_roc_method")),
-                    ui.column(3, ui.output_ui("ui_roc_pos_label")),
-                ),
-                ui.row(
-                    ui.column(
-                        6,
+                ui.card(
+                    ui.card_header("Receiver Operating Characteristic (ROC)"),
+                    ui.layout_columns(
+                        create_input_group(
+                            "Variables",
+                            ui.output_ui("ui_roc_truth"),
+                            ui.output_ui("ui_roc_score"),
+                            type="required",
+                        ),
+                        create_input_group(
+                            "Settings",
+                            ui.output_ui("ui_roc_method"),
+                            ui.output_ui("ui_roc_pos_label"),
+                            type="optional",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.output_ui("out_roc_validation"),
+                    ui.hr(),
+                    ui.layout_columns(
                         ui.input_action_button(
                             "btn_analyze_roc",
                             "🚀 Analyze ROC",
                             class_="btn-primary w-100",
-                            width="100%",
                         ),
-                    ),
-                    ui.column(
-                        6,
                         ui.download_button(
                             "btn_dl_roc_report",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
-                            width="100%",
                         ),
+                        col_widths=[6, 6],
                     ),
                 ),
-                ui.br(),
-                ui.output_ui("ui_roc_status"),  # Status message area
-                ui.br(),
-                ui.output_ui("out_roc_results"),
+                create_results_container(
+                    "ROC Results", ui.output_ui("out_roc_results")
+                ),
+                ui.div(
+                    ui.h5("💡 Interpretation Guide"),
+                    ui.ul(
+                        ui.li(
+                            ui.strong("Sensitivity (True Positive Rate)"),
+                            ": How well the test detects the disease/outcome.",
+                        ),
+                        ui.li(
+                            ui.strong("Specificity (True Negative Rate)"),
+                            ": How well the test correctly excludes healthy people.",
+                        ),
+                        ui.li(
+                            ui.strong("AUC (Area Under Curve)"),
+                            ": 0.5 = Random Guessing, 1.0 = Perfect. >0.8 is generally considered good.",
+                        ),
+                    ),
+                    class_="alert alert-light",
+                    style="margin-top: 20px; border: 1px solid #eee;",
+                ),
             ),
             # TAB 2: Chi-Square & Risk Analysis
             ui.nav_panel(
                 "🎲 Chi-Square & Risk (2x2)",
-                ui.markdown("##### Chi-Square & Risk Analysis (2x2 Contingency Table)"),
-                ui.row(
-                    ui.column(3, ui.output_ui("ui_chi_v1")),
-                    ui.column(3, ui.output_ui("ui_chi_v2")),
-                    ui.column(3, ui.output_ui("ui_chi_method")),
-                    ui.column(3, ui.output_ui("ui_chi_caption")),
-                ),
-                ui.row(
-                    ui.column(3, ui.output_ui("ui_chi_v1_pos")),
-                    ui.column(3, ui.output_ui("ui_chi_v2_pos")),
-                    ui.column(3, ui.output_ui("ui_chi_note")),
-                    ui.column(3, ui.output_ui("ui_chi_empty")),
-                ),
-                ui.row(
-                    ui.column(
-                        6,
+                ui.card(
+                    ui.card_header("Chi-Square & Risk Analysis (2x2)"),
+                    ui.layout_columns(
+                        create_input_group(
+                            "Variables",
+                            ui.output_ui("ui_chi_v1"),
+                            ui.output_ui("ui_chi_v1_pos"),
+                            ui.output_ui("ui_chi_v2"),
+                            ui.output_ui("ui_chi_v2_pos"),
+                            type="required",
+                        ),
+                        create_input_group(
+                            "Configuration",
+                            ui.output_ui("ui_chi_method"),
+                            ui.output_ui("ui_chi_caption"),
+                            ui.output_ui("ui_chi_note"),
+                            type="optional",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.output_ui("out_chi_validation"),
+                    ui.hr(),
+                    ui.layout_columns(
                         ui.input_action_button(
                             "btn_analyze_chi",
                             "🚀 Analyze Chi-Square",
                             class_="btn-primary w-100",
-                            width="100%",
                         ),
-                    ),
-                    ui.column(
-                        6,
                         ui.download_button(
                             "btn_dl_chi_report",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
-                            width="100%",
                         ),
+                        col_widths=[6, 6],
                     ),
                 ),
-                ui.br(),
-                ui.output_ui("ui_chi_status"),  # Status message area
-                ui.br(),
-                ui.output_ui("out_chi_results"),
+                create_results_container("Results", ui.output_ui("out_chi_results")),
+                ui.div(
+                    ui.h5("💡 Interpretation Guide"),
+                    ui.ul(
+                        ui.li(
+                            ui.strong("P-Value < 0.05"),
+                            ": Statistically significant association between the two variables.",
+                        ),
+                        ui.li(
+                            ui.strong("Odds Ratio (OR)"),
+                            ": > 1 means increased odds of outcome; < 1 means decreased odds.",
+                        ),
+                        ui.li(
+                            ui.strong("Risk Ratio (RR)"),
+                            ": > 1 means increased risk; < 1 means decreased risk.",
+                        ),
+                    ),
+                    class_="alert alert-light",
+                    style="margin-top: 20px; border: 1px solid #eee;",
+                ),
             ),
-
             # TAB 4: Descriptive
             ui.nav_panel(
                 "📊 Descriptive",
-                ui.markdown("##### Descriptive Statistics"),
-                ui.row(ui.column(12, ui.output_ui("ui_desc_var"))),
-                ui.row(
-                    ui.column(
-                        6,
+                ui.card(
+                    ui.card_header("Descriptive Statistics"),
+                    create_input_group(
+                        "Variables", ui.output_ui("ui_desc_var"), type="required"
+                    ),
+                    ui.output_ui("out_desc_validation"),
+                    ui.hr(),
+                    ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_desc",
                             "Show Stats",
                             class_="btn-primary w-100",
-                            width="100%",
                         ),
-                    ),
-                    ui.column(
-                        6,
                         ui.download_button(
                             "btn_dl_desc_report",
                             "📥 Download Report",
                             class_="btn-secondary w-100",
-                            width="100%",
                         ),
+                        col_widths=[6, 6],
                     ),
                 ),
-                ui.br(),
-                ui.output_ui("ui_desc_status"),  # Status message area
-                ui.br(),
-                ui.output_ui("out_desc_results"),
+                create_results_container("Results", ui.output_ui("out_desc_results")),
             ),
             # TAB 5: Decision Curve Analysis (DCA)
             ui.nav_panel(
                 "📉 Decision Curve (DCA)",
-                ui.markdown("##### Decision Curve Analysis"),
-                ui.row(
-                    ui.column(6, ui.output_ui("ui_dca_truth")),
-                    ui.column(6, ui.output_ui("ui_dca_prob")),
-                ),
-                ui.row(
-                    ui.column(
-                        6,
+                ui.card(
+                    ui.card_header("Decision Curve Analysis"),
+                    create_input_group(
+                        "Variables",
+                        ui.output_ui("ui_dca_truth"),
+                        ui.output_ui("ui_dca_prob"),
+                        type="required",
+                    ),
+                    ui.output_ui("out_dca_validation"),
+                    ui.hr(),
+                    ui.layout_columns(
                         ui.input_action_button(
                             "btn_run_dca",
                             "🚀 Run DCA",
                             class_="btn-primary w-100",
                         ),
-                    ),
-                    ui.column(
-                        6,
                         ui.download_button(
                             "btn_dl_dca_report",
                             "📥 Download Report",
-                            class_="btn-outline-primary w-100",
-                            width="100%",
+                            class_="btn-secondary w-100",
                         ),
+                        col_widths=[6, 6],
                     ),
                 ),
-                ui.br(),
-                ui.output_ui("ui_dca_status"),
-                ui.br(),
-                ui.output_ui("out_dca_results"),
+                create_results_container("Results", ui.output_ui("out_dca_results")),
             ),
             # TAB 6: Reference & Interpretation
             ui.nav_panel(
                 "ℹ️ Reference & Interpretation",
-                ui.markdown("""
-                    ## 📚 Reference & Interpretation Guide
+                ui.card(
+                    ui.card_header("Reference & Interpretation"),
+                    ui.markdown("""
+                        ## 📚 Reference & Interpretation Guide
 
-                    💡 **Tip:** This section provides detailed explanations and interpretation rules for all the diagnostic tests.
+                        💡 **Tip:** This section provides detailed explanations and interpretation rules for all the diagnostic tests.
 
-                    ### 🚦 Quick Decision Guide
+                        ### 🚦 Quick Decision Guide
 
-                    | **Question** | **Recommended Test** | **Example** |
-                    | :--- | :--- | :--- |
-                    | My test is a **score** (e.g., 0-100) and I want to see how well it predicts a **disease** (Yes/No)? | **ROC Curve & AUC** | Risk Score vs Diabetes |
-                    | I want to find the **best cut-off** value for my test score? | **ROC Curve (Youden Index)** | Finding optimal BP for Hypertension |
-                    | Are these two **groups** (e.g., Treatment vs Control) different in outcome (Cured vs Not Cured)? | **Chi-Square** | Drug A vs Placebo on Recovery |
+                        | **Question** | **Recommended Test** | **Example** |
+                        | :--- | :--- | :--- |
+                        | My test is a **score** (e.g., 0-100) and I want to see how well it predicts a **disease** (Yes/No)? | **ROC Curve & AUC** | Risk Score vs Diabetes |
+                        | I want to find the **best cut-off** value for my test score? | **ROC Curve (Youden Index)** | Finding optimal BP for Hypertension |
+                        | Are these two **groups** (e.g., Treatment vs Control) different in outcome (Cured vs Not Cured)? | **Chi-Square** | Drug A vs Placebo on Recovery |
+                        | I just want to summarize **one variable** (Mean, Count)? | **Descriptive** | Age distribution |
 
-                    | I just want to summarize **one variable** (Mean, Count)? | **Descriptive** | Age distribution |
+                        ### ⚖️ Interpretation Guidelines
 
-                    ### ⚖️ Interpretation Guidelines
+                        #### ROC Curve & AUC
+                        - **AUC > 0.9:** Excellent discrimination
+                        - **AUC 0.8-0.9:** Good discrimination
+                        - **AUC 0.7-0.8:** Fair discrimination
+                        - **AUC 0.5-0.7:** Poor discrimination
+                        - **AUC = 0.5:** No discrimination (random chance)
+                        - **Youden J Index:** Sensitivity + Specificity - 1 (higher is better, max = 1)
 
-                    #### ROC Curve & AUC
-                    - **AUC > 0.9:** Excellent discrimination
-                    - **AUC 0.8-0.9:** Good discrimination
-                    - **AUC 0.7-0.8:** Fair discrimination
-                    - **AUC 0.5-0.7:** Poor discrimination
-                    - **AUC = 0.5:** No discrimination (random chance)
-                    - **Youden J Index:** Sensitivity + Specificity - 1 (higher is better, max = 1)
+                        #### Chi-Square Test
+                        - **P < 0.05:** Statistically significant association
+                        - **Odds Ratio (OR):** If 95% CI doesn't include 1.0, it's significant
+                        - **Risk Ratio (RR):** Similar interpretation as OR
+                        - Use **Fisher's Exact Test** when expected counts < 5
 
-                    #### Chi-Square Test
-                    - **P < 0.05:** Statistically significant association
-                    - **Odds Ratio (OR):** If 95% CI doesn't include 1.0, it's significant
-                    - **Risk Ratio (RR):** Similar interpretation as OR
-                    - Use **Fisher's Exact Test** when expected counts < 5
-
-
-
-                    ### 📊 Descriptive Statistics
-                    - **Mean:** Average value (affected by outliers)
-                    - **Median:** Middle value (robust to outliers)
-                    - **SD (Standard Deviation):** Spread of data around mean
-                    - **Q1/Q3:** 25th and 75th percentiles
+                        ### 📊 Descriptive Statistics
+                        - **Mean:** Average value (affected by outliers)
+                        - **Median:** Middle value (robust to outliers)
+                        - **SD (Standard Deviation):** Spread of data around mean
+                        - **Q1/Q3:** 25th and 75th percentiles
                     """),
+                ),
             ),
         ),
     )
@@ -234,17 +276,15 @@ def diag_server(
     is_matched: reactive.Value[bool],
 ) -> None:
     # --- Reactive Results Storage ---
-    roc_html: reactive.Value[str | None] = reactive.Value(None)
-    chi_html: reactive.Value[str | None] = reactive.Value(None)
+    roc_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+    chi_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     # --- Descriptive Reactives ---
-    desc_html: reactive.Value[str | None] = reactive.Value(None)
+    desc_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     desc_processing: reactive.Value[bool] = reactive.Value(False)
-    
+
     # --- DCA Reactives ---
-    dca_html: reactive.Value[str | None] = reactive.Value(None)
+    dca_res: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     dca_processing: reactive.Value[bool] = reactive.Value(False)
-
-
 
     roc_processing: reactive.Value[bool] = reactive.Value(False)
     chi_processing: reactive.Value[bool] = reactive.Value(False)
@@ -484,8 +524,6 @@ def diag_server(
     def ui_chi_empty():
         return ui.div()
 
-
-
     # --- Descriptive Inputs UI ---
     @render.ui
     def ui_desc_var():
@@ -493,43 +531,7 @@ def diag_server(
         return ui.input_select("sel_desc_var", "Select Variable:", choices=cols)
 
     # --- ROC Status & Results ---
-    @render.ui
-    def ui_roc_status():
-        if roc_processing.get():
-            return ui.div(
-                ui.tags.div(
-                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
-                    "📄 Generating ROC curve and statistics... Please wait",
-                    class_="alert alert-info",
-                )
-            )
-        return None
-
-    @render.ui
-    def ui_chi_status():
-        if chi_processing.get():
-            return ui.div(
-                ui.tags.div(
-                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
-                    "📄 Calculating Chi-Square statistics... Please wait",
-                    class_="alert alert-info",
-                )
-            )
-        return None
-
-
-
-    @render.ui
-    def ui_desc_status():
-        if desc_processing.get():
-            return ui.div(
-                ui.tags.div(
-                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
-                    "📄 Calculating descriptive statistics... Please wait",
-                    class_="alert alert-info",
-                )
-            )
-        return None
+    # (Status inputs removed, now handled in result renderers)
 
     # --- ROC Analysis Logic ---
     @reactive.Effect
@@ -540,6 +542,7 @@ def diag_server(
 
         # Set processing flag
         roc_processing.set(True)
+        roc_res.set(None)
 
         try:
             truth_col = input.sel_roc_truth()
@@ -557,7 +560,7 @@ def diag_server(
             )
 
             if err:
-                roc_html.set(f"<div class='alert alert-danger'>📄 Error: {err}</div>")
+                roc_res.set({"error": err})
             else:
                 rep = [
                     {
@@ -615,27 +618,45 @@ def diag_server(
                 html_report = diag_test.generate_report(
                     f"ROC Analysis Report ({method})", rep
                 )
-                roc_html.set(html_report)
+                roc_res.set({"html": html_report})
 
         except Exception as e:
             logger.exception("ROC analysis failed")
-            roc_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
+            roc_res.set({"error": f"Error: {str(e)}"})
         finally:
             # Clear processing flag
             roc_processing.set(False)
 
     @render.ui
     def out_roc_results():
-        if roc_html.get():
-            return ui.HTML(roc_html.get())
-        return ui.div(
-            "Click 'Analyze ROC' to view results.",
-            class_="text-secondary p-3",
-        )
+        if roc_processing.get():
+            return ui.div(
+                create_loading_state("Generating ROC curve and statistics..."),
+                create_skeleton_loader_ui(rows=3, show_chart=True),
+            )
+
+        res = roc_res.get()
+        if res is None:
+            return create_empty_state_ui(
+                message="No ROC Analysis Results",
+                sub_message="Select variables and click '🚀 Analyze ROC' to view the curve and metrics.",
+                icon="📈",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        if "html" in res:
+            return ui.HTML(res["html"])
+        return None
 
     @render.download(filename="roc_report.html")
     def btn_dl_roc_report():
-        yield roc_html.get()
+        res = roc_res.get()
+        if res and "html" in res:
+            yield res["html"]
+        else:
+            yield "No report available."
 
     # --- Chi-Square Analysis Logic ---
     @reactive.Effect
@@ -646,6 +667,7 @@ def diag_server(
 
         # Set processing flag
         chi_processing.set(True)
+        chi_res.set(None)
 
         try:
             tab, stats, msg, risk, missing_info = diag_test.calculate_chi2(
@@ -711,35 +733,54 @@ def diag_server(
                         }
                     )
 
-                chi_html.set(
-                    diag_test.generate_report(
-                        f"Chi2: {input.sel_chi_v1()} vs {input.sel_chi_v2()}",
-                        rep,
-                    )
+                chi_res.set(
+                    {
+                        "html": diag_test.generate_report(
+                            f"Chi2: {input.sel_chi_v1()} vs {input.sel_chi_v2()}",
+                            rep,
+                        )
+                    }
                 )
             else:
-                chi_html.set(
-                    f"<div class='alert alert-danger'>Analysis failed: {msg}</div>"
-                )
+                chi_res.set({"error": f"Analysis failed: {msg}"})
 
         except Exception as e:
             logger.exception("Chi-Square analysis failed")
-            chi_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
+            chi_res.set({"error": f"Error: {str(e)}"})
         finally:
             # Clear processing flag
             chi_processing.set(False)
 
     @render.ui
     def out_chi_results():
-        if chi_html.get():
-            return ui.HTML(chi_html.get())
-        return ui.div("Results will appear here.", class_="text-secondary p-3")
+        if chi_processing.get():
+            return ui.div(
+                create_loading_state("Calculating Chi-Square statistics..."),
+                create_skeleton_loader_ui(rows=4, show_chart=False),
+            )
+
+        res = chi_res.get()
+        if res is None:
+            return create_empty_state_ui(
+                message="No Chi-Square Results",
+                sub_message="Select variables and click '🚀 Analyze Chi-Square' to view association statistics.",
+                icon="🎲",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        if "html" in res:
+            return ui.HTML(res["html"])
+        return None
 
     @render.download(filename="chi2_report.html")
     def btn_dl_chi_report():
-        yield chi_html.get()
-
-
+        res = chi_res.get()
+        if res and "html" in res:
+            yield res["html"]
+        else:
+            yield "No report available."
 
     # --- Descriptive Analysis Logic ---
     @reactive.Effect
@@ -750,43 +791,61 @@ def diag_server(
 
         # Set processing flag
         desc_processing.set(True)
+        desc_res.set(None)
 
         try:
             res = diag_test.calculate_descriptive(d, input.sel_desc_var())
             if res is not None:
-                desc_html.set(
-                    diag_test.generate_report(
-                        f"Descriptive: {input.sel_desc_var()}",
-                        [{"type": "table", "data": res}],
-                    )
+                desc_res.set(
+                    {
+                        "html": diag_test.generate_report(
+                            f"Descriptive: {input.sel_desc_var()}",
+                            [{"type": "table", "data": res}],
+                        )
+                    }
                 )
             else:
-                desc_html.set(
-                    "<div class='alert alert-danger'>No data available for {}</div>".format(
-                        input.sel_desc_var()
-                    )
+                desc_res.set(
+                    {"error": "No data available for {}".format(input.sel_desc_var())}
                 )
 
         except Exception as e:
             logger.exception("Descriptive analysis failed")
-            desc_html.set(f"<div class='alert alert-danger'>📄 Error: {str(e)}</div>")
+            desc_res.set({"error": f"Error: {str(e)}"})
         finally:
             # Clear processing flag
             desc_processing.set(False)
 
     @render.ui
     def out_desc_results():
-        if desc_html.get():
-            return ui.HTML(desc_html.get())
-        return ui.div("Results will appear here.", class_="text-secondary p-3")
+        if desc_processing.get():
+            return ui.div(
+                create_loading_state("Calculating descriptive statistics..."),
+                create_skeleton_loader_ui(rows=5, show_chart=False),
+            )
+
+        res = desc_res.get()
+        if res is None:
+            return create_empty_state_ui(
+                message="No Descriptive Statistics",
+                sub_message="Select a variable and click 'Show Stats' to view summary.",
+                icon="📊",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        if "html" in res:
+            return ui.HTML(res["html"])
+        return None
 
     @render.download(filename="descriptive_report.html")
     def btn_dl_desc_report():
-        content = desc_html.get()
-        if content:
-            yield content
+        res = desc_res.get()
+        if res and "html" in res:
+            yield res["html"]
         else:
-            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
+            yield "No report available."
 
     # --- DCA Logic ---
     @render.ui
@@ -819,17 +878,7 @@ def diag_server(
             selected=cols[score_idx] if cols else None,
         )
 
-    @render.ui
-    def ui_dca_status():
-        if dca_processing.get():
-            return ui.div(
-                ui.tags.div(
-                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
-                    "📄 Calculating Decision Curve... Please wait",
-                    class_="alert alert-info",
-                )
-            )
-        return None
+    # (DCA Status removed)
 
     @reactive.Effect
     @reactive.event(input.btn_run_dca)
@@ -838,6 +887,7 @@ def diag_server(
         req(d is not None, input.sel_dca_truth(), input.sel_dca_prob())
 
         dca_processing.set(True)
+        dca_res.set(None)
 
         try:
             truth = input.sel_dca_truth()
@@ -879,24 +929,153 @@ def diag_server(
             ]
 
             html_content = diag_test.generate_report(f"DCA: {prob} vs {truth}", rep)
-            dca_html.set(html_content)
+            dca_res.set({"html": html_content})
 
         except Exception as e:
             logger.exception("DCA analysis failed")
-            dca_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+            dca_res.set({"error": f"Error: {str(e)}"})
         finally:
             dca_processing.set(False)
 
     @render.ui
     def out_dca_results():
-        if dca_html.get():
-            return ui.HTML(dca_html.get())
-        return ui.div("Click 'Run DCA' to view results.", class_="text-secondary p-3")
+        if dca_processing.get():
+            return ui.div(
+                create_loading_state("Calculating Decision Curve..."),
+                create_skeleton_loader_ui(rows=3, show_chart=True),
+            )
+
+        res = dca_res.get()
+        if res is None:
+            return create_empty_state_ui(
+                message="No Decision Curve Analysis",
+                sub_message="Select variables and click '🚀 Run DCA' to view net benefit.",
+                icon="📉",
+            )
+
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        if "html" in res:
+            return ui.HTML(res["html"])
+        return None
 
     @render.download(filename="dca_report.html")
     def btn_dl_dca_report():
-        content = dca_html.get()
-        if content:
-            yield content
+        res = dca_res.get()
+        if res and "html" in res:
+            yield res["html"]
         else:
-            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
+            yield "No report available."
+
+    # ==================== VALIDATION LOGIC ====================
+    @render.ui
+    def out_roc_validation():
+        d = current_df()
+        truth = input.sel_roc_truth()
+        score = input.sel_roc_score()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not truth or not score:
+            return None
+
+        if truth == score:
+            alerts.append(
+                create_error_alert(
+                    "Gold Standard and Test Score must be different variables.",
+                    title="Configuration Error",
+                )
+            )
+
+        if truth in d.columns and d[truth].nunique() > 2:
+            alerts.append(
+                create_error_alert(
+                    f"Gold Standard '{truth}' should be binary (2 unique values). It has {d[truth].nunique()}.",
+                    title="Warning",
+                )
+            )
+
+        if score in d.columns and not pd.api.types.is_numeric_dtype(d[score]):
+            alerts.append(
+                create_error_alert(
+                    f"Test Score '{score}' should be numeric/continuous.",
+                    title="Warning",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_chi_validation():
+        d = current_df()
+        v1 = input.sel_chi_v1()
+        v2 = input.sel_chi_v2()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not v1 or not v2:
+            return None
+
+        if v1 == v2:
+            alerts.append(
+                create_error_alert(
+                    "Variables must be different.", title="Configuration Error"
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_desc_validation():
+        # Descriptive usually safe with any var
+        return None
+
+    @render.ui
+    def out_dca_validation():
+        d = current_df()
+        truth = input.sel_dca_truth()
+        prob = input.sel_dca_prob()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not truth or not prob:
+            return None
+
+        if truth == prob:
+            alerts.append(
+                create_error_alert(
+                    "Outcome and Probability variables must be different.",
+                    title="Configuration Error",
+                )
+            )
+
+        if prob in d.columns:
+            if not pd.api.types.is_numeric_dtype(d[prob]):
+                alerts.append(
+                    create_error_alert(
+                        f"Probability '{prob}' must be numeric.",
+                        title="Invalid Variable",
+                    )
+                )
+            elif (d[prob] < 0).any() or (d[prob] > 1).any():
+                alerts.append(
+                    create_error_alert(
+                        f"Probability '{prob}' values should be between 0 and 1.",
+                        title="Warning",
+                    )
+                )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None

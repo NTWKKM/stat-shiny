@@ -10,6 +10,11 @@ from shiny.types import FileInfo
 
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.ui_helpers import (
+    create_empty_state_ui,
+    create_input_group,
+    create_tooltip_label,
+)
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
@@ -26,7 +31,7 @@ def data_ui() -> ui.TagChild:
     return ui.layout_sidebar(
         ui.sidebar(
             ui.div(
-                ui.h4("⚙️ Data Controls", class_="mb-3 text-primary"),
+                ui.h4("⚙️ Controls", class_="mb-3 text-primary"),
                 ui.input_action_button(
                     "btn_load_example",
                     "📄 Load Example Data",
@@ -34,11 +39,19 @@ def data_ui() -> ui.TagChild:
                 ),
                 ui.input_file(
                     "file_upload",
-                    "📂 Upload CSV/Excel",
+                    "📂 Upload Data (.csv, .xlsx)",
                     accept=[".csv", ".xlsx"],
                     multiple=False,
                     width="100%",
                 ),
+                ui.div(
+                    ui.tags.span(
+                        "✅ Supported: .csv, .xlsx", class_="badge bg-info mt-1 me-1"
+                    ),
+                    ui.tags.span("📦 Max: 100MB", class_="badge bg-secondary mt-1"),
+                    class_="mb-3",
+                ),
+                ui.output_ui("ui_file_metadata"),
                 ui.hr(),
                 ui.div(
                     ui.output_ui("ui_btn_clear_match"),
@@ -65,10 +78,14 @@ def data_ui() -> ui.TagChild:
                 ),
                 ui.layout_columns(
                     # LEFT COLUMN: Variable Selection
-                    ui.div(
+                    create_input_group(
+                        "Select Variable",
                         ui.input_select(
                             "sel_var_edit",
-                            "Select Variable to Edit:",
+                            create_tooltip_label(
+                                "Variable to Edit",
+                                "Select a variable to change its type or mappings.",
+                            ),
                             choices=["Select..."],
                             width="100%",
                         ),
@@ -77,31 +94,34 @@ def data_ui() -> ui.TagChild:
                             > **Categorical Mapping**: 
                             > Format as `0=Control, 1=Treat`.
                             """),
-                        class_="p-2",
+                        type="required",
                     ),
                     # MIDDLE COLUMN: Variable Settings
-                    ui.div(ui.output_ui("ui_var_settings"), class_="p-2"),
+                    create_input_group(
+                        "Settings", ui.output_ui("ui_var_settings"), type="optional"
+                    ),
                     # RIGHT COLUMN: Missing Data Configuration
-                    ui.div(
-                        ui.h6(
-                            "🔍 Missing Data", style="margin-top: 0; color: #0066cc;"
+                    create_input_group(
+                        "Missing Data",
+                        create_tooltip_label(
+                            "Missing Value Codes",
+                            "Enter values to be treated as NaN (e.g. -99 or 999).",
                         ),
                         ui.input_text(
                             "txt_missing_codes",
-                            "Missing Value Codes:",
-                            placeholder="e.g., -99, -999, 99",
+                            "Codes (comma separated):",
+                            placeholder="e.g., -99, 999",
                             value="",
                         ),
                         ui.output_ui("ui_missing_preview"),
                         ui.input_action_button(
                             "btn_save_missing",
-                            "💾 Save Missing Config",
+                            "💾 Save Config",
                             class_="btn-secondary w-100 mt-2",
                         ),
-                        class_="p-2",
-                        style="background-color: #f8f9fa; border-radius: 6px;",
+                        type="advanced",
                     ),
-                    col_widths=(3, 6, 3),
+                    col_widths=(4, 4, 4),
                 ),
                 class_="mb-3 shadow-sm border-0",
             ),
@@ -113,7 +133,7 @@ def data_ui() -> ui.TagChild:
                 full_screen=True,
                 class_="shadow-sm border-0",
             ),
-            class_="p-3",
+            class_="app-container",
         ),
     )
 
@@ -520,18 +540,54 @@ def data_server(
         finally:
             is_loading_data.set(False)
 
+    # --- Data Upload Confirmation Modal ---
+    @render.ui
+    def modal_confirm_upload():
+        return None  # Placeholder, modal is triggered dynamically
+
+    pending_file = reactive.Value(None)
+
     @reactive.Effect
     @reactive.event(lambda: input.file_upload())
-    def _():
-        is_loading_data.set(True)
-        data_issues.set([])  # Reset report
+    def _handle_file_upload():
         file_infos: list[FileInfo] = input.file_upload()
-
         if not file_infos:
-            is_loading_data.set(False)
             return
 
         f = file_infos[0]
+
+        # If data already exists, ask for confirmation
+        if df.get() is not None:
+            pending_file.set(f)
+            m = ui.modal(
+                "Loading a new file will replace the current dataset. All unsaved changes and analysis results will be lost. Are you sure?",
+                title="⚠️ Confirm Replace Data",
+                footer=ui.div(
+                    ui.input_action_button(
+                        "btn_confirm_upload", "Yes, Replace", class_="btn-danger"
+                    ),
+                    ui.modal_button("Cancel", class_="btn-secondary"),
+                ),
+                easy_close=True,
+            )
+            ui.modal_show(m)
+        else:
+            # No existing data, load immediately
+            _load_data_file(f)
+
+    @reactive.Effect
+    @reactive.event(lambda: input.btn_confirm_upload())
+    def _confirm_upload_action():
+        f = pending_file.get()
+        if f:
+            ui.modal_remove()
+            _load_data_file(f)
+            pending_file.set(None)
+
+    def _load_data_file(f: FileInfo):
+        is_loading_data.set(True)
+        data_issues.set([])  # Reset report
+
         try:
             if f["name"].lower().endswith(".csv"):
                 new_df = pd.read_csv(f["datapath"])
@@ -806,8 +862,23 @@ def data_server(
     def out_df_preview():
         d = df.get()
         if d is None:
-            return render.DataTable(
-                pd.DataFrame({"Status": ["🔄 No data loaded yet."]}), width="100%"
+            return create_empty_state_ui(
+                message="No Data Uploaded",
+                sub_message="Upload a CSV or Excel (.xlsx) file to start your analysis. You can also load example data to explore features.",
+                icon="📂",
+                action_button=ui.div(
+                    ui.input_action_button(
+                        "btn_jump_upload_trigger",
+                        "⬆️ Upload File",
+                        class_="btn-primary me-2 shadow-sm",
+                    ),
+                    ui.input_action_button(
+                        "btn_load_example_trigger",
+                        "📄 Example Data",
+                        class_="btn-outline-primary shadow-sm",
+                    ),
+                    class_="d-flex justify-content-center gap-2",
+                ),
             )
 
         # Get current data quality issues
@@ -858,6 +929,31 @@ def data_server(
         matched_covariates.set([])
 
     # --- New: Data Health Report Renderer ---
+    @render.ui
+    def ui_file_metadata():
+        d = df.get()
+        info = uploaded_file_info.get()
+        if d is None:
+            return None
+
+        # Calculate approximate memory usage or file size if available
+        # Simple row/col display as per audit
+        mem_usage = d.memory_usage(deep=True).sum() / (1024 * 1024)
+
+        return ui.div(
+            ui.div(
+                f"📊 {len(d):,} rows × {len(d.columns)} cols", style="font-weight: 600;"
+            ),
+            ui.div(
+                f"📦 Memory: {mem_usage:.2f} MB", style="font-size: 0.9em; color: #666;"
+            ),
+            ui.div(
+                f"📄 {info.get('name', 'Unknown')}" if info else "",
+                style="font-size: 0.85em; font-style: italic; margin-top: 4px;",
+            ),
+            style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px solid #e9ecef;",
+        )
+
     @render.ui
     def ui_data_report_card():
         issues = data_issues.get()

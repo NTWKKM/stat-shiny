@@ -13,46 +13,19 @@ from tabs import tab_sample_size  # Import Sample Size Tab
 from tabs._common import (
     get_color_palette,
 )
-from utils import (
-    psm_lib,  # Import from utils
-    table_one,
-)
+from utils import psm_lib, table_one
 from utils.formatting import create_missing_data_report_html
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.ui_helpers import (
+    create_empty_state_ui,
+    create_input_group,
+    create_results_container,
+    create_tooltip_label,
+    create_workflow_indicator,
+)
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
-
-
-def _calculate_categorical_smd(
-    df: pd.DataFrame, treatment_col: str, cat_cols: list[str]
-) -> pd.DataFrame:
-    """
-    Helper to match the structure expected by the code calling it.
-    This logic calculates SMD for categorical variables (one-hot encoded).
-    """
-    if not cat_cols:
-        return pd.DataFrame()
-
-    # Expand categorical columns to dummies
-    # Note: caller effectively does this too, but we need fresh access or reuse logic
-    # The caller passes 'df_ps' or 'df_m' which already has dummies if we look at line 660,
-    # BUT line 692 passes 'cat_cols' which are likely the ORIGINAL categorical column names.
-
-    # We will assume we need to re-encode to compute SMD or handle them.
-    # However, 'psm_lib.compute_smd' usually expects numeric/dummy columns.
-
-    try:
-        df_cat = pd.get_dummies(
-            df[cat_cols + [treatment_col]], columns=cat_cols, drop_first=True
-        )
-        # Identify the new dummy columns
-        dummy_cols = [c for c in df_cat.columns if c != treatment_col]
-
-        return psm_lib.compute_smd(df_cat, treatment_col, dummy_cols)
-    except Exception as e:
-        logger.warning(f"Failed to calculate categorical SMD: {e}")
-        return pd.DataFrame()
 
 
 @module.ui
@@ -64,7 +37,6 @@ def baseline_matching_ui() -> ui.TagChild:
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
         ui.nav_panel(
             "📊 Baseline Characteristics (Table 1)",
-            # ... (Existing content) ...
             # Control section (top)
             ui.card(
                 ui.card_header("📊 Table 1 Options"),
@@ -72,27 +44,43 @@ def baseline_matching_ui() -> ui.TagChild:
                 ui.output_ui("ui_dataset_selector_t1"),
                 ui.output_ui("ui_data_info_t1"),
                 ui.hr(),
+                create_workflow_indicator(
+                    ["1. Baseline Check", "2. Run Matching", "3. Verify Balance"], 0
+                ),
+                ui.br(),
                 ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Configuration"),
-                        ui.h6("Group By (Column):"),
-                        ui.input_select("sel_group_col", label=None, choices=[]),
-                        ui.h6("Choose OR Style:"),
+                    create_input_group(
+                        "Configuration",
+                        ui.input_select(
+                            "sel_group_col",
+                            create_tooltip_label(
+                                "Group By (Column)",
+                                "Select the variable to split the table columns (e.g. Treatment).",
+                            ),
+                            choices=[],
+                        ),
                         ui.input_radio_buttons(
                             "radio_or_style",
-                            label=None,
+                            "OR Style:",
                             choices={
                                 "all_levels": "All Levels (Every Level vs Ref)",
                                 "simple": "Simple (Single Line/Risk vs Ref)",
                             },
                         ),
+                        type="required",
                     ),
-                    ui.card(
-                        ui.card_header("Variables"),
-                        ui.h6("Include Variables:"),
+                    create_input_group(
+                        "Variables",
                         ui.input_selectize(
-                            "sel_t1_vars", label=None, choices=[], multiple=True
+                            "sel_t1_vars",
+                            create_tooltip_label(
+                                "Include Variables",
+                                "Select variables to include in the table.",
+                            ),
+                            choices=[],
+                            multiple=True,
                         ),
+                        type="required",
                     ),
                     col_widths=[6, 6],
                 ),
@@ -112,65 +100,86 @@ def baseline_matching_ui() -> ui.TagChild:
                 ),
             ),
             # Content section (bottom)
-            ui.output_ui("out_table1_html"),
+            create_results_container(
+                "Table 1 Results", ui.output_ui("out_table1_html")
+            ),
         ),
         # ===== SUBTAB 2: PROPENSITY SCORE MATCHING =====
         ui.nav_panel(
             "⚖️ Propensity Score Matching",
-            # ... (Existing content) ...
             # Control section (top)
             ui.card(
                 ui.card_header("⚖️ PSM Configuration"),
+                create_workflow_indicator(
+                    ["1. Baseline Check", "2. Run Matching", "3. Verify Balance"], 1
+                ),
                 ui.div(
                     "💡 ",
                     ui.strong("Need ATE directly?"),
                     " Use ",
-                    ui.strong("Causal Inference → PSM & IPW"),
+                    ui.strong("Clinical Tools → Causal Methods"),
                     " for Inverse Probability Weighting (keeps all data, no matching).",
                     style=f"padding: 8px 12px; margin-bottom: 12px; background-color: {COLORS['info']}15; border-left: 3px solid {COLORS['info']}; border-radius: 4px; font-size: 0.85em;",
                 ),
-                ui.h5("Step 1️⃣: Configure Variables"),
                 ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Quick Presets:"),
-                        ui.input_radio_buttons(
-                            "radio_preset",
-                            label=None,
-                            choices={
-                                "custom": "🔧 Custom (Manual)",
-                                "demographics": "👥 Demographics",
-                                "full_medical": "🏥 Full Medical",
-                            },
-                            selected="custom",
-                        ),
-                        ui.p(
-                            ui.strong("Presets include:"),
-                            ui.br(),
-                            "👥 Demographics: Age, Sex, BMI",
-                            ui.br(),
-                            "🏥 Full Medical: Age, Sex, BMI, Comorbidities, Lab values",
-                            ui.br(),
-                            "🔧 Custom: You choose all variables",
-                            style=f"font-size: 0.85em; color: {COLORS['text_secondary']};",
-                        ),
-                    ),
-                    ui.card(
-                        ui.card_header("Manual selection:"),
+                    create_input_group(
+                        "1. Select Variables",
                         ui.input_select(
                             "sel_treat_col",
-                            "💊 Treatment Variable (Binary):",
+                            create_tooltip_label(
+                                "Treatment Variable (Binary)", "Must be 0/1 or Yes/No."
+                            ),
                             choices=[],
                         ),
                         ui.input_select(
                             "sel_outcome_col",
-                            "🎯 Outcome Variable (Optional):",
+                            create_tooltip_label(
+                                "Outcome Variable", "Optional, excluded from matching."
+                            ),
                             choices=[],
                         ),
                         ui.input_selectize(
                             "sel_covariates",
-                            "📊 Confounding Variables:",
+                            create_tooltip_label(
+                                "Confounding Variables", "Variables to match on."
+                            ),
                             choices=[],
                             multiple=True,
+                        ),
+                        type="required",
+                    ),
+                    ui.div(
+                        create_input_group(
+                            "2. Quick Presets",
+                            ui.input_radio_buttons(
+                                "radio_preset",
+                                label=None,
+                                choices={
+                                    "custom": "🔧 Custom (Manual)",
+                                    "demographics": "👥 Demographics",
+                                    "full_medical": "🏥 Full Medical",
+                                },
+                                selected="custom",
+                            ),
+                            type="optional",
+                        ),
+                        create_input_group(
+                            "3. Matching Settings",
+                            ui.input_select(
+                                "sel_caliper_preset",
+                                create_tooltip_label(
+                                    "Caliper Width",
+                                    "Stricter (0.1) = better balance, fewer matches.",
+                                ),
+                                choices={
+                                    "1.0": "🔓 Very Loose (1.0×SD)",
+                                    "0.5": "📊 Loose (0.5×SD)",
+                                    "0.25": "⚖️ Standard (0.25×SD) (Rec)",
+                                    "0.1": "🔒 Strict (0.1×SD)",
+                                },
+                                selected="0.25",
+                            ),
+                            type="advanced",
                         ),
                     ),
                     col_widths=[6, 6],
@@ -178,31 +187,6 @@ def baseline_matching_ui() -> ui.TagChild:
                 ui.hr(),
                 ui.output_ui("ui_psm_config_summary"),
                 ui.hr(),
-                # Advanced Settings
-                ui.accordion(
-                    ui.accordion_panel(
-                        "⚙️ Advanced Settings",
-                        ui.p(ui.strong("Caliper Width (Matching Tolerance)")),
-                        ui.input_select(
-                            "sel_caliper_preset",
-                            label=None,
-                            choices={
-                                "1.0": "🔓 Very Loose (1.0×SD) - Most matches, weaker balance",
-                                "0.5": "📊 Loose (0.5×SD) - Balanced approach",
-                                "0.25": "⚖️ Standard (0.25×SD) - RECOMMENDED ← START HERE",
-                                "0.1": "🔒 Strict (0.1×SD) - Fewer matches, excellent balance",
-                            },
-                            selected="0.25",
-                        ),
-                        ui.p(
-                            "📌 Caliper = max distance to match treated with control. Wider = more matches, less balance.",
-                            style=f"font-size: 0.8em; color: {COLORS['text_secondary']};",
-                        ),
-                    ),
-                    open=False,
-                ),
-                ui.hr(),
-                ui.h5("Step 2️⃣: Run Matching"),
                 ui.layout_columns(
                     ui.input_action_button(
                         "btn_run_psm",
@@ -214,7 +198,9 @@ def baseline_matching_ui() -> ui.TagChild:
                 ),
             ),
             # Content section (bottom) - with nested tabs for results
-            ui.output_ui("ui_psm_main_content"),
+            create_results_container(
+                "Matching Results", ui.output_ui("ui_psm_main_content")
+            ),
         ),
         # ===== SUBTAB 3: MATCHED DATA VIEW =====
         ui.nav_panel(
@@ -223,6 +209,10 @@ def baseline_matching_ui() -> ui.TagChild:
             # Control section (top)
             ui.card(
                 ui.card_header("✅ Matched Data Actions"),
+                create_workflow_indicator(
+                    ["1. Baseline Check", "2. Run Matching", "3. Verify Balance"], 2
+                ),
+                ui.br(),
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("Export Options:"),
@@ -538,12 +528,10 @@ def baseline_matching_server(
                 ui.card_header("📊 Table 1 Results"),
                 ui.HTML(html_content.get()),
             )
-        return ui.card(
-            ui.card_header("📊 Table 1 Results"),
-            ui.div(
-                "Click '📊 Generate Table 1' to view results.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
-            ),
+        return create_empty_state_ui(
+            message="No Table 1 Generated",
+            sub_message="Select variables and click '📊 Generate Table 1' to view baseline characteristics.",
+            icon="📋"
         )
 
     @render.download(filename="table1.html")
@@ -729,16 +717,6 @@ def baseline_matching_server(
             smd_pre = psm_lib.compute_smd(df_ps, final_treat_col, final_cov_cols)
             smd_post = psm_lib.compute_smd(df_m, final_treat_col, final_cov_cols)
 
-            if cat_covs:
-                smd_pre_cat = _calculate_categorical_smd(
-                    df_ps, final_treat_col, cat_covs
-                )
-                smd_post_cat = _calculate_categorical_smd(
-                    df_m, final_treat_col, cat_covs
-                )
-                smd_pre = pd.concat([smd_pre, smd_pre_cat], ignore_index=True)
-                smd_post = pd.concat([smd_post, smd_post_cat], ignore_index=True)
-
             # --- Atomic State Update ---
             # เตรียมข้อมูลผลลัพธ์ให้พร้อมก่อนทำการ set ค่าให้กับ reactive values
             new_results = {
@@ -783,12 +761,10 @@ def baseline_matching_server(
         res = psm_results.get()
 
         if res is None:
-            return ui.card(
-                ui.card_header("📊 Results"),
-                ui.p(
-                    "Click '🚀 Run Propensity Score Matching' to view results.",
-                    style="color: gray; font-style: italic; padding: 20px; text-align: center;",
-                ),
+            return create_empty_state_ui(
+                message="No Matching Results",
+                sub_message="Configure parameters and click '🚀 Run Propensity Score Matching' to see results.",
+                icon="⚖️"
             )
 
         # Display results with nested tabs
@@ -813,6 +789,13 @@ def baseline_matching_server(
                     col_widths=[3, 3, 3, 3],
                 ),
                 ui.output_ui("ui_balance_alert"),
+                ui.div(
+                    ui.tags.blockquote(
+                        "🔍 Interpretability Guide: Standardized mean differences (SMD) < 0.1 indicate good balance. "
+                        "Ideally, all variables in the Love Plot should be within the vertical dashed lines.",
+                        style="border-left: 4px solid #ccc; padding-left: 10px; margin-top: 10px; color: #555; background: #f9f9f9; padding: 10px;"
+                    ),
+                ),
                 # Missing Data Report
                 ui.HTML(
                     create_missing_data_report_html(

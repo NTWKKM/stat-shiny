@@ -36,6 +36,16 @@ from utils.repeated_measures_lib import (
     run_lmm,
 )
 from utils.subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
+from utils.ui_helpers import (
+    create_empty_state_ui,
+    create_error_alert,
+    create_input_group,
+    create_loading_state,
+    create_placeholder_state,
+    create_results_container,
+    create_skeleton_loader_ui,
+    create_tooltip_label,
+)
 
 # Import internal modules
 
@@ -116,15 +126,21 @@ def core_regression_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("📈 Analysis Options"),
                     ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Variable Selection:"),
+                        create_input_group(
+                            "Variable Selection",
                             ui.input_select(
-                                "sel_outcome", "Select Outcome (Y):", choices=[]
+                                "sel_outcome",
+                                create_tooltip_label(
+                                    "Select Outcome (Y)",
+                                    "Must be binary (0/1 or Yes/No).",
+                                ),
+                                choices=[],
                             ),
                             ui.output_ui("ui_separation_warning"),
+                            type="required",
                         ),
-                        ui.card(
-                            ui.card_header("Method & Settings:"),
+                        create_input_group(
+                            "Method & Settings",
                             ui.input_radio_buttons(
                                 "radio_method",
                                 "Regression Method:",
@@ -134,27 +150,47 @@ def core_regression_ui() -> ui.TagChild:
                                     "firth": "Firth's (Penalized)",
                                 },
                             ),
+                            type="required",
+                        ),
+                        create_input_group(
+                            "Method & Settings",
+                            ui.input_radio_buttons(
+                                "radio_method",
+                                "Regression Method:",
+                                {
+                                    "auto": "Auto (Recommended)",
+                                    "bfgs": "Standard (MLE)",
+                                    "firth": "Firth's (Penalized)",
+                                },
+                            ),
+                            type="required",
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.h6("Exclude Variables (Optional):"),
-                    ui.input_selectize(
-                        "sel_exclude", label=None, choices=[], multiple=True
-                    ),
-                    # Interaction Pairs selector
-                    ui.h6("🔗 Interaction Pairs (Optional):"),
-                    ui.input_selectize(
-                        "sel_interactions",
-                        label=None,
-                        choices=[],
-                        multiple=True,
-                        options={
-                            "placeholder": "Select variable pairs to test interactions..."
-                        },
-                    ),
-                    ui.p(
-                        "💡 Select pairs of variables to test for interaction effects (e.g., 'age × sex')",
-                        style="font-size: 0.8em; color: #666; margin-top: 4px;",
+                    ui.output_ui("out_logit_validation"),
+                    ui.div(
+                        create_input_group(
+                            "Advanced Adjustments",
+                            create_tooltip_label(
+                                "Exclude Variables",
+                                "Remove specific variables from the model.",
+                            ),
+                            ui.input_selectize(
+                                "sel_exclude", label=None, choices=[], multiple=True
+                            ),
+                            # Interaction Pairs selector
+                            ui.h6("🔗 Interaction Pairs (Optional):"),
+                            ui.input_selectize(
+                                "sel_interactions",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                options={
+                                    "placeholder": "Select variable pairs to test interactions..."
+                                },
+                            ),
+                            type="optional",
+                        )
                     ),
                     ui.layout_columns(
                         ui.input_action_button(
@@ -172,11 +208,13 @@ def core_regression_ui() -> ui.TagChild:
                 ),
                 # Content section (bottom)
                 ui.output_ui("out_logit_status"),
-                ui.navset_tab(
-                    ui.nav_panel("🌳 Forest Plots", ui.output_ui("ui_forest_tabs")),
-                    ui.nav_panel("📋 Detailed Report", ui.output_ui("out_html_report")),
+                create_results_container(
+                    "Analysis Results", ui.output_ui("ui_logit_results_area")
                 ),
             ),
+            # =====================================================================
+            # TAB 3: Count & Special (formerly Poisson & GLM)
+            # =====================================================================
             # =====================================================================
             # TAB 3: Count & Special (formerly Poisson & GLM)
             # =====================================================================
@@ -189,46 +227,60 @@ def core_regression_ui() -> ui.TagChild:
                         ui.card(
                             ui.card_header("📊 Poisson Analysis Options"),
                             ui.layout_columns(
-                                ui.card(
-                                    ui.card_header("Variable Selection:"),
+                                create_input_group(
+                                    "Variable Selection",
                                     ui.input_select(
                                         "poisson_outcome",
-                                        "Select Count Outcome (Y):",
+                                        create_tooltip_label(
+                                            "Select Count Outcome (Y)",
+                                            "Outcome must be positive integers.",
+                                        ),
                                         choices=[],
                                     ),
                                     ui.input_select(
                                         "poisson_offset",
-                                        "Offset Column (Optional):",
+                                        create_tooltip_label(
+                                            "Offset Column (Optional)",
+                                            "Use for rate calculations (e.g., person-years).",
+                                        ),
                                         choices=["None"],
                                     ),
-                                    ui.p(
-                                        "💡 Offset: Use for rate calculations (e.g., person-years, population)",
-                                        style="font-size: 0.8em; color: #666; margin-top: 4px;",
-                                    ),
+                                    type="required",
                                 ),
-                                ui.card(
-                                    ui.card_header("Advanced Settings:"),
-                                    ui.h6("Exclude Variables (Optional):"),
+                                create_input_group(
+                                    "Advanced Settings",
+                                    create_tooltip_label(
+                                        "Exclude Variables",
+                                        "Remove specific variables from the model.",
+                                    ),
                                     ui.input_selectize(
                                         "poisson_exclude",
                                         label=None,
                                         choices=[],
                                         multiple=True,
                                     ),
+                                    type="advanced",
                                 ),
                                 col_widths=[6, 6],
                             ),
                             # Interaction Pairs selector
-                            ui.h6("🔗 Interaction Pairs (Optional):"),
-                            ui.input_selectize(
-                                "poisson_interactions",
-                                label=None,
-                                choices=[],
-                                multiple=True,
-                                options={
-                                    "placeholder": "Select variable pairs to test interactions..."
-                                },
+                            ui.div(
+                                create_input_group(
+                                    "Model Refinement",
+                                    ui.h6("🔗 Interaction Pairs (Optional):"),
+                                    ui.input_selectize(
+                                        "poisson_interactions",
+                                        label=None,
+                                        choices=[],
+                                        multiple=True,
+                                        options={
+                                            "placeholder": "Select variable pairs to test interactions..."
+                                        },
+                                    ),
+                                    type="optional",
+                                )
                             ),
+                            ui.output_ui("out_poisson_validation"),
                             ui.hr(),
                             ui.layout_columns(
                                 ui.input_action_button(
@@ -246,33 +298,8 @@ def core_regression_ui() -> ui.TagChild:
                         ),
                         # Content section (bottom)
                         ui.output_ui("out_poisson_status"),
-                        ui.navset_tab(
-                            ui.nav_panel(
-                                "🌳 Forest Plots",
-                                ui.output_ui("ui_poisson_forest_tabs"),
-                            ),
-                            ui.nav_panel(
-                                "📋 Detailed Report",
-                                ui.output_ui("out_poisson_html_report"),
-                            ),
-                            ui.nav_panel(
-                                "📚 Reference",
-                                ui.markdown("""
-                                ### Poisson Regression Reference
-                                
-                                **When to Use:**
-                                * Count outcomes (e.g., number of events, visits, infections)
-                                * Rate data with exposure offset (e.g., events per person-year)
-                                
-                                **Interpretation:**
-                                * **IRR > 1**: Higher incidence rate (Risk factor) 🔴
-                                * **IRR < 1**: Lower incidence rate (Protective) 🟢
-                                * **IRR = 1**: No effect on rate
-                                
-                                **Overdispersion:**
-                                If variance >> mean, consider Negative Binomial regression.
-                                """),
-                            ),
+                        create_results_container(
+                            "Poisson Results", ui.output_ui("ui_poisson_results_area")
                         ),
                     ),
                     ui.nav_panel(
@@ -280,45 +307,59 @@ def core_regression_ui() -> ui.TagChild:
                         ui.card(
                             ui.card_header("📉 Negative Binomial Analysis Options"),
                             ui.layout_columns(
-                                ui.card(
-                                    ui.card_header("Variable Selection:"),
+                                create_input_group(
+                                    "Variable Selection",
                                     ui.input_select(
                                         "nb_outcome",
-                                        "Select Count Outcome (Y):",
+                                        create_tooltip_label(
+                                            "Select Count Outcome (Y)",
+                                            "Use when data is overdispersed (variance > mean).",
+                                        ),
                                         choices=[],
                                     ),
                                     ui.input_select(
                                         "nb_offset",
-                                        "Offset Column (Optional):",
+                                        create_tooltip_label(
+                                            "Offset Column (Optional)",
+                                            "Use for rate calculations.",
+                                        ),
                                         choices=["None"],
                                     ),
-                                    ui.p(
-                                        "💡 Use when variance >> mean (Overdispersion)",
-                                        style="font-size: 0.8em; color: #666; margin-top: 4px;",
-                                    ),
+                                    type="required",
                                 ),
-                                ui.card(
-                                    ui.card_header("Advanced Settings:"),
-                                    ui.h6("Exclude Variables (Optional):"),
+                                create_input_group(
+                                    "Advanced Settings",
+                                    create_tooltip_label(
+                                        "Exclude Variables",
+                                        "Remove specific variables.",
+                                    ),
                                     ui.input_selectize(
                                         "nb_exclude",
                                         label=None,
                                         choices=[],
                                         multiple=True,
                                     ),
+                                    type="advanced",
                                 ),
                                 col_widths=[6, 6],
                             ),
-                            ui.h6("🔗 Interaction Pairs (Optional):"),
-                            ui.input_selectize(
-                                "nb_interactions",
-                                label=None,
-                                choices=[],
-                                multiple=True,
-                                options={
-                                    "placeholder": "Select variable pairs to test interactions..."
-                                },
+                            ui.div(
+                                create_input_group(
+                                    "Model Refinement",
+                                    ui.h6("🔗 Interaction Pairs (Optional):"),
+                                    ui.input_selectize(
+                                        "nb_interactions",
+                                        label=None,
+                                        choices=[],
+                                        multiple=True,
+                                        options={
+                                            "placeholder": "Select variable pairs to test interactions..."
+                                        },
+                                    ),
+                                    type="optional",
+                                )
                             ),
+                            ui.output_ui("out_nb_validation"),
                             ui.hr(),
                             ui.layout_columns(
                                 ui.input_action_button(
@@ -335,30 +376,9 @@ def core_regression_ui() -> ui.TagChild:
                             ),
                         ),
                         ui.output_ui("out_nb_status"),
-                        ui.navset_tab(
-                            ui.nav_panel(
-                                "🌳 Forest Plots",
-                                ui.output_ui("ui_nb_forest_tabs"),
-                            ),
-                            ui.nav_panel(
-                                "📋 Detailed Report",
-                                ui.output_ui("out_nb_html_report"),
-                            ),
-                            ui.nav_panel(
-                                "📚 Reference",
-                                ui.markdown("""
-                                ### Negative Binomial Regression Reference
-                                
-                                **When to Use:**
-                                * Overdispersed count data (Variance > Mean)
-                                * When Poisson model shows lack of fit due to overdispersion
-                                
-                                **Interpretation:**
-                                * Similar to Poisson (IRR)
-                                * **Alpha**: Dispersion parameter estimated by the model
-                                * **IRR**: Incidence Rate Ratio
-                                """),
-                            ),
+                        create_results_container(
+                            "Negative Binomial Results",
+                            ui.output_ui("ui_nb_results_area"),
                         ),
                     ),
                     ui.nav_panel(
@@ -366,10 +386,15 @@ def core_regression_ui() -> ui.TagChild:
                         ui.card(
                             ui.card_header("📈 GLM Options"),
                             ui.layout_columns(
-                                ui.card(
-                                    ui.card_header("Variable Selection:"),
+                                create_input_group(
+                                    "Variable Selection",
                                     ui.input_select(
-                                        "glm_outcome", "Outcome (Y):", choices=[]
+                                        "glm_outcome",
+                                        create_tooltip_label(
+                                            "Outcome (Y)",
+                                            "Dependent variable for the model.",
+                                        ),
+                                        choices=[],
                                     ),
                                     ui.h6("Distribution & Link:"),
                                     ui.input_select(
@@ -396,12 +421,16 @@ def core_regression_ui() -> ui.TagChild:
                                             "sqrt": "Sqrt",
                                         },
                                     ),
+                                    type="required",
                                 ),
-                                ui.card(
-                                    ui.card_header("Predictors:"),
+                                create_input_group(
+                                    "Predictors",
                                     ui.input_selectize(
                                         "glm_predictors",
-                                        "Select Predictors (X):",
+                                        create_tooltip_label(
+                                            "Select Predictors (X)",
+                                            "Independent variables.",
+                                        ),
                                         choices=[],
                                         multiple=True,
                                     ),
@@ -414,9 +443,11 @@ def core_regression_ui() -> ui.TagChild:
                                             "placeholder": "Select variable pairs..."
                                         },
                                     ),
+                                    type="required",
                                 ),
                                 col_widths=[6, 6],
                             ),
+                            ui.output_ui("out_glm_validation"),
                             ui.hr(),
                             ui.layout_columns(
                                 ui.input_action_button(
@@ -432,14 +463,8 @@ def core_regression_ui() -> ui.TagChild:
                                 col_widths=[6, 6],
                             ),
                         ),
-                        ui.output_ui("out_glm_status"),
-                        ui.navset_tab(
-                            ui.nav_panel(
-                                "📋 Model Results", ui.output_ui("out_glm_report")
-                            ),
-                            ui.nav_panel(
-                                "🌳 Forest Plot", ui.output_ui("out_glm_forest")
-                            ),
+                        create_results_container(
+                            "GLM Results", ui.output_ui("ui_glm_results_area")
                         ),
                     ),
                 ),
@@ -453,16 +478,21 @@ def core_regression_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("📐 Linear Regression Options"),
                     ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Variable Selection:"),
+                        create_input_group(
+                            "Variable Selection",
                             ui.input_select(
                                 "linear_outcome",
-                                "Select Continuous Outcome (Y):",
+                                create_tooltip_label(
+                                    "Continuous Outcome (Y)",
+                                    "Must be numeric/continuous.",
+                                ),
                                 choices=[],
                             ),
                             ui.input_selectize(
                                 "linear_predictors",
-                                "Select Predictors (X):",
+                                create_tooltip_label(
+                                    "Predictors (X)", "Independent variables."
+                                ),
                                 choices=[],
                                 multiple=True,
                                 options={
@@ -473,9 +503,10 @@ def core_regression_ui() -> ui.TagChild:
                                 "💡 Leave predictors empty to auto-include all numeric variables",
                                 style="font-size: 0.8em; color: #666; margin-top: 4px;",
                             ),
+                            type="required",
                         ),
-                        ui.card(
-                            ui.card_header("Method & Settings:"),
+                        create_input_group(
+                            "Method & Settings",
                             ui.input_radio_buttons(
                                 "linear_method",
                                 "Regression Method:",
@@ -487,6 +518,7 @@ def core_regression_ui() -> ui.TagChild:
                                 "Use Robust Standard Errors (HC3)",
                                 value=False,
                             ),
+                            type="required",
                         ),
                         col_widths=[6, 6],
                     ),
@@ -495,8 +527,8 @@ def core_regression_ui() -> ui.TagChild:
                         ui.accordion_panel(
                             "🔧 Advanced Options",
                             ui.layout_columns(
-                                ui.card(
-                                    ui.card_header("Variable Selection:"),
+                                create_input_group(
+                                    "Stepwise Selection",
                                     ui.input_checkbox(
                                         "linear_stepwise_enable",
                                         "Enable Stepwise Selection",
@@ -524,9 +556,10 @@ def core_regression_ui() -> ui.TagChild:
                                         selected="aic",
                                         inline=True,
                                     ),
+                                    type="advanced",
                                 ),
-                                ui.card(
-                                    ui.card_header("Bootstrap CI:"),
+                                create_input_group(
+                                    "Bootstrap CI",
                                     ui.input_checkbox(
                                         "linear_bootstrap_enable",
                                         "Enable Bootstrap CIs",
@@ -546,16 +579,26 @@ def core_regression_ui() -> ui.TagChild:
                                         selected="percentile",
                                         inline=True,
                                     ),
+                                    type="advanced",
                                 ),
                                 col_widths=[6, 6],
                             ),
                         ),
                         open=False,
                     ),
-                    ui.h6("Exclude Variables (Optional):"),
-                    ui.input_selectize(
-                        "linear_exclude", label=None, choices=[], multiple=True
+                    ui.div(
+                        create_input_group(
+                            "Ad Hoc Exclusions",
+                            create_tooltip_label(
+                                "Exclude Variables", "Remove specific variables."
+                            ),
+                            ui.input_selectize(
+                                "linear_exclude", label=None, choices=[], multiple=True
+                            ),
+                            type="optional",
+                        )
                     ),
+                    ui.output_ui("out_linear_validation"),
                     ui.hr(),
                     ui.layout_columns(
                         ui.input_action_button(
@@ -572,62 +615,7 @@ def core_regression_ui() -> ui.TagChild:
                     ),
                 ),
                 # Content section (bottom)
-                ui.output_ui("out_linear_status"),
-                ui.navset_tab(
-                    ui.nav_panel(
-                        "📋 Regression Results", ui.output_ui("out_linear_html_report")
-                    ),
-                    ui.nav_panel(
-                        "📈 Diagnostic Plots",
-                        ui.output_ui("out_linear_diagnostic_plots"),
-                    ),
-                    ui.nav_panel(
-                        "🔍 Variable Selection", ui.output_ui("out_linear_stepwise")
-                    ),
-                    ui.nav_panel(
-                        "🎲 Bootstrap CI", ui.output_ui("out_linear_bootstrap")
-                    ),
-                    ui.nav_panel(
-                        "📚 Reference",
-                        ui.markdown("""
-                        ### Linear Regression Reference
-                        
-                        **When to Use:**
-                        * Continuous outcomes (blood pressure, glucose, length of stay)
-                        * Understanding effect size of predictors (β coefficients)
-                        * Analyzing relationships between continuous variables
-                        
-                        **Interpretation:**
-                        * **β > 0**: Positive relationship (Y increases with X)
-                        * **β < 0**: Negative relationship (Y decreases with X)
-                        * **p < 0.05**: Statistically significant effect
-                        * **CI not crossing 0**: Significant effect
-                        
-                        **Model Fit:**
-                        * **R² > 0.7**: Strong explanatory power
-                        * **R² 0.4-0.7**: Moderate explanatory power
-                        * **R² < 0.4**: Weak explanatory power
-                        
-                        **Assumptions:**
-                        1. **Linearity**: Check Residuals vs Fitted plot
-                        2. **Normality**: Check Q-Q plot
-                        3. **Homoscedasticity**: Check Scale-Location plot
-                        4. **Independence**: Check Durbin-Watson statistic
-                        5. **No Multicollinearity**: Check VIF values
-                        
-                        **Stepwise Selection:**
-                        Automatically selects the best subset of variables using AIC, BIC, or p-value criteria.
-                        - Forward: Start empty, add significant variables
-                        - Backward: Start full, remove non-significant variables
-                        - Both: Stepwise forward and backward
-                        
-                        **Bootstrap CI:**
-                        Non-parametric confidence intervals via resampling.
-                        - Percentile: Simple quantile-based CIs
-                        - BCa: Bias-corrected and accelerated (more accurate)
-                        """),
-                    ),
-                ),
+                ui.output_ui("ui_linear_results_area"),
             ),
             # (Subgroup Analysis Removed - Moved to Causal Inference Tab)
             # =====================================================================
@@ -638,17 +626,40 @@ def core_regression_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("🔄 GEE & LMM Analysis"),
                     ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Variable Selection:"),
-                            ui.input_select("rep_outcome", "Outcome (Y):", choices=[]),
+                        create_input_group(
+                            "Variable Selection",
                             ui.input_select(
-                                "rep_treatment", "Group/Treatment:", choices=[]
+                                "rep_outcome",
+                                create_tooltip_label(
+                                    "Outcome (Y)", "Response variable."
+                                ),
+                                choices=[],
                             ),
-                            ui.input_select("rep_time", "Time Variable:", choices=[]),
-                            ui.input_select("rep_subject", "Subject ID:", choices=[]),
+                            ui.input_select(
+                                "rep_treatment",
+                                create_tooltip_label(
+                                    "Group/Treatment", "Main group of interest."
+                                ),
+                                choices=[],
+                            ),
+                            ui.input_select(
+                                "rep_time",
+                                create_tooltip_label(
+                                    "Time Variable", "Timepoint or sequence."
+                                ),
+                                choices=[],
+                            ),
+                            ui.input_select(
+                                "rep_subject",
+                                create_tooltip_label(
+                                    "Subject ID", "Unique identifier."
+                                ),
+                                choices=[],
+                            ),
+                            type="required",
                         ),
-                        ui.card(
-                            ui.card_header("Model Settings:"),
+                        create_input_group(
+                            "Model Settings",
                             ui.input_radio_buttons(
                                 "rep_model_type",
                                 "Model Type:",
@@ -687,13 +698,17 @@ def core_regression_ui() -> ui.TagChild:
                                     value=False,
                                 ),
                             ),
-                            ui.h6("Adjustments (Covariates):"),
+                            create_tooltip_label(
+                                "Adjustments (Covariates)", "Control variables."
+                            ),
                             ui.input_selectize(
                                 "rep_covariates", label=None, choices=[], multiple=True
                             ),
+                            type="required",
                         ),
                         col_widths=[6, 6],
                     ),
+                    ui.output_ui("out_repeated_validation"),
                     ui.hr(),
                     ui.input_action_button(
                         "btn_run_repeated",
@@ -701,13 +716,7 @@ def core_regression_ui() -> ui.TagChild:
                         class_="btn-primary btn-sm w-100",
                     ),
                 ),
-                ui.output_ui("out_rep_status"),
-                ui.navset_tab(
-                    ui.nav_panel(
-                        "📋 Model Results", ui.output_data_frame("out_rep_results")
-                    ),
-                    ui.nav_panel("📈 Trajectory Plot", ui.output_ui("out_rep_plot")),
-                ),
+                ui.output_ui("ui_repeated_results_area"),
             ),
             # =====================================================================
             # TAB 6: Reference
@@ -798,12 +807,16 @@ def core_regression_server(
         is_matched: reactive.Value[bool] indicating whether a matched dataset is available/selected.
     """
     logit_res = reactive.Value(None)
+    logit_is_running = reactive.Value(False)  # Track running state
     # Store Poisson results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
     poisson_res = reactive.Value(None)
+    poisson_is_running = reactive.Value(False)
     # Store Negative Binomial results
     nb_res = reactive.Value(None)
+    nb_is_running = reactive.Value(False)
     # Store Linear Regression results: {'html_fragment': str, 'html_full': str, 'plots': dict, 'results': dict}
     linear_res = reactive.Value(None)
+    linear_is_running = reactive.Value(False)
     # Store subgroup results: SubgroupResult
     subgroup_res: reactive.Value[SubgroupResult | None] = reactive.Value(None)
     # Store analyzer instance: SubgroupAnalysisLogit
@@ -812,6 +825,7 @@ def core_regression_server(
     )
     # Store Repeated Measures results: {'results': DataFrame, 'plot': Figure, 'model_type': str}
     repeated_res = reactive.Value(None)
+    repeated_is_running = reactive.Value(False)
 
     # Store GLM results
     glm_res = reactive.Value(None)
@@ -1042,6 +1056,243 @@ def core_regression_server(
             )
         return None
 
+    # --- Validation Logic ---
+    @render.ui
+    def out_logit_validation():
+        d = current_df()
+        target = input.sel_outcome()
+        exclude = input.sel_exclude() if input.sel_exclude() else []
+
+        if d is None or d.empty:
+            return None
+
+        alerts = []
+
+        # Check 1: Target selected?
+        if not target:
+            return (
+                None  # Already handled by dropdown placeholder or validation elsewhere
+            )
+
+        # Check 2: Target is binary?
+        if target and target in d.columns:
+            if d[target].nunique() != 2:
+                alerts.append(
+                    create_error_alert(
+                        f"Outcome '{target}' is not binary (has {d[target].nunique()} unique values). Please select a binary variable.",
+                        title="Invalid Outcome",
+                    )
+                )
+
+        # Check 3: Target in Exclude list? (Redundant but possible)
+        if target in exclude:
+            alerts.append(
+                create_error_alert(
+                    f"Outcome '{target}' is currently excluded from the analysis options.",
+                    title="Configuration Error",
+                )
+            )
+
+        # Check 4: Predictors available?
+        # Get all potential predictors (columns - target - exclude)
+        potential_predictors = [
+            c for c in d.columns if c != target and c not in exclude
+        ]
+        if not potential_predictors:
+            alerts.append(
+                create_error_alert(
+                    "All variables have been excluded. Please allow at least one predictor.",
+                    title="No Predictors",
+                )
+            )
+
+        if alerts:
+            return ui.div(*alerts)
+
+        return None
+
+    @render.ui
+    def out_poisson_validation():
+        d = current_df()
+        target = input.poisson_outcome()
+        if d is None or d.empty:
+            return None
+        alerts = []
+        if not target:
+            return None
+        # Check non-negative integers
+        if target in d.columns:
+            if not pd.api.types.is_numeric_dtype(d[target]):
+                alerts.append(
+                    create_error_alert(
+                        f"Outcome '{target}' must be numeric.", title="Invalid Outcome"
+                    )
+                )
+            elif (d[target].dropna() < 0).any():
+                alerts.append(
+                    create_error_alert(
+                        f"Outcome '{target}' contains negative values.",
+                        title="Invalid Outcome",
+                    )
+                )
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_nb_validation():
+        d = current_df()
+        target = input.nb_outcome()
+        if d is None or d.empty:
+            return None
+        alerts = []
+        if not target:
+            return None
+        if target in d.columns:
+            if not pd.api.types.is_numeric_dtype(d[target]):
+                alerts.append(
+                    create_error_alert(
+                        f"Outcome '{target}' must be numeric.", title="Invalid Outcome"
+                    )
+                )
+            elif (d[target].dropna() < 0).any():
+                alerts.append(
+                    create_error_alert(
+                        f"Outcome '{target}' contains negative values.",
+                        title="Invalid Outcome",
+                    )
+                )
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_glm_validation():
+        d = current_df()
+        target = input.glm_outcome()
+        preds = input.glm_predictors()
+        if d is None or d.empty:
+            return None
+        alerts = []
+        if not target:
+            return None
+        if preds and target in preds:
+            alerts.append(
+                create_error_alert(
+                    "Outcome variable cannot be a predictor.",
+                    title="Configuration Error",
+                )
+            )
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_linear_validation():
+        d = current_df()
+        target = input.linear_outcome()
+        preds = input.linear_predictors()
+        if d is None or d.empty:
+            return None
+        alerts = []
+        if not target:
+            return None
+        if preds and target in preds:
+            alerts.append(
+                create_error_alert(
+                    "Outcome variable cannot be a predictor.",
+                    title="Configuration Error",
+                )
+            )
+        if target in d.columns and not pd.api.types.is_numeric_dtype(d[target]):
+            alerts.append(
+                create_error_alert(
+                    f"Outcome '{target}' must be continuous/numeric.",
+                    title="Invalid Outcome",
+                )
+            )
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    @render.ui
+    def out_repeated_validation():
+        d = current_df()
+        target = input.rep_outcome()
+        subject = input.rep_subject()
+        time_var = input.rep_time()
+        covs = input.rep_covariates()
+
+        if d is None or d.empty:
+            return None
+        alerts = []
+
+        if not target or not subject or not time_var:
+            return None  # Wait for selection
+
+        if len({target, subject, time_var}) < 3:
+            alerts.append(
+                create_error_alert(
+                    "Outcome, Subject ID, and Time Variable must be different variables.",
+                    title="Configuration Error",
+                )
+            )
+
+        if covs:
+            if target in covs or subject in covs or time_var in covs:
+                alerts.append(
+                    create_error_alert(
+                        "Main variables (Outcome, Subject, Time) cannot be used as covariates.",
+                        title="Configuration Error",
+                    )
+                )
+
+        if alerts:
+            return ui.div(*alerts)
+        return None
+
+    # --- Results Area Logic (Dynamic Loading) ---
+    @render.ui
+    def ui_logit_results_area():
+        # Check if running
+        if logit_is_running.get():
+            return ui.div(
+                create_loading_state("Running Logistic Regression..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
+            )
+
+        # Check if results exist
+        res = logit_res.get()
+        if res:
+            if "error" in res:
+                return create_error_alert(res["error"])
+
+            return ui.navset_tab(
+                ui.nav_panel("🌳 Forest Plots", ui_forest_tabs()),
+                ui.nav_panel("📋 Detailed Report", ui.HTML(res["html_fragment"])),
+                ui.nav_panel(
+                    "✅ Assumptions",
+                    ui.markdown(
+                        """
+                        ### 🧐 Model Assumptions Checklist
+                        
+                        1.  **Multicollinearity:** Check standard errors in the report. Extremely large SEs often indicate high correlation between predictors (VIF > 5-10).
+                        2.  **Linearity:** Log-odds should be linearly related to continuous predictors (Box-Tidwell test).
+                        3.  **Independence:** Observations should be independent. If you have repeated measures per patient, use the **Repeated Measures** tab.
+                        4.  **Separation:** If standard errors are huge (e.g., > 1000), you may have "Perfect Separation". Consider using **Firth's Method**.
+                        """
+                    ),
+                ),
+            )
+
+        # Default Placeholder
+        # Default Placeholder
+        return create_empty_state_ui(
+            message="No Logistic Regression Results",
+            sub_message="Select an outcome and click '🚀 Run Logistic Regression' to start.",
+            icon="📈",
+        )
+
     # ==========================================================================
     # LOGIC: Main Logistic Regression
     # ==========================================================================
@@ -1079,6 +1330,15 @@ def core_regression_server(
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
             logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
 
+            logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
+
+        # Start Loading State
+        logit_is_running.set(True)
+        logit_res.set(None)  # Clear previous results
+
+        # Use reactive flush to ensure UI updates before heavy computation
+        # (Note: In standard Shiny, this might still block if not async, but we set state first)
+
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Running Logistic Regression...", detail="Calculating...")
 
@@ -1094,7 +1354,9 @@ def core_regression_server(
                     adv_stats=CONFIG,
                 )
             except Exception as e:
-                ui.notification_show(f"Error: {e!s}", type="error")
+                err_msg = f"Error running logistic regression: {e!s}"
+                logit_res.set({"error": err_msg})
+                ui.notification_show("Analysis failed", type="error")
                 logger.exception("Logistic regression error")
                 return
 
@@ -1119,7 +1381,9 @@ def core_regression_server(
                             x_label="Adjusted OR",
                         )
                     except ValueError as e:
-                        logger.warning("Logit Adjusted Forest Plot creation failed: %s", e)
+                        logger.warning(
+                            "Logit Adjusted Forest Plot creation failed: %s", e
+                        )
 
             if or_res:
                 df_crude = pd.DataFrame(
@@ -1143,6 +1407,14 @@ def core_regression_server(
             # --- MANUALLY CONSTRUCT COMPLETE REPORT (Table + Plots) ---
             # 1. Create Fragment for UI (Table + Plots)
             logit_fragment_html = html_rep
+
+            # Prepend Firth Info if used
+            if method == "firth":
+                logit_fragment_html = (
+                    f"<div style='background-color: {COLORS['info']}20; border: 1px solid {COLORS['info']}; padding: 10px; border-radius: 5px; margin-bottom: 20px;'>"
+                    "<strong>ℹ️ Method Used:</strong> Firth's Penalized Likelihood (useful for rare events or separation)."
+                    "</div>" + logit_fragment_html
+                )
 
             # Append Adjusted Plot if available
             if fig_adj:
@@ -1183,6 +1455,9 @@ def core_regression_server(
 
             ui.notification_show("✅ Analysis Complete!", type="message")
 
+        # End Loading State
+        logit_is_running.set(False)
+
     # --- Render Main Results ---
     @render.ui
     def out_logit_status():
@@ -1194,26 +1469,12 @@ def core_regression_server(
             )
         return None
 
-    @render.ui
-    def out_html_report():
-        """
-        Render the "Detailed Report" card showing the latest logistic regression HTML fragment or a placeholder.
-
-        Returns:
-            ui.card: A UI card containing the report HTML fragment when results are available; otherwise a card with a centered placeholder message prompting the user to run the analysis.
-        """
         res = logit_res.get()
         if res:
             return ui.card(
                 ui.card_header("📋 Detailed Report"), ui.HTML(res["html_fragment"])
             )
-        return ui.card(
-            ui.card_header("📋 Detailed Report"),
-            ui.div(
-                "Run analysis to see detailed report.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
-            ),
-        )
+        return None
 
     @render.ui
     def ui_forest_tabs():
@@ -1222,15 +1483,11 @@ def core_regression_server(
 
         Returns:
             ui.Component: A UI element containing "Crude OR" and/or "Adjusted OR" tabs when corresponding forest figures are present.
-            If no analysis has been run, returns a centered placeholder prompting the user to run the analysis.
             If analysis exists but no forest figures are available, returns a muted message indicating no plots are available.
         """
         res = logit_res.get()
         if not res:
-            return ui.div(
-                "Run analysis to see forest plots.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
-            )
+            return None  # Should be handled by parent container logic
 
         tabs = []
         if res["fig_crude"]:
@@ -1239,7 +1496,9 @@ def core_regression_server(
             tabs.append(ui.nav_panel("Adjusted OR", ui.output_ui("out_forest_adj")))
 
         if not tabs:
-            return ui.div("No forest plots available.", class_="text-muted")
+            return ui.div(
+                "No forest plots generated from the model.", class_="text-muted p-3"
+            )
         return ui.navset_card_tab(*tabs)
 
     @render.ui
@@ -1333,6 +1592,10 @@ def core_regression_server(
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
             logger.info(f"Poisson: Using {len(interaction_pairs)} interaction pairs")
 
+        # Start Loading State
+        poisson_is_running.set(True)
+        poisson_res.set(None)
+
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Running Poisson Regression...", detail="Calculating...")
 
@@ -1347,7 +1610,9 @@ def core_regression_server(
                     interaction_pairs=interaction_pairs,
                 )
             except Exception as e:
-                ui.notification_show(f"Error: {e!s}", type="error")
+                err_msg = f"Error running Poisson regression: {e!s}"
+                poisson_res.set({"error": err_msg})
+                ui.notification_show("Analysis failed", type="error")
                 logger.exception("Poisson regression error")
                 return
 
@@ -1372,7 +1637,9 @@ def core_regression_server(
                             x_label="Adjusted IRR",
                         )
                     except ValueError as e:
-                        logger.warning("Poisson Adjusted Forest Plot creation failed: %s", e)
+                        logger.warning(
+                            "Poisson Adjusted Forest Plot creation failed: %s", e
+                        )
 
             if irr_res:
                 df_crude = pd.DataFrame(
@@ -1391,7 +1658,9 @@ def core_regression_server(
                             x_label="Crude IRR",
                         )
                     except ValueError as e:
-                        logger.warning("Poisson Crude Forest Plot creation failed: %s", e)
+                        logger.warning(
+                            "Poisson Crude Forest Plot creation failed: %s", e
+                        )
 
             # --- MANUALLY CONSTRUCT COMPLETE REPORT (Combined Table + Plot) ---
             # Unlike logic.py, poisson_lib might return just the table HTML.
@@ -1439,6 +1708,9 @@ def core_regression_server(
 
             ui.notification_show("✅ Poisson Analysis Complete!", type="message")
 
+        # End Loading State
+        poisson_is_running.set(False)
+
     # --- Render Poisson Results ---
     @render.ui
     def out_poisson_status():
@@ -1451,19 +1723,52 @@ def core_regression_server(
         return None
 
     @render.ui
-    def out_poisson_html_report():
+    def ui_poisson_results_area():
+        if poisson_is_running.get():
+            return ui.div(
+                create_loading_state("Running Poisson Regression..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
+            )
+
         res = poisson_res.get()
         if res:
-            return ui.card(
-                ui.card_header("📋 Poisson Regression Report"),
-                ui.HTML(res["html_fragment"]),
+            if "error" in res:
+                return create_error_alert(res["error"])
+
+            return ui.navset_tab(
+                ui.nav_panel(
+                    "🌳 Forest Plots",
+                    ui.output_ui("ui_poisson_forest_tabs"),
+                ),
+                ui.nav_panel(
+                    "📋 Detailed Report",
+                    ui.HTML(res["html_fragment"]),
+                ),
+                ui.nav_panel(
+                    "📚 Reference",
+                    ui.markdown("""
+                    ### Poisson Regression Reference
+                    
+                    **When to Use:**
+                    * Count outcomes (e.g., number of events, visits, infections)
+                    * Rate data with exposure offset (e.g., events per person-year)
+                    
+                    **Interpretation:**
+                    * **IRR > 1**: Higher incidence rate (Risk factor) 🔴
+                    * **IRR < 1**: Lower incidence rate (Protective) 🟢
+                    * **IRR = 1**: No effect on rate
+                    
+                    **Overdispersion:**
+                    If variance >> mean, consider Negative Binomial regression.
+                    """),
+                ),
             )
-        return ui.card(
-            ui.card_header("📋 Poisson Regression Report"),
-            ui.div(
-                "Run analysis to see detailed report.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
-            ),
+
+        # Default Placeholder
+        return create_empty_state_ui(
+            message="No Poisson Regression Results",
+            sub_message="Select count outcome and predictors, then click '🚀 Run Random Forest'.. oops wait 'Run Poisson'.",
+            icon="🔢",
         )
 
     @render.ui
@@ -1584,6 +1889,10 @@ def core_regression_server(
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
             logger.info(f"NB: Using {len(interaction_pairs)} interaction pairs")
 
+        # Start Loading State
+        nb_is_running.set(True)
+        nb_res.set(None)
+
         with ui.Progress(min=0, max=1) as p:
             p.set(
                 message="Running Negative Binomial Regression...",
@@ -1601,7 +1910,9 @@ def core_regression_server(
                     model_type="negative_binomial",
                 )
             except Exception as e:
-                ui.notification_show(f"Error: {e!s}", type="error")
+                err_msg = f"Error running Negative Binomial regression: {e!s}"
+                nb_res.set({"error": err_msg})
+                ui.notification_show("Analysis failed", type="error")
                 logger.exception("Negative Binomial regression error")
                 return
 
@@ -1689,6 +2000,9 @@ def core_regression_server(
 
             ui.notification_show("✅ NB Analysis Complete!", type="message")
 
+        # End Loading State
+        nb_is_running.set(False)
+
     # --- Render NB Results ---
     @render.ui
     def out_nb_status():
@@ -1701,19 +2015,48 @@ def core_regression_server(
         return None
 
     @render.ui
-    def out_nb_html_report():
+    def ui_nb_results_area():
+        if nb_is_running.get():
+            return ui.div(
+                create_loading_state("Running Negative Binomial Regression..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
+            )
+
         res = nb_res.get()
         if res:
-            return ui.card(
-                ui.card_header("📋 Report"),
-                ui.HTML(res["html_fragment"]),
+            if "error" in res:
+                return create_error_alert(res["error"])
+
+            return ui.navset_tab(
+                ui.nav_panel(
+                    "🌳 Forest Plots",
+                    ui.output_ui("ui_nb_forest_tabs"),
+                ),
+                ui.nav_panel(
+                    "📋 Detailed Report",
+                    ui.HTML(res["html_fragment"]),
+                ),
+                ui.nav_panel(
+                    "📚 Reference",
+                    ui.markdown("""
+                    ### Negative Binomial Regression Reference
+                    
+                    **When to Use:**
+                    * Overdispersed count data (Variance > Mean)
+                    * When Poisson model shows lack of fit due to overdispersion
+                    
+                    **Interpretation:**
+                    * Similar to Poisson (IRR)
+                    * **Alpha**: Dispersion parameter estimated by the model
+                    * **IRR**: Incidence Rate Ratio
+                    """),
+                ),
             )
-        return ui.card(
-            ui.card_header("📋 Report"),
-            ui.div(
-                "Run analysis to see detailed report.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
-            ),
+
+        return create_empty_state_ui(
+            message="No Negative Binomial Regression Results",
+            sub_message="Select count outcome and predictors, then click 'Run Negative Binomial'.",
+            icon="📉",
         )
 
     @render.ui
@@ -1798,6 +2141,10 @@ def core_regression_server(
             )
             return
 
+        # Start Loading State
+        linear_is_running.set(True)
+        linear_res.set(None)
+
         with ui.Progress(min=0, max=1) as p:
             p.set(message="Running Linear Regression...", detail="Preparing data...")
 
@@ -1813,7 +2160,9 @@ def core_regression_server(
                     robust_se=robust_se,
                 )
             except Exception as e:
-                ui.notification_show(f"Error: {e!s}", type="error")
+                err_msg = f"Error running Linear Regression: {e!s}"
+                linear_res.set({"error": err_msg})
+                ui.notification_show("Analysis failed", type="error")
                 logger.exception("Linear regression error")
                 return
 
@@ -1855,19 +2204,100 @@ def core_regression_server(
 
             ui.notification_show("✅ Linear Regression Complete!", type="message")
 
+        # End Loading State
+        linear_is_running.set(False)
+
     # --- Render Linear Regression Results ---
     @render.ui
-    def out_linear_status():
+    def ui_linear_results_area():
+        if linear_is_running.get():
+            return ui.div(
+                create_loading_state("Running Linear Regression..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
+            )
+
         res = linear_res.get()
         if res:
+            if "error" in res:
+                return create_error_alert(res["error"])
+
             r2 = res["results"].get("r_squared", 0)
             n_obs = res["results"].get("n_obs", 0)
             r2_text = f"R² = {r2:.4f}" if np.isfinite(r2) else "R² = N/A"
-            return ui.div(
-                ui.h5(f"✅ Linear Regression Complete ({r2_text}, n = {n_obs:,})"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+
+            return create_results_container(
+                "Regression Results",
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "📋 Regression Results",
+                        ui.div(
+                            ui.div(
+                                ui.h5(
+                                    f"✅ Linear Regression Complete ({r2_text}, n = {n_obs:,})"
+                                ),
+                                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                            ),
+                            ui.output_ui("out_linear_html_report"),
+                        ),
+                    ),
+                    ui.nav_panel(
+                        "📈 Diagnostic Plots",
+                        ui.output_ui("out_linear_diagnostic_plots"),
+                    ),
+                    ui.nav_panel(
+                        "🔍 Variable Selection", ui.output_ui("out_linear_stepwise")
+                    ),
+                    ui.nav_panel(
+                        "🎲 Bootstrap CI", ui.output_ui("out_linear_bootstrap")
+                    ),
+                    ui.nav_panel(
+                        "📚 Reference",
+                        ui.markdown("""
+                            ### Linear Regression Reference
+                            
+                            **When to Use:**
+                            * Continuous outcomes (blood pressure, glucose, length of stay)
+                            * Understanding effect size of predictors (β coefficients)
+                            * Analyzing relationships between continuous variables
+                            
+                            **Interpretation:**
+                            * **β > 0**: Positive relationship (Y increases with X)
+                            * **β < 0**: Negative relationship (Y decreases with X)
+                            * **p < 0.05**: Statistically significant effect
+                            * **CI not crossing 0**: Significant effect
+                            
+                            **Model Fit:**
+                            * **R² > 0.7**: Strong explanatory power
+                            * **R² 0.4-0.7**: Moderate explanatory power
+                            * **R² < 0.4**: Weak explanatory power
+                            
+                            **Assumptions:**
+                            1. **Linearity**: Check Residuals vs Fitted plot
+                            2. **Normality**: Check Q-Q plot
+                            3. **Homoscedasticity**: Check Scale-Location plot
+                            4. **Independence**: Check Durbin-Watson statistic
+                            5. **No Multicollinearity**: Check VIF values
+                            
+                            **Stepwise Selection:**
+                            Automatically selects the best subset of variables using AIC, BIC, or p-value criteria.
+                            - Forward: Start empty, add significant variables
+                            - Backward: Start full, remove non-significant variables
+                            - Both: Stepwise forward and backward
+                            
+                            **Bootstrap CI:**
+                            Non-parametric confidence intervals via resampling.
+                            - Percentile: Simple quantile-based CIs
+                            - BCa: Bias-corrected and accelerated (more accurate)
+                            """),
+                    ),
+                ),
             )
-        return None
+
+        return create_empty_state_ui(
+            message="No Linear Regression Results",
+            sub_message="Select an outcome and predictors, then click 'Run Linear Regression'.",
+            icon="📉",
+        )
 
     @render.ui
     def out_linear_html_report():
@@ -2358,6 +2788,10 @@ def core_regression_server(
         cols_needed = [outcome, treatment, time_var, subject] + covariates
         df_clean = d.dropna(subset=cols_needed).copy()
 
+        # Start Loading State
+        repeated_is_running.set(True)
+        repeated_res.set(None)
+
         with ui.Progress(min=0, max=1) as p:
             p.set(message=f"Running {model_type.upper()}...", detail="Analyzing...")
 
@@ -2386,7 +2820,8 @@ def core_regression_server(
 
                 # Check for error string
                 if isinstance(results, str):
-                    ui.notification_show(results, type="error")
+                    repeated_res.set({"error": results})
+                    ui.notification_show("Analysis failed", type="error")
                     return
 
                 # Extract Results
@@ -2410,18 +2845,51 @@ def core_regression_server(
                 )
 
             except Exception as e:
-                ui.notification_show(f"Error: {str(e)}", type="error")
+                err_msg = f"Error running Repeated Measures: {e!s}"
+                repeated_res.set({"error": err_msg})
+                ui.notification_show("Analysis failed", type="error")
                 logger.exception("Repeated measures error")
+            finally:
+                repeated_is_running.set(False)
 
     @render.ui
-    def out_rep_status():
+    def ui_repeated_results_area():
+        if repeated_is_running.get():
+            return ui.div(
+                create_loading_state("Running Repeated Measures Analysis..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
+            )
+
         res = repeated_res.get()
         if res:
-            return ui.div(
-                ui.h5(f"✅ {res['model_type'].upper()} Analysis Complete"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+            if "error" in res:
+                return create_error_alert(res["error"])
+
+            return create_results_container(
+                "Analysis Results",
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "📋 Model Results",
+                        ui.div(
+                            ui.div(
+                                ui.h5(
+                                    f"✅ {res['model_type'].upper()} Analysis Complete"
+                                ),
+                                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                            ),
+                            ui.output_data_frame("out_rep_results"),
+                        ),
+                    ),
+                    ui.nav_panel("📈 Trajectory Plot", ui.output_ui("out_rep_plot")),
+                ),
             )
-        return None
+
+        # Default Placeholder
+        return create_empty_state_ui(
+            message="No Repeated Measures Results",
+            sub_message="Configure Outcome, Subject ID, and Time, then click '🚀 Run analysis'.",
+            icon="🔄",
+        )
 
     @render.data_frame
     def out_rep_results():
@@ -2442,26 +2910,53 @@ def core_regression_server(
 
     # --- GLM Logic (Tab 2.5) ---
     @render.ui
-    def out_glm_status():
-        """Show processing status or success message."""
+    def ui_glm_results_area():
         if glm_processing.get():
             return ui.div(
-                ui.tags.div(
-                    ui.tags.span(class_="spinner-border spinner-border-sm me-2"),
-                    "Running Generalized Linear Model... Please wait",
-                    class_="alert alert-info",
-                )
+                create_loading_state("Running Generalized Linear Model..."),
+                create_skeleton_loader_ui(rows=4, show_chart=True),
             )
+
         res = glm_res.get()
-        if res and isinstance(res, dict) and "fit_metrics" in res:
+        if res:
+            if "error" in res:
+                return create_error_alert(res["error"])
+
             metrics = res["fit_metrics"]
-            return ui.div(
-                ui.h5(
-                    f"✅ Analysis Complete (AIC: {metrics.get('aic', 'N/A'):.2f}, Deviance: {metrics.get('deviance', 'N/A'):.2f})"
+            # We can put the status banner inside the report or as a separate div if needed.
+            # But create_results_container is mostly content.
+            # Let's include the status banner inside the report panel or forest plot panel?
+            # Or just render it on top of the generic content.
+            # But ui_glm_results_area is inside create_results_container.
+
+            return ui.navset_tab(
+                ui.nav_panel(
+                    "📋 Model Results",
+                    ui.div(
+                        ui.div(
+                            ui.h5(
+                                f"✅ Analysis Complete (AIC: {metrics.get('aic', 'N/A'):.2f}, Deviance: {metrics.get('deviance', 'N/A'):.2f})"
+                            ),
+                            style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                        ),
+                        ui.HTML(res["html_report"]),
+                    ),
                 ),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                ui.nav_panel(
+                    "🌳 Forest Plot",
+                    ui.HTML(
+                        plotly_figure_to_html(
+                            res["forest_plot"], include_plotlyjs="cdn"
+                        )
+                    )
+                    if res.get("forest_plot")
+                    else ui.div("No forest plot available", class_="text-muted p-3"),
+                ),
             )
-        return None
+
+        return create_placeholder_state(
+            "Select an outcome and predictors, then click 'Run GLM'.", icon="📈"
+        )
 
     @reactive.Effect
     @reactive.event(input.btn_run_glm)
@@ -2606,27 +3101,13 @@ def core_regression_server(
             )
 
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+            err_msg = f"Error running GLM: {e!s}"
+            glm_res.set({"error": err_msg})
+            ui.notification_show("GLM Failed", type="error")
             logger.exception("GLM Fatal Error")
 
         finally:
             glm_processing.set(False)
-
-    @render.ui
-    def out_glm_report():
-        res = glm_res.get()
-        if res and "html_report" in res:
-            return ui.HTML(res["html_report"])
-        return ui.div("Run GLM to see results.", class_="text-secondary p-3")
-
-    @render.ui
-    def out_glm_forest():
-        res = glm_res.get()
-        if res and "forest_plot" in res:
-            return ui.HTML(
-                plotly_figure_to_html(res["forest_plot"], include_plotlyjs="cdn")
-            )
-        return ui.div("Run GLM to see plots.", class_="text-secondary p-3")
 
     @render.download(filename="glm_report.html")
     def btn_dl_glm_report():
