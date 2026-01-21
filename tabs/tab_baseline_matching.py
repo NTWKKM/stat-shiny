@@ -12,6 +12,7 @@ from logger import get_logger
 from tabs import tab_sample_size  # Import Sample Size Tab
 from tabs._common import (
     get_color_palette,
+    select_variable_by_keyword,
 )
 from utils import psm_lib, table_one
 from utils.formatting import create_missing_data_report_html
@@ -415,15 +416,21 @@ def baseline_matching_server(
         cols = d.columns.tolist()
 
         # Table 1
-        ui.update_select("sel_group_col", choices=["None"] + cols)
+        def_t1_group = select_variable_by_keyword(cols, ["group", "treatment", "exposure"], default_to_first=True)
+        ui.update_select("sel_group_col", choices=["None"] + cols, selected=def_t1_group)
         ui.update_selectize("sel_t1_vars", choices=cols, selected=cols)
 
         # PSM
-        ui.update_select("sel_treat_col", choices=cols)
+        binary_cols = [c for c in cols if d[c].nunique() == 2]
+        def_psm_treat = select_variable_by_keyword(binary_cols, ["treatment", "group", "exposure"], default_to_first=True)
+        def_psm_out = select_variable_by_keyword(cols, ["outcome", "cured", "death", "event"], default_to_first=False)
+        # default_to_first=False for outcome because PSM optional selection often defaults to None/Skip
+
+        ui.update_select("sel_treat_col", choices=cols, selected=def_psm_treat)
         ui.update_select(
             "sel_outcome_col",
             choices=["⊘ None / Skip", *cols],
-            selected="⊘ None / Skip",
+            selected=def_psm_out if def_psm_out else "⊘ None / Skip",
         )
 
         # FIX: Update covariates dropdown with all columns

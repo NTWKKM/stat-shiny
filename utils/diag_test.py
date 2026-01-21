@@ -36,7 +36,7 @@ from utils.data_cleaning import (
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
-type BadgeLevel = Literal["success", "warning", "danger", "info", "neutral"]
+type BadgeLevel = Literal["success", "warning", "danger", "info", "neutral", "light", "secondary"]
 
 
 def get_badge_html(text: str, level: BadgeLevel = "info") -> str:

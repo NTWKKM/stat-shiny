@@ -23,6 +23,7 @@ from shiny import module, reactive, render, ui
 from logger import get_logger
 from tabs._common import (
     get_color_palette,
+    select_variable_by_keyword,
 )
 from utils import correlation  # Import from utils
 from utils.formatting import create_missing_data_report_html
@@ -329,12 +330,28 @@ def corr_server(
                 # If no columns match, fallback to all numeric columns
                 final_cols = filtered_cols if filtered_cols else cols
 
+                # Smart defaults using select_variable_by_keyword
+                default_cv1 = select_variable_by_keyword(
+                    final_cols, ["lab", "value", "score"], default_to_first=True
+                )
+                
+                # For cv2, try to find a different variable
+                remaining_cols = [c for c in final_cols if c != default_cv1]
+                default_cv2 = select_variable_by_keyword(
+                    remaining_cols, ["lab", "value", "score"], default_to_first=True
+                )
+                
+                # If we couldn't find a different second variable (e.g. only 1 col), fallback
+                if not default_cv2 and final_cols:
+                     default_cv2 = final_cols[0]
+
+
                 # Pairwise selectors
-                ui.update_select("cv1", choices=final_cols, selected=final_cols[0])
+                ui.update_select("cv1", choices=final_cols, selected=default_cv1)
                 ui.update_select(
                     "cv2",
                     choices=final_cols,
-                    selected=final_cols[1] if len(final_cols) > 1 else final_cols[0],
+                    selected=default_cv2,
                 )
 
                 # Matrix selector (Use all cols or filtered? Usually matrix uses all, but let's default to filtered if available)
