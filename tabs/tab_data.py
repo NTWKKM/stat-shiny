@@ -71,64 +71,67 @@ def data_ui() -> ui.TagChild:
         ui.div(
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
-            # 1. Variable Settings Card (3-column layout with Missing Data Config)
-            ui.card(
-                ui.card_header(
-                    ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")
-                ),
-                ui.layout_columns(
-                    # LEFT COLUMN: Variable Selection
-                    create_input_group(
-                        "Select Variable",
-                        ui.input_select(
-                            "sel_var_edit",
-                            create_tooltip_label(
-                                "Variable to Edit",
-                                "Select a variable to change its type or mappings.",
+            # 1. Variable Configuration Accordion (Expandable, Open by Default)
+            ui.accordion(
+                ui.accordion_panel(
+                    "🛠️ Variable Configuration",
+                    ui.layout_columns(
+                        ui.div(
+                            create_input_group(
+                                "Select Variable",
+                                ui.input_select(
+                                    "sel_var_edit",
+                                    create_tooltip_label(
+                                        "Variable to Edit",
+                                        "Select a variable to change its type or mappings.",
+                                    ),
+                                    choices=["Select..."],
+                                    width="100%",
+                                ),
+                                ui.markdown("""
+                                    > [!NOTE]
+                                    > **Categorical Mapping**: 
+                                    > Format as `0=Control, 1=Treat`.
+                                    """),
+                                type="required",
                             ),
-                            choices=["Select..."],
-                            width="100%",
+                            ui.div(
+                                ui.output_ui("ui_var_settings"),
+                                class_="mt-3"
+                            ),
                         ),
-                        ui.markdown("""
-                            > [!NOTE]
-                            > **Categorical Mapping**: 
-                            > Format as `0=Control, 1=Treat`.
-                            """),
-                        type="required",
+                        # RIGHT COLUMN: Missing Data Configuration
+                        create_input_group(
+                            "Missing Data",
+                            create_tooltip_label(
+                                "Missing Value Codes",
+                                "Enter values to be treated as NaN (e.g. -99 or 999).",
+                            ),
+                            ui.input_text(
+                                "txt_missing_codes",
+                                "Codes (comma separated):",
+                                placeholder="e.g., -99, 999",
+                                value="",
+                            ),
+                            ui.output_ui("ui_missing_preview"),
+                            ui.input_action_button(
+                                "btn_save_missing",
+                                "💾 Save Config",
+                                class_="btn-secondary w-100 mt-2",
+                            ),
+                            type="advanced",
+                        ),
+                        col_widths=(6, 6),
                     ),
-                    # MIDDLE COLUMN: Variable Settings
-                    create_input_group(
-                        "Settings", ui.output_ui("ui_var_settings"), type="optional"
-                    ),
-                    # RIGHT COLUMN: Missing Data Configuration
-                    create_input_group(
-                        "Missing Data",
-                        create_tooltip_label(
-                            "Missing Value Codes",
-                            "Enter values to be treated as NaN (e.g. -99 or 999).",
-                        ),
-                        ui.input_text(
-                            "txt_missing_codes",
-                            "Codes (comma separated):",
-                            placeholder="e.g., -99, 999",
-                            value="",
-                        ),
-                        ui.output_ui("ui_missing_preview"),
-                        ui.input_action_button(
-                            "btn_save_missing",
-                            "💾 Save Config",
-                            class_="btn-secondary w-100 mt-2",
-                        ),
-                        type="advanced",
-                    ),
-                    col_widths=(4, 4, 4),
                 ),
+                id="acc_var_config",
+                open=True,
                 class_="mb-3 shadow-sm border-0",
             ),
             # 2. Data Preview Card
             ui.card(
                 ui.card_header(ui.tags.span("📄 Data Preview", class_="fw-bold")),
-                ui.output_data_frame("out_df_preview"),
+                ui.output_ui("ui_preview_area"),
                 height="600px",
                 full_screen=True,
                 class_="shadow-sm border-0",
@@ -864,8 +867,8 @@ def data_server(
         )
 
     # --- 3. Render Outputs ---
-    @render.data_frame
-    def out_df_preview():
+    @render.ui
+    def ui_preview_area():
         d = df.get()
         if d is None:
             return create_empty_state_ui(
@@ -886,6 +889,13 @@ def data_server(
                     class_="d-flex justify-content-center gap-2",
                 ),
             )
+        return ui.output_data_frame("out_df_preview")
+
+    @render.data_frame
+    def out_df_preview():
+        d = df.get()
+        if d is None:
+            return None
 
         # Get current data quality issues
         issues = data_issues.get()
