@@ -65,5 +65,5 @@ def test_load_example_data(page: Page):
     # Check if some values are visible
     # Given n=1600, "Male" or "Female" might not be in the table if it's raw 0/1.
     # Let's check for the presence of "Standard Care" or "New Drug" labels in the metadata selection dropdown if possible
-    page.locator("#sel_var_edit").select_option("Treatment_Group")
+    page.locator("#data-sel_var_edit").select_option("Treatment_Group")
     expect(page.get_by_text("0=Standard Care")).to_be_visible()
