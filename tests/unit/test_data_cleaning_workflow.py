@@ -72,7 +72,9 @@ def test_original_data_preservation():
     assert original_data.loc[4, "weight"] == original_weight_4, (
         "Original data was modified!"
     )
-    assert original_data.dtypes["age"] == "object", "Original dtype was modified!"
+    assert pd.api.types.is_string_dtype(original_data.dtypes["age"]), (
+        "Original dtype was modified!"
+    )
 
     print("\n✓ TEST PASSED: Original data preserved")
 

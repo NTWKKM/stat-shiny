@@ -123,8 +123,8 @@ class TestDataFrameCleaning:
         assert pd.api.types.is_numeric_dtype(cleaned_df["Mixed"])
         assert cleaned_df["Mixed"].isna().sum() == 2
 
-        # Strictly_Text should stay object
-        assert cleaned_df["Strictly_Text"].dtype == object
+        # Strictly_Text should stay string-like (object or StringDtype)
+        assert pd.api.types.is_string_dtype(cleaned_df["Strictly_Text"])
 
     def test_get_cleaning_summary(self):
         """Test summary generation."""
