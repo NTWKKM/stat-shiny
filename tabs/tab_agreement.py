@@ -38,7 +38,7 @@ def _safe_filename_part(s: str) -> str:
 
 def _auto_detect_icc_vars(cols: list[str]) -> list[str]:
     """Auto-detect ICC/Rater variables based on column name patterns."""
-    icc_patterns = ["icc", "rater", "method", "observer", "judge"]
+    icc_patterns = ["diagnosis", "icc", "rater", "method", "observer", "judge"]
     detected = []
     for col in cols:
         col_lower = col.lower()
