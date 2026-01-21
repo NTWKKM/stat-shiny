@@ -5,6 +5,7 @@ from shiny import module, reactive, render, ui
 
 from tabs._common import (
     get_color_palette,
+    select_variable_by_keyword,
 )
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.psm_lib import calculate_ipw, calculate_ps, check_balance
@@ -228,13 +229,25 @@ def causal_inference_server(
         # Heuristic for binary cols (0/1 or similar small unique count)
         binary_cols = [c for c in cols if d[c].nunique() == 2]
 
-        ui.update_select("psm_treatment", choices=binary_cols)
-        ui.update_select("psm_outcome", choices=num_cols + binary_cols)
-        ui.update_selectize("psm_covariates", choices=num_cols)  # Simplified for now
+        # Defaults for PSM
+        def_psm_treat = select_variable_by_keyword(binary_cols, ["treatment", "group", "exposure"], default_to_first=True)
+        def_psm_out = select_variable_by_keyword(cols, ["outcome", "cured", "death", "event"], default_to_first=True)
 
-        ui.update_select("strat_treatment", choices=binary_cols)
-        ui.update_select("strat_outcome", choices=binary_cols)
-        ui.update_select("strat_stratum", choices=cat_cols + binary_cols)
+        ui.update_select("psm_treatment", choices=binary_cols, selected=def_psm_treat)
+        ui.update_select("psm_outcome", choices=num_cols + binary_cols, selected=def_psm_out)
+        ui.update_selectize("psm_covariates", choices=num_cols) 
+
+        # Defaults for Stratified
+        def_strat_treat = select_variable_by_keyword(binary_cols, ["treatment", "group", "exposure"], default_to_first=True)
+        # Try to find different binary col for outcome
+        rem_binary = [c for c in binary_cols if c != def_strat_treat]
+        def_strat_out = select_variable_by_keyword(rem_binary, ["outcome", "cured", "event", "response"], default_to_first=True)
+        # Find categorical stratum
+        def_strat_stratum = select_variable_by_keyword(cat_cols, ["strata", "category", "stage", "gender", "sex"], default_to_first=True)
+
+        ui.update_select("strat_treatment", choices=binary_cols, selected=def_strat_treat)
+        ui.update_select("strat_outcome", choices=binary_cols, selected=def_strat_out)
+        ui.update_select("strat_stratum", choices=cat_cols + binary_cols, selected=def_strat_stratum)
 
     # --- PSM & IPW Logic ---
     psm_res = reactive.Value(None)

@@ -53,6 +53,7 @@ except ImportError:
 from logger import get_logger
 from tabs._common import (
     get_color_palette,
+    select_variable_by_keyword,
 )
 
 logger = get_logger(__name__)
@@ -556,22 +557,17 @@ def survival_server(
         numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
 
         # --- AUTO-DETECTION LOGIC ---
-        time_keywords = ["time", "day", "month", "year", "range", "followup", "fu"]
-        default_time = "Select..."
+        # 1. Detect Time Variable
+        default_time = select_variable_by_keyword(
+            numeric_cols,
+            ["time", "day", "month", "year", "range", "followup", "fu"],
+            default_to_first=True,
+        )
 
         # 🟢 Dynamic Slider Max Logic
         max_time_val = 100
-
-        for kw in time_keywords:
-            matched = [c for c in numeric_cols if kw in c.lower()]
-            if matched:
-                default_time = matched[0]
-                break
-        if default_time == "Select..." and numeric_cols:
-            default_time = numeric_cols[0]
-
         # Get max time from default_time column
-        if default_time != "Select..." and default_time in data.columns:
+        if default_time in data.columns:
             try:
                 max_t = data[default_time].max()
                 if pd.notna(max_t):
@@ -579,63 +575,48 @@ def survival_server(
             except Exception:
                 pass
 
-        event_keywords = [
-            "status",
-            "event",
-            "death",
-            "cure",
-            "survive",
-            "died",
-            "outcome",
-        ]
-        default_event = "Select..."
-        for kw in event_keywords:
-            matched = [c for c in cols if kw in c.lower()]
-            if matched:
-                default_event = matched[0]
-                break
-        if default_event == "Select..." and cols:
-            default_event = cols[0]
+        # 2. Detect Event Variable
+        default_event = select_variable_by_keyword(
+            cols,
+            ["status", "event", "death", "cure", "survive", "died", "outcome"],
+            default_to_first=True,
+        )
 
-        # Detect groups
-        compare_keywords = [
-            "treatment",
-            "group",
-            "comorbid",
-            "comorb",
-            "dz",
-            "lab",
-            "diag",
-            "sex",
-            "age",
-        ]
-        default_compare = "Select..."
-        for kw in compare_keywords:
-            matched = [c for c in cols if kw in c.lower()]
-            if matched:
-                default_compare = matched[0]
-                break
+        # 3. Detect Group/Treatment
+        default_compare = select_variable_by_keyword(
+            cols,
+            [
+                "treatment",
+                "group",
+                "comorbid",
+                "comorb",
+                "dz",
+                "lab",
+                "diag",
+                "sex",
+                "age",
+            ],
+            default_to_first=True,
+        )
 
-        # Detect Subgroup
-        subgr_keywords = [
-            "comorbid",
-            "comorb",
-            "group",
-            "control",
-            "contr",
-            "ctr",
-            "dz",
-            "lab",
-            "diag",
-            "sex",
-            "age",
-        ]
-        default_subgr = "Select..."
-        for kw in subgr_keywords:
-            matched = [c for c in cols if kw in c.lower()]
-            if matched:
-                default_subgr = matched[0]
-                break
+        # 4. Detect Subgroup
+        default_subgr = select_variable_by_keyword(
+            cols,
+            [
+                "comorbid",
+                "comorb",
+                "group",
+                "control",
+                "contr",
+                "ctr",
+                "dz",
+                "lab",
+                "diag",
+                "sex",
+                "age",
+            ],
+            default_to_first=True,
+        )
 
         # Update UI choices with labels
         choices_with_labels = {c: get_label(c) for c in cols}
@@ -648,7 +629,11 @@ def survival_server(
         ui.update_select(
             "surv_event", choices=choices_with_labels, selected=default_event
         )
-        ui.update_select("surv_group", choices={"None": "None", **choices_with_labels})
+        ui.update_select(
+            "surv_group",
+            choices={"None": "None", **choices_with_labels},
+            selected=default_compare,
+        )
 
         # Landmark Analysis
         ui.update_select(

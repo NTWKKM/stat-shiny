@@ -2,6 +2,8 @@ import pandas as pd
 from statsmodels.api import OLS, add_constant
 
 
+from typing import Optional
+
 def analyze_mediation(
     data: pd.DataFrame,
     outcome: str,
