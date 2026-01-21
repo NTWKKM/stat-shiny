@@ -270,6 +270,14 @@ def get_shiny_css():
             border-color: {COLORS["neutral"]};
         }}
         
+        /* Feature Cards (Home Page) */
+        .feature-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg) !important;
+            border-color: var(--color-primary) !important;
+        }}
+
+        
         .card-header {{
             background: #FAFAFA; /* Very light gray, effectively transparent appeal */
             border: none;
