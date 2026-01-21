@@ -10,6 +10,7 @@ from config import CONFIG
 from logger import LoggerFactory, get_logger
 
 # Import Tabs Modules
+from tabs import (
     tab_advanced_inference,
     tab_agreement,  # 🟢 Agreement Module
     tab_baseline_matching,
