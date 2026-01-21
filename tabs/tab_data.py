@@ -64,51 +64,78 @@ def data_ui() -> ui.TagChild:
         ui.div(
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
-            # 1. Variable Settings Card (3-column layout with Missing Data Config)
-            ui.card(
-                ui.card_header(
-                    ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")
-                ),
-                ui.layout_columns(
-                    # LEFT COLUMN: Variable Selection
-                    ui.div(
-                        ui.input_select(
-                            "sel_var_edit",
-                            "Select Variable to Edit:",
-                            choices=["Select..."],
-                            width="100%",
+            # 1. Configuration Accordion (Modern & Collapsible)
+            ui.accordion(
+                # Panel 1: Main Variable Settings
+                ui.accordion_panel(
+                    "🛠️ Variable Configuration",
+                    ui.layout_columns(
+                        # Column 1: Selection & Guidance
+                        ui.div(
+                            ui.input_select(
+                                "sel_var_edit",
+                                "Select Variable to Edit:",
+                                choices=["Select..."],
+                                width="100%",
+                            ),
+                            ui.div(
+                                ui.markdown(
+                                    """
+                                    **Categorical Mapping Guide**:
+                                    - `0=Control, 1=Treat`
+                                    - `0=No, 1=Yes`
+                                    """
+                                ),
+                                class_="alert alert-light border p-2 small text-muted",
+                            ),
+                            class_="d-flex flex-column gap-2",
                         ),
-                        ui.markdown("""
-                            > [!NOTE]
-                            > **Categorical Mapping**: 
-                            > Format as `0=Control, 1=Treat`.
-                            """),
-                        class_="p-2",
+                        # Column 2: Dynamic Settings
+                        ui.div(
+                            ui.output_ui("ui_var_settings"),
+                            class_="p-1"
+                        ),
+                        col_widths=(4, 8),
                     ),
-                    # MIDDLE COLUMN: Variable Settings
-                    ui.div(ui.output_ui("ui_var_settings"), class_="p-2"),
-                    # RIGHT COLUMN: Missing Data Configuration
-                    ui.div(
-                        ui.h6(
-                            "🔍 Missing Data", style="margin-top: 0; color: #0066cc;"
-                        ),
-                        ui.input_text(
-                            "txt_missing_codes",
-                            "Missing Value Codes:",
-                            placeholder="e.g., -99, -999, 99",
-                            value="",
-                        ),
-                        ui.output_ui("ui_missing_preview"),
-                        ui.input_action_button(
-                            "btn_save_missing",
-                            "💾 Save Missing Config",
-                            class_="btn-secondary w-100 mt-2",
-                        ),
-                        class_="p-2",
-                        style="background-color: #f8f9fa; border-radius: 6px;",
-                    ),
-                    col_widths=(3, 6, 3),
+                    value="panel_var_config",
+                    icon="⚙️",
                 ),
+                # Panel 2: Missing Data Configuration
+                ui.accordion_panel(
+                    "🔍 Missing Data",
+                    ui.div(
+                        ui.tags.span(
+                            "Define values to treat as Missing (NaN) for the selected variable.",
+                            class_="text-muted small mb-2 d-block",
+                        ),
+                        ui.layout_columns(
+                            ui.div(
+                                ui.input_text(
+                                    "txt_missing_codes",
+                                    "Missing Value Codes:",
+                                    placeholder="-99, 999, etc.",
+                                    width="100%",
+                                ),
+                            ),
+                            ui.div(
+                                ui.output_ui("ui_missing_preview"),
+                                ui.input_action_button(
+                                    "btn_save_missing",
+                                    "💾 Save Config",
+                                    class_="btn-secondary btn-sm w-100 mt-2",
+                                ),
+                                class_="d-flex flex-column justify-content-end",
+                            ),
+                            col_widths=(6, 6),
+                        ),
+                        class_="p-1",
+                    ),
+                    value="panel_missing_data",
+                    icon="🔍",
+                ),
+                id="acc_data_config",
+                multiple=True,
+                open=["panel_var_config"],  # Open main config by default
                 class_="mb-3 shadow-sm border-0",
             ),
             # 2. Data Preview Card
