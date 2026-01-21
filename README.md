@@ -9,11 +9,11 @@ pinned: false
 ---
 
 <!-- AI-READABLE-REQUIREMENTS-START -->
-> **⚠️ IMPORTANT FOR AI AGENTS**: This project requires **Python 3.12+** due to the use of modern Python syntax features (nested f-strings with list comprehensions). Python versions below 3.12 will cause SyntaxErrors.
+> **⚠️ IMPORTANT FOR AI AGENTS**: This project requires **Python 3.14+** for optimal performance and compatibility (nested f-strings with list comprehensions). Python versions below 3.12 will cause SyntaxErrors.
 >
 > | Requirement | Version   |
 > | ----------- | --------- |
-> | Python      | **≥ 3.12** |
+> | Python      | **≥ 3.14** |
 > | pip         | Latest    |
 <!-- AI-READABLE-REQUIREMENTS-END -->
 
