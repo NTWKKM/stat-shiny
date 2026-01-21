@@ -200,29 +200,29 @@ This application is a complete statistical workbench organized into modular tabs
 
 ### Option 1: Run Locally (Python)
 
- Ensure you have **Python 3.14+** installed (required for modern f-string syntax).
+Ensure you have **Python 3.14+** installed (required for modern f-string syntax).
 
 1. **Clone the repository:**
 
- ```bash
- git clone https://huggingface.co/spaces/ntwkkm/shinystat
- cd shinystat
- ```
+```bash
+git clone https://huggingface.co/spaces/ntwkkm/shinystat
+cd shinystat
+```
 
 1. **Install dependencies:**
 It is recommended to use a virtual environment.
 
- ```bash
- python -m venv venv
- source venv/bin/activate  # On Windows: venv\Scripts\activate
- pip install -r requirements.txt
- ```
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
 1. **Run the app:**
 
- ```bash
- shiny run app.py
- ```
+```bash
+shiny run app.py
+```
 
  The app will be available at `http://localhost:8000`.
 
@@ -242,19 +242,19 @@ It is recommended to use a virtual environment.
 
 ### Option 3: Run with Docker
 
- This project is containerized for easy deployment.
+This project is containerized for easy deployment.
 
 1. **Build the image:**
 
- ```bash
- docker build -t medical-stat-tool .
- ```
+```bash
+docker build -t medical-stat-tool .
+```
 
 1. **Run the container:**
 
- ```bash
- docker run -p 7860:7860 medical-stat-tool
- ```
+```bash
+docker run -p 7860:7860 medical-stat-tool
+```
 
  Access the app at `http://localhost:7860`.
 
