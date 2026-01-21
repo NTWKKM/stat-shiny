@@ -75,16 +75,21 @@ class TestAppLoading:
 
         # Check for main navigation tabs
         expected_tabs = [
-            "Data Management",
-            "Data Management",
-            "Core Regression Models",
-            "Advanced Inference",
-            "Causal Inference",
-            "Survival Analysis",
-            "Settings",
+            "📁 Data Management",
+            "📋 Table 1 & Matching",
+            "📊 General Statistics",
+            "🔬 Advanced Modeling",
+            "🏥 Clinical Tools",
+            "⚙️ Settings",
         ]
         for tab_name in expected_tabs:
-            expect(page.get_by_role("tab", name=tab_name)).to_be_visible()
+            # Dropdowns might be buttons/links, Panels are tabs
+            locator = page.get_by_role("tab", name=tab_name).or_(
+                page.get_by_role("button", name=tab_name)
+            ).or_(
+                page.get_by_role("link", name=tab_name)
+            )
+            expect(locator).to_be_visible()
 
 
 # ============================================================================
@@ -107,7 +112,7 @@ class TestTabNavigation:
         Then: File upload input is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Data Management").click()
+        page.get_by_role("tab", name="📁 Data Management").click()
 
         # Verify file upload input exists
         file_input = page.locator("input[type='file']").first
@@ -123,10 +128,11 @@ class TestTabNavigation:
         and: Count & Special tab contains GLM
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Core Regression Models").click()
+        page.get_by_role("button", name="🔬 Advanced Modeling").click()
+        page.locator(".dropdown-menu").get_by_text("Regression Analysis").click()
 
-        expect(page.get_by_text("Binary Outcomes").first).to_be_visible()
-        expect(page.get_by_label("Select Outcome")).to_be_visible()
+        expect(page.get_by_text("📈 Analysis Options").first).to_be_visible()
+        expect(page.get_by_label("Select Outcome (Y)")).to_be_visible()
 
         # Check for nested GLM structure
         page.get_by_role("tab", name="Count & Special").click()
@@ -141,7 +147,8 @@ class TestTabNavigation:
         Then: Mediation Analysis section is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Advanced Inference").click()
+        page.get_by_role("button", name="🔬 Advanced Modeling").click()
+        page.locator(".dropdown-menu").get_by_text("Advanced Inference").click()
 
         expect(page.get_by_text("Mediation Analysis").first).to_be_visible()
 
@@ -154,16 +161,18 @@ class TestTabNavigation:
         Then: Kaplan-Meier section is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Survival Analysis").click()
+        page.get_by_role("button", name="🔬 Advanced Modeling").click()
+        page.locator(".dropdown-menu").get_by_text("Survival Analysis").click()
 
-        expect(page.get_by_text("Kaplan-Meier").first).to_be_visible()
+        expect(page.get_by_text("Survival Curves").first).to_be_visible()
 
     def test_navigate_to_causal_inference(self, page: Page):
         """Test navigation to the Causal Inference tab."""
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Causal Inference").click()
+        page.get_by_role("button", name="🏥 Clinical Tools").click()
+        page.locator(".dropdown-menu").get_by_text("Causal Inference Methods").click()
         expect(page.get_by_role("heading", name="🎯 Causal Inference")).to_be_visible()
-        expect(page.get_by_role("tab", name="PSM & IPW")).to_be_visible()
+        expect(page.get_by_text("⚖️ PSM & IPW").first).to_be_visible()
 
     def test_navigate_to_settings(self, page: Page):
         """
@@ -174,7 +183,7 @@ class TestTabNavigation:
         Then: Settings content is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Settings").click()
+        page.get_by_role("tab", name="⚙️ Settings").click()
 
         # Wait for settings content to load
         page.wait_for_timeout(500)
@@ -202,10 +211,10 @@ class TestDataManagementWorkflow:
         Then: Button is visible and clickable
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Data Management").click()
+        page.get_by_role("tab", name="📁 Data Management").click()
 
         # Look for example data button
-        example_btn = page.get_by_role("button", name="Load Example Data")
+        example_btn = page.get_by_role("button", name="📄 Load Example Data")
         expect(example_btn).to_be_visible()
         expect(example_btn).to_be_enabled()
 
@@ -218,7 +227,7 @@ class TestDataManagementWorkflow:
         Then: Input accepts appropriate file types
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Data Management").click()
+        page.get_by_role("tab", name="📁 Data Management").click()
 
         file_input = page.query_selector("input[type='file']")
         assert file_input is not None, "File input not found"
@@ -246,9 +255,10 @@ class TestRegressionModelsWorkflow:
         Then: Selector is visible
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Core Regression Models").click()
+        page.get_by_role("button", name="🔬 Advanced Modeling").click()
+        page.get_by_role("link", name="Regression Analysis").click()
 
-        expect(page.get_by_label("Select Outcome")).to_be_visible()
+        expect(page.get_by_label("Select Outcome (Y)")).to_be_visible()
 
     def test_run_button_exists(self, page: Page):
         """
@@ -259,7 +269,8 @@ class TestRegressionModelsWorkflow:
         Then: Button is present (may be disabled without data)
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Core Regression Models").click()
+        page.get_by_role("button", name="🔬 Advanced Modeling").click()
+        page.get_by_role("link", name="Regression Analysis").click()
 
         # Wait for UI to fully load
         page.wait_for_timeout(500)
@@ -289,10 +300,11 @@ class TestSurvivalAnalysisWorkflow:
         Then: Kaplan-Meier and other analysis options are available
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Survival Analysis").click()
+        page.get_by_role("button", name="🔬 Advanced Modeling").click()
+        page.locator(".dropdown-menu").get_by_text("Survival Analysis").click()
 
-        # Check for Kaplan-Meier text
-        expect(page.get_by_text("Kaplan-Meier").first).to_be_visible()
+        # Check for Survival Curves text
+        expect(page.get_by_text("Survival Curves").first).to_be_visible()
 
     def test_time_variable_selector_exists(self, page: Page):
         """
@@ -303,7 +315,8 @@ class TestSurvivalAnalysisWorkflow:
         Then: Selector is present
         """
         page.goto(BASE_URL)
-        page.get_by_role("tab", name="Survival Analysis").click()
+        page.get_by_role("button", name="🔬 Advanced Modeling").click()
+        page.locator(".dropdown-menu").get_by_text("Survival Analysis").click()
 
         # Wait for UI to load
         page.wait_for_timeout(500)
@@ -377,14 +390,15 @@ class TestErrorHandling:
 
         # Navigate through all tabs
         for tab_name in [
-            "Core Regression Models",
-            "Advanced Inference",
-            "Causal Inference",
-            "Survival Analysis",
-            "Settings",
-            "Data Management",
+            "🔬 Advanced Modeling",
+            "🏥 Clinical Tools",
+            "⚙️ Settings",
+            "📁 Data Management",
         ]:
-            page.get_by_role("tab", name=tab_name).click()
+            if tab_name in ["🔬 Advanced Modeling", "🏥 Clinical Tools"]:
+                page.get_by_role("button", name=tab_name).click()
+            else:
+                page.get_by_role("tab", name=tab_name).click()
             page.wait_for_timeout(300)
 
         # Check for critical errors only

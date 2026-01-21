@@ -17,21 +17,21 @@ jobs:
   test-styling:
     name: Test UI Styling System
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Set up Python 3.11
+
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
-      
+          python-version: "3.12"
+          cache: "pip"
+
       # Use Composite Action for environment setup
       - name: Setup environment
         uses: ./.github/actions/setup-test-env
-      
+
       - name: Verify Styling System integrity
         run: |
           MISSING=0
@@ -39,7 +39,7 @@ jobs:
           if [ ! -f "tabs/_styling.py" ]; then echo "❌ tabs/_styling.py missing"; MISSING=1; fi
           if [ $MISSING -eq 1 ]; then exit 1; fi
           echo "✅ All Styling System files found"
-      
+
       - name: Run UI Styling Tests
         run: pytest tests/test_color_palette.py -v
 
@@ -48,17 +48,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.11', '3.12', '3.13', '3.14']
+        python-version: ["3.12", "3.13", "3.14"]
       fail-fast: false
-    
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-          
+          cache: "pip"
+
       # เรียกใช้ Composite Action แทนบล็อกเดิม
       - name: Setup environment
         uses: ./.github/actions/setup-test-env
@@ -74,15 +74,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          
+          python-version: "3.12"
+
       # ติดตั้ง linter เพิ่มเติม (ส่วน dependencies หลักถูกดึงผ่าน action)
       - name: Setup environment
         uses: ./.github/actions/setup-test-env
-        
+
       - name: Install linters
         run: pip install flake8 black
-        
+
       - name: Check code style (flake8)
         run: flake8 tabs/_common.py tabs/_styling.py tests/test_color_palette.py --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Check formatting (black)
