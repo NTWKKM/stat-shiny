@@ -1,3 +1,7 @@
+{
+type: uploaded file
+fileName: ntwkkm/stat-shiny/stat-shiny-patch/utils/logic.py
+fullContent:
 """
 🧮 Logistic Regression Core Logic (Shiny Compatible)
 
@@ -132,13 +136,6 @@ class AORResult(TypedDict):
 def load_static_css() -> str:
     """
     Load the contents of static/styles.css for embedding in reports.
-
-    Looks for a file named `styles.css` inside:
-    1. A `static` directory located next to this module (`utils/static/styles.css`).
-    2. A `static` directory located in the project root (`static/styles.css`).
-
-    Returns:
-        str: The CSS file contents, or an empty string if the file is missing or cannot be read.
     """
     try:
         # 1. Try local static folder (utils/static/styles.css)
@@ -181,13 +178,11 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
             issues.append(f"Variable '{col}' has zero variance (only one value)")
 
     # Check for perfect separation (quasi-complete or complete)
-    # If any cell in crosstab is 0, Logit might fail to converge
     for col in X.columns:
         try:
             ct = pd.crosstab(X[col], y)
             if (ct == 0).any().any():
                 logger.debug(f"Perfect separation detected in variable: {col}")
-                # We don't block this, but we log it to use Firth later
         except (ValueError, TypeError) as e:
             logger.debug(f"Could not check separation for {col}: {e}")
 
@@ -199,10 +194,6 @@ def validate_logit_data(y: pd.Series, X: pd.DataFrame) -> tuple[bool, str]:
 def clean_numeric_value(val):
     """
     Cleans numeric values, handling strings, commas, and comparison operators.
-    Examples:
-        "1,000" -> 1000.0
-        "<0.001" -> 0.001
-        "> 50" -> 50.0
     """
     if pd.isna(val) or val == "":
         return np.nan
@@ -211,14 +202,10 @@ def clean_numeric_value(val):
         return float(val)
 
     if isinstance(val, str):
-        # ลบช่องว่างและคอมม่าออกก่อน
         val = val.strip().replace(",", "")
-
-        # ถ้าเป็นตัวเลขอยู่แล้ว แปลงเลย
         try:
             return float(val)
         except ValueError:
-            # ถ้าแปลงไม่ได้ (เช่นติดเครื่องหมาย <, >) ให้ใช้ Regex ดึงเฉพาะตัวเลข (รวมจุดทศนิยม)
             match = re.search(r"[-+]?\d*\.\d+|\d+", val)
             if match:
                 try:
@@ -255,20 +242,6 @@ def run_binary_logit(
 ]:
     """
     Fit a binary logistic regression model and return coefficients, confidence intervals, p-values, status, and fit statistics.
-
-    Parameters:
-        y (pd.Series): Binary outcome series aligned to X.
-        X (pd.DataFrame): Predictor variables (no constant required; one will be added).
-        method (MethodType): Optimization/fitting method to use — "default", "bfgs", or "firth". If "firth" is requested but the firthmodels dependency is unavailable, the function returns an error status.
-        ci_method (str): Confidence-interval method to use; currently "wald" is supported and "profile" falls back to Wald.
-
-    Returns:
-        tuple:
-            params (pd.Series | None): Estimated model coefficients indexed by predictor names (including intercept) or None on failure.
-            conf_int (pd.DataFrame | None): Two-column DataFrame with lower and upper confidence bounds for each coefficient, or None on failure.
-            pvalues (pd.Series | None): Two-sided p-values for each coefficient, or None on failure.
-            status (FitStatus): "OK" on success or a short error message describing why fitting did not complete.
-            stats_metrics (StatsMetrics): Dictionary containing fit metrics (mcfadden, nagelkerke, p_value) with NaN values when not available.
     """
     stats_metrics: StatsMetrics = {
         "mcfadden": np.nan,
@@ -296,14 +269,12 @@ def run_binary_logit(
                 return None, None, None, "Firth output shape mismatch", stats_metrics
 
             params = pd.Series(coef, index=X_const.columns)
-            # firthmodels uses pvalues_ (not pvals_)
             pvalues = pd.Series(
                 getattr(fl, "pvalues_", np.full(len(X_const.columns), np.nan)),
                 index=X_const.columns,
             )
-            # firthmodels uses conf_int() method (not ci_ attribute)
             try:
-                ci = fl.conf_int()  # Returns DataFrame with 0, 1 columns
+                ci = fl.conf_int()
                 conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
             except Exception:
                 conf_int = pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
@@ -334,10 +305,6 @@ def run_binary_logit(
             logger.debug(f"Failed to calculate R2: {e}")
 
         if ci_method == "profile":
-            # Placeholder: Statsmodels doesn't expose profile CI directly on LogitResults in all versions easily
-            # One would typically use `model.fit().conf_int()` which is Wald.
-            # Verification task: check if we can actually run profile CI.
-            # For now, fallback to Wald with a log warning to avoid crash
             logger.debug(
                 "Profile likelihood CI requested but not fully implemented, falling back to Wald"
             )
@@ -345,7 +312,6 @@ def run_binary_logit(
         return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
 
     except Exception as e:
-        # ✅ NEW: Friendly Error Messaging for Technical Jargon
         err_msg = str(e)
         if "Singular matrix" in err_msg or "LinAlgError" in err_msg:
             err_msg = "Model fitting failed: data may have perfect separation or too much collinearity."
@@ -367,15 +333,6 @@ def run_glm(
 ]:
     """
     Fit a Generalized Linear Model (GLM).
-
-    Parameters:
-        y (pd.Series): Outcome variable.
-        X (pd.DataFrame): Predictor variables (constant will be added).
-        family_name (str): Family name (Gaussian, Binomial, Poisson, Gamma, InverseGaussian).
-        link_name (str): Link function name (identity, log, logit, probit, cloglog, inverse, sqrt).
-
-    Returns:
-        tuple: params, conf_int, pvalues, status, fit_metrics
     """
     fit_metrics = {"aic": np.nan, "bic": np.nan, "deviance": np.nan}
 
@@ -397,7 +354,6 @@ def run_glm(
         family_cls = family_map.get(family_name, sm.families.Gaussian)
 
         # Map Link
-        # Note: Not all links are valid for all families. Statsmodels checks this.
         link_map = {
             "identity": sm.families.links.Identity(),
             "log": sm.families.links.Log(),
@@ -407,9 +363,8 @@ def run_glm(
             "inverse_power": sm.families.links.InversePower(),
             "sqrt": sm.families.links.Sqrt(),
         }
-        link_obj = link_map.get(link_name)  # If None, uses family default
+        link_obj = link_map.get(link_name)
 
-        # Instantiate Family with Link
         if link_obj:
             family_instance = family_cls(link=link_obj)
         else:
@@ -456,7 +411,7 @@ def get_label(col_name: str, var_meta: dict[str, Any] | None) -> str:
 
 
 def fmt_p(val: float | str | None) -> str:
-    """Format p-value as string (e.g. '<0.001', '0.042')."""
+    """Format p-value as string."""
     if pd.isna(val):
         return "-"
     try:
@@ -477,26 +432,24 @@ def fmt_p_with_styling(val: float | str | None) -> str:
     if p_str == "-":
         return "-"
 
-    # Check numeric value for styling
     try:
         val_f = float(val)
         if val_f < 0.05:
             return f"<span class='sig-p'>{p_str}</span>"
     except (ValueError, TypeError):
-        if "<" in p_str:  # Handles <0.001
+        if "<" in p_str:
             return f"<span class='sig-p'>{p_str}</span>"
 
     return p_str
 
 
 def fmt_or_with_styling(or_val: float | None, ci_low: float, ci_high: float) -> str:
-    """Format OR (95% CI) with bolding if significant (CI does not include 1.0)."""
+    """Format OR (95% CI) with bolding if significant."""
     if or_val is None or pd.isna(or_val) or pd.isna(ci_low) or pd.isna(ci_high):
         return "-"
 
     ci_str = f"{or_val:.2f} ({ci_low:.2f}-{ci_high:.2f})"
 
-    # Check significance: CI does not overlap 1.0
     if (ci_low > 1.0) or (ci_high < 1.0):
         return f"<b>{ci_str}</b>"
 
@@ -514,34 +467,7 @@ def analyze_outcome(
     str, dict[str, ORResult], dict[str, AORResult], dict[str, InteractionResult]
 ]:
     """
-    Perform a complete logistic regression analysis for a binary outcome and return an HTML report plus structured results.
-
-    Parameters:
-        outcome_name (str): Column name of the binary outcome in `df`.
-        df (pd.DataFrame): Input dataset containing the outcome and candidate predictors.
-        var_meta (dict[str, Any] | None): Optional variable metadata used to override automatic mode detection (categorical vs linear) and provide display labels.
-        method (MethodType): Fitting method preference: 'auto', 'default', 'bfgs', or 'firth'. 'auto' may select Firth when appropriate and available.
-        interaction_pairs (list[tuple[str, str | None]]): Optional list of variable pairs for which interaction terms should be created and reported.
-        adv_stats (dict[str, Any] | None): Optional advanced-statistics configuration. Recognized keys include:
-            - 'stats.mcc_enable' (bool): enable multiple-comparisons correction (MCC).
-            - 'stats.mcc_method' (str): MCC method identifier (e.g., 'fdr_bh').
-            - 'stats.mcc_alpha' (float): MCC significance level.
-            - 'stats.vif_enable' (bool): enable VIF collinearity diagnostics.
-            - 'stats.vif_threshold' (float): VIF threshold for highlighting high collinearity.
-            - 'stats.ci_method' (str): preferred confidence-interval method (e.g., 'wald').
-            Missing keys use sensible defaults.
-
-    Returns:
-        tuple:
-            - html_table (str): An HTML fragment (no <html> wrapper) containing a styled table and summary with crude and adjusted results, optional VIF and interaction sections.
-            - or_results (dict[str, ORResult]): Univariate odds-ratio results keyed by "variable" or "variable: level" with keys 'or', 'ci_low', 'ci_high', and 'p_value' (and optionally 'p_adj' when MCC is applied).
-            - aor_results (dict[str, AORResult]): Multivariate adjusted odds-ratio results keyed by variable or interaction identifier with keys 'aor', 'ci_low', 'ci_high', 'p_value', optional 'p_adj', and optional 'label'.
-            - interaction_results (dict[str, InteractionResult]): Interaction-term results including coefficients, OR, confidence bounds, p-values, and display label when interaction terms were requested or detected.
-
-    Notes:
-        - The function validates that `outcome_name` exists and has exactly two unique values; non-binary values are mapped to {0,1}.
-        - Mode detection (categorical vs linear) is automatic but can be overridden via `var_meta`.
-        - Advanced features (Firth regression, MCC, interaction-creation, VIF) are applied only when enabled and available; failures are reported in the HTML output but do not raise exceptions.
+    Perform a complete logistic regression analysis.
     """
     # Extract Advanced Stats Settings
     mcc_enable = adv_stats.get("stats.mcc_enable", False) if adv_stats else False
@@ -570,15 +496,13 @@ def analyze_outcome(
     )
 
     # --- MISSING DATA HANDLING ---
-    # Unified pipeline via data_cleaning.py
     missing_cfg = CONFIG.get("analysis.missing", {}) or {}
     strategy = missing_cfg.get("strategy", "complete-case")
     missing_codes = missing_cfg.get("user_defined_values", [])
 
     try:
-        # Only include columns that actually exist to avoid immediate validation failure
-        # Let subsequent logic handle the reporting of truly missing columns
-        needed_cols = [c for c in df.columns if c != "y"] 
+        # ✅ FIX: Include outcome in needed_cols to prevent it from being dropped
+        needed_cols = [c for c in df.columns]
 
         df_clean, missing_data_info = prepare_data_for_analysis(
             df,
@@ -792,10 +716,8 @@ def analyze_outcome(
                                 p_lines.append("-")
                                 coef_lines.append("-")
 
-                        res["or_val"] = None  # Multiple levels handled by string stack
+                        res["or_val"] = None
                         res["p_or"] = "<br>".join(p_lines)
-                        # We also need to handle the specific display for categorical with multiple levels
-                        # categorical 'or' string is currently built manually, let's inject bolding there too
                         or_lines_styled = ["Ref."]
                         for lvl in levels[1:]:
                             d_name = f"{col}::{lvl}"
@@ -886,7 +808,6 @@ def analyze_outcome(
 
         results_db[col] = res
 
-        # Screen for multivariate
         p_screen = res.get("p_comp", np.nan)
         if (
             isinstance(p_screen, (int, float))
@@ -895,39 +816,24 @@ def analyze_outcome(
         ):
             candidates.append(col)
 
-    # ✅ MCC APPLICATION (UNIVARIATE)
+    # ✅ MCC APPLICATION
     if mcc_enable:
-        # Collect p-values where available
         uni_p_vals = []
         uni_keys = []
         for col, res in results_db.items():
-            # Prioritize p_or (Categorical/Linear Logit) over p_comp (Test)
-            # The logic usually puts p_comp for Cat (Chi2) and p_or for Linear (or Cat specific levels)
-            # Simplification: Use p_comp if available (overall test), else p_or
             p = res.get("p_comp", np.nan)
-            # If p_comp is nan, maybe check for 'p_or' if linear?
-            if pd.isna(p):
-                # For linear, results_db[col] has 'p_or' inside 'or_results' logic?
-                # Wait, logic is complex. 'p_or' key exists in 'res' for linear.
-                if "p_or" in res and isinstance(res["p_or"], (float, int)):
-                    p = res["p_or"]
+            if pd.isna(p) and "p_or" in res and isinstance(res["p_or"], (float, int)):
+                p = res["p_or"]
 
             if pd.notna(p) and isinstance(p, (float, int)):
                 uni_p_vals.append(p)
                 uni_keys.append(col)
 
         if uni_p_vals:
-            # Adjust p-values (univariate)
             adj_p = apply_mcc(uni_p_vals, method=mcc_method, alpha=mcc_alpha)
-
-            # Map back to results
-            # uni_keys contains keys for or_results (e.g. "age", "grade: 2")
             for k, p_adj in zip(uni_keys, adj_p, strict=True):
-                # Update or_results (per-level)
                 if k in or_results:
                     or_results[k]["p_adj"] = p_adj
-
-                # Also update results_db for linear scalars where k matches col
                 if k in results_db:
                     results_db[k]["p_adj"] = p_adj
 
@@ -935,22 +841,12 @@ def analyze_outcome(
     aor_results: dict[str, AORResult] = {}
     interaction_results: dict[str, InteractionResult] = {}
     int_meta = {}
-    # Initialize multivariate analysis variables
     final_n_multi = 0
     predictors_for_vif = []
     multi_data = None
     mv_metrics_text = ""
 
     def _is_candidate_valid(col):
-        """
-        Determine whether a column has enough usable (non-missing) observations to be a multivariate candidate.
-
-        Parameters:
-            col (str): Column name in `df_aligned` to evaluate; uses `mode_map` to decide treatment.
-
-        Returns:
-            bool: `True` if the column has more than 5 usable observations (for categorical: non-missing values; for numeric: values that `clean_numeric_value` does not convert to NaN), `False` otherwise.
-        """
         mode = mode_map.get(col, "linear")
         series = df_aligned[col]
         if mode == "categorical":
@@ -959,7 +855,6 @@ def analyze_outcome(
 
     cand_valid = [c for c in candidates if _is_candidate_valid(c)]
 
-    # ✅ FIX: Run multivariate analysis if there are candidates OR interaction pairs
     if len(cand_valid) > 0 or interaction_pairs:
         multi_df = pd.DataFrame({"y": y})
 
@@ -977,7 +872,6 @@ def analyze_outcome(
             else:
                 multi_df[c] = df_aligned[c].apply(clean_numeric_value)
 
-        # ✅ NEW: Add interaction terms if specified
         if interaction_pairs:
             try:
                 from utils.interaction_lib import create_interaction_terms
@@ -1000,22 +894,18 @@ def analyze_outcome(
         predictors_for_vif = [col for col in multi_data.columns if col != "y"]
 
         if not multi_data.empty and final_n_multi > 10 and len(predictors_for_vif) > 0:
-            # Resolve CI Method safely
             try:
-                # Estimate N params (Intercept + Predictors)
                 n_params_mv = len(predictors_for_vif) + 1
                 ci_config = get_ci_configuration(
                     ci_method, final_n_multi, y.sum(), n_params_mv
                 )
             except (ValueError, TypeError) as e:
                 logger.warning("CI configuration failed, falling back to auto: %s", e)
-                # Fallback
                 ci_config = {"method": "wald", "note": "Fallback due to config error"}
 
             effective_ci_method = ci_config["method"]
             ci_note = ci_config["note"]
 
-            # Use runner that accepts CI method
             params, conf, pvals, status, mv_stats = run_binary_logit(
                 multi_data["y"],
                 multi_data[predictors_for_vif],
@@ -1089,7 +979,6 @@ def analyze_outcome(
                                 "p_value": pv,
                             }
 
-                # ✅ NEW: Process interaction effects
                 if int_meta:
                     try:
                         from utils.interaction_lib import format_interaction_results
@@ -1101,9 +990,7 @@ def analyze_outcome(
                             f"✅ Formatted {len(interaction_results)} logistic interaction results"
                         )
 
-                        # ✅ FIX: Merge interaction results into aor_results for forest plot inclusion
                         for int_name, int_res in interaction_results.items():
-                            # Use CLEAN KEY for internal storage (no emoji)
                             label_display = f"🔗 {int_res.get('label', int_name)}"
                             aor_results[int_name] = {
                                 "aor": int_res.get("or", np.nan),
@@ -1111,17 +998,15 @@ def analyze_outcome(
                                 "ci_high": int_res.get("ci_high", np.nan),
                                 "p_value": int_res.get("p_value", np.nan),
                                 "p_adj": None,
-                                "label": label_display,  # Added for display
+                                "label": label_display,
                             }
                     except Exception:
                         logger.exception("Failed to format interaction results")
             else:
-                # Log multivariate failure
                 mv_metrics_text = (
                     f"<span style='color:red'>Adjustment Failed: {status}</span>"
                 )
 
-        # ✅ MCC APPLICATION (MULTIVARIATE)
         if mcc_enable and aor_results:
             mv_p_vals = []
             mv_keys = []
@@ -1136,7 +1021,7 @@ def analyze_outcome(
                 for k, p_adj in zip(mv_keys, adj_p, strict=True):
                     aor_results[k]["p_adj"] = p_adj
 
-    # ✅ VIF CALCULATION (Expanded Reporting)
+    # ✅ VIF CALCULATION
     vif_html = ""
     if (
         vif_enable
@@ -1145,7 +1030,6 @@ def analyze_outcome(
         and len(predictors_for_vif) > 1
     ):
         try:
-            # multi_data[predictors_for_vif] contains numeric/one-hot data used in regression
             vif_df, _ = calculate_vif(multi_data[predictors_for_vif], var_meta=var_meta)
 
             if not vif_df.empty:
@@ -1154,7 +1038,6 @@ def analyze_outcome(
                     feat = html.escape(str(row["feature"]).replace("::", ": "))
                     val = row["VIF"]
 
-                    # Format VIF value with special handling for infinity
                     if np.isinf(val):
                         vif_str = "∞ (Perfect Collinearity)"
                         vif_class = "vif-warning"
@@ -1200,6 +1083,8 @@ def analyze_outcome(
                 """
         except (ValueError, np.linalg.LinAlgError) as e:
             logger.warning("VIF calculation failed: %s", e)
+        except TypeError as e:
+             logger.warning("VIF calculation failed due to type error: %s", e)
 
     # Build HTML
     html_rows = []
@@ -1209,12 +1094,8 @@ def analyze_outcome(
         key=lambda x: (x.split("_")[0] if "_" in x else "Variables", x),
     )
 
-    # Resolve CI Method for reporting (if not set by multivariate block)
-    # This handles the case where multivariate analysis didn't run or we need a global setting for the table footer
     if "effective_ci_method" not in locals():
-        # Fallback estimation based on univariate/total
         try:
-            # Use total_n and assume simplistic model if MV didn't run
             ci_config = get_ci_configuration(ci_method, total_n, y.sum(), 2)
             effective_ci_method = ci_config["method"]
             ci_note = ci_config["note"]
@@ -1274,28 +1155,21 @@ def analyze_outcome(
                 )
                 ap_s = fmt_p_with_styling(multi_res["p"])
 
-        # Format Adjusted P-values for Table
         p_adj_uni_s = "-"
         if mcc_enable and "p_adj" in res:
             p_adj_uni_s = fmt_p_with_styling(res["p_adj"])
 
         ap_adj_s = "-"
-        # For Categorical Multi: Each level has its own adjusted p?
-        # MCC logic above iterated AOR keys (which are per-level for cat).
-        # We need to reconstruct the string stack for display.
         if mcc_enable:
             if multi_res:
                 if isinstance(multi_res, list):
-                    ap_adj_lines = ["-"]  # Ref
+                    ap_adj_lines = ["-"]
                     for item in multi_res:
-                        # Find the key in aor_results to get p_adj
-                        # Key format: "var: lvl"
                         key = f"{col}: {item['lvl']}"
                         val = aor_results.get(key, {}).get("p_adj")
                         ap_adj_lines.append(fmt_p_with_styling(val))
                     ap_adj_s = "<br>".join(ap_adj_lines)
                 else:
-                    # Linear
                     val = aor_results.get(col, {}).get("p_adj")
                     ap_adj_s = fmt_p_with_styling(val)
 
@@ -1315,7 +1189,6 @@ def analyze_outcome(
             {f"<td>{ap_adj_s}</td>" if mcc_enable else ""}
         </tr>""")
 
-    # ✅ NEW: Add interaction terms to HTML table
     if interaction_results:
         for int_name, res in interaction_results.items():
             int_label = html.escape(str(res.get("label", int_name)))
@@ -1329,7 +1202,6 @@ def analyze_outcome(
 
             int_p_adj = "-"
             if mcc_enable:
-                # Lookup using clean key (int_name)
                 val = aor_results.get(int_name, {}).get("p_adj")
                 int_p_adj = fmt_p_with_styling(val)
 
@@ -1359,34 +1231,13 @@ def analyze_outcome(
     if mv_metrics_text:
         model_fit_html = f"<div style='margin-top: 8px; padding-top: 8px; border-top: 1px dashed {COLORS['border']}; color: {COLORS['primary_dark']};'><b>Model Fit:</b> {mv_metrics_text}</div>"
 
-    # --- START FIX: CSS Integration & Fragment Generation ---
     css_content = load_static_css()
-
-    # Fallback to hardcoded style if file load fails or is empty
     if not css_content:
         css_content = f"""
-        body {{
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            padding: 20px;
-            background-color: {COLORS["background"]};
-            color: {COLORS["text"]};
-            line-height: 1.6;
-        }}
-        .table-container {{
-            background: {COLORS["surface"]};
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-            overflow-x: auto;
-            margin-bottom: 16px;
-            border: 1px solid {COLORS["border"]};
-        }}
-        table {{ width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }}
-        th {{ background: linear-gradient(135deg, {COLORS["primary_dark"]} 0%, {COLORS["primary"]} 100%); color: white; padding: 12px; }}
-        td {{ padding: 12px; border-bottom: 1px solid {COLORS["border"]}; }}
-        .outcome-title {{ background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; }}
-        .summary-box {{ background-color: {COLORS["primary_light"]}; padding: 14px; border-radius: 0 0 8px 8px; }}
-        .sig-p {{ color: #fff; background-color: {COLORS["danger"]}; padding: 2px 6px; border-radius: 3px; }}
-        .alert {{ background-color: rgba(231, 72, 86, 0.08); border: 1px solid {COLORS["danger"]}; padding: 12px; color: {COLORS["danger"]}; }}
+        body {{ font-family: sans-serif; padding: 20px; }}
+        .table-container {{ background: #fff; border: 1px solid #ddd; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th, td {{ padding: 8px; border-bottom: 1px solid #ddd; }}
         """
 
     css_styles = f"<style>{css_content}</style>"
@@ -1432,7 +1283,6 @@ def analyze_outcome(
         else ""
     }
         </div>
-    <!-- Missing Data Section -->
     {
         create_missing_data_report_html(missing_data_info, var_meta or {})
         if CONFIG.get("analysis.missing.report_missing", True)
@@ -1440,24 +1290,19 @@ def analyze_outcome(
     }
     </div><br>"""
 
-    # Return fragment with embedded styles (No <html> wrapper)
-    final_output = html_table
-
-    return final_output, or_results, aor_results, interaction_results
+    return html_table, or_results, aor_results, interaction_results
 
 
 def run_logistic_regression(df, outcome_col, covariate_cols):
     """
     Robust wrapper for logistic analysis as requested by integration requirements.
     """
-    # Validate outcome
     if outcome_col not in df.columns:
         return None, None, f"Error: Outcome '{outcome_col}' not found.", {}
 
     if df[outcome_col].nunique() < 2:
         return None, None, f"Error: Outcome '{outcome_col}' is constant", {}
 
-    # Validate covariates
     missing_cols = [col for col in covariate_cols if col not in df.columns]
     if missing_cols:
         return None, None, f"Error: Covariates not found: {', '.join(missing_cols)}", {}
@@ -1466,12 +1311,10 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
         return None, None, "Error: No covariates provided", {}
 
     try:
-        # Reuse analyze_outcome which handles all the complexity
         html_table, or_results, _aor_results, _ = analyze_outcome(
             outcome_col, df[[*covariate_cols, outcome_col]].copy()
         )
 
-        # Extract metrics by fitting minimal model for metrics only
         y = df[outcome_col]
         X = df[covariate_cols]
         X_const = sm.add_constant(X)
@@ -1492,3 +1335,4 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
     except Exception as e:
         logger.exception("Logistic regression failed")
         return None, None, str(e), {}
+}
