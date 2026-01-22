@@ -72,12 +72,18 @@
             --font-family-mono: 'Courier New', monospace;
             
             /* ADDED: Typography Scale (Audit Section 9) */
-            --text-display: 32px / 1.2;
-            --text-heading: 24px / 1.3;
-            --text-subheading: 18px / 1.4;
-            --text-body: 14px / 1.6;
-            --text-caption: 12px / 1.5;
-            --text-code: 13px / 1.4;
+            --text-display-size: 32px;
+            --text-display-lh: 1.2;
+            --text-heading-size: 24px;
+            --text-heading-lh: 1.3;
+            --text-subheading-size: 18px;
+            --text-subheading-lh: 1.4;
+            --text-body-size: 14px;
+            --text-body-lh: 1.6;
+            --text-caption-size: 12px;
+            --text-caption-lh: 1.5;
+            --text-code-size: 13px;
+            --text-code-lh: 1.4;
         }
         
         * {
