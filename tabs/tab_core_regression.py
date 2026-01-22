@@ -2780,8 +2780,8 @@ def core_regression_server(
 
             try:
                 if model_type == "gee":
-                    results = run_gee(
-                        df_clean,
+                    results, missing_info = run_gee(
+                        d, # Pass original d, cleaning handled inside lib
                         outcome_col=outcome,
                         treatment_col=treatment,
                         time_col=time_var,
@@ -2789,17 +2789,24 @@ def core_regression_server(
                         covariates=covariates,
                         cov_struct=input.rep_cov_struct(),
                         family_str=input.rep_family(),
+                        var_meta=var_meta.get() or {}
                     )
                 else:  # lmm
-                    results = run_lmm(
-                        df_clean,
+                    results, missing_info = run_lmm(
+                        d,
                         outcome_col=outcome,
                         treatment_col=treatment,
                         time_col=time_var,
                         subject_col=subject,
                         covariates=covariates,
                         random_slope=input.rep_random_slope(),
+                        var_meta=var_meta.get() or {}
                     )
+
+                # Use the indices from missing_info to get the cleaned df for plotting
+                # (since the original code used df_clean for create_trajectory_plot)
+                df_clean_subset = d.loc[missing_info.get("analyzed_indices", [])] if "analyzed_indices" in missing_info else d
+
 
                 # Check for error string
                 if isinstance(results, str):
@@ -2812,7 +2819,7 @@ def core_regression_server(
 
                 # Create Plot
                 fig = create_trajectory_plot(
-                    df_clean,
+                    df_clean_subset,
                     outcome_col=outcome,
                     time_col=time_var,
                     group_col=treatment,
@@ -2820,7 +2827,12 @@ def core_regression_server(
                 )
 
                 repeated_res.set(
-                    {"results": df_res, "plot": fig, "model_type": model_type}
+                    {
+                        "results": df_res, 
+                        "plot": fig, 
+                        "model_type": model_type,
+                        "missing_data_info": missing_info
+                    }
                 )
 
                 ui.notification_show(
@@ -2850,20 +2862,28 @@ def core_regression_server(
 
             return create_results_container(
                 "Analysis Results",
-                ui.navset_tab(
-                    ui.nav_panel(
-                        "📋 Model Results",
-                        ui.div(
+                ui.div(
+                    ui.navset_tab(
+                        ui.nav_panel(
+                            "📋 Model Results",
                             ui.div(
-                                ui.h5(
-                                    f"✅ {res['model_type'].upper()} Analysis Complete"
+                                ui.div(
+                                    ui.h5(
+                                        f"✅ {res['model_type'].upper()} Analysis Complete"
+                                    ),
+                                    style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
                                 ),
-                                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                                ui.output_data_frame("out_rep_results"),
                             ),
-                            ui.output_data_frame("out_rep_results"),
                         ),
+                        ui.nav_panel("📈 Trajectory Plot", ui.output_ui("out_rep_plot")),
                     ),
-                    ui.nav_panel("📈 Trajectory Plot", ui.output_ui("out_rep_plot")),
+                    ui.hr(),
+                    ui.HTML(
+                        create_missing_data_report_html(
+                            res.get("missing_data_info", {}), var_meta.get() or {}
+                        )
+                    ),
                 ),
             )
 

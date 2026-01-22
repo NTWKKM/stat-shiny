@@ -31,7 +31,9 @@ from utils.data_cleaning import (
     apply_missing_values_to_df,
     get_missing_summary_df,
     handle_missing_for_analysis,
+    prepare_data_for_analysis,
 )
+from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -101,31 +103,52 @@ def format_ci_html(
     return ci_str
 
 
-def calculate_descriptive(df: pd.DataFrame, col: str) -> pd.DataFrame | None:
+def calculate_descriptive(
+    df: pd.DataFrame, col: str, var_meta: dict[str, Any] | None = None
+) -> tuple[pd.DataFrame | None, dict[str, Any] | None]:
     """
     Calculate descriptive statistics for a column.
 
     Returns:
-        pd.DataFrame: Descriptive statistics table or None if column missing/empty
+        tuple: (Descriptive statistics table, Missing data info dict)
     """
     if col not in df.columns:
         logger.error(f"Column '{col}' not found")
-        return None
+        return None, None
 
-    data = df[col].dropna()
-    if data.empty:
-        logger.warning(f"No data in column '{col}' after dropping NAs")
-        return None
+    # --- MISSING DATA HANDLING ---
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
 
     try:
-        num_data = pd.to_numeric(data, errors="raise")
+        data, missing_data_info = prepare_data_for_analysis(
+            df,
+            required_cols=[col],
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+            handle_missing=strategy
+        )
+        missing_data_info["strategy"] = strategy
+    except Exception as e:
+        logger.error(f"Descriptive analysis preparation failed: {e}")
+        return None, None
+
+    data_series = data[col]
+
+    if data_series.empty:
+        logger.warning(f"No data in column '{col}' after dropping NAs")
+        return None, missing_data_info
+
+    try:
+        num_data = pd.to_numeric(data_series, errors="raise")
         is_numeric = True
     except (ValueError, TypeError):
         is_numeric = False
 
     if is_numeric:
         desc = num_data.describe()
-        return pd.DataFrame(
+        stats_df = pd.DataFrame(
             {
                 "Statistic": [
                     "Count",
@@ -150,15 +173,17 @@ def calculate_descriptive(df: pd.DataFrame, col: str) -> pd.DataFrame | None:
             }
         )
     else:
-        counts = data.value_counts()
-        percent = data.value_counts(normalize=True) * 100
-        return pd.DataFrame(
+        counts = data_series.value_counts()
+        percent = data_series.value_counts(normalize=True) * 100
+        stats_df = pd.DataFrame(
             {
                 "Category": counts.index,
                 "Count": counts.values,
                 "Percentage (%)": percent.values,
             }
         ).sort_values("Count", ascending=False)
+    
+    return stats_df, missing_data_info
 
 
 def calculate_ci_wilson_score(
@@ -276,30 +301,22 @@ def calculate_chi2(
         return None, None, "Columns not found", None, {}
 
     # --- MISSING DATA HANDLING ---
-    missing_data_info = {}
-    if var_meta:
-        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
-        strategy = missing_cfg.get("strategy", "complete-case")
-        missing_codes = missing_cfg.get("user_defined_values", [])
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
 
-        df_subset = df[[col1, col2]].copy()
-        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
-        df_clean, impact = handle_missing_for_analysis(
-            df_subset,
-            var_meta,
+    try:
+        data, missing_data_info = prepare_data_for_analysis(
+            df,
+            required_cols=[col1, col2],
+            var_meta=var_meta,
             missing_codes=missing_codes,
-            strategy=strategy,
-            return_counts=True,
+            handle_missing=strategy
         )
-        missing_data_info = {
-            "strategy": strategy,
-            "rows_analyzed": impact["final_rows"],
-            "rows_excluded": impact["rows_removed"],
-            "summary_before": missing_summary.to_dict("records"),
-        }
-        data = df_clean
-    else:
-        data = df[[col1, col2]].dropna()
+        missing_data_info["strategy"] = strategy
+    except Exception as e:
+        logger.error(f"Data preparation failed: {e}")
+        return None, None, f"Data preparation failed: {e}", None, {}
 
     if data.empty:
         logger.warning("No data after dropping NAs")
@@ -848,24 +865,24 @@ def calculate_kappa(
         logger.error(f"Columns not found: {col1}, {col2}")
         return None, "Columns not found", None, {}
 
-    # --- MISSING DATA HANDLING ---
-    missing_data_info = {}
-    if var_meta:
-        df_subset = df[[col1, col2]].copy()
-        missing_summary = get_missing_summary_df(df_subset, var_meta)
-        df_processed = apply_missing_values_to_df(df_subset, var_meta, [])
-        df_clean, impact = handle_missing_for_analysis(
-            df_processed, var_meta, strategy="complete-case", return_counts=True
+    # --- DATA PREPARATION ---
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
+
+    try:
+        data, missing_data_info = prepare_data_for_analysis(
+            df,
+            required_cols=[col1, col2],
+            numeric_cols=[], # Kappa usually for categorical, but can be numeric if raters use scores
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+            handle_missing=strategy
         )
-        missing_data_info = {
-            "strategy": "complete-case",
-            "rows_analyzed": impact["final_rows"],
-            "rows_excluded": impact["rows_removed"],
-            "summary_before": missing_summary.to_dict("records"),
-        }
-        data = df_clean
-    else:
-        data = df[[col1, col2]].dropna()
+        missing_data_info["strategy"] = strategy
+    except Exception as e:
+        return None, f"Data preparation failed: {e}", None, {}
+
 
     if data.empty:
         logger.warning("No data after dropping NAs")
@@ -1040,32 +1057,23 @@ def analyze_roc(
     data = df[[truth_col, score_col]].dropna()
 
     # --- MISSING DATA HANDLING ---
-    missing_data_info = {}
-    if var_meta:
-        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
-        strategy = missing_cfg.get("strategy", "complete-case")
-        missing_codes = missing_cfg.get("user_defined_values", [])
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
 
-        # We start fresh from df to apply rules
-        df_subset = df[[truth_col, score_col]].copy()
-        missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
-        df_clean, impact = handle_missing_for_analysis(
-            df_subset,
-            var_meta,
+    try:
+        data, missing_data_info = prepare_data_for_analysis(
+            df,
+            required_cols=[truth_col, score_col],
+            numeric_cols=[score_col],
+            var_meta=var_meta,
             missing_codes=missing_codes,
-            strategy=strategy,
-            return_counts=True,
+            handle_missing=strategy
         )
-        missing_data_info = {
-            "strategy": strategy,
-            "rows_analyzed": impact["final_rows"],
-            "rows_excluded": impact["rows_removed"],
-            "summary_before": missing_summary.to_dict("records"),
-        }
-        data = df_clean
-    else:
-        # Standard
-        data = df[[truth_col, score_col]].dropna()
+        missing_data_info["strategy"] = strategy
+    except Exception as e:
+        logger.error(f"ROC Data preparation failed: {e}")
+        return None, f"Data preparation failed: {e}", None, None
 
     if data.empty:
         logger.error("No data available for ROC analysis")
@@ -1224,9 +1232,27 @@ def calculate_icc(
     if len(cols) < 2:
         return None, "Neet at least 2 columns for ICC", None
 
-    data = df[cols].dropna()
+    # --- DATA PREPARATION ---
+    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+    strategy = missing_cfg.get("strategy", "complete-case")
+    missing_codes = missing_cfg.get("user_defined_values", [])
+
+    try:
+        data, missing_info = prepare_data_for_analysis(
+            df,
+            required_cols=cols,
+            numeric_cols=cols,
+            var_meta=None, # ICC doesn't usually use var_meta mapping for the scores themselves
+            missing_codes=missing_codes,
+            handle_missing=strategy
+        )
+        missing_info["strategy"] = strategy
+    except Exception as e:
+        return None, f"Data preparation failed: {e}", None, {}
+
     if data.empty:
-        return None, "No data available", None
+        return None, "No data available after cleaning", None, missing_info
+
 
     try:
         # Reshape to long format for ANOVA
@@ -1329,11 +1355,13 @@ def calculate_icc(
         ]
         anova_df = pd.DataFrame(anova_data)
 
-        return results_df, None, anova_df
+        return results_df, None, anova_df, missing_info
+
 
     except Exception as e:
         logger.error(f"ICC calculation failed: {e}")
-        return None, str(e), None
+        return None, str(e), None, {}
+
 
 
 def render_contingency_table_html(
@@ -1563,6 +1591,9 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
         elif element_type == "interpretation":
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
 
+        elif element_type == "raw_html":
+            html += str(data)
+
         elif element_type in ("contingency_table", "contingency"):
             # Use custom renderer for contingency tables
             if hasattr(data, "index") and hasattr(data, "columns"):
@@ -1591,8 +1622,8 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
             else:
                 html += str(data)
 
-        elif element_type == "html":
-            # Note: Producers of 'html' elements (e.g., create_missing_data_report_html)
+        elif element_type == "raw_html":
+            # Note: Producers of 'raw_html' elements (e.g., create_missing_data_report_html)
             # are responsible for escaping user-supplied metadata.
             html += str(data)
 
@@ -1621,14 +1652,24 @@ def calculate_bland_altman(
     """
 
     try:
-        # 1. Clean Data
-        if col1 not in df.columns or col2 not in df.columns:
-             return {"error": f"Columns not found: {col1}, {col2}"}, go.Figure()
+        # --- DATA PREPARATION ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
 
-        d = df[[col1, col2]].dropna()
-        data1 = pd.to_numeric(d[col1], errors="coerce")
-        data2 = pd.to_numeric(d[col2], errors="coerce")
-        d_clean = pd.concat([data1, data2], axis=1).dropna()
+        try:
+            d_clean, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=[col1, col2],
+                numeric_cols=[col1, col2],
+                var_meta=None,
+                missing_codes=missing_codes,
+                handle_missing=strategy
+            )
+            missing_info["strategy"] = strategy
+        except Exception as e:
+            return {"error": f"Data preparation failed: {e}"}, go.Figure(), {}
+
 
         if len(d_clean) < 2:
             return {"error": "Not enough data (n < 2)"}, go.Figure()
@@ -1723,8 +1764,10 @@ def calculate_bland_altman(
             "ci_loa_lower": ci_loa_lower,
         }
 
-        return stats_dict, fig
+        return stats_dict, fig, missing_info
+
 
     except Exception as e:
         logger.error(f"Bland-Altman calculation error: {e}")
-        return {"error": str(e)}, go.Figure()
+        return {"error": str(e)}, go.Figure(), {}
+

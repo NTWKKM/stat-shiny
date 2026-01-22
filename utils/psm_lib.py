@@ -2,33 +2,45 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from scipy.spatial.distance import cdist
+import plotly.graph_objects as go
+from typing import Any
+from config import CONFIG
+from utils.data_cleaning import prepare_data_for_analysis
+from logger import get_logger
 
+logger = get_logger(__name__)
 
-def calculate_propensity_score(
-    data: pd.DataFrame,
-    treatment: str,
+def calculate_ps(
+    data: pd.DataFrame, 
+    treatment: str, 
     covariates: list[str],
-    var_meta: dict | None = None,
-) -> tuple[pd.Series, dict]:
+    var_meta: dict[str, Any] | None = None
+) -> tuple[pd.Series, dict[str, Any]]:
     """
-    Calculate propensity scores using logistic regression.
+    Calculate propensity scores using logistic regression with unified data cleaning.
     Returns (propensity_scores, missing_info_dict).
     """
     try:
-        df_analysis = data.copy()
-        missing_info = {"strategy": "complete_case", "rows_before": len(df_analysis)}
+        # --- MISSING DATA HANDLING ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
 
-        # Drop rows with missing values in treatment or covariates
-        cols_needed = [treatment] + covariates
-        df_analysis = df_analysis.dropna(subset=cols_needed)
-        missing_info["rows_after"] = len(df_analysis)
-        missing_info["rows_removed"] = (
-            missing_info["rows_before"] - missing_info["rows_after"]
+        df_subset, missing_info = prepare_data_for_analysis(
+            data,
+            required_cols=[treatment] + covariates,
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+            handle_missing=strategy
         )
+        missing_info["strategy"] = strategy
 
-        X = df_analysis[covariates]
+        if df_subset.empty:
+             return pd.Series(dtype=float, index=data.index), missing_info
+
+        X = df_subset[covariates]
         X = sm.add_constant(X)
-        y = df_analysis[treatment]
+        y = df_subset[treatment]
 
         # Simple logistic regression
         model = sm.Logit(y, X).fit(disp=0)
@@ -36,12 +48,16 @@ def calculate_propensity_score(
 
         # Reindex to original data (fill missing with NaN)
         ps_full = pd.Series(index=data.index, dtype=float)
-        ps_full.loc[df_analysis.index] = ps
+        ps_full.loc[df_subset.index] = ps
 
         return ps_full, missing_info
-    except Exception as e:
-        return pd.Series(dtype=float), {"error": f"Propensity score calculation failed: {str(e)}"}
 
+    except Exception as e:
+        logger.error(f"Propensity score calculation failed: {str(e)}")
+        return pd.Series(dtype=float, index=data.index), {"error": f"Calculated failed: {str(e)}"}
+
+# Alias for backward compatibility
+calculate_propensity_score = calculate_ps
 
 def perform_matching(
     data: pd.DataFrame,
@@ -52,16 +68,6 @@ def perform_matching(
 ) -> pd.DataFrame:
     """
     Perform nearest-neighbor propensity score matching with caliper.
-
-    Parameters:
-        data: DataFrame with propensity scores
-        treatment_col: Column name for treatment indicator (1=treated, 0=control)
-        ps_col: Column name for propensity scores
-        caliper: Maximum allowed difference in PS for a match
-        ratio: Number of control matches per treated (default 1:1)
-
-    Returns:
-        DataFrame containing matched pairs
     """
     try:
         df = data.copy().dropna(subset=[ps_col, treatment_col])
@@ -83,7 +89,7 @@ def perform_matching(
         matched_control_idx = []
         used_controls = set()
 
-        # Greedy matching: for each treated, find closest unused control within caliper
+        # Greedy matching
         for i, treat_idx in enumerate(treated.index):
             best_dist = float("inf")
             best_control = None
@@ -116,33 +122,11 @@ def perform_matching(
     except Exception:
         return pd.DataFrame()
 
-# ... (rest of file)
-
-def calculate_ps(
-    data: pd.DataFrame, treatment: str, covariates: list[str]
-) -> pd.Series:
-    """
-    Calculate propensity scores using logistic regression.
-    """
-    try:
-        X = data[covariates]
-        X = sm.add_constant(X)
-        y = data[treatment]
-
-        # Simple logistic regression
-        model = sm.Logit(y, X).fit(disp=0)
-        return model.predict(X)
-    except Exception:
-        return pd.Series(dtype=float)
-
-
-
 def calculate_ipw(
     data: pd.DataFrame, treatment: str, outcome: str, ps_col: str
 ) -> dict:
     """
     Calculate Average Treatment Effect (ATE) using Inverse Probability Weighting.
-    Wrapper for a basic IPW estimator.
     """
     try:
         df = data.copy()
@@ -154,14 +138,8 @@ def calculate_ipw(
         ps = ps.clip(0.01, 0.99)
 
         # Calculate weights
-        # weight = T / ps + (1 - T) / (1 - ps)
         df["ipw"] = np.where(T == 1, 1 / ps, 1 / (1 - ps))
 
-        # Weighted difference (Basic ATE)
-        # weighted_mean_treated = np.average(df[df[treatment]==1][outcome], weights=df[df[treatment]==1]['ipw'])
-        # weighted_mean_control = np.average(df[df[treatment]==0][outcome], weights=df[df[treatment]==0]['ipw'])
-
-        # Alternative robust estimation using OLS with weights
         # ATE is coefficient of T in weighted regression
         X = sm.add_constant(T)
         model = sm.WLS(Y, X, weights=df["ipw"]).fit()
@@ -180,22 +158,24 @@ def calculate_ipw(
     except Exception as e:
         return {"error": str(e)}
 
-
 def check_balance(
     data: pd.DataFrame, treatment: str, covariates: list[str], weights: pd.Series = None
 ) -> pd.DataFrame:
     """
     Calculate Standardized Mean Differences (SMD) to check balance.
-    If weights provided, calculates weighted SMD.
     """
     results = []
 
-    treated = data[data[treatment] == 1]
-    control = data[data[treatment] == 0]
+    # Ensure clean data for balance check
+    df = data.dropna(subset=[treatment] + covariates)
+    if df.empty:
+        return pd.DataFrame(columns=["Covariate", "SMD", "Status"])
+
+    treated = df[df[treatment] == 1]
+    control = df[df[treatment] == 0]
 
     for cov in covariates:
-        # Check if numeric
-        if not pd.api.types.is_numeric_dtype(data[cov]):
+        if not pd.api.types.is_numeric_dtype(df[cov]):
             continue
 
         mean_t = np.average(
@@ -216,9 +196,52 @@ def check_balance(
         results.append(
             {
                 "Covariate": cov,
+                "Variable": cov, # For test compatibility
                 "SMD": abs(smd),
                 "Status": "Balanced (<0.1)" if abs(smd) < 0.1 else "Unbalanced",
             }
         )
 
     return pd.DataFrame(results)
+
+def calculate_smd(data, treatment, covariates, weights=None):
+    """Test-compatible alias for check_balance."""
+    return check_balance(data, treatment, covariates, weights)
+
+def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
+    """
+    Create a Love Plot (SMD Comparison) using Plotly.
+    """
+    fig = go.Figure()
+
+    # Pre-matching
+    fig.add_trace(go.Scatter(
+        x=smd_pre['SMD'],
+        y=smd_pre.get('Variable', smd_pre.get('Covariate')),
+        mode='markers',
+        name='Unadjusted',
+        marker=dict(color='red', size=10, symbol='circle-open')
+    ))
+
+    # Post-matching
+    fig.add_trace(go.Scatter(
+        x=smd_post['SMD'],
+        y=smd_post.get('Variable', smd_post.get('Covariate')),
+        mode='markers',
+        name='Adjusted',
+        marker=dict(color='blue', size=10, symbol='circle')
+    ))
+
+    # Reference line at 0.1
+    fig.add_vline(x=0.1, line_dash="dash", line_color="gray", annotation_text="Threshold (0.1)")
+
+    fig.update_layout(
+        title="Love Plot (Standardized Mean Differences)",
+        xaxis_title="Absolute Standardized Mean Difference",
+        yaxis_title="Covariates",
+        template="plotly_white",
+        height=max(400, 200 + (len(smd_pre) * 30)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    return fig

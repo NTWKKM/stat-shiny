@@ -27,6 +27,7 @@ from tabs._common import get_color_palette
 from utils.data_cleaning import (
     get_missing_summary_df,
     handle_missing_for_analysis,
+    prepare_data_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
 
@@ -446,22 +447,35 @@ def analyze_poisson_outcome(
         logger.info("Starting %s analysis for outcome: %s", model_label, outcome_name)
 
         # --- MISSING DATA HANDLING ---
+        # --- MISSING DATA HANDLING ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
         strategy = missing_cfg.get("strategy", "complete-case")
         missing_codes = missing_cfg.get("user_defined_values", [])
-        missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
-        missing_summary_records = missing_summary_df.to_dict("records")
-        df_clean, miss_counts = handle_missing_for_analysis(
-            df, var_meta or {}, missing_codes, strategy=strategy, return_counts=True
-        )
-        missing_data_info = {
-            "strategy": strategy,
-            "rows_analyzed": miss_counts["final_rows"],
-            "rows_excluded": miss_counts["rows_removed"],
-            "summary_before": missing_summary_records,
-        }
+
+        # We need to preserve all columns for the univariate analysis loop, 
+        # so we pass df.columns as required.
+        # Outcome and offset must be numeric.
+        numeric_cols = [outcome_name]
+        if offset_col:
+            numeric_cols.append(offset_col)
+
+        # Use unified pipeline
+        try:
+            df_clean, missing_data_info = prepare_data_for_analysis(
+                df,
+                required_cols=df.columns.tolist(),
+                numeric_cols=numeric_cols,
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing=strategy
+            )
+        except Exception as e:
+             logger.error(f"Data preparation failed: {e}")
+             return f"<div class='alert'>⚠️ Data preparation failed: {e}</div>", {}, {}, {}
+
+        missing_data_info["strategy"] = strategy # Ensure strategy name matches
         df = df_clean
-        logger.info("Missing data: %s rows excluded", miss_counts["rows_removed"])
+        logger.info("Missing data: %s rows excluded", missing_data_info["rows_excluded"])
 
         if outcome_name not in df.columns:
             msg = f"Outcome '{outcome_name}' not found"

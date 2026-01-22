@@ -20,7 +20,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 
 from utils.psm_lib import (
     calculate_propensity_score,
-    compute_smd,
+    calculate_smd,  # <--- Corrected function name here (was compute_smd)
     perform_matching,
     plot_love_plot,
 )
@@ -86,9 +86,11 @@ class TestPSMPipeline:
 
         # Step 3: Check Balance (SMD)
         # Unmatched balance
-        smd_pre = compute_smd(df, "treatment", covariates)
+        # Corrected function call here
+        smd_pre = calculate_smd(df, "treatment", covariates) 
         # Matched balance
-        smd_post = compute_smd(matched_df, "treatment", covariates)
+        # Corrected function call here
+        smd_post = calculate_smd(matched_df, "treatment", covariates)
 
         assert not smd_pre.empty
         assert not smd_post.empty
