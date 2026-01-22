@@ -9,7 +9,7 @@ from scipy import stats as sp_stats
 from config import CONFIG
 from logger import get_logger
 from utils.data_cleaning import prepare_data_for_analysis
-from utils.collinearity_lib import _run_vif
+from utils.collinearity_lib import calculate_vif as _run_vif
 
 logger = get_logger(__name__)
 
