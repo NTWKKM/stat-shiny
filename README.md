@@ -13,11 +13,11 @@ pinned: false
 > **FOR AI AGENTS & BOTS (e.g., Antigravity)**:
 >
 > 1. **Architecture First**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the Styling System and Data Processing Pipeline before editing.
-> 2. **Environment**: This project requires **Python 3.14+**. Versions < 3.12 will cause SyntaxErrors.
+> 2. **Environment**: This project requires **Python 3.12+**. Versions < 3.12 will cause SyntaxErrors.
 >
 > | Requirement | Version    |
 > | ----------- | ---------- |
-> | Python      | **≥ 3.14** |
+> | Python      | **≥ 3.12** |
 > | pip         | Latest     |
 <!-- AI-AGENT-GUIDE-END -->
 
@@ -96,28 +96,28 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_statistics.py
 |       |-- test_tvc_lib.py
 |       `-- verify_table_one.py
-`-- utils /
-    |-- __init__.py
-    |-- advanced_stats_lib.py
-    |-- correlation.py
-    |-- data_cleaning.py
-    |-- decision_curve_lib.py
-    |-- diag_test.py
-    |-- forest_plot_lib.py
-    |-- formatting.py
-    |-- interaction_lib.py
-    |-- linear_lib.py
-    |-- logic.py
-    |-- plotly_html_renderer.py
-    |-- poisson_lib.py
-    |-- psm_lib.py
-    |-- repeated_measures_lib.py
-    |-- sample_size_lib.py
-    |-- subgroup_analysis_module.py
-    |-- survival_lib.py
-    |-- table_one.py
-    |-- tvc_lib.py
-    `-- update_css.py
+|-- utils /
+|   |-- __init__.py
+|   |-- advanced_stats_lib.py
+|   |-- correlation.py
+|   |-- data_cleaning.py
+|   |-- decision_curve_lib.py
+|   |-- diag_test.py
+|   |-- forest_plot_lib.py
+|   |-- formatting.py
+|   |-- interaction_lib.py
+|   |-- linear_lib.py
+|   |-- logic.py
+|   |-- plotly_html_renderer.py
+|   |-- poisson_lib.py
+|   |-- psm_lib.py
+|   |-- repeated_measures_lib.py
+|   |-- sample_size_lib.py
+|   |-- subgroup_analysis_module.py
+|   |-- survival_lib.py
+|   |-- table_one.py
+|   |-- tvc_lib.py
+|   `-- update_css.py
 ```
 
 [--- REPOSITORY-TREE-END ---]
@@ -240,45 +240,45 @@ Every statistical analysis follows a rigorous, standardized data flow to ensure 
 
 ### Option 1: Run Locally (Python)
 
-Ensure you have **Python 3.14+** installed (required for modern f-string syntax).
+Ensure you have **Python 3.12+** installed (required for modern f-string syntax).
 
 1. **Clone the repository:**
 
-```bash
-git clone https://huggingface.co/spaces/ntwkkm/shinystat
-cd shinystat
-```
+   ```bash
+   git clone https://huggingface.co/spaces/ntwkkm/shinystat
+   cd shinystat
+   ```
 
-1. **Install dependencies:**
-It is recommended to use a virtual environment.
+2. **Install dependencies:**
+   It is recommended to use a virtual environment.
 
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-1. **Run the app:**
+3. **Run the app:**
 
-```bash
-shiny run app.py
-```
+   ```bash
+   shiny run app.py
+   ```
 
- The app will be available at `http://localhost:8000`.
+   The app will be available at `http://localhost:8000`.
 
 ### Option 2: Running Tests
 
- To run the test suite, ensure you use the `pytest` from your virtual environment (assuming venv is named `.venv`):
+To run the test suite, ensure you use the `pytest` from your virtual environment (assuming venv is named `.venv`):
 
- ```bash
- # Run all tests
- .venv/bin/pytest
- # Or if using a different venv name/activation:
- # python -m pytest
- 
- # Run specific test
- .venv/bin/pytest tests/unit/test_statistics.py
- ```
+```bash
+# Run all tests
+.venv/bin/pytest
+# Or if using a different venv name/activation:
+# python -m pytest
+
+# Run specific test
+.venv/bin/pytest tests/unit/test_statistics.py
+```
 
 ### Option 3: Run with Docker
 
@@ -286,17 +286,17 @@ This project is containerized for easy deployment.
 
 1. **Build the image:**
 
-```bash
-docker build -t medical-stat-tool .
-```
+   ```bash
+   docker build -t medical-stat-tool .
+   ```
 
-1. **Run the container:**
+2. **Run the container:**
 
-```bash
-docker run -p 7860:7860 medical-stat-tool
-```
+   ```bash
+   docker run -p 7860:7860 medical-stat-tool
+   ```
 
- Access the app at `http://localhost:7860`.
+   Access the app at `http://localhost:7860`.
 
 ## 💻 Tech Stack
 
@@ -314,7 +314,7 @@ docker run -p 7860:7860 medical-stat-tool
 
 ## ✅ Deployment Features
 
- This application is designed for enterprise and restricted environments:
+This application is designed for enterprise and restricted environments:
 
 - **Hybrid Deployment**: Optimized for both **Hugging Face Spaces** (Docker) and **Posit Connect** (Python).
 - **Dependency Management**: Split requirements for Production (`requirements-prod.txt`) vs Development (`requirements.txt`).
