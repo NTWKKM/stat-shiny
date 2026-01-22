@@ -236,51 +236,75 @@ def advanced_inference_server(
         if d is not None:
             cols = d.columns.tolist()
             # -- Mediation Defaults --
+            # Default: Outcome_Cured, Treatment_Group, Lab_Cholesterol_mgdL
             def_med_out = select_variable_by_keyword(
-                cols, ["outcome", "cured", "event", "status"], default_to_first=True
+                cols, ["outcome_cured", "outcome", "cured"], default_to_first=True
             )
             def_med_treat = select_variable_by_keyword(
-                cols, ["treatment", "group", "exposure"], default_to_first=True
+                cols, ["treatment_group", "treatment", "group"], default_to_first=True
             )
-            # Find a mediator (something with 'score', 'lab', 'level') that isn't outcome/treatment
-            rem_for_med = [c for c in cols if c not in [def_med_out, def_med_treat]]
             def_med_mediator = select_variable_by_keyword(
-                rem_for_med,
-                ["score", "lab", "measure", "mediator"],
+                cols,
+                ["lab_cholesterol", "cholesterol", "chol", "lab", "mediator"],
                 default_to_first=True,
             )
+            
+            # Default Confounders: Age_Years, Sex_Male
+            def_med_conf = []
+            for c in cols:
+                if "age" in c.lower() or "sex" in c.lower():
+                    def_med_conf.append(c)
 
             ui.update_select("med_outcome", choices=cols, selected=def_med_out)
             ui.update_select("med_treatment", choices=cols, selected=def_med_treat)
             ui.update_select("med_mediator", choices=cols, selected=def_med_mediator)
             ui.update_selectize(
-                "med_confounders", choices=cols, selected=[]
-            )  # Confounders usually manual
+                "med_confounders", choices=cols, selected=def_med_conf
+            )
 
             # -- Collinearity Defaults --
-            # Select all numeric columns by default or keys like 'age', 'bmi', 'lab'
-            def_coll_vars = [
-                c
-                for c in cols
-                if any(k in c.lower() for k in ["age", "bmi", "lab", "score", "value"])
-            ]
-            # If none found, just pick first 3 cols to avoid empty
+            # Default: Age, BMI, Cholesterol, Cost
+            def_coll_vars = []
+            desired_coll = ["Age_Years", "BMI_kgm2", "Lab_Cholesterol_mgdL", "Cost_Treatment_USD"]
+            for d_col in desired_coll:
+                matches = [c for c in cols if d_col in c] # Loose match or exact
+                # Prefer exact match from desired list if in cols
+                if d_col in cols:
+                     if d_col not in def_coll_vars: def_coll_vars.append(d_col)
+                elif matches:
+                     if matches[0] not in def_coll_vars: def_coll_vars.append(matches[0])
+
+            # If none found from specific list, fallback to broader keywords
             if not def_coll_vars:
-                def_coll_vars = cols[:3] if len(cols) >= 3 else cols
+                 def_coll_vars = [
+                    c
+                    for c in cols
+                    if any(k in c.lower() for k in ["age", "bmi", "lab", "score", "value"])
+                 ]
+                 # If still none, first 3
+                 if not def_coll_vars:
+                    def_coll_vars = cols[:3] if len(cols) >= 3 else cols
+
             ui.update_selectize("coll_vars", choices=cols, selected=def_coll_vars)
 
             # -- Diagnostics Defaults --
+            # Default: Lab_Glucose (Y), BMI_kgm2 (X), Age_Years, Treatment_Group (Covar)
             def_diag_out = select_variable_by_keyword(
-                cols, ["outcome", "value", "score", "y"], default_to_first=True
+                cols, ["lab_glucose", "glucose", "lab", "y"], default_to_first=True
             )
-            rem_for_diag = [c for c in cols if c != def_diag_out]
             def_diag_pred = select_variable_by_keyword(
-                rem_for_diag, ["treatment", "age", "bmi", "x"], default_to_first=True
+                cols, ["bmi_kgm2", "bmi", "x"], default_to_first=True
             )
+            
+            def_diag_covar = []
+            desired_diag_cov = ["Age_Years", "Treatment_Group"]
+            for d_c in desired_diag_cov:
+                if d_c in cols:
+                    def_diag_covar.append(d_c)
 
             ui.update_select("diag_outcome", choices=cols, selected=def_diag_out)
             ui.update_select("diag_predictor", choices=cols, selected=def_diag_pred)
-            ui.update_selectize("diag_covariates", choices=cols, selected=[])
+            ui.update_selectize("diag_covariates", choices=cols, selected=def_diag_covar)
 
     @reactive.Effect
     @reactive.event(input.btn_run_mediation)

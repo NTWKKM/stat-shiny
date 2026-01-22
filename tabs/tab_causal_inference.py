@@ -231,31 +231,42 @@ def causal_inference_server(
 
         # Defaults for PSM
         def_psm_treat = select_variable_by_keyword(
-            binary_cols, ["treatment", "group", "exposure"], default_to_first=True
+            binary_cols, ["treatment_group", "treatment", "group", "exposure"], default_to_first=True
         )
         def_psm_out = select_variable_by_keyword(
-            cols, ["outcome", "cured", "death", "event"], default_to_first=True
+            cols, ["outcome_cured", "outcome", "cured", "death", "event"], default_to_first=True
         )
+        
+        # Default Covariates for PSM
+        def_psm_covs = []
+        desired_covs = ["Age_Years", "Sex_Male", "BMI_kgm2", "Comorb_Diabetes", "Comorb_Hypertension"]
+        for dc in desired_covs:
+            if dc in cols:
+                def_psm_covs.append(dc)
+        
+        # Fallback if specific covariates not found
+        if not def_psm_covs: 
+             def_psm_covs = [c for c in num_cols if c not in [def_psm_treat, def_psm_out, "ID"]][:3]
 
         ui.update_select("psm_treatment", choices=binary_cols, selected=def_psm_treat)
         ui.update_select(
             "psm_outcome", choices=num_cols + binary_cols, selected=def_psm_out
         )
-        ui.update_selectize("psm_covariates", choices=num_cols)
+        ui.update_selectize("psm_covariates", choices=num_cols + binary_cols, selected=def_psm_covs)
 
         # Defaults for Stratified
         def_strat_treat = select_variable_by_keyword(
-            binary_cols, ["treatment", "group", "exposure"], default_to_first=True
+            binary_cols, ["treatment_group", "treatment", "group", "exposure"], default_to_first=True
         )
         # Try to find different binary col for outcome
         rem_binary = [c for c in binary_cols if c != def_strat_treat]
         def_strat_out = select_variable_by_keyword(
-            rem_binary, ["outcome", "cured", "event", "response"], default_to_first=True
+            rem_binary, ["outcome_cured", "outcome", "cured", "event", "response"], default_to_first=True
         )
         # Find categorical stratum
         def_strat_stratum = select_variable_by_keyword(
-            cat_cols,
-            ["strata", "category", "stage", "gender", "sex"],
+            cat_cols + binary_cols, # Allow binary as stratum
+            ["sex_male", "sex", "gender", "comorb_diabetes", "diabetes", "strata", "category"],
             default_to_first=True,
         )
 
