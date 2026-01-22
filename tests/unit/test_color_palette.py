@@ -8,11 +8,15 @@ Verifies:
 
 import sys
 from pathlib import Path
-
 import pytest
 
-# Add parent directory to path to allow importing from 'tabs'
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# ============================================================================
+# PATH FIX: Adjust path to project root
+# File is in: tests/unit/test_color_palette.py
+# Root is:    ../../..
+# ============================================================================
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # ============================================================================
 # Mark all tests in this file as unit tests
@@ -23,11 +27,11 @@ pytestmark = pytest.mark.unit
 def get_styling_data():
     """Get color palette data from the actual source function."""
     try:
-        # Import get_color_palette from tabs/_common.py
+        # Import get_color_palette from tabs._common.py
         from tabs._common import get_color_palette
     except ImportError as e:
         pytest.skip(f"Could not import from tabs._common: {e}")
-        return None  # Unreachable when pytest.skip raises, but explicit for clarity
+        return None
     else:
         palette = get_color_palette()
         return {"colors": palette, "fetcher": get_color_palette}
@@ -35,9 +39,16 @@ def get_styling_data():
 
 def test_styling_files_exist():
     """Verify that both styling system files exist."""
-    base_path = Path(__file__).parent.parent / "tabs"
-    assert (base_path / "_common.py").exists(), "tabs/_common.py is missing"
-    assert (base_path / "_styling.py").exists(), "tabs/_styling.py is missing"
+    # แก้ไข path: ใช้ PROJECT_ROOT ที่ถูกต้องแทนการคำนวณใหม่
+    base_path = PROJECT_ROOT / "tabs"
+    
+    # Debug info ในกรณีที่ test fail
+    if not (base_path / "_common.py").exists():
+        print(f"\nDEBUG: Looking for _common.py at {base_path / '_common.py'}")
+        print(f"DEBUG: Current working dir: {Path.cwd()}")
+        
+    assert (base_path / "_common.py").exists(), f"tabs/_common.py is missing at {base_path}"
+    assert (base_path / "_styling.py").exists(), f"tabs/_styling.py is missing at {base_path}"
 
 
 def test_essential_ui_colors():
@@ -133,6 +144,7 @@ def test_no_hardcoded_old_colors():
 
 if __name__ == "__main__":
     print("🎨 Running UI Styling System Tests (Production Ready)...\n")
+    print(f"📂 Project Root detected at: {PROJECT_ROOT}")
 
     test_functions = [
         test_styling_files_exist,
