@@ -24,7 +24,8 @@ $(document).ready(function () {
     });
     // Mobile Menu Logic
     function initMobileMenu() {
-        var sidebar = $('.nav-pills').closest('[class*="col-"]');
+        var sidebar = $('.app-container .nav-pills').first().closest('[class*="col-"]');
+        if (!sidebar.length) sidebar = $('#sidebar'); // Fallback to id if available
 
         // Initial state
         if ($(window).width() < 768) {
@@ -36,15 +37,24 @@ $(document).ready(function () {
             sidebar.toggle();
         });
 
-        // Safe resize handler
+        // Debounced resize handler
+        var resizeTimer;
         $(window).resize(function () {
-            if ($(window).width() >= 768) {
-                sidebar.show();
-            } else {
-                // Start hidden on mobile resize? Or keep state? Keep state is better.
-            }
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+                if ($(window).width() >= 768) {
+                    sidebar.show();
+                }
+            }, 250);
         });
     }
+
+    // Navbar Brand Home Click Listener
+    $(document).on('click', '#navbar_brand_home', function (e) {
+        e.preventDefault();
+        var homeLink = document.querySelector('.navbar-nav .nav-link[data-value="home"]');
+        if (homeLink) homeLink.click();
+    });
 
     // Initialize when Shiny connects (ensures DOM is ready)
     $(document).on('shiny:connected', function () {

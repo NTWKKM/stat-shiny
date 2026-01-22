@@ -8,15 +8,9 @@ Tests Propensity Score Matching flow:
 3. Balance Assessment (SMD Calculation)
 """
 
-import os
-import sys
-
 import numpy as np
 import pandas as pd
 import pytest
-
-# Add parent directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from utils.psm_lib import (
     calculate_propensity_score,

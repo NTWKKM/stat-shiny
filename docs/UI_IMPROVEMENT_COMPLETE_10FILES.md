@@ -1,4 +1,5 @@
 # 🎨 Enhanced UI Improvement Implementation Plan (5-Tab Structure)
+
 ## Medical Stat Tool (stat-shiny) - COMPLETE VERSION WITH ALL 10 TAB FILES
 
 **Project**: Comprehensive UI/UX Refactoring for stat-shiny Medical Analysis Platform  
@@ -23,6 +24,7 @@ The stat-shiny platform has solid functionality but suffers from multiple UX cha
 ✅ **Helper Functions** (DRY principle for code reusability)
 
 **Expected Outcomes:**
+
 - ✅ 40-50% reduction in visual clutter
 - ✅ 60-70% reduction in component nesting depth (3.8 → 1.5)
 - ✅ 50-60% reduction in code per tab (800-1200 lines → 400-600)
@@ -38,7 +40,7 @@ The stat-shiny platform has solid functionality but suffers from multiple UX cha
 
 **File(s): `tab_data.py`**
 
-```
+```text
 📁 Data Management (Single Page)
 ├── Data Controls
 │   ├── Load examples or upload files
@@ -69,7 +71,7 @@ The stat-shiny platform has solid functionality but suffers from multiple UX cha
 
 #### 2.1 Baseline Characteristics & Table 1
 
-```
+```text
 Tab 📊 → Baseline Characteristics
 ├── Table 1 Generation
 │   ├── Descriptive statistics by groups
@@ -94,7 +96,7 @@ Tab 📊 → Baseline Characteristics
 
 #### 2.2 Diagnostic Tests
 
-```
+```text
 Tab 📊 → Diagnostic Tests
 ├── ROC Curve & AUC
 │   ├── Single ROC analysis
@@ -130,7 +132,7 @@ Tab 📊 → Diagnostic Tests
 
 #### 2.3 Correlation & ICC
 
-```
+```text
 Tab 📊 → Correlation & ICC
 ├── Pairwise Correlation
 │   ├── Pearson correlation
@@ -163,7 +165,7 @@ Tab 📊 → Correlation & ICC
 
 #### 3.1 Core Regression Models
 
-```
+```text
 Tab 🔬 → Regression Analysis
 ├── Binary Outcomes
 │   ├── Standard Logistic Regression
@@ -206,7 +208,7 @@ Tab 🔬 → Regression Analysis
 
 #### 3.2 Survival Analysis
 
-```
+```text
 Tab 🔬 → Survival Analysis
 ├── Survival Curves
 │   ├── Kaplan-Meier estimator
@@ -251,7 +253,7 @@ Tab 🔬 → Survival Analysis
 
 #### 3.3 Advanced Inference
 
-```
+```text
 Tab 🔬 → Advanced Methods
 ├── Mediation Analysis
 │   ├── Direct effect (CDE)
@@ -294,7 +296,7 @@ Tab 🔬 → Advanced Methods
 
 #### 4.1 Sample Size & Power Calculation
 
-```
+```text
 Tab 🏥 → Sample Size Calculator
 ├── Means (T-test)
 │   ├── One-sample t-test
@@ -334,7 +336,7 @@ Tab 🏥 → Sample Size Calculator
 
 #### 4.2 Propensity Score Matching (Advanced)
 
-```
+```text
 Tab 🏥 → Causal Inference
 ├── Propensity Score Matching (Advanced Config)
 │   ├── Full PSM workflow
@@ -379,7 +381,7 @@ Tab 🏥 → Causal Inference
 
 **File(s): `tab_settings.py`**
 
-```
+```text
 ⚙️ Settings & Configuration
 ├── Analysis Settings
 │   ├── Default statistical methods
@@ -454,6 +456,7 @@ Tab 🏥 → Causal Inference
 ### 1. Color Palette Enhancement
 
 **Current (Keep):**
+
 ```css
 --color-primary: #1E3A5F;           /* Navy - main */
 --color-primary-dark: #0F2440;      /* Darker Navy */
@@ -494,6 +497,7 @@ Tab 🏥 → Causal Inference
 ### Phase 1: Foundation (3-4 hours)
 
 #### 1.1 CSS System Update
+
 - [ ] Add new color variants and neutrals
 - [ ] Add micro-spacing variables
 - [ ] Update component styles (cards, buttons, forms)
@@ -502,6 +506,7 @@ Tab 🏥 → Causal Inference
 - **Commit:** `git commit -m "feat(css): enhance design system variables and component styling"`
 
 #### 1.2 Create Helper Functions
+
 - [ ] Add form_section()
 - [ ] Add action_buttons()
 - [ ] Add info_badge(), warning_badge()
@@ -556,29 +561,34 @@ ui.page_navbar(
 ### Phase 3: Tab-by-Tab Refactoring (6-8 hours)
 
 #### 3.1 Data Management (`tab_data.py`)
+
 - [ ] Flatten nested structure
 - [ ] Apply helper functions
 - **Duration:** 1 hour
 
 #### 3.2 General Statistics (3 files)
+
 - [ ] `tab_baseline_matching.py` - Table 1 section (1 hour)
 - [ ] `tab_diag.py` - All diagnostic tests (1.5 hours)
 - [ ] `tab_corr.py` - Correlation and ICC (1 hour)
 - **Duration:** 3.5 hours
 
 #### 3.3 Advanced Modeling (3 files)
+
 - [ ] `tab_core_regression.py` - All regression types (2 hours)
 - [ ] `tab_survival.py` - All survival methods (2 hours)
 - [ ] `tab_advanced_inference.py` - Mediation, diagnostics (2 hours)
 - **Duration:** 6 hours
 
 #### 3.4 Clinical Tools (3 files)
+
 - [ ] `tab_sample_size.py` - Sample size calculation (1.5 hours)
 - [ ] `tab_baseline_matching.py` - PSM summary (0.5 hours, already done)
 - [ ] `tab_causal_inference.py` - Causal methods (2 hours)
 - **Duration:** 4 hours
 
 #### 3.5 Settings (`tab_settings.py`)
+
 - [ ] Organize all settings sections
 - [ ] Apply new UI patterns
 - **Duration:** 1.5 hours
@@ -590,16 +600,19 @@ ui.page_navbar(
 ### Phase 4: Testing & Optimization (4-5 hours)
 
 #### 4.1 Responsive Testing
+
 - [ ] iPhone 12 (390px)
 - [ ] iPad (768px)
 - [ ] Desktop (1024px+)
 
 #### 4.2 Accessibility Audit
+
 - [ ] WCAG 2.1 AA compliance
 - [ ] Keyboard navigation
 - [ ] Screen reader testing
 
 #### 4.3 Performance & Polish
+
 - [ ] CSS optimization
 - [ ] Load time verification
 - [ ] Visual consistency check
@@ -611,6 +624,7 @@ ui.page_navbar(
 ## ✅ COMPLETE FILES CHECKLIST
 
 ### All 10 Tab Files Covered
+
 - [x] `tab_data.py` → 📁 Data Management
 - [x] `tab_baseline_matching.py` → 📊 General + 🏥 Clinical
 - [x] `tab_diag.py` → 📊 General
@@ -627,6 +641,7 @@ ui.page_navbar(
 ## 🎯 Success Criteria
 
 ### Minimum Requirements (MVP)
+
 - ✅ All 5 tabs display without errors
 - ✅ All 10 files working properly
 - ✅ 5-tab navigation structure functional
@@ -635,6 +650,7 @@ ui.page_navbar(
 - ✅ Lighthouse 85+
 
 ### Target Requirements
+
 - ✅ All minimum criteria met
 - ✅ Lighthouse 90+
 - ✅ Accessibility 90%+
@@ -647,6 +663,7 @@ ui.page_navbar(
 ## 📈 Expected Improvements
 
 ### Code Quality
+
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | Avg Nesting Depth | 3.8 | 1.5 | **-61%** |
@@ -656,6 +673,7 @@ ui.page_navbar(
 | Tab Organization | 9 flat | 5 grouped | **+100%** |
 
 ### User Experience
+
 | Metric | Before | After | Status |
 |--------|--------|-------|--------|
 | Mobile Lighthouse | 65-70 | 90+ | ✅ |
@@ -669,7 +687,8 @@ ui.page_navbar(
 ## 🔀 Git Workflow
 
 ### Branch Strategy
-```
+
+```text
 patch (base)
 ├── feature/ui-foundation
 │   ├── css-variables
@@ -693,6 +712,7 @@ patch (base)
 ## 📞 Timeline & Resources
 
 ### Expected Duration
+
 - **Phase 1:** 3-4 hours (Foundation)
 - **Phase 2:** 2-3 hours (Navigation 5-Tab)
 - **Phase 3:** 6-8 hours (Tab Refactoring - All 10 files)

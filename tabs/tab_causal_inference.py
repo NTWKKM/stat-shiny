@@ -152,9 +152,9 @@ def causal_inference_ui():
                 ui.markdown("""
                     ### Causal Inference Methods
                     
-                    #### 1. Propensity Score Methods (IPW)
+                    #### 1. Propensity Score Methods (IPW/IPTW)
                     *   **Goal**: Estimate the Average Treatment Effect (ATE) by adjusting for confounding.
-                    *   **Mechanism**: Observations are weighted by the inverse of their probability of receiving the received treatment.
+                    *   **Mechanism**: Observations are weighted by the Inverse Probability of Treatment Weighting (IPTW).
                     *   **Diagnostics**: Check Standardized Mean Differences (SMD). Ideally, all SMD < 0.1 after weighting.
                     
                     #### 2. Stratified Analysis (Mantel-Haenszel)
@@ -399,7 +399,7 @@ def causal_inference_server(
         from utils.formatting import create_missing_data_report_html
 
         return ui.div(
-            ui.h5("Inverse Probability Weighting (IPW)"),
+            ui.h5("Inverse Probability of Treatment Weighting (IPTW)"),
             ipw_div,
             ui.hr(),
             ui.h5("Standardized Mean Differences (Balance Check)"),
@@ -642,10 +642,11 @@ def causal_inference_server(
         upper = input.sens_upper()
 
         alerts = []
-        if est < 0 or lower < 0 or upper < 0:
+        if est <= 0 or lower <= 0 or upper <= 0:
             alerts.append(
                 create_error_alert(
-                    "Values should generally be non-negative (ratios).", title="Warning"
+                    "E-Value requires positive estimates/CI (RR or OR).",
+                    title="Invalid Input",
                 )
             )
 

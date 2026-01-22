@@ -142,19 +142,19 @@ def diag_ui() -> ui.TagChild:
                 ),
                 create_results_container("Results", ui.output_ui("out_chi_results")),
                 ui.div(
-                    ui.h5("💡 Interpretation Guide"),
+                    ui.h5("💡 Interpretation Guide (2x2)"),
                     ui.tags.ul(
                         ui.tags.li(
                             ui.strong("P-Value < 0.05"),
-                            ": Statistically significant association between the two variables.",
+                            ": Statistically significant association in the 2x2 table.",
                         ),
                         ui.tags.li(
                             ui.strong("Odds Ratio (OR)"),
-                            ": > 1 means increased odds of outcome; < 1 means decreased odds.",
+                            ": Likelihood of outcome in exposed vs unexposed group.",
                         ),
                         ui.tags.li(
-                            ui.strong("Risk Ratio (RR)"),
-                            ": > 1 means increased risk; < 1 means decreased risk.",
+                            ui.strong("Risk Ratio (RR) / Relative Risk"),
+                            ": Probability of outcome in exposed vs unexposed group.",
                         ),
                     ),
                     class_="alert alert-light",

@@ -663,7 +663,7 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
                 "Configure parameters and click 'Calculate N'.", icon="📈"
             )
 
-        if "error" in res:
+        if isinstance(res, dict) and "error" in res:
             return create_error_alert(res["error"])
 
         return ui.div(

@@ -27,6 +27,26 @@ from tabs import (
 from tabs._common import wrap_with_container
 from utils.logic import HAS_FIRTH
 
+# ==========================================
+# 0. CONSTANTS & CONFIG
+# ==========================================
+
+
+class TabNames:
+    HOME = "home"
+    DATA = "data"
+    BASELINE_MATCHING = "bm"
+    DIAGNOSTIC = "Diagnostic Tests"
+    CORRELATION = "Correlation Analysis"
+    AGREEMENT = "Agreement & Reliability"
+    REGRESSION = "Regression Analysis"
+    SURVIVAL = "Survival Analysis"
+    ADVANCED_REGRESSION = "Advanced Regression"
+    CAUSAL = "Causal Methods"
+    SAMPLE_SIZE = "Sample Size Calculator"
+    SETTINGS = "settings"
+
+
 # Initialize Logger
 LoggerFactory.configure()
 logger = get_logger(__name__)
@@ -75,7 +95,7 @@ app_ui = ui.page_fluid(
         ui.nav_panel(
             "🏠 Home",
             wrap_with_container(tab_home.home_ui("home")),
-            value="home",
+            value=TabNames.HOME,
         ),
         # ========================================
         # 📁 TAB 1: DATA MANAGEMENT (Standalone)
@@ -83,7 +103,7 @@ app_ui = ui.page_fluid(
         ui.nav_panel(
             "📁 Data Management",
             wrap_with_container(tab_data.data_ui("data")),
-            value="data",
+            value=TabNames.DATA,
         ),
         # ========================================
         # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
@@ -91,7 +111,7 @@ app_ui = ui.page_fluid(
         ui.nav_panel(
             "📋 Table 1 & Matching",
             wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
-            value="bm",
+            value=TabNames.BASELINE_MATCHING,
         ),
         # ========================================
         # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
@@ -101,17 +121,17 @@ app_ui = ui.page_fluid(
             ui.nav_panel(
                 "Diagnostic Tests",
                 wrap_with_container(tab_diag.diag_ui("diag")),
-                value="Diagnostic Tests",
+                value=TabNames.DIAGNOSTIC,
             ),
             ui.nav_panel(
                 "Correlation Analysis",
                 wrap_with_container(tab_corr.corr_ui("corr")),
-                value="Correlation Analysis",
+                value=TabNames.CORRELATION,
             ),
             ui.nav_panel(
                 "Agreement & Reliability",
                 wrap_with_container(tab_agreement.agreement_ui("agreement")),
-                value="Agreement & Reliability",
+                value=TabNames.AGREEMENT,
             ),
         ),
         # ========================================
@@ -122,19 +142,19 @@ app_ui = ui.page_fluid(
             ui.nav_panel(
                 "Regression Analysis",
                 wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
-                value="Regression Analysis",
+                value=TabNames.REGRESSION,
             ),
             ui.nav_panel(
                 "Survival Analysis",
                 wrap_with_container(tab_survival.survival_ui("survival")),
-                value="Survival Analysis",
+                value=TabNames.SURVIVAL,
             ),
             ui.nav_panel(
                 "Advanced Regression",
                 wrap_with_container(
                     tab_advanced_inference.advanced_inference_ui("adv_inf")
                 ),
-                value="Advanced Regression",
+                value=TabNames.ADVANCED_REGRESSION,
             ),
         ),
         # ========================================
@@ -145,12 +165,12 @@ app_ui = ui.page_fluid(
             ui.nav_panel(
                 "Sample Size Calculator",
                 wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
-                value="Sample Size Calculator",
+                value=TabNames.SAMPLE_SIZE,
             ),
             ui.nav_panel(
                 "Causal Methods",
                 wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
-                value="Causal Methods",
+                value=TabNames.CAUSAL,
             ),
         ),
         # ========================================
@@ -159,12 +179,12 @@ app_ui = ui.page_fluid(
         ui.nav_panel(
             "⚙️ System Settings",
             wrap_with_container(tab_settings.settings_ui("settings")),
-            value="settings",
+            value=TabNames.SETTINGS,
         ),
         title=ui.tags.a(
             "🏥 Medical Stat Tool",
             href="#",
-            onclick="document.querySelector('.navbar-nav .nav-link[data-value=\\'home\\']').click(); return false;",
+            id="navbar_brand_home",
             style="color: var(--color-primary); font-weight: 700; text-decoration: none;",
         ),
         id="main_nav",
@@ -275,7 +295,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         # Note: Tab names must match ui.nav_panel titles EXACTLY
 
         # General Stats
-        if current_tab == "Diagnostic Tests":
+        if current_tab == TabNames.DIAGNOSTIC:
             load_module(
                 "diag",
                 lambda: tab_diag.diag_server(
@@ -283,7 +303,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                 ),
             )
 
-        elif current_tab == "Correlation Analysis":
+        elif current_tab == TabNames.CORRELATION:
             load_module(
                 "corr",
                 lambda: tab_corr.corr_server(
@@ -291,7 +311,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                 ),
             )
 
-        elif current_tab == "Agreement & Reliability":
+        elif current_tab == TabNames.AGREEMENT:
             load_module(
                 "agreement",
                 lambda: tab_agreement.agreement_server(
@@ -300,7 +320,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             )
 
         # Advanced Statistics
-        elif current_tab == "Regression Analysis":
+        elif current_tab == TabNames.REGRESSION:
             load_module(
                 "core_reg",
                 lambda: tab_core_regression.core_regression_server(
@@ -308,7 +328,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                 ),
             )
 
-        elif current_tab == "Survival Analysis":
+        elif current_tab == TabNames.SURVIVAL:
             load_module(
                 "survival",
                 lambda: tab_survival.survival_server(
@@ -316,7 +336,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                 ),
             )
 
-        elif current_tab == "Advanced Regression":
+        elif current_tab == TabNames.ADVANCED_REGRESSION:
             load_module(
                 "adv_inf",
                 lambda: tab_advanced_inference.advanced_inference_server(
@@ -325,7 +345,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             )
 
         # Clinical
-        elif current_tab == "Causal Methods":
+        elif current_tab == TabNames.CAUSAL:
             load_module(
                 "causal",
                 lambda: tab_causal_inference.causal_inference_server(
@@ -333,7 +353,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                 ),
             )
 
-        elif current_tab == "Sample Size Calculator":
+        elif current_tab == TabNames.SAMPLE_SIZE:
             load_module(
                 "sample_size", lambda: tab_sample_size.sample_size_server("sample_size")
             )
