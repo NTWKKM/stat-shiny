@@ -15,10 +15,10 @@ def calculate_ps(
     treatment: str, 
     covariates: list[str],
     var_meta: dict[str, Any] | None = None
-) -> tuple[pd.Series, dict[str, Any]]:
+) -> pd.Series:
     """
     Calculate propensity scores using logistic regression with unified data cleaning.
-    Returns (propensity_scores, missing_info_dict).
+    Returns propensity_scores as pd.Series (index matches original data).
     """
     try:
         # --- MISSING DATA HANDLING ---
@@ -33,10 +33,9 @@ def calculate_ps(
             missing_codes=missing_codes,
             handle_missing=strategy
         )
-        missing_info["strategy"] = strategy
 
         if df_subset.empty:
-             return pd.Series(dtype=float, index=data.index), missing_info
+            return pd.Series(dtype=float, index=data.index)
 
         X = df_subset[covariates]
         X = sm.add_constant(X)
@@ -48,16 +47,15 @@ def calculate_ps(
 
         # Reindex to original data (fill missing with NaN)
         ps_full = pd.Series(index=data.index, dtype=float)
-        ps_full.loc[df_subset.index] = ps
+        ps_full.loc[df_subset.index] = ps.values
 
-        return ps_full, missing_info
+        return ps_full
 
     except Exception as e:
         logger.error(f"Propensity score calculation failed: {str(e)}")
-        return pd.Series(dtype=float, index=data.index), {"error": f"Calculated failed: {str(e)}"}
+        return pd.Series(dtype=float, index=data.index)
 
 # Wrapper for backward compatibility
-# Replaces simple alias to ensure tuple unpacking works correctly for legacy callers
 def calculate_propensity_score(*args, **kwargs):
     return calculate_ps(*args, **kwargs)
 
@@ -131,33 +129,37 @@ def calculate_ipw(
     Calculate Average Treatment Effect (ATE) using Inverse Probability Weighting.
     """
     try:
-        df = data.copy()
-        T = df[treatment]
-        Y = df[outcome]
-        ps = df[ps_col]
+        df = data.copy().dropna(subset=[treatment, outcome, ps_col])
+        if df.empty:
+            return {"error": "No valid data after removing NaNs"}
+
+        T = df[treatment].values
+        Y = df[outcome].values
+        ps = df[ps_col].values
 
         # Avoid division by zero
-        ps = ps.clip(0.01, 0.99)
+        ps = np.clip(ps, 0.01, 0.99)
 
         # Calculate weights
-        df["ipw"] = np.where(T == 1, 1 / ps, 1 / (1 - ps))
+        weights = np.where(T == 1, 1 / ps, 1 / (1 - ps))
 
         # ATE is coefficient of T in weighted regression
         X = sm.add_constant(T)
-        model = sm.WLS(Y, X, weights=df["ipw"]).fit()
-        ate = model.params[treatment]
-        se = model.bse[treatment]
-        p_val = model.pvalues[treatment]
-        conf_int = model.conf_int().loc[treatment]
+        model = sm.WLS(Y, X, weights=weights).fit()
+        ate = model.params[1]  # Coefficient on treatment
+        se = model.bse[1]
+        p_val = model.pvalues[1]
+        conf_int = model.conf_int().iloc[1]
 
         return {
-            "ATE": ate,
-            "SE": se,
-            "p_value": p_val,
-            "CI_Lower": conf_int[0],
-            "CI_Upper": conf_int[1],
+            "ATE": float(ate),
+            "SE": float(se),
+            "p_value": float(p_val),
+            "CI_Lower": float(conf_int[0]),
+            "CI_Upper": float(conf_int[1]),
         }
     except Exception as e:
+        logger.error(f"IPW calculation failed: {str(e)}")
         return {"error": str(e)}
 
 def check_balance(
@@ -176,17 +178,20 @@ def check_balance(
     treated = df[df[treatment] == 1]
     control = df[df[treatment] == 0]
 
+    if treated.empty or control.empty:
+        return pd.DataFrame(columns=["Covariate", "SMD", "Status"])
+
     for cov in covariates:
         if not pd.api.types.is_numeric_dtype(df[cov]):
             continue
 
         mean_t = np.average(
             treated[cov],
-            weights=weights[treated.index] if weights is not None else None,
+            weights=weights[treated.index].values if weights is not None else None,
         )
         mean_c = np.average(
             control[cov],
-            weights=weights[control.index] if weights is not None else None,
+            weights=weights[control.index].values if weights is not None else None,
         )
 
         var_t = np.var(treated[cov])
@@ -198,7 +203,7 @@ def check_balance(
         results.append(
             {
                 "Covariate": cov,
-                "Variable": cov, # For test compatibility
+                "Variable": cov,  # For test compatibility
                 "SMD": abs(smd),
                 "Status": "Balanced (<0.1)" if abs(smd) < 0.1 else "Unbalanced",
             }
