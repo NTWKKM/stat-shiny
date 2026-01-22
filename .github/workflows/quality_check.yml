@@ -53,6 +53,7 @@ jobs:
         with:
           name: unit-test-results-${{ matrix.python-version }}
           path: unit-test-results-${{ matrix.python-version }}.xml
+          if-no-files-found: warn
 
   # ==========================================
   # E2E Tests (Stick to stable 3.12 to save resources)
@@ -95,6 +96,7 @@ jobs:
         with:
           name: e2e-test-results
           path: e2e-test-results.xml
+          if-no-files-found: warn
 
       - name: Upload Playwright Report (on failure)
         if: failure()
@@ -144,6 +146,7 @@ jobs:
         with:
           name: integration-test-results-${{ matrix.python-version }}
           path: integration-test-results-${{ matrix.python-version }}.xml
+          if-no-files-found: warn
 
   # ==========================================
   # Code Quality Checks (Stable 3.12)
@@ -151,7 +154,8 @@ jobs:
   code-quality:
     name: Code Quality Checks
     runs-on: ubuntu-latest
-
+    outputs:
+      code_quality: ${{ steps.code-quality-status.outputs.code_quality }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -169,12 +173,24 @@ jobs:
           pip install ruff
 
       - name: Lint with Ruff
+        id: ruff-check
         run: ruff check .
         continue-on-error: true
 
       - name: Check formatting with Ruff
+        id: ruff-format
         run: ruff format --check .
         continue-on-error: true
+
+      - name: Set code quality status
+        id: code-quality-status
+        if: always()
+        run: |
+          if [ "${{ steps.ruff-check.outcome }}" = "failure" ] || [ "${{ steps.ruff-format.outcome }}" = "failure" ]; then
+            echo "code_quality=fail" >> "$GITHUB_OUTPUT"
+          else
+            echo "code_quality=pass" >> "$GITHUB_OUTPUT"
+          fi
 
   # ==========================================
   # Test Summary & Reporting
@@ -259,12 +275,12 @@ jobs:
       - name: Check final status
         run: |
           # Fail if primary test suites failed
-          if [ "${{ needs.unit-tests.result }}" = "failure" ] || \
-             [ "${{ needs.e2e-tests.result }}" = "failure" ] || \
-             [ "${{ needs.integration-tests.result }}" = "failure" ]; then
+          if [ "${{ needs.unit-tests.result }}" != "success" ] || \
+             [ "${{ needs.e2e-tests.result }}" != "success" ] || \
+             [ "${{ needs.integration-tests.result }}" != "success" ]; then
             echo "❌ CRITICAL: One or more test suites failed."
             exit 1
-          elif [ "${{ needs.code-quality.result }}" = "failure" ]; then
+          elif [ "${{ needs.code-quality.outputs.code_quality }}" = "fail" ]; then
             echo "⚠️ WARNING: Code quality checks failed, but tests passed."
             exit 0
           else

@@ -1884,7 +1884,7 @@ def survival_server(
                 style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
             )
 
-        return ui.div(
+        elements = [
             ui.card_header("📄 Time-Varying Cox Results"),
             stats_ui,
             ui.output_data_frame("out_tvc_table"),
@@ -1892,7 +1892,19 @@ def survival_server(
             ui.output_ui("out_tvc_forest"),
             ui.card_header("🔍 Diagnostics"),
             ui.output_ui("out_tvc_assumptions_ui"),
-        )
+        ]
+
+        if "missing_data_info" in res:
+            elements.append(ui.card_header("⚠️ Missing Data Report"))
+            elements.append(
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res["missing_data_info"], var_meta.get() or {}
+                    )
+                )
+            )
+
+        return ui.div(*elements)
 
     @render.data_frame
     def out_tvc_table():

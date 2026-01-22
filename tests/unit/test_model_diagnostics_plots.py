@@ -12,12 +12,12 @@ from utils.model_diagnostics_lib import (
 @pytest.fixture
 def sample_model():
     """Create a simple OLS model for testing."""
-    np.random.seed(42)
+    rng = np.random.default_rng(42)
     n = 100
-    X = np.random.normal(0, 1, n)
+    X = rng.normal(0, 1, n)
     # Add an outlier/influential point
     X[0] = 10
-    y = 2 * X + np.random.normal(0, 1, n)
+    y = 2 * X + rng.normal(0, 1, n)
     y[0] = 50  # Extreme outlier
 
     df = pd.DataFrame({"x": X, "y": y})

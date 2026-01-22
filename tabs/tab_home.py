@@ -60,7 +60,7 @@ def home_ui():
 def _feature_card(title, description, subtitle, tab_value=None):
     onclick_js = ""
     if tab_value:
-        onclick_js = f"document.querySelector('.navbar-nav .nav-link[data-value=\\'{tab_value}\\']').click();"
+        onclick_js = f"var el = document.querySelector('.navbar-nav .nav-link[data-value=\\'{tab_value}\\']'); if (el) el.click();"
 
     return ui.div(
         ui.div(

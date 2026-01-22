@@ -397,7 +397,7 @@ def advanced_inference_server(
                         f"{res['total_effect']:.4f}",
                         f"{res['direct_effect']:.4f}",
                         f"{res['indirect_effect']:.4f}",
-                        f"{res['proportion_mediated']:.4%}",
+                        f"{res['proportion_mediated']:.2%}",
                     ],
                 }
             )
@@ -656,6 +656,11 @@ def advanced_inference_server(
 
             if len(effects) != len(variances):
                 ui.notification_show("Mismatched lengths", type="error")
+                ui.notification_remove("run_het")
+                return
+
+            if any(v <= 0 for v in variances):
+                ui.notification_show("Variances must be positive", type="error")
                 ui.notification_remove("run_het")
                 return
 

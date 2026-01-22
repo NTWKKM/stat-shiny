@@ -527,10 +527,7 @@ def baseline_matching_server(
     @render.ui
     def out_table1_html():
         if html_content.get():
-            return ui.card(
-                ui.card_header("📊 Table 1 Results"),
-                ui.HTML(html_content.get()),
-            )
+            return ui.HTML(html_content.get())
         return create_empty_state_ui(
             message="No Table 1 Generated",
             sub_message="Select variables and click '📊 Generate Table 1' to view baseline characteristics.",

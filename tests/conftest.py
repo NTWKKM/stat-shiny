@@ -66,6 +66,10 @@ def start_shiny_server(request):
     # ────────────────────────────────────────────────────────────────────
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+
+    log_file = None
+    process = None
+
     try:
         # Restore temporary log file behavior
         log_file = tempfile.NamedTemporaryFile(delete=False, mode="w+")
@@ -137,22 +141,25 @@ def start_shiny_server(request):
         # ────────────────────────────────────────────────────────────────────
         # Step 5: Cleanup (Always runs even if startup fails)
         # ────────────────────────────────────────────────────────────────────
-        if process and process.poll() is None:
-            print(f"\n🛑 Stopping Shiny Server (PID: {process.pid})...")
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-            print("✅ Server stopped")
-
-        if log_file:
-            log_file.close()
-            if os.path.exists(log_file.name):
+        try:
+            if process is not None and process.poll() is None:
+                print(f"\n🛑 Stopping Shiny Server (PID: {process.pid})...")
+                process.terminate()
                 try:
-                    os.remove(log_file.name)
-                except OSError:
-                    pass
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                print("✅ Server stopped")
+        finally:
+            if log_file is not None:
+                try:
+                    log_file.close()
+                finally:
+                    if os.path.exists(log_file.name):
+                        try:
+                            os.remove(log_file.name)
+                        except OSError:
+                            pass
 
 
 # ============================================================================

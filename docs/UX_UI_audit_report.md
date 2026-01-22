@@ -42,7 +42,7 @@ Medical Stat Tool has undergone a **complete UX/UI transformation** based on the
 **Current State:**
 The application now utilizes a highly optimized 6-tab horizontal navigation bar with descriptive labels and nested menus for advanced tools.
 
-```
+```text
 📁 Data Management | 📋 Table 1 & Matching | 📊 General Statistics ▼ | 🔬 Advanced Statistics ▼ | 🏥 Clinical Research Tools ▼ | ⚙️ System Settings
 ```
 
@@ -1299,7 +1299,7 @@ class_="btn btn-outline"    # Secondary
 
 ### Usability Testing
 
-```
+```text
 Test Scenarios:
 1. First-time user: Can they upload data without guidance?
 2. Power user: Can they quickly switch between analyses?

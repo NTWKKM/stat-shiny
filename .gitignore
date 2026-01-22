@@ -8,3 +8,7 @@ __pycache__/
 
 # Virtual Environment
 .venv/
+
+# Test Logs
+pytest_output.txt
+test_output.txt

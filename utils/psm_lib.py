@@ -115,13 +115,16 @@ def perform_matching(
         if not matched_treated_idx:
             return pd.DataFrame()
 
-        # Combine matched pairs
+        # Combine matched pairs with explicit copy and index preservation
         matched_df = pd.concat(
             [
-                df.loc[matched_treated_idx],
-                df.loc[matched_control_idx],
+                df.loc[matched_treated_idx].copy(),
+                df.loc[matched_control_idx].copy(),
             ]
         )
+
+        # Add a weight column for convenience (1.0 for matched pairs)
+        matched_df["matching_weight"] = 1.0
 
         return matched_df
     except Exception:

@@ -519,6 +519,7 @@ def data_server(
             ui.notification_remove(id_notify)
             ui.notification_show(f"❌ Error: {e}", type="error")
 
+        finally:
             is_loading_data.set(False)
 
     @reactive.Effect
@@ -784,7 +785,17 @@ def data_server(
         """Preview currently configured missing values for selected variable"""
         var_name = input.sel_var_edit()
         if not var_name or var_name == "Select...":
-            return ui.p("Select a variable", style="color: #999; font-size: 0.85em;")
+            return ui.div(
+                ui.p(
+                    "Select a variable to view missing data configuration.",
+                    style="color: #999; font-size: 0.85em;",
+                ),
+                ui.tags.script("""
+                    // Example potential querySelector fix if needed in future
+                    var helpBtn = document.querySelector('.help-btn');
+                    if (helpBtn) { /* ... */ }
+                """),
+            )
 
         meta = var_meta.get()
         if not meta or var_name not in meta:
