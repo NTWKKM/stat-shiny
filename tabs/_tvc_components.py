@@ -123,18 +123,25 @@ def tvc_column_config_ui() -> ui.TagChild:
             **Time-Varying Covariates:** Columns that can change over time within intervals
             (e.g., treatment status, lab values, symptoms)
             """),
-        ui.input_checkbox_group(
-            "tvc_tvc_cols", "Select Time-Varying Covariates:", choices={}, selected=[]
+        ui.input_selectize(
+            "tvc_tvc_cols",
+            "Select Time-Varying Covariates:",
+            choices={},
+            selected=[],
+            multiple=True,
+            options={"placeholder": "Select covariates..."},
         ),
         ui.markdown("""
             **Static Covariates:** Columns constant within each patient
             (e.g., age at baseline, sex, initial diagnosis)
             """),
-        ui.input_checkbox_group(
+        ui.input_selectize(
             "tvc_static_cols",
             "Select Static Covariates:",
             choices={},
             selected=[],
+            multiple=True,
+            options={"placeholder": "Select covariates..."},
         ),
     )
 
