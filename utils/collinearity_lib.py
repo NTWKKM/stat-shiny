@@ -14,7 +14,7 @@ def calculate_vif(
     data: pd.DataFrame, 
     predictors: list[str], 
     var_meta: dict[str, Any] | None = None
-) -> tuple[pd.DataFrame, dict[str, Any]]:
+) -> pd.DataFrame:
     """
     Calculate Variance Inflation Factor (VIF) for a list of predictors.
 
@@ -24,11 +24,11 @@ def calculate_vif(
         var_meta: Variable metadata for missing data handling
 
     Returns:
-        tuple: (VIF DataFrame, Missing Info Dictionary)
+        DataFrame with VIF results
     """
     try:
         if not predictors or data is None or data.empty:
-            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), {}
+            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
     
         # --- DATA PREPARATION ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -43,17 +43,16 @@ def calculate_vif(
             missing_codes=missing_codes,
             handle_missing=strategy
         )
-        missing_info["strategy"] = strategy
 
         if X_clean.empty or len(X_clean.columns) == 0:
-            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), missing_info
+            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
 
         valid_predictors = X_clean.columns.tolist()
 
         # VIF needs at least 2 variables to assess multicollinearity effectively
         if len(valid_predictors) == 1:
-             return pd.DataFrame([{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}]), missing_info
-
+            return pd.DataFrame([{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}])
+            
         # Add constant for VIF calculation correctness
         X_with_const = sm.add_constant(X_clean)
         
@@ -93,24 +92,27 @@ def calculate_vif(
             )
 
         df_vif = pd.DataFrame(vif_data).sort_values("VIF", ascending=False)
-        return df_vif, missing_info
+        return df_vif
 
     except Exception as e:
         logger.exception("VIF calculation failed completely")
-        return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), {"error": str(e)}
+        return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
 
 
 def condition_index(
     data: pd.DataFrame, 
     predictors: list[str], 
     var_meta: dict[str, Any] | None = None
-) -> tuple[pd.DataFrame, dict[str, Any]]:
+) -> pd.DataFrame:
     """
     Calculate Condition Index (CI) for assessing multicollinearity.
+    
+    Returns:
+        DataFrame with condition index results
     """
     try:
         if not predictors or data is None or data.empty:
-            return pd.DataFrame(), {}
+            return pd.DataFrame()
 
         # --- DATA PREPARATION ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -125,10 +127,9 @@ def condition_index(
             missing_codes=missing_codes,
             handle_missing=strategy
         )
-        missing_info["strategy"] = strategy
 
         if X_clean.empty:
-            return pd.DataFrame(), missing_info
+            return pd.DataFrame()
 
         # Scale the data for CI
         X_norm = X_clean / np.sqrt((X_clean**2).sum(axis=0))
@@ -145,9 +146,8 @@ def condition_index(
                 {"Dimension": i + 1, "Condition Index": ci, "Eigenvalue": S[i] ** 2}
             )
 
-        return pd.DataFrame(results), missing_info
+        return pd.DataFrame(results)
 
     except Exception as e:
         logger.exception("Condition Index calculation failed")
-        return pd.DataFrame(), {"error": str(e)}
-
+        return pd.DataFrame()
