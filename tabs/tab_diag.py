@@ -351,7 +351,9 @@ def diag_server(
     def ui_roc_truth():
         cols = all_cols()
         default_v = select_variable_by_keyword(
-            cols, ["gold", "standard", "outcome", "truth"], default_to_first=True
+            cols,
+            ["gold_standard_disease", "gold", "standard", "outcome", "truth"],
+            default_to_first=True,
         )
         return ui.input_select(
             "sel_roc_truth",
@@ -364,7 +366,9 @@ def diag_server(
     def ui_roc_score():
         cols = all_cols()
         default_v = select_variable_by_keyword(
-            cols, ["score", "prob", "predict"], default_to_first=True
+            cols,
+            ["test_score_rapid", "score", "prob", "predict"],
+            default_to_first=True,
         )
         return ui.input_select(
             "sel_roc_score",
@@ -412,7 +416,9 @@ def diag_server(
     def ui_chi_v1():
         cols = all_cols()
         default_v = select_variable_by_keyword(
-            cols, ["treatment", "group", "exposure"], default_to_first=True
+            cols,
+            ["treatment_group", "treatment", "group", "exposure"],
+            default_to_first=True,
         )
         return ui.input_select(
             "sel_chi_v1",
@@ -425,7 +431,9 @@ def diag_server(
     def ui_chi_v2():
         cols = all_cols()
         default_v = select_variable_by_keyword(
-            cols, ["outcome", "cured", "disease", "status"], default_to_first=True
+            cols,
+            ["outcome_cured", "outcome", "cured", "disease", "status"],
+            default_to_first=True,
         )
         return ui.input_select(
             "sel_chi_v2",
@@ -526,7 +534,12 @@ def diag_server(
     @render.ui
     def ui_desc_var():
         cols = all_cols()
-        return ui.input_select("sel_desc_var", "Select Variable:", choices=cols)
+        default_v = select_variable_by_keyword(
+            cols, ["age_years", "age", "years"], default_to_first=True
+        )
+        return ui.input_select(
+            "sel_desc_var", "Select Variable:", choices=cols, selected=default_v
+        )
 
     # --- ROC Status & Results ---
     # (Status inputs removed, now handled in result renderers)
@@ -849,31 +862,38 @@ def diag_server(
     @render.ui
     def ui_dca_truth():
         cols = all_cols()
-        def_idx = 0
-        for i, c in enumerate(cols):
-            if "gold" in c.lower() or "standard" in c.lower() or "outcome" in c.lower():
-                def_idx = i
-                break
+        default_v = select_variable_by_keyword(
+            cols,
+            ["outcome_cured", "outcome", "truth", "gold"],
+            default_to_first=True,
+        )
         return ui.input_select(
             "sel_dca_truth",
             "Outcome (Truth):",
             choices=cols,
-            selected=cols[def_idx] if cols else None,
+            selected=default_v,
         )
 
     @render.ui
     def ui_dca_prob():
         cols = all_cols()
-        score_idx = 0
-        for i, c in enumerate(cols):
-            if "score" in c.lower() or "prob" in c.lower() or "pred" in c.lower():
-                score_idx = i
-                break
+        default_v = select_variable_by_keyword(
+            cols,
+            [
+                "gold_standard_disease",
+                "test_score_rapid",
+                "score",
+                "prob",
+                "pred",
+                "gold",
+            ],
+            default_to_first=True,
+        )
         return ui.input_select(
             "sel_dca_prob",
             "Prediction/Score (Probability):",
             choices=cols,
-            selected=cols[score_idx] if cols else None,
+            selected=default_v,
         )
 
     # (DCA Status removed)

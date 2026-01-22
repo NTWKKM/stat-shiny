@@ -317,44 +317,56 @@ def corr_server(
     def _update_numeric_cols():
         """Update list of numeric columns when data changes."""
         data = current_df()
-        if data is not None:
-            cols = data.select_dtypes(include=[np.number]).columns.tolist()
-            numeric_cols_list.set(cols)
+        if data is None:
+            return
 
-            if cols:
-                # ✅ FILTER: Filter columns starting with 'lab', 'value', 'values'
-                filtered_cols = [
-                    c for c in cols if c.lower().startswith(("lab", "value", "values"))
-                ]
+        cols = data.columns.tolist()
+        numeric_cols_list.set(data.select_dtypes(include=[np.number]).columns.tolist())
+        num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(data[c])]
 
-                # If no columns match, fallback to all numeric columns
-                final_cols = filtered_cols if filtered_cols else cols
+        # Update Pairwise Correlation Inputs
+        # Default: Lab_HbA1c vs Lab_Glucose
+        default_cv1 = select_variable_by_keyword(
+            num_cols, ["hba1c", "lab_hba1c", "var1", "x"], default_to_first=True
+        )
+        default_cv2 = select_variable_by_keyword(
+            num_cols, ["glucose", "lab_glucose", "var2", "y"], default_to_first=True
+        )
 
-                # Smart defaults using select_variable_by_keyword
-                default_cv1 = select_variable_by_keyword(
-                    final_cols, ["lab", "value", "score"], default_to_first=True
-                )
+        ui.update_select("cv1", choices=num_cols, selected=default_cv1)
+        ui.update_select("cv2", choices=num_cols, selected=default_cv2)
 
-                # For cv2, try to find a different variable
-                remaining_cols = [c for c in final_cols if c != default_cv1]
-                default_cv2 = select_variable_by_keyword(
-                    remaining_cols, ["lab", "value", "score"], default_to_first=True
-                )
+        # Update Matrix/Heatmap Inputs
+        # Default: treatment, age, sex, bmi, comorbidities, statin, cost, diagnosis
+        desired_keywords = [
+            "treatment_group",
+            "group",
+            "age",
+            "sex",
+            "bmi",
+            "diabetes",
+            "hypertension",
+            "kidney",
+            "statin",
+            "cost",
+            "diagnosis",
+            "dr_",
+        ]
+        
+        # Filter columns that verify against these keywords (partial match)
+        def_matrix = []
+        for kw in desired_keywords:
+            # Find columns matching this keyword
+            matches = [c for c in cols if kw.lower() in c.lower()]
+            for m in matches:
+                if m not in def_matrix:  # Avoid duplicates
+                    def_matrix.append(m)
 
-                # If we couldn't find a different second variable (e.g. only 1 col), fallback
-                if not default_cv2 and final_cols:
-                    default_cv2 = final_cols[0]
+        # If we found nothing specific, fall back to first 5 numeric
+        if not def_matrix:
+            def_matrix = num_cols[:5] if len(num_cols) >= 5 else num_cols
 
-                # Pairwise selectors
-                ui.update_select("cv1", choices=final_cols, selected=default_cv1)
-                ui.update_select(
-                    "cv2",
-                    choices=final_cols,
-                    selected=default_cv2,
-                )
-
-                # Matrix selector (Use all cols or filtered? Usually matrix uses all, but let's default to filtered if available)
-                ui.update_selectize("matrix_vars", choices=cols, selected=cols[:5])
+        ui.update_selectize("matrix_vars", choices=cols, selected=def_matrix)
 
     # ==================== PAIRWISE CORRELATION ====================
 

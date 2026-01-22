@@ -308,15 +308,20 @@ def agreement_server(
             end_sel = cols[1] if len(cols) > 1 else start_sel
 
             # Try to smart-select raters if keyword match
+            # [Updated] Added diagnosis/dr keywords
             default_rater1 = select_variable_by_keyword(
-                cols, ["rater1", "obs1", "method1"], default_to_first=True
+                cols,
+                ["diagnosis_dr_a", "diagnosis", "dr_a", "rater1", "obs1", "method1"],
+                default_to_first=True,
             )
             default_rater2 = None
             if default_rater1:
                 # Try to find rater2, excluding rater1
                 rem_cols = [c for c in cols if c != default_rater1]
                 default_rater2 = select_variable_by_keyword(
-                    rem_cols, ["rater2", "obs2", "method2"], default_to_first=True
+                    rem_cols,
+                    ["diagnosis_dr_b", "dr_b", "rater2", "obs2", "method2"],
+                    default_to_first=True,
                 )
 
             if default_rater1 and default_rater2:
@@ -327,16 +332,33 @@ def agreement_server(
             ui.update_select("sel_kappa_v2", choices=cols, selected=end_sel)
 
             # Bland-Altman Selectors (Numeric only)
+            # [Updated] Added ICC/SysBP keywords
             default_ba1 = select_variable_by_keyword(
                 num_cols,
-                ["method_a", "measure_1", "test_1", "gold"],
+                [
+                    "icc_sysbp_rater1",
+                    "sysbp_rater1",
+                    "rater1",
+                    "method_a",
+                    "measure_1",
+                    "test_1",
+                    "gold",
+                ],
                 default_to_first=True,
             )
             # Find distinct second variable
             rem_num = [c for c in num_cols if c != default_ba1]
             default_ba2 = select_variable_by_keyword(
                 rem_num,
-                ["method_b", "measure_2", "test_2", "new"],
+                [
+                    "icc_sysbp_rater2",
+                    "sysbp_rater2",
+                    "rater2",
+                    "method_b",
+                    "measure_2",
+                    "test_2",
+                    "new",
+                ],
                 default_to_first=True,
             )
 

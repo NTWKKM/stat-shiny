@@ -993,17 +993,24 @@ def core_regression_server(
         ui.update_selectize("sg_adjust", choices=cols)
 
         # Update Tab 5 (Repeated Measures) Inputs
-        # Prefer Lab results for repeated measures
+        # Default: Outcome_Cured, Treatment_Group, Time_Months, ID
         default_rep_y = select_variable_by_keyword(
-            numeric_cols, ["lab", "score", "bp"], default_to_first=True
+            cols, ["outcome_cured", "outcome", "cured"], default_to_first=True
+        )
+        default_rep_treat = select_variable_by_keyword(
+            cols, ["treatment_group", "treatment", "group"], default_to_first=True
+        )
+        default_rep_time = select_variable_by_keyword(
+            cols, ["time_months", "time", "month"], default_to_first=True
+        )
+        default_rep_subj = select_variable_by_keyword(
+            cols, ["id", "subject", "subjid"], default_to_first=True
         )
 
-        ui.update_select(
-            "rep_outcome", choices=numeric_cols, selected=default_rep_y
-        )  # LMM/GEE(Gaussian) usually numeric outcome
-        ui.update_select("rep_treatment", choices=cols)
-        ui.update_select("rep_time", choices=numeric_cols)  # Time usually numeric
-        ui.update_select("rep_subject", choices=cols)
+        ui.update_select("rep_outcome", choices=cols, selected=default_rep_y)
+        ui.update_select("rep_treatment", choices=cols, selected=default_rep_treat)
+        ui.update_select("rep_time", choices=cols, selected=default_rep_time)
+        ui.update_select("rep_subject", choices=cols, selected=default_rep_subj)
         ui.update_selectize("rep_covariates", choices=cols)
 
         # Update Tab 2.5 (GLM) Inputs
