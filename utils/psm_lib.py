@@ -15,10 +15,10 @@ def calculate_ps(
     treatment: str, 
     covariates: list[str],
     var_meta: dict[str, Any] | None = None
-) -> tuple[pd.Series, dict[str, Any]]:
+) -> pd.Series:
     """
     Calculate propensity scores using logistic regression with unified data cleaning.
-    Returns (propensity_scores, missing_info_dict).
+    Returns propensity_scores Series indexed to original data.
     """
     try:
         # --- MISSING DATA HANDLING ---
@@ -33,10 +33,9 @@ def calculate_ps(
             missing_codes=missing_codes,
             handle_missing=strategy
         )
-        missing_info["strategy"] = strategy
 
         if df_subset.empty:
-             return pd.Series(dtype=float, index=data.index), missing_info
+             return pd.Series(dtype=float, index=data.index)
 
         X = df_subset[covariates]
         X = sm.add_constant(X)
@@ -50,11 +49,11 @@ def calculate_ps(
         ps_full = pd.Series(index=data.index, dtype=float)
         ps_full.loc[df_subset.index] = ps
 
-        return ps_full, missing_info
+        return ps_full
 
     except Exception as e:
         logger.error(f"Propensity score calculation failed: {str(e)}")
-        return pd.Series(dtype=float, index=data.index), {"error": f"Calculated failed: {str(e)}"}
+        return pd.Series(dtype=float, index=data.index)
 
 # Alias for backward compatibility
 calculate_propensity_score = calculate_ps
