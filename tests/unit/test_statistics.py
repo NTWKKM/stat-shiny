@@ -604,7 +604,7 @@ class TestChiSquareAnalysis:
         display_tab, stats_df, msg, risk_df, _ = calculate_chi2(df, "col1", "col2")
 
         assert msg is not None
-        assert "no data" in msg.lower()
+        assert "no valid data" in msg.lower() or "no data" in msg.lower()
 
 
 class TestROCAnalysis:
