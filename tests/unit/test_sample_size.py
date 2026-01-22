@@ -42,7 +42,7 @@ def test_calculate_sample_size_survival():
 def test_calculate_sample_size_correlation():
     # r=0.3, power=0.8, alpha=0.05 -> N approx 85
     n = sample_size_lib.calculate_sample_size_correlation(0.8, 0.3)
-    assert 80 < n < 90
+    assert 80 < n["total"] < 90
 
 
 def test_calculate_power_survival():

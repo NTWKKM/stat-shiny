@@ -43,7 +43,7 @@ def run_gee(
             df_clean, _missing_info = prepare_data_for_analysis(
                 df,
                 required_cols=required_cols,
-                numeric_cols=[outcome_col, treatment_col, time_col] + [c for c in covariates],
+                numeric_cols=[outcome_col, time_col] + [c for c in covariates],
                 var_meta=var_meta,
                 missing_codes=missing_codes,
                 handle_missing=strategy,
@@ -56,7 +56,9 @@ def run_gee(
             return {"error": "No valid data after cleaning."}
 
         # Construct formula
-        formula = f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
+        formula = (
+            f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
+        )
         if covariates:
             formula += " + " + " + ".join(covariates)
 
@@ -91,7 +93,6 @@ def run_gee(
         return {"error": f"Error running GEE: {str(e)}"}
 
 
-
 def run_lmm(
     df: pd.DataFrame,
     outcome_col: str,
@@ -119,7 +120,7 @@ def run_lmm(
             df_clean, _missing_info = prepare_data_for_analysis(
                 df,
                 required_cols=required_cols,
-                numeric_cols=[outcome_col, treatment_col, time_col] + [c for c in covariates],
+                numeric_cols=[outcome_col, time_col] + [c for c in covariates],
                 var_meta=var_meta,
                 missing_codes=missing_codes,
                 handle_missing=strategy,
@@ -132,7 +133,9 @@ def run_lmm(
             return {"error": "No valid data after cleaning."}
 
         # Construct formula
-        formula = f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
+        formula = (
+            f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
+        )
         if covariates:
             formula += " + " + " + ".join(covariates)
 
@@ -153,7 +156,6 @@ def run_lmm(
     except Exception as e:
         logger.exception("LMM failed")
         return {"error": f"Error running LMM: {str(e)}"}
-
 
 
 def create_trajectory_plot(
