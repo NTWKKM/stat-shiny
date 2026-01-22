@@ -1,10 +1,13 @@
+{
+type: uploaded file
+fileName: ntwkkm/stat-shiny/stat-shiny-patch/utils/advanced_stats_lib.py
+fullContent:
 import numpy as np
 import pandas as pd
 from typing import Any, List, Dict, Union, Optional
 from statsmodels.stats.multitest import multipletests
 
 from logger import get_logger
-# Fix Import: Import calculate_vif as _run_vif so the wrapper works correctly
 from utils.collinearity_lib import calculate_vif as _run_vif
 
 logger = get_logger(__name__)
@@ -16,16 +19,7 @@ def apply_mcc(
 ) -> pd.Series:
     """
     Apply Multiple Comparison Correction to a list of p-values.
-    
-    Args:
-        p_values: List, Array, or Series of p-values
-        method: Method for correction (e.g., 'fdr_bh', 'bonferroni')
-        alpha: Significance level
-        
-    Returns:
-        pd.Series of adjusted p-values
     """
-    # Convert input to Series for easier index and NaN handling
     if isinstance(p_values, (list, np.ndarray)):
         p_series = pd.Series(p_values)
     else:
@@ -34,7 +28,6 @@ def apply_mcc(
     if p_series.empty:
         return p_series
         
-    # Mask NaNs: Calculate only for numeric values
     mask = p_series.notna()
     p_valid = p_series[mask]
     
@@ -42,14 +35,10 @@ def apply_mcc(
         return p_series
         
     try:
-        # Use statsmodels for calculation
         reject, pvals_corrected, _, _ = multipletests(p_valid.values, alpha=alpha, method=method)
-        
-        # Place calculated values back into original positions (skipping NaNs)
         p_series.loc[mask] = pvals_corrected
     except Exception as e:
         logger.error(f"MCC calculation failed: {e}")
-        # In case of error, return original values to prevent program crash
         return p_series
         
     return p_series
@@ -62,11 +51,9 @@ def get_ci_configuration(
 ) -> Dict[str, str]:
     """
     Configure Confidence Interval method based on sample size and events.
-    Returns a dict with 'method' and 'note'.
     """
     config = {"method": method, "note": ""}
     
-    # Example Logic: If profile is selected but data is large (may be slow), switch to Wald
     if method == "profile":
         if n > 5000:
             config["method"] = "wald"
@@ -76,12 +63,19 @@ def get_ci_configuration(
 
 def calculate_vif(
     data: pd.DataFrame, 
-    predictor_cols: List[str], 
+    predictor_cols: Optional[List[str]] = None, 
     var_meta: Optional[Dict[str, Any]] = None
 ) -> pd.DataFrame:
     """
     Calculate Variance Inflation Factor (VIF) for predictors.
     Wrapper around collinearity_lib.calculate_vif.
     """
-    # Pass var_meta to the actual implementation
+    # ✅ FIX: Handle missing predictor_cols by using all columns except 'const'
+    if predictor_cols is None:
+        if data is None or data.empty:
+            predictor_cols = []
+        else:
+            predictor_cols = [c for c in data.columns if c != 'const']
+
     return _run_vif(data, predictor_cols, var_meta=var_meta)
+}

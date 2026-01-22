@@ -48,9 +48,9 @@ class ForestPlot:
         """
         self.error: str | None = None
         
+        # ✅ FIX: Raise ValueError immediately for empty DataFrame to pass robustness tests
         if data is None or data.empty:
-            self.error = "DataFrame cannot be empty"
-            return
+            raise ValueError("DataFrame cannot be empty")
 
         required_cols = {estimate_col, ci_low_col, ci_high_col, label_col}
         if pval_col:
