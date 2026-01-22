@@ -749,12 +749,12 @@ def survival_server(
                 )
 
             # Update UI: Allow ALL choices, set defaults
-            ui.update_checkbox_group(
+            ui.update_selectize(
                 "tvc_tvc_cols",
                 choices=choices_with_labels,
                 selected=tvc_auto,
             )
-            ui.update_checkbox_group(
+            ui.update_selectize(
                 "tvc_static_cols",
                 choices=choices_with_labels,
                 selected=static_auto,
