@@ -163,7 +163,7 @@ def create_trajectory_plot(
     group_col: str,
     subject_col: str | None = None,
 ) -> go.Figure:
-    """Create a trajectory plot showing mean trends and optional individual spaghetti lines."""
+    """Create a trajectory plot showing mean trends with confidence interval bands."""
     # Calculate means and SE per group at each time point
     summary = (
         df.groupby([group_col, time_col])[outcome_col]
