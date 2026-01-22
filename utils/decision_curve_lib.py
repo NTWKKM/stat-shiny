@@ -1,13 +1,12 @@
-"""
-Decision Curve Analysis (DCA) Library
-Calculates Net Benefit for prediction models.
-Reference: Vickers AJ, Elkin EB. Decision curve analysis: a novel method for evaluating prediction models. Med Decis Making. 2006.
-"""
-
+from typing import Any
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from config import CONFIG
+from utils.data_cleaning import prepare_data_for_analysis
+from logger import get_logger
 
+logger = get_logger(__name__)
 
 def calculate_net_benefit(
     df: pd.DataFrame,
@@ -15,41 +14,52 @@ def calculate_net_benefit(
     prob_col: str,
     thresholds: list[float] | np.ndarray | None = None,
     model_name: str = "Model",
-) -> pd.DataFrame:
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Calculate Net Benefit for a prediction model across a range of thresholds.
-
-    Net Benefit = (True Positives / N) - (False Positives / N) * (pt / (1 - pt))
-    where pt is the threshold probability.
     """
     try:
         # Validate inputs
         if df is None or df.empty:
-             return pd.DataFrame() # Return empty DF safely
+             return pd.DataFrame(), {}
 
-        if truth_col not in df.columns or prob_col not in df.columns:
-             # Logic choice: Return empty DF or error?
-             # For plotting libs, returning empty DF is often safer for UI
-             return pd.DataFrame() 
+        # --- DATA PREPARATION ---
+        required_cols = [truth_col, prob_col]
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        try:
+            df_clean, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=required_cols,
+                numeric_cols=required_cols,
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing=strategy
+            )
+            missing_info["strategy"] = strategy
+        except Exception as e:
+            return pd.DataFrame(), {"error": f"Data preparation failed: {e}"}
+
+        if df_clean.empty:
+            return pd.DataFrame(), missing_info
 
         if thresholds is None:
             thresholds = np.arange(0.01, 1.00, 0.01)
 
-        y_true = pd.to_numeric(df[truth_col], errors="coerce").fillna(0).values
-        y_prob = pd.to_numeric(df[prob_col], errors="coerce").fillna(0).values
+        y_true = df_clean[truth_col].values
+        y_prob = df_clean[prob_col].values
         n = len(y_true)
 
         results = []
 
         for pt in thresholds:
-            # Classify based on threshold
             y_pred = (y_prob >= pt).astype(int)
-
             tp = np.sum((y_pred == 1) & (y_true == 1))
             fp = np.sum((y_pred == 1) & (y_true == 0))
 
-            # Net Benefit calculation
-            # Weight for False Positives: pt / (1 - pt)
             weight = pt / (1 - pt) if pt < 1.0 else 0
             net_benefit = (tp / n) - (fp / n) * weight
 
@@ -63,10 +73,10 @@ def calculate_net_benefit(
                 }
             )
 
-        return pd.DataFrame(results)
-    except Exception:
-        # Log error if possible, or just return empty
-        return pd.DataFrame()
+        return pd.DataFrame(results), missing_info
+    except Exception as e:
+        logger.error("DCA calculation failed: %s", e)
+        return pd.DataFrame(), {"error": str(e)}
 
 
 def calculate_net_benefit_all(
@@ -76,6 +86,7 @@ def calculate_net_benefit_all(
 ) -> pd.DataFrame:
     """
     Calculate Net Benefit assuming ALL patients are treated (Prevalence strategy).
+    Note: df here should ALREADY be cleaned by calculate_net_benefit or caller.
     """
     try:
         if df is None or df.empty or truth_col not in df.columns:
@@ -84,12 +95,10 @@ def calculate_net_benefit_all(
         if thresholds is None:
             thresholds = np.arange(0.01, 1.00, 0.01)
 
-        y_true = pd.to_numeric(df[truth_col], errors="coerce").fillna(0).values
+        y_true = df[truth_col].values
         n = len(y_true)
 
-        # Prevalence (True Positives if everyone treated)
         tp = np.sum(y_true == 1)
-        # False Positives if everyone treated (all negatives)
         fp = np.sum(y_true == 0)
 
         results = []
@@ -108,6 +117,7 @@ def calculate_net_benefit_all(
         return pd.DataFrame(results)
     except Exception:
         return pd.DataFrame()
+
 
 
 def calculate_net_benefit_none(

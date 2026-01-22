@@ -27,10 +27,7 @@ import scipy.stats as stats
 
 from config import CONFIG
 from tabs._common import get_color_palette
-from utils.data_cleaning import (
-    apply_missing_values_to_df,
-    get_missing_summary_df,
-)
+from utils.data_cleaning import prepare_data_for_analysis
 
 # Get unified color palette
 COLORS = get_color_palette()
@@ -110,7 +107,11 @@ def _interpret_correlation(r: float) -> str:
 
 
 def calculate_correlation(
-    df: pd.DataFrame, col1: str, col2: str, method: str = "pearson"
+    df: pd.DataFrame,
+    col1: str,
+    col2: str,
+    method: str = "pearson",
+    var_meta: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any] | None, str | None, go.Figure | None]:
     """
     Calculate correlation between two columns with detailed stats and plot.
@@ -119,9 +120,24 @@ def calculate_correlation(
         if col1 not in df.columns or col2 not in df.columns:
             return None, "Columns not found", None
 
-        # Filter and convert to numeric
-        data = df[[col1, col2]].apply(pd.to_numeric, errors="coerce").dropna()
-        
+        # --- MISSING DATA HANDLING ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        try:
+            data, missing_data_info = prepare_data_for_analysis(
+                df,
+                required_cols=[col1, col2],
+                numeric_cols=[col1, col2],
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing=strategy
+            )
+            missing_data_info["strategy"] = strategy
+        except Exception as e:
+            return None, f"Data preparation failed: {e}", None
+
         if len(data) < 2:
             return None, "Not enough valid numeric data (n < 2)", None
 
@@ -142,11 +158,13 @@ def calculate_correlation(
 
         results = {
             "Correlation Coefficient": r,
+            "Coefficient (r)": r,  # Duplicate for key consistency
             "P-value": p,
             "Method": method_label,
             "N": len(data),
             "95% CI Lower": ci_lower,
             "95% CI Upper": ci_upper,
+            "missing_data_info": missing_data_info,
             "Interpretation": interpretation
         }
 
@@ -359,24 +377,28 @@ def compute_correlation_matrix(
         return None, None, {"error": "Need at least 2 columns for correlation matrix."}
 
     try:
-        # Filter and convert to numeric
         # --- MISSING DATA HANDLING ---
-        missing_data_info = {}
-        if var_meta:
-            missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
-            df_subset = df[cols].copy()
-            missing_summary = get_missing_summary_df(df_subset, var_meta, missing_codes)
-            df_processed = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        # Force pairwise logic for matrix unless user really wants complete-case?
+        # Standard correlation matrix is pairwise.
+        # But prepare_data_for_analysis drops rows if handle_missing="complete-case".
+        # We will use "pairwise" to prevent row dropping, but still get cleaning/reporting.
+        strategy = "pairwise (matrix)"
+        missing_codes = missing_cfg.get("user_defined_values", [])
 
-            missing_data_info = {
-                "strategy": "pairwise-complete (handled by correlation)",
-                "rows_analyzed": len(df_processed),  # Potentially all rows
-                "rows_excluded": 0,  # We don't drop rows explicitly for matrix unless all-nan
-                "summary_before": missing_summary.to_dict("records"),
-            }
-            data = df_processed.apply(pd.to_numeric, errors="coerce")
-        else:
-            data = df[cols].apply(pd.to_numeric, errors="coerce")
+        try:
+            data_clean, missing_data_info = prepare_data_for_analysis(
+                df,
+                required_cols=cols,
+                numeric_cols=cols,
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing="pairwise" # Do not drop rows for matrix
+            )
+            missing_data_info["strategy"] = strategy
+            data = data_clean
+        except Exception as e:
+            return None, None, {"error": f"Data preparation failed: {e}"}
 
         if data.empty:
             return None, None, {"error": "No valid data after numeric conversion."}
@@ -723,8 +745,8 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
             else:
                 html += f"<p>{_html.escape(text_str)}</p>"
 
-        elif element_type == "html":
-            # Note: Producers of 'html' elements are responsible for escaping user-supplied metadata.
+        elif element_type == "raw_html":
+            # Note: Producers of 'raw_html' elements are responsible for escaping user-supplied metadata.
             html += str(data)
 
         elif element_type == "interpretation":

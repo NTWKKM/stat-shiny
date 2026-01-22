@@ -41,10 +41,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from lifelines import CoxTimeVaryingFitter
 
+from config import CONFIG
 from logger import get_logger
-from utils.data_cleaning import handle_missing_for_analysis
+from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
+
 
 
 # ==============================================================================
@@ -356,7 +358,6 @@ def transform_wide_to_long(
 # MODEL FITTING FUNCTIONS
 # ==============================================================================
 
-
 def fit_tvc_cox(
     df: pd.DataFrame,
     start_col: str,
@@ -375,7 +376,7 @@ def fit_tvc_cox(
     dict[str, Any] | None,
 ]:
     """
-    Fit Cox proportional hazards model with time-varying covariates.
+    Fit Cox proportional hazards model with time-varying covariates and unified data cleaning.
 
     Uses lifelines.CoxTimeVaryingFitter which handles:
     - Multiple intervals per patient
@@ -437,52 +438,43 @@ def fit_tvc_cox(
             logger.info(f"TVC Fit: Stop column '{stop_col}' not found. Using 'stop'.")
             real_stop_col = "stop"
 
-        # Validate required columns
-        required_cols = [real_start_col, real_stop_col, event_col]
-        missing_required = [c for c in required_cols if c not in df.columns]
-        if missing_required:
-            msg = f"❌ Missing columns: {', '.join(missing_required)}. Available: {sorted(df.columns.tolist())}"
-            return None, None, None, msg, {}, {}
-
         # Combine covariates
         all_covariates = (tvc_cols or []) + (static_cols or [])
         if not all_covariates:
             return None, None, None, "❌ No covariates specified", {}, {}
 
-        missing_covars = set(all_covariates) - set(df.columns)
-        if missing_covars:
-            return (
-                None,
-                None,
-                None,
-                f"❌ Missing covariates: {', '.join(missing_covars)}",
-                {},
-                {},
+        # --- 2. Data Cleaning with Unified Pipeline ---
+        id_col = df.columns[0]  # Use first column as ID (standard for TVC long format)
+        required_cols = [id_col, real_start_col, real_stop_col, event_col] + all_covariates
+        required_cols = list(dict.fromkeys(required_cols))
+
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        try:
+            clean_data, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=required_cols,
+                numeric_cols=[real_start_col, real_stop_col, event_col] + all_covariates,
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing=strategy
             )
+            missing_info["strategy"] = strategy
+        except Exception as e:
+            return None, None, None, f"Data preparation failed: {e}", {}, {}
 
-        # --- 2. Data Cleaning ---
-        id_col = df.columns[0]  # Use first column as ID
-
-        # Build key columns list
-        key_cols = [id_col, real_start_col, real_stop_col, event_col] + all_covariates
-        key_cols = list(dict.fromkeys(key_cols))  # Dedup preserving order
-
-        clean_data, missing_info = handle_missing_for_analysis(
-            df[key_cols],
-            var_meta=var_meta or {},
-            strategy="complete-case",
-            return_counts=True,
-        )
-
-        if len(clean_data) == 0:
+        if clean_data.empty:
             return (
                 None,
                 None,
                 None,
-                "❌ All data dropped due to missing values",
+                "❌ No valid data after cleaning.",
                 {},
                 missing_info,
             )
+
 
         # DEBUG LOGGING
         logger.info(f"DEBUG: start_col arg = '{start_col}'")

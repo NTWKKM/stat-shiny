@@ -308,16 +308,20 @@ def causal_inference_server(
                 ui.notification_remove("run_psm")
                 return
 
-            # Calulate PS
-            d_clean = d.dropna(subset=[treatment, outcome] + covs).copy()
-            # Ensure treatment is 0/1
-            d_clean[treatment] = d_clean[treatment].astype(int)
+            # Calculate PS (Cleaning is now handled inside calculate_ps via prepare_data_for_analysis)
+            ps, missing_info = calculate_ps(d, treatment, covs, var_meta=var_meta.get() or {})
+            
+            if "error" in missing_info:
+                 raise ValueError(missing_info["error"])
 
-            ps = calculate_ps(d_clean, treatment, covs)
+            # Attach PS for further steps (we need d_clean for balance check)
+            d_clean = d.copy()
             d_clean["ps"] = ps
+            d_clean = d_clean.dropna(subset=["ps"]) # Keep only those with scores
 
             # IPW
             ipw_res = calculate_ipw(d_clean, treatment, outcome, "ps")
+            ipw_res["missing_data_info"] = missing_info
             psm_res.set(ipw_res)
 
             # Balance
@@ -364,12 +368,21 @@ def causal_inference_server(
             ui.p(f"P-value: {res['p_value']:.4f}"),
         )
 
+        from utils.formatting import create_missing_data_report_html
+
         return ui.div(
             ui.h5("Inverse Probability Weighting (IPW)"),
             ipw_div,
             ui.hr(),
             ui.h5("Standardized Mean Differences (Balance Check)"),
             ui.output_data_frame("out_balance_table"),
+            ui.hr(),
+            # Missing Data Report
+            ui.HTML(
+                create_missing_data_report_html(
+                    res.get("missing_data_info", {}), var_meta.get() or {}
+                )
+            ),
         )
 
     @render.data_frame
@@ -411,10 +424,18 @@ def causal_inference_server(
             )
 
             mh = mantel_haenszel(
-                d, input.strat_outcome(), input.strat_treatment(), input.strat_stratum()
+                d, 
+                input.strat_outcome(), 
+                input.strat_treatment(), 
+                input.strat_stratum(),
+                var_meta=var_meta.get() or {}
             )
             bd = breslow_day(
-                d, input.strat_outcome(), input.strat_treatment(), input.strat_stratum()
+                d, 
+                input.strat_outcome(), 
+                input.strat_treatment(), 
+                input.strat_stratum(),
+                var_meta=var_meta.get() or {}
             )
 
             strat_res.set({"mh": mh, "bd": bd})
@@ -460,6 +481,8 @@ def causal_inference_server(
                 ui.p(f"Conclusion: {bd.get('conclusion')}"),
             )
 
+        from utils.formatting import create_missing_data_report_html
+
         return ui.div(
             ui.h5("Mantel-Haenszel Odds Ratio"),
             mh_ui,
@@ -469,6 +492,13 @@ def causal_inference_server(
             ui.br(),
             ui.h5("Stratum-Specific Estimates"),
             ui.output_data_frame("out_stratum_table"),
+            ui.hr(),
+            # Missing Data Report (using MH info as representative since both clean same way)
+            ui.HTML(
+                create_missing_data_report_html(
+                    mh.get("missing_data_info", {}), var_meta.get() or {}
+                )
+            ),
         )
 
     @render.data_frame

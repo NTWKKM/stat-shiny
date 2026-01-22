@@ -619,7 +619,8 @@ def diag_server(
                 if res and "missing_data_info" in res:
                     rep.append(
                         {
-                            "type": "html",
+                            "type": "raw_html",
+
                             "data": create_missing_data_report_html(
                                 res["missing_data_info"], var_meta.get() or {}
                             ),
@@ -737,7 +738,8 @@ def diag_server(
                 if missing_info:
                     rep.append(
                         {
-                            "type": "html",
+                            "type": "raw_html",
+
                             "data": create_missing_data_report_html(
                                 missing_info, var_meta.get() or {}
                             ),
@@ -805,13 +807,28 @@ def diag_server(
         desc_res.set(None)
 
         try:
-            res = diag_test.calculate_descriptive(d, input.sel_desc_var())
-            if res is not None:
+            stats_df, missing_info = diag_test.calculate_descriptive(
+                d, input.sel_desc_var(), var_meta=var_meta.get() or {}
+            )
+            if stats_df is not None:
+                rep = [{"type": "table", "data": stats_df}]
+                
+                # Missing Data Report
+                if missing_info:
+                    rep.append(
+                        {
+                            "type": "raw_html",
+                            "data": create_missing_data_report_html(
+                                missing_info, var_meta.get() or {}
+                            ),
+                        }
+                    )
+                
                 desc_res.set(
                     {
                         "html": diag_test.generate_report(
                             f"Descriptive: {input.sel_desc_var()}",
-                            [{"type": "table", "data": res}],
+                            rep,
                         )
                     }
                 )
@@ -912,10 +929,25 @@ def diag_server(
             prob = input.sel_dca_prob()
 
             # Calculate Net Benefits
-            nb_model = decision_curve_lib.calculate_net_benefit(
-                d, truth, prob, model_name="Current Model"
+            from utils.formatting import create_missing_data_report_html
+            
+            # 1. Model Net Benefit (This does the cleaning)
+            nb_model, missing_info = decision_curve_lib.calculate_net_benefit(
+                d, truth, prob, model_name="Current Model", var_meta=var_meta.get() or {}
             )
-            nb_all = decision_curve_lib.calculate_net_benefit_all(d, truth)
+            
+            # Check for data prep error
+            if "error" in missing_info:
+                 raise ValueError(missing_info["error"])
+
+            # 2. Treat All & None (Use the same filtered data as nb_model for consistency)
+            # We can't easily get the filtered df back from calculate_net_benefit unless we change it more.
+            # But we can re-clean or just trust it. 
+            # Actually, standard DCA should show Treat All based on same N.
+            # I'll manually filter d for these helpers to ensure N is identical.
+            d_clean = d.loc[missing_info.get("analyzed_indices", d.index)]
+            
+            nb_all = decision_curve_lib.calculate_net_benefit_all(d_clean, truth)
             nb_none = decision_curve_lib.calculate_net_benefit_none()
 
             # Combine
@@ -933,6 +965,11 @@ def diag_server(
                 df_disp["threshold"].isin([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
             ]
 
+            # Missing Data Report
+            missing_report_html = create_missing_data_report_html(
+                missing_info, var_meta.get() or {}
+            )
+
             rep = [
                 {
                     "type": "text",
@@ -944,6 +981,10 @@ def diag_server(
                     "header": "Net Benefit (Model) at selected thresholds",
                     "data": df_disp,
                 },
+                {
+                    "type": "raw_html",
+                    "data": f"<hr>{missing_report_html}",
+                }
             ]
 
             html_content = diag_test.generate_report(f"DCA: {prob} vs {truth}", rep)

@@ -37,10 +37,9 @@ from statsmodels.stats.stattools import durbin_watson
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
-    apply_missing_values_to_df,
-    clean_numeric_vector,
-    get_missing_summary_df,
+    prepare_data_for_analysis,
 )
+from utils.collinearity_lib import calculate_vif as _run_vif
 from utils.formatting import (
     create_missing_data_report_html,
     format_ci_html,
@@ -188,27 +187,33 @@ def prepare_data_for_ols(
 
     # Step 1: Extract relevant columns
     cols_needed = [outcome_col] + list(predictor_cols)
-    unique_cols = list(dict.fromkeys(cols_needed))  # Preserve order, remove duplicates
-    df_subset = df[unique_cols].copy()
+    # Preserve order
+    cols_needed = list(dict.fromkeys(cols_needed))
 
-    initial_n = len(df_subset)
+    # Step 2: Unified Pipeline
+    # NOTE: prepare_data_for_analysis handles numeric cleaning and missing data internally
+    try:
+        # Identfy numeric columns to avoid wiping categorical data
+        numeric_cols = [c for c in cols_needed if pd.api.types.is_numeric_dtype(df[c])]
 
-    # Step 2: Get missing summary BEFORE cleaning (for accurate breakdown)
-    missing_summary = get_missing_summary_df(df_subset, var_meta)
+        df_complete, info = prepare_data_for_analysis(
+            df,
+            required_cols=cols_needed,
+            numeric_cols=numeric_cols,
+            handle_missing="complete_case",
+            var_meta=var_meta
+        )
+    except Exception as e:
+        logger.error(f"Data preparation for OLS failed: {e}")
+        # Return a structure that extract_regression_results can handle or just raise
+        # For OLS, we usually return a dict with 'error'
+        return {"error": f"Data preparation failed: {e}"} # type: ignore
+    
+    final_n = info["rows_analyzed"]
+    excluded_n = info["rows_excluded"]
+    initial_n = info["rows_original"]
 
-    # Step 3: Apply missing value codes
-    df_cleaned = apply_missing_values_to_df(df_subset, var_meta)
-
-    # Step 4: Deep clean numeric data
-    for col in df_cleaned.columns:
-        df_cleaned[col] = clean_numeric_vector(df_cleaned[col])
-
-    # Step 5: Complete case deletion
-    df_complete = df_cleaned.dropna()
-    final_n = len(df_complete)
-    excluded_n = initial_n - final_n
-
-    # Step 6: Validate sample size
+    # Step 6: Validate sample size (Legacy Logic)
     if final_n < min_sample_size:
         raise ValueError(
             f"Insufficient sample size: {final_n} complete cases "
@@ -225,24 +230,17 @@ def prepare_data_for_ols(
 
     # Check for constant predictors
     constant_predictors = [
-        col for col in predictor_cols if df_complete[col].nunique() < 2
+        col for col in predictor_cols if col in df_complete.columns and df_complete[col].nunique() < 2
     ]
     if constant_predictors:
         logger.warning("Dropping constant predictor(s): %s", constant_predictors)
         df_complete = df_complete.drop(columns=constant_predictors, errors="ignore")
-        predictor_cols = [c for c in predictor_cols if c not in constant_predictors]
+        # Note: we don't remove from predictor_cols list here as it might be used by caller,
+        # but the DF is updated.
 
-    # Build missing data info
-    missing_data_info = {
-        "strategy": "complete-case",
-        "rows_analyzed": final_n,
-        "rows_excluded": excluded_n,
-        "initial_n": initial_n,
-        "summary_before": (
-            missing_summary.to_dict("records") if not missing_summary.empty else []
-        ),
-        "constant_predictors_dropped": constant_predictors,
-    }
+    # Build missing data info (Extend unified info with OLS specific fields)
+    info["initial_n"] = initial_n # Alias for legacy compatibility
+    info["constant_predictors_dropped"] = constant_predictors
 
     logger.info(
         "OLS data prepared: %d/%d rows retained (%.1f%%), %d excluded",
@@ -252,7 +250,7 @@ def prepare_data_for_ols(
         excluded_n,
     )
 
-    return df_complete, missing_data_info
+    return df_complete, info
 
 
 # ==============================================================================
@@ -455,63 +453,12 @@ def extract_coefficients(model) -> pd.DataFrame:
 
 def calculate_vif_for_ols(df: pd.DataFrame, predictor_cols: list[str]) -> pd.DataFrame:
     """
-    Calculate Variance Inflation Factor (VIF) for each predictor.
-
-    VIF > 5-10 indicates multicollinearity.
-
-    Parameters:
-        df: DataFrame with predictor columns
-        predictor_cols: List of predictor column names
-
-    Returns:
-        DataFrame with columns: Variable, VIF, Interpretation
+    Calculate Variance Inflation Factor (VIF) using centralized collinearity_lib.
     """
-    if len(predictor_cols) < 2:
-        return pd.DataFrame(
-            {
-                "Variable": predictor_cols,
-                "VIF": [1.0] * len(predictor_cols),
-                "Interpretation": ["OK (single predictor)"] * len(predictor_cols),
-            }
-        )
-
-    try:
-        # Add constant and prepare numeric matrix
-        X = df[predictor_cols].copy()
-        X = sm.add_constant(X)
-
-        vif_data = []
-        for i, col in enumerate(predictor_cols):
-            col_idx = list(X.columns).index(col)
-            vif = variance_inflation_factor(X.values, col_idx)
-
-            # Handle infinite or very large VIF
-            if not np.isfinite(vif):
-                vif = float("inf")
-
-            # Interpretation
-            if vif < 5:
-                interpretation = "✅ OK"
-            elif vif < 10:
-                interpretation = "⚠️ Moderate"
-            else:
-                interpretation = "🔴 High"
-
-            vif_data.append(
-                {"Variable": col, "VIF": vif, "Interpretation": interpretation}
-            )
-
-        return pd.DataFrame(vif_data).sort_values("VIF", ascending=False)
-
-    except Exception as e:
-        logger.warning("Error calculating VIF: %s", e)
-        return pd.DataFrame(
-            {
-                "Variable": predictor_cols,
-                "VIF": [float("nan")] * len(predictor_cols),
-                "Interpretation": ["Error calculating"] * len(predictor_cols),
-            }
-        )
+    # Note: df here might already be cleaned by prepare_data_for_ols
+    # but we pass it anyway.
+    vif_df, _ = _run_vif(df, predictor_cols)
+    return vif_df
 
 
 # ==============================================================================

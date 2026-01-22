@@ -17,10 +17,8 @@ import statsmodels.stats.multitest as smt
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from logger import get_logger
-from utils.data_cleaning import (
-    apply_missing_values_to_df,
-    get_missing_summary_df,
-)
+from utils.data_cleaning import prepare_data_for_analysis
+from utils.collinearity_lib import calculate_vif as _calculate_vif
 
 logger = get_logger(__name__)
 
@@ -101,108 +99,12 @@ def calculate_vif(
     var_meta: dict[str, Any] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
-    Calculate Variance Inflation Factor (VIF) for each feature in a DataFrame.
-
-    Args:
-        df (pd.DataFrame): DataFrame containing numerical features (predictors).
-                           Categorical variables should be one-hot encoded beforehand
-                           or passed as design matrix.
-        intercept (bool): Whether to add an intercept (constant) if not present.
-                          VIF calculation requires an intercept for correct interpretation.
-        var_meta (dict, optional): Variable metadata for missing value handling.
-
-    Returns:
-        tuple[pd.DataFrame, dict[str, Any]]:
-            - DataFrame with columns ['feature', 'VIF'].
-            - Missing data info dictionary.
+    Proxy to collinearity_lib.calculate_vif for backward compatibility and centralization.
     """
-    if df is None or df.empty:
-        return pd.DataFrame(columns=["feature", "VIF"]), {}
-
-    var_meta = var_meta or {}
-
-    # 1. Generate Missing Summary (on original data)
-    missing_summary = get_missing_summary_df(df, var_meta)
-
-    # 2. Apply Missing Value Codes
-    df_clean = apply_missing_values_to_df(df, var_meta)
-
-    # 3. Handle Missing Data (Complete Case)
-    # VIF requires complete numeric data, so we must drop NaNs.
-    # We use 'complete-case' implicitly by calling handle_missing_for_analysis
-    # or manually dropping. Since VIF often runs on a subset, let's use the standard handler.
-    # Note: handle_missing_for_analysis expects a target column, but VIF is unsupervised regarding target.
-    # We can just dropna() on the whole df_clean.
-
-    initial_n = len(df_clean)
-    df_numeric = df_clean.select_dtypes(include=[np.number]).dropna()
-    final_n = len(df_numeric)
-
-    missing_info = {
-        "strategy": "complete-case",
-        "initial_n": initial_n,
-        "final_n": final_n,
-        "excluded_n": initial_n - final_n,
-        "missing_summary": (
-            missing_summary.to_dict("records") if not missing_summary.empty else []
-        ),
-    }
-
-    # Select only numeric columns and drop rows with NaNs (VIF requires complete numeric data)
-    non_numeric_cols = df.columns.difference(
-        df.select_dtypes(include=[np.number]).columns
-    )
-    if len(non_numeric_cols) > 0:
-        logger.debug(
-            "VIF: Dropping %d non-numeric columns: %s",
-            len(non_numeric_cols),
-            list(non_numeric_cols),
-        )
-
-    if len(df_numeric) < initial_n:
-        logger.debug(
-            "VIF: Dropped %d rows containing NaN values", initial_n - len(df_numeric)
-        )
-
-    if df_numeric.empty:
-        return pd.DataFrame(columns=["feature", "VIF"]), missing_info
-
-    # Drop constant predictors (VIF undefined / can explode)
-    variances = df_numeric.var()
-    const_predictors = variances[variances < 1e-10].index.tolist()
-    if const_predictors:
-        df_numeric = df_numeric.drop(columns=const_predictors, errors="ignore")
-
-    if intercept:
-        if "const" not in df_numeric.columns:
-            df_numeric = df_numeric.copy()
-            df_numeric["const"] = 1.0
-
-    features = [c for c in df_numeric.columns if c != "const"]
-    if not features:
-        return pd.DataFrame(columns=["feature", "VIF"]), missing_info
-
-    # Calculate VIF for each feature individually to handle errors per-variable
-    vif_vals = []
-    for col in features:
-        try:
-            i = df_numeric.columns.get_loc(col)
-            vif = variance_inflation_factor(df_numeric.values, i)
-            # Robustness: Check for infinite VIF (from high collinearity)
-            if not np.isfinite(vif):
-                vif = float("inf")
-        except (ValueError, np.linalg.LinAlgError):
-            # When a variable causes singular matrix (perfect collinearity),
-            # set VIF to infinity to indicate "very high collinearity"
-            logger.warning(
-                "VIF calculation failed for '%s' (singular matrix), setting to infinity",
-                col,
-            )
-            vif = float("inf")
-        vif_vals.append(vif)
-
-    vif_data = pd.DataFrame({"feature": features, "VIF": vif_vals})
-    return vif_data.sort_values(by="VIF", ascending=False), missing_info
+    # Note: collinearity_lib.calculate_vif always adds intercept if len > 1
+    # predictors are all columns in df
+    predictors = df.columns.tolist()
+    return _calculate_vif(df, predictors, var_meta=var_meta)
 
 
 # --- Confidence Interval Configuration (Helper/Placeholder) ---

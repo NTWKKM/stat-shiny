@@ -1,6 +1,6 @@
 from typing import Any
-
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import statsmodels.api as sm
@@ -8,6 +8,11 @@ from statsmodels.genmod.cov_struct import Autoregressive, Exchangeable, Independ
 from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.regression.mixed_linear_model import MixedLM
 
+from config import CONFIG
+from utils.data_cleaning import prepare_data_for_analysis
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 def run_gee(
     df: pd.DataFrame,
@@ -18,32 +23,35 @@ def run_gee(
     covariates: list[str] = [],
     cov_struct: str = "exchangeable",
     family_str: str = "gaussian",
-) -> Any:
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[Any, dict[str, Any]]:
     """
-    Run Generalized Estimating Equations (GEE) model.
-
-    Args:
-        df: DataFrame containing the data
-        outcome_col: Name of the outcome variable
-        treatment_col: Name of the treatment/group variable
-        time_col: Name of the time variable
-        subject_col: Name of the subject ID variable
-        covariates: List of additional covariate names
-        cov_struct: Correlation structure ('exchangeable', 'independence', 'ar1')
-        family_str: Distribution family ('gaussian', 'binomial', 'poisson', 'gamma')
-
-    Returns:
-        Fitted GEE model results or dict with error
+    Run Generalized Estimating Equations (GEE) model with unified data cleaning.
     """
     try:
         # Validate critical columns
         required_cols = [outcome_col, treatment_col, time_col, subject_col] + covariates
-        missing = [col for col in required_cols if col not in df.columns]
-        if missing:
-             return {"error": f"Missing columns for GEE: {', '.join(missing)}"}
+        
+        # --- DATA PREPARATION ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
 
-        if df.empty:
-             return {"error": "Input data is empty."}
+        try:
+            df_clean, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=required_cols,
+                numeric_cols=[outcome_col, treatment_col, time_col] + [c for c in covariates], 
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing=strategy
+            )
+            missing_info["strategy"] = strategy
+        except Exception as e:
+            return {"error": f"Data preparation failed: {e}"}, {}
+
+        if df_clean.empty:
+             return {"error": "No valid data after cleaning."}, missing_info
 
         # Construct formula
         formula = (
@@ -70,12 +78,13 @@ def run_gee(
         covariance = cov_struct_map.get(cov_struct.lower(), Exchangeable())
 
         model = GEE.from_formula(
-            formula, groups=subject_col, data=df, family=family, cov_struct=covariance
+            formula, groups=subject_col, data=df_clean, family=family, cov_struct=covariance
         )
         results = model.fit()
-        return results
+        return results, missing_info
     except Exception as e:
-        return {"error": f"Error running GEE: {str(e)}"}
+        logger.exception("GEE failed")
+        return {"error": f"Error running GEE: {str(e)}"}, {}
 
 
 def run_lmm(
@@ -86,31 +95,35 @@ def run_lmm(
     subject_col: str,
     covariates: list[str] = [],
     random_slope: bool = False,
-) -> Any:
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[Any, dict[str, Any]]:
     """
-    Run Linear Mixed Model (LMM).
-
-    Args:
-        df: DataFrame containing the data
-        outcome_col: Name of the outcome variable
-        treatment_col: Name of the treatment/group variable
-        time_col: Name of the time variable
-        subject_col: Name of the subject ID variable
-        covariates: List of additional covariate names
-        random_slope: If True, includes random slope for time variable
-
-    Returns:
-        Fitted MixedLM model results or dict with error
+    Run Linear Mixed Model (LMM) with unified data cleaning.
     """
     try:
         # Validate critical columns
         required_cols = [outcome_col, treatment_col, time_col, subject_col] + covariates
-        missing = [col for col in required_cols if col not in df.columns]
-        if missing:
-             return {"error": f"Missing columns for LMM: {', '.join(missing)}"}
 
-        if df.empty:
-             return {"error": "Input data is empty."}
+        # --- DATA PREPARATION ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        try:
+            df_clean, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=required_cols,
+                numeric_cols=[outcome_col, treatment_col, time_col] + [c for c in covariates], 
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing=strategy
+            )
+            missing_info["strategy"] = strategy
+        except Exception as e:
+            return {"error": f"Data preparation failed: {e}"}, {}
+
+        if df_clean.empty:
+             return {"error": "No valid data after cleaning."}, missing_info
 
         # Construct formula
         formula = (
@@ -120,22 +133,20 @@ def run_lmm(
             formula += " + " + " + ".join(covariates)
 
         if random_slope:
-            # Random intercept and slope for time
-            # re_formula="~time_col"
-            # Note: statsmodels requires the variable name in re_formula
-            # If time_col is "Time", re_formula="~Time"
             re_formula = f"~{time_col}"
             model = MixedLM.from_formula(
-                formula, groups=subject_col, re_formula=re_formula, data=df
+                formula, groups=subject_col, re_formula=re_formula, data=df_clean
             )
         else:
             # Random intercept only
-            model = MixedLM.from_formula(formula, groups=subject_col, data=df)
+            model = MixedLM.from_formula(formula, groups=subject_col, data=df_clean)
 
         results = model.fit()
-        return results
+        return results, missing_info
     except Exception as e:
-        return {"error": f"Error running LMM: {str(e)}"}
+        logger.exception("LMM failed")
+        return {"error": f"Error running LMM: {str(e)}"}, {}
+
 
 
 def create_trajectory_plot(

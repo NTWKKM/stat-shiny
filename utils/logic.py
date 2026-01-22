@@ -22,8 +22,7 @@ from logger import get_logger
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configuration
 from utils.data_cleaning import (
-    get_missing_summary_df,
-    handle_missing_for_analysis,
+    prepare_data_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
 
@@ -571,33 +570,36 @@ def analyze_outcome(
     )
 
     # --- MISSING DATA HANDLING ---
-    # Step 1: Get missing summary BEFORE normalization
+    # Unified pipeline via data_cleaning.py
     missing_cfg = CONFIG.get("analysis.missing", {}) or {}
     strategy = missing_cfg.get("strategy", "complete-case")
     missing_codes = missing_cfg.get("user_defined_values", [])
-    missing_summary_df = get_missing_summary_df(df, var_meta or {}, missing_codes)
-    missing_summary_records = missing_summary_df.to_dict("records")
 
-    # Step 2: Handle missing data (complete-case)
-    df_clean, miss_counts = handle_missing_for_analysis(
-        df, var_meta or {}, missing_codes, strategy=strategy, return_counts=True
-    )
+    try:
+        # Only include columns that actually exist to avoid immediate validation failure
+        # Let subsequent logic handle the reporting of truly missing columns
+        needed_cols = [c for c in df.columns if c != "y"] 
 
-    # Track missing data info for report
-    missing_data_info = {
-        "strategy": strategy,
-        "rows_analyzed": miss_counts["final_rows"],
-        "rows_excluded": miss_counts["rows_removed"],
-        "summary_before": missing_summary_records,
-    }
-
-    # Use cleaned dataframe for analysis
-    df = df_clean
-    logger.info(
-        "Missing data: %s rows excluded (%.1f%%)",
-        miss_counts["rows_removed"],
-        miss_counts["pct_removed"],
-    )
+        df_clean, missing_data_info = prepare_data_for_analysis(
+            df,
+            required_cols=needed_cols,
+            handle_missing=strategy,
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+        )
+        df = df_clean
+        logger.info(
+            "Missing data: %s rows excluded (%.1f%%)",
+            missing_data_info["rows_excluded"],
+            (
+                missing_data_info["rows_excluded"] / missing_data_info["rows_original"] * 100
+                if missing_data_info["rows_original"] > 0
+                else 0
+            ),
+        )
+    except Exception as e:
+        logger.error(f"Data preparation for logistic analysis failed: {e}")
+        return f"<div class='alert alert-danger'><b>Data Preparation Failed:</b> {e}</div>", {}, {}, None
 
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
@@ -657,7 +659,7 @@ def analyze_outcome(
     def count_val(series: pd.Series, v_str: str) -> int:
         return (
             series.astype(str).apply(
-                lambda x: x.replace(".0", "") if x.replace(".", "", 1).isdigit() else x
+                lambda x: str(x).replace(".0", "") if str(x).replace(".", "", 1).isdigit() else str(x)
             )
             == v_str
         ).sum()
