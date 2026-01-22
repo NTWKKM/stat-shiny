@@ -97,12 +97,19 @@ def calculate_vif(
     *,
     intercept: bool = True,
     var_meta: dict[str, Any] | None = None,
-) -> tuple[pd.DataFrame, dict[str, Any]]:
+) -> pd.DataFrame:
     """
-    Proxy to collinearity_lib.calculate_vif for backward compatibility and centralization.
+    Calculate VIF for all predictors in dataframe.
+    
+    Args:
+        df: DataFrame with predictor columns
+        intercept: Ignored (kept for backward compatibility)
+        var_meta: Variable metadata for missing data handling
+    
+    Returns:
+        DataFrame with VIF results (columns: Variable, VIF, Tolerance, Interpretation)
     """
-    # Note: collinearity_lib.calculate_vif always adds intercept if len > 1
-    # predictors are all columns in df
+    # collinearity_lib.calculate_vif now returns DataFrame only
     predictors = df.columns.tolist()
     return _calculate_vif(df, predictors, var_meta=var_meta)
 
