@@ -352,7 +352,7 @@ def corr_server(
             "diagnosis",
             "dr_",
         ]
-        
+
         # Filter columns that verify against these keywords (partial match)
         def_matrix = []
         for kw in desired_keywords:

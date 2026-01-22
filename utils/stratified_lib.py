@@ -1,22 +1,23 @@
 from typing import Any
+
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from scipy.stats import chi2
 
 from config import CONFIG
-from utils.data_cleaning import prepare_data_for_analysis
 from logger import get_logger
+from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
 
+
 def mantel_haenszel(
-    data: pd.DataFrame, 
-    outcome: str, 
-    treatment: str, 
+    data: pd.DataFrame,
+    outcome: str,
+    treatment: str,
     stratum: str,
-    var_meta: dict[str, Any] | None = None
+    var_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Calculate Mantel-Haenszel Odds Ratio for stratified data.
@@ -24,10 +25,10 @@ def mantel_haenszel(
     try:
         # Validate inputs
         if data is None or data.empty:
-             return {"error": "Input data is empty."}
-        
+            return {"error": "Input data is empty."}
+
         required_cols = [outcome, treatment, stratum]
-        
+
         # --- DATA PREPARATION ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
         strategy = missing_cfg.get("strategy", "complete-case")
@@ -37,10 +38,10 @@ def mantel_haenszel(
             df_clean, missing_info = prepare_data_for_analysis(
                 data,
                 required_cols=required_cols,
-                numeric_cols=[outcome, treatment], # stratum might be categorical
+                numeric_cols=[outcome, treatment],  # stratum might be categorical
                 var_meta=var_meta,
                 missing_codes=missing_codes,
-                handle_missing=strategy
+                handle_missing=strategy,
             )
             missing_info["strategy"] = strategy
         except Exception as e:
@@ -56,16 +57,19 @@ def mantel_haenszel(
         den_sum = 0
 
         results_by_stratum = []
-        
+
         if len(strata_levels) == 0:
-             return {"error": "No strata found in data.", "missing_data_info": missing_info}
+            return {
+                "error": "No strata found in data.",
+                "missing_data_info": missing_info,
+            }
 
         for s in strata_levels:
             subset = df_clean[df_clean[stratum] == s]
-            
+
             # Ensure binary outcome/treatment (0/1) for calculation
             # We assume users pass binary columns as requested in UI
-            
+
             a = ((subset[treatment] == 1) & (subset[outcome] == 1)).sum()
             b = ((subset[treatment] == 1) & (subset[outcome] == 0)).sum()
             c = ((subset[treatment] == 0) & (subset[outcome] == 1)).sum()
@@ -89,9 +93,9 @@ def mantel_haenszel(
         mh_or = num_sum / den_sum if den_sum > 0 else np.nan
 
         return {
-            "MH_OR": float(mh_or), 
+            "MH_OR": float(mh_or),
             "Strata_Results": pd.DataFrame(results_by_stratum),
-            "missing_data_info": missing_info
+            "missing_data_info": missing_info,
         }
     except Exception as e:
         logger.exception("Mantel-Haenszel calculation failed")
@@ -99,19 +103,19 @@ def mantel_haenszel(
 
 
 def breslow_day(
-    data: pd.DataFrame, 
-    outcome: str, 
-    treatment: str, 
+    data: pd.DataFrame,
+    outcome: str,
+    treatment: str,
     stratum: str,
-    var_meta: dict[str, Any] | None = None
+    var_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Perform Breslow-Day test replacement using Likelihood Ratio Test for Homogeneity.
     """
     try:
         if data is None or data.empty:
-             return {"error": "Input data is empty."}
-        
+            return {"error": "Input data is empty."}
+
         required_cols = [outcome, treatment, stratum]
 
         # --- DATA PREPARATION ---
@@ -126,7 +130,7 @@ def breslow_day(
                 numeric_cols=[outcome, treatment],
                 var_meta=var_meta,
                 missing_codes=missing_codes,
-                handle_missing=strategy
+                handle_missing=strategy,
             )
             missing_info["strategy"] = strategy
         except Exception as e:
@@ -137,7 +141,10 @@ def breslow_day(
 
         # Check for single stratum or no variation
         if df_clean[stratum].nunique() < 2:
-             return {"error": "Need at least 2 strata for homogeneity test.", "missing_data_info": missing_info}
+            return {
+                "error": "Need at least 2 strata for homogeneity test.",
+                "missing_data_info": missing_info,
+            }
 
         # Likelihood Ratio Test approach
         formula_h0 = f"{outcome} ~ {treatment} + C({stratum})"
@@ -148,21 +155,22 @@ def breslow_day(
 
         lr_stat = 2 * (mod1.llf - mod0.llf)
         df_diff = mod1.df_model - mod0.df_model
-        
+
         if df_diff <= 0:
-             p_val = 1.0
+            p_val = 1.0
         else:
-             p_val = 1 - chi2.cdf(lr_stat, df_diff)
+            p_val = 1 - chi2.cdf(lr_stat, df_diff)
 
         return {
             "test": "Likelihood Ratio Test for Homogeneity (Interaction)",
             "statistic": float(lr_stat),
             "p_value": float(p_val),
-            "conclusion": "Heterogeneity detected (p<0.05)" if p_val < 0.05 else "Homogeneity holds",
-            "missing_data_info": missing_info
+            "conclusion": "Heterogeneity detected (p<0.05)"
+            if p_val < 0.05
+            else "Homogeneity holds",
+            "missing_data_info": missing_info,
         }
 
     except Exception as e:
         logger.exception("Homogeneity test failed")
         return {"error": f"Error calculating homogeneity: {str(e)}"}
-

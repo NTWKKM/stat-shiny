@@ -1,12 +1,15 @@
 from typing import Any
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+
 from config import CONFIG
-from utils.data_cleaning import prepare_data_for_analysis
 from logger import get_logger
+from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
+
 
 def calculate_net_benefit(
     df: pd.DataFrame,
@@ -22,7 +25,7 @@ def calculate_net_benefit(
     try:
         # Validate inputs
         if df is None or df.empty:
-             return pd.DataFrame(), {}
+            return pd.DataFrame(), {}
 
         # --- DATA PREPARATION ---
         required_cols = [truth_col, prob_col]
@@ -37,7 +40,7 @@ def calculate_net_benefit(
                 numeric_cols=required_cols,
                 var_meta=var_meta,
                 missing_codes=missing_codes,
-                handle_missing=strategy
+                handle_missing=strategy,
             )
             missing_info["strategy"] = strategy
         except Exception as e:
@@ -117,7 +120,6 @@ def calculate_net_benefit_all(
         return pd.DataFrame(results)
     except Exception:
         return pd.DataFrame()
-
 
 
 def calculate_net_benefit_none(

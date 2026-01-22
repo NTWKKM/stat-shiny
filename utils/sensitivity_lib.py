@@ -13,10 +13,10 @@ def calculate_e_value(
     try:
         # Validate inputs
         if estimate is None or not isinstance(estimate, (int, float)):
-             return {"error": "Estimate must be a number."}
-        
+            return {"error": "Estimate must be a number."}
+
         if estimate == 1.0:
-             return {
+            return {
                 "original_estimate": estimate,
                 "e_value_estimate": 1.0,
                 "e_value_ci_limit": 1.0,

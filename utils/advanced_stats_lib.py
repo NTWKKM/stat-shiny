@@ -1,6 +1,7 @@
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
-from typing import Any, List, Dict, Union, Optional
 from statsmodels.stats.multitest import multipletests
 
 from logger import get_logger

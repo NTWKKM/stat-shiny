@@ -28,12 +28,8 @@ from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
-    apply_missing_values_to_df,
-    get_missing_summary_df,
-    handle_missing_for_analysis,
     prepare_data_for_analysis,
 )
-from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -127,7 +123,7 @@ def calculate_descriptive(
             required_cols=[col],
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
         missing_data_info["strategy"] = strategy
     except Exception as e:
@@ -182,7 +178,7 @@ def calculate_descriptive(
                 "Percentage (%)": percent.values,
             }
         ).sort_values("Count", ascending=False)
-    
+
     return stats_df, missing_data_info
 
 
@@ -311,7 +307,7 @@ def calculate_chi2(
             required_cols=[col1, col2],
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
         missing_data_info["strategy"] = strategy
     except Exception as e:
@@ -874,15 +870,14 @@ def calculate_kappa(
         data, missing_data_info = prepare_data_for_analysis(
             df,
             required_cols=[col1, col2],
-            numeric_cols=[], # Kappa usually for categorical, but can be numeric if raters use scores
+            numeric_cols=[],  # Kappa usually for categorical, but can be numeric if raters use scores
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
         missing_data_info["strategy"] = strategy
     except Exception as e:
         return None, f"Data preparation failed: {e}", None, {}
-
 
     if data.empty:
         logger.warning("No data after dropping NAs")
@@ -1068,7 +1063,7 @@ def analyze_roc(
             numeric_cols=[score_col],
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
         missing_data_info["strategy"] = strategy
     except Exception as e:
@@ -1242,9 +1237,9 @@ def calculate_icc(
             df,
             required_cols=cols,
             numeric_cols=cols,
-            var_meta=None, # ICC doesn't usually use var_meta mapping for the scores themselves
+            var_meta=None,  # ICC doesn't usually use var_meta mapping for the scores themselves
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
         missing_info["strategy"] = strategy
     except Exception as e:
@@ -1252,7 +1247,6 @@ def calculate_icc(
 
     if data.empty:
         return None, "No data available after cleaning", None, missing_info
-
 
     try:
         # Reshape to long format for ANOVA
@@ -1357,11 +1351,9 @@ def calculate_icc(
 
         return results_df, None, anova_df, missing_info
 
-
     except Exception as e:
         logger.error(f"ICC calculation failed: {e}")
         return None, str(e), None, {}
-
 
 
 def render_contingency_table_html(
@@ -1664,12 +1656,11 @@ def calculate_bland_altman(
                 numeric_cols=[col1, col2],
                 var_meta=None,
                 missing_codes=missing_codes,
-                handle_missing=strategy
+                handle_missing=strategy,
             )
             missing_info["strategy"] = strategy
         except Exception as e:
             return {"error": f"Data preparation failed: {e}"}, go.Figure(), {}
-
 
         if len(d_clean) < 2:
             return {"error": "Not enough data (n < 2)"}, go.Figure()
@@ -1695,7 +1686,10 @@ def calculate_bland_altman(
 
         t_val = stats.t.ppf(0.975, n - 1)
 
-        ci_mean_diff = (mean_diff - t_val * se_mean_diff, mean_diff + t_val * se_mean_diff)
+        ci_mean_diff = (
+            mean_diff - t_val * se_mean_diff,
+            mean_diff + t_val * se_mean_diff,
+        )
         ci_loa_upper = (loa_upper - t_val * se_loa, loa_upper + t_val * se_loa)
         ci_loa_lower = (loa_lower - t_val * se_loa, loa_lower + t_val * se_loa)
 
@@ -1766,8 +1760,6 @@ def calculate_bland_altman(
 
         return stats_dict, fig, missing_info
 
-
     except Exception as e:
         logger.error(f"Bland-Altman calculation error: {e}")
         return {"error": str(e)}, go.Figure(), {}
-

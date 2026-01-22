@@ -1,8 +1,9 @@
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import scipy.stats as stats
-from typing import Any
 
 from config import CONFIG
 from logger import get_logger

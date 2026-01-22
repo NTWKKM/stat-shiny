@@ -12,10 +12,11 @@ Tests cover:
 8. Report generation
 """
 
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch, MagicMock
 
 # Check if plotly is available and working
 try:
@@ -71,7 +72,9 @@ def mock_dependencies():
     }
 
     # Mock format_ci_html to accept 2 arguments (lower, upper) as used in linear_lib
-    mock_format_ci = MagicMock(side_effect=lambda l, u: f"{l:.2f} - {u:.2f}")
+    mock_format_ci = MagicMock(
+        side_effect=lambda lower, upper: f"{lower:.2f} - {upper:.2f}"
+    )
 
     # Patch them where they are used (in utils.linear_lib namespace)
     with (

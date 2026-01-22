@@ -24,14 +24,10 @@ from scipy import stats
 from config import CONFIG
 from logger import get_logger
 from utils.data_cleaning import (
-    apply_missing_values_to_df,
     clean_dataframe,
     clean_numeric_vector,
-    get_missing_summary_df,
-    handle_missing_for_analysis,
     prepare_data_for_analysis,
 )
-
 from utils.formatting import create_missing_data_report_html
 
 try:
@@ -476,16 +472,15 @@ def generate_table(
         df, missing_data_info = prepare_data_for_analysis(
             df,
             required_cols=required_cols,
-            numeric_cols=numeric_cols, 
+            numeric_cols=numeric_cols,
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
         missing_data_info["strategy"] = strategy
     except Exception as e:
         logger.error(f"Data preparation failed: {e}")
         raise ValueError(f"Cannot generate table: data preparation error - {e}") from e
-
 
     # CRITICAL: Create cleaned copy for statistics ONLY
     # Original df is NEVER modified

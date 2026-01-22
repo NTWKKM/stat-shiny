@@ -248,7 +248,7 @@ def advanced_inference_server(
                 ["lab_cholesterol", "cholesterol", "chol", "lab", "mediator"],
                 default_to_first=True,
             )
-            
+
             # Default Confounders: Age_Years, Sex_Male
             def_med_conf = []
             for c in cols:
@@ -258,33 +258,38 @@ def advanced_inference_server(
             ui.update_select("med_outcome", choices=cols, selected=def_med_out)
             ui.update_select("med_treatment", choices=cols, selected=def_med_treat)
             ui.update_select("med_mediator", choices=cols, selected=def_med_mediator)
-            ui.update_selectize(
-                "med_confounders", choices=cols, selected=def_med_conf
-            )
+            ui.update_selectize("med_confounders", choices=cols, selected=def_med_conf)
 
             # -- Collinearity Defaults --
             # Default: Age, BMI, Cholesterol, Cost
             def_coll_vars = []
-            desired_coll = ["Age_Years", "BMI_kgm2", "Lab_Cholesterol_mgdL", "Cost_Treatment_USD"]
+            desired_coll = [
+                "Age_Years",
+                "BMI_kgm2",
+                "Lab_Cholesterol_mgdL",
+                "Cost_Treatment_USD",
+            ]
             for d_col in desired_coll:
-                matches = [c for c in cols if d_col in c] # Loose match or exact
+                matches = [c for c in cols if d_col in c]  # Loose match or exact
                 # Prefer exact match from desired list if in cols
                 if d_col in cols:
-                     if d_col not in def_coll_vars:
-                         def_coll_vars.append(d_col)
+                    if d_col not in def_coll_vars:
+                        def_coll_vars.append(d_col)
                 elif matches:
-                     if matches[0] not in def_coll_vars:
-                         def_coll_vars.append(matches[0])
+                    if matches[0] not in def_coll_vars:
+                        def_coll_vars.append(matches[0])
 
             # If none found from specific list, fallback to broader keywords
             if not def_coll_vars:
-                 def_coll_vars = [
+                def_coll_vars = [
                     c
                     for c in cols
-                    if any(k in c.lower() for k in ["age", "bmi", "lab", "score", "value"])
-                 ]
-                 # If still none, first 3
-                 if not def_coll_vars:
+                    if any(
+                        k in c.lower() for k in ["age", "bmi", "lab", "score", "value"]
+                    )
+                ]
+                # If still none, first 3
+                if not def_coll_vars:
                     def_coll_vars = cols[:3] if len(cols) >= 3 else cols
 
             ui.update_selectize("coll_vars", choices=cols, selected=def_coll_vars)
@@ -297,7 +302,7 @@ def advanced_inference_server(
             def_diag_pred = select_variable_by_keyword(
                 cols, ["bmi_kgm2", "bmi", "x"], default_to_first=True
             )
-            
+
             def_diag_covar = []
             desired_diag_cov = ["Age_Years", "Treatment_Group"]
             for d_c in desired_diag_cov:
@@ -306,7 +311,9 @@ def advanced_inference_server(
 
             ui.update_select("diag_outcome", choices=cols, selected=def_diag_out)
             ui.update_select("diag_predictor", choices=cols, selected=def_diag_pred)
-            ui.update_selectize("diag_covariates", choices=cols, selected=def_diag_covar)
+            ui.update_selectize(
+                "diag_covariates", choices=cols, selected=def_diag_covar
+            )
 
     @reactive.Effect
     @reactive.event(input.btn_run_mediation)
@@ -355,7 +362,7 @@ def advanced_inference_server(
 
         if "error" in res:
             return create_error_alert(res["error"])
-            
+
         from utils.formatting import create_missing_data_report_html
 
         return ui.div(
@@ -414,7 +421,9 @@ def advanced_inference_server(
             ui.notification_show("Calculating VIF...", duration=None, id="run_vif")
 
             # Pass var_meta to calculate_vif
-            vif_df, missing_info = calculate_vif(current_df(), predictors, var_meta=var_meta.get())
+            vif_df, missing_info = calculate_vif(
+                current_df(), predictors, var_meta=var_meta.get()
+            )
             vif_results.set({"vif_df": vif_df, "missing_info": missing_info})
 
             ui.notification_remove("run_vif")
@@ -438,7 +447,7 @@ def advanced_inference_server(
 
         if isinstance(res, dict) and "error" in res:
             return create_error_alert(res["error"])
-            
+
         from utils.formatting import create_missing_data_report_html
 
         return ui.div(

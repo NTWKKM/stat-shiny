@@ -41,8 +41,10 @@ jobs:
           echo "✅ All Styling System files found"
 
       - name: Run UI Styling Tests
-        # แก้ไข path ให้ถูกต้องเป็น tests/unit/test_color_palette.py
-        run: pytest tests/unit/test_color_palette.py -v
+        # Ensure paths are correct
+        run: |
+          pytest tests/unit/test_color_palette.py -v
+          pytest tests/unit/test_ui_ux_styles.py -v
 
   test-multi-version:
     name: Compatibility Test (Python ${{ matrix.python-version }})
@@ -60,12 +62,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      # เรียกใช้ Composite Action แทนบล็อกเดิม
+      # Use Composite Action for environment setup
       - name: Setup environment
         uses: ./.github/actions/setup-test-env
 
       - name: Run tests
-        run: pytest tests/unit/test_color_palette.py
+        run: |
+          pytest tests/unit/test_color_palette.py
+          pytest tests/unit/test_ui_ux_styles.py
 
   code-quality:
     name: Styling Code Quality
@@ -77,7 +81,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      # ติดตั้ง linter เพิ่มเติม (ส่วน dependencies หลักถูกดึงผ่าน action)
+      # Install linter dependencies (Main dependencies handled via action)
       - name: Setup environment
         uses: ./.github/actions/setup-test-env
 
@@ -85,9 +89,9 @@ jobs:
         run: pip install flake8 black
 
       - name: Check code style (flake8)
-        # แก้ไข path ให้ถูกต้อง
-        run: flake8 tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Verify paths are correct
+        run: flake8 tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py tests/unit/test_ui_ux_styles.py --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Check formatting (black)
-        # แก้ไข path ให้ถูกต้อง
-        run: black --check tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py
+        # Verify paths are correct
+        run: black --check tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py tests/unit/test_ui_ux_styles.py
         continue-on-error: true
