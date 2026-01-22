@@ -1619,101 +1619,112 @@ def calculate_bland_altman(
         - dict: statistics {mean_diff, sd_diff, lower_loa, upper_loa, n}
         - Figure: Plotly figure object
     """
-    # 1. Clean Data
-    d = df[[col1, col2]].dropna()
-    data1 = pd.to_numeric(d[col1], errors="coerce")
-    data2 = pd.to_numeric(d[col2], errors="coerce")
-    d_clean = pd.concat([data1, data2], axis=1).dropna()
 
-    if len(d_clean) < 2:
-        return {"error": "Not enough data"}, go.Figure()
+    try:
+        # 1. Clean Data
+        if col1 not in df.columns or col2 not in df.columns:
+             return {"error": f"Columns not found: {col1}, {col2}"}, go.Figure()
 
-    v1 = d_clean[col1]
-    v2 = d_clean[col2]
+        d = df[[col1, col2]].dropna()
+        data1 = pd.to_numeric(d[col1], errors="coerce")
+        data2 = pd.to_numeric(d[col2], errors="coerce")
+        d_clean = pd.concat([data1, data2], axis=1).dropna()
 
-    # 2. Calculations
-    diffs = v1 - v2
-    means = (v1 + v2) / 2
+        if len(d_clean) < 2:
+            return {"error": "Not enough data (n < 2)"}, go.Figure()
 
-    mean_diff = np.mean(diffs)
-    sd_diff = np.std(diffs, ddof=1)
-    n = len(diffs)
+        v1 = d_clean[col1]
+        v2 = d_clean[col2]
 
-    # Limits of Agreement (1.96 SD)
-    loa_upper = mean_diff + 1.96 * sd_diff
-    loa_lower = mean_diff - 1.96 * sd_diff
+        # 2. Calculations
+        diffs = v1 - v2
+        means = (v1 + v2) / 2
 
-    # CIs for Mean Diff, LoaUpper, LoaLower (approximate large sample SEs)
-    se_mean_diff = sd_diff / np.sqrt(n)
-    se_loa = np.sqrt(3 * sd_diff**2 / n)
+        mean_diff = np.mean(diffs)
+        sd_diff = np.std(diffs, ddof=1)
+        n = len(diffs)
 
-    t_val = stats.t.ppf(0.975, n - 1)
+        # Limits of Agreement (1.96 SD)
+        loa_upper = mean_diff + 1.96 * sd_diff
+        loa_lower = mean_diff - 1.96 * sd_diff
 
-    ci_mean_diff = (mean_diff - t_val * se_mean_diff, mean_diff + t_val * se_mean_diff)
-    ci_loa_upper = (loa_upper - t_val * se_loa, loa_upper + t_val * se_loa)
-    ci_loa_lower = (loa_lower - t_val * se_loa, loa_lower + t_val * se_loa)
+        # CIs for Mean Diff, LoaUpper, LoaLower (approximate large sample SEs)
+        se_mean_diff = sd_diff / np.sqrt(n)
+        se_loa = np.sqrt(3 * sd_diff**2 / n)
 
-    # 3. Plot
-    fig = go.Figure()
+        t_val = stats.t.ppf(0.975, n - 1)
 
-    # Scatter points
-    fig.add_trace(
-        go.Scatter(
-            x=means,
-            y=diffs,
-            mode="markers",
-            name="Data Points",
-            marker=dict(color=COLORS["primary"], opacity=0.6),
+        ci_mean_diff = (mean_diff - t_val * se_mean_diff, mean_diff + t_val * se_mean_diff)
+        ci_loa_upper = (loa_upper - t_val * se_loa, loa_upper + t_val * se_loa)
+        ci_loa_lower = (loa_lower - t_val * se_loa, loa_lower + t_val * se_loa)
+
+        # 3. Plot
+        fig = go.Figure()
+
+        # Scatter points
+        fig.add_trace(
+            go.Scatter(
+                x=means,
+                y=diffs,
+                mode="markers",
+                name="Data Points",
+                marker=dict(color=COLORS["primary"], opacity=0.6),
+            )
         )
-    )
 
-    # Mean Diff Line
-    fig.add_trace(
-        go.Scatter(
-            x=[min(means), max(means)],
-            y=[mean_diff, mean_diff],
-            mode="lines",
-            name="Mean Difference (Bias)",
-            line=dict(color="black", width=2),
+        # Mean Diff Line
+        fig.add_trace(
+            go.Scatter(
+                x=[min(means), max(means)],
+                y=[mean_diff, mean_diff],
+                mode="lines",
+                name="Mean Difference (Bias)",
+                line=dict(color="black", width=2),
+            )
         )
-    )
 
-    # LoA Lines
-    fig.add_trace(
-        go.Scatter(
-            x=[min(means), max(means)],
-            y=[loa_upper, loa_upper],
-            mode="lines",
-            name="+1.96 SD",
-            line=dict(color="red", width=2, dash="dash"),
+        # LoA Lines
+        fig.add_trace(
+            go.Scatter(
+                x=[min(means), max(means)],
+                y=[loa_upper, loa_upper],
+                mode="lines",
+                name="+1.96 SD",
+                line=dict(color="red", width=2, dash="dash"),
+            )
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[min(means), max(means)],
-            y=[loa_lower, loa_lower],
-            mode="lines",
-            name="-1.96 SD",
-            line=dict(color="red", width=2, dash="dash"),
+        fig.add_trace(
+            go.Scatter(
+                x=[min(means), max(means)],
+                y=[loa_lower, loa_lower],
+                mode="lines",
+                name="-1.96 SD",
+                line=dict(color="red", width=2, dash="dash"),
+            )
         )
-    )
+        # Add equality line (Y=0)
+        fig.add_hline(y=0, line_dash="solid", line_color="gray", line_width=1)
 
-    fig.update_layout(
-        title="Bland-Altman Plot",
-        xaxis_title=f"Mean of {col1} and {col2}",
-        yaxis_title=f"Difference ({col1} - {col2})",
-        template="simple_white",
-    )
+        fig.update_layout(
+            title="Bland-Altman Plot",
+            xaxis_title=f"Mean of {col1} and {col2}",
+            yaxis_title=f"Difference ({col1} - {col2})",
+            template="simple_white",
+        )
 
-    stats_dict = {
-        "n": n,
-        "mean_diff": mean_diff,
-        "sd_diff": sd_diff,
-        "lower_loa": loa_lower,
-        "upper_loa": loa_upper,
-        "ci_mean_diff": ci_mean_diff,
-        "ci_loa_upper": ci_loa_upper,
-        "ci_loa_lower": ci_loa_lower,
-    }
+        stats_dict = {
+            "n": n,
+            "mean_diff": mean_diff,
+            "sd_diff": sd_diff,
+            "lower_loa": loa_lower,
+            "upper_loa": loa_upper,
+            "ci_mean_diff": ci_mean_diff,
+            "ci_loa_upper": ci_loa_upper,
+            "ci_loa_lower": ci_loa_lower,
+        }
 
-    return stats_dict, fig
+        return stats_dict, fig
+
+    except Exception as e:
+        logger.error(f"Bland-Altman calculation error: {e}")
+        return {"error": str(e)}, go.Figure()

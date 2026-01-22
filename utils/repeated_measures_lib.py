@@ -33,40 +33,49 @@ def run_gee(
         family_str: Distribution family ('gaussian', 'binomial', 'poisson', 'gamma')
 
     Returns:
-        Fitted GEE model results
+        Fitted GEE model results or dict with error
     """
-    # Construct formula
-    formula = (
-        f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
-    )
-    if covariates:
-        formula += " + " + " + ".join(covariates)
-
-    # Set family
-    family_map = {
-        "gaussian": sm.families.Gaussian(),
-        "binomial": sm.families.Binomial(),
-        "poisson": sm.families.Poisson(),
-        "gamma": sm.families.Gamma(),
-    }
-    family = family_map.get(family_str.lower(), sm.families.Gaussian())
-
-    # Set correlation structure
-    cov_struct_map = {
-        "exchangeable": Exchangeable(),
-        "independence": Independence(),
-        "ar1": Autoregressive(),
-    }
-    covariance = cov_struct_map.get(cov_struct.lower(), Exchangeable())
-
     try:
+        # Validate critical columns
+        required_cols = [outcome_col, treatment_col, time_col, subject_col] + covariates
+        missing = [col for col in required_cols if col not in df.columns]
+        if missing:
+             return {"error": f"Missing columns for GEE: {', '.join(missing)}"}
+
+        if df.empty:
+             return {"error": "Input data is empty."}
+
+        # Construct formula
+        formula = (
+            f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
+        )
+        if covariates:
+            formula += " + " + " + ".join(covariates)
+
+        # Set family
+        family_map = {
+            "gaussian": sm.families.Gaussian(),
+            "binomial": sm.families.Binomial(),
+            "poisson": sm.families.Poisson(),
+            "gamma": sm.families.Gamma(),
+        }
+        family = family_map.get(family_str.lower(), sm.families.Gaussian())
+
+        # Set correlation structure
+        cov_struct_map = {
+            "exchangeable": Exchangeable(),
+            "independence": Independence(),
+            "ar1": Autoregressive(),
+        }
+        covariance = cov_struct_map.get(cov_struct.lower(), Exchangeable())
+
         model = GEE.from_formula(
             formula, groups=subject_col, data=df, family=family, cov_struct=covariance
         )
         results = model.fit()
         return results
     except Exception as e:
-        return f"Error running GEE: {str(e)}"
+        return {"error": f"Error running GEE: {str(e)}"}
 
 
 def run_lmm(
@@ -91,16 +100,25 @@ def run_lmm(
         random_slope: If True, includes random slope for time variable
 
     Returns:
-        Fitted MixedLM model results
+        Fitted MixedLM model results or dict with error
     """
-    # Construct formula
-    formula = (
-        f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
-    )
-    if covariates:
-        formula += " + " + " + ".join(covariates)
-
     try:
+        # Validate critical columns
+        required_cols = [outcome_col, treatment_col, time_col, subject_col] + covariates
+        missing = [col for col in required_cols if col not in df.columns]
+        if missing:
+             return {"error": f"Missing columns for LMM: {', '.join(missing)}"}
+
+        if df.empty:
+             return {"error": "Input data is empty."}
+
+        # Construct formula
+        formula = (
+            f"{outcome_col} ~ {treatment_col} + {time_col} + {treatment_col}:{time_col}"
+        )
+        if covariates:
+            formula += " + " + " + ".join(covariates)
+
         if random_slope:
             # Random intercept and slope for time
             # re_formula="~time_col"
@@ -117,7 +135,7 @@ def run_lmm(
         results = model.fit()
         return results
     except Exception as e:
-        return f"Error running LMM: {str(e)}"
+        return {"error": f"Error running LMM: {str(e)}"}
 
 
 def create_trajectory_plot(

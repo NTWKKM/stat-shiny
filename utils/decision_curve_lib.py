@@ -22,38 +22,51 @@ def calculate_net_benefit(
     Net Benefit = (True Positives / N) - (False Positives / N) * (pt / (1 - pt))
     where pt is the threshold probability.
     """
-    if thresholds is None:
-        thresholds = np.arange(0.01, 1.00, 0.01)
+    try:
+        # Validate inputs
+        if df is None or df.empty:
+             return pd.DataFrame() # Return empty DF safely
 
-    y_true = pd.to_numeric(df[truth_col], errors="coerce").fillna(0).values
-    y_prob = pd.to_numeric(df[prob_col], errors="coerce").fillna(0).values
-    n = len(y_true)
+        if truth_col not in df.columns or prob_col not in df.columns:
+             # Logic choice: Return empty DF or error?
+             # For plotting libs, returning empty DF is often safer for UI
+             return pd.DataFrame() 
 
-    results = []
+        if thresholds is None:
+            thresholds = np.arange(0.01, 1.00, 0.01)
 
-    for pt in thresholds:
-        # Classify based on threshold
-        y_pred = (y_prob >= pt).astype(int)
+        y_true = pd.to_numeric(df[truth_col], errors="coerce").fillna(0).values
+        y_prob = pd.to_numeric(df[prob_col], errors="coerce").fillna(0).values
+        n = len(y_true)
 
-        tp = np.sum((y_pred == 1) & (y_true == 1))
-        fp = np.sum((y_pred == 1) & (y_true == 0))
+        results = []
 
-        # Net Benefit calculation
-        # Weight for False Positives: pt / (1 - pt)
-        weight = pt / (1 - pt) if pt < 1.0 else 0
-        net_benefit = (tp / n) - (fp / n) * weight
+        for pt in thresholds:
+            # Classify based on threshold
+            y_pred = (y_prob >= pt).astype(int)
 
-        results.append(
-            {
-                "threshold": pt,
-                "net_benefit": net_benefit,
-                "model": model_name,
-                "tp_rate": tp / n,
-                "fp_rate": fp / n,
-            }
-        )
+            tp = np.sum((y_pred == 1) & (y_true == 1))
+            fp = np.sum((y_pred == 1) & (y_true == 0))
 
-    return pd.DataFrame(results)
+            # Net Benefit calculation
+            # Weight for False Positives: pt / (1 - pt)
+            weight = pt / (1 - pt) if pt < 1.0 else 0
+            net_benefit = (tp / n) - (fp / n) * weight
+
+            results.append(
+                {
+                    "threshold": pt,
+                    "net_benefit": net_benefit,
+                    "model": model_name,
+                    "tp_rate": tp / n,
+                    "fp_rate": fp / n,
+                }
+            )
+
+        return pd.DataFrame(results)
+    except Exception:
+        # Log error if possible, or just return empty
+        return pd.DataFrame()
 
 
 def calculate_net_benefit_all(
@@ -64,31 +77,37 @@ def calculate_net_benefit_all(
     """
     Calculate Net Benefit assuming ALL patients are treated (Prevalence strategy).
     """
-    if thresholds is None:
-        thresholds = np.arange(0.01, 1.00, 0.01)
+    try:
+        if df is None or df.empty or truth_col not in df.columns:
+            return pd.DataFrame()
 
-    y_true = pd.to_numeric(df[truth_col], errors="coerce").fillna(0).values
-    n = len(y_true)
+        if thresholds is None:
+            thresholds = np.arange(0.01, 1.00, 0.01)
 
-    # Prevalence (True Positives if everyone treated)
-    tp = np.sum(y_true == 1)
-    # False Positives if everyone treated (all negatives)
-    fp = np.sum(y_true == 0)
+        y_true = pd.to_numeric(df[truth_col], errors="coerce").fillna(0).values
+        n = len(y_true)
 
-    results = []
-    for pt in thresholds:
-        weight = pt / (1 - pt) if pt < 1.0 else 0
-        net_benefit = (tp / n) - (fp / n) * weight
+        # Prevalence (True Positives if everyone treated)
+        tp = np.sum(y_true == 1)
+        # False Positives if everyone treated (all negatives)
+        fp = np.sum(y_true == 0)
 
-        results.append(
-            {
-                "threshold": pt,
-                "net_benefit": net_benefit,
-                "model": "Treat All",
-            }
-        )
+        results = []
+        for pt in thresholds:
+            weight = pt / (1 - pt) if pt < 1.0 else 0
+            net_benefit = (tp / n) - (fp / n) * weight
 
-    return pd.DataFrame(results)
+            results.append(
+                {
+                    "threshold": pt,
+                    "net_benefit": net_benefit,
+                    "model": "Treat All",
+                }
+            )
+
+        return pd.DataFrame(results)
+    except Exception:
+        return pd.DataFrame()
 
 
 def calculate_net_benefit_none(
@@ -98,14 +117,17 @@ def calculate_net_benefit_none(
     Calculate Net Benefit assuming NO patients are treated.
     Always zero.
     """
-    if thresholds is None:
-        thresholds = np.arange(0.01, 1.00, 0.01)
+    try:
+        if thresholds is None:
+            thresholds = np.arange(0.01, 1.00, 0.01)
 
-    results = [
-        {"threshold": pt, "net_benefit": 0.0, "model": "Treat None"}
-        for pt in thresholds
-    ]
-    return pd.DataFrame(results)
+        results = [
+            {"threshold": pt, "net_benefit": 0.0, "model": "Treat None"}
+            for pt in thresholds
+        ]
+        return pd.DataFrame(results)
+    except Exception:
+        return pd.DataFrame()
 
 
 def create_dca_plot(dca_df: pd.DataFrame) -> go.Figure:

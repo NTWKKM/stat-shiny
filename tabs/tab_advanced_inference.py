@@ -270,9 +270,11 @@ def advanced_inference_server(
                 matches = [c for c in cols if d_col in c] # Loose match or exact
                 # Prefer exact match from desired list if in cols
                 if d_col in cols:
-                     if d_col not in def_coll_vars: def_coll_vars.append(d_col)
+                     if d_col not in def_coll_vars:
+                         def_coll_vars.append(d_col)
                 elif matches:
-                     if matches[0] not in def_coll_vars: def_coll_vars.append(matches[0])
+                     if matches[0] not in def_coll_vars:
+                         def_coll_vars.append(matches[0])
 
             # If none found from specific list, fallback to broader keywords
             if not def_coll_vars:
