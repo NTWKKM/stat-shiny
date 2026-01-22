@@ -69,10 +69,12 @@ def select_variable_by_keyword(
     if not columns:
         return None
 
-    # Try to find a match
-    for col in columns:
-        if any(k.lower() in col.lower() for k in keywords):
-            return col
+    # Try to find a match by keyword priority
+    for k in keywords:
+        k_lower = k.lower()
+        for col in columns:
+            if k_lower in col.lower():
+                return col
 
     # Default fallback
     if default_to_first:

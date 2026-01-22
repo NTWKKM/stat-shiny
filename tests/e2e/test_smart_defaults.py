@@ -33,7 +33,7 @@ def test_smart_variable_defaults(page: Page):
     page.get_by_role("tab", name="Correlation Analysis").click()
 
     # Check values
-    expect(page.locator("#corr-cv1")).to_have_value("Lab_Cholesterol_mgdL")
+    expect(page.locator("#corr-cv1")).to_have_value("Lab_Glucose")
     expect(page.locator("#corr-cv2")).to_have_value("Lab_HbA1c")
 
     # 4. Verify Tab: Diagnostic (ROC)
@@ -43,7 +43,7 @@ def test_smart_variable_defaults(page: Page):
     # Select Subtab "📈 ROC Curve & AUC"
     page.get_by_role("tab", name="📈 ROC Curve & AUC").click()
 
-    expect(page.locator("#diag-sel_roc_truth")).to_have_value("Outcome_Cured")
+    expect(page.locator("#diag-sel_roc_truth")).to_have_value("Gold_Standard_Disease")
     expect(page.locator("#diag-sel_roc_score")).to_have_value("Test_Score_Rapid")
 
     # 5. Verify Tab: Survival
@@ -51,8 +51,8 @@ def test_smart_variable_defaults(page: Page):
     page.get_by_role("button", name="🔬 Advanced Statistics").click()
     page.get_by_role("tab", name="Survival Analysis").click()
 
-    expect(page.locator("#survival-surv_time")).to_have_value("Age_Years")
-    expect(page.locator("#survival-surv_event")).to_have_value("Outcome_Cured")
+    expect(page.locator("#survival-surv_time")).to_have_value("Time_Months")
+    expect(page.locator("#survival-surv_event")).to_have_value("Status_Death")
     # Group defaults to Treatment_Group
     expect(page.locator("#survival-surv_group")).to_have_value("Treatment_Group")
 
@@ -72,8 +72,8 @@ def test_smart_variable_defaults(page: Page):
     page.get_by_role("tab", name="Agreement & Reliability").click()
 
     # Defaults often pick Diagnosis_Dr_A / Dr_B if keywords are right
-    expect(page.locator("#agreement-sel_kappa_v1")).to_have_value("ICC_SysBP_Rater1")
-    expect(page.locator("#agreement-sel_kappa_v2")).to_have_value("ICC_SysBP_Rater2")
+    expect(page.locator("#agreement-sel_kappa_v1")).to_have_value("Diagnosis_Dr_A")
+    expect(page.locator("#agreement-sel_kappa_v2")).to_have_value("Diagnosis_Dr_B")
 
     # 8. Verify Tab: Regression Analysis (Logit)
     page.get_by_role("button", name="🔬 Advanced Statistics").click()

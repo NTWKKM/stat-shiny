@@ -327,10 +327,10 @@ def corr_server(
         # Update Pairwise Correlation Inputs
         # Default: Lab_HbA1c vs Lab_Glucose
         default_cv1 = select_variable_by_keyword(
-            num_cols, ["hba1c", "lab_hba1c", "var1", "x"], default_to_first=True
+            num_cols, ["glucose", "lab_glucose", "var1"], default_to_first=True
         )
         default_cv2 = select_variable_by_keyword(
-            num_cols, ["glucose", "lab_glucose", "var2", "y"], default_to_first=True
+            num_cols, ["hba1c", "lab_hba1c", "var2"], default_to_first=True
         )
 
         ui.update_select("cv1", choices=num_cols, selected=default_cv1)
