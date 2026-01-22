@@ -31,15 +31,14 @@ import plotly.graph_objects as go
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from scipy import stats
-from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.collinearity_lib import calculate_vif as _run_vif
 from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
-from utils.collinearity_lib import calculate_vif as _run_vif
 from utils.formatting import (
     create_missing_data_report_html,
     format_ci_html,
@@ -966,7 +965,7 @@ def format_bootstrap_results(
             "Variable": df_res["Variable"],
             "Estimate": df_res["Estimate"],
             "Boot SE": df_res["Boot SE"],
-            "95% CI": [format_ci_html(l, u) for l, u in zip(ci_lower, ci_upper)],
+            "95% CI": [format_ci_html(cl, cu) for cl, cu in zip(ci_lower, ci_upper)],
         }
     )
 

@@ -411,7 +411,6 @@ def agreement_server(
                     rep.append(
                         {
                             "type": "raw_html",
-
                             "data": create_missing_data_report_html(
                                 missing_info, var_meta.get() or {}
                             ),
@@ -512,9 +511,8 @@ def agreement_server(
                         "html": diag_test.generate_report(
                             f"Bland-Altman: {v1} vs {v2}", rep
                         ),
-                        "missing_data_info": missing_info
+                        "missing_data_info": missing_info,
                     }
-
                 )
         except Exception as e:
             logger.exception("Bland-Altman failed")
@@ -578,7 +576,6 @@ def agreement_server(
 
             res_df, err, anova_df, missing_info = diag_test.calculate_icc(d, list(cols))
 
-
             if err:
                 ui.notification_show("Analysis failed", type="error")
                 ui.notification_remove("run_icc")
@@ -596,7 +593,6 @@ def agreement_server(
                         ),
                         "missing_data_info": missing_info,
                     }
-
                 )
                 ui.notification_remove("run_icc")
         except Exception as e:
@@ -666,7 +662,6 @@ def agreement_server(
             ),
         )
 
-
     @render.data_frame
     def icc_results_table():
         res = icc_result.get()
@@ -702,7 +697,6 @@ def agreement_server(
                 }
             )
         yield correlation.generate_report("ICC Report", elements).encode("utf-8")
-
 
     # ==================== VALIDATION LOGIC ====================
     @render.ui

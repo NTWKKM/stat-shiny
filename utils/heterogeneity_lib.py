@@ -14,7 +14,7 @@ def calculate_heterogeneity(effect_sizes: list[float], variances: list[float]) -
         dict containing Q, df, p_value, and I_squared
     """
     if not effect_sizes or not variances:
-         return {"Q": 0.0, "df": 0, "p_value": 1.0, "I_squared": 0.0, "tau_squared": 0.0}
+        return {"Q": 0.0, "df": 0, "p_value": 1.0, "I_squared": 0.0, "tau_squared": 0.0}
 
     k = len(effect_sizes)
     if k < 2:

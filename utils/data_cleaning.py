@@ -950,7 +950,6 @@ def check_missing_data_impact(
 # Convenience functions for common operations
 
 
-
 def prepare_data_for_analysis(
     df: pd.DataFrame,
     required_cols: list[str],
@@ -958,18 +957,18 @@ def prepare_data_for_analysis(
     handle_missing: str = "complete_case",
     var_meta: dict[str, Any] | None = None,
     missing_codes: list[Any] | dict[str, Any] | None = None,
-    return_info: bool = True
+    return_info: bool = True,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Standardized data preparation for statistical analysis.
-    
+
     Performs:
     1. Validation of required columns
     2. Missing value normalization (custom codes -> NaN)
     3. Numeric conversion for specified columns
     4. Missing data handling (default: listwise deletion)
     5. Generation of missing data report
-    
+
     Parameters:
         df: Input DataFrame
         required_cols: List of column names required for analysis
@@ -978,7 +977,7 @@ def prepare_data_for_analysis(
         var_meta: Variable metadata
         missing_codes: Global or per-column missing value codes
         return_info: Whether to return missing data info dict
-        
+
     Returns:
         tuple: (Cleaned DataFrame, Missing Data Info Dictionary)
     """
@@ -987,34 +986,36 @@ def prepare_data_for_analysis(
         missing_cols = set(required_cols) - set(df.columns)
         if missing_cols:
             raise DataValidationError(f"Missing required columns: {missing_cols}")
-            
+
         df_subset = df[required_cols].copy()
-        
+
         # 2. Missing Value Normalization (User Codes -> NaN)
         if var_meta or missing_codes:
             df_subset = apply_missing_values_to_df(df_subset, var_meta, missing_codes)
-            
+
         original_rows = len(df_subset)
-        
+
         # 3. Numeric Conversion
         if numeric_cols:
             for col in numeric_cols:
                 if col in df_subset.columns:
                     df_subset[col] = clean_numeric_vector(df_subset[col])
-        
+
         # 4. Analyze Missing Data (Before Deletion)
         missing_summary = []
         for col in df_subset.columns:
             n_missing = df_subset[col].isna().sum()
             if n_missing > 0:
-                missing_summary.append({
-                    "Variable": col,
-                    "Type": str(df_subset[col].dtype),
-                    "N_Valid": int(original_rows - n_missing),
-                    "N_Missing": int(n_missing),
-                    "Pct_Missing": f"{(n_missing/original_rows)*100:.1f}%"
-                })
-        
+                missing_summary.append(
+                    {
+                        "Variable": col,
+                        "Type": str(df_subset[col].dtype),
+                        "N_Valid": int(original_rows - n_missing),
+                        "N_Missing": int(n_missing),
+                        "Pct_Missing": f"{(n_missing / original_rows) * 100:.1f}%",
+                    }
+                )
+
         # 5. Handle Missing Data
         if handle_missing in ["complete_case", "complete-case"]:
             df_clean = df_subset.dropna()
@@ -1022,20 +1023,24 @@ def prepare_data_for_analysis(
         else:
             df_clean = df_subset
             rows_excluded = 0
-            
+
         if df_clean.empty:
-            raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
-            
+            raise DataValidationError(
+                "No valid data remaining after cleaning (all rows contained missing values)"
+            )
+
         info = {
             "strategy": handle_missing,
             "rows_original": original_rows,
             "rows_analyzed": len(df_clean),
             "rows_excluded": rows_excluded,
             "analyzed_indices": df_clean.index.tolist(),
-            "summary_before": missing_summary
+            "summary_before": missing_summary,
         }
-        
-        logger.info(f"Data prepared: {original_rows} -> {len(df_clean)} rows (excluded {rows_excluded})")
+
+        logger.info(
+            f"Data prepared: {original_rows} -> {len(df_clean)} rows (excluded {rows_excluded})"
+        )
         return df_clean, info
 
     except Exception as e:

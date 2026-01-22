@@ -1,13 +1,16 @@
 from __future__ import annotations
+
 from typing import Any
+
 import pandas as pd
-import numpy as np
 from statsmodels.api import OLS, add_constant
+
 from config import CONFIG
-from utils.data_cleaning import prepare_data_for_analysis
 from logger import get_logger
+from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
+
 
 def analyze_mediation(
     data: pd.DataFrame,
@@ -23,11 +26,11 @@ def analyze_mediation(
     try:
         if data is None or data.empty:
             return {"error": "Input data is empty or None."}
-            
+
         required_cols = [outcome, treatment, mediator]
         if confounders:
             required_cols.extend(confounders)
-            
+
         # Clean col list (remove duplicates)
         required_cols = list(dict.fromkeys(required_cols))
 
@@ -43,7 +46,7 @@ def analyze_mediation(
                 numeric_cols=required_cols,
                 var_meta=var_meta,
                 missing_codes=missing_codes,
-                handle_missing=strategy
+                handle_missing=strategy,
             )
             missing_info["strategy"] = strategy
         except Exception as e:
@@ -99,4 +102,3 @@ def analyze_mediation(
     except Exception as e:
         logger.exception("Mediation analysis failed")
         return {"error": f"Mediation analysis failed: {str(e)}"}
-

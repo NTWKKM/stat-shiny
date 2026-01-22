@@ -2769,7 +2769,7 @@ def core_regression_server(
 
         # Exclude rows with missing data in selected columns
         cols_needed = [outcome, treatment, time_var, subject] + covariates
-        df_clean = d.dropna(subset=cols_needed).copy()
+        d.dropna(subset=cols_needed)
 
         # Start Loading State
         repeated_is_running.set(True)
@@ -2781,7 +2781,7 @@ def core_regression_server(
             try:
                 if model_type == "gee":
                     results, missing_info = run_gee(
-                        d, # Pass original d, cleaning handled inside lib
+                        d,  # Pass original d, cleaning handled inside lib
                         outcome_col=outcome,
                         treatment_col=treatment,
                         time_col=time_var,
@@ -2789,7 +2789,7 @@ def core_regression_server(
                         covariates=covariates,
                         cov_struct=input.rep_cov_struct(),
                         family_str=input.rep_family(),
-                        var_meta=var_meta.get() or {}
+                        var_meta=var_meta.get() or {},
                     )
                 else:  # lmm
                     results, missing_info = run_lmm(
@@ -2800,13 +2800,16 @@ def core_regression_server(
                         subject_col=subject,
                         covariates=covariates,
                         random_slope=input.rep_random_slope(),
-                        var_meta=var_meta.get() or {}
+                        var_meta=var_meta.get() or {},
                     )
 
                 # Use the indices from missing_info to get the cleaned df for plotting
                 # (since the original code used df_clean for create_trajectory_plot)
-                df_clean_subset = d.loc[missing_info.get("analyzed_indices", [])] if "analyzed_indices" in missing_info else d
-
+                df_clean_subset = (
+                    d.loc[missing_info.get("analyzed_indices", [])]
+                    if "analyzed_indices" in missing_info
+                    else d
+                )
 
                 # Check for error string
                 if isinstance(results, str):
@@ -2828,10 +2831,10 @@ def core_regression_server(
 
                 repeated_res.set(
                     {
-                        "results": df_res, 
-                        "plot": fig, 
+                        "results": df_res,
+                        "plot": fig,
                         "model_type": model_type,
-                        "missing_data_info": missing_info
+                        "missing_data_info": missing_info,
                     }
                 )
 
@@ -2876,7 +2879,9 @@ def core_regression_server(
                                 ui.output_data_frame("out_rep_results"),
                             ),
                         ),
-                        ui.nav_panel("📈 Trajectory Plot", ui.output_ui("out_rep_plot")),
+                        ui.nav_panel(
+                            "📈 Trajectory Plot", ui.output_ui("out_rep_plot")
+                        ),
                     ),
                     ui.hr(),
                     ui.HTML(

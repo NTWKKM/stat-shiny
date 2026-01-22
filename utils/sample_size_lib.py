@@ -49,7 +49,7 @@ def calculate_power_means(
         sd_pooled = np.sqrt(((n1 - 1) * sd1**2 + (n2 - 1) * sd2**2) / (n1 + n2 - 2))
 
         if sd_pooled == 0:
-             return np.nan
+            return np.nan
 
         effect_size = abs(mean1 - mean2) / sd_pooled
         ratio = n2 / n1
@@ -91,12 +91,12 @@ def calculate_sample_size_means(
         sd_pooled = np.sqrt((sd1**2 + sd2**2) / 2)
 
         if sd_pooled == 0:
-             return {"error": "Pooled standard deviation is zero."}
+            return {"error": "Pooled standard deviation is zero."}
 
         effect_size = abs(mean1 - mean2) / sd_pooled
-        
+
         if effect_size == 0:
-             return {"error": "Effect size is zero (means are equal)."}
+            return {"error": "Effect size is zero (means are equal)."}
 
         analysis = smp.TTestIndPower()
         n1 = analysis.solve_power(
@@ -107,7 +107,11 @@ def calculate_sample_size_means(
             alternative=alternative,
         )
         n2 = n1 * ratio
-        return {"n1": np.ceil(n1), "n2": np.ceil(n2), "total": np.ceil(n1) + np.ceil(n2)}
+        return {
+            "n1": np.ceil(n1),
+            "n2": np.ceil(n2),
+            "total": np.ceil(n1) + np.ceil(n2),
+        }
     except Exception as e:
         return {"error": f"Calculation failed: {e}"}
 
@@ -126,11 +130,11 @@ def calculate_power_proportions(
     try:
         if n2 is None:
             n2 = n1
-        
+
         if n1 <= 0 or n2 <= 0:
             return np.nan
         if not (0 <= p1 <= 1) or not (0 <= p2 <= 1):
-             return np.nan
+            return np.nan
 
         ratio = n2 / n1
 
@@ -165,12 +169,12 @@ def calculate_sample_size_proportions(
     """
     try:
         if not (0 <= p1 <= 1) or not (0 <= p2 <= 1):
-             return {"error": "Proportions must be between 0 and 1."}
-        
+            return {"error": "Proportions must be between 0 and 1."}
+
         effect_size = smprop.proportion_effectsize(p1, p2)
-        
+
         if effect_size == 0:
-             return {"error": "Effect size is zero (proportions are equal)."}
+            return {"error": "Effect size is zero (proportions are equal)."}
 
         analysis = smp.NormalIndPower()
         n1 = analysis.solve_power(
@@ -181,7 +185,11 @@ def calculate_sample_size_proportions(
             alternative=alternative,
         )
         n2 = n1 * ratio
-        return {"n1": np.ceil(n1), "n2": np.ceil(n2), "total": np.ceil(n1) + np.ceil(n2)}
+        return {
+            "n1": np.ceil(n1),
+            "n2": np.ceil(n2),
+            "total": np.ceil(n1) + np.ceil(n2),
+        }
     except Exception as e:
         return {"error": f"Calculation failed: {e}"}
 
@@ -218,7 +226,7 @@ def calculate_sample_size_survival(
         if hr == 1:
             return {"error": "Hazard Ratio cannot be 1 (No difference)."}
         if ratio <= 0:
-             return {"error": "Ratio must be positive."}
+            return {"error": "Ratio must be positive."}
 
         z_alpha = stats.norm.ppf(1 - alpha / 2)  # two-sided
         z_beta = stats.norm.ppf(power)
@@ -247,17 +255,21 @@ def calculate_sample_size_correlation(
     # Approx N = 3 + ((z_alpha + z_beta) / (0.5 * ln((1+r)/(1-r))))^2
     try:
         if abs(r) >= 1:
-             return {"error": "Correlation coefficient must be between -1 and 1 (exclusive)."}
+            return {
+                "error": "Correlation coefficient must be between -1 and 1 (exclusive)."
+            }
 
         z_alpha = stats.norm.ppf(1 - alpha / 2)
         z_beta = stats.norm.ppf(power)
 
         c = 0.5 * np.log((1 + r) / (1 - r))
         if c == 0:
-             return {"error": "Correlation coefficient cannot be zero."}
-             
+            return {"error": "Correlation coefficient cannot be zero."}
+
         n = 3 + ((z_alpha + z_beta) / c) ** 2
-        return {"total": np.ceil(n)} # Returning dict to be consistent for 'sample size' calculators
+        return {
+            "total": np.ceil(n)
+        }  # Returning dict to be consistent for 'sample size' calculators
     except Exception as e:
         return {"error": f"Calculation failed: {e}"}
 
@@ -282,7 +294,7 @@ def calculate_power_survival(
         if hr <= 0 or hr == 1:
             return np.nan
         if ratio <= 0:
-             return np.nan
+            return np.nan
 
         z_alpha = stats.norm.ppf(1 - alpha / 2)
 
@@ -305,7 +317,7 @@ def calculate_power_correlation(
     try:
         z_alpha = stats.norm.ppf(1 - alpha / 2)
         if abs(r) >= 1:
-             return np.nan
+            return np.nan
         c = 0.5 * np.log((1 + r) / (1 - r))
 
         # z_beta = C * sqrt(N - 3) - z_alpha

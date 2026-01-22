@@ -25,8 +25,6 @@ from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
-    get_missing_summary_df,
-    handle_missing_for_analysis,
     prepare_data_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
@@ -94,7 +92,6 @@ def _build_irr_interpretation_section(
         """
 
 
-
 def run_poisson_regression(
     y: pd.Series,
     X: pd.DataFrame,
@@ -137,13 +134,19 @@ def run_poisson_regression(
         if X is None or X.empty:
             # Poisson usually needs at least an intercept
             # But checking empty is good
-             return (None, None, None, "Error: Predictor data is empty", stats_metrics)
+            return (None, None, None, "Error: Predictor data is empty", stats_metrics)
 
         # Ensure numeric types
         try:
-            y = pd.to_numeric(y, errors='raise')
+            y = pd.to_numeric(y, errors="raise")
         except ValueError:
-            return (None, None, None, "Error: Outcome has non-numeric data", stats_metrics)
+            return (
+                None,
+                None,
+                None,
+                "Error: Outcome has non-numeric data",
+                stats_metrics,
+            )
 
         # Check if outcome counts are non-negative
         if (y < 0).any():
@@ -230,14 +233,20 @@ def run_negative_binomial_regression(
 
     try:
         if y is None or y.empty:
-             return (None, None, None, "Error: Outcome data is empty", stats_metrics)
+            return (None, None, None, "Error: Outcome data is empty", stats_metrics)
         if X is None or X.empty:
-             return (None, None, None, "Error: Predictor data is empty", stats_metrics)
+            return (None, None, None, "Error: Predictor data is empty", stats_metrics)
 
         try:
-            y = pd.to_numeric(y, errors='raise')
+            y = pd.to_numeric(y, errors="raise")
         except ValueError:
-            return (None, None, None, "Error: Outcome has non-numeric data", stats_metrics)
+            return (
+                None,
+                None,
+                None,
+                "Error: Outcome has non-numeric data",
+                stats_metrics,
+            )
 
         X_const = sm.add_constant(X, has_constant="add")
 
@@ -452,7 +461,7 @@ def analyze_poisson_outcome(
         strategy = missing_cfg.get("strategy", "complete-case")
         missing_codes = missing_cfg.get("user_defined_values", [])
 
-        # We need to preserve all columns for the univariate analysis loop, 
+        # We need to preserve all columns for the univariate analysis loop,
         # so we pass df.columns as required.
         # Outcome and offset must be numeric.
         numeric_cols = [outcome_name]
@@ -467,15 +476,22 @@ def analyze_poisson_outcome(
                 numeric_cols=numeric_cols,
                 var_meta=var_meta,
                 missing_codes=missing_codes,
-                handle_missing=strategy
+                handle_missing=strategy,
             )
         except Exception as e:
-             logger.error(f"Data preparation failed: {e}")
-             return f"<div class='alert'>⚠️ Data preparation failed: {e}</div>", {}, {}, {}
+            logger.error(f"Data preparation failed: {e}")
+            return (
+                f"<div class='alert'>⚠️ Data preparation failed: {e}</div>",
+                {},
+                {},
+                {},
+            )
 
-        missing_data_info["strategy"] = strategy # Ensure strategy name matches
+        missing_data_info["strategy"] = strategy  # Ensure strategy name matches
         df = df_clean
-        logger.info("Missing data: %s rows excluded", missing_data_info["rows_excluded"])
+        logger.info(
+            "Missing data: %s rows excluded", missing_data_info["rows_excluded"]
+        )
 
         if outcome_name not in df.columns:
             msg = f"Outcome '{outcome_name}' not found"

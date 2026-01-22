@@ -1,12 +1,13 @@
 from typing import Any
+
 import numpy as np
 import pandas as pd
-from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from config import CONFIG
-from utils.data_cleaning import prepare_data_for_analysis
 from logger import get_logger
+from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
 
@@ -153,6 +154,6 @@ def condition_index(
 
         return pd.DataFrame(results)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Condition Index calculation failed")
         return pd.DataFrame()

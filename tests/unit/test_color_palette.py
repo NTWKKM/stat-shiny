@@ -8,6 +8,7 @@ Verifies:
 
 import sys
 from pathlib import Path
+
 import pytest
 
 # ============================================================================
@@ -41,14 +42,18 @@ def test_styling_files_exist():
     """Verify that both styling system files exist."""
     # แก้ไข path: ใช้ PROJECT_ROOT ที่ถูกต้องแทนการคำนวณใหม่
     base_path = PROJECT_ROOT / "tabs"
-    
+
     # Debug info ในกรณีที่ test fail
     if not (base_path / "_common.py").exists():
         print(f"\nDEBUG: Looking for _common.py at {base_path / '_common.py'}")
         print(f"DEBUG: Current working dir: {Path.cwd()}")
-        
-    assert (base_path / "_common.py").exists(), f"tabs/_common.py is missing at {base_path}"
-    assert (base_path / "_styling.py").exists(), f"tabs/_styling.py is missing at {base_path}"
+
+    assert (base_path / "_common.py").exists(), (
+        f"tabs/_common.py is missing at {base_path}"
+    )
+    assert (base_path / "_styling.py").exists(), (
+        f"tabs/_styling.py is missing at {base_path}"
+    )
 
 
 def test_essential_ui_colors():

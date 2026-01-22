@@ -512,14 +512,21 @@ def analyze_outcome(
             "Missing data: %s rows excluded (%.1f%%)",
             missing_data_info["rows_excluded"],
             (
-                missing_data_info["rows_excluded"] / missing_data_info["rows_original"] * 100
+                missing_data_info["rows_excluded"]
+                / missing_data_info["rows_original"]
+                * 100
                 if missing_data_info["rows_original"] > 0
                 else 0
             ),
         )
     except Exception as e:
         logger.error(f"Data preparation for logistic analysis failed: {e}")
-        return f"<div class='alert alert-danger'><b>Data Preparation Failed:</b> {e}</div>", {}, {}, None
+        return (
+            f"<div class='alert alert-danger'><b>Data Preparation Failed:</b> {e}</div>",
+            {},
+            {},
+            None,
+        )
 
     if outcome_name not in df.columns:
         msg = f"Outcome '{outcome_name}' not found"
@@ -579,7 +586,9 @@ def analyze_outcome(
     def count_val(series: pd.Series, v_str: str) -> int:
         return (
             series.astype(str).apply(
-                lambda x: str(x).replace(".0", "") if str(x).replace(".", "", 1).isdigit() else str(x)
+                lambda x: str(x).replace(".0", "")
+                if str(x).replace(".", "", 1).isdigit()
+                else str(x)
             )
             == v_str
         ).sum()
@@ -1080,7 +1089,7 @@ def analyze_outcome(
         except (ValueError, np.linalg.LinAlgError) as e:
             logger.warning("VIF calculation failed: %s", e)
         except TypeError as e:
-             logger.warning("VIF calculation failed due to type error: %s", e)
+            logger.warning("VIF calculation failed due to type error: %s", e)
 
     # Build HTML
     html_rows = []
@@ -1229,11 +1238,11 @@ def analyze_outcome(
 
     css_content = load_static_css()
     if not css_content:
-        css_content = f"""
-        body {{ font-family: sans-serif; padding: 20px; }}
-        .table-container {{ background: #fff; border: 1px solid #ddd; }}
-        table {{ width: 100%; border-collapse: collapse; }}
-        th, td {{ padding: 8px; border-bottom: 1px solid #ddd; }}
+        css_content = """
+        body { font-family: sans-serif; padding: 20px; }
+        .table-container { background: #fff; border: 1px solid #ddd; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; border-bottom: 1px solid #ddd; }
         """
 
     css_styles = f"<style>{css_content}</style>"

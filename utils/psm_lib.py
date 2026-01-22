@@ -1,12 +1,14 @@
+from typing import Any
+
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import statsmodels.api as sm
 from scipy.spatial.distance import cdist
-import plotly.graph_objects as go
-from typing import Any
+
 from config import CONFIG
-from utils.data_cleaning import prepare_data_for_analysis
 from logger import get_logger
+from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
 

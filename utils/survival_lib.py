@@ -40,7 +40,6 @@ from lifelines.utils import median_survival_times
 from scipy import stats as scipy_stats
 from shiny import ui
 
-from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.advanced_stats_lib import apply_mcc, calculate_vif
@@ -250,8 +249,8 @@ def calculate_survival_at_times(
         data = df.dropna(subset=[duration_col, event_col])
         if group_col:
             if group_col not in data.columns:
-                 logger.error(f"Missing group column: {group_col}")
-                 return pd.DataFrame(), pd.DataFrame()
+                logger.error(f"Missing group column: {group_col}")
+                return pd.DataFrame(), pd.DataFrame()
             data = data.dropna(subset=[group_col])
             groups = _sort_groups_vectorized(data[group_col].unique())
         else:
@@ -374,7 +373,10 @@ def calculate_survival_at_times(
                     try:
                         # Check if t is before the first event
                         if t < ci_df.index.min():
-                            lower, upper = 1.0, 1.0  # Before study starts, everyone alive
+                            lower, upper = (
+                                1.0,
+                                1.0,
+                            )  # Before study starts, everyone alive
                         else:
                             # Ensure sorted index for padding
                             if not ci_df.index.is_monotonic_increasing:
@@ -397,7 +399,10 @@ def calculate_survival_at_times(
                     except Exception as e:
                         # CHANGED: Log detailed exception for inner block failure
                         logger.debug(
-                            "CI indexing failed for group %s at time %s: %s", label, t, e
+                            "CI indexing failed for group %s at time %s: %s",
+                            label,
+                            t,
+                            e,
                         )
                         lower, upper = np.nan, np.nan
 
@@ -523,7 +528,9 @@ def calculate_survival_at_times(
                                     "Difference (S1-S2)": (
                                         diff if not pd.isna(diff) else None
                                     ),
-                                    "Z-statistic": z_stat if not pd.isna(z_stat) else None,
+                                    "Z-statistic": z_stat
+                                    if not pd.isna(z_stat)
+                                    else None,
                                     "P-value": p_val if not pd.isna(p_val) else None,
                                 }
                             )
@@ -678,7 +685,7 @@ def fit_km_logrank(
     # OPTIMIZED: Fit KM curves and perform Log-rank test.
     # ENHANCED: Includes Chi-squared and Degrees of Freedom.
     # INTEGRATED: Missing data handling via unified pipeline.
-    
+
     # 1. Prepare Columns
     required_cols = [duration_col, event_col]
     if group_col:
@@ -693,7 +700,7 @@ def fit_km_logrank(
             required_cols=required_cols,
             numeric_cols=numeric_cols,
             var_meta=var_meta,
-            handle_missing="complete_case"
+            handle_missing="complete_case",
         )
     except Exception as e:
         return go.Figure(), pd.DataFrame(), {"error": str(e)}
@@ -808,7 +815,7 @@ def fit_nelson_aalen(
 ) -> tuple[go.Figure, pd.DataFrame, dict[str, Any] | None]:
     # OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
     # INTEGRATED: Missing data handling via unified pipeline.
-    
+
     # 1. Prepare Columns
     required_cols = [duration_col, event_col]
     if group_col:
@@ -823,7 +830,7 @@ def fit_nelson_aalen(
             required_cols=required_cols,
             numeric_cols=numeric_cols,
             var_meta=var_meta,
-            handle_missing="complete_case"
+            handle_missing="complete_case",
         )
     except Exception as e:
         # Return empty/error structure
@@ -900,7 +907,7 @@ def fit_nelson_aalen(
         template="plotly_white",
         height=500,
     )
-    
+
     progress_end(id="fit_na")
     return fig, pd.DataFrame(stats_list), missing_info
 
@@ -926,14 +933,14 @@ def fit_cox_ph(
     # IMPROVED: Better handling of boolean types, scalar extraction, and robust stat retrieval.
     # INTEGRATED: Missing data handling via unified pipeline.
     # NEW: Firth-penalized Cox PH support for small samples / rare events / monotone likelihood.
-    
+
     # 1. Prepare Columns
     required_cols = [duration_col, event_col, *covariate_cols]
-    
+
     # Normalize numeric columns (duration and event must be numeric)
     # Covariates might be categorical, so we don't force numeric conversion on them yet
     numeric_cols = [duration_col, event_col]
-    
+
     # 2. Unified Data Preparation
     try:
         data, missing_info = prepare_data_for_analysis(
@@ -941,7 +948,7 @@ def fit_cox_ph(
             required_cols=required_cols,
             numeric_cols=numeric_cols,
             var_meta=var_meta,
-            handle_missing="complete_case"
+            handle_missing="complete_case",
         )
     except Exception as e:
         logger.error(f"Data preparation for Cox PH failed: {e}")
@@ -1372,7 +1379,6 @@ def check_cph_assumptions(
 
 
 def create_forest_plot_cox(res_df: pd.DataFrame) -> go.Figure:
-
     if res_df is None or res_df.empty:
         logger.error("No Cox regression results")
         raise ValueError("No Cox regression results available for forest plot.")
@@ -1396,7 +1402,6 @@ def create_forest_plot_cox(res_df: pd.DataFrame) -> go.Figure:
 
 
 def generate_forest_plot_cox_html(res_df: pd.DataFrame) -> str:
-
     if res_df is None or res_df.empty:
         return "<p>No Cox regression results available for forest plot.</p>"
 
@@ -1409,15 +1414,29 @@ def generate_forest_plot_cox_html(res_df: pd.DataFrame) -> str:
 
     primary = COLORS.get("primary", "#218084")
     primary_dark = COLORS.get("primary_dark", "#1f8085")
-    
-    interp_html = "<div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid " + primary + "; border-radius:4px;'>\\n"
-    interp_html += "    <h4 style='color:" + primary_dark + "; margin-top:0;'>Interpretation Guide</h4>\\n"
+
+    interp_html = (
+        "<div style='margin-top:20px; padding:15px; background:#f8f9fa; border-left:4px solid "
+        + primary
+        + "; border-radius:4px;'>\\n"
+    )
+    interp_html += (
+        "    <h4 style='color:"
+        + primary_dark
+        + "; margin-top:0;'>Interpretation Guide</h4>\\n"
+    )
     interp_html += "    <ul style='margin:10px 0; padding-left:20px;'>\\n"
     interp_html += "        <li><b>HR > 1:</b> Increased hazard (Risk Factor)</li>\\n"
-    interp_html += "        <li><b>HR < 1:</b> Decreased hazard (Protective Factor)</li>\\n"
+    interp_html += (
+        "        <li><b>HR < 1:</b> Decreased hazard (Protective Factor)</li>\\n"
+    )
     interp_html += "        <li><b>HR = 1:</b> No effect (null)</li>\\n"
-    interp_html += "        <li><b>CI crosses 1.0:</b> Not statistically significant</li>\\n"
-    interp_html += "        <li><b>CI does not cross 1.0:</b> Statistically significant</li>\\n"
+    interp_html += (
+        "        <li><b>CI crosses 1.0:</b> Not statistically significant</li>\\n"
+    )
+    interp_html += (
+        "        <li><b>CI does not cross 1.0:</b> Statistically significant</li>\\n"
+    )
     interp_html += "        <li><b>P < 0.05:</b> Statistically significant</li>\\n"
     interp_html += "    </ul>\\n"
     interp_html += "</div>"
@@ -1440,7 +1459,6 @@ def fit_km_landmark(
     str | None,
     dict[str, Any] | None,
 ]:
-
     # Define columns to check
     cols_to_check = [duration_col, event_col]
     if group_col:
@@ -1609,13 +1627,17 @@ def generate_report_survival(
     css_template = "<style>body {{ font-family: sans-serif; margin: 20px; background-color: #f4f6f8; color: {text_color}; }} h1 {{ color: {primary_dark}; border-bottom: 3px solid {primary_color}; }} table {{ border-collapse: collapse; width: 100%; }} th, td {{ border: 1px solid #ddd; padding: 12px; }} th {{ background-color: {primary_dark}; color: white; }} .report-footer {{ text-align: center; color: #666; margin-top: 40px; }} .sig-p {{ font-weight: bold; color: #d63384; }}</style>"
 
     css_style = css_template.format(
-        text_color=text_color,
-        primary_dark=primary_dark,
-        primary_color=primary_color
+        text_color=text_color, primary_dark=primary_dark, primary_color=primary_color
     )
 
     safe_title = _html.escape(str(title))
-    html_doc = "<!DOCTYPE html><html><head><meta charset='utf-8'>" + css_style + "</head><body><h1>" + safe_title + "</h1>"
+    html_doc = (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        + css_style
+        + "</head><body><h1>"
+        + safe_title
+        + "</h1>"
+    )
 
     for el in elements:
         t = el.get("type")
@@ -1633,11 +1655,15 @@ def generate_report_survival(
                     new_p_val_col = []
                     for val, pv in zip(d_styled["P-value"], p_vals):
                         if not pd.isna(pv) and pv < 0.05:
-                            new_p_val_col.append('<span class="sig-p">' + str(val) + '</span>')
+                            new_p_val_col.append(
+                                '<span class="sig-p">' + str(val) + "</span>"
+                            )
                         else:
                             new_p_val_col.append(str(val))
                     d_styled["P-value"] = new_p_val_col
-                html_doc += d_styled.to_html(classes="table table-striped", border=0, escape=False)
+                html_doc += d_styled.to_html(
+                    classes="table table-striped", border=0, escape=False
+                )
             else:
                 html_doc += str(d)
         elif t == "plot":
@@ -1647,12 +1673,16 @@ def generate_report_survival(
                 buf = io.BytesIO()
                 d.savefig(buf, format="png", bbox_inches="tight")
                 b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-                html_doc += '<img src="data:image/png;base64,' + b64 + '" style="max-width:100%"/>'
+                html_doc += (
+                    '<img src="data:image/png;base64,'
+                    + b64
+                    + '" style="max-width:100%"/>'
+                )
         elif t == "html":
             html_doc += str(d)
 
     html_doc += "<div class='report-footer'>\\n"
-    html_doc += "    (c) 2026 <a href=\"https://github.com/NTWKKM/\" target=\"_blank\">NTWKKM</a> | Powered by stat-shiny\\n"
+    html_doc += '    (c) 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny\\n'
     html_doc += "    </div>"
 
     if missing_data_info:

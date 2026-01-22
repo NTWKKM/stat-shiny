@@ -8,14 +8,18 @@ app_port: 7860
 pinned: false
 ---
 
-<!-- AI-READABLE-REQUIREMENTS-START -->
-> **⚠️ IMPORTANT FOR AI AGENTS**: This project requires **Python 3.14+** for optimal performance and compatibility (nested f-strings with list comprehensions). Python versions below 3.12 will cause SyntaxErrors.
+<!-- AI-AGENT-GUIDE-START -->
+> [!IMPORTANT]
+> **FOR AI AGENTS & BOTS (e.g., Antigravity)**:
 >
-> | Requirement | Version   |
-> | ----------- | --------- |
+> 1. **Architecture First**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the Styling System and Data Processing Pipeline before editing.
+> 2. **Environment**: This project requires **Python 3.14+**. Versions < 3.12 will cause SyntaxErrors.
+>
+> | Requirement | Version    |
+> | ----------- | ---------- |
 > | Python      | **≥ 3.14** |
-> | pip         | Latest    |
-<!-- AI-READABLE-REQUIREMENTS-END -->
+> | pip         | Latest     |
+<!-- AI-AGENT-GUIDE-END -->
 
 [Hugging Face Space](https://huggingface.co/spaces/ntwkkm/shinystat)
 
@@ -195,6 +199,42 @@ This application is a complete statistical workbench organized into modular tabs
 - **Customization**: NEJM-style p-value formatting, theme switching (Light/Dark), and plot sizing.
 - **Logging**: Configurable logging levels and file output.
 - **Performance**: Caching and multi-threading options for large datasets.
+
+## 🏗️ System Architecture
+
+The application is built with a modular architecture that separates styling, data processing, and statistical logic to ensure scalability and consistency.
+
+### 🎨 UI Styling System
+
+The application uses a centralized styling system to ensures visual consistency across all modules.
+
+| File | Role | Description |
+| :--- | :--- | :--- |
+| `tabs/_common.py` | **Source of Truth** | Defines the central `get_color_palette()` and common UI constants. |
+| `tabs/_styling.py` | **CSS Generator** | Main injector that generates CSS using the palette from `_common.py`. |
+| `static/styles.css` | **Compiled CSS** | Auto-generated output from `_styling.py`. Used for performance and deployment. |
+| `utils/update_css.py` | **Sync Utility** | Script to update `static/styles.css` whenever `_styling.py` changes. |
+| `static/js/custom_handlers.js` | **JS Hooks** | Shiny custom message handlers for dynamic client-side styling. |
+
+**Visual Consistency & Formatting:**
+
+- **Plotly Integration**: `utils/plotly_html_renderer.py` and `forest_plot_lib.py` sync interactive charts with the central palette and "Inter" typography.
+- **Reporting Labels**: `utils/formatting.py` standardizes P-value styling and badge generation across all statistical outputs.
+
+### 🔄 Data Processing & Statistical Pipeline
+
+Every statistical analysis follows a rigorous, standardized data flow to ensure reliable results:
+
+1. **Ingestion & Quality Check (`tab_data.py`)**: Immediate identification of missingness and data types upon upload or example loading.
+2. **Configuration**: Users interactively cast variable types and choose missing value strategies (e.g., complete-case).
+3. **Central Preparation (`utils/data_cleaning.py`)**: Before analysis, data is passed through `prepare_data_for_analysis()` which handles exclusion logic and logging.
+4. **Integrated Reporting (`utils/formatting.py`)**: Missing data statistics are automatically analyzed and included in the final report for every module.
+
+### 🧪 Testing & Quality Assurance
+
+- **Automated CI**: [ui-styling.yml](.github/workflows/ui-styling.yml) runs on every push to verify:
+  - **Palette Integrity**: Colors in `_common.py` match branding.
+  - **System Sync**: Cross-file consistency between Python, CSS, JS, and Plotly layers via `tests/unit/test_ui_ux_styles.py`.
 
 ## 🛠️ Installation & Usage
 

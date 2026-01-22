@@ -48,7 +48,6 @@ from utils.data_cleaning import prepare_data_for_analysis
 logger = get_logger(__name__)
 
 
-
 # ==============================================================================
 # DATA TRANSFORMATION FUNCTIONS
 # ==============================================================================
@@ -358,6 +357,7 @@ def transform_wide_to_long(
 # MODEL FITTING FUNCTIONS
 # ==============================================================================
 
+
 def fit_tvc_cox(
     df: pd.DataFrame,
     start_col: str,
@@ -415,9 +415,8 @@ def fit_tvc_cox(
         ...     print(results_df)
     """
 
-
     if df is None or df.empty:
-         return None, None, None, "Empty dataset provided", {}, {}
+        return None, None, None, "Empty dataset provided", {}, {}
 
     try:
         # --- 1. Column Resolution & Validation ---
@@ -445,7 +444,12 @@ def fit_tvc_cox(
 
         # --- 2. Data Cleaning with Unified Pipeline ---
         id_col = df.columns[0]  # Use first column as ID (standard for TVC long format)
-        required_cols = [id_col, real_start_col, real_stop_col, event_col] + all_covariates
+        required_cols = [
+            id_col,
+            real_start_col,
+            real_stop_col,
+            event_col,
+        ] + all_covariates
         required_cols = list(dict.fromkeys(required_cols))
 
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -456,10 +460,11 @@ def fit_tvc_cox(
             clean_data, missing_info = prepare_data_for_analysis(
                 df,
                 required_cols=required_cols,
-                numeric_cols=[real_start_col, real_stop_col, event_col] + all_covariates,
+                numeric_cols=[real_start_col, real_stop_col, event_col]
+                + all_covariates,
                 var_meta=var_meta,
                 missing_codes=missing_codes,
-                handle_missing=strategy
+                handle_missing=strategy,
             )
             missing_info["strategy"] = strategy
         except Exception as e:
@@ -474,7 +479,6 @@ def fit_tvc_cox(
                 {},
                 missing_info,
             )
-
 
         # DEBUG LOGGING
         logger.info(f"DEBUG: start_col arg = '{start_col}'")
