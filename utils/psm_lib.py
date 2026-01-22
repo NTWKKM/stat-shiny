@@ -56,8 +56,10 @@ def calculate_ps(
         logger.error(f"Propensity score calculation failed: {str(e)}")
         return pd.Series(dtype=float, index=data.index), {"error": f"Calculated failed: {str(e)}"}
 
-# Alias for backward compatibility
-calculate_propensity_score = calculate_ps
+# Wrapper for backward compatibility
+# Replaces simple alias to ensure tuple unpacking works correctly for legacy callers
+def calculate_propensity_score(*args, **kwargs):
+    return calculate_ps(*args, **kwargs)
 
 def perform_matching(
     data: pd.DataFrame,
