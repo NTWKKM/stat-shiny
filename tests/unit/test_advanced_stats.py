@@ -75,7 +75,7 @@ def test_calculate_vif_independent():
         }
     )
 
-    vif_df = calculate_vif(df)
+    vif_df, _ = calculate_vif(df)
     # VIFs should be close to 1 for independent comparisons
     assert not vif_df.empty
     assert all(vif_df["VIF"] < 5)
@@ -95,7 +95,7 @@ def test_calculate_vif_collinear():
         }
     )
 
-    vif_df = calculate_vif(df)
+    vif_df, _ = calculate_vif(df)
     # VIF should be very high
     assert vif_df[vif_df["Variable"] == "x"]["VIF"].iloc[0] > 10
 
@@ -104,7 +104,7 @@ def test_calculate_vif_collinear():
 def test_calculate_vif_constant_handling():
     """Test that VIF adds constant internally if needed."""
     df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [2, 4, 6, 8]})  # Perfect correlation
-    vif_df = calculate_vif(df)
+    vif_df, _ = calculate_vif(df)
     assert not vif_df.empty
     # 'const' should be removed from result if it was added internally
     assert "const" not in vif_df["Variable"].values
@@ -116,7 +116,7 @@ def test_calculate_vif_with_nans():
     df = pd.DataFrame({"a": [1, 2, 3, np.nan], "b": [5, 6, 7, 8], "c": [9, 10, 11, 12]})
     # Should drop row 4
     # Should drop row 4
-    vif_df = calculate_vif(df)
+    vif_df, _ = calculate_vif(df)
     # Note: calculate_vif no longer returns missing_info, so we can't test it directly here
     # unless we inspect the internal logic or if the API changes back.
     # For now, we assume if VIF is calculated, missing data was handled.

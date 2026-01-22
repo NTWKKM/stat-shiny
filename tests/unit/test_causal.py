@@ -43,14 +43,15 @@ def stratified_data():
 
 # --- PSM Tests ---
 def test_calculate_ps(psm_data):
-    ps = calculate_ps(psm_data, "Treatment", ["Age", "BMI"])
+    ps, _ = calculate_ps(psm_data, "Treatment", ["Age", "BMI"])
     assert len(ps) == len(psm_data)
     assert ps.min() >= 0
     assert ps.max() <= 1
 
 
 def test_calculate_ipw(psm_data):
-    psm_data["ps"] = calculate_ps(psm_data, "Treatment", ["Age", "BMI"])
+    ps, _ = calculate_ps(psm_data, "Treatment", ["Age", "BMI"])
+    psm_data["ps"] = ps
     res = calculate_ipw(psm_data, "Treatment", "Outcome", "ps")
 
     assert "ATE" in res
@@ -112,7 +113,7 @@ def test_calculate_ps_separation():
     # This might log warning or return probabilities close to 0/1
     # statsmodels Logit might raise PerfectSeparationError
     try:
-        ps = calculate_ps(df, "Treatment", ["X"])
+        ps, _ = calculate_ps(df, "Treatment", ["X"])
         # If successful, check range
         assert ps.min() >= 0
         assert ps.max() <= 1
