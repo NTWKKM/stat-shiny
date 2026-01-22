@@ -121,16 +121,22 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
     html += "<h4>📊 Missing Data Summary</h4>\n"
 
     # Strategy info
-    strategy = _html.escape(missing_data_info.get("strategy", "Unknown"))
+    strategy_raw = missing_data_info.get("strategy", "Unknown")
+    strategy_badge = get_badge_html(strategy_raw, level="info" if strategy_raw == "complete_case" else "secondary")
+    
     rows_analyzed = missing_data_info.get("rows_analyzed", 0)
     rows_excluded = missing_data_info.get("rows_excluded", 0)
     total_rows = rows_analyzed + rows_excluded
     pct_excluded = (rows_excluded / total_rows * 100) if total_rows > 0 else 0
     pct_included = 100 - pct_excluded
 
-    html += f"<p><strong>Strategy:</strong> {strategy}</p>\n"
-    html += f"<p><strong>Rows Analyzed:</strong> {rows_analyzed:,} / {total_rows:,} ({pct_included:.1f}%)</p>\n"
-    html += f"<p><strong>Rows Excluded:</strong> {rows_excluded:,} ({pct_excluded:.1f}%)</p>\n"
+    html += f"<div style='margin-bottom: 15px; font-size: 0.95em; color: #495057;'>"
+    html += f"  <div style='display:flex; justify-content:space-between; margin-bottom: 8px;'>"
+    html += f"    <span><strong>Strategy:</strong> {strategy_badge}</span>"
+    html += f"    <span><strong>Total Rows:</strong> {total_rows:,}</span>"
+    html += f"  </div>"
+    html += f"  <div>Included: <b>{rows_analyzed:,}</b> ({pct_included:.1f}%) | Excluded: <span style='color: #dc3545;'><b>{rows_excluded:,}</b> ({pct_excluded:.1f}%)</span></div>"
+    html += f"</div>"
 
     # Variables with missing data
     summary = missing_data_info.get("summary_before", [])

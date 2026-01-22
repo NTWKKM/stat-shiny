@@ -29,7 +29,9 @@ from utils.data_cleaning import (
     clean_numeric_vector,
     get_missing_summary_df,
     handle_missing_for_analysis,
+    prepare_data_for_analysis,
 )
+
 from utils.formatting import create_missing_data_report_html
 
 try:
@@ -456,37 +458,34 @@ def generate_table(
     if or_style not in ("all_levels", "simple"):
         raise ValueError("or_style must be 'all_levels' or 'simple'")
 
+    has_group = group_col is not None and group_col != "None"
+
     missing_cfg = CONFIG.get("analysis.missing", {}) or {}
     strategy = missing_cfg.get("strategy", "complete-case")
     missing_codes = missing_cfg.get("user_defined_values", [])
 
     # --- MISSING DATA HANDLING ---
-    # Step 1: Get missing summary BEFORE normalization
-    missing_summary_df = get_missing_summary_df(df, var_meta or {})
-    missing_summary_records = missing_summary_df.to_dict("records")
 
-    # Step 2: Apply user-defined missing value codes → NaN
-    df = apply_missing_values_to_df(df, var_meta or {}, missing_codes)
+    required_cols = (selected_vars + ([group_col] if has_group else [])).copy()
+    required_cols = list(dict.fromkeys(required_cols))
 
-    # Step 3: Handle missing data (complete-case)
-    df_clean, miss_counts = handle_missing_for_analysis(
-        df, var_meta or {}, strategy=strategy, return_counts=True
-    )
+    # Identfy numeric columns to avoid wiping categorical data
+    numeric_cols = [c for c in required_cols if pd.api.types.is_numeric_dtype(df[c])]
 
-    # Track missing data info for report
-    missing_data_info = {
-        "strategy": strategy,
-        "rows_analyzed": miss_counts["final_rows"],
-        "rows_excluded": miss_counts["rows_removed"],
-        "summary_before": missing_summary_records,
-    }
+    try:
+        df, missing_data_info = prepare_data_for_analysis(
+            df,
+            required_cols=required_cols,
+            numeric_cols=numeric_cols, 
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+            handle_missing=strategy
+        )
+        missing_data_info["strategy"] = strategy
+    except Exception as e:
+        logger.error(f"Data preparation failed: {e}")
+        raise ValueError(f"Cannot generate table: data preparation error - {e}") from e
 
-    logger.info(
-        f"Missing data: {miss_counts['rows_removed']} rows excluded ({miss_counts['pct_removed']:.1f}%)"
-    )
-
-    # Use cleaned dataframe
-    df = df_clean
 
     # CRITICAL: Create cleaned copy for statistics ONLY
     # Original df is NEVER modified

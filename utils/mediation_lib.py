@@ -1,8 +1,13 @@
 from __future__ import annotations
-
+from typing import Any
 import pandas as pd
+import numpy as np
 from statsmodels.api import OLS, add_constant
+from config import CONFIG
+from utils.data_cleaning import prepare_data_for_analysis
+from logger import get_logger
 
+logger = get_logger(__name__)
 
 def analyze_mediation(
     data: pd.DataFrame,
@@ -10,44 +15,42 @@ def analyze_mediation(
     treatment: str,
     mediator: str,
     confounders: list[str] | None = None,
-) -> dict[str, float | str]:
+    var_meta: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Perform mediation analysis using the product of coefficients method.
-
-    Models:
-    1. Total Effect: Y ~ X + C
-    2. Mediator Model: M ~ X + C
-    3. Outcome Model: Y ~ X + M + C
-
-    Returns:
-        Dictionary with total_effect, direct_effect, indirect_effect, proportion_mediated
     """
     try:
-        # Validate inputs
         if data is None or data.empty:
             return {"error": "Input data is empty or None."}
             
         required_cols = [outcome, treatment, mediator]
-        missing = [c for c in required_cols if c not in data.columns]
-        if missing:
-            return {"error": f"Missing columns: {', '.join(missing)}"}
-
         if confounders:
-            missing_conf = [c for c in confounders if c not in data.columns]
-            if missing_conf:
-                 return {"error": f"Missing confounder columns: {', '.join(missing_conf)}"}
+            required_cols.extend(confounders)
+            
+        # Clean col list (remove duplicates)
+        required_cols = list(dict.fromkeys(required_cols))
 
-        # Use list for clean selection, ensuring no duplicates
-        cols = [outcome, treatment, mediator]
-        if confounders:
-            cols.extend(confounders)
-        # Remove duplicates if any
-        cols = list(dict.fromkeys(cols))
+        # --- DATA PREPARATION ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
 
-        df_clean = data[cols].dropna()
+        try:
+            df_clean, missing_info = prepare_data_for_analysis(
+                data,
+                required_cols=required_cols,
+                numeric_cols=required_cols,
+                var_meta=var_meta,
+                missing_codes=missing_codes,
+                handle_missing=strategy
+            )
+            missing_info["strategy"] = strategy
+        except Exception as e:
+            return {"error": f"Data preparation failed: {e}"}
 
         if df_clean.empty:
-            return {"error": "No valid data after removing missing values."}
+            return {"error": "No valid data after cleaning."}
 
         # 1. Total Effect (c): Y ~ X + C
         X_total = df_clean[[treatment]]
@@ -78,7 +81,6 @@ def analyze_mediation(
         indirect_effect = a_path * b_path
 
         # Proportion Mediated
-        # Handle division by zero or very small total effect
         if abs(c_total) < 1e-9:
             prop_mediated = 0.0
         else:
@@ -92,6 +94,9 @@ def analyze_mediation(
             "a_path": float(a_path),
             "b_path": float(b_path),
             "n_obs": len(df_clean),
+            "missing_data_info": missing_info,
         }
     except Exception as e:
+        logger.exception("Mediation analysis failed")
         return {"error": f"Mediation analysis failed: {str(e)}"}
+

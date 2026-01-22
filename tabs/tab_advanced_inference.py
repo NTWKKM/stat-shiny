@@ -330,6 +330,7 @@ def advanced_inference_server(
                 confounders=list(input.med_confounders())
                 if input.med_confounders()
                 else None,
+                var_meta=var_meta.get() or {},
             )
             mediation_results.set(results)
             ui.notification_remove("run_med")
@@ -354,8 +355,18 @@ def advanced_inference_server(
 
         if "error" in res:
             return create_error_alert(res["error"])
+            
+        from utils.formatting import create_missing_data_report_html
 
-        return ui.output_data_frame("tbl_mediation")
+        return ui.div(
+            ui.output_data_frame("tbl_mediation"),
+            # Missing Data Report
+            ui.HTML(
+                create_missing_data_report_html(
+                    res.get("missing_data_info", {}), var_meta.get() or {}
+                )
+            ),
+        )
 
     @render.ui
     def out_mediation_status():
@@ -402,8 +413,9 @@ def advanced_inference_server(
             vif_results.set(None)
             ui.notification_show("Calculating VIF...", duration=None, id="run_vif")
 
-            res = calculate_vif(current_df(), predictors)
-            vif_results.set(res)
+            # Pass var_meta to calculate_vif
+            vif_df, missing_info = calculate_vif(current_df(), predictors, var_meta=var_meta.get())
+            vif_results.set({"vif_df": vif_df, "missing_info": missing_info})
 
             ui.notification_remove("run_vif")
         except Exception as e:
@@ -424,11 +436,19 @@ def advanced_inference_server(
                 "Select predictors to check for multicollinearity.", icon="🔬"
             )
 
-        if "error" in res:
+        if isinstance(res, dict) and "error" in res:
             return create_error_alert(res["error"])
+            
+        from utils.formatting import create_missing_data_report_html
 
         return ui.div(
             ui.output_data_frame("tbl_vif"),
+            # Missing Data Report
+            ui.HTML(
+                create_missing_data_report_html(
+                    res.get("missing_info", {}), var_meta.get() or {}
+                )
+            ),
             ui.h5("Correlation Heatmap", class_="mt-4"),
             ui.output_ui("plot_corr_heatmap"),
         )
@@ -437,7 +457,7 @@ def advanced_inference_server(
     def tbl_vif():
         res = vif_results.get()
         if res and "error" not in res:
-            return res
+            return res.get("vif_df")
         return None
 
     @render.ui

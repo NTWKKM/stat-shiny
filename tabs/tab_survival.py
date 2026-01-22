@@ -898,6 +898,16 @@ def survival_server(
             elements.append(ui.card_header("🕰️ Survival Probability at Specific Times"))
             elements.append(ui.output_data_frame("out_surv_times_table"))
 
+        if "missing_data_info" in res:
+            elements.append(ui.card_header("⚠️ Missing Data Report"))
+            elements.append(
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res["missing_data_info"], var_meta.get() or {}
+                    )
+                )
+            )
+
         return ui.div(*elements)
 
     @render.ui
@@ -1047,7 +1057,7 @@ def survival_server(
         if "error" in res:
             return create_error_alert(res["error"])
 
-        return ui.div(
+        elements = [
             ui.card_header("📈 Landmark Plot"),
             ui.div(
                 ui.markdown(
@@ -1057,7 +1067,19 @@ def survival_server(
             ),
             ui.output_ui("out_landmark_plot"),
             ui.output_data_frame("out_landmark_table"),
-        )
+        ]
+
+        if "missing_data_info" in res:
+            elements.append(ui.card_header("⚠️ Missing Data Report"))
+            elements.append(
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res["missing_data_info"], var_meta.get() or {}
+                    )
+                )
+            )
+
+        return ui.div(*elements)
 
     @render.ui
     def out_landmark_plot():
@@ -1219,7 +1241,7 @@ def survival_server(
                 style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
             )
 
-        return ui.div(
+        elements = [
             ui.card_header("📄 Cox Results"),
             stats_ui,
             ui.output_data_frame("out_cox_table"),
@@ -1227,7 +1249,19 @@ def survival_server(
             ui.output_ui("out_cox_forest"),
             ui.card_header("🔍 PH Assumption (Schoenfeld Residuals)"),
             ui.output_ui("out_cox_assumptions_ui"),
-        )
+        ]
+
+        if "missing_data_info" in res:
+            elements.append(ui.card_header("⚠️ Missing Data Report"))
+            elements.append(
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res["missing_data_info"], var_meta.get() or {}
+                    )
+                )
+            )
+            
+        return ui.div(*elements)
 
     @render.data_frame
     def out_cox_table():

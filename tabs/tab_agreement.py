@@ -410,7 +410,8 @@ def agreement_server(
                 if missing_info:
                     rep.append(
                         {
-                            "type": "html",
+                            "type": "raw_html",
+
                             "data": create_missing_data_report_html(
                                 missing_info, var_meta.get() or {}
                             ),
@@ -467,7 +468,8 @@ def agreement_server(
         ba_res.set(None)
 
         try:
-            stats_res, fig = diag_test.calculate_bland_altman(d, v1, v2)
+            stats_res, fig, missing_info = diag_test.calculate_bland_altman(d, v1, v2)
+
             if "error" in stats_res:
                 ba_res.set({"error": stats_res["error"]})
                 ui.notification_show("Analysis failed", type="error")
@@ -495,12 +497,24 @@ def agreement_server(
                         "data": stats_df,
                     },
                 ]
+                if missing_info:
+                    rep.append(
+                        {
+                            "type": "raw_html",
+                            "data": create_missing_data_report_html(
+                                missing_info, var_meta.get() or {}
+                            ),
+                        }
+                    )
+
                 ba_res.set(
                     {
                         "html": diag_test.generate_report(
                             f"Bland-Altman: {v1} vs {v2}", rep
-                        )
+                        ),
+                        "missing_data_info": missing_info
                     }
+
                 )
         except Exception as e:
             logger.exception("Bland-Altman failed")
@@ -525,7 +539,16 @@ def agreement_server(
             return create_error_alert(res["error"])
 
         if "html" in res:
-            return ui.HTML(res["html"])
+            return ui.div(
+                ui.HTML(res["html"]),
+                ui.hr(),
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
+            )
+
         return None
 
     @render.download(filename="bland_altman_report.html")
@@ -553,7 +576,8 @@ def agreement_server(
             # Show notification as fallback/supplement
             ui.notification_show("Calculating ICC...", duration=None, id="run_icc")
 
-            res_df, err, anova_df = diag_test.calculate_icc(d, list(cols))
+            res_df, err, anova_df, missing_info = diag_test.calculate_icc(d, list(cols))
+
 
             if err:
                 ui.notification_show("Analysis failed", type="error")
@@ -570,7 +594,9 @@ def agreement_server(
                             if is_matched.get() and input.radio_source() == "matched"
                             else "Original Data"
                         ),
+                        "missing_data_info": missing_info,
                     }
+
                 )
                 ui.notification_remove("run_icc")
         except Exception as e:
@@ -632,7 +658,14 @@ def agreement_server(
             ui.output_data_frame("icc_results_table"),
             ui.h5("ANOVA Table"),
             ui.output_data_frame("icc_anova_table"),
+            ui.hr(),
+            ui.HTML(
+                create_missing_data_report_html(
+                    result.get("missing_data_info", {}), var_meta.get() or {}
+                )
+            ),
         )
+
 
     @render.data_frame
     def icc_results_table():
@@ -659,7 +692,17 @@ def agreement_server(
             {"type": "table", "header": "ICC Results", "data": result["results_df"]},
             {"type": "table", "header": "ANOVA Table", "data": result["anova_df"]},
         ]
+        if result.get("missing_data_info"):
+            elements.append(
+                {
+                    "type": "raw_html",
+                    "data": create_missing_data_report_html(
+                        result["missing_data_info"], var_meta.get() or {}
+                    ),
+                }
+            )
         yield correlation.generate_report("ICC Report", elements).encode("utf-8")
+
 
     # ==================== VALIDATION LOGIC ====================
     @render.ui

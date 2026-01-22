@@ -1,122 +1,153 @@
+from typing import Any
 import numpy as np
 import pandas as pd
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+import statsmodels.api as sm
 
+from config import CONFIG
+from utils.data_cleaning import prepare_data_for_analysis
+from logger import get_logger
 
-def calculate_vif(data: pd.DataFrame, predictors: list[str]) -> pd.DataFrame:
+logger = get_logger(__name__)
+
+def calculate_vif(
+    data: pd.DataFrame, 
+    predictors: list[str], 
+    var_meta: dict[str, Any] | None = None
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Calculate Variance Inflation Factor (VIF) for a list of predictors.
 
     Args:
         data: DataFrame containing the data
         predictors: List of column names to check for collinearity
+        var_meta: Variable metadata for missing data handling
 
     Returns:
-        DataFrame with columns ['Variable', 'VIF', 'Tolerance'] sorted by VIF descending.
+        tuple: (VIF DataFrame, Missing Info Dictionary)
     """
     try:
         if not predictors or data is None or data.empty:
-            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
+            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), {}
     
-        # Check if columns exist
-        existing_predictors = [col for col in predictors if col in data.columns]
-        if not existing_predictors:
-             return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
+        # --- DATA PREPARATION ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
 
-        # Drop rows with missing values in predictors
-        X = data[existing_predictors].dropna()
+        X_clean, missing_info = prepare_data_for_analysis(
+            data,
+            required_cols=predictors,
+            numeric_cols=predictors,
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+            handle_missing=strategy
+        )
+        missing_info["strategy"] = strategy
 
-        if X.empty:
-            # Cannot calculate VIF with no data
-            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
+        if X_clean.empty or len(X_clean.columns) == 0:
+            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), missing_info
 
-        # Ensure numeric types
-        X = X.select_dtypes(include=[np.number])
-        valid_predictors = X.columns.tolist()
+        valid_predictors = X_clean.columns.tolist()
 
-        if not valid_predictors or len(valid_predictors) < 2:
-            # VIF needs at least 2 variables to assess multicollinearity effectively
-            # Though strictly 1 variable VIF is 1.0? No, VIF is about correlation with others.
-            # If only 1 var, VIF is not really applicable or is 1?
-            # Let's clean it up.
-            
-            # If only 1 variable, VIF=1 by definition if we consider it orthogonal to nothing?
-            # Or undefined?
-            # Often standard packages return empty or error.
-            if len(valid_predictors) == 1:
-                 return pd.DataFrame([{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}])
+        # VIF needs at least 2 variables to assess multicollinearity effectively
+        if len(valid_predictors) == 1:
+             return pd.DataFrame([{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}]), missing_info
 
-            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
-
-        # Add constant for VIF calculation correctness (intercept)
-        # statsmodels VIF requires a constant term usually if not present, but usually we just pass the matrix
-        # The standard way:
-        X_with_const = X.copy()
-        X_with_const["const"] = 1
+        # Add constant for VIF calculation correctness
+        X_with_const = sm.add_constant(X_clean)
+        
+        # Check for constant predictors in the original data (can cause infinite VIF)
+        variances = X_clean.var()
+        const_cols = variances[variances < 1e-10].index.tolist()
+        if const_cols:
+            logger.warning("Constant predictors detected: %s. VIF might be undefined.", const_cols)
 
         vif_data = []
-
-        # We iterate over the original valid_predictors, corresponding to columns 0 to len-1
         for i, col in enumerate(valid_predictors):
             try:
-                val = variance_inflation_factor(X_with_const.values, i)
-            except Exception:
+                # Find index in X_with_const
+                idx = list(X_with_const.columns).index(col)
+                val = variance_inflation_factor(X_with_const.values, idx)
+                if not np.isfinite(val):
+                    val = float("inf")
+            except Exception as e:
+                logger.error("VIF calculation failed for %s: %s", col, e)
                 val = np.nan
+
+            # Interpretation
+            if not np.isfinite(val) or val >= 10:
+                interpretation = "🔴 High"
+            elif val >= 5:
+                interpretation = "⚠️ Moderate"
+            else:
+                interpretation = "✅ OK"
 
             vif_data.append(
                 {
                     "Variable": col,
                     "VIF": val,
-                    "Tolerance": 1.0 / val if val and val != 0 else np.nan,
+                    "Tolerance": 1.0 / val if val and val != 0 and np.isfinite(val) else np.nan,
+                    "Interpretation": interpretation,
                 }
             )
 
-        df_vif = pd.DataFrame(vif_data)
+        df_vif = pd.DataFrame(vif_data).sort_values("VIF", ascending=False)
+        return df_vif, missing_info
 
-        # Sort and return
-        return df_vif.sort_values("VIF", ascending=False)
-    except Exception:
-        # Fallback empty
-        return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
+    except Exception as e:
+        logger.exception("VIF calculation failed completely")
+        return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), {"error": str(e)}
 
 
-def condition_index(data: pd.DataFrame, predictors: list[str]) -> pd.DataFrame:
+def condition_index(
+    data: pd.DataFrame, 
+    predictors: list[str], 
+    var_meta: dict[str, Any] | None = None
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Calculate Condition Index (CI) for assessing multicollinearity.
-
-    CI = sqrt(max_eigenvalue / eigenvalue_i)
-    Review: CI > 10 (Moderate), CI > 30 (Severe)
     """
-    if not predictors:
-        return pd.DataFrame()
-
-    X = data[predictors].dropna().select_dtypes(include=[np.number])
-
-    if X.empty:
-        return pd.DataFrame()
-
-    # Scale the data (Uncentered usually for Belsley-Kuh-Welsch, but centered is common too)
-    # Standard practice: Normalize column vectors to unit length
-    X_norm = X / np.sqrt((X**2).sum(axis=0))
-
-    # Compute eigenvalues of X'X
-    # Or singular values of X directly since svd(X) gives sqrt(eigenvalues of X'X)
     try:
+        if not predictors or data is None or data.empty:
+            return pd.DataFrame(), {}
+
+        # --- DATA PREPARATION ---
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        X_clean, missing_info = prepare_data_for_analysis(
+            data,
+            required_cols=predictors,
+            numeric_cols=predictors,
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+            handle_missing=strategy
+        )
+        missing_info["strategy"] = strategy
+
+        if X_clean.empty:
+            return pd.DataFrame(), missing_info
+
+        # Scale the data for CI
+        X_norm = X_clean / np.sqrt((X_clean**2).sum(axis=0))
+
         # Use SVD for numerical stability
         U, S, Vt = np.linalg.svd(X_norm, full_matrices=False)
 
-        # S contains singular values (sqrt of eigenvalues of X'X)
         max_sv = S.max()
         condition_indices = max_sv / S
 
         results = []
         for i, ci in enumerate(condition_indices):
-            # Variance decomposition proportions could be added here for full diagnostic
             results.append(
                 {"Dimension": i + 1, "Condition Index": ci, "Eigenvalue": S[i] ** 2}
             )
 
-        return pd.DataFrame(results)
+        return pd.DataFrame(results), missing_info
 
-    except np.linalg.LinAlgError:
-        return pd.DataFrame()
+    except Exception as e:
+        logger.exception("Condition Index calculation failed")
+        return pd.DataFrame(), {"error": str(e)}
+

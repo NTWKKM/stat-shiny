@@ -48,6 +48,7 @@ from utils.data_cleaning import (
     apply_missing_values_to_df,
     get_missing_summary_df,
     handle_missing_for_analysis,
+    prepare_data_for_analysis,
 )
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import create_missing_data_report_html
@@ -676,46 +677,35 @@ def fit_km_logrank(
 ) -> tuple[go.Figure, pd.DataFrame, dict[str, Any] | None]:
     # OPTIMIZED: Fit KM curves and perform Log-rank test.
     # ENHANCED: Includes Chi-squared and Degrees of Freedom.
-    # INTEGRATED: Missing data handling.
-    # Define columns to check
-    cols_to_check = [duration_col, event_col]
+    # INTEGRATED: Missing data handling via unified pipeline.
+    
+    # 1. Prepare Columns
+    required_cols = [duration_col, event_col]
     if group_col:
-        cols_to_check.append(group_col)
+        required_cols.append(group_col)
 
+    numeric_cols = [duration_col, event_col]
 
-    # Handle missing data
-    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
-    strategy = missing_cfg.get("strategy", "complete-case")
-    missing_codes = missing_cfg.get("user_defined_values", [])
-    df_subset = df[cols_to_check].copy()
-    missing_summary = get_missing_summary_df(df_subset, var_meta or {}, missing_codes)
-    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, missing_codes)
-
-    data, impact = handle_missing_for_analysis(
-        df_processed,
-        var_meta=var_meta or {},
-        strategy=strategy,
-        return_counts=True,
-    )
-    missing_info = {
-        "strategy": strategy,
-        "rows_analyzed": impact["final_rows"],
-        "rows_excluded": impact["rows_removed"],
-        "summary_before": missing_summary.to_dict("records"),
-    }
+    # 2. Unified Data Preparation
+    try:
+        data, missing_info = prepare_data_for_analysis(
+            df,
+            required_cols=required_cols,
+            numeric_cols=numeric_cols,
+            var_meta=var_meta,
+            handle_missing="complete_case"
+        )
+    except Exception as e:
+        return go.Figure(), pd.DataFrame(), {"error": str(e)}
 
     if group_col:
-        if group_col not in data.columns:
-            return go.Figure(), pd.DataFrame(), {"error": f"Missing group column: {group_col}"}
+        # Sort groups logically
         groups = _sort_groups_vectorized(data[group_col].unique())
     else:
         groups = ["Overall"]
 
     # Show progress
     progress_start("Fitting Kaplan-Meier Curves...", id="fit_km")
-
-    if len(data) == 0:
-         return go.Figure(), pd.DataFrame(), {"error": "No valid data after removing missing values."}
 
     fig = go.Figure()
     colors = px.colors.qualitative.Plotly
@@ -730,6 +720,7 @@ def fit_km_logrank(
 
         if len(df_g) > 0:
             kmf = KaplanMeierFitter()
+            # Ensure event column is properly typed (0/1 or bool)
             kmf.fit(df_g[duration_col], df_g[event_col], label=label)
 
             # OPTIMIZATION: Vectorized CI extraction & Plotting using Helper
@@ -804,9 +795,8 @@ def fit_km_logrank(
         logger.error(f"Log-rank test error: {e}")
         stats_data = {"Test": "Error", "Note": str(e)}
 
-    return fig, pd.DataFrame([stats_data]), missing_info
-
     progress_end(id="fit_km")
+    return fig, pd.DataFrame([stats_data]), missing_info
 
 
 def fit_nelson_aalen(
@@ -817,37 +807,29 @@ def fit_nelson_aalen(
     var_meta: dict[str, Any] | None = None,
 ) -> tuple[go.Figure, pd.DataFrame, dict[str, Any] | None]:
     # OPTIMIZED: Fit Nelson-Aalen cumulative hazard curves.
-    # INTEGRATED: Missing data handling.
-    # Define columns to check
-    cols_to_check = [duration_col, event_col]
+    # INTEGRATED: Missing data handling via unified pipeline.
+    
+    # 1. Prepare Columns
+    required_cols = [duration_col, event_col]
     if group_col:
-        cols_to_check.append(group_col)
+        required_cols.append(group_col)
 
-    # Handle missing data
-    df_subset = df[cols_to_check].copy()
-    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
-    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
+    numeric_cols = [duration_col, event_col]
 
-    data, impact = handle_missing_for_analysis(
-        df_processed,
-        var_meta=var_meta or {},
-        strategy="complete-case",
-        return_counts=True,
-    )
-    missing_info = {
-        "strategy": "complete-case",
-        "rows_analyzed": impact["final_rows"],
-        "rows_excluded": impact["rows_removed"],
-        "summary_before": missing_summary.to_dict("records"),
-    }
-
-    if len(data) == 0:
-        raise ValueError("No valid data after removing missing values.")
+    # 2. Unified Data Preparation
+    try:
+        data, missing_info = prepare_data_for_analysis(
+            df,
+            required_cols=required_cols,
+            numeric_cols=numeric_cols,
+            var_meta=var_meta,
+            handle_missing="complete_case"
+        )
+    except Exception as e:
+        # Return empty/error structure
+        return go.Figure(), pd.DataFrame(), {"error": str(e)}
 
     if group_col:
-        if group_col not in data.columns:
-            # Should be caught by handle_missing, but safety check
-            raise ValueError(f"Missing group column: {group_col}")
         groups = _sort_groups_vectorized(data[group_col].unique())
     else:
         groups = ["Overall"]
@@ -918,7 +900,8 @@ def fit_nelson_aalen(
         template="plotly_white",
         height=500,
     )
-
+    
+    progress_end(id="fit_na")
     return fig, pd.DataFrame(stats_list), missing_info
 
 
@@ -941,46 +924,28 @@ def fit_cox_ph(
     #
     # ENHANCED: Returns model performance statistics (AIC, C-index).
     # IMPROVED: Better handling of boolean types, scalar extraction, and robust stat retrieval.
-    # INTEGRATED: Missing data handling.
+    # INTEGRATED: Missing data handling via unified pipeline.
     # NEW: Firth-penalized Cox PH support for small samples / rare events / monotone likelihood.
-    #
-    # Parameters:
-    #     df: Input DataFrame
-    #     duration_col: Name of duration/time column
-    #     event_col: Name of event/status column (1=event, 0=censored)
-    #     covariate_cols: List of covariate column names
-    #     var_meta: Optional variable metadata
-    #     method: Fitting method - "auto", "lifelines", or "firth"
-    #         - "auto": Try lifelines first, fallback to Firth if convergence fails
-    #         - "lifelines": Use lifelines CoxPHFitter only
-    #         - "firth": Use firthmodels FirthCoxPH (for small samples/rare events)
-    #
-    # Returns:
-    #     Tuple of (fitted_model, results_df, cleaned_data, error_msg, model_stats, missing_info)
-
-    cols_to_check = [duration_col, event_col, *covariate_cols]
-    missing = [c for c in cols_to_check if c not in df.columns]
-    if missing:
-        logger.error(f"Missing columns: {missing}")
-        return None, None, df, f"Missing columns: {missing}", None, None
-
-    # Handle missing data
-    df_subset = df[cols_to_check].copy()
-    missing_summary = get_missing_summary_df(df_subset, var_meta or {})
-    df_processed = apply_missing_values_to_df(df_subset, var_meta or {}, [])
-
-    data, impact = handle_missing_for_analysis(
-        df_processed,
-        var_meta=var_meta or {},
-        strategy="complete-case",
-        return_counts=True,
-    )
-    missing_info = {
-        "strategy": "complete-case",
-        "rows_analyzed": impact["final_rows"],
-        "rows_excluded": impact["rows_removed"],
-        "summary_before": missing_summary.to_dict("records"),
-    }
+    
+    # 1. Prepare Columns
+    required_cols = [duration_col, event_col, *covariate_cols]
+    
+    # Normalize numeric columns (duration and event must be numeric)
+    # Covariates might be categorical, so we don't force numeric conversion on them yet
+    numeric_cols = [duration_col, event_col]
+    
+    # 2. Unified Data Preparation
+    try:
+        data, missing_info = prepare_data_for_analysis(
+            df,
+            required_cols=required_cols,
+            numeric_cols=numeric_cols,
+            var_meta=var_meta,
+            handle_missing="complete_case"
+        )
+    except Exception as e:
+        logger.error(f"Data preparation for Cox PH failed: {e}")
+        return None, None, df, str(e), None, None
 
     if len(data) == 0:
         return (
