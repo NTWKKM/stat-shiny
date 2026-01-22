@@ -282,21 +282,32 @@ To run the test suite, ensure you use the `pytest` from your virtual environment
 
 ### Option 3: Run with Docker
 
-This project is containerized for easy deployment.
+This project is containerized for easy deployment and local development.
 
-1. **Build the image:**
+1. **Build and run with Docker Compose (Recommended for Local):**
 
    ```bash
-   docker build -t medical-stat-tool .
+   docker compose up --build
    ```
 
-2. **Run the container:**
+2. **Using standard Docker commands:**
 
    ```bash
+   # Build the image
+   docker build -t medical-stat-tool .
+   # Run the container
    docker run -p 7860:7860 medical-stat-tool
    ```
 
    Access the app at `http://localhost:7860`.
+
+### Option 4: VS Code Dev Containers
+
+If you use VS Code, you can open the project in a pre-configured [Dev Container](https://code.visualstudio.com/docs/devcontainers/containers):
+
+1. Ensure the **Dev Containers** extension is installed in VS Code.
+2. Select **"Reopen in Container"** when prompted, or use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for `Dev Containers: Reopen in Container`.
+3. The environment will be automatically set up with all dependencies, Python 3.12, and the recommended extensions.
 
 ## 💻 Tech Stack
 
