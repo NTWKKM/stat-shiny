@@ -14,12 +14,12 @@ gunicorn>=23.0.0
 # Data Processing & Analysis
 pandas>=3.0.0
 numpy>=2.0.0
-scipy>=1.10.0
+scipy>=1.15.0
 
 # Statistical Analysis
 statsmodels>=0.14.0
 lifelines>=0.27.0
-scikit-learn>=1.5.0
+scikit-learn>=1.6.0
 firthmodels>=0.3.0
 
 # Data Visualization
