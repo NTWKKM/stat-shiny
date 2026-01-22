@@ -51,8 +51,8 @@ def calculate_vif(
 
         # VIF needs at least 2 variables to assess multicollinearity effectively
         if len(valid_predictors) == 1:
-             return pd.DataFrame([{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}])
-
+            return pd.DataFrame([{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}])
+            
         # Add constant for VIF calculation correctness
         X_with_const = sm.add_constant(X_clean)
         
