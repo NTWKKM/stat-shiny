@@ -86,6 +86,9 @@ def get_badge_html(text: str, level: str = "info") -> str:
     Generate HTML string for a styled badge.
     (Styles are kept consistent with original UI)
     """
+    # Ensure text is safely escaped to prevent XSS
+    safe_text = _html.escape(str(text))
+
     colors = {
         "success": {"bg": "#d4edda", "color": "#155724", "border": "#c3e6cb"},
         "warning": {"bg": "#fff3cd", "color": "#856404", "border": "#ffeeba"},
@@ -99,7 +102,7 @@ def get_badge_html(text: str, level: str = "info") -> str:
         f"display: inline-block; background-color: {c['bg']}; color: {c['color']}; "
         f"border: 1px solid {c['border']};"
     )
-    return f'<span style="{style}">{text}</span>'
+    return f'<span style="{style}">{safe_text}</span>'
 
 
 def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> str:
@@ -120,10 +123,13 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
     html = '<div class="missing-data-section">\n'
     html += "<h4>📊 Missing Data Summary</h4>\n"
 
-    # Strategy info
+    # Strategy info (escape any user-provided content before rendering)
     strategy_raw = missing_data_info.get("strategy", "Unknown")
-    strategy_badge = get_badge_html(strategy_raw, level="info" if strategy_raw == "complete_case" else "secondary")
-    
+    strategy_badge = get_badge_html(
+        strategy_raw,
+        level="info" if strategy_raw == "complete_case" else "neutral",
+    )
+
     rows_analyzed = missing_data_info.get("rows_analyzed", 0)
     rows_excluded = missing_data_info.get("rows_excluded", 0)
     total_rows = rows_analyzed + rows_excluded
@@ -131,12 +137,19 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
     pct_included = 100 - pct_excluded
 
     html += f"<div style='margin-bottom: 15px; font-size: 0.95em; color: #495057;'>"
-    html += f"  <div style='display:flex; justify-content:space-between; margin-bottom: 8px;'>"
+    html += (
+        "  <div style='display:flex; justify-content:space-between; margin-bottom: 8px;'>"
+    )
     html += f"    <span><strong>Strategy:</strong> {strategy_badge}</span>"
     html += f"    <span><strong>Total Rows:</strong> {total_rows:,}</span>"
-    html += f"  </div>"
-    html += f"  <div>Included: <b>{rows_analyzed:,}</b> ({pct_included:.1f}%) | Excluded: <span style='color: #dc3545;'><b>{rows_excluded:,}</b> ({pct_excluded:.1f}%)</span></div>"
-    html += f"</div>"
+    html += "  </div>"
+    html += (
+        "  <div>Included: <b>"
+        f"{rows_analyzed:,}</b> ({pct_included:.1f}%) | Excluded: "
+        "<span style='color: #dc3545;'><b>"
+        f"{rows_excluded:,}</b> ({pct_excluded:.1f}%)</span></div>"
+    )
+    html += "</div>"
 
     # Variables with missing data
     summary = missing_data_info.get("summary_before", [])
@@ -150,7 +163,10 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
         if vars_with_missing:
             html += "<h5>Variables with Missing Data:</h5>\n"
             html += '<table class="missing-table">\n'
-            html += "<thead><tr><th>Variable</th><th>Type</th><th>N Valid</th><th>N Missing</th><th>% Missing</th></tr></thead>\n"
+            html += (
+                "<thead><tr><th>Variable</th><th>Type</th><th>N Valid</th>"
+                "<th>N Missing</th><th>% Missing</th></tr></thead>\n"
+            )
             html += "<tbody>\n"
 
             for var in vars_with_missing:
@@ -188,7 +204,9 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
         )
         html += "<ul>\n"
         for var in high_missing:
-            raw_label = var_meta.get(var["Variable"], {}).get("label", var["Variable"])
+            raw_label = var_meta.get(var["Variable"], {}).get(
+                "label", var["Variable"]
+            )
             var_label = _html.escape(str(raw_label))
             html += f"<li>{var_label} ({var.get('Pct_Missing', '?')} missing)</li>\n"
         html += "</ul>\n"
