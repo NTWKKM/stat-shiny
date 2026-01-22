@@ -231,42 +231,68 @@ def causal_inference_server(
 
         # Defaults for PSM
         def_psm_treat = select_variable_by_keyword(
-            binary_cols, ["treatment_group", "treatment", "group", "exposure"], default_to_first=True
+            binary_cols,
+            ["treatment_group", "treatment", "group", "exposure"],
+            default_to_first=True,
         )
         def_psm_out = select_variable_by_keyword(
-            cols, ["outcome_cured", "outcome", "cured", "death", "event"], default_to_first=True
+            cols,
+            ["outcome_cured", "outcome", "cured", "death", "event"],
+            default_to_first=True,
         )
-        
+
         # Default Covariates for PSM
         def_psm_covs = []
-        desired_covs = ["Age_Years", "Sex_Male", "BMI_kgm2", "Comorb_Diabetes", "Comorb_Hypertension"]
+        desired_covs = [
+            "Age_Years",
+            "Sex_Male",
+            "BMI_kgm2",
+            "Comorb_Diabetes",
+            "Comorb_Hypertension",
+        ]
         for dc in desired_covs:
             if dc in cols:
                 def_psm_covs.append(dc)
-        
+
         # Fallback if specific covariates not found
-        if not def_psm_covs: 
-             def_psm_covs = [c for c in num_cols if c not in [def_psm_treat, def_psm_out, "ID"]][:3]
+        if not def_psm_covs:
+            def_psm_covs = [
+                c for c in num_cols if c not in [def_psm_treat, def_psm_out, "ID"]
+            ][:3]
 
         ui.update_select("psm_treatment", choices=binary_cols, selected=def_psm_treat)
         ui.update_select(
             "psm_outcome", choices=num_cols + binary_cols, selected=def_psm_out
         )
-        ui.update_selectize("psm_covariates", choices=num_cols + binary_cols, selected=def_psm_covs)
+        ui.update_selectize(
+            "psm_covariates", choices=num_cols + binary_cols, selected=def_psm_covs
+        )
 
         # Defaults for Stratified
         def_strat_treat = select_variable_by_keyword(
-            binary_cols, ["treatment_group", "treatment", "group", "exposure"], default_to_first=True
+            binary_cols,
+            ["treatment_group", "treatment", "group", "exposure"],
+            default_to_first=True,
         )
         # Try to find different binary col for outcome
         rem_binary = [c for c in binary_cols if c != def_strat_treat]
         def_strat_out = select_variable_by_keyword(
-            rem_binary, ["outcome_cured", "outcome", "cured", "event", "response"], default_to_first=True
+            rem_binary,
+            ["outcome_cured", "outcome", "cured", "event", "response"],
+            default_to_first=True,
         )
         # Find categorical stratum
         def_strat_stratum = select_variable_by_keyword(
-            cat_cols + binary_cols, # Allow binary as stratum
-            ["sex_male", "sex", "gender", "comorb_diabetes", "diabetes", "strata", "category"],
+            cat_cols + binary_cols,  # Allow binary as stratum
+            [
+                "sex_male",
+                "sex",
+                "gender",
+                "comorb_diabetes",
+                "diabetes",
+                "strata",
+                "category",
+            ],
             default_to_first=True,
         )
 
@@ -309,15 +335,17 @@ def causal_inference_server(
                 return
 
             # Calculate PS (Cleaning is now handled inside calculate_ps via prepare_data_for_analysis)
-            ps, missing_info = calculate_ps(d, treatment, covs, var_meta=var_meta.get() or {})
-            
+            ps, missing_info = calculate_ps(
+                d, treatment, covs, var_meta=var_meta.get() or {}
+            )
+
             if "error" in missing_info:
-                 raise ValueError(missing_info["error"])
+                raise ValueError(missing_info["error"])
 
             # Attach PS for further steps (we need d_clean for balance check)
             d_clean = d.copy()
             d_clean["ps"] = ps
-            d_clean = d_clean.dropna(subset=["ps"]) # Keep only those with scores
+            d_clean = d_clean.dropna(subset=["ps"])  # Keep only those with scores
 
             # IPW
             ipw_res = calculate_ipw(d_clean, treatment, outcome, "ps")
@@ -424,18 +452,18 @@ def causal_inference_server(
             )
 
             mh = mantel_haenszel(
-                d, 
-                input.strat_outcome(), 
-                input.strat_treatment(), 
+                d,
+                input.strat_outcome(),
+                input.strat_treatment(),
                 input.strat_stratum(),
-                var_meta=var_meta.get() or {}
+                var_meta=var_meta.get() or {},
             )
             bd = breslow_day(
-                d, 
-                input.strat_outcome(), 
-                input.strat_treatment(), 
+                d,
+                input.strat_outcome(),
+                input.strat_treatment(),
                 input.strat_stratum(),
-                var_meta=var_meta.get() or {}
+                var_meta=var_meta.get() or {},
             )
 
             strat_res.set({"mh": mh, "bd": bd})

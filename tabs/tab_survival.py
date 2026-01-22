@@ -735,7 +735,7 @@ def survival_server(
             for ds in desired_static:
                 if ds in cols:
                     static_auto.append(ds)
-            
+
             # If no desired static found, fallback to detection
             if not static_auto:
                 exclude_for_static = [
@@ -1260,7 +1260,7 @@ def survival_server(
                     )
                 )
             )
-            
+
         return ui.div(*elements)
 
     @render.data_frame

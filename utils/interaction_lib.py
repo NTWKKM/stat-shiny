@@ -202,7 +202,9 @@ def format_interaction_results(
 
             # Create descriptive label
             if meta["type"] == "cat×cat":
-                label = f"{meta['var1']}={meta['level1']} × {meta['var2']}={meta['level2']}"
+                label = (
+                    f"{meta['var1']}={meta['level1']} × {meta['var2']}={meta['level2']}"
+                )
             elif meta["type"] == "cat×cont":
                 label = f"{meta['cat_var']}={meta['level']} × {meta['cont_var']}"
             else:  # cont×cont

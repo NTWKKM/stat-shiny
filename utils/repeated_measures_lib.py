@@ -1,6 +1,6 @@
 from typing import Any
+
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import statsmodels.api as sm
@@ -9,8 +9,8 @@ from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.regression.mixed_linear_model import MixedLM
 
 from config import CONFIG
-from utils.data_cleaning import prepare_data_for_analysis
 from logger import get_logger
+from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
 

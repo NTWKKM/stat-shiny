@@ -86,7 +86,7 @@ def calculate_cooks_distance(model_results) -> dict:
         (c_d, p_val) = influence.cooks_distance
 
         if c_d is None:
-             return {"error": "Could not calculate Cook's distance."}
+            return {"error": "Could not calculate Cook's distance."}
 
         # Threshold: 4/n rule of thumb
         n = model_results.nobs
@@ -117,7 +117,7 @@ def get_diagnostic_plot_data(model_results) -> dict:
     """
     try:
         if model_results is None:
-             return {"error": "Invalid model object provided."}
+            return {"error": "Invalid model object provided."}
 
         return {
             "fitted_values": model_results.fittedvalues.tolist(),

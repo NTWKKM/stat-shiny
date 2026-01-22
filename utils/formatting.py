@@ -136,10 +136,8 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
     pct_excluded = (rows_excluded / total_rows * 100) if total_rows > 0 else 0
     pct_included = 100 - pct_excluded
 
-    html += f"<div style='margin-bottom: 15px; font-size: 0.95em; color: #495057;'>"
-    html += (
-        "  <div style='display:flex; justify-content:space-between; margin-bottom: 8px;'>"
-    )
+    html += "<div style='margin-bottom: 15px; font-size: 0.95em; color: #495057;'>"
+    html += "  <div style='display:flex; justify-content:space-between; margin-bottom: 8px;'>"
     html += f"    <span><strong>Strategy:</strong> {strategy_badge}</span>"
     html += f"    <span><strong>Total Rows:</strong> {total_rows:,}</span>"
     html += "  </div>"
@@ -204,9 +202,7 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
         )
         html += "<ul>\n"
         for var in high_missing:
-            raw_label = var_meta.get(var["Variable"], {}).get(
-                "label", var["Variable"]
-            )
+            raw_label = var_meta.get(var["Variable"], {}).get("label", var["Variable"])
             var_label = _html.escape(str(raw_label))
             html += f"<li>{var_label} ({var.get('Pct_Missing', '?')} missing)</li>\n"
         html += "</ul>\n"

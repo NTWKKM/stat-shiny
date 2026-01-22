@@ -620,7 +620,6 @@ def diag_server(
                     rep.append(
                         {
                             "type": "raw_html",
-
                             "data": create_missing_data_report_html(
                                 res["missing_data_info"], var_meta.get() or {}
                             ),
@@ -739,7 +738,6 @@ def diag_server(
                     rep.append(
                         {
                             "type": "raw_html",
-
                             "data": create_missing_data_report_html(
                                 missing_info, var_meta.get() or {}
                             ),
@@ -812,7 +810,7 @@ def diag_server(
             )
             if stats_df is not None:
                 rep = [{"type": "table", "data": stats_df}]
-                
+
                 # Missing Data Report
                 if missing_info:
                     rep.append(
@@ -823,7 +821,7 @@ def diag_server(
                             ),
                         }
                     )
-                
+
                 desc_res.set(
                     {
                         "html": diag_test.generate_report(
@@ -930,23 +928,27 @@ def diag_server(
 
             # Calculate Net Benefits
             from utils.formatting import create_missing_data_report_html
-            
+
             # 1. Model Net Benefit (This does the cleaning)
             nb_model, missing_info = decision_curve_lib.calculate_net_benefit(
-                d, truth, prob, model_name="Current Model", var_meta=var_meta.get() or {}
+                d,
+                truth,
+                prob,
+                model_name="Current Model",
+                var_meta=var_meta.get() or {},
             )
-            
+
             # Check for data prep error
             if "error" in missing_info:
-                 raise ValueError(missing_info["error"])
+                raise ValueError(missing_info["error"])
 
             # 2. Treat All & None (Use the same filtered data as nb_model for consistency)
             # We can't easily get the filtered df back from calculate_net_benefit unless we change it more.
-            # But we can re-clean or just trust it. 
+            # But we can re-clean or just trust it.
             # Actually, standard DCA should show Treat All based on same N.
             # I'll manually filter d for these helpers to ensure N is identical.
             d_clean = d.loc[missing_info.get("analyzed_indices", d.index)]
-            
+
             nb_all = decision_curve_lib.calculate_net_benefit_all(d_clean, truth)
             nb_none = decision_curve_lib.calculate_net_benefit_none()
 
@@ -984,7 +986,7 @@ def diag_server(
                 {
                     "type": "raw_html",
                     "data": f"<hr>{missing_report_html}",
-                }
+                },
             ]
 
             html_content = diag_test.generate_report(f"DCA: {prob} vs {truth}", rep)

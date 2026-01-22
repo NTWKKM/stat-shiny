@@ -41,7 +41,7 @@ def plotly_figure_to_html(
     """
     Render a Plotly Figure to an embeddable HTML string.
 
-    Returns a sanitized HTML fragment suitable for embedding (e.g., in a UI). 
+    Returns a sanitized HTML fragment suitable for embedding (e.g., in a UI).
     If rendering fails, returns a styled pulse-animated placeholder.
 
     Performance: Avoids heavy Figure duplication unless layout overrides are required.
@@ -59,11 +59,11 @@ def plotly_figure_to_html(
     div_id = _sanitize_div_id(div_id) if div_id else f"plotly-{uuid.uuid4().hex[:12]}"
 
     try:
-        # PERFORMANCE OPTIMIZATION: 
+        # PERFORMANCE OPTIMIZATION:
         # Only copy/mutate the figure if we actually need to change properties.
         # This saves memory for large datasets.
         needs_update = (height is not None) or (width is not None) or responsive
-        
+
         target_fig = fig
         if needs_update:
             target_fig = go.Figure(fig)
@@ -104,6 +104,7 @@ def _sanitize_div_id(div_id: str) -> str:
 def _create_placeholder_html(message: str) -> str:
     """Create a styled pulse-animated placeholder (Skeleton UI)."""
     import html
+
     escaped_message = html.escape(str(message))
 
     # Using a unique ID for the style ensures no collisions if multiple placeholders exist
@@ -145,4 +146,3 @@ def _create_placeholder_html(message: str) -> str:
         </div>
     </div>
     """
-
