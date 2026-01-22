@@ -1,8 +1,0 @@
-# Final integration test fixes:
-# 1. PSM/IPW: calculate_ps returns Series
-# 2. Correlation matrix: returns (None, None, None) for <2 cols
-# 3. Advanced stats VIF: use _run_vif correctly
-# 4. Forest plot: returns None if initialization error
-# 5. Logic module: ensure missing data report included
-
-print('All fixes committed in comprehensive PR')
