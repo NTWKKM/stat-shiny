@@ -20,7 +20,7 @@ def collinear_data():
 
 def test_calculate_vif(collinear_data):
     """Test VIF calculation detects collinearity."""
-    vif_df = calculate_vif(collinear_data, predictors=["x1", "x2", "x3"])
+    vif_df, _ = calculate_vif(collinear_data, predictors=["x1", "x2", "x3"])
 
     assert not vif_df.empty
     assert "VIF" in vif_df.columns
@@ -42,7 +42,7 @@ def test_calculate_vif_single_var(collinear_data):
     # Our function loops: regress X_i on others. If no others?
     # variance_inflation_factor needs at least 2 cols (including constant)
     # If we pass 1 var + constant, R^2 is 0, VIF should be 1.
-    vif_df = calculate_vif(collinear_data, predictors=["x3"])
+    vif_df, _ = calculate_vif(collinear_data, predictors=["x3"])
     assert vif_df.iloc[0]["VIF"] == pytest.approx(1.0)
 
 

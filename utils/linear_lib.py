@@ -459,8 +459,8 @@ def calculate_vif_for_ols(df: pd.DataFrame, predictor_cols: list[str]) -> pd.Dat
     Returns:
         DataFrame with VIF results
     """
-    # Note: _run_vif now returns DataFrame only (not tuple)
-    vif_df = _run_vif(df, predictor_cols)
+    # Note: _run_vif (calculate_vif in collinearity_lib) returns (df_vif, missing_info)
+    vif_df, _ = _run_vif(df, predictor_cols)
     return vif_df
 
 
