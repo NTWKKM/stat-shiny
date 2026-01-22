@@ -1,7 +1,3 @@
-{
-type: uploaded file
-fileName: ntwkkm/stat-shiny/stat-shiny-patch/utils/logic.py
-fullContent:
 """
 🧮 Logistic Regression Core Logic (Shiny Compatible)
 
@@ -1335,4 +1331,3 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
     except Exception as e:
         logger.exception("Logistic regression failed")
         return None, None, str(e), {}
-}
