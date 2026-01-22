@@ -560,7 +560,7 @@ def survival_server(
         # 1. Detect Time Variable
         default_time = select_variable_by_keyword(
             numeric_cols,
-            ["time", "day", "month", "year", "range", "followup", "fu"],
+            ["time_months", "time", "day", "month", "year", "range", "followup", "fu"],
             default_to_first=True,
         )
 
@@ -578,7 +578,16 @@ def survival_server(
         # 2. Detect Event Variable
         default_event = select_variable_by_keyword(
             cols,
-            ["status", "event", "death", "cure", "survive", "died", "outcome"],
+            [
+                "status_death",
+                "status",
+                "event",
+                "death",
+                "cure",
+                "survive",
+                "died",
+                "outcome",
+            ],
             default_to_first=True,
         )
 
@@ -713,17 +722,22 @@ def survival_server(
             )
 
             # Detect TVC and Static columns
-            # Priority: exact matches for example data columns, then fallback to prefix detection
+            # Default TVC selection: Try to detect, but allow ALL cols in choices
             tvc_auto = []
             if "TVC_Value" in cols:
                 tvc_auto = ["TVC_Value"]
             else:
                 tvc_auto = detect_tvc_columns(data)
 
+            # Default Static selection: Prioritize 'Static_Age', 'Static_Sex'
             static_auto = []
-            if "Static_Age" in cols:
-                static_auto = [c for c in cols if c.startswith("Static_")]
-            else:
+            desired_static = ["Static_Age", "Static_Sex"]
+            for ds in desired_static:
+                if ds in cols:
+                    static_auto.append(ds)
+            
+            # If no desired static found, fallback to detection
+            if not static_auto:
                 exclude_for_static = [
                     tvc_id_default,
                     tvc_start_default,
@@ -734,14 +748,15 @@ def survival_server(
                     data, exclude_cols=exclude_for_static
                 )
 
+            # Update UI: Allow ALL choices, set defaults
             ui.update_checkbox_group(
                 "tvc_tvc_cols",
-                choices={c: get_label(c) for c in tvc_auto},
+                choices=choices_with_labels,
                 selected=tvc_auto,
             )
             ui.update_checkbox_group(
                 "tvc_static_cols",
-                choices={c: get_label(c) for c in static_auto},
+                choices=choices_with_labels,
                 selected=static_auto,
             )
 
