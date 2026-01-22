@@ -93,6 +93,6 @@ class TestForestPlotLib:
         """🚫 Test handling of empty input"""
         df_empty = pd.DataFrame(columns=["Subgroup", "Level", "Est", "Lower", "Upper"])
 
-        # Verify that empty DataFrame raises ValueError
-        with pytest.raises(ValueError, match=r"empty|no data"):
-            create_forest_plot(df_empty)
+        # Verify that empty DataFrame returns None safely
+        fig = create_forest_plot(df_empty)
+        assert fig is None

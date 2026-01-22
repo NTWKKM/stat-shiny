@@ -1,4 +1,4 @@
-"""  
+"""
 📈 Linear Regression (OLS) Library for Continuous Outcome Analysis
 
 Provides comprehensive OLS regression analysis with:
@@ -485,8 +485,9 @@ def run_diagnostic_tests(results: OLSResult) -> list[DiagnosticResult]:
                 "test_name": "Shapiro-Wilk Normality Test",
                 "statistic": float(stat),
                 "p_value": float(p),
-                "interpretation":
-                    "Residuals are approximately normal" if p > 0.05 else "Residuals deviate from normality",
+                "interpretation": "Residuals are approximately normal"
+                if p > 0.05
+                else "Residuals deviate from normality",
                 "passed": bool(p > 0.05),
             }
         )
@@ -505,8 +506,9 @@ def run_diagnostic_tests(results: OLSResult) -> list[DiagnosticResult]:
                 "test_name": "Breusch-Pagan Test",
                 "statistic": float(lm_stat),
                 "p_value": float(lm_pvalue),
-                "interpretation":
-                    "No evidence of heteroscedasticity" if lm_pvalue > 0.05 else "Evidence of heteroscedasticity",
+                "interpretation": "No evidence of heteroscedasticity"
+                if lm_pvalue > 0.05
+                else "Evidence of heteroscedasticity",
                 "passed": bool(lm_pvalue > 0.05),
             }
         )
@@ -540,7 +542,9 @@ def create_diagnostic_plots(results: OLSResult) -> dict[str, go.Figure]:
     # Residuals vs Fitted
     fig1 = go.Figure()
     fig1.add_trace(
-        go.Scatter(x=fitted, y=residuals, mode="markers", marker=dict(color=COLORS["primary"]))
+        go.Scatter(
+            x=fitted, y=residuals, mode="markers", marker=dict(color=COLORS["primary"])
+        )
     )
     fig1.update_layout(
         title="Residuals vs Fitted",
@@ -557,10 +561,17 @@ def create_diagnostic_plots(results: OLSResult) -> dict[str, go.Figure]:
 
     fig2 = go.Figure()
     fig2.add_trace(
-        go.Scatter(x=theo_q, y=ordered_resid, mode="markers", marker=dict(color=COLORS["primary"]))
+        go.Scatter(
+            x=theo_q,
+            y=ordered_resid,
+            mode="markers",
+            marker=dict(color=COLORS["primary"]),
+        )
     )
     fig2.add_trace(
-        go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
+        go.Scatter(
+            x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"])
+        )
     )
     fig2.update_layout(
         title="Normal Q-Q Plot",
@@ -628,9 +639,7 @@ def format_ols_results(
 
     # Apply variable labels if provided
     var_meta = var_meta or {}
-    label_map = {
-        var: meta.get("label", var) for var, meta in var_meta.items()
-    }
+    label_map = {var: meta.get("label", var) for var, meta in var_meta.items()}
 
     coef_df["Variable"] = coef_df["Variable"].replace(label_map)
 
@@ -688,7 +697,9 @@ def analyze_linear_outcome(
     # Model summary
     html_sections.append("<h2>Model Summary</h2>")
     html_sections.append("<ul>")
-    html_sections.append(f"<li>Formula: <code>{_html.escape(results['formula'])}</code></li>")
+    html_sections.append(
+        f"<li>Formula: <code>{_html.escape(results['formula'])}</code></li>"
+    )
     html_sections.append(f"<li>Observations: {results['n_obs']}</li>")
     html_sections.append(
         f"<li>R&sup2;: {results['r_squared']:.3f}, Adjusted R&sup2;: {results['adj_r_squared']:.3f}</li>"
@@ -722,7 +733,9 @@ def analyze_linear_outcome(
     # Missing data summary if available
     if missing_info:
         html_sections.append("<h2>Missing Data Summary</h2>")
-        html_sections.append(create_missing_data_report_html(missing_info))
+        html_sections.append(
+            create_missing_data_report_html(missing_info, var_meta or {})
+        )
 
     html_report = "\n".join(html_sections)
 
@@ -834,7 +847,9 @@ def compare_models(
         rows.append(
             {
                 "Model": name,
-                "Predictors": ", ".join(predictors) if predictors else "(Intercept Only)",
+                "Predictors": ", ".join(predictors)
+                if predictors
+                else "(Intercept Only)",
                 "AIC": model.aic,
                 "BIC": model.bic,
                 "R²": model.rsquared,
@@ -877,9 +892,9 @@ def bootstrap_ols(
         records.append(
             {
                 "Variable": name,
-                "Estimate": base_results["coef_table"].set_index("Variable")[
-                    "Coefficient"
-                ].loc[name],
+                "Estimate": base_results["coef_table"]
+                .set_index("Variable")["Coefficient"]
+                .loc[name],
                 "Boot SE": float(samples.std(ddof=1)),
                 "Samples": samples,
             }
@@ -906,12 +921,7 @@ def _bca_ci(
 
     # Acceleration (using jackknife)
     n = len(samples)
-    jackknife_means = np.array(
-        [
-            np.mean(np.delete(samples, i))
-            for i in range(n)
-        ]
-    )
+    jackknife_means = np.array([np.mean(np.delete(samples, i)) for i in range(n)])
     num = np.sum((np.mean(jackknife_means) - jackknife_means) ** 3)
     den = 6.0 * (np.sum((np.mean(jackknife_means) - jackknife_means) ** 2) ** 1.5)
     a = num / den if den != 0 else 0.0
@@ -956,9 +966,7 @@ def format_bootstrap_results(
             "Variable": df_res["Variable"],
             "Estimate": df_res["Estimate"],
             "Boot SE": df_res["Boot SE"],
-            "95% CI": [
-                format_ci_html(l, u) for l, u in zip(ci_lower, ci_upper)
-            ],
+            "95% CI": [format_ci_html(l, u) for l, u in zip(ci_lower, ci_upper)],
         }
     )
 

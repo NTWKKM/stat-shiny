@@ -47,10 +47,11 @@ class ForestPlot:
         Initialize ForestPlot with validated data.
         """
         self.error: str | None = None
-        
-        # ✅ FIX: Raise ValueError immediately for empty DataFrame to pass robustness tests
+
+        # ✅ FIX: Handle empty data by setting self.error instead of raising ValueError (for robustness tests)
         if data is None or data.empty:
-            raise ValueError("DataFrame cannot be empty")
+            self.error = "DataFrame cannot be empty"
+            return
 
         required_cols = {estimate_col, ci_low_col, ci_high_col, label_col}
         if pval_col:
@@ -257,14 +258,20 @@ class ForestPlot:
             color = COLORS["primary"]
 
         # ... (rest of the logic remains optimized)
-        
+
         # We need to re-fetch the data as it might have been modified by __init__
         data = self.data
 
         # OPTIMIZATION: Vectorized estimate/CI formatting
-        est_fmt = data[self.estimate_col].apply(lambda x: f"{x:.2f}" if np.isfinite(x) else "Inf")
-        low_fmt = data[self.ci_low_col].apply(lambda x: f"{x:.2f}" if np.isfinite(x) else "Inf")
-        high_fmt = data[self.ci_high_col].apply(lambda x: f"{x:.2f}" if np.isfinite(x) else "Inf")
+        est_fmt = data[self.estimate_col].apply(
+            lambda x: f"{x:.2f}" if np.isfinite(x) else "Inf"
+        )
+        low_fmt = data[self.ci_low_col].apply(
+            lambda x: f"{x:.2f}" if np.isfinite(x) else "Inf"
+        )
+        high_fmt = data[self.ci_high_col].apply(
+            lambda x: f"{x:.2f}" if np.isfinite(x) else "Inf"
+        )
         data["__display_est"] = est_fmt + " (" + low_fmt + "-" + high_fmt + ")"
 
         if self.pval_col:
@@ -275,12 +282,20 @@ class ForestPlot:
             p_text_colors = ["black"] * len(data)
 
         if show_sig_stars and self.pval_col:
-            data["__sig_stars"] = self._vectorized_significance_stars(data[self.pval_col])
-            data["__display_label"] = (data[self.label_col].astype(str) + " " + data["__sig_stars"]).str.rstrip()
+            data["__sig_stars"] = self._vectorized_significance_stars(
+                data[self.pval_col]
+            )
+            data["__display_label"] = (
+                data[self.label_col].astype(str) + " " + data["__sig_stars"]
+            ).str.rstrip()
         else:
             data["__display_label"] = data[self.label_col]
 
-        marker_colors, _ = self._get_ci_width_colors(color) if show_ci_width_colors else ([color] * len(data), None)
+        marker_colors, _ = (
+            self._get_ci_width_colors(color)
+            if show_ci_width_colors
+            else ([color] * len(data), None)
+        )
 
         has_pval = self.pval_col is not None and not data[self.pval_col].isna().all()
         column_widths = [0.25, 0.20, 0.10, 0.45] if has_pval else [0.25, 0.20, 0.55]
@@ -288,7 +303,8 @@ class ForestPlot:
         plot_col = 4 if has_pval else 3
 
         fig = make_subplots(
-            rows=1, cols=num_cols,
+            rows=1,
+            cols=num_cols,
             shared_yaxes=True,
             horizontal_spacing=0.02,
             column_widths=column_widths,
@@ -297,66 +313,127 @@ class ForestPlot:
 
         y_pos = list(range(len(data)))
 
-        fig.add_trace(go.Scatter(
-            x=[0] * len(y_pos), y=y_pos,
-            text=data["__display_label"],
-            mode="text", textposition="middle right",
-            textfont=dict(size=13, color="#374151"), # Dark gray instead of black
-            hoverinfo="none", showlegend=False
-        ), row=1, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=[0] * len(y_pos),
+                y=y_pos,
+                text=data["__display_label"],
+                mode="text",
+                textposition="middle right",
+                textfont=dict(size=13, color="#374151"),  # Dark gray instead of black
+                hoverinfo="none",
+                showlegend=False,
+            ),
+            row=1,
+            col=1,
+        )
 
-        fig.add_trace(go.Scatter(
-            x=[0] * len(y_pos), y=y_pos,
-            text=data["__display_est"],
-            mode="text", textposition="middle center",
-            textfont=dict(size=13, color="#374151"),
-            hoverinfo="none", showlegend=False
-        ), row=1, col=2)
+        fig.add_trace(
+            go.Scatter(
+                x=[0] * len(y_pos),
+                y=y_pos,
+                text=data["__display_est"],
+                mode="text",
+                textposition="middle center",
+                textfont=dict(size=13, color="#374151"),
+                hoverinfo="none",
+                showlegend=False,
+            ),
+            row=1,
+            col=2,
+        )
 
         if has_pval:
-            fig.add_trace(go.Scatter(
-                x=[0] * len(y_pos), y=y_pos,
-                text=data["__display_p"],
-                mode="text", textposition="middle center",
-                textfont=dict(size=13, color=p_text_colors),
-                hoverinfo="none", showlegend=False
-            ), row=1, col=3)
+            fig.add_trace(
+                go.Scatter(
+                    x=[0] * len(y_pos),
+                    y=y_pos,
+                    text=data["__display_p"],
+                    mode="text",
+                    textposition="middle center",
+                    textfont=dict(size=13, color=p_text_colors),
+                    hoverinfo="none",
+                    showlegend=False,
+                ),
+                row=1,
+                col=3,
+            )
 
         finite_data = data[np.isfinite(data[self.estimate_col])]
         use_log_scale = False
         if not finite_data.empty:
-            est_min_val, est_max_val = finite_data[self.estimate_col].min(), finite_data[self.estimate_col].max()
+            est_min_val, est_max_val = (
+                finite_data[self.estimate_col].min(),
+                finite_data[self.estimate_col].max(),
+            )
             use_log_scale = (est_min_val > 0) and ((est_max_val / est_min_val) > 5)
 
         if show_ref_line:
             fig.add_vline(
-                x=ref_line, line_dash="dash", line_color="rgba(220, 38, 38, 0.4)",
-                line_width=1.5, annotation_text=f"Ref={ref_line}",
-                annotation_position="top", row=1, col=plot_col
+                x=ref_line,
+                line_dash="dash",
+                line_color="rgba(220, 38, 38, 0.4)",
+                line_width=1.5,
+                annotation_text=f"Ref={ref_line}",
+                annotation_position="top",
+                row=1,
+                col=plot_col,
             )
 
         if show_sig_divider:
-            ci_low_vals, ci_high_vals = data[self.ci_low_col].values, data[self.ci_high_col].values
-            ci_sig = ((ci_low_vals > ref_line) | (ci_high_vals < ref_line)) if ref_line > 0 else ((ci_low_vals * ci_high_vals) > 0)
+            ci_low_vals, ci_high_vals = (
+                data[self.ci_low_col].values,
+                data[self.ci_high_col].values,
+            )
+            ci_sig = (
+                ((ci_low_vals > ref_line) | (ci_high_vals < ref_line))
+                if ref_line > 0
+                else ((ci_low_vals * ci_high_vals) > 0)
+            )
             if ci_sig.any() and (~ci_sig).any():
                 divider_y = np.where(~ci_sig)[0][0] - 0.5
-                fig.add_hline(y=divider_y, line_dash="dot", line_color="#e5e7eb", line_width=1, row=1, col=plot_col)
+                fig.add_hline(
+                    y=divider_y,
+                    line_dash="dot",
+                    line_color="#e5e7eb",
+                    line_width=1,
+                    row=1,
+                    col=plot_col,
+                )
 
         hovertemplate = "<b>%{text}</b><br>Estimate: %{x:.3f}<br>95% CI: %{customdata[0]:.3f} - %{customdata[1]:.3f}<extra></extra>"
-        customdata = np.stack((data[self.ci_low_col].values, data[self.ci_high_col].values), axis=-1)
+        customdata = np.stack(
+            (data[self.ci_low_col].values, data[self.ci_high_col].values), axis=-1
+        )
 
-        fig.add_trace(go.Scatter(
-            x=data[self.estimate_col], y=y_pos,
-            error_x=dict(
-                type="data", symmetric=False,
-                array=data[self.ci_high_col] - data[self.estimate_col],
-                arrayminus=data[self.estimate_col] - data[self.ci_low_col],
-                color="rgba(107, 114, 128, 0.5)", thickness=1.5, width=3
+        fig.add_trace(
+            go.Scatter(
+                x=data[self.estimate_col],
+                y=y_pos,
+                error_x=dict(
+                    type="data",
+                    symmetric=False,
+                    array=data[self.ci_high_col] - data[self.estimate_col],
+                    arrayminus=data[self.estimate_col] - data[self.ci_low_col],
+                    color="rgba(107, 114, 128, 0.5)",
+                    thickness=1.5,
+                    width=3,
+                ),
+                mode="markers",
+                marker=dict(
+                    size=10,
+                    color=marker_colors,
+                    symbol="square",
+                    line=dict(width=1, color="white"),
+                ),
+                text=data["__display_label"],
+                customdata=customdata,
+                hovertemplate=hovertemplate,
+                showlegend=False,
             ),
-            mode="markers",
-            marker=dict(size=10, color=marker_colors, symbol="square", line=dict(width=1, color="white")),
-            text=data["__display_label"], customdata=customdata, hovertemplate=hovertemplate, showlegend=False
-        ), row=1, col=plot_col)
+            row=1,
+            col=plot_col,
+        )
 
         if height is None:
             height = max(400, len(data) * 35 + 150)
@@ -369,29 +446,47 @@ class ForestPlot:
         fig.update_layout(
             title=dict(
                 text=f"<b>{title}</b><br><span style='font-size: 13px; color: #6b7280;'>{summary_text}</span>",
-                x=0.01, xanchor="left", font=dict(size=18, family="Inter, system-ui, sans-serif")
+                x=0.01,
+                xanchor="left",
+                font=dict(size=18, family="Inter, system-ui, sans-serif"),
             ),
-            height=height, template="plotly_white", margin=dict(l=10, r=20, t=120, b=40),
-            plot_bgcolor="white", autosize=True
+            height=height,
+            template="plotly_white",
+            margin=dict(l=10, r=20, t=120, b=40),
+            plot_bgcolor="white",
+            autosize=True,
         )
 
         for c in range(1, plot_col):
             fig.update_xaxes(visible=False, row=1, col=c)
             fig.update_yaxes(visible=False, row=1, col=c)
 
-        fig.update_yaxes(visible=False, range=[-0.5, len(data) - 0.5], row=1, col=plot_col)
+        fig.update_yaxes(
+            visible=False, range=[-0.5, len(data) - 0.5], row=1, col=plot_col
+        )
         fig.update_xaxes(
-            title_text=x_label, type="log" if use_log_scale else "linear",
-            row=1, col=plot_col, gridcolor="#f3f4f6", zerolinecolor="#e5e7eb"
+            title_text=x_label,
+            type="log" if use_log_scale else "linear",
+            row=1,
+            col=plot_col,
+            gridcolor="#f3f4f6",
+            zerolinecolor="#e5e7eb",
         )
 
-        headers = ["Variable", "Estimate (95% CI)"] + (["P-value", "Distribution"] if has_pval else ["Distribution"])
+        headers = ["Variable", "Estimate (95% CI)"] + (
+            ["P-value", "Distribution"] if has_pval else ["Distribution"]
+        )
         for i, h in enumerate(headers, 1):
             xref_val = f"x{i} domain" if i > 1 else "x domain"
             fig.add_annotation(
-                x=0.5 if i != 1 else 1.0, y=1.0, xref=xref_val, yref="paper",
-                text=f"<b>{h}</b>", showarrow=False, yanchor="bottom",
-                font=dict(size=13, color="#4b5563")
+                x=0.5 if i != 1 else 1.0,
+                y=1.0,
+                xref=xref_val,
+                yref="paper",
+                text=f"<b>{h}</b>",
+                showarrow=False,
+                yanchor="bottom",
+                font=dict(size=13, color="#4b5563"),
             )
 
         return fig

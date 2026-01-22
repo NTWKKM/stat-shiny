@@ -1,4 +1,6 @@
+27s
 Run pytest tests/unit/ -v --tb=short
+
 ======================================================================
 📊 Starting Test Session
 ======================================================================
@@ -9,17 +11,18 @@ rootdir: /home/runner/work/stat-shiny/stat-shiny
 configfile: pytest.ini
 plugins: shiny-1.5.1, base-url-2.1.0, playwright-0.7.2, asyncio-1.3.0, anyio-4.12.1
 asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collecting ... collected 279 items
+collecting ... collected 278 items
+
 tests/unit/test_advanced_stats.py::test_apply_mcc_bonferroni PASSED      [  0%]
 tests/unit/test_advanced_stats.py::test_apply_mcc_fdr_bh PASSED          [  0%]
 tests/unit/test_advanced_stats.py::test_apply_mcc_nans PASSED            [  1%]
-tests/unit/test_advanced_stats.py::test_apply_mcc_empty FAILED           [  1%]
+tests/unit/test_advanced_stats.py::test_apply_mcc_empty PASSED           [  1%]
 tests/unit/test_advanced_stats.py::test_calculate_vif_independent FAILED [  1%]
 tests/unit/test_advanced_stats.py::test_calculate_vif_collinear FAILED   [  2%]
 tests/unit/test_advanced_stats.py::test_calculate_vif_constant_handling FAILED [  2%]
 tests/unit/test_advanced_stats.py::test_calculate_vif_with_nans FAILED   [  2%]
-tests/unit/test_bland_altman.py::test_calculate_bland_altman FAILED      [  3%]
-tests/unit/test_bland_altman.py::test_calculate_bland_altman_random FAILED [  3%]
+tests/unit/test_bland_altman.py::test_calculate_bland_altman PASSED      [  3%]
+tests/unit/test_bland_altman.py::test_calculate_bland_altman_random PASSED [  3%]
 tests/unit/test_causal.py::test_calculate_ps PASSED                      [  3%]
 tests/unit/test_causal.py::test_calculate_ipw FAILED                     [  4%]
 tests/unit/test_causal.py::test_check_balance PASSED                     [  4%]
@@ -48,21 +51,21 @@ tests/unit/test_data_cleaning.py::TestMissingDataImpact::test_check_missing_data
 tests/unit/test_data_cleaning.py::TestMissingDataImpact::test_apply_missing_values_dict_support PASSED [ 12%]
 tests/unit/test_data_cleaning_workflow.py::test_original_data_preservation PASSED [ 13%]
 tests/unit/test_data_cleaning_workflow.py::test_cleaned_data_improvement PASSED [ 13%]
-tests/unit/test_data_cleaning_workflow.py::test_table_one_workflow PASSED [ 13%]
+tests/unit/test_data_cleaning_workflow.py::test_table_one_workflow PASSED [ 14%]
 tests/unit/test_data_cleaning_workflow.py::test_outlier_detection_and_handling PASSED [ 14%]
 tests/unit/test_data_cleaning_workflow.py::test_edge_cases PASSED        [ 14%]
-tests/unit/test_dca.py::test_calculate_net_benefit_simple FAILED         [ 15%]
+tests/unit/test_dca.py::test_calculate_net_benefit_simple PASSED         [ 15%]
 tests/unit/test_dca.py::test_calculate_net_benefit_all PASSED            [ 15%]
 tests/unit/test_dca.py::test_calculate_net_benefit_none PASSED           [ 15%]
-tests/unit/test_dca.py::test_dca_integration FAILED                      [ 16%]
-tests/unit/test_diag_returns.py::test_diag_returns FAILED                [ 16%]
+tests/unit/test_dca.py::test_dca_integration PASSED                      [ 16%]
+tests/unit/test_diag_returns.py::test_diag_returns PASSED                [ 16%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.001-True-0.001] PASSED [ 16%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.045-True-0.045] PASSED [ 17%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.049-True-0.049] PASSED [ 17%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.05-True-0.050] PASSED [ 17%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.1-True-0.100] PASSED [ 18%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.5-True-0.500] PASSED [ 18%]
-tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.0001-True-0.001] PASSED [ 18%]
+tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.0001-True-0.001] PASSED [ 19%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[1e-05-True-0.001] PASSED [ 19%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.9999-True-0.999] PASSED [ 19%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_parametrized[0.001-False-0.001] PASSED [ 20%]
@@ -73,7 +76,7 @@ tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_invalid_val
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_invalid_values[inf] PASSED [ 21%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_invalid_values[-inf] PASSED [ 22%]
 tests/unit/test_formatting.py::TestFormatPValue::test_format_p_value_invalid_values[nan1] PASSED [ 22%]
-tests/unit/test_formatting.py::TestFormatCIHtml::test_significant_ci_excludes_null PASSED [ 22%]
+tests/unit/test_formatting.py::TestFormatCIHtml::test_significant_ci_excludes_null PASSED [ 23%]
 tests/unit/test_formatting.py::TestFormatCIHtml::test_non_significant_ci_includes_null PASSED [ 23%]
 tests/unit/test_formatting.py::TestFormatCIHtml::test_significant_ci_greater_direction PASSED [ 23%]
 tests/unit/test_formatting.py::TestFormatCIHtml::test_invalid_bounds_returns_original[nan-2.0] PASSED [ 24%]
@@ -87,7 +90,7 @@ tests/unit/test_formatting.py::TestGetBadgeHtml::test_badge_levels[info-#d1ecf1]
 tests/unit/test_formatting.py::TestGetBadgeHtml::test_badge_levels[neutral-#e2e3e5] PASSED [ 26%]
 tests/unit/test_formatting.py::TestGetBadgeHtml::test_badge_contains_text PASSED [ 27%]
 tests/unit/test_formatting.py::TestGetBadgeHtml::test_badge_structure PASSED [ 27%]
-tests/unit/test_formatting.py::TestGetBadgeHtml::test_unknown_level_uses_neutral PASSED [ 27%]
+tests/unit/test_formatting.py::TestGetBadgeHtml::test_unknown_level_uses_neutral PASSED [ 28%]
 tests/unit/test_formatting.py::TestCreateMissingDataReportHtml::test_report_contains_strategy PASSED [ 28%]
 tests/unit/test_formatting.py::TestCreateMissingDataReportHtml::test_report_contains_row_counts PASSED [ 28%]
 tests/unit/test_formatting.py::TestCreateMissingDataReportHtml::test_report_shows_variables_with_missing PASSED [ 29%]
@@ -98,10 +101,10 @@ tests/unit/test_formatting.py::TestGetPct::test_valid_percentage_strings[50.0%-5
 tests/unit/test_formatting.py::TestGetPct::test_valid_percentage_strings[100%-100.0] PASSED [ 30%]
 tests/unit/test_formatting.py::TestGetPct::test_valid_percentage_strings[0%-0.0] PASSED [ 31%]
 tests/unit/test_formatting.py::TestGetPct::test_valid_percentage_strings[33.33%-33.33] PASSED [ 31%]
-tests/unit/test_formatting.py::TestGetPct::test_valid_percentage_strings[75.5%-75.5] PASSED [ 31%]
+tests/unit/test_formatting.py::TestGetPct::test_valid_percentage_strings[75.5%-75.5] PASSED [ 32%]
 tests/unit/test_formatting.py::TestGetPct::test_invalid_inputs_return_zero[invalid] PASSED [ 32%]
 tests/unit/test_formatting.py::TestGetPct::test_invalid_inputs_return_zero[] PASSED [ 32%]
-tests/unit/test_formatting.py::TestGetPct::test_invalid_inputs_return_zero[None] PASSED [ 32%]
+tests/unit/test_formatting.py::TestGetPct::test_invalid_inputs_return_zero[None] PASSED [ 33%]
 tests/unit/test_formatting.py::TestGetPct::test_invalid_inputs_return_zero[abc%] PASSED [ 33%]
 tests/unit/test_glm.py::test_run_glm_gaussian_identity PASSED            [ 33%]
 tests/unit/test_glm.py::test_run_glm_poisson_log PASSED                  [ 34%]
@@ -112,10 +115,10 @@ tests/unit/test_heterogeneity.py::test_heterogeneity_high PASSED         [ 35%]
 tests/unit/test_heterogeneity.py::test_heterogeneity_single_study PASSED [ 35%]
 tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_valid_inputs PASSED [ 36%]
 tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_empty_dataframe PASSED [ 36%]
-tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_none_dataframe PASSED [ 36%]
+tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_none_dataframe PASSED [ 37%]
 tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_missing_outcome_column PASSED [ 37%]
 tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_missing_predictor_columns PASSED [ 37%]
-tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_outcome_in_predictors PASSED [ 37%]
+tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_outcome_in_predictors PASSED [ 38%]
 tests/unit/test_linear_lib.py::TestValidateOLSInputs::test_empty_predictors PASSED [ 38%]
 tests/unit/test_linear_lib.py::TestPrepareDataForOLS::test_basic_preparation PASSED [ 38%]
 tests/unit/test_linear_lib.py::TestPrepareDataForOLS::test_missing_data_handling PASSED [ 39%]
@@ -123,10 +126,10 @@ tests/unit/test_linear_lib.py::TestPrepareDataForOLS::test_insufficient_sample_s
 tests/unit/test_linear_lib.py::TestPrepareDataForOLS::test_constant_outcome PASSED [ 39%]
 tests/unit/test_linear_lib.py::TestPrepareDataForOLS::test_excludes_non_selected_columns PASSED [ 40%]
 tests/unit/test_linear_lib.py::TestRunOLSRegression::test_basic_ols PASSED [ 40%]
-tests/unit/test_linear_lib.py::TestRunOLSRegression::test_coefficient_extraction PASSED [ 40%]
+tests/unit/test_linear_lib.py::TestRunOLSRegression::test_coefficient_extraction PASSED [ 41%]
 tests/unit/test_linear_lib.py::TestRunOLSRegression::test_robust_standard_errors PASSED [ 41%]
 tests/unit/test_linear_lib.py::TestRunOLSRegression::test_single_predictor PASSED [ 41%]
-tests/unit/test_linear_lib.py::TestRunOLSRegression::test_diagnostics_present PASSED [ 41%]
+tests/unit/test_linear_lib.py::TestRunOLSRegression::test_diagnostics_present PASSED [ 42%]
 tests/unit/test_linear_lib.py::TestRunRobustRegression::test_huber_regression PASSED [ 42%]
 tests/unit/test_linear_lib.py::TestRunRobustRegression::test_bisquare_regression PASSED [ 42%]
 tests/unit/test_linear_lib.py::TestCalculateVIF::test_vif_calculation PASSED [ 43%]
@@ -135,32 +138,31 @@ tests/unit/test_linear_lib.py::TestCalculateVIF::test_vif_interpretation PASSED 
 tests/unit/test_linear_lib.py::TestDiagnosticTests::test_diagnostics_run PASSED [ 44%]
 tests/unit/test_linear_lib.py::TestDiagnosticTests::test_shapiro_wilk_present PASSED [ 44%]
 tests/unit/test_linear_lib.py::TestDiagnosticTests::test_durbin_watson_present PASSED [ 44%]
-tests/unit/test_linear_lib.py::TestDiagnosticPlots::test_plots_created FAILED [ 45%]
-tests/unit/test_linear_lib.py::TestDiagnosticPlots::test_plots_are_figures FAILED [ 45%]
-tests/unit/test_linear_lib.py::TestFormatOLSResults::test_formatting FAILED [ 45%]
-tests/unit/test_linear_lib.py::TestFormatOLSResults::test_var_meta_labels FAILED [ 46%]
+tests/unit/test_linear_lib.py::TestDiagnosticPlots::test_plots_created PASSED [ 45%]
+tests/unit/test_linear_lib.py::TestDiagnosticPlots::test_plots_are_figures PASSED [ 45%]
+tests/unit/test_linear_lib.py::TestFormatOLSResults::test_formatting PASSED [ 46%]
+tests/unit/test_linear_lib.py::TestFormatOLSResults::test_var_meta_labels PASSED [ 46%]
 tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_full_analysis FAILED [ 46%]
-tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_auto_predictor_selection FAILED [ 46%]
+tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_auto_predictor_selection FAILED [ 47%]
 tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_robust_regression_option FAILED [ 47%]
-tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_exclude_columns FAILED [ 47%]
-tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_html_report_contains_sections FAILED [ 48%]
+tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_html_report_contains_sections FAILED [ 47%]
 tests/unit/test_linear_lib.py::TestEdgeCases::test_variable_names_with_spaces FAILED [ 48%]
 tests/unit/test_linear_lib.py::TestEdgeCases::test_invalid_outcome_raises_error PASSED [ 48%]
-tests/unit/test_linear_lib.py::TestEdgeCases::test_no_valid_predictors_raises_error PASSED [ 49%]
+tests/unit/test_linear_lib.py::TestEdgeCases::test_no_valid_predictors_raises_error PASSED [ 48%]
 tests/unit/test_linear_lib.py::TestStepwiseSelection::test_forward_selection PASSED [ 49%]
-tests/unit/test_linear_lib.py::TestStepwiseSelection::test_backward_selection FAILED [ 49%]
+tests/unit/test_linear_lib.py::TestStepwiseSelection::test_backward_selection PASSED [ 49%]
 tests/unit/test_linear_lib.py::TestStepwiseSelection::test_both_direction_selection PASSED [ 50%]
 tests/unit/test_linear_lib.py::TestStepwiseSelection::test_history_formatting PASSED [ 50%]
 tests/unit/test_linear_lib.py::TestModelComparison::test_compare_two_models PASSED [ 50%]
 tests/unit/test_linear_lib.py::TestModelComparison::test_model_ranking PASSED [ 51%]
 tests/unit/test_linear_lib.py::TestBootstrapCI::test_basic_bootstrap PASSED [ 51%]
-tests/unit/test_linear_lib.py::TestBootstrapCI::test_bootstrap_ci_columns FAILED [ 51%]
-tests/unit/test_linear_lib.py::TestBootstrapCI::test_bootstrap_formatting FAILED [ 52%]
-tests/unit/test_linear_lib.py::TestBootstrapCI::test_bca_method FAILED   [ 52%]
-tests/unit/test_mediation.py::test_analyze_mediation_basic PASSED        [ 53%]
+tests/unit/test_linear_lib.py::TestBootstrapCI::test_bootstrap_ci_columns PASSED [ 51%]
+tests/unit/test_linear_lib.py::TestBootstrapCI::test_bootstrap_formatting PASSED [ 52%]
+tests/unit/test_linear_lib.py::TestBootstrapCI::test_bca_method PASSED   [ 52%]
+tests/unit/test_mediation.py::test_analyze_mediation_basic PASSED        [ 52%]
 tests/unit/test_mediation.py::test_analyze_mediation_values PASSED       [ 53%]
 tests/unit/test_mediation.py::test_analyze_mediation_with_confounder PASSED [ 53%]
-tests/unit/test_mediation.py::test_analyze_mediation_empty_data PASSED   [ 54%]
+tests/unit/test_mediation.py::test_analyze_mediation_empty_data PASSED   [ 53%]
 tests/unit/test_mediation.py::test_analyze_mediation_missing_columns PASSED [ 54%]
 tests/unit/test_mediation.py::test_analyze_mediation_constant_variable PASSED [ 54%]
 tests/unit/test_mediation.py::test_analyze_mediation_perfect_collinearity PASSED [ 55%]
@@ -171,10 +173,10 @@ tests/unit/test_missing_data.py::TestDetectMissingInVariable::test_counts_nan_va
 tests/unit/test_missing_data.py::TestDetectMissingInVariable::test_counts_coded_missing_values PASSED [ 56%]
 tests/unit/test_missing_data.py::TestDetectMissingInVariable::test_calculates_percentage PASSED [ 57%]
 tests/unit/test_missing_data.py::TestGetMissingSummaryDf::test_generates_summary_for_all_columns PASSED [ 57%]
-tests/unit/test_missing_data.py::TestGetMissingSummaryDf::test_formats_percentage_as_string PASSED [ 58%]
+tests/unit/test_missing_data.py::TestGetMissingSummaryDf::test_formats_percentage_as_string PASSED [ 57%]
 tests/unit/test_missing_data.py::TestMissingValueBreakdownFix::test_detect_missing_breakdown_before_and_after_normalization PASSED [ 58%]
 tests/unit/test_missing_data.py::TestMissingValueBreakdownFix::test_detect_missing_avoids_double_counting_with_nan_input PASSED [ 58%]
-tests/unit/test_missing_data.py::TestHandleMissingForAnalysis::test_complete_case_drops_rows_with_nan PASSED [ 59%]
+tests/unit/test_missing_data.py::TestHandleMissingForAnalysis::test_complete_case_drops_rows_with_nan PASSED [ 58%]
 tests/unit/test_missing_data.py::TestHandleMissingForAnalysis::test_returns_counts_when_requested PASSED [ 59%]
 tests/unit/test_missing_data.py::TestHandleMissingForAnalysis::test_applies_missing_codes PASSED [ 59%]
 tests/unit/test_missing_data.py::TestCheckMissingDataImpact::test_calculates_rows_removed PASSED [ 60%]
@@ -182,10 +184,10 @@ tests/unit/test_missing_data.py::TestCheckMissingDataImpact::test_identifies_aff
 tests/unit/test_model_diagnostics.py::test_reset_test PASSED             [ 60%]
 tests/unit/test_model_diagnostics.py::test_heteroscedasticity_test_clean PASSED [ 61%]
 tests/unit/test_model_diagnostics.py::test_heteroscedasticity_test_dirty PASSED [ 61%]
-tests/unit/test_model_diagnostics_plots.py::test_calculate_cooks_distance_structure PASSED [ 62%]
+tests/unit/test_model_diagnostics_plots.py::test_calculate_cooks_distance_structure PASSED [ 61%]
 tests/unit/test_model_diagnostics_plots.py::test_cooks_distance_detects_outlier PASSED [ 62%]
 tests/unit/test_model_diagnostics_plots.py::test_get_diagnostic_plot_data PASSED [ 62%]
-tests/unit/test_plotly_html_rendering.py::TestPlotlyHtmlRenderer::test_none_figure PASSED [ 63%]
+tests/unit/test_plotly_html_rendering.py::TestPlotlyHtmlRenderer::test_none_figure PASSED [ 62%]
 tests/unit/test_plotly_html_rendering.py::TestPlotlyHtmlRenderer::test_simple_figure PASSED [ 63%]
 tests/unit/test_plotly_html_rendering.py::TestPlotlyHtmlRenderer::test_cdn_plotlyjs PASSED [ 63%]
 tests/unit/test_plotly_html_rendering.py::TestPlotlyHtmlRenderer::test_responsive PASSED [ 64%]
@@ -196,10 +198,10 @@ tests/unit/test_plotly_html_rendering.py::TestPlotlyHtmlRenderer::test_fixed_dim
 tests/unit/test_plotly_html_rendering.py::TestSanitizeDivId::test_valid_id PASSED [ 65%]
 tests/unit/test_plotly_html_rendering.py::TestSanitizeDivId::test_special_characters_removed PASSED [ 66%]
 tests/unit/test_plotly_html_rendering.py::TestSanitizeDivId::test_number_prefix_handled PASSED [ 66%]
-tests/unit/test_plotly_html_rendering.py::TestSanitizeDivId::test_empty_string_handled PASSED [ 67%]
+tests/unit/test_plotly_html_rendering.py::TestSanitizeDivId::test_empty_string_handled PASSED [ 66%]
 tests/unit/test_plotly_html_rendering.py::TestCreatePlaceholderHtml::test_returns_html PASSED [ 67%]
 tests/unit/test_plotly_html_rendering.py::TestCreatePlaceholderHtml::test_escapes_html_entities PASSED [ 67%]
-tests/unit/test_plotly_html_rendering.py::TestIntegration::test_full_rendering_workflow PASSED [ 68%]
+tests/unit/test_plotly_html_rendering.py::TestIntegration::test_full_rendering_workflow PASSED [ 67%]
 tests/unit/test_poisson_lib.py::test_analyze_poisson_model PASSED        [ 68%]
 tests/unit/test_poisson_lib.py::test_analyze_nb_model PASSED             [ 68%]
 tests/unit/test_poisson_lib.py::test_offset_handling PASSED              [ 69%]
@@ -210,7 +212,7 @@ tests/unit/test_sample_size.py::test_calculate_power_means PASSED        [ 70%]
 tests/unit/test_sample_size.py::test_calculate_sample_size_means PASSED  [ 70%]
 tests/unit/test_sample_size.py::test_calculate_sample_size_proportions PASSED [ 71%]
 tests/unit/test_sample_size.py::test_calculate_sample_size_survival PASSED [ 71%]
-tests/unit/test_sample_size.py::test_calculate_sample_size_correlation FAILED [ 72%]
+tests/unit/test_sample_size.py::test_calculate_sample_size_correlation FAILED [ 71%]
 tests/unit/test_sample_size.py::test_calculate_power_survival PASSED     [ 72%]
 tests/unit/test_sample_size.py::test_calculate_power_correlation PASSED  [ 72%]
 tests/unit/test_sample_size.py::test_calculate_power_curve PASSED        [ 73%]
@@ -224,7 +226,7 @@ tests/unit/test_statistics.py::TestDataValidation::test_clean_numeric_value_comp
 tests/unit/test_statistics.py::TestDataValidation::test_clean_numeric_value_invalid PASSED [ 75%]
 tests/unit/test_statistics.py::TestDataValidation::test_validate_logit_data_success PASSED [ 76%]
 tests/unit/test_statistics.py::TestDataValidation::test_validate_logit_data_zero_variance PASSED [ 76%]
-tests/unit/test_statistics.py::TestDataValidation::test_validate_logit_data_empty PASSED [ 77%]
+tests/unit/test_statistics.py::TestDataValidation::test_validate_logit_data_empty PASSED [ 76%]
 tests/unit/test_statistics.py::TestDataValidation::test_validate_logit_data_single_predictor PASSED [ 77%]
 tests/unit/test_statistics.py::TestLogisticRegression::test_run_binary_logit_basic PASSED [ 77%]
 tests/unit/test_statistics.py::TestLogisticRegression::test_run_binary_logit_multiple_predictors PASSED [ 78%]
@@ -235,13 +237,13 @@ tests/unit/test_statistics.py::TestFormattingHelpers::test_fmt_p_with_styling_no
 tests/unit/test_statistics.py::TestFormattingHelpers::test_fmt_p_with_styling_edge_cases PASSED [ 79%]
 tests/unit/test_statistics.py::TestFormattingHelpers::test_get_label_basic PASSED [ 80%]
 tests/unit/test_statistics.py::TestFormattingHelpers::test_get_label_with_metadata PASSED [ 80%]
-tests/unit/test_statistics.py::TestAnalyzeOutcome::test_analyze_outcome_basic PASSED [ 81%]
+tests/unit/test_statistics.py::TestAnalyzeOutcome::test_analyze_outcome_basic PASSED [ 80%]
 tests/unit/test_statistics.py::TestAnalyzeOutcome::test_analyze_outcome_missing_column PASSED [ 81%]
 tests/unit/test_statistics.py::TestAnalyzeOutcome::test_analyze_outcome_non_binary PASSED [ 81%]
-tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_numeric FAILED [ 82%]
-tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_categorical FAILED [ 82%]
-tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_missing_column FAILED [ 82%]
-tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_empty_column FAILED [ 83%]
+tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_numeric PASSED [ 82%]
+tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_categorical PASSED [ 82%]
+tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_missing_column PASSED [ 82%]
+tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_empty_column PASSED [ 83%]
 tests/unit/test_statistics.py::TestChiSquareAnalysis::test_calculate_chi2_basic PASSED [ 83%]
 tests/unit/test_statistics.py::TestChiSquareAnalysis::test_calculate_chi2_2x2_risk_metrics PASSED [ 83%]
 tests/unit/test_statistics.py::TestChiSquareAnalysis::test_calculate_chi2_fisher_exact PASSED [ 84%]
@@ -249,12 +251,12 @@ tests/unit/test_statistics.py::TestChiSquareAnalysis::test_calculate_chi2_missin
 tests/unit/test_statistics.py::TestChiSquareAnalysis::test_calculate_chi2_empty_data FAILED [ 84%]
 tests/unit/test_statistics.py::TestROCAnalysis::test_analyze_roc_basic PASSED [ 85%]
 tests/unit/test_statistics.py::TestROCAnalysis::test_analyze_roc_perfect_classifier PASSED [ 85%]
-tests/unit/test_statistics.py::TestROCAnalysis::test_analyze_roc_missing_column PASSED [ 86%]
+tests/unit/test_statistics.py::TestROCAnalysis::test_analyze_roc_missing_column PASSED [ 85%]
 tests/unit/test_statistics.py::TestROCAnalysis::test_analyze_roc_constant_score PASSED [ 86%]
 tests/unit/test_statistics.py::TestKappaAnalysis::test_calculate_kappa_basic PASSED [ 86%]
 tests/unit/test_statistics.py::TestKappaAnalysis::test_calculate_kappa_perfect_agreement PASSED [ 87%]
 tests/unit/test_statistics.py::TestKappaAnalysis::test_calculate_kappa_no_agreement PASSED [ 87%]
-tests/unit/test_statistics.py::TestICCAnalysis::test_calculate_icc_basic FAILED [ 87%]
+tests/unit/test_statistics.py::TestICCAnalysis::test_calculate_icc_basic PASSED [ 87%]
 tests/unit/test_statistics.py::TestICCAnalysis::test_calculate_icc_insufficient_columns PASSED [ 88%]
 tests/unit/test_statistics.py::TestConfidenceIntervals::test_wilson_score_ci PASSED [ 88%]
 tests/unit/test_statistics.py::TestConfidenceIntervals::test_wilson_score_ci_edge_cases PASSED [ 88%]
@@ -276,8 +278,8 @@ tests/unit/test_statistics.py::TestLandmarkAnalysis::test_fit_km_landmark_insuff
 tests/unit/test_statistics.py::TestIntegrationScenarios::test_full_diagnostic_workflow PASSED [ 94%]
 tests/unit/test_statistics.py::TestIntegrationScenarios::test_full_survival_workflow PASSED [ 94%]
 tests/unit/test_statistics.py::TestIntegrationScenarios::test_full_logistic_workflow PASSED [ 95%]
-tests/unit/test_statistics.py::TestEdgeCases::test_empty_dataframe_all_functions FAILED [ 95%]
-tests/unit/test_statistics.py::TestEdgeCases::test_all_missing_data FAILED [ 96%]
+tests/unit/test_statistics.py::TestEdgeCases::test_empty_dataframe_all_functions PASSED [ 95%]
+tests/unit/test_statistics.py::TestEdgeCases::test_all_missing_data PASSED [ 96%]
 tests/unit/test_statistics.py::TestEdgeCases::test_single_observation PASSED [ 96%]
 tests/unit/test_statistics.py::TestPerformance::test_large_dataset_chi2 PASSED [ 96%]
 tests/unit/test_statistics.py::TestPerformance::test_large_dataset_logistic PASSED [ 97%]
@@ -292,15 +294,9 @@ tests/unit/test_tvc_lib.py::TestTVCUtils::test_check_assumptions PASSED  [100%]
 ======================================================================
 ✅ Test Session Complete
 ======================================================================
+
+
 =================================== FAILURES ===================================
-_____________________________ test_apply_mcc_empty _____________________________
-tests/unit/test_advanced_stats.py:61: in test_apply_mcc_empty
-    assert apply_mcc(None).empty
-           ^^^^^^^^^^^^^^^
-utils/advanced_stats_lib.py:22: in apply_mcc
-    p_series = p_values.copy()
-               ^^^^^^^^^^^^^
-E   AttributeError: 'NoneType' object has no attribute 'copy'
 ________________________ test_calculate_vif_independent ________________________
 tests/unit/test_advanced_stats.py:78: in test_calculate_vif_independent
     vif_df, _ = calculate_vif(df)
@@ -321,208 +317,61 @@ tests/unit/test_advanced_stats.py:119: in test_calculate_vif_with_nans
     vif_df, missing_info = calculate_vif(df)
     ^^^^^^^^^^^^^^^^^^^^
 E   ValueError: too many values to unpack (expected 2)
-_________________________ test_calculate_bland_altman __________________________
-tests/unit/test_bland_altman.py:14: in test_calculate_bland_altman
-    stats, fig = diag_test.calculate_bland_altman(df, "A", "B")
-    ^^^^^^^^^^
-E   ValueError: too many values to unpack (expected 2)
-______________________ test_calculate_bland_altman_random ______________________
-tests/unit/test_bland_altman.py:39: in test_calculate_bland_altman_random
-    stats, fig = diag_test.calculate_bland_altman(df, "A", "B")
-    ^^^^^^^^^^
-E   ValueError: too many values to unpack (expected 2)
 ______________________________ test_calculate_ipw ______________________________
 tests/unit/test_causal.py:56: in test_calculate_ipw
     assert "ATE" in res
 E   assert 'ATE' in {'error': "'numpy.ndarray' object has no attribute 'iloc'"}
 ----------------------------- Captured stdout call -----------------------------
-2026-01-22 08:17:45 - utils.psm_lib - ERROR - IPW calculation failed: 'numpy.ndarray' object has no attribute 'iloc'
+2026-01-22 09:02:57 - utils.psm_lib - ERROR - IPW calculation failed: 'numpy.ndarray' object has no attribute 'iloc'
 ------------------------------ Captured log call -------------------------------
 ERROR    utils.psm_lib:logger.py:148 IPW calculation failed: 'numpy.ndarray' object has no attribute 'iloc'
-______________________ test_calculate_net_benefit_simple _______________________
-tests/unit/test_dca.py:27: in test_calculate_net_benefit_simple
-    nb = res.iloc[0]["net_benefit"]
-         ^^^^^^^^
-E   AttributeError: 'tuple' object has no attribute 'iloc'
-_____________________________ test_dca_integration _____________________________
-tests/unit/test_dca.py:63: in test_dca_integration
-    combined = pd.concat([dca_model, dca_all, dca_none])
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/reshape/concat.py:407: in concat
-    objs, keys, ndims = _clean_keys_and_objs(objs, keys)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/reshape/concat.py:836: in _clean_keys_and_objs
-    raise TypeError(msg)
-E   TypeError: cannot concatenate object of type '<class 'tuple'>'; only Series and DataFrame objs are valid
-______________________________ test_diag_returns _______________________________
-tests/unit/test_diag_returns.py:56: in test_diag_returns
-    assert isinstance(res, pd.DataFrame), (
-E   AssertionError: calculate_descriptive should return a DataFrame
-E   assert False
-E    +  where False = isinstance((  Statistic   Value\n0     Count       8\n1      Mean  0.5000\n2        SD  0.2928\n3    Median  0.5000\n4       Min  0.1000\n5       Max  0.9000\n6  Q1 (25%)  0.2750\n7  Q3 (75%)  0.7250, {'analyzed_indices': [0, 1, 2, 3, 4, 5, ...], 'rows_analyzed': 8, 'rows_excluded': 0, 'rows_original': 8, ...}), <class 'pandas.DataFrame'>)
-E    +    where <class 'pandas.DataFrame'> = pd.DataFrame
------------------------------ Captured stdout call -----------------------------
-Starting Diagnostic Tests Return Signature Verification...
-Checking analyze_roc...
-✅ analyze_roc: OK
-Checking calculate_chi2 (Pearson)...
-✅ calculate_chi2 (Pearson): OK
-Checking calculate_chi2 (Fisher error path)...
-✅ calculate_chi2 (Fisher error path): OK
-Checking calculate_kappa...
-✅ calculate_kappa: OK
-Checking calculate_descriptive...
-____________________ TestDiagnosticPlots.test_plots_created ____________________
-tests/unit/test_linear_lib.py:439: in test_plots_created
-    plots = create_diagnostic_plots(results)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:563: in create_diagnostic_plots
-    go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
-                                                                 ^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'secondary'
-__________________ TestDiagnosticPlots.test_plots_are_figures __________________
-tests/unit/test_linear_lib.py:455: in test_plots_are_figures
-    plots = create_diagnostic_plots(results)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:563: in create_diagnostic_plots
-    go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
-                                                                 ^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'secondary'
-_____________________ TestFormatOLSResults.test_formatting _____________________
-tests/unit/test_linear_lib.py:476: in test_formatting
-    formatted_coef, vif_table = format_ols_results(results)
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:645: in format_ols_results
-    "95% CI": coef_df.apply(
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/frame.py:12419: in apply
-    return op.apply().__finalize__(self, method="apply")
-           ^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/apply.py:1015: in apply
-    return self.apply_standard()
-           ^^^^^^^^^^^^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/apply.py:1167: in apply_standard
-    results, res_index = self.apply_series_generator()
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/apply.py:1183: in apply_series_generator
-    results[i] = self.func(v, *self.args, **self.kwargs)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:646: in <lambda>
-    lambda r: format_ci_html(r["CI_Lower"], r["CI_Upper"]), axis=1
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   TypeError: format_ci_html() missing 1 required positional argument: 'upper'
-__________________ TestFormatOLSResults.test_var_meta_labels ___________________
-tests/unit/test_linear_lib.py:495: in test_var_meta_labels
-    formatted_coef, _ = format_ols_results(results, var_meta)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:645: in format_ols_results
-    "95% CI": coef_df.apply(
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/frame.py:12419: in apply
-    return op.apply().__finalize__(self, method="apply")
-           ^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/apply.py:1015: in apply
-    return self.apply_standard()
-           ^^^^^^^^^^^^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/apply.py:1167: in apply_standard
-    results, res_index = self.apply_series_generator()
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/opt/hostedtoolcache/Python/3.12.12/x64/lib/python3.12/site-packages/pandas/core/apply.py:1183: in apply_series_generator
-    results[i] = self.func(v, *self.args, **self.kwargs)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:646: in <lambda>
-    lambda r: format_ci_html(r["CI_Lower"], r["CI_Upper"]), axis=1
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   TypeError: format_ci_html() missing 1 required positional argument: 'upper'
 _________________ TestAnalyzeLinearOutcome.test_full_analysis __________________
-tests/unit/test_linear_lib.py:515: in test_full_analysis
+tests/unit/test_linear_lib.py:544: in test_full_analysis
     html_report, results, plots, missing_info = analyze_linear_outcome(
-utils/linear_lib.py:680: in analyze_linear_outcome
-    plots = create_diagnostic_plots(results)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:563: in create_diagnostic_plots
-    go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
-                                                                 ^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'secondary'
+utils/linear_lib.py:725: in analyze_linear_outcome
+    html_sections.append(create_missing_data_report_html(missing_info))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
 ____________ TestAnalyzeLinearOutcome.test_auto_predictor_selection ____________
-tests/unit/test_linear_lib.py:529: in test_auto_predictor_selection
+tests/unit/test_linear_lib.py:558: in test_auto_predictor_selection
     html_report, results, plots, missing_info = analyze_linear_outcome(
-utils/linear_lib.py:680: in analyze_linear_outcome
-    plots = create_diagnostic_plots(results)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:563: in create_diagnostic_plots
-    go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
-                                                                 ^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'secondary'
+utils/linear_lib.py:725: in analyze_linear_outcome
+    html_sections.append(create_missing_data_report_html(missing_info))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
 ____________ TestAnalyzeLinearOutcome.test_robust_regression_option ____________
-tests/unit/test_linear_lib.py:539: in test_robust_regression_option
+tests/unit/test_linear_lib.py:568: in test_robust_regression_option
     html_report, results, plots, missing_info = analyze_linear_outcome(
-utils/linear_lib.py:680: in analyze_linear_outcome
-    plots = create_diagnostic_plots(results)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:563: in create_diagnostic_plots
-    go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
-                                                                 ^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'secondary'
-________________ TestAnalyzeLinearOutcome.test_exclude_columns _________________
-tests/unit/test_linear_lib.py:550: in test_exclude_columns
-    html_report, results, plots, missing_info = analyze_linear_outcome(
-E   TypeError: analyze_linear_outcome() got an unexpected keyword argument 'exclude_cols'
+utils/linear_lib.py:725: in analyze_linear_outcome
+    html_sections.append(create_missing_data_report_html(missing_info))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
 _________ TestAnalyzeLinearOutcome.test_html_report_contains_sections __________
-tests/unit/test_linear_lib.py:560: in test_html_report_contains_sections
+tests/unit/test_linear_lib.py:579: in test_html_report_contains_sections
     html_report, _, _, _ = analyze_linear_outcome(
-utils/linear_lib.py:680: in analyze_linear_outcome
-    plots = create_diagnostic_plots(results)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:563: in create_diagnostic_plots
-    go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
-                                                                 ^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'secondary'
+utils/linear_lib.py:725: in analyze_linear_outcome
+    html_sections.append(create_missing_data_report_html(missing_info))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
 ________________ TestEdgeCases.test_variable_names_with_spaces _________________
-tests/unit/test_linear_lib.py:591: in test_variable_names_with_spaces
+tests/unit/test_linear_lib.py:610: in test_variable_names_with_spaces
     html_report, results, plots, missing_info = analyze_linear_outcome(
-utils/linear_lib.py:680: in analyze_linear_outcome
-    plots = create_diagnostic_plots(results)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:563: in create_diagnostic_plots
-    go.Scatter(x=theo_q, y=theo_q, mode="lines", line=dict(color=COLORS["secondary"]))
-                                                                 ^^^^^^^^^^^^^^^^^^^
-E   KeyError: 'secondary'
-________________ TestStepwiseSelection.test_backward_selection _________________
-tests/unit/test_linear_lib.py:659: in test_backward_selection
-    assert "excluded_vars" in result
-E   AssertionError: assert 'excluded_vars' in {'criterion': 'bic', 'direction': 'backward', 'final_model': <statsmodels.regression.linear_model.RegressionResultsWrapper object at 0x7f1ae983df70>, 'history': [{'action': 'add', 'score': np.float64(755.3475669945008), 'step': 1, 'variable': 'BMI'}, {'action': 'add', 'score': np.float64(729.3628306936233), 'step': 2, 'variable': 'Age'}], ...}
-__________________ TestBootstrapCI.test_bootstrap_ci_columns ___________________
-tests/unit/test_linear_lib.py:789: in test_bootstrap_ci_columns
-    assert "CI Lower (Pct)" in results_df.columns
-E   AssertionError: assert 'CI Lower (Pct)' in Index(['Variable', 'Estimate', 'Boot SE', 'Samples'], dtype='str')
-E    +  where Index(['Variable', 'Estimate', 'Boot SE', 'Samples'], dtype='str') =     Variable  ...                                            Samples\n0  Intercept  ...  [76.0750176689278, 95.02106315340085, 82.36055...\n1        Age  ...  [0.3941863642860106, 0.3652698157370019, 0.529...\n2        BMI  ...  [2.345794765415345, 1.6951190478247204, 1.8850...\n\n[3 rows x 4 columns].columns
-__________________ TestBootstrapCI.test_bootstrap_formatting ___________________
-tests/unit/test_linear_lib.py:806: in test_bootstrap_formatting
-    formatted = format_bootstrap_results(result, ci_method="percentile")
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:960: in format_bootstrap_results
-    format_ci_html(l, u) for l, u in zip(ci_lower, ci_upper)
-    ^^^^^^^^^^^^^^^^^^^^
-E   TypeError: format_ci_html() missing 1 required positional argument: 'upper'
-_______________________ TestBootstrapCI.test_bca_method ________________________
-tests/unit/test_linear_lib.py:825: in test_bca_method
-    formatted = format_bootstrap_results(result, ci_method="bca")
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-utils/linear_lib.py:960: in format_bootstrap_results
-    format_ci_html(l, u) for l, u in zip(ci_lower, ci_upper)
-    ^^^^^^^^^^^^^^^^^^^^
-E   TypeError: format_ci_html() missing 1 required positional argument: 'upper'
+utils/linear_lib.py:725: in analyze_linear_outcome
+    html_sections.append(create_missing_data_report_html(missing_info))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
 _________________________________ test_run_gee _________________________________
 tests/unit/test_repeated_measures.py:64: in test_run_gee
     param_names = results.params.index.tolist()
                   ^^^^^^^^^^^^^^
 E   AttributeError: 'dict' object has no attribute 'params'
 ----------------------------- Captured stdout call -----------------------------
-2026-01-22 08:17:53 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
+2026-01-22 09:03:05 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
 Traceback (most recent call last):
   File "/home/runner/work/stat-shiny/stat-shiny/utils/data_cleaning.py", line 1027, in prepare_data_for_analysis
     raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
 utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
-2026-01-22 08:17:53 - utils.repeated_measures_lib - ERROR - Data preparation for GEE failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
+2026-01-22 09:03:05 - utils.repeated_measures_lib - ERROR - Data preparation for GEE failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
 ------------------------------ Captured log call -------------------------------
 ERROR    utils.data_cleaning:logger.py:156 Failed to prepare data for analysis
 Traceback (most recent call last):
@@ -536,12 +385,12 @@ tests/unit/test_repeated_measures.py:101: in test_run_lmm
                   ^^^^^^^^^^^^^^
 E   AttributeError: 'dict' object has no attribute 'params'
 ----------------------------- Captured stdout call -----------------------------
-2026-01-22 08:17:53 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
+2026-01-22 09:03:05 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
 Traceback (most recent call last):
   File "/home/runner/work/stat-shiny/stat-shiny/utils/data_cleaning.py", line 1027, in prepare_data_for_analysis
     raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
 utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
-2026-01-22 08:17:53 - utils.repeated_measures_lib - ERROR - Data preparation for LMM failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
+2026-01-22 09:03:05 - utils.repeated_measures_lib - ERROR - Data preparation for LMM failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
 ------------------------------ Captured log call -------------------------------
 ERROR    utils.data_cleaning:logger.py:156 Failed to prepare data for analysis
 Traceback (most recent call last):
@@ -554,55 +403,19 @@ tests/unit/test_sample_size.py:45: in test_calculate_sample_size_correlation
     assert 80 < n < 90
            ^^^^^^^^^^^
 E   TypeError: '<' not supported between instances of 'int' and 'dict'
-_________ TestDescriptiveStatistics.test_calculate_descriptive_numeric _________
-tests/unit/test_statistics.py:505: in test_calculate_descriptive_numeric
-    assert not result.empty
-               ^^^^^^^^^^^^
-E   AttributeError: 'tuple' object has no attribute 'empty'
-_______ TestDescriptiveStatistics.test_calculate_descriptive_categorical _______
-tests/unit/test_statistics.py:519: in test_calculate_descriptive_categorical
-    assert not result.empty
-               ^^^^^^^^^^^^
-E   AttributeError: 'tuple' object has no attribute 'empty'
-_____ TestDescriptiveStatistics.test_calculate_descriptive_missing_column ______
-tests/unit/test_statistics.py:528: in test_calculate_descriptive_missing_column
-    assert result is None
-E   assert (None, None) is None
------------------------------ Captured stdout call -----------------------------
-2026-01-22 08:18:06 - utils.diag_test - ERROR - Column 'nonexistent' not found
------------------------------- Captured log call -------------------------------
-ERROR    utils.diag_test:logger.py:148 Column 'nonexistent' not found
-______ TestDescriptiveStatistics.test_calculate_descriptive_empty_column _______
-tests/unit/test_statistics.py:534: in test_calculate_descriptive_empty_column
-    assert result is None
-E   assert (None, None) is None
------------------------------ Captured stdout call -----------------------------
-2026-01-22 08:18:06 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
-Traceback (most recent call last):
-  File "/home/runner/work/stat-shiny/stat-shiny/utils/data_cleaning.py", line 1027, in prepare_data_for_analysis
-    raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
-utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
-2026-01-22 08:18:06 - utils.diag_test - ERROR - Descriptive analysis preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
------------------------------- Captured log call -------------------------------
-ERROR    utils.data_cleaning:logger.py:156 Failed to prepare data for analysis
-Traceback (most recent call last):
-  File "/home/runner/work/stat-shiny/stat-shiny/utils/data_cleaning.py", line 1027, in prepare_data_for_analysis
-    raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
-utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
-ERROR    utils.diag_test:logger.py:148 Descriptive analysis preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
 _____________ TestChiSquareAnalysis.test_calculate_chi2_empty_data _____________
-tests/unit/test_statistics.py:603: in test_calculate_chi2_empty_data
+tests/unit/test_statistics.py:607: in test_calculate_chi2_empty_data
     assert "no data" in msg.lower()
 E   AssertionError: assert 'no data' in 'data preparation failed: data preparation failed: no valid data remaining after cleaning (all rows contained missing values)'
-E    +  where 'data preparation failed: data preparation failed: no valid data remaining after cleaning (all rows contained missing values)' = <built-in method lower of str object at 0x7f1ae8715a50>()
-E    +    where <built-in method lower of str object at 0x7f1ae8715a50> = 'Data preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)'.lower
+E    +  where 'data preparation failed: data preparation failed: no valid data remaining after cleaning (all rows contained missing values)' = <built-in method lower of str object at 0x7f9cbb5b4710>()
+E    +    where <built-in method lower of str object at 0x7f9cbb5b4710> = 'Data preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)'.lower
 ----------------------------- Captured stdout call -----------------------------
-2026-01-22 08:18:06 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
+2026-01-22 09:03:18 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
 Traceback (most recent call last):
   File "/home/runner/work/stat-shiny/stat-shiny/utils/data_cleaning.py", line 1027, in prepare_data_for_analysis
     raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
 utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
-2026-01-22 08:18:06 - utils.diag_test - ERROR - Data preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
+2026-01-22 09:03:18 - utils.diag_test - ERROR - Data preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
 ------------------------------ Captured log call -------------------------------
 ERROR    utils.data_cleaning:logger.py:156 Failed to prepare data for analysis
 Traceback (most recent call last):
@@ -610,83 +423,22 @@ Traceback (most recent call last):
     raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
 utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
 ERROR    utils.diag_test:logger.py:148 Data preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
-___________________ TestICCAnalysis.test_calculate_icc_basic ___________________
-tests/unit/test_statistics.py:719: in test_calculate_icc_basic
-    icc_df, error_msg, anova_df = calculate_icc(df, ["rater1", "rater2"])
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   ValueError: too many values to unpack (expected 3)
-_______________ TestEdgeCases.test_empty_dataframe_all_functions _______________
-tests/unit/test_statistics.py:1030: in test_empty_dataframe_all_functions
-    assert calculate_descriptive(df, "col") is None
-E   AssertionError: assert (None, None) is None
-E    +  where (None, None) = calculate_descriptive(Empty DataFrame\nColumns: []\nIndex: [], 'col')
------------------------------ Captured stdout call -----------------------------
-2026-01-22 08:18:06 - utils.diag_test - ERROR - Column 'col' not found
------------------------------- Captured log call -------------------------------
-ERROR    utils.diag_test:logger.py:148 Column 'col' not found
-_____________________ TestEdgeCases.test_all_missing_data ______________________
-tests/unit/test_statistics.py:1045: in test_all_missing_data
-    assert calculate_descriptive(df, "col1") is None
-E   AssertionError: assert (None, None) is None
-E    +  where (None, None) = calculate_descriptive(   col1  col2\n0   NaN   NaN\n1   NaN   NaN\n2   NaN   NaN, 'col1')
------------------------------ Captured stdout call -----------------------------
-2026-01-22 08:18:06 - utils.data_cleaning - ERROR - Failed to prepare data for analysis
-Traceback (most recent call last):
-  File "/home/runner/work/stat-shiny/stat-shiny/utils/data_cleaning.py", line 1027, in prepare_data_for_analysis
-    raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
-utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
-2026-01-22 08:18:06 - utils.diag_test - ERROR - Descriptive analysis preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
------------------------------- Captured log call -------------------------------
-ERROR    utils.data_cleaning:logger.py:156 Failed to prepare data for analysis
-Traceback (most recent call last):
-  File "/home/runner/work/stat-shiny/stat-shiny/utils/data_cleaning.py", line 1027, in prepare_data_for_analysis
-    raise DataValidationError("No valid data remaining after cleaning (all rows contained missing values)")
-utils.data_cleaning.DataValidationError: No valid data remaining after cleaning (all rows contained missing values)
-ERROR    utils.diag_test:logger.py:148 Descriptive analysis preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)
 =========================== short test summary info ============================
-FAILED tests/unit/test_advanced_stats.py::test_apply_mcc_empty - AttributeError: 'NoneType' object has no attribute 'copy'
 FAILED tests/unit/test_advanced_stats.py::test_calculate_vif_independent - ValueError: too many values to unpack (expected 2)
 FAILED tests/unit/test_advanced_stats.py::test_calculate_vif_collinear - ValueError: too many values to unpack (expected 2)
 FAILED tests/unit/test_advanced_stats.py::test_calculate_vif_constant_handling - ValueError: too many values to unpack (expected 2)
 FAILED tests/unit/test_advanced_stats.py::test_calculate_vif_with_nans - ValueError: too many values to unpack (expected 2)
-FAILED tests/unit/test_bland_altman.py::test_calculate_bland_altman - ValueError: too many values to unpack (expected 2)
-FAILED tests/unit/test_bland_altman.py::test_calculate_bland_altman_random - ValueError: too many values to unpack (expected 2)
 FAILED tests/unit/test_causal.py::test_calculate_ipw - assert 'ATE' in {'error': "'numpy.ndarray' object has no attribute 'iloc'"}
-FAILED tests/unit/test_dca.py::test_calculate_net_benefit_simple - AttributeError: 'tuple' object has no attribute 'iloc'
-FAILED tests/unit/test_dca.py::test_dca_integration - TypeError: cannot concatenate object of type '<class 'tuple'>'; only Series and DataFrame objs are valid
-FAILED tests/unit/test_diag_returns.py::test_diag_returns - AssertionError: calculate_descriptive should return a DataFrame
-assert False
- +  where False = isinstance((  Statistic   Value\n0     Count       8\n1      Mean  0.5000\n2        SD  0.2928\n3    Median  0.5000\n4       Min  0.1000\n5       Max  0.9000\n6  Q1 (25%)  0.2750\n7  Q3 (75%)  0.7250, {'analyzed_indices': [0, 1, 2, 3, 4, 5, ...], 'rows_analyzed': 8, 'rows_excluded': 0, 'rows_original': 8, ...}), <class 'pandas.DataFrame'>)
- +    where <class 'pandas.DataFrame'> = pd.DataFrame
-FAILED tests/unit/test_linear_lib.py::TestDiagnosticPlots::test_plots_created - KeyError: 'secondary'
-FAILED tests/unit/test_linear_lib.py::TestDiagnosticPlots::test_plots_are_figures - KeyError: 'secondary'
-FAILED tests/unit/test_linear_lib.py::TestFormatOLSResults::test_formatting - TypeError: format_ci_html() missing 1 required positional argument: 'upper'
-FAILED tests/unit/test_linear_lib.py::TestFormatOLSResults::test_var_meta_labels - TypeError: format_ci_html() missing 1 required positional argument: 'upper'
-FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_full_analysis - KeyError: 'secondary'
-FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_auto_predictor_selection - KeyError: 'secondary'
-FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_robust_regression_option - KeyError: 'secondary'
-FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_exclude_columns - TypeError: analyze_linear_outcome() got an unexpected keyword argument 'exclude_cols'
-FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_html_report_contains_sections - KeyError: 'secondary'
-FAILED tests/unit/test_linear_lib.py::TestEdgeCases::test_variable_names_with_spaces - KeyError: 'secondary'
-FAILED tests/unit/test_linear_lib.py::TestStepwiseSelection::test_backward_selection - AssertionError: assert 'excluded_vars' in {'criterion': 'bic', 'direction': 'backward', 'final_model': <statsmodels.regression.linear_model.RegressionResultsWrapper object at 0x7f1ae983df70>, 'history': [{'action': 'add', 'score': np.float64(755.3475669945008), 'step': 1, 'variable': 'BMI'}, {'action': 'add', 'score': np.float64(729.3628306936233), 'step': 2, 'variable': 'Age'}], ...}
-FAILED tests/unit/test_linear_lib.py::TestBootstrapCI::test_bootstrap_ci_columns - AssertionError: assert 'CI Lower (Pct)' in Index(['Variable', 'Estimate', 'Boot SE', 'Samples'], dtype='str')
- +  where Index(['Variable', 'Estimate', 'Boot SE', 'Samples'], dtype='str') =     Variable  ...                                            Samples\n0  Intercept  ...  [76.0750176689278, 95.02106315340085, 82.36055...\n1        Age  ...  [0.3941863642860106, 0.3652698157370019, 0.529...\n2        BMI  ...  [2.345794765415345, 1.6951190478247204, 1.8850...\n\n[3 rows x 4 columns].columns
-FAILED tests/unit/test_linear_lib.py::TestBootstrapCI::test_bootstrap_formatting - TypeError: format_ci_html() missing 1 required positional argument: 'upper'
-FAILED tests/unit/test_linear_lib.py::TestBootstrapCI::test_bca_method - TypeError: format_ci_html() missing 1 required positional argument: 'upper'
+FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_full_analysis - TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
+FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_auto_predictor_selection - TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
+FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_robust_regression_option - TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
+FAILED tests/unit/test_linear_lib.py::TestAnalyzeLinearOutcome::test_html_report_contains_sections - TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
+FAILED tests/unit/test_linear_lib.py::TestEdgeCases::test_variable_names_with_spaces - TypeError: create_missing_data_report_html() missing 1 required positional argument: 'var_meta'
 FAILED tests/unit/test_repeated_measures.py::test_run_gee - AttributeError: 'dict' object has no attribute 'params'
 FAILED tests/unit/test_repeated_measures.py::test_run_lmm - AttributeError: 'dict' object has no attribute 'params'
 FAILED tests/unit/test_sample_size.py::test_calculate_sample_size_correlation - TypeError: '<' not supported between instances of 'int' and 'dict'
-FAILED tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_numeric - AttributeError: 'tuple' object has no attribute 'empty'
-FAILED tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_categorical - AttributeError: 'tuple' object has no attribute 'empty'
-FAILED tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_missing_column - assert (None, None) is None
-FAILED tests/unit/test_statistics.py::TestDescriptiveStatistics::test_calculate_descriptive_empty_column - assert (None, None) is None
 FAILED tests/unit/test_statistics.py::TestChiSquareAnalysis::test_calculate_chi2_empty_data - AssertionError: assert 'no data' in 'data preparation failed: data preparation failed: no valid data remaining after cleaning (all rows contained missing values)'
- +  where 'data preparation failed: data preparation failed: no valid data remaining after cleaning (all rows contained missing values)' = <built-in method lower of str object at 0x7f1ae8715a50>()
- +    where <built-in method lower of str object at 0x7f1ae8715a50> = 'Data preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)'.lower
-FAILED tests/unit/test_statistics.py::TestICCAnalysis::test_calculate_icc_basic - ValueError: too many values to unpack (expected 3)
-FAILED tests/unit/test_statistics.py::TestEdgeCases::test_empty_dataframe_all_functions - AssertionError: assert (None, None) is None
- +  where (None, None) = calculate_descriptive(Empty DataFrame\nColumns: []\nIndex: [], 'col')
-FAILED tests/unit/test_statistics.py::TestEdgeCases::test_all_missing_data - AssertionError: assert (None, None) is None
- +  where (None, None) = calculate_descriptive(   col1  col2\n0   NaN   NaN\n1   NaN   NaN\n2   NaN   NaN, 'col1')
-======================= 36 failed, 243 passed in 24.03s ========================
+ +  where 'data preparation failed: data preparation failed: no valid data remaining after cleaning (all rows contained missing values)' = <built-in method lower of str object at 0x7f9cbb5b4710>()
+ +    where <built-in method lower of str object at 0x7f9cbb5b4710> = 'Data preparation failed: Data preparation failed: No valid data remaining after cleaning (all rows contained missing values)'.lower
+======================= 14 failed, 264 passed in 23.51s ========================
 Error: Process completed with exit code 1.

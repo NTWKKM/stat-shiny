@@ -87,7 +87,7 @@ class TestPSMPipeline:
         # Step 3: Check Balance (SMD)
         # Unmatched balance
         # Corrected function call here
-        smd_pre = calculate_smd(df, "treatment", covariates) 
+        smd_pre = calculate_smd(df, "treatment", covariates)
         # Matched balance
         # Corrected function call here
         smd_post = calculate_smd(matched_df, "treatment", covariates)

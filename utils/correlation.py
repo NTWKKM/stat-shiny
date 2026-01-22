@@ -12,6 +12,7 @@ from utils.data_cleaning import prepare_data_for_analysis
 logger = get_logger(__name__)
 COLORS = get_color_palette()
 
+
 def _compute_correlation_ci(
     r: float, n: int, confidence: float = 0.95
 ) -> tuple[float, float]:
@@ -35,6 +36,7 @@ def _compute_correlation_ci(
     r_upper = (np.exp(2 * z_upper) - 1) / (np.exp(2 * z_upper) + 1)
 
     return (r_lower, r_upper)
+
 
 def _interpret_correlation(r: float) -> str:
     """
@@ -60,6 +62,7 @@ def _interpret_correlation(r: float) -> str:
 
     return f"{strength} {direction}"
 
+
 def compute_correlation_matrix(
     df: pd.DataFrame,
     cols: list[str],
@@ -71,7 +74,7 @@ def compute_correlation_matrix(
     Returns (corr_matrix, fig, summary) - all None if < 2 columns.
     """
     if not cols or len(cols) < 2:
-        return None, None, None  # Return all None instead of dict with error
+        return None, None, None
 
     try:
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -85,11 +88,11 @@ def compute_correlation_matrix(
                 numeric_cols=cols,
                 var_meta=var_meta,
                 missing_codes=missing_codes,
-                handle_missing="pairwise"
+                handle_missing="pairwise",
             )
             missing_data_info["strategy"] = strategy
             data = data_clean
-        except Exception as e:
+        except Exception:
             return None, None, None
 
         if data.empty:
@@ -156,9 +159,11 @@ def compute_correlation_matrix(
                 summary["strongest_positive"] = "N/A"
                 summary["strongest_negative"] = "N/A"
             else:
-                max_idx = np.unravel_index(np.nanargmax(upper_vals), upper_triangle.shape)
+                max_idx = np.unravel_index(
+                    np.nanargmax(upper_vals), upper_triangle.shape
+                )
                 summary["strongest_positive"] = (
-                    f"{cols[max_idx[0]]} ↔ {cols[max_idx[1]]} (r={corr_matrix.iloc[max_idx]:.3f})"
+                    f"{cols[max_idx[0]]} \u2194 {cols[max_idx[1]]} (r={corr_matrix.iloc[max_idx]:.3f})"
                 )
                 any_negative = np.any(valid_vals < 0)
                 if any_negative:
@@ -166,7 +171,7 @@ def compute_correlation_matrix(
                         np.nanargmin(upper_vals), upper_triangle.shape
                     )
                     summary["strongest_negative"] = (
-                        f"{cols[min_idx[0]]} ↔ {cols[min_idx[1]]} (r={corr_matrix.iloc[min_idx]:.3f})"
+                        f"{cols[min_idx[0]]} \u2194 {cols[min_idx[1]]} (r={corr_matrix.iloc[min_idx]:.3f})"
                     )
                 else:
                     summary["strongest_negative"] = "N/A"
@@ -236,8 +241,81 @@ def compute_correlation_matrix(
         )
 
         return corr_matrix_rounded, fig, summary
-    except Exception as e:
+    except Exception:
         return None, None, None
 
-# ✅ ADDED: Alias for compatibility with tests expecting 'calculate_correlation'
-calculate_correlation = compute_correlation_matrix
+
+def calculate_correlation(
+    df: pd.DataFrame,
+    var1: str,
+    var2: str,
+    method: str = "pearson",
+    var_meta: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any] | None, str | None, go.Figure | None]:
+    """
+    ENHANCED: Calculate correlation between two variables with pipeline integration.
+    Returns (results, error_msg, figure).
+    """
+    try:
+        # Use existing matrix function for unified cleaning/logic
+        cols = [var1, var2]
+
+        # Determine strategy from config (matrix forces pairwise, but single pair should honor config)
+        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+        strategy = missing_cfg.get("strategy", "complete-case")
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        # Reuse prepare_data_for_analysis logic directly to honor config strategy
+        data_clean, summary_info = prepare_data_for_analysis(
+            df,
+            required_cols=cols,
+            numeric_cols=cols,
+            var_meta=var_meta,
+            missing_codes=missing_codes,
+            handle_missing=strategy,
+        )
+
+        summary_info["strategy"] = strategy
+        n = summary_info["rows_analyzed"]
+
+        # Extract specific results for this pair
+        corr_matrix = data_clean.corr(method=method)
+        r_val = float(corr_matrix.loc[var1, var2])
+
+        # statsmodels/scipy check
+        if n < 3:
+            return None, "Insufficient data (N < 3)", None
+
+        if method == "pearson":
+            _res = stats.pearsonr(data_clean[var1], data_clean[var2])
+            p_val = _res.pvalue
+        else:
+            _res = stats.spearmanr(data_clean[var1], data_clean[var2])
+            p_val = _res.pvalue
+
+        ci_lower, ci_upper = _compute_correlation_ci(r_val, n)
+
+        results = {
+            "r": r_val,
+            "p": p_val,
+            "N": n,
+            "CI_Lower": ci_lower,
+            "CI_Upper": ci_upper,
+            "Interpretation": _interpret_correlation(r_val),
+            "missing_data_info": summary_info,
+        }
+
+        return results, None, None
+
+    except Exception as e:
+        logger.error(f"Correlation calculation failed: {str(e)}")
+        return None, str(e), None
+
+
+def calculate_chi2(
+    df: pd.DataFrame, var1: str, var2: str, var_meta: dict[str, Any] | None = None
+) -> tuple:
+    """Compatibility wrapper for chi-square test."""
+    from utils import diag_test
+
+    return diag_test.calculate_chi2(df, var1, var2, var_meta=var_meta)

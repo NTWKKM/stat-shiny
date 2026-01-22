@@ -94,7 +94,7 @@ class TestAdvancedFeatures:
         df = causal_data.copy()
 
         # 1. Calculate PS
-        ps = calculate_ps(df, "Treated", ["Age", "Severity"])
+        ps, _ = calculate_ps(df, "Treated", ["Age", "Severity"])
         df["ps"] = ps
         assert ps.notna().all()
 

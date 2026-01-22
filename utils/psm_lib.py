@@ -10,11 +10,12 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
+
 def calculate_ps(
-    data: pd.DataFrame, 
-    treatment: str, 
+    data: pd.DataFrame,
+    treatment: str,
     covariates: list[str],
-    var_meta: dict[str, Any] | None = None
+    var_meta: dict[str, Any] | None = None,
 ) -> pd.Series:
     """
     Calculate propensity scores using logistic regression with unified data cleaning.
@@ -31,7 +32,7 @@ def calculate_ps(
             required_cols=[treatment] + covariates,
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
 
         if df_subset.empty:
@@ -49,15 +50,17 @@ def calculate_ps(
         ps_full = pd.Series(index=data.index, dtype=float)
         ps_full.loc[df_subset.index] = ps.values
 
-        return ps_full
+        return ps_full, missing_info
 
     except Exception as e:
         logger.error(f"Propensity score calculation failed: {str(e)}")
-        return pd.Series(dtype=float, index=data.index)
+        return pd.Series(dtype=float, index=data.index), {"error": str(e)}
+
 
 # Wrapper for backward compatibility
 def calculate_propensity_score(*args, **kwargs):
     return calculate_ps(*args, **kwargs)
+
 
 def perform_matching(
     data: pd.DataFrame,
@@ -122,6 +125,7 @@ def perform_matching(
     except Exception:
         return pd.DataFrame()
 
+
 def calculate_ipw(
     data: pd.DataFrame, treatment: str, outcome: str, ps_col: str
 ) -> dict:
@@ -149,18 +153,27 @@ def calculate_ipw(
         ate = model.params[1]  # Coefficient on treatment
         se = model.bse[1]
         p_val = model.pvalues[1]
-        conf_int = model.conf_int().iloc[1]
+        # Handle conf_int return type (could be DataFrame or array depending on statsmodels version/context)
+        conf_int = model.conf_int()
+        if isinstance(conf_int, pd.DataFrame):
+            ci_lower = conf_int.iloc[1, 0]
+            ci_upper = conf_int.iloc[1, 1]
+        else:
+            # Assume numpy array
+            ci_lower = conf_int[1, 0]
+            ci_upper = conf_int[1, 1]
 
         return {
             "ATE": float(ate),
             "SE": float(se),
             "p_value": float(p_val),
-            "CI_Lower": float(conf_int[0]),
-            "CI_Upper": float(conf_int[1]),
+            "CI_Lower": float(ci_lower),
+            "CI_Upper": float(ci_upper),
         }
     except Exception as e:
         logger.error(f"IPW calculation failed: {str(e)}")
         return {"error": str(e)}
+
 
 def check_balance(
     data: pd.DataFrame, treatment: str, covariates: list[str], weights: pd.Series = None
@@ -211,9 +224,11 @@ def check_balance(
 
     return pd.DataFrame(results)
 
+
 def calculate_smd(data, treatment, covariates, weights=None):
     """Test-compatible alias for check_balance."""
     return check_balance(data, treatment, covariates, weights)
+
 
 def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
     """
@@ -222,25 +237,31 @@ def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
 
     # Pre-matching
-    fig.add_trace(go.Scatter(
-        x=smd_pre['SMD'],
-        y=smd_pre.get('Variable', smd_pre.get('Covariate')),
-        mode='markers',
-        name='Unadjusted',
-        marker=dict(color='red', size=10, symbol='circle-open')
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=smd_pre["SMD"],
+            y=smd_pre.get("Variable", smd_pre.get("Covariate")),
+            mode="markers",
+            name="Unadjusted",
+            marker=dict(color="red", size=10, symbol="circle-open"),
+        )
+    )
 
     # Post-matching
-    fig.add_trace(go.Scatter(
-        x=smd_post['SMD'],
-        y=smd_post.get('Variable', smd_post.get('Covariate')),
-        mode='markers',
-        name='Adjusted',
-        marker=dict(color='blue', size=10, symbol='circle')
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=smd_post["SMD"],
+            y=smd_post.get("Variable", smd_post.get("Covariate")),
+            mode="markers",
+            name="Adjusted",
+            marker=dict(color="blue", size=10, symbol="circle"),
+        )
+    )
 
     # Reference line at 0.1
-    fig.add_vline(x=0.1, line_dash="dash", line_color="gray", annotation_text="Threshold (0.1)")
+    fig.add_vline(
+        x=0.1, line_dash="dash", line_color="gray", annotation_text="Threshold (0.1)"
+    )
 
     fig.update_layout(
         title="Love Plot (Standardized Mean Differences)",
@@ -248,7 +269,7 @@ def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
         yaxis_title="Covariates",
         template="plotly_white",
         height=max(400, 200 + (len(smd_pre) * 30)),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
     return fig

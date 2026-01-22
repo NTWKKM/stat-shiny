@@ -10,10 +10,9 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
+
 def calculate_vif(
-    data: pd.DataFrame, 
-    predictors: list[str], 
-    var_meta: dict[str, Any] | None = None
+    data: pd.DataFrame, predictors: list[str], var_meta: dict[str, Any] | None = None
 ) -> pd.DataFrame:
     """
     Calculate Variance Inflation Factor (VIF) for a list of predictors.
@@ -28,8 +27,10 @@ def calculate_vif(
     """
     try:
         if not predictors or data is None or data.empty:
-            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
-    
+            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), {
+                "error": "Insufficient data or missing predictors"
+            }
+
         # --- DATA PREPARATION ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
         strategy = missing_cfg.get("strategy", "complete-case")
@@ -41,26 +42,30 @@ def calculate_vif(
             numeric_cols=predictors,
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
 
         if X_clean.empty or len(X_clean.columns) == 0:
-            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
+            return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), missing_info
 
         valid_predictors = X_clean.columns.tolist()
 
         # VIF needs at least 2 variables to assess multicollinearity effectively
         if len(valid_predictors) == 1:
-            return pd.DataFrame([{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}])
-            
+            return pd.DataFrame(
+                [{"Variable": valid_predictors[0], "VIF": 1.0, "Tolerance": 1.0}]
+            ), missing_info
+
         # Add constant for VIF calculation correctness
         X_with_const = sm.add_constant(X_clean)
-        
+
         # Check for constant predictors in the original data (can cause infinite VIF)
         variances = X_clean.var()
         const_cols = variances[variances < 1e-10].index.tolist()
         if const_cols:
-            logger.warning("Constant predictors detected: %s. VIF might be undefined.", const_cols)
+            logger.warning(
+                "Constant predictors detected: %s. VIF might be undefined.", const_cols
+            )
 
         vif_data = []
         for i, col in enumerate(valid_predictors):
@@ -86,27 +91,27 @@ def calculate_vif(
                 {
                     "Variable": col,
                     "VIF": val,
-                    "Tolerance": 1.0 / val if val and val != 0 and np.isfinite(val) else np.nan,
+                    "Tolerance": 1.0 / val
+                    if val and val != 0 and np.isfinite(val)
+                    else np.nan,
                     "Interpretation": interpretation,
                 }
             )
 
         df_vif = pd.DataFrame(vif_data).sort_values("VIF", ascending=False)
-        return df_vif
+        return df_vif, missing_info
 
     except Exception as e:
         logger.exception("VIF calculation failed completely")
-        return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"])
+        return pd.DataFrame(columns=["Variable", "VIF", "Tolerance"]), {"error": str(e)}
 
 
 def condition_index(
-    data: pd.DataFrame, 
-    predictors: list[str], 
-    var_meta: dict[str, Any] | None = None
+    data: pd.DataFrame, predictors: list[str], var_meta: dict[str, Any] | None = None
 ) -> pd.DataFrame:
     """
     Calculate Condition Index (CI) for assessing multicollinearity.
-    
+
     Returns:
         DataFrame with condition index results
     """
@@ -125,7 +130,7 @@ def condition_index(
             numeric_cols=predictors,
             var_meta=var_meta,
             missing_codes=missing_codes,
-            handle_missing=strategy
+            handle_missing=strategy,
         )
 
         if X_clean.empty:
