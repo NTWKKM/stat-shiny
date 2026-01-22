@@ -251,6 +251,9 @@ jobs:
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
               f.write("\n".join(summary))
+
+          # Also output to logs for easier visibility
+          print("\n".join(summary))
           EOF
 
       - name: Check final status
