@@ -31,9 +31,9 @@ def test_css_variables_consistency(palette):
         # Note: some keys might be mapped differently or missing in _styling.py
         # but the primary ones should be there.
         if key in ["primary", "success", "danger", "warning"]:
-            assert re.search(var_pattern, content), (
-                f"Color '{key}' not correctly mapped in tabs/_styling.py"
-            )
+            assert re.search(
+                var_pattern, content
+            ), f"Color '{key}' not correctly mapped in tabs/_styling.py"
 
 
 def test_compiled_css_sync():
@@ -59,9 +59,9 @@ def test_compiled_css_sync():
     if header_end > 1:
         pure_compiled = compiled_css[header_end:].strip()
         # Compare first few lines to ensure they are in sync
-        assert pure_compiled[:200] in generated_css, (
-            "static/styles.css is out of sync with tabs/_styling.py. Run python utils/update_css.py"
-        )
+        assert (
+            pure_compiled[:200] in generated_css
+        ), "static/styles.css is out of sync with tabs/_styling.py. Run python utils/update_css.py"
 
 
 def test_plotly_renderer_consistency(palette):
@@ -75,12 +75,12 @@ def test_plotly_renderer_consistency(palette):
 
     # Check for sync with some neutral colors (smoke_white/border)
     # Placeholder background #f9fafb is COLORS['background']
-    assert palette["background"].lower() in content.lower(), (
-        "Plotly renderer background color out of sync"
-    )
-    assert palette["border"].lower() in content.lower(), (
-        "Plotly renderer border color out of sync"
-    )
+    assert (
+        palette["background"].lower() in content.lower()
+    ), "Plotly renderer background color out of sync"
+    assert (
+        palette["border"].lower() in content.lower()
+    ), "Plotly renderer border color out of sync"
 
 
 def test_forest_plot_consistency(palette):
