@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pandas as pd
 from statsmodels.api import OLS, add_constant
 
@@ -8,7 +10,7 @@ def analyze_mediation(
     treatment: str,
     mediator: str,
     confounders: list[str] | None = None,
-) -> dict[str, float]:
+) -> dict[str, float | str]:
     """
     Perform mediation analysis using the product of coefficients method.
 
@@ -20,59 +22,76 @@ def analyze_mediation(
     Returns:
         Dictionary with total_effect, direct_effect, indirect_effect, proportion_mediated
     """
-    # Use list for clean selection, ensuring no duplicates
-    cols = [outcome, treatment, mediator]
-    if confounders:
-        cols.extend(confounders)
-    # Remove duplicates if any
-    cols = list(dict.fromkeys(cols))
+    try:
+        # Validate inputs
+        if data is None or data.empty:
+            return {"error": "Input data is empty or None."}
+            
+        required_cols = [outcome, treatment, mediator]
+        missing = [c for c in required_cols if c not in data.columns]
+        if missing:
+            return {"error": f"Missing columns: {', '.join(missing)}"}
 
-    df_clean = data[cols].dropna()
+        if confounders:
+            missing_conf = [c for c in confounders if c not in data.columns]
+            if missing_conf:
+                 return {"error": f"Missing confounder columns: {', '.join(missing_conf)}"}
 
-    if df_clean.empty:
-        raise ValueError("No valid data after removing missing values.")
+        # Use list for clean selection, ensuring no duplicates
+        cols = [outcome, treatment, mediator]
+        if confounders:
+            cols.extend(confounders)
+        # Remove duplicates if any
+        cols = list(dict.fromkeys(cols))
 
-    # 1. Total Effect (c): Y ~ X + C
-    X_total = df_clean[[treatment]]
-    if confounders:
-        X_total = pd.concat([X_total, df_clean[confounders]], axis=1)
-    X_total = add_constant(X_total)
-    model_total = OLS(df_clean[outcome], X_total).fit()
-    c_total = model_total.params[treatment]
+        df_clean = data[cols].dropna()
 
-    # 2. Mediator Model (a): M ~ X + C
-    X_med = df_clean[[treatment]]
-    if confounders:
-        X_med = pd.concat([X_med, df_clean[confounders]], axis=1)
-    X_med = add_constant(X_med)
-    model_med = OLS(df_clean[mediator], X_med).fit()
-    a_path = model_med.params[treatment]
+        if df_clean.empty:
+            return {"error": "No valid data after removing missing values."}
 
-    # 3. Outcome Model (b, c'): Y ~ X + M + C
-    X_out = df_clean[[treatment, mediator]]
-    if confounders:
-        X_out = pd.concat([X_out, df_clean[confounders]], axis=1)
-    X_out = add_constant(X_out)
-    model_out = OLS(df_clean[outcome], X_out).fit()
-    b_path = model_out.params[mediator]
-    c_prime = model_out.params[treatment]  # Direct effect
+        # 1. Total Effect (c): Y ~ X + C
+        X_total = df_clean[[treatment]]
+        if confounders:
+            X_total = pd.concat([X_total, df_clean[confounders]], axis=1)
+        X_total = add_constant(X_total)
+        model_total = OLS(df_clean[outcome], X_total).fit()
+        c_total = model_total.params[treatment]
 
-    # Indirect Effect (a * b)
-    indirect_effect = a_path * b_path
+        # 2. Mediator Model (a): M ~ X + C
+        X_med = df_clean[[treatment]]
+        if confounders:
+            X_med = pd.concat([X_med, df_clean[confounders]], axis=1)
+        X_med = add_constant(X_med)
+        model_med = OLS(df_clean[mediator], X_med).fit()
+        a_path = model_med.params[treatment]
 
-    # Proportion Mediated
-    # Handle division by zero or very small total effect
-    if abs(c_total) < 1e-9:
-        prop_mediated = 0.0
-    else:
-        prop_mediated = indirect_effect / c_total
+        # 3. Outcome Model (b, c'): Y ~ X + M + C
+        X_out = df_clean[[treatment, mediator]]
+        if confounders:
+            X_out = pd.concat([X_out, df_clean[confounders]], axis=1)
+        X_out = add_constant(X_out)
+        model_out = OLS(df_clean[outcome], X_out).fit()
+        b_path = model_out.params[mediator]
+        c_prime = model_out.params[treatment]  # Direct effect
 
-    return {
-        "total_effect": float(c_total),
-        "direct_effect": float(c_prime),
-        "indirect_effect": float(indirect_effect),
-        "proportion_mediated": float(prop_mediated),
-        "a_path": float(a_path),
-        "b_path": float(b_path),
-        "n_obs": len(df_clean),
-    }
+        # Indirect Effect (a * b)
+        indirect_effect = a_path * b_path
+
+        # Proportion Mediated
+        # Handle division by zero or very small total effect
+        if abs(c_total) < 1e-9:
+            prop_mediated = 0.0
+        else:
+            prop_mediated = indirect_effect / c_total
+
+        return {
+            "total_effect": float(c_total),
+            "direct_effect": float(c_prime),
+            "indirect_effect": float(indirect_effect),
+            "proportion_mediated": float(prop_mediated),
+            "a_path": float(a_path),
+            "b_path": float(b_path),
+            "n_obs": len(df_clean),
+        }
+    except Exception as e:
+        return {"error": f"Mediation analysis failed: {str(e)}"}

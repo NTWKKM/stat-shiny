@@ -41,62 +41,41 @@ def plotly_figure_to_html(
     """
     Render a Plotly Figure to an embeddable HTML string.
 
-    Returns a sanitized HTML fragment suitable for embedding (e.g., in a UI). If the provided figure is None, Plotly is unavailable, the figure is invalid, or an error occurs during rendering, a styled placeholder HTML string is returned.
+    Returns a sanitized HTML fragment suitable for embedding (e.g., in a UI). 
+    If rendering fails, returns a styled pulse-animated placeholder.
 
-    Parameters:
-        fig (go.Figure | None): Plotly Figure to render. If None, a placeholder is returned.
-        div_id (str | None): Optional HTML id for the figure container. If provided it is sanitized to allow only letters, digits, underscores, and hyphens and to ensure it starts with a letter; if omitted a unique id is generated.
-        include_plotlyjs (Union[str, bool]): How to include Plotly.js:
-            - 'cdn' (default): Load Plotly.js from CDN.
-            - True: Inline the full Plotly.js library.
-            - False: Do not include Plotly.js (assumes it is already loaded).
-        height (int | None): Fixed height in pixels to apply to the figure layout; if None the figure's existing height is used.
-        width (int | None): Fixed width in pixels to apply to the figure layout; if None the figure's existing width is used.
-        responsive (bool): When True (default), enable autosize/responsive layout behavior.
-
-    Returns:
-        str: HTML fragment containing the rendered Plotly figure, or a styled placeholder HTML string if rendering cannot be performed.
+    Performance: Avoids heavy Figure duplication unless layout overrides are required.
     """
-    # Handle None or invalid figure
     if fig is None:
-        logger.debug(
-            "plotly_figure_to_html: Received None figure, returning placeholder"
-        )
         return _create_placeholder_html("⏳ Waiting for data...")
 
     if go is None:
-        logger.warning("plotly_figure_to_html: Plotly is not installed")
         return _create_placeholder_html("⚠️ Plotly is not installed")
 
-    # Validate figure type
     if not isinstance(fig, go.Figure):
-        logger.warning(
-            "plotly_figure_to_html: Expected go.Figure, got %s", type(fig).__name__
-        )
-        return _create_placeholder_html("⚠️ Invalid figure type")
+        return _create_placeholder_html(f"⚠️ Invalid figure type: {type(fig).__name__}")
 
     # Generate or sanitize div_id
-    if div_id is None:
-        div_id = f"plotly-{uuid.uuid4().hex[:12]}"
-    else:
-        div_id = _sanitize_div_id(div_id)
+    div_id = _sanitize_div_id(div_id) if div_id else f"plotly-{uuid.uuid4().hex[:12]}"
 
     try:
-        # Avoid mutating caller's figure
-        fig = go.Figure(fig)
-
-        # Update layout for responsiveness
-        if responsive:
-            fig.update_layout(autosize=True)
-
-        # Apply fixed dimensions if specified
-        if height is not None:
-            fig.update_layout(height=height)
-        if width is not None:
-            fig.update_layout(width=width)
+        # PERFORMANCE OPTIMIZATION: 
+        # Only copy/mutate the figure if we actually need to change properties.
+        # This saves memory for large datasets.
+        needs_update = (height is not None) or (width is not None) or responsive
+        
+        target_fig = fig
+        if needs_update:
+            target_fig = go.Figure(fig)
+            if responsive:
+                target_fig.update_layout(autosize=True)
+            if height is not None:
+                target_fig.update_layout(height=height)
+            if width is not None:
+                target_fig.update_layout(width=width)
 
         # Generate HTML
-        html_str = fig.to_html(
+        html_str = target_fig.to_html(
             full_html=False,
             include_plotlyjs=include_plotlyjs,
             div_id=div_id,
@@ -107,7 +86,6 @@ def plotly_figure_to_html(
             },
         )
 
-        logger.debug("plotly_figure_to_html: Generated HTML for div_id=%r", div_id)
         return html_str
 
     except Exception:
@@ -116,61 +94,55 @@ def plotly_figure_to_html(
 
 
 def _sanitize_div_id(div_id: str) -> str:
-    """
-    Produce a safe HTML id by removing characters not allowed in IDs and ensuring it starts with a letter.
-
-    Parameters:
-        div_id (str): Original div ID to sanitize.
-
-    Returns:
-        str: A sanitized string safe for use as an HTML element id. If the result would be empty, returns a generated id beginning with "plot-".
-    """
-    # Remove any characters that aren't alphanumeric, underscore, or hyphen
+    """Produce a safe HTML id by removing invalid characters."""
     sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", str(div_id))
-
-    # Ensure it starts with a letter (HTML ID requirement)
     if sanitized and not sanitized[0].isalpha():
         sanitized = "plot-" + sanitized
-
-    # Fallback if empty
-    if not sanitized:
-        sanitized = f"plot-{uuid.uuid4().hex[:8]}"
-
-    return sanitized
+    return sanitized if sanitized else f"plot-{uuid.uuid4().hex[:8]}"
 
 
 def _create_placeholder_html(message: str) -> str:
-    """
-    Create a styled placeholder HTML snippet displaying a message when a figure cannot be rendered.
+    """Create a styled pulse-animated placeholder (Skeleton UI)."""
+    import html
+    escaped_message = html.escape(str(message))
 
-    The provided message is HTML-escaped to mitigate cross-site scripting (XSS) risks and inserted into a centered, lightly styled div suitable for use where a Plotly figure would otherwise appear.
-
-    Parameters:
-        message (str): Text to display inside the placeholder; will be escaped before insertion.
-
-    Returns:
-        str: A HTML string containing the styled div with the escaped message.
-    """
-    # Escape the message to prevent XSS
-    escaped_message = (
-        str(message)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#x27;")
-    )
+    # Using a unique ID for the style ensures no collisions if multiple placeholders exist
+    style_id = f"pulse-{uuid.uuid4().hex[:8]}"
 
     return f"""
-    <div style="
-        color: #999;
-        text-align: center;
-        padding: 40px 20px;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 8px;
-        border: 1px dashed #dee2e6;
-        font-size: 14px;
-    ">
-        {escaped_message}
+    <style>
+        .shiny-stat-placeholder {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            color: #6b7280;
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            font-size: 14px;
+            position: relative;
+            overflow: hidden;
+        }}
+        .shiny-stat-placeholder::after {{
+            content: "";
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: {style_id}-pulse 1.5s infinite;
+        }}
+        @keyframes {style_id}-pulse {{
+            0%   {{ transform: translateX(-100%); }}
+            100% {{ transform: translateX(100%); }}
+        }}
+    </style>
+    <div class="shiny-stat-placeholder">
+        <div style="position: relative; z-index: 1;">
+            {escaped_message}
+        </div>
     </div>
     """
+

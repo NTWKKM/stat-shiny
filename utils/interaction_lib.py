@@ -184,41 +184,45 @@ def format_interaction_results(
     """
     Format interaction results for display.
     """
-    results = {}
-    effect_name = "OR" if model_type == "logit" else "IRR"
+    try:
+        results = {}
+        effect_name = "OR" if model_type == "logit" else "IRR"
 
-    for int_name, meta in interaction_meta.items():
-        if int_name not in params:
-            continue
+        for int_name, meta in interaction_meta.items():
+            if int_name not in params:
+                continue
 
-        coef = params[int_name]
-        effect = np.exp(coef)
-        ci_low, ci_high = (
-            np.exp(conf_int.loc[int_name][0]),
-            np.exp(conf_int.loc[int_name][1]),
-        )
-        pval = pvalues[int_name]
+            coef = params[int_name]
+            effect = np.exp(coef)
+            ci_low, ci_high = (
+                np.exp(conf_int.loc[int_name][0]),
+                np.exp(conf_int.loc[int_name][1]),
+            )
+            pval = pvalues[int_name]
 
-        # Create descriptive label
-        if meta["type"] == "cat×cat":
-            label = f"{meta['var1']}={meta['level1']} × {meta['var2']}={meta['level2']}"
-        elif meta["type"] == "cat×cont":
-            label = f"{meta['cat_var']}={meta['level']} × {meta['cont_var']}"
-        else:  # cont×cont
-            label = f"{meta['var1']} × {meta['var2']}"
+            # Create descriptive label
+            if meta["type"] == "cat×cat":
+                label = f"{meta['var1']}={meta['level1']} × {meta['var2']}={meta['level2']}"
+            elif meta["type"] == "cat×cont":
+                label = f"{meta['cat_var']}={meta['level']} × {meta['cont_var']}"
+            else:  # cont×cont
+                label = f"{meta['var1']} × {meta['var2']}"
 
-        results[int_name] = {
-            "label": label,
-            "coef": coef,
-            effect_name.lower(): effect,
-            "ci_low": ci_low,
-            "ci_high": ci_high,
-            "p_value": pval,
-            "significant": pval < 0.05,
-            "type": meta["type"],
-        }
+            results[int_name] = {
+                "label": label,
+                "coef": coef,
+                effect_name.lower(): effect,
+                "ci_low": ci_low,
+                "ci_high": ci_high,
+                "p_value": pval,
+                "significant": pval < 0.05,
+                "type": meta["type"],
+            }
 
-    return results
+        return results
+    except Exception:
+        logger.exception("Error formatting interaction results")
+        return {}
 
 
 def interpret_interaction(results: dict[str, Any], model_type: str = "logit") -> str:

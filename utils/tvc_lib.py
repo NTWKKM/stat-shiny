@@ -414,6 +414,10 @@ def fit_tvc_cox(
         ...     print(results_df)
     """
 
+
+    if df is None or df.empty:
+         return None, None, None, "Empty dataset provided", {}, {}
+
     try:
         # --- 1. Column Resolution & Validation ---
         # Robustly handle cases where input data (e.g. from transform_wide_to_long)

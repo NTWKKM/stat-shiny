@@ -93,6 +93,7 @@ def _build_irr_interpretation_section(
         """
 
 
+
 def run_poisson_regression(
     y: pd.Series,
     X: pd.DataFrame,
@@ -129,6 +130,20 @@ def run_poisson_regression(
     }
 
     try:
+        # Validate inputs are not empty
+        if y is None or y.empty:
+            return (None, None, None, "Error: Outcome data is empty", stats_metrics)
+        if X is None or X.empty:
+            # Poisson usually needs at least an intercept
+            # But checking empty is good
+             return (None, None, None, "Error: Predictor data is empty", stats_metrics)
+
+        # Ensure numeric types
+        try:
+            y = pd.to_numeric(y, errors='raise')
+        except ValueError:
+            return (None, None, None, "Error: Outcome has non-numeric data", stats_metrics)
+
         # Check if outcome counts are non-negative
         if (y < 0).any():
             return (
@@ -213,6 +228,16 @@ def run_negative_binomial_regression(
     }
 
     try:
+        if y is None or y.empty:
+             return (None, None, None, "Error: Outcome data is empty", stats_metrics)
+        if X is None or X.empty:
+             return (None, None, None, "Error: Predictor data is empty", stats_metrics)
+
+        try:
+            y = pd.to_numeric(y, errors='raise')
+        except ValueError:
+            return (None, None, None, "Error: Outcome has non-numeric data", stats_metrics)
+
         X_const = sm.add_constant(X, has_constant="add")
 
         # Use discrete NegativeBinomial model to estimate alpha
