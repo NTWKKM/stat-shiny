@@ -41,7 +41,8 @@ jobs:
           echo "✅ All Styling System files found"
 
       - name: Run UI Styling Tests
-        run: pytest tests/test_color_palette.py -v
+        # แก้ไข path ให้ถูกต้องเป็น tests/unit/test_color_palette.py
+        run: pytest tests/unit/test_color_palette.py -v
 
   test-multi-version:
     name: Compatibility Test (Python ${{ matrix.python-version }})
@@ -84,7 +85,9 @@ jobs:
         run: pip install flake8 black
 
       - name: Check code style (flake8)
-        run: flake8 tabs/_common.py tabs/_styling.py tests/test_color_palette.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        # แก้ไข path ให้ถูกต้อง
+        run: flake8 tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Check formatting (black)
-        run: black --check tabs/_common.py tabs/_styling.py tests/test_color_palette.py
+        # แก้ไข path ให้ถูกต้อง
+        run: black --check tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py
         continue-on-error: true
