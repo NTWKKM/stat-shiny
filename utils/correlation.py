@@ -238,3 +238,6 @@ def compute_correlation_matrix(
         return corr_matrix_rounded, fig, summary
     except Exception as e:
         return None, None, None
+
+# ✅ ADDED: Alias for compatibility with tests expecting 'calculate_correlation'
+calculate_correlation = compute_correlation_matrix
