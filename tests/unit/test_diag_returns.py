@@ -52,7 +52,8 @@ def test_diag_returns():
 
     # 5. Test calculate_descriptive
     print("Checking calculate_descriptive...")
-    res = diag_test.calculate_descriptive(df, "score")
+    # FIX: Unpack tuple (DataFrame, Metadata)
+    res, *_ = diag_test.calculate_descriptive(df, "score")
     assert isinstance(res, pd.DataFrame), (
         "calculate_descriptive should return a DataFrame"
     )

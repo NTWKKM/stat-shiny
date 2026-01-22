@@ -499,7 +499,8 @@ class TestDescriptiveStatistics:
 
     def test_calculate_descriptive_numeric(self, dummy_df):
         """✅ Test descriptive stats for numeric variables."""
-        result = calculate_descriptive(dummy_df, "age")
+        # FIX: Unpack tuple (DataFrame, Metadata)
+        result, _ = calculate_descriptive(dummy_df, "age")
 
         assert result is not None
         assert not result.empty
@@ -513,7 +514,8 @@ class TestDescriptiveStatistics:
 
     def test_calculate_descriptive_categorical(self, dummy_df):
         """✅ Test descriptive stats for categorical variables."""
-        result = calculate_descriptive(dummy_df, "sex")
+        # FIX: Unpack tuple (DataFrame, Metadata)
+        result, _ = calculate_descriptive(dummy_df, "sex")
 
         assert result is not None
         assert not result.empty
@@ -524,13 +526,15 @@ class TestDescriptiveStatistics:
 
     def test_calculate_descriptive_missing_column(self, dummy_df):
         """✅ Test with non-existent column."""
-        result = calculate_descriptive(dummy_df, "nonexistent")
+        # FIX: Unpack tuple
+        result, _ = calculate_descriptive(dummy_df, "nonexistent")
         assert result is None
 
     def test_calculate_descriptive_empty_column(self):
         """✅ Test with all-NA column."""
         df = pd.DataFrame({"empty_col": [np.nan, np.nan, np.nan]})
-        result = calculate_descriptive(df, "empty_col")
+        # FIX: Unpack tuple
+        result, _ = calculate_descriptive(df, "empty_col")
         assert result is None
 
 
@@ -716,7 +720,8 @@ class TestICCAnalysis:
 
         df = pd.DataFrame({"rater1": rater1, "rater2": rater2})
 
-        icc_df, error_msg, anova_df = calculate_icc(df, ["rater1", "rater2"])
+        # FIX: Handle potential extra returns (metadata) with *_
+        icc_df, error_msg, anova_df, *_ = calculate_icc(df, ["rater1", "rater2"])
 
         assert icc_df is not None
         assert error_msg is None
@@ -726,7 +731,8 @@ class TestICCAnalysis:
         """✅ Test ICC with single column."""
         df = pd.DataFrame({"rater1": [1, 2, 3, 4, 5]})
 
-        icc_df, error_msg, anova_df = calculate_icc(df, ["rater1"])
+        # FIX: Handle potential extra returns
+        icc_df, error_msg, anova_df, *_ = calculate_icc(df, ["rater1"])
 
         assert icc_df is None
         assert error_msg is not None
@@ -958,7 +964,8 @@ class TestIntegrationScenarios:
     def test_full_diagnostic_workflow(self, dummy_df):
         """✅ Test complete diagnostic analysis pipeline."""
         # Step 1: Descriptive statistics
-        desc = calculate_descriptive(dummy_df, "age")
+        # FIX: Unpack tuple
+        desc, _ = calculate_descriptive(dummy_df, "age")
         assert desc is not None
 
         # Step 2: Chi-square test
@@ -1027,7 +1034,9 @@ class TestEdgeCases:
         df = pd.DataFrame()
 
         # Diagnostic tests
-        assert calculate_descriptive(df, "col") is None
+        # FIX: Unpack tuple
+        res, _ = calculate_descriptive(df, "col")
+        assert res is None
 
         display, stats, msg, risk, _ = calculate_chi2(df, "c1", "c2")
         assert stats is None or msg is not None
@@ -1042,7 +1051,9 @@ class TestEdgeCases:
             {"col1": [np.nan, np.nan, np.nan], "col2": [np.nan, np.nan, np.nan]}
         )
 
-        assert calculate_descriptive(df, "col1") is None
+        # FIX: Unpack tuple
+        res, _ = calculate_descriptive(df, "col1")
+        assert res is None
 
     def test_single_observation(self):
         """✅ Test with minimal data (n=1)."""

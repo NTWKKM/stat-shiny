@@ -11,7 +11,8 @@ def test_calculate_bland_altman():
     # Method B: 11, 21, 31 (Bias = -1)
     df = pd.DataFrame({"A": [10, 20, 30, 40, 50], "B": [11, 21, 31, 41, 51]})
 
-    stats, fig = diag_test.calculate_bland_altman(df, "A", "B")
+    # FIX: Unpack tuple (stats, fig, metadata)
+    stats, fig, *_ = diag_test.calculate_bland_altman(df, "A", "B")
 
     assert stats["n"] == 5
     # A - B = -1
@@ -36,7 +37,8 @@ def test_calculate_bland_altman_random():
     b = a + np.random.normal(0, 1, n)  # Mean diff approx 0, SD diff approx 1
 
     df = pd.DataFrame({"A": a, "B": b})
-    stats, fig = diag_test.calculate_bland_altman(df, "A", "B")
+    # FIX: Unpack tuple
+    stats, fig, *_ = diag_test.calculate_bland_altman(df, "A", "B")
 
     assert stats["n"] == 100
     assert abs(stats["mean_diff"]) < 0.5  # Should be close to 0
