@@ -1,4 +1,4 @@
-"""
+
 🧪 Subgroup Analysis Module (Shiny Compatible)
 
 Professional subgroup analysis without Streamlit dependencies.
@@ -20,6 +20,7 @@ from utils.data_cleaning import (
     apply_missing_values_to_df,
     get_missing_summary_df,
     handle_missing_for_analysis,
+    prepare_data_for_analysis,
 )
 from utils.forest_plot_lib import create_forest_plot
 
@@ -124,7 +125,9 @@ class SubgroupAnalysisLogit:
 
             try:
                 # Identify numeric columns for cleaning
-                numeric_cols = [c for c in cols_to_use if pd.api.types.is_numeric_dtype(self.df[c])]
+                numeric_cols = [
+                    c for c in cols_to_use if pd.api.types.is_numeric_dtype(self.df[c])
+                ]
 
                 df_clean, missing_data_info = prepare_data_for_analysis(
                     self.df,
@@ -132,7 +135,7 @@ class SubgroupAnalysisLogit:
                     numeric_cols=numeric_cols,
                     var_meta=var_meta,
                     missing_codes=missing_codes,
-                    handle_missing=strategy
+                    handle_missing=strategy,
                 )
                 missing_data_info["strategy"] = strategy
             except Exception as e:
@@ -173,8 +176,7 @@ class SubgroupAnalysisLogit:
                 logger.warning(
                     f"Treatment variable '{treatment_col}' dropped from model."
                 )
-                # Depending on requirement, either skip or raise. For integration, let's keep it safe.
-                return {}  # Return empty dict to match return type
+                return {}
 
             or_overall = float(np.exp(model_overall.params[param_key]))
             ci_overall = np.exp(model_overall.conf_int().loc[param_key])
@@ -300,7 +302,7 @@ class SubgroupAnalysisLogit:
         except Exception as e:
             logger.error(f"Analysis failed: {e}")
             if "Missing columns" in str(e) or "not found" in str(e):
-                 raise # Re-raise for tests that expect exceptions
+                raise
             return {"error": str(e)}
 
     def _compute_summary_statistics(self) -> dict[str, Any]:
