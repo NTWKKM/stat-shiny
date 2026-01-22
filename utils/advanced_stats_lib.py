@@ -1,7 +1,3 @@
-{
-type: uploaded file
-fileName: ntwkkm/stat-shiny/stat-shiny-patch/utils/advanced_stats_lib.py
-fullContent:
 import numpy as np
 import pandas as pd
 from typing import Any, List, Dict, Union, Optional
@@ -78,4 +74,3 @@ def calculate_vif(
             predictor_cols = [c for c in data.columns if c != 'const']
 
     return _run_vif(data, predictor_cols, var_meta=var_meta)
-}
