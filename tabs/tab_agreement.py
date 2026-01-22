@@ -629,10 +629,24 @@ def agreement_server(
             ui.markdown(f"**Data:** {result['data_label']}"),
             ui.HTML(interp_html),
             ui.h5("ICC Table"),
-            render.DataGrid(res_df, width="100%"),
+            ui.output_data_frame("icc_results_table"),
             ui.h5("ANOVA Table"),
-            render.DataGrid(result["anova_df"], width="100%"),
+            ui.output_data_frame("icc_anova_table"),
         )
+
+    @render.data_frame
+    def icc_results_table():
+        res = icc_result.get()
+        if res and "results_df" in res:
+            return render.DataGrid(res["results_df"], width="100%")
+        return None
+
+    @render.data_frame
+    def icc_anova_table():
+        res = icc_result.get()
+        if res and "anova_df" in res:
+            return render.DataGrid(res["anova_df"], width="100%")
+        return None
 
     @render.download(filename="icc_report.html")
     def btn_dl_icc():
