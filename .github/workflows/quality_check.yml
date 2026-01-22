@@ -4,13 +4,11 @@ on:
   push:
     branches:
       - main
-      - develop
-      - fix
       - patch
   pull_request:
     branches:
       - main
-      - develop
+      - patch
 
 jobs:
   # ==========================================
@@ -20,7 +18,7 @@ jobs:
     name: Unit Tests (Py ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false # ถ้าเวอร์ชันหนึ่งพัง เวอร์ชันอื่นยังรันต่อ
+      fail-fast: false # Keep running other versions if one fails
       matrix:
         python-version: ["3.12", "3.13", "3.14-dev"]
 
@@ -36,7 +34,7 @@ jobs:
           allow-prereleases: true # อนุญาตให้ใช้ 3.14-dev
 
       - name: Install Dependencies
-        # 3.14 อาจยังไม่มี wheel สำหรับ numpy/pandas -> ให้ continue-on-error ถ้า install ไม่ผ่าน
+        # 3.14 might not have wheels for numpy/pandas yet -> continue-on-error if install fails
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
         run: |
           python -m pip install --upgrade pip
@@ -44,10 +42,17 @@ jobs:
           pip install pytest
 
       - name: Run Unit Tests
-        # ยอมให้ 3.14 พังได้ (Experimental) แต่เวอร์ชันอื่นต้องผ่าน
+        # Allow 3.14 to fail (Experimental) but other versions must pass
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
         run: |
-          pytest tests/unit/ -v --tb=short
+          pytest tests/unit/ -v --tb=short --junitxml=unit-test-results-${{ matrix.python-version }}.xml
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results-${{ matrix.python-version }}
+          path: unit-test-results-${{ matrix.python-version }}.xml
 
   # ==========================================
   # E2E Tests (Stick to stable 3.12 to save resources)
@@ -79,10 +84,17 @@ jobs:
 
       - name: Run E2E Tests
         run: |
-          pytest tests/e2e/ -v --tb=short -m e2e
+          pytest tests/e2e/ -v --tb=short -m e2e --junitxml=e2e-test-results.xml
         env:
           PYTHONUNBUFFERED: "1"
         timeout-minutes: 10
+
+      - name: Upload E2E Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: e2e-test-results.xml
 
       - name: Upload Playwright Report (on failure)
         if: failure()
@@ -124,7 +136,14 @@ jobs:
       - name: Run Integration Tests
         continue-on-error: ${{ contains(matrix.python-version, '3.14') }}
         run: |
-          pytest tests/integration/ -v --tb=short
+          pytest tests/integration/ -v --tb=short --junitxml=integration-test-results-${{ matrix.python-version }}.xml
+
+      - name: Upload Integration Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results-${{ matrix.python-version }}
+          path: integration-test-results-${{ matrix.python-version }}.xml
 
   # ==========================================
   # Code Quality Checks (Stable 3.12)
@@ -158,30 +177,85 @@ jobs:
         continue-on-error: true
 
   # ==========================================
-  # Test Summary
+  # Test Summary & Reporting
   # ==========================================
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    # รอให้ทุก Job (รวมถึง Matrix ทั้งหมด) เสร็จก่อน
+    # Wait for all Jobs (including all Matrix versions) to complete
     needs: [unit-tests, e2e-tests, integration-tests, code-quality]
     if: always()
 
     steps:
-      - name: Check test results
-        run: |
-          echo "==========================================="
-          echo "📊 Test Summary"
-          echo "==========================================="
-          echo "✅ Unit Tests:        ${{ needs.unit-tests.result }}"
-          echo "✅ E2E Tests:         ${{ needs.e2e-tests.result }}"
-          echo "✅ Integration Tests: ${{ needs.integration-tests.result }}"
-          echo "✅ Code Quality:      ${{ needs.code-quality.result }}"
-          echo "==========================================="
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-          # Fail ถ้า Unit/E2E/Integration (ที่เป็นเวอร์ชันหลัก) พัง
-          # หมายเหตุ: matrix ที่ตั้ง continue-on-error=true (เช่น 3.14) จะคืนค่า success แม้พัง
-          # ดังนั้นบรรทัดนี้จะ fail เฉพาะถ้า 3.11-3.13 มีปัญหา
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: test-results
+          pattern: "*-test-results*"
+          merge-multiple: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate Detailed Report
+        run: |
+          python - <<EOF
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          summary = []
+          summary.append("# 📊 Quality Assurance Report\n")
+
+          # High level summary table
+          summary.append("| Suite | Result |")
+          summary.append("| :--- | :--- |")
+          summary.append(f"| Unit Tests | {'✅ PASS' if '${{ needs.unit-tests.result }}' == 'success' else '❌ FAIL'} |")
+          summary.append(f"| E2E Tests | {'✅ PASS' if '${{ needs.e2e-tests.result }}' == 'success' else '❌ FAIL'} |")
+          summary.append(f"| Integration Tests | {'✅ PASS' if '${{ needs.integration-tests.result }}' == 'success' else '❌ FAIL'} |")
+          summary.append(f"| Code Quality | {'✅ PASS' if '${{ needs.code-quality.result }}' == 'success' else '❌ FAIL'} |\n")
+
+          results_dir = Path("test-results")
+          if results_dir.exists():
+              for xml_file in results_dir.glob("*.xml"):
+                  suite_name = xml_file.stem.replace("-", " ").title()
+                  summary.append(f"### 🔍 {suite_name}")
+                  summary.append("<details><summary>Click to see detailed function results</summary>\n")
+                  summary.append("| Class / Module | Test Function | Status | Time (s) |")
+                  summary.append("| :--- | :--- | :--- | :--- |")
+                  
+                  try:
+                      tree = ET.parse(xml_file)
+                      root = tree.getroot()
+                      for testcase in root.findall(".//testcase"):
+                          name = testcase.get("name")
+                          classname = testcase.get("classname")
+                          time = testcase.get("time")
+                          status = "✅"
+                          if testcase.find("failure") is not None:
+                              status = "❌"
+                          elif testcase.find("skipped") is not None:
+                              status = "⏭️"
+                          summary.append(f"| {classname} | {name} | {status} | {time} |")
+                  except Exception as e:
+                      summary.append(f"| Error parsing file | {e} | | |")
+                  
+                  summary.append("\n</details>\n")
+          else:
+              summary.append("> [!WARNING]\n> No test result files found.")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(summary))
+          EOF
+
+      - name: Check final status
+        run: |
+          # Fail if primary test suites failed
           if [ "${{ needs.unit-tests.result }}" = "failure" ] || \
              [ "${{ needs.e2e-tests.result }}" = "failure" ] || \
              [ "${{ needs.integration-tests.result }}" = "failure" ]; then
