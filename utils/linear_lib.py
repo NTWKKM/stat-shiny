@@ -278,8 +278,13 @@ def run_ols_regression(
         cov_type: Covariance type ('nonrobust', 'HC0', 'HC1', 'HC2', 'HC3')
 
     Returns:
-        OLSResult dictionary with model, coefficients, diagnostics
+        OLSResult dictionary with model, coefficients, diagnostics.
+        Returns a dictionary with an 'error' key on failure.
     """
+    # Robustness check
+    is_valid, msg = validate_ols_inputs(df, outcome_col, predictor_cols)
+    if not is_valid:
+        return {"error": msg}  # type: ignore
 
     # Step 1: Build formula with Q() for variable names with spaces/special chars
     def safe_name(name: str) -> str:

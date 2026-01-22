@@ -305,7 +305,7 @@ class SubgroupAnalysisLogit:
 
         except Exception as e:
             logger.error(f"Analysis failed: {e}")
-            raise
+            return {"error": str(e)}
 
     def _compute_summary_statistics(self) -> dict[str, Any]:
         """Compute summary statistics."""
