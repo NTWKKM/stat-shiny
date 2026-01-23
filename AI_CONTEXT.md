@@ -16,7 +16,7 @@ To maintain system integrity, bots **MUST** read and adhere to the architectural
 ## 🧠 Deep Implementation Details (Bot Confidence)
 
 - **Data Pipeline**: Analysis MUST call `utils/data_cleaning.py -> prepare_data_for_analysis()` to handle `complete-case` logic.
-- **Reporting**: Follow the element-based schema using `utils.formatting.generate_standard_report()`.
+- **Reporting**: Follow the element-based schema `elements = [{"type": "table/plot/text", "header": "...", "data": ...}]`.
 - **UI States**: Standardize on `create_loading_state`, `create_placeholder_state`, and `create_error_alert` from `utils/ui_helpers.py`.
 - **P-Values**: Always use `utils/formatting.py -> format_p_value()` to respect global `CONFIG`.
 
