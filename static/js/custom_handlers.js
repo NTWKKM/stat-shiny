@@ -27,8 +27,10 @@ $(document).ready(function () {
     function initMobileMenu() {
         if (mobileMenuInitialized) return;
 
-        var sidebar = $('.app-container .nav-pills').first().closest('[class*="col-"]');
-        if (!sidebar.length) sidebar = $('#sidebar'); // Fallback to id if available
+        var sidebar = $('#sidebar');
+        if (!sidebar.length) {
+            sidebar = $('.app-container .nav-pills').first().closest('[class*="col-"]');
+        }
 
         // Initial state
         if ($(window).width() < 768) {

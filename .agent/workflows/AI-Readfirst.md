@@ -2,6 +2,9 @@
 description: AI-AGENT-GUIDE
 ---
 
+<!-- Keep a top-level heading for MD041 -->
+# AI Agent Guide
+
 <!-- AI-AGENT-GUIDE-START -->
 > [!IMPORTANT]
 > **FOR AI AGENTS & BOTS (e.g., Antigravity)**:
@@ -18,8 +21,7 @@ description: AI-AGENT-GUIDE
 >
 > To run the test suite, ensure you use the `pytest` from your virtual environment (assuming venv is named `.venv`):
 >
->```
-> bash
+>```bash
 > # Run all tests
 > .venv/bin/pytest
 > # Or if using a different venv name/activation:
@@ -27,5 +29,5 @@ description: AI-AGENT-GUIDE
 > 
 > # Run specific test
 > .venv/bin/pytest tests/unit/test_statistics.py
-> ```
+>```
 <!-- AI-AGENT-GUIDE-END -->

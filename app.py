@@ -58,7 +58,7 @@ logger = get_logger(__name__)
 # 🟢 Footer Definition
 footer_ui = ui.tags.div(
     ui.HTML(
-        """&copy; 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by GitHub, Antigravity, Shiny"""
+        """&copy; 2026 <a href="https://github.com/NTWKKM/" target="_blank" rel="noopener noreferrer">NTWKKM n donate</a> | Powered by GitHub, Antigravity, Shiny"""
     ),
     class_="report-footer",
     style="text-align: center; padding: 20px 0; border-top: 1px solid #e5e5e5; margin-top: 40px; color: #666;",

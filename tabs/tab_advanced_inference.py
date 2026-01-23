@@ -379,7 +379,8 @@ def advanced_inference_server(
 
     @render.ui
     def out_mediation_status():
-        if mediation_results.get():
+        res = mediation_results.get()
+        if res and "error" not in res:
             return ui.div("✅ Analysis Complete", class_="alert alert-success mt-2")
         return None
 
@@ -654,7 +655,10 @@ def advanced_inference_server(
         x_col = input.diag_predictor()
         covars = list(input.diag_covariates()) if input.diag_covariates() else []
         required_cols = [y_col, x_col] + covars
-        d_clean = current_df()[required_cols].dropna()
+        d = current_df()[required_cols].dropna()
+        y_num = pd.to_numeric(d[y_col], errors="coerce")
+        valid_mask = ~y_num.isna()
+        d_clean = d.loc[valid_mask]
         return d_clean.iloc[top_indices]
 
     @render.text
