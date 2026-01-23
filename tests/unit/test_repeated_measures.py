@@ -62,12 +62,12 @@ def test_run_gee(mock_longitudinal_data):
     assert not isinstance(results, str), f"GEE failed: {results}"
     # Check if 'Group' is part of any index name
     param_names = results.params.index.tolist()
-    assert any(
-        "Group" in name for name in param_names
-    ), f"Group not found in params: {param_names}"
-    assert any(
-        "Time" in name for name in param_names
-    ), f"Time not found in params: {param_names}"
+    assert any("Group" in name for name in param_names), (
+        f"Group not found in params: {param_names}"
+    )
+    assert any("Time" in name for name in param_names), (
+        f"Time not found in params: {param_names}"
+    )
 
     # Test with different correlation structure
     results_indep, _ = run_gee(
@@ -78,9 +78,9 @@ def test_run_gee(mock_longitudinal_data):
         subject_col="SubjectID",
         cov_struct="independence",
     )
-    assert not isinstance(
-        results_indep, str
-    ), f"GEE Independence failed: {results_indep}"
+    assert not isinstance(results_indep, str), (
+        f"GEE Independence failed: {results_indep}"
+    )
 
 
 def test_run_lmm(mock_longitudinal_data):
@@ -99,9 +99,9 @@ def test_run_lmm(mock_longitudinal_data):
 
     assert not isinstance(results, str), f"LMM failed: {results}"
     param_names = results.params.index.tolist()
-    assert any(
-        "Group" in name for name in param_names
-    ), f"Group not found in params: {param_names}"
+    assert any("Group" in name for name in param_names), (
+        f"Group not found in params: {param_names}"
+    )
 
     # Test LMM with Random Slope
     results_slope, _ = run_lmm(
@@ -112,9 +112,9 @@ def test_run_lmm(mock_longitudinal_data):
         subject_col="SubjectID",
         random_slope=True,
     )
-    assert not isinstance(
-        results_slope, str
-    ), f"LMM Random Slope failed: {results_slope}"
+    assert not isinstance(results_slope, str), (
+        f"LMM Random Slope failed: {results_slope}"
+    )
 
 
 def test_create_trajectory_plot(mock_longitudinal_data):

@@ -7,7 +7,7 @@ description: Project guide and requirements for AI agents
 
 <!-- AI-AGENT-GUIDE-START -->
 > [!IMPORTANT]
-> **FOR AI AGENTS & BOTS (e.g., Antigravity)**:
+> **🤖 FOR AI AGENTS & BOTS (Antigravity, Cursor, etc.)**:
 >
 > 1. **Architecture First**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the Styling System and Data Processing Pipeline before editing.
 > 2. **Environment**: This project requires **Python 3.12+**. Versions < 3.12 will cause SyntaxErrors.

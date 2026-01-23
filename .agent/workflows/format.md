@@ -13,4 +13,5 @@ description: Format the code using ruff
 .venv/bin/ruff format .
 
 # Windows
-.venv\Scripts\ruff format .```
+.venv\Scripts\ruff format .
+```

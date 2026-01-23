@@ -44,6 +44,7 @@ from lifelines import CoxTimeVaryingFitter
 from config import CONFIG
 from logger import get_logger
 from utils.data_cleaning import prepare_data_for_analysis
+from utils.formatting import generate_standard_report
 
 logger = get_logger(__name__)
 
@@ -886,185 +887,12 @@ def generate_tvc_report(
     missing_data_info: dict[str, Any],
     var_meta: dict[str, Any] | None = None,
 ) -> str:
-    """
-    Generate HTML report for TVC Cox analysis with standard application styling.
-
-    Parameters:
-        title: Report title
-        elements: List of elements to include
-                 Each element: {'type': 'header'|'text'|'table'|'plot', 'data': ...}
-        stats: Model statistics dictionary
-        missing_data_info: Information about dropped rows due to missing values
-        var_meta: Optional variable metadata
-
-    Returns:
-        str: HTML string ready for download
-    """
-    import html as _html
-
-    from config import CONFIG
-    from utils.formatting import create_missing_data_report_html
-
-    # --- Styles aligned with survival_lib.generate_report_survival ---
-    primary_color = CONFIG.get("ui.colors.primary", "#2180BE")
-    primary_dark = CONFIG.get("ui.colors.primary_dark", "#1a5a8a")
-    text_color = "#333"
-
-    css_style = f"""<style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            margin: 20px;
-            background-color: #f4f6f8;
-            color: {text_color};
-            line-height: 1.6;
-        }}
-        h1 {{
-            color: {primary_dark};
-            border-bottom: 3px solid {primary_color};
-            padding-bottom: 12px;
-            font-size: 2em;
-            margin-bottom: 20px;
-        }}
-        h2 {{
-            color: {primary_dark};
-            border-left: 5px solid {primary_color};
-            padding-left: 12px;
-            margin: 25px 0 15px 0;
-        }}
-        .stats-box {{
-            background-color: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-            border-left: 5px solid {primary_color};
-        }}
-        table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin: 10px 0;
-            background-color: white;
-            border-radius: 6px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }}
-        th, td {{
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }}
-        th {{
-            background-color: {primary_dark};
-            color: white;
-            font-weight: 600;
-        }}
-        tr:nth-child(even) {{
-            background-color: #f8f9fa;
-        }}
-        tr:hover {{
-            background-color: #f1f3f5;
-        }}
-        .plot {{ 
-            margin: 20px 0; 
-            background: white; 
-            padding: 15px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }}
-        .report-footer {{
-            text-align: center;
-            font-size: 0.75em;
-            color: #666;
-            margin-top: 40px;
-            border-top: 1px dashed #ccc;
-            padding-top: 10px;
-        }}
-        .sig-p {{
-            font-weight: bold;
-            color: #d63384;
-        }}
-    </style>"""
-
-    safe_title = _html.escape(str(title))
-    html_parts = [
-        "<!DOCTYPE html>",
-        "<html>",
-        "<head>",
-        "<meta charset='utf-8'>",
-        f"<title>{safe_title}</title>",
-        css_style,
-        "</head>",
-        "<body>",
-    ]
-
-    # Title
-    html_parts.append(f"<h1>{safe_title}</h1>")
-
-    # Generate timestamp
-    from datetime import datetime
-
-    html_parts.append(
-        f"<p><em>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</em></p>"
-    )
-
-    # Model statistics
+    """Wrapper for backward compatibility calling the unified generator."""
+    # Pass stats via var_meta for the standardized generator
+    v_meta = var_meta or {}
     if stats:
-        html_parts.append("<h2>📊 Model Summary</h2>")
-        html_parts.append("<div class='stats-box'>")
-        # Format stats as a grid or list
-        html_parts.append(
-            "<div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;'>"
-        )
-        for key, val in stats.items():
-            html_parts.append(f"<div><strong>{key}:</strong> {val}</div>")
-        html_parts.append("</div>")
-        html_parts.append("</div>")
+        v_meta["model_stats"] = stats
 
-    # Missing data info
-    if missing_data_info:
-        html_parts.append(
-            create_missing_data_report_html(missing_data_info, var_meta or {})
-        )
-
-    # Add elements
-    for elem in elements:
-        elem_type = elem.get("type", "")
-        data = elem.get("data")
-
-        if elem_type == "header":
-            html_parts.append(f"<h2>{_html.escape(str(data))}</h2>")
-        elif elem_type == "text":
-            # Allow some safe HTML provided by system (e.g. assumptions text), otherwise escape
-            # Assuming 'data' from our system is relatively safe, but for text blocks mostly just text.
-            # If data contains newlines, convert to <br> or wrap in <p>
-            html_parts.append(
-                f"<div style='background:#f8f9fa; padding:15px; border-radius:5px;'>{str(data)}</div>"
-            )
-        elif elem_type == "table" and isinstance(data, pd.DataFrame):
-            # Apply highlighting to p-values if present
-            d_styled = data.copy()
-            if "p-value" in d_styled.columns:
-                p_vals = pd.to_numeric(d_styled["p-value"], errors="coerce")
-                d_styled["p-value"] = [
-                    (
-                        f'<span class="sig-p">{val:.4f}</span>'
-                        if not pd.isna(pv) and pv < 0.05
-                        else f"{val:.4f}" if isinstance(val, float) else str(val)
-                    )
-                    for val, pv in zip(d_styled["p-value"], p_vals)
-                ]
-            html_parts.append(
-                d_styled.to_html(classes="table", index=False, escape=False)
-            )
-        elif elem_type == "plot" and hasattr(data, "to_html"):
-            html_parts.append(
-                f"<div class='plot'>{data.to_html(include_plotlyjs='cdn', full_html=False)}</div>"
-            )
-
-    html_parts.append("""<div class='report-footer'>
-    © 2026 Powered by stat-shiny
-    </div>""")
-
-    html_parts.append("</body></html>")
-
-    return "\n".join(html_parts)
+    return generate_standard_report(
+        title, elements, missing_data_info=missing_data_info, var_meta=v_meta
+    )

@@ -10,10 +10,10 @@ pinned: false
 
 <!-- AI-AGENT-GUIDE-START -->
 > [!IMPORTANT]
-> **FOR AI AGENTS & BOTS (e.g., Antigravity)**:
+> **🤖 FOR AI AGENTS & BOTS (Antigravity, Cursor, etc.)**:
 >
-> 1. **Architecture First**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the Styling System and Data Processing Pipeline before editing.
-> 2. **Environment**: This project requires **Python 3.12+**. Versions < 3.12 will cause SyntaxErrors.
+> 1. **Architecture First**: ALWAYS Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the Styling System and Data Processing Pipeline before editing.
+> 2. **Environment**: This project requires **Python 3.12+**. Versions < 3.12 will cause SyntaxErrors due to the use of **PEP 695** (Type Parameter Syntax/Type Aliases).
 >
 > | Requirement | Version    |
 > | ----------- | ---------- |
@@ -243,7 +243,7 @@ Every statistical analysis follows a rigorous, standardized data flow to ensure 
 
 ### Option 1: Run Locally (Python)
 
-Ensure you have **Python 3.12+** installed (required for modern f-string syntax).
+Ensure you have **Python 3.12+** installed (required for **PEP 695** type parameter syntax).
 
 1. **Clone the repository:**
 

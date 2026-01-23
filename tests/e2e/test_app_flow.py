@@ -366,9 +366,9 @@ class TestErrorHandling:
 
         # Filter out known non-critical errors if any
         # Assert no page errors occurred
-        assert (
-            not errors and not console_errors
-        ), f"JavaScript errors: {errors}; console errors: {console_errors}"
+        assert not errors and not console_errors, (
+            f"JavaScript errors: {errors}; console errors: {console_errors}"
+        )
 
     def test_navigation_has_no_console_errors(self, page: Page):
         """
@@ -404,9 +404,9 @@ class TestErrorHandling:
             page.wait_for_timeout(300)
 
         # Check for critical errors only
-        assert (
-            not errors and not console_errors
-        ), f"JavaScript errors: {errors}; console errors: {console_errors}"
+        assert not errors and not console_errors, (
+            f"JavaScript errors: {errors}; console errors: {console_errors}"
+        )
 
 
 # ============================================================================

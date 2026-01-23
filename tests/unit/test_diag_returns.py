@@ -36,12 +36,12 @@ def test_diag_returns():
     res = diag_test.calculate_chi2(
         df_err, "rater1", "rater2", method="Fisher's Exact Test"
     )
-    assert (
-        len(res) == 5
-    ), f"calculate_chi2 (Fisher error) should return 5 values, got {len(res)}"
-    assert (
-        res[2] == "Error: Fisher's Exact Test requires a 2x2 table."
-    ), f"Unexpected error message: {res[2]}"
+    assert len(res) == 5, (
+        f"calculate_chi2 (Fisher error) should return 5 values, got {len(res)}"
+    )
+    assert res[2] == "Error: Fisher's Exact Test requires a 2x2 table.", (
+        f"Unexpected error message: {res[2]}"
+    )
     print("✅ calculate_chi2 (Fisher error path): OK")
 
     # 4. Test calculate_kappa
@@ -54,9 +54,9 @@ def test_diag_returns():
     print("Checking calculate_descriptive...")
     # FIX: Unpack tuple (DataFrame, Metadata)
     res, *_ = diag_test.calculate_descriptive(df, "score")
-    assert isinstance(
-        res, pd.DataFrame
-    ), "calculate_descriptive should return a DataFrame"
+    assert isinstance(res, pd.DataFrame), (
+        "calculate_descriptive should return a DataFrame"
+    )
     print("✅ calculate_descriptive: OK")
 
     print("\n🎉 All Diagnostic Test return signatures verified successfully!")

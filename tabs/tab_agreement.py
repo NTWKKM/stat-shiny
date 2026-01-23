@@ -10,7 +10,6 @@ from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
 from tabs._common import (
-    get_color_palette,
     select_variable_by_keyword,
 )
 from utils import diag_test
@@ -22,7 +21,6 @@ from utils.ui_helpers import (
 )
 
 logger = get_logger(__name__)
-COLORS = get_color_palette()
 
 
 def _safe_filename_part(s: str) -> str:
@@ -213,7 +211,7 @@ def agreement_server(
             try:
                 if input.radio_source() == "matched":
                     return df_matched.get()
-            except Exception:
+            except (AttributeError, KeyError):
                 pass
         return df.get()
 
@@ -347,7 +345,9 @@ def agreement_server(
                 d, v1, v2, var_meta=var_meta.get() or {}
             )
             if err:
-                kappa_html.set(f"<div class='alert alert-danger'>{err}</div>")
+                kappa_html.set(
+                    f"<div class='alert alert-danger'>{_html.escape(str(err))}</div>"
+                )
             else:
                 rep = [
                     {
@@ -417,7 +417,7 @@ def agreement_server(
 
             if "error" in stats_res:
                 ba_html.set(
-                    f"<div class='alert alert-danger'>{stats_res['error']}</div>"
+                    f"<div class='alert alert-danger'>{_html.escape(str(stats_res['error']))}</div>"
                 )
             else:
                 stats_df = pd.DataFrame(
@@ -492,7 +492,9 @@ def agreement_server(
             res_df, err, anova_df, missing_info = diag_test.calculate_icc(d, list(cols))
 
             if err:
-                icc_html.set(f"<div class='alert alert-danger'>{err}</div>")
+                icc_html.set(
+                    f"<div class='alert alert-danger'>{_html.escape(str(err))}</div>"
+                )
             else:
                 # Custom Interpretation Block
                 interp_parts = []
@@ -561,7 +563,7 @@ def agreement_server(
         )
 
     @render.download(
-        filename=lambda: f"icc_report_{_safe_filename_part('_'.join(input.icc_vars()[:3]))}.html"
+        filename=lambda: f"icc_report_{_safe_filename_part('_'.join((input.icc_vars() or [])[:3]) or 'analysis')}.html"
     )
     def btn_dl_icc_report():
         req(icc_html.get())
@@ -590,10 +592,5 @@ def agreement_server(
     def out_icc_validation():
         cols = input.icc_vars()
         if cols and len(cols) < 2:
-            return ui.div(
-                ui.tags.small(
-                    "Please select at least 2 rater/method columns.",
-                    class_="text-warning",
-                )
-            )
+            return create_error_alert("Please select at least 2 rater/method columns.")
         return None

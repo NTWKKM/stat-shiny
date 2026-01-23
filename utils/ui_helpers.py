@@ -183,7 +183,9 @@ def format_stat_table_html(df):
             lambda x: (
                 f'<span class="sig-p">{x:.4f}</span>'
                 if isinstance(x, (int, float)) and x < 0.05
-                else f"{x:.4f}" if isinstance(x, (int, float)) else x
+                else f"{x:.4f}"
+                if isinstance(x, (int, float))
+                else x
             )
         )
 
