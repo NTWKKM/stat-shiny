@@ -21,5 +21,6 @@
    - **NEVER** edit `static/styles.css` directly. It is an auto-generated file.
    - To change styles, modify the `get_shiny_css()` function in `tabs/_styling.py`.
    - After modifying the Python file, regenerate the CSS by running:
-     `.venv/bin/python utils/update_css.py`
+     - POSIX: `.venv/bin/python utils/update_css.py`
+     - Windows: `.venv\Scripts\python utils\update_css.py`
    - Always commit both the `.py` source and the generated `.css` file.

@@ -14,7 +14,7 @@ I have enhanced the repository with "Deep Architectural Details" to ensure that 
 
 ### 1. Statistical Pipeline Guardrails
 
-[docs/ARCHITECTURE.md](file:///Users/ntwkkm/shiny-stat/stat-shiny/docs/ARCHITECTURE.md) now explicitly documents the 30% numeric conversion threshold in `utils/data_cleaning.py`. Documented the requirement for modules to call `prepare_data_for_analysis()` to maintain data health and missingness reporting.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) now explicitly documents the 30% numeric conversion threshold in `utils/data_cleaning.py`. Documented the requirement for modules to call `prepare_data_for_analysis()` to maintain data health and missingness reporting.
 
 ### 2. Standardized Reporting Schema
 
@@ -31,9 +31,9 @@ Established a standard naming convention for Shiny reactive values:
 
 ### 4. Machine-Readable Context
 
-[AI_CONTEXT.md](file:///Users/ntwkkm/shiny-stat/stat-shiny/AI_CONTEXT.md): Updated as a "Universal Entry Point" that summarizes these deep details for rapid LLM ingestion upon repository entry.
+[AI_CONTEXT.md](AI_CONTEXT.md): Updated as a "Universal Entry Point" that summarizes these deep details for rapid LLM ingestion upon repository entry.
 
-[.cursorrules](file:///Users/ntwkkm/shiny-stat/stat-shiny/.cursorrules): Enforces "Architecture-First" via Rule 0, ensuring bots visit these deep docs before coding.
+[.cursorrules](.cursorrules): Enforces "Architecture-First" via Rule 0, ensuring bots visit these deep docs before coding.
 
 ## Centralized Reporting Utility
 
