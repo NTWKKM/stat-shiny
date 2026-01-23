@@ -36,7 +36,7 @@ def test_heterogeneity_single_study():
     assert res["Q"] == 0.0
     assert res["tau_squared"] == 0.0
     assert res["df"] == 0
-    assert np.isnan(res["p_value"]) or res["p_value"] == 1.0
+    assert res["p_value"] == 1.0
 
 
 def test_heterogeneity_empty_input():

@@ -108,7 +108,6 @@ jobs:
       - name: Check formatting (black)
         # Verify paths are correct
         run: black --check tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py tests/unit/test_ui_ux_styles.py
-        continue-on-error: true
 
   # ==========================================
   # Test Summary & Reporting
