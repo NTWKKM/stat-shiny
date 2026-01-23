@@ -297,6 +297,11 @@ def corr_server(
 
     # ==================== UPDATE DYNAMIC INPUTS ====================
 
+    @reactive.Effect
+    def _update_corr_inputs():
+        """Force update when data changes"""
+        _ = current_df()  # Subscribe to data changes
+
     @render.ui
     def ui_cv1():
         """Render Variable 1 selector with smart defaults."""

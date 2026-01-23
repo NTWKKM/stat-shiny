@@ -337,6 +337,12 @@ def diag_server(
             )
         return None
 
+    # --- Update Dynamic Inputs ---
+    @reactive.Effect
+    def _update_diag_inputs():
+        """Force update when data changes"""
+        _ = current_df()
+
     # Get all columns
     @reactive.Calc
     def all_cols() -> list[str]:

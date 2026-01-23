@@ -72,19 +72,11 @@ def agreement_ui() -> ui.TagChild:
                         ui.row(
                             ui.column(
                                 6,
-                                ui.input_select(
-                                    "sel_kappa_v1",
-                                    "Rater/Method 1:",
-                                    choices=["Select..."],
-                                ),
+                                ui.output_ui("ui_kappa_v1"),
                             ),
                             ui.column(
                                 6,
-                                ui.input_select(
-                                    "sel_kappa_v2",
-                                    "Rater/Method 2:",
-                                    choices=["Select..."],
-                                ),
+                                ui.output_ui("ui_kappa_v2"),
                             ),
                         ),
                         type="required",
@@ -120,19 +112,11 @@ def agreement_ui() -> ui.TagChild:
                         ui.row(
                             ui.column(
                                 6,
-                                ui.input_select(
-                                    "sel_ba_v1",
-                                    "Variable 1 (Method A):",
-                                    choices=["Select..."],
-                                ),
+                                ui.output_ui("ui_ba_v1"),
                             ),
                             ui.column(
                                 6,
-                                ui.input_select(
-                                    "sel_ba_v2",
-                                    "Variable 2 (Method B):",
-                                    choices=["Select..."],
-                                ),
+                                ui.output_ui("ui_ba_v2"),
                             ),
                         ),
                         type="required",
@@ -165,13 +149,7 @@ def agreement_ui() -> ui.TagChild:
                     ui.card_header("🔍 Intraclass Correlation Coefficient"),
                     create_input_group(
                         "Variable Selection (2+ Raters/Methods)",
-                        ui.input_selectize(
-                            "icc_vars",
-                            "Select Variables (Raters/Methods):",
-                            choices=["Select..."],
-                            multiple=True,
-                            selected=[],
-                        ),
+                        ui.output_ui("ui_icc_vars"),
                         type="required",
                     ),
                     ui.output_ui("out_icc_validation"),
@@ -295,87 +273,127 @@ def agreement_server(
             )
         return None
 
-    # --- Update Columns ---
+    # --- Update Dynamic Inputs ---
     @reactive.Effect
-    def _update_cols():
+    def _update_agreement_inputs():
+        """Force update when data changes"""
+        _ = current_df()
+
+    @render.ui
+    def ui_kappa_v1():
         d = current_df()
-        if d is not None:
-            cols = d.columns.tolist()
-            num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
-
-            # Kappa Selectors (Uses all cols, but typically categorical)
-            start_sel = cols[0] if cols else None
-            # Intelligent fallback for second rater
-            end_sel = cols[1] if len(cols) > 1 else start_sel
-
-            # Try to smart-select raters if keyword match
-            # [Updated] Added diagnosis/dr keywords
-            default_rater1 = select_variable_by_keyword(
-                cols,
-                ["diagnosis_dr_a", "diagnosis", "dr_a", "rater1", "obs1", "method1"],
-                default_to_first=True,
+        if d is None:
+            return ui.input_select(
+                "sel_kappa_v1", "Rater/Method 1:", choices=["Select..."]
             )
-            default_rater2 = None
-            if default_rater1:
-                # Try to find rater2, excluding rater1
-                rem_cols = [c for c in cols if c != default_rater1]
-                default_rater2 = select_variable_by_keyword(
-                    rem_cols,
-                    ["diagnosis_dr_b", "dr_b", "rater2", "obs2", "method2"],
-                    default_to_first=True,
-                )
+        cols = d.columns.tolist()
+        default_rater1 = select_variable_by_keyword(
+            cols,
+            ["diagnosis_dr_a", "diagnosis", "dr_a", "rater1", "obs1", "method1"],
+            default_to_first=True,
+        )
+        return ui.input_select(
+            "sel_kappa_v1", "Rater/Method 1:", choices=cols, selected=default_rater1
+        )
 
-            if default_rater1 and default_rater2:
-                start_sel = default_rater1
-                end_sel = default_rater2
-
-            ui.update_select("sel_kappa_v1", choices=cols, selected=start_sel)
-            ui.update_select("sel_kappa_v2", choices=cols, selected=end_sel)
-
-            # Bland-Altman Selectors (Numeric only)
-            # [Updated] Added ICC/SysBP keywords
-            default_ba1 = select_variable_by_keyword(
-                num_cols,
-                [
-                    "icc_sysbp_rater1",
-                    "sysbp_rater1",
-                    "rater1",
-                    "method_a",
-                    "measure_1",
-                    "test_1",
-                    "gold",
-                ],
-                default_to_first=True,
+    @render.ui
+    def ui_kappa_v2():
+        d = current_df()
+        if d is None:
+            return ui.input_select(
+                "sel_kappa_v2", "Rater/Method 2:", choices=["Select..."]
             )
-            # Find distinct second variable
-            rem_num = [c for c in num_cols if c != default_ba1]
-            default_ba2 = select_variable_by_keyword(
-                rem_num,
-                [
-                    "icc_sysbp_rater2",
-                    "sysbp_rater2",
-                    "rater2",
-                    "method_b",
-                    "measure_2",
-                    "test_2",
-                    "new",
-                ],
-                default_to_first=True,
+        cols = d.columns.tolist()
+        v1 = input.sel_kappa_v1()
+        rem_cols = [c for c in cols if c != v1] if v1 else cols
+        default_rater2 = select_variable_by_keyword(
+            rem_cols,
+            ["diagnosis_dr_b", "dr_b", "rater2", "obs2", "method2"],
+            default_to_first=True,
+        )
+        return ui.input_select(
+            "sel_kappa_v2", "Rater/Method 2:", choices=cols, selected=default_rater2
+        )
+
+    @render.ui
+    def ui_ba_v1():
+        d = current_df()
+        if d is None:
+            return ui.input_select(
+                "sel_ba_v1", "Variable 1 (Method A):", choices=["Select..."]
             )
+        num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
+        default_ba1 = select_variable_by_keyword(
+            num_cols,
+            [
+                "icc_sysbp_rater1",
+                "sysbp_rater1",
+                "rater1",
+                "method_a",
+                "measure_1",
+                "test_1",
+                "gold",
+            ],
+            default_to_first=True,
+        )
+        return ui.input_select(
+            "sel_ba_v1",
+            "Variable 1 (Method A):",
+            choices=num_cols,
+            selected=default_ba1,
+        )
 
-            if not default_ba2 and num_cols:
-                default_ba2 = num_cols[0]
-
-            ui.update_select("sel_ba_v1", choices=num_cols, selected=default_ba1)
-            ui.update_select(
-                "sel_ba_v2",
-                choices=num_cols,
-                selected=default_ba2,
+    @render.ui
+    def ui_ba_v2():
+        d = current_df()
+        if d is None:
+            return ui.input_select(
+                "sel_ba_v2", "Variable 2 (Method B):", choices=["Select..."]
             )
+        num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
+        v1 = input.sel_ba_v1()
+        rem_num = [c for c in num_cols if c != v1] if v1 else num_cols
+        default_ba2 = select_variable_by_keyword(
+            rem_num,
+            [
+                "icc_sysbp_rater2",
+                "sysbp_rater2",
+                "rater2",
+                "method_b",
+                "measure_2",
+                "test_2",
+                "new",
+            ],
+            default_to_first=True,
+        )
+        if not default_ba2 and num_cols:
+            default_ba2 = num_cols[0]
+        return ui.input_select(
+            "sel_ba_v2",
+            "Variable 2 (Method B):",
+            choices=num_cols,
+            selected=default_ba2,
+        )
 
-            # ICC Selector
-            icc_defaults = _auto_detect_icc_vars(num_cols)
-            ui.update_selectize("icc_vars", choices=num_cols, selected=icc_defaults)
+    @render.ui
+    def ui_icc_vars():
+        d = current_df()
+        if d is None:
+            return ui.input_selectize(
+                "icc_vars",
+                "Select Variables (Raters/Methods):",
+                choices=["Select..."],
+                multiple=True,
+            )
+        num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
+        icc_defaults = _auto_detect_icc_vars(num_cols)
+        return ui.input_selectize(
+            "icc_vars",
+            "Select Variables (Raters/Methods):",
+            choices=num_cols,
+            multiple=True,
+            selected=icc_defaults,
+        )
 
     # ==================== KAPPA ANALYSIS ====================
 
