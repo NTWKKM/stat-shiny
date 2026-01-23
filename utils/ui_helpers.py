@@ -180,11 +180,11 @@ def format_stat_table_html(df):
     # Format p-values: highlight < 0.05
     if "p_value" in df_display.columns:
         df_display["p_value"] = df_display["p_value"].apply(
-            lambda x: f'<span class="sig-p">{x:.4f}</span>'
-            if isinstance(x, (int, float)) and x < 0.05
-            else f"{x:.4f}"
-            if isinstance(x, (int, float))
-            else x
+            lambda x: (
+                f'<span class="sig-p">{x:.4f}</span>'
+                if isinstance(x, (int, float)) and x < 0.05
+                else f"{x:.4f}" if isinstance(x, (int, float)) else x
+            )
         )
 
     # Format other numeric columns to 2 decimals if they are float

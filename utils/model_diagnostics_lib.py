@@ -27,9 +27,11 @@ def run_reset_test(model_results) -> dict:
             "test": "Ramsey RESET",
             "statistic": reset.statistic,
             "p_value": p_val,
-            "conclusion": "Possible misspecification (p < 0.05)"
-            if p_val < 0.05
-            else "No strong evidence of misspecification",
+            "conclusion": (
+                "Possible misspecification (p < 0.05)"
+                if p_val < 0.05
+                else "No strong evidence of misspecification"
+            ),
         }
     except Exception as e:
         return {"error": f"RESET Test failed: {str(e)}"}
@@ -59,9 +61,11 @@ def run_heteroscedasticity_test(model_results) -> dict:
             "test": "Breusch-Pagan",
             "statistic": lm_stat,
             "p_value": lm_pvalue,
-            "conclusion": "Heteroscedasticity present (p < 0.05)"
-            if lm_pvalue < 0.05
-            else "Homoscedasticity assumption holds",
+            "conclusion": (
+                "Heteroscedasticity present (p < 0.05)"
+                if lm_pvalue < 0.05
+                else "Homoscedasticity assumption holds"
+            ),
         }
     except Exception as e:
         return {"error": f"Heteroscedasticity test failed: {str(e)}"}
@@ -83,7 +87,7 @@ def calculate_cooks_distance(model_results) -> dict:
 
         influence = model_results.get_influence()
         # cooks_d is a tuple (distance, p-value)
-        (c_d, p_val) = influence.cooks_distance
+        c_d, p_val = influence.cooks_distance
 
         if c_d is None:
             return {"error": "Could not calculate Cook's distance."}

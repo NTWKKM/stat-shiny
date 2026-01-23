@@ -980,7 +980,9 @@ def core_regression_server(
             if c != default_linear_y
             and c not in ["ID", "id_tvc"]
             and not c.startswith("Time_")
-        ][:5]  # limit to 5
+        ][
+            :5
+        ]  # limit to 5
         ui.update_selectize(
             "linear_predictors", choices=numeric_cols, selected=default_linear_x
         )
@@ -1255,16 +1257,14 @@ def core_regression_server(
                 ui.nav_panel("📋 Detailed Report", ui.HTML(res["html_fragment"])),
                 ui.nav_panel(
                     "✅ Assumptions",
-                    ui.markdown(
-                        """
+                    ui.markdown("""
                         ### 🧐 Model Assumptions Checklist
                         
                         1.  **Multicollinearity:** Check standard errors in the report. Extremely large SEs often indicate high correlation between predictors (VIF > 5-10).
                         2.  **Linearity:** Log-odds should be linearly related to continuous predictors (Box-Tidwell test).
                         3.  **Independence:** Observations should be independent. If you have repeated measures per patient, use the **Repeated Measures** tab.
                         4.  **Separation:** If standard errors are huge (e.g., > 1000), you may have "Perfect Separation". Consider using **Firth's Method**.
-                        """
-                    ),
+                        """),
                 ),
             )
 
@@ -2956,13 +2956,15 @@ def core_regression_server(
                 ),
                 ui.nav_panel(
                     "🌳 Forest Plot",
-                    ui.HTML(
-                        plotly_figure_to_html(
-                            res["forest_plot"], include_plotlyjs="cdn"
+                    (
+                        ui.HTML(
+                            plotly_figure_to_html(
+                                res["forest_plot"], include_plotlyjs="cdn"
+                            )
                         )
-                    )
-                    if res.get("forest_plot")
-                    else ui.div("No forest plot available", class_="text-muted p-3"),
+                        if res.get("forest_plot")
+                        else ui.div("No forest plot available", class_="text-muted p-3")
+                    ),
                 ),
             )
 

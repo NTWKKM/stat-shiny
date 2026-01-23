@@ -212,17 +212,6 @@ def corr_server(
 ) -> None:
     """
     Register server-side reactives, event handlers, and UI outputs for the Correlation & ICC Analysis tab.
-
-    Sets up and manages reactive state, dataset selection logic, numeric-column discovery, pairwise correlation (calculation, rendering, and download), correlation matrix/heatmap (calculation, rendering, and download), and ICC analysis (calculation, interpretation, rendering, and download). This function attaches renderers, effects, and download handlers used by the corresponding UI to present results and reports.
-
-    Parameters:
-        input: Shiny input object for accessing UI inputs and events.
-        output: Shiny output object used by the render decorators.
-        session: Shiny session object for the current user session.
-        df (reactive.Value[pd.DataFrame | None]): Primary dataset reactive; used as the default data source.
-        var_meta (reactive.Value[dict[str, Any]]): Reactive dictionary of variable metadata (column attributes and labels).
-        df_matched (reactive.Value[pd.DataFrame | None]): Optional matched dataset reactive used when the user selects the matched data source.
-        is_matched (reactive.Value[bool]): Reactive boolean flag indicating whether a matched dataset is available/selected.
     """
     COLORS = get_color_palette()
 
@@ -283,8 +272,9 @@ def corr_server(
             matched = df_matched.get()
             original_len = len(original) if original is not None else 0
             matched_len = len(matched) if matched is not None else 0
+            # ✅ FIX: Added session.ns
             return ui.input_radio_buttons(
-                "radio_corr_source",  # ✅ FIX: Removed session.ns
+                session.ns("radio_corr_source"),
                 "📊 Select Dataset:",
                 {
                     "original": f"📊 Original Data ({original_len:,} rows)",
@@ -307,52 +297,57 @@ def corr_server(
         """Render Variable 1 selector with smart defaults."""
         data = current_df()
         if data is None:
+            # ✅ FIX: Added session.ns
             return ui.input_select(
-                "cv1", "Variable 1 (X-axis):", choices=["Select..."]
-            )  # ✅ FIX: Removed session.ns
+                session.ns("cv1"), "Variable 1 (X-axis):", choices=["Select..."]
+            )
 
         num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
         default_v = select_variable_by_keyword(
             num_cols, ["glucose", "lab_glucose", "var1"], default_to_first=True
         )
+        # ✅ FIX: Added session.ns
         return ui.input_select(
-            "cv1",
+            session.ns("cv1"),
             "Variable 1 (X-axis):",
             choices=num_cols,
             selected=default_v,
-        )  # ✅ FIX: Removed session.ns
+        )
 
     @render.ui
     def ui_cv2():
         """Render Variable 2 selector with smart defaults."""
         data = current_df()
         if data is None:
+            # ✅ FIX: Added session.ns
             return ui.input_select(
-                "cv2", "Variable 2 (Y-axis):", choices=["Select..."]
-            )  # ✅ FIX: Removed session.ns
+                session.ns("cv2"), "Variable 2 (Y-axis):", choices=["Select..."]
+            )
 
         num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
         default_v = select_variable_by_keyword(
             num_cols, ["hba1c", "lab_hba1c", "var2"], default_to_first=True
         )
+        # ✅ FIX: Added session.ns
         return ui.input_select(
-            "cv2",
+            session.ns("cv2"),
             "Variable 2 (Y-axis):",
             choices=num_cols,
             selected=default_v,
-        )  # ✅ FIX: Removed session.ns
+        )
 
     @render.ui
     def ui_matrix_vars():
         """Render Matrix variables selector with defaults."""
         data = current_df()
         if data is None:
+            # ✅ FIX: Added session.ns
             return ui.input_selectize(
-                "matrix_vars",
+                session.ns("matrix_vars"),
                 "Select Variables:",
                 choices=["Select..."],
                 multiple=True,
-            )  # ✅ FIX: Removed session.ns
+            )
 
         num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
 
@@ -382,8 +377,9 @@ def corr_server(
         if not def_matrix:
             def_matrix = num_cols[:5] if len(num_cols) >= 5 else num_cols
 
+        # ✅ FIX: Added session.ns
         return ui.input_selectize(
-            "matrix_vars",  # ✅ FIX: Removed session.ns
+            session.ns("matrix_vars"),
             create_tooltip_label(
                 "Select Variables (Multi-select)",
                 "Choose continuous variables for matrix.",
@@ -421,9 +417,6 @@ def corr_server(
             corr_is_running.set(True)
             corr_result.set(None)
 
-            # Using progress here is still fine, but our loading state in result area is better UX
-            # We can keep the progress bar for additional feedback or remove it.
-            # I will keep it for now as it doesn't hurt.
             with ui.Progress(min=0, max=1) as p:
                 p.set(
                     message="Calculating correlation...",
@@ -519,9 +512,6 @@ def corr_server(
     def out_corr_table():
         """
         Create a formatted table of the most relevant pairwise correlation statistics for the current result.
-
-        Returns:
-            A DataGrid showing metrics (Method; Correlation Coefficient (r); 95% CI Lower; 95% CI Upper; R-squared (R²); P-value; Sample Size (N); Interpretation) for the computed correlation, or `None` if no correlation result is available.
         """
         result = corr_result.get()
         if result is None or "error" in result:
@@ -557,12 +547,7 @@ def corr_server(
 
     @render.ui
     def out_corr_plot_widget():
-        """
-        Render the correlation scatter plot as an HTML UI element.
-
-        Returns:
-            ui_element: A UI element containing the Plotly scatter plot HTML when a figure is available, or a centered waiting placeholder if no result/figure exists.
-        """
+        """Render the correlation scatter plot as an HTML UI element."""
         result = corr_result.get()
         if result is None or result["figure"] is None:
             return ui.div(
@@ -731,9 +716,7 @@ def corr_server(
 
     @render.ui
     def out_matrix_result():
-        """
-        Render the matrix/heatmap results card for the current analysis.
-        """
+        """Render the matrix/heatmap results card for the current analysis."""
         if matrix_is_running.get():
             return create_loading_state("Generating Correlation Matrix & Heatmap...")
 
@@ -749,7 +732,6 @@ def corr_server(
         summary = result["summary"]
 
         # Format summary statistics
-        # Escape summary strings that include column names
         strongest_pos = _html.escape(str(summary["strongest_positive"]))
         strongest_neg = _html.escape(str(summary["strongest_negative"]))
         summary_html = f"""
@@ -788,12 +770,7 @@ def corr_server(
 
     @render.ui
     def out_heatmap_widget():
-        """
-        Render the correlation heatmap plot or a waiting placeholder as a Shiny UI element.
-
-        Returns:
-            ui_element: A Shiny UI element containing the rendered Plotly heatmap when available, or a centered "Waiting for results..." placeholder otherwise.
-        """
+        """Render the correlation heatmap plot or a waiting placeholder."""
         result = matrix_result.get()
         if result is None or result["figure"] is None:
             return ui.div(
@@ -810,14 +787,7 @@ def corr_server(
 
     @render.data_frame
     def out_matrix_table():
-        """
-        Render the correlation matrix as a DataGrid suitable for display.
-
-        The matrix's row index is converted into a column named "Variable" to make variable names visible in the grid.
-
-        Returns:
-            ui_element (shiny.ui.output/DataGrid) or None: A DataGrid rendering of the matrix when results are available, otherwise None.
-        """
+        """Render the correlation matrix as a DataGrid suitable for display."""
         result = matrix_result.get()
         if result is None or "error" in result:
             return None

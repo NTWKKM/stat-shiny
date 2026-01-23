@@ -40,8 +40,7 @@ jobs:
       - name: Run UI Styling Tests
         # Ensure paths are correct
         run: |
-          pytest tests/unit/test_color_palette.py -v --junitxml=ui-styling-color-results.xml
-          pytest tests/unit/test_ui_ux_styles.py -v --junitxml=ui-styling-ux-results.xml
+          pytest tests/unit/test_color_palette.py tests/unit/test_ui_ux_styles.py -v --junitxml=ui-styling-results.xml
 
       - name: Upload UI Styling Results
         if: always()
@@ -74,8 +73,12 @@ jobs:
 
       - name: Run tests
         run: |
+          set +e
           pytest tests/unit/test_color_palette.py -v --junitxml=compatibility-color-${{ matrix.python-version }}.xml
+          EXIT1=$?
           pytest tests/unit/test_ui_ux_styles.py -v --junitxml=compatibility-ux-${{ matrix.python-version }}.xml
+          EXIT2=$?
+          exit $((EXIT1 | EXIT2))
 
       - name: Upload Compatibility Results
         if: always()
@@ -100,7 +103,7 @@ jobs:
         uses: ./.github/actions/setup-test-env
 
       - name: Install linters
-        run: pip install flake8 black
+        run: pip install flake8==7.1.1 black==24.10.0
 
       - name: Check code style (flake8)
         # Verify paths are correct
@@ -193,11 +196,11 @@ jobs:
 
       - name: Check final status
         run: |
-          if [ "${{ needs.test-styling.result }}" = "failure" ] || \
-             [ "${{ needs.test-multi-version.result }}" = "failure" ]; then
+          if [ "${{ needs.test-styling.result }}" != "success" ] || \
+             [ "${{ needs.test-multi-version.result }}" != "success" ]; then
             echo "❌ CRITICAL: Styling or Compatibility tests failed."
             exit 1
-          elif [ "${{ needs.code-quality.result }}" = "failure" ]; then
+          elif [ "${{ needs.code-quality.result }}" != "success" ]; then
             echo "⚠️ WARNING: Code quality checks failed, but tests passed."
             exit 0
           else

@@ -165,9 +165,11 @@ def breslow_day(
             "test": "Likelihood Ratio Test for Homogeneity (Interaction)",
             "statistic": float(lr_stat),
             "p_value": float(p_val),
-            "conclusion": "Heterogeneity detected (p<0.05)"
-            if p_val < 0.05
-            else "Homogeneity holds",
+            "conclusion": (
+                "Heterogeneity detected (p<0.05)"
+                if p_val < 0.05
+                else "Homogeneity holds"
+            ),
             "missing_data_info": missing_info,
         }
 

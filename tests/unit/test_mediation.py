@@ -93,9 +93,9 @@ def test_analyze_mediation_empty_data():
     # Case 2: Function returns the standard dictionary structure,
     # but the calculated values should be NaN.
     assert "total_effect" in results
-    assert np.isnan(results["total_effect"]), (
-        "Total effect should be NaN when input data is empty"
-    )
+    assert np.isnan(
+        results["total_effect"]
+    ), "Total effect should be NaN when input data is empty"
 
 
 def test_analyze_mediation_missing_columns():

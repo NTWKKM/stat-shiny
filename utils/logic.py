@@ -586,9 +586,11 @@ def analyze_outcome(
     def count_val(series: pd.Series, v_str: str) -> int:
         return (
             series.astype(str).apply(
-                lambda x: str(x).replace(".0", "")
-                if str(x).replace(".", "", 1).isdigit()
-                else str(x)
+                lambda x: (
+                    str(x).replace(".0", "")
+                    if str(x).replace(".", "", 1).isdigit()
+                    else str(x)
+                )
             )
             == v_str
         ).sum()

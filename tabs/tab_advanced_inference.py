@@ -334,9 +334,9 @@ def advanced_inference_server(
                 outcome=input.med_outcome(),
                 treatment=input.med_treatment(),
                 mediator=input.med_mediator(),
-                confounders=list(input.med_confounders())
-                if input.med_confounders()
-                else None,
+                confounders=(
+                    list(input.med_confounders()) if input.med_confounders() else None
+                ),
                 var_meta=var_meta.get() or {},
             )
             mediation_results.set(results)
