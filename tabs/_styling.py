@@ -1526,13 +1526,13 @@ def get_shiny_css():
         }}
         
         .empty-state h3 {{
-            font-size: var(--text-heading);
+            font-size: var(--text-heading-size);
             color: var(--color-text);
             margin-bottom: var(--spacing-xs);
         }}
         
         .empty-state p {{
-            font-size: var(--text-body);
+            font-size: var(--text-body-size);
             color: var(--color-text-secondary);
             margin-bottom: var(--spacing-lg);
         }}

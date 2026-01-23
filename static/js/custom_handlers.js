@@ -44,6 +44,8 @@ $(document).ready(function () {
             resizeTimer = setTimeout(function () {
                 if ($(window).width() >= 768) {
                     sidebar.show();
+                } else {
+                    sidebar.hide();
                 }
             }, 250);
         });

@@ -4,7 +4,7 @@ This document provides a deep technical overview of the **Medical Statistical To
 
 ## 🎨 UI Styling System
 
-The application uses a centralized styling system to ensures visual consistency across all modules.
+The application uses a centralized styling system to ensure visual consistency across all modules.
 
 ### Core Components
 

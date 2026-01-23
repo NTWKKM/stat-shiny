@@ -532,6 +532,18 @@ def data_server(
     def _():
         generate_example_data_logic()
 
+    @reactive.Effect
+    @reactive.event(input.btn_jump_upload_trigger)
+    def _jump_to_upload():
+        """Smooth scroll to upload area when clicking the jump button in empty state"""
+        ui.insert_ui(
+            ui.tags.script(
+                "document.getElementById('file_upload').scrollIntoView({behavior: 'smooth'});"
+            ),
+            selector="body",
+            where="beforeEnd",
+        )
+
     # --- Data Upload Confirmation Modal ---
     @render.ui
     def modal_confirm_upload():
@@ -790,11 +802,6 @@ def data_server(
                     "Select a variable to view missing data configuration.",
                     style="color: #999; font-size: 0.85em;",
                 ),
-                ui.tags.script("""
-                    // Example potential querySelector fix if needed in future
-                    var helpBtn = document.querySelector('.help-btn');
-                    if (helpBtn) { /* ... */ }
-                """),
             )
 
         meta = var_meta.get()

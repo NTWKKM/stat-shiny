@@ -1,17 +1,30 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 # Mock CONFIG to ensure report generation is enabled
 from config import CONFIG
 from utils.poisson_lib import analyze_poisson_outcome
 
-try:
+
+@pytest.fixture(autouse=True)
+def setup_config():
+    # Save original values
+    orig_report = CONFIG.get("analysis.missing.report_missing")
+    orig_strategy = CONFIG.get("analysis.missing.strategy")
+    orig_user_defined = CONFIG.get("analysis.missing.user_defined_values")
+
+    # Update for tests
     CONFIG.update("analysis.missing.report_missing", True)
     CONFIG.update("analysis.missing.strategy", "complete-case")
     CONFIG.update("analysis.missing.user_defined_values", [])
-except KeyError:
-    # If keys don't exist (e.g. partial config), we might need to set them differently
-    pass
+
+    yield
+
+    # Restore
+    CONFIG.update("analysis.missing.report_missing", orig_report)
+    CONFIG.update("analysis.missing.strategy", orig_strategy)
+    CONFIG.update("analysis.missing.user_defined_values", orig_user_defined)
 
 
 def test_poisson_pipeline_integration():
@@ -28,11 +41,9 @@ def test_poisson_pipeline_integration():
     df = pd.DataFrame(data)
 
     # Run analysis
-    html_rep, irr, airr, interactions = analyze_poisson_outcome(
+    html_rep, irr, airr, interactions, _ = analyze_poisson_outcome(
         outcome_name="outcome", df=df, offset_col="offset"
     )
-
-    print("\n[DEBUG] HTML Report Content:\n", html_rep)
 
     # Assertions
     assert html_rep is not None
@@ -54,7 +65,7 @@ def test_poisson_pipeline_all_missing():
     data = {"outcome": [np.nan] * 10, "predictor": [1] * 10}
     df = pd.DataFrame(data)
 
-    html_rep, irr, airr, interactions = analyze_poisson_outcome(
+    html_rep, irr, airr, interactions, _ = analyze_poisson_outcome(
         outcome_name="outcome", df=df
     )
 

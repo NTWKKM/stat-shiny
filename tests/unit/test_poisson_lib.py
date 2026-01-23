@@ -39,7 +39,7 @@ def nb_data():
 
 def test_analyze_poisson_model(poisson_data):
     """Test standard Poisson regression."""
-    html_rep, irr, airr, int_res = analyze_poisson_outcome(
+    html_rep, irr, airr, int_res, _ = analyze_poisson_outcome(
         outcome_name="visits", df=poisson_data, var_meta={}, model_type="poisson"
     )
 
@@ -61,7 +61,7 @@ def test_analyze_poisson_model(poisson_data):
 
 def test_analyze_nb_model(nb_data):
     """Test Negative Binomial regression."""
-    html_rep, irr, airr, int_res = analyze_poisson_outcome(
+    html_rep, irr, airr, int_res, _ = analyze_poisson_outcome(
         outcome_name="events", df=nb_data, var_meta={}, model_type="negative_binomial"
     )
 
@@ -75,7 +75,7 @@ def test_analyze_nb_model(nb_data):
 def test_offset_handling(poisson_data):
     """Test regression with offset column."""
     # Run with offset
-    html_rep, irr, _, _ = analyze_poisson_outcome(
+    html_rep, irr, _, _, _ = analyze_poisson_outcome(
         outcome_name="visits",
         df=poisson_data,
         var_meta={},
@@ -84,7 +84,7 @@ def test_offset_handling(poisson_data):
     )
 
     # Run without offset (should differ)
-    html_rep_no, irr_no, _, _ = analyze_poisson_outcome(
+    html_rep_no, irr_no, _, _, _ = analyze_poisson_outcome(
         outcome_name="visits",
         df=poisson_data,
         var_meta={},

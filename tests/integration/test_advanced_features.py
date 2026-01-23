@@ -75,7 +75,7 @@ class TestAdvancedFeatures:
 
     def test_negative_binomial_flow(self, nb_data):
         """Test full Negative Binomial analysis flow"""
-        html_rep, irr_res, airr_res, int_res = analyze_poisson_outcome(
+        html_rep, irr_res, airr_res, int_res, metadata = analyze_poisson_outcome(
             outcome_name="y", df=nb_data, model_type="negative_binomial"
         )
 
@@ -85,9 +85,7 @@ class TestAdvancedFeatures:
         # Check that IRR is reasonable (should be around exp(0.5) ≈ 1.65)
         est = irr_res["x"]["irr"]
         assert 1.2 < est < 2.2
-        assert "Negative Binomial" in html_rep or "NB" in str(
-            irr_res
-        )  # or implicit check
+        assert metadata["model_type"] == "negative_binomial"
 
     def test_causal_pipeline_psm_ipw(self, causal_data):
         """Test Propensity Score Calculation -> Balance -> IPW flow"""
@@ -96,7 +94,7 @@ class TestAdvancedFeatures:
         # 1. Calculate PS
         ps, _ = calculate_ps(df, "Treated", ["Age", "Severity"])
         df["ps"] = ps
-        assert ps.notna().all()
+        assert ps.notna().all(), "Propensity scores should not contain NaNs"
 
         # 2. Check Balance (Unweighted)
         bal_pre = check_balance(df, "Treated", ["Age", "Severity"])

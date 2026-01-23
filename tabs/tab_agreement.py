@@ -254,7 +254,8 @@ def agreement_server(
     # --- Dataset Logic ---
     @reactive.Calc
     def current_df() -> pd.DataFrame | None:
-        if is_matched.get() and input.radio_source() == "matched":
+        source = getattr(input, "radio_source", lambda: None)()
+        if is_matched.get() and source == "matched":
             return df_matched.get()
         return df.get()
 
@@ -588,7 +589,9 @@ def agreement_server(
                         "variables": list(cols),
                         "data_label": (
                             "Matched Data"
-                            if is_matched.get() and input.radio_source() == "matched"
+                            if is_matched.get()
+                            and getattr(input, "radio_source", lambda: None)()
+                            == "matched"
                             else "Original Data"
                         ),
                         "missing_data_info": missing_info,

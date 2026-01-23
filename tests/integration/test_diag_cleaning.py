@@ -1,16 +1,30 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 # Mock CONFIG
 from config import CONFIG
 from utils.diag_test import analyze_roc, calculate_chi2, calculate_descriptive
 
-try:
+
+@pytest.fixture(autouse=True)
+def setup_config():
+    # Save original values
+    orig_report = CONFIG.get("analysis.missing.report_missing")
+    orig_strategy = CONFIG.get("analysis.missing.strategy")
+    orig_user_defined = CONFIG.get("analysis.missing.user_defined_values")
+
+    # Update for tests
     CONFIG.update("analysis.missing.report_missing", True)
     CONFIG.update("analysis.missing.strategy", "complete-case")
     CONFIG.update("analysis.missing.user_defined_values", [])
-except KeyError:
-    pass
+
+    yield
+
+    # Restore
+    CONFIG.update("analysis.missing.report_missing", orig_report)
+    CONFIG.update("analysis.missing.strategy", orig_strategy)
+    CONFIG.update("analysis.missing.user_defined_values", orig_user_defined)
 
 
 def test_chi2_pipeline_integration():

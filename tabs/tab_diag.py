@@ -290,12 +290,11 @@ def diag_server(
     roc_processing: reactive.Value[bool] = reactive.Value(False)
     chi_processing: reactive.Value[bool] = reactive.Value(False)
 
-    desc_processing: reactive.Value[bool] = reactive.Value(False)
-
     # --- Dataset Selection Logic ---
     @reactive.Calc
     def current_df() -> pd.DataFrame | None:
-        if is_matched.get() and input.radio_diag_source() == "matched":
+        source = getattr(input, "radio_diag_source", lambda: None)()
+        if is_matched.get() and source == "matched":
             return df_matched.get()
         return df.get()
 
