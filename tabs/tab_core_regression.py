@@ -1585,12 +1585,14 @@ def core_regression_server(
             try:
                 # Run Poisson Logic
                 # Expecting 4 values from the updated poisson_lib.py
-                html_rep, irr_res, airr_res, interaction_res = analyze_poisson_outcome(
-                    target,
-                    final_df,
-                    var_meta=var_meta.get(),
-                    offset_col=offset,
-                    interaction_pairs=interaction_pairs,
+                html_rep, irr_res, airr_res, interaction_res, _ = (
+                    analyze_poisson_outcome(
+                        target,
+                        final_df,
+                        var_meta=var_meta.get(),
+                        offset_col=offset,
+                        interaction_pairs=interaction_pairs,
+                    )
                 )
             except Exception as e:
                 err_msg = f"Error running Poisson regression: {e!s}"
@@ -1884,13 +1886,15 @@ def core_regression_server(
 
             try:
                 # Run NB Logic (via refactored poisson_lib)
-                html_rep, irr_res, airr_res, interaction_res = analyze_poisson_outcome(
-                    target,
-                    final_df,
-                    var_meta=var_meta.get(),
-                    offset_col=offset,
-                    interaction_pairs=interaction_pairs,
-                    model_type="negative_binomial",
+                html_rep, irr_res, airr_res, interaction_res, _ = (
+                    analyze_poisson_outcome(
+                        target,
+                        final_df,
+                        var_meta=var_meta.get(),
+                        offset_col=offset,
+                        interaction_pairs=interaction_pairs,
+                        model_type="negative_binomial",
+                    )
                 )
             except Exception as e:
                 err_msg = f"Error running Negative Binomial regression: {e!s}"

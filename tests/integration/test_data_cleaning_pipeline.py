@@ -2,10 +2,15 @@ import logging
 import unittest
 
 import pandas as pd
+import pytest
 
 from utils.data_cleaning import prepare_data_for_analysis
 from utils.formatting import create_missing_data_report_html
 from utils.logic import analyze_outcome
+
+# Mark as integration test
+pytestmark = pytest.mark.integration
+
 
 # Configure logging to avoid noise during tests
 logging.basicConfig(level=logging.ERROR)

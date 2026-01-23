@@ -188,8 +188,15 @@ def check_balance(
     """
     results = []
 
+    # Ensure all columns exist
+    all_needed = [treatment] + covariates
+    missing_cols = [c for c in all_needed if c not in data.columns]
+    if missing_cols:
+        logger.warning(f"Missing columns in check_balance: {missing_cols}")
+        return pd.DataFrame(columns=["Covariate", "SMD", "Status"])
+
     # Ensure clean data for balance check
-    df = data.dropna(subset=[treatment] + covariates)
+    df = data.dropna(subset=all_needed)
     if df.empty:
         return pd.DataFrame(columns=["Covariate", "SMD", "Status"])
 

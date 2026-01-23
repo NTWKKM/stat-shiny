@@ -1,7 +1,9 @@
+import os
+
 import pytest
 from playwright.sync_api import Page, expect
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")
 
 
 @pytest.mark.e2e

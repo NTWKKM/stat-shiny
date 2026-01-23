@@ -426,7 +426,13 @@ def analyze_poisson_outcome(
     offset_col: str | None = None,
     interaction_pairs: list[tuple[str, str | None]] = None,
     model_type: str = "poisson",
-) -> tuple[str, dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+) -> tuple[
+    str,
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+]:
     """
     Perform Poisson regression analysis for count outcome.
 
@@ -436,9 +442,10 @@ def analyze_poisson_outcome(
         var_meta: Variable metadata dictionary
         offset_col: Optional column name for exposure offset (e.g., person-years)
         interaction_pairs: List of tuples for interactions [(var1, var2), ...]
+        model_type: "poisson" or "negative_binomial"
 
     Returns:
-        tuple: (html_table, irr_results, airr_results, interaction_results)
+        tuple: (html_table, irr_results, airr_results, interaction_results, model_metadata)
     """
     # ✅ FIX: Wrap entire function in try-except to prevent None return crashes
     try:
@@ -455,7 +462,13 @@ def analyze_poisson_outcome(
         )
         logger.info("Starting %s analysis for outcome: %s", model_label, outcome_name)
 
-        # --- MISSING DATA HANDLING ---
+        model_metadata = {
+            "model_type": model_type,
+            "model_label": model_label,
+            "outcome": outcome_name,
+            "offset": offset_col,
+        }
+
         # --- MISSING DATA HANDLING ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
         strategy = missing_cfg.get("strategy", "complete-case")
@@ -485,10 +498,13 @@ def analyze_poisson_outcome(
                 {},
                 {},
                 {},
+                model_metadata,
             )
 
         missing_data_info["strategy"] = strategy  # Ensure strategy name matches
         df = df_clean
+        model_metadata["missing_info"] = missing_data_info
+
         logger.info(
             "Missing data: %s rows excluded", missing_data_info["rows_excluded"]
         )
@@ -496,13 +512,13 @@ def analyze_poisson_outcome(
         if outcome_name not in df.columns:
             msg = f"Outcome '{outcome_name}' not found"
             logger.error(msg)
-            return f"<div class='alert'>{msg}</div>", {}, {}, {}
+            return f"<div class='alert'>{msg}</div>", {}, {}, {}, model_metadata
 
         # Validate count data
         is_valid, msg = check_count_outcome(df[outcome_name])
         if not is_valid:
             logger.error(f"Invalid count data: {msg}")
-            return f"<div class='alert'>⚠️ {msg}</div>", {}, {}, {}
+            return f"<div class='alert'>⚠️ {msg}</div>", {}, {}, {}, model_metadata
 
         y = pd.to_numeric(df[outcome_name], errors="coerce").dropna()
         if len(y) == 0:
@@ -511,10 +527,12 @@ def analyze_poisson_outcome(
                 {},
                 {},
                 {},
+                model_metadata,
             )
 
         df_aligned = df.loc[y.index]
         total_n = len(y)
+        model_metadata["n_total"] = total_n
 
         # Handle offset if provided
         offset = None
@@ -1286,18 +1304,25 @@ def analyze_poisson_outcome(
         }
         <br>"""
 
-        return html_table, irr_results, airr_results, interaction_results
+        return (
+            html_table,
+            irr_results,
+            airr_results,
+            interaction_results,
+            model_metadata,
+        )
 
     except Exception as e:
         logger.exception(
             "Unexpected error in %s analysis for outcome: %s", model_type, outcome_name
         )
-        # ✅ FIX: ALWAYS return 4 elements to prevent "cannot unpack" error
+        # ✅ FIX: ALWAYS return 5 elements to prevent "cannot unpack" error
         return (
             f"<div class='alert alert-danger'>Analysis failed: {html.escape(str(e))}</div>",
             {},
             {},
             {},
+            {"error": str(e), "model_type": model_type},
         )
 
 
