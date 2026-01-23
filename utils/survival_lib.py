@@ -18,6 +18,9 @@
 
 from __future__ import annotations
 
+import base64
+import html as _html
+import io
 import numbers
 import warnings
 from collections.abc import Sequence
@@ -47,7 +50,7 @@ from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
 from utils.forest_plot_lib import create_forest_plot
-from utils.formatting import generate_standard_report
+from utils.formatting import create_missing_data_report_html
 
 # Suppress DeprecationWarning from lifelines (datetime.utcnow)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="lifelines")
@@ -1617,5 +1620,74 @@ def generate_report_survival(
     missing_data_info: dict[str, Any] | None = None,
     var_meta: dict[str, Any] | None = None,
 ) -> str:
-    """Wrapper for backward compatibility."""
-    return generate_standard_report(title, elements, missing_data_info, var_meta)
+    primary_color = COLORS.get("primary", "#2180BE")
+    primary_dark = COLORS.get("primary_dark", "#1a5a8a")
+    text_color = COLORS.get("text", "#333")
+
+    css_template = "<style>body {{ font-family: sans-serif; margin: 20px; background-color: #f4f6f8; color: {text_color}; }} h1 {{ color: {primary_dark}; border-bottom: 3px solid {primary_color}; }} table {{ border-collapse: collapse; width: 100%; }} th, td {{ border: 1px solid #ddd; padding: 12px; }} th {{ background-color: {primary_dark}; color: white; }} .report-footer {{ text-align: center; color: #666; margin-top: 40px; }} .sig-p {{ font-weight: bold; color: #d63384; }}</style>"
+
+    css_style = css_template.format(
+        text_color=text_color, primary_dark=primary_dark, primary_color=primary_color
+    )
+
+    safe_title = _html.escape(str(title))
+    html_doc = (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        + css_style
+        + "</head><body><h1>"
+        + safe_title
+        + "</h1>"
+    )
+
+    for el in elements:
+        t = el.get("type")
+        d = el.get("data")
+
+        if t == "header":
+            html_doc += "<h2>" + _html.escape(str(d)) + "</h2>"
+        elif t == "text":
+            html_doc += "<p>" + _html.escape(str(d)) + "</p>"
+        elif t == "table":
+            if isinstance(d, pd.DataFrame):
+                d_styled = d.copy()
+                if "P-value" in d_styled.columns:
+                    p_vals = pd.to_numeric(d_styled["P-value"], errors="coerce")
+                    new_p_val_col = []
+                    for val, pv in zip(d_styled["P-value"], p_vals):
+                        if not pd.isna(pv) and pv < 0.05:
+                            new_p_val_col.append(
+                                '<span class="sig-p">' + str(val) + "</span>"
+                            )
+                        else:
+                            new_p_val_col.append(str(val))
+                    d_styled["P-value"] = new_p_val_col
+                html_doc += d_styled.to_html(
+                    classes="table table-striped", border=0, escape=False
+                )
+            else:
+                html_doc += str(d)
+        elif t == "plot":
+            if hasattr(d, "to_html"):
+                html_doc += d.to_html(full_html=False, include_plotlyjs=True)
+            elif hasattr(d, "savefig"):
+                buf = io.BytesIO()
+                d.savefig(buf, format="png", bbox_inches="tight")
+                b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+                html_doc += (
+                    '<img src="data:image/png;base64,'
+                    + b64
+                    + '" style="max-width:100%"/>'
+                )
+        elif t == "html":
+            html_doc += str(d)
+
+    html_doc += "<div class='report-footer'>\\n"
+    html_doc += '    (c) 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny\\n'
+    html_doc += "    </div>"
+
+    if missing_data_info:
+        html_doc += create_missing_data_report_html(missing_data_info, var_meta or {})
+
+    html_doc += "</body></html>"
+
+    return html_doc
