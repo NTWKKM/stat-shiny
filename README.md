@@ -73,7 +73,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- tab_settings.py
 |   `-- tab_survival.py
 |-- tests /
-|   |-- .DS_Store
 |   |-- conftest.py
 |   |-- e2e /
 |   |   |-- test_app_flow.py
@@ -157,7 +156,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- ui_helpers.py
     `-- update_css.py
 ```
-
 
 [--- REPOSITORY-TREE-END ---]
 

@@ -16,7 +16,8 @@ jobs:
 
       - name: Install git-xet
         run: |
-          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/refs/heads/main/git_xet/install.sh | bash
+          # Pin to specific commit SHA for security and reproducibility (76fd5da - Update git-xet install script #575)
+          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/76fd5dab6e63e91d45f35bab0c264f3d81106edd/git_xet/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Push to Hub
@@ -34,8 +35,9 @@ jobs:
           # 2. Install Git Xet extension
           git xet install
 
-          # 2.5 LFS Security: Allow push even if some objects are missing (safety measure)
-          git config lfs.allowincompletepush true
+          # 2.5 LFS Integrity: Validate all LFS objects before pushing
+          # We no longer allow incomplete pushes in production to ensure repo health.
+          git lfs fsck
 
           # 3. Setup authentication using GIT_ASKPASS
           # Format: https://huggingface.co/spaces/USER/SPACE_NAME
@@ -52,4 +54,5 @@ jobs:
 
           # 4. Force push to the 'main' branch of Hugging Face
           # Force push ensures the remote space stays synchronized with the source repository
-          GIT_ASKPASS=/tmp/git-askpass.sh GIT_TERMINAL_PROMPT=0 git push --force space main
+          # Using explicit refspec HEAD:main for deterministic behavior
+          GIT_ASKPASS=/tmp/git-askpass.sh GIT_TERMINAL_PROMPT=0 git push --force space HEAD:main

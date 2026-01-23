@@ -33,6 +33,9 @@ jobs:
           git xet install
 
           # 2.5 LFS Security: Allow push even if some objects are missing (safety measure)
+          # This prevents the workflow from failing due to transient LFS errors or 
+          # missing historical objects not required for the current head, ensuring
+          # deployment continuity in the dev environment.
           git config lfs.allowincompletepush true
 
           # 3. Setup authentication using GIT_ASKPASS
