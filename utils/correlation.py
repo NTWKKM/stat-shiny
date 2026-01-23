@@ -1,7 +1,9 @@
+import html as _html
 from typing import Any
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 import scipy.stats as stats
 
@@ -12,6 +14,116 @@ from utils.data_cleaning import prepare_data_for_analysis
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
+
+
+def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
+    """
+    Generate HTML report from elements.
+    """
+    primary_color = COLORS["primary"]
+    primary_dark = COLORS["primary_dark"]
+    text_color = "#333333"
+
+    css_style = f"""
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+            color: {text_color};
+            line-height: 1.6;
+        }}
+        h1 {{
+            color: {primary_dark};
+            border-bottom: 3px solid {primary_color};
+            padding-bottom: 12px;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }}
+        h2 {{
+            color: {primary_dark};
+            margin-top: 25px;
+            font-size: 1.35em;
+            border-left: 5px solid {primary_color};
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }}
+        table {{
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }}
+        table th, table td {{
+            padding: 12px 15px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }}
+        table th {{
+            background-color: {primary_color};
+            color: white;
+            font-weight: 600;
+        }}
+        .interpretation {{
+            background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
+            border-left: 4px solid {primary_color};
+            padding: 14px 15px;
+            margin: 16px 0;
+            border-radius: 5px;
+            line-height: 1.7;
+            color: {text_color};
+        }}
+        .report-footer {{
+            text-align: center;
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-top: 40px;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }}
+    </style>
+    """
+
+    html = f"<!DOCTYPE html>\n<html>\n<head><meta charset='utf-8'>{css_style}</head>\n<body>"
+    html += f"<h1>{_html.escape(str(title))}</h1>"
+
+    for element in elements:
+        element_type = element.get("type")
+        data = element.get("data")
+        header = element.get("header")
+
+        if header:
+            html += f"<h2>{_html.escape(str(header))}</h2>"
+
+        if element_type == "text":
+            html += f"<p>{_html.escape(str(data))}</p>"
+
+        elif element_type == "interpretation":
+            html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
+
+        elif element_type == "summary":
+            html += str(data)
+
+        elif element_type == "html":
+            html += str(data)
+
+        elif element_type == "table":
+            if hasattr(data, "to_html"):
+                html += data.to_html(index=True, classes="", escape=False)
+            else:
+                html += str(data)
+
+        elif element_type == "plot":
+            if hasattr(data, "to_html"):
+                html += data.to_html(full_html=False, include_plotlyjs="cdn")
+
+    html += f"<div class='report-footer'>© {pd.Timestamp.now().year} Statistical Analysis Report</div>"
+    html += "</body>\n</html>"
+    return html
 
 
 def _compute_correlation_ci(
@@ -297,16 +409,36 @@ def calculate_correlation(
         ci_lower, ci_upper = _compute_correlation_ci(r_val, n)
 
         results = {
-            "r": r_val,
-            "p": p_val,
+            "Method": method.capitalize(),
+            "Coefficient (r)": r_val,
+            "P-value": p_val,
             "N": n,
-            "CI_Lower": ci_lower,
-            "CI_Upper": ci_upper,
+            "95% CI Lower": ci_lower,
+            "95% CI Upper": ci_upper,
+            "R-squared (R²)": r_val**2,
             "Interpretation": _interpret_correlation(r_val),
+            "Sample Note": f"Analysis based on {n} complete pairs.",
             "missing_data_info": summary_info,
         }
 
-        return results, None, None
+        # --- FIGURE GENERATION ---
+        # Generate interactive scatter plot with trendline
+        fig = px.scatter(
+            data_clean,
+            x=var1,
+            y=var2,
+            trendline="ols",
+            title=f"Correlation: {var1} vs {var2} (r={r_val:.3f})",
+            labels={var1: var1, var2: var2},
+            template="plotly_white",
+        )
+        fig.update_traces(marker=dict(size=8, opacity=0.6, color=COLORS["primary"]))
+        fig.update_layout(
+            hovermode="closest",
+            margin=dict(l=40, r=40, b=40, t=60),
+        )
+
+        return results, None, fig
 
     except Exception as e:
         logger.error(f"Correlation calculation failed: {str(e)}")
