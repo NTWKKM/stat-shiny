@@ -105,15 +105,14 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
         elif element_type == "interpretation":
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
 
-        elif element_type == "summary":
-            html += str(data)
-
-        elif element_type == "html":
-            html += str(data)
+        elif element_type in {"summary", "html"}:
+            safe_html = element.get("safe_html", False)
+            html += str(data) if safe_html else _html.escape(str(data))
 
         elif element_type == "table":
             if hasattr(data, "to_html"):
-                html += data.to_html(index=True, classes="", escape=False)
+                safe_html = element.get("safe_html", False)
+                html += data.to_html(index=True, classes="", escape=not safe_html)
             else:
                 html += str(data)
 
@@ -228,8 +227,14 @@ def compute_correlation_matrix(
                     if len(data_pair) >= 3:
                         if method == "pearson":
                             _, p = stats.pearsonr(data_pair[col_i], data_pair[col_j])
-                        else:
+                        elif method == "spearman":
                             _, p = stats.spearmanr(data_pair[col_i], data_pair[col_j])
+                        elif method == "kendall":
+                            _, p = stats.kendalltau(data_pair[col_i], data_pair[col_j])
+                        else:
+                            raise ValueError(
+                                f"Unsupported correlation method: {method}"
+                            )
                         p_values.iloc[i, j] = p
                     else:
                         p_values.iloc[i, j] = np.nan
@@ -402,9 +407,14 @@ def calculate_correlation(
         if method == "pearson":
             _res = stats.pearsonr(data_clean[var1], data_clean[var2])
             p_val = _res.pvalue
-        else:
+        elif method == "spearman":
             _res = stats.spearmanr(data_clean[var1], data_clean[var2])
             p_val = _res.pvalue
+        elif method == "kendall":
+            _res = stats.kendalltau(data_clean[var1], data_clean[var2])
+            p_val = _res.pvalue
+        else:
+            return None, f"Unsupported correlation method: {method}", None
 
         ci_lower, ci_upper = _compute_correlation_ci(r_val, n)
 

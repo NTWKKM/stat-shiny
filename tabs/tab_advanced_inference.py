@@ -525,11 +525,18 @@ def advanced_inference_server(
 
             # Fit OLS for diagnostics
             X = d[[x_col] + covars]
+            original_cols = X.columns.tolist()
             X = sm.add_constant(X)
             Y = d[y_col]
 
             # Ensure numeric
             X = X.select_dtypes(include=[np.number])
+            dropped_cols = set(original_cols) - set(X.columns) - {"const"}
+            if dropped_cols:
+                ui.notification_show(
+                    f"Non-numeric columns excluded: {', '.join(dropped_cols)}",
+                    type="warning",
+                )
             Y = pd.to_numeric(Y, errors="coerce")
 
             model = sm.OLS(Y, X).fit()

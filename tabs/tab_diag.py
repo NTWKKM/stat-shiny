@@ -739,7 +739,12 @@ def diag_server(
         desc_processing.set(True)
 
         try:
-            res, missing_info = diag_test.calculate_descriptive(d, input.sel_desc_var())
+            res, missing_info = diag_test.calculate_descriptive(
+                d,
+                input.sel_desc_var(),
+                var_meta=var_meta.get() or {},
+            )
+
             if res is not None:
                 rep = [{"type": "table", "data": res}]
                 if missing_info:
@@ -841,9 +846,15 @@ def diag_server(
             prob = input.sel_dca_prob()
 
             # Calculate Net Benefits
-            nb_model, _ = decision_curve_lib.calculate_net_benefit(
-                d, truth, prob, model_name="Current Model"
+            nb_model, missing_info = decision_curve_lib.calculate_net_benefit(
+                d,
+                truth,
+                prob,
+                model_name="Current Model",
+                var_meta=var_meta.get() or {},
             )
+            if missing_info and "error" in missing_info:
+                raise ValueError(missing_info["error"])
             nb_all = decision_curve_lib.calculate_net_benefit_all(d, truth)
             nb_none = decision_curve_lib.calculate_net_benefit_none()
 
