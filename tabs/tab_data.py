@@ -68,7 +68,8 @@ def data_ui() -> ui.TagChild:
             # 1. Variable Settings Card (3-column layout with Missing Data Config)
             ui.accordion(
                 ui.accordion_panel(
-                    # FIX: เพิ่ม value="var_config" เพราะ title เป็น UI Element (span) ไม่ใช่ string
+                    # FIX: เพิ่ม value="var_config" เพราะ title เป็น UI Element (span)
+                    # ไม่ใช่ string
                     ui.tags.span("🛠️ Variable Configuration", class_="fw-bold"),
                     ui.layout_columns(
                         # LEFT COLUMN: Variable Selection
@@ -81,7 +82,7 @@ def data_ui() -> ui.TagChild:
                             ),
                             ui.markdown("""
                                 > [!NOTE]
-                                > **Categorical Mapping**: 
+                                > **Categorical Mapping**:
                                 > Format as `0=Control, 1=Treat`.
                                 """),
                             class_="p-2",
@@ -132,8 +133,8 @@ def data_ui() -> ui.TagChild:
 
 # --- 2. Server Logic ---
 @module.server
-def data_server(
-    input: Any,
+def data_server(  # noqa: C901, PLR0915, PLR0913
+    input: Any,  # noqa: A002
     output: Any,
     session: Any,
     df: reactive.Value[pd.DataFrame | None],
@@ -163,114 +164,180 @@ def data_server(
         id_notify = ui.notification_show("🔄 Generating simulation...", duration=None)
 
         try:
-            np.random.seed(42)
-            n = 1600
+            new_df, meta = _simulate_clinical_data()
+            df.set(new_df)
+            var_meta.set(meta)
+            uploaded_file_info.set({"name": "Example Clinical Data"})
 
-            # --- Simulation Logic (Same as original) ---
-            age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
-            sex = np.random.binomial(1, 0.5, n)
-            bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
-
-            logit_treat = -4.5 + (0.05 * age) + (0.08 * bmi) + (0.2 * sex)
-            p_treat = 1 / (1 + np.exp(-logit_treat))
-            group = np.random.binomial(1, p_treat, n)
-
-            logit_dm = -5 + (0.04 * age) + (0.1 * bmi)
-            p_dm = 1 / (1 + np.exp(-logit_dm))
-            diabetes = np.random.binomial(1, p_dm, n)
-
-            logit_ht = -4 + (0.06 * age) + (0.05 * bmi)
-            p_ht = 1 / (1 + np.exp(-logit_ht))
-            hypertension = np.random.binomial(1, p_ht, n)
-
-            lambda_base = 0.002
-            linear_predictor = (
-                0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
-            )
-            hazard = lambda_base * np.exp(linear_predictor)
-            surv_time = np.random.exponential(1 / hazard, n)
-            censor_time = np.random.uniform(0, 100, n)
-            time_obs = np.minimum(surv_time, censor_time).round(1)
-            time_obs = np.maximum(time_obs, 0.5)
-            status_death = (surv_time <= censor_time).astype(int)
-
-            logit_cure = 0.5 + 1.2 * group - 0.04 * age - 0.5 * diabetes
-            p_cure = 1 / (1 + np.exp(-logit_cure))
-            outcome_cured = np.random.binomial(1, p_cure, n)
-
-            gold_std = np.random.binomial(1, 0.3, n)
-            rapid_score = np.where(
-                gold_std == 0, np.random.normal(20, 10, n), np.random.normal(50, 15, n)
-            )
-            rapid_score = np.clip(rapid_score, 0, 100).round(1)
-
-            rater_a = np.where(
-                gold_std == 1,
-                np.random.binomial(1, 0.85, n),
-                np.random.binomial(1, 0.10, n),
+            logger.info("✅ Successfully generated %d records", len(new_df))
+            ui.notification_remove(id_notify)
+            ui.notification_show(
+                f"✅ Loaded {len(new_df)} Clinical Records (Simulated)", type="message"
             )
 
-            agree_prob = 0.85
-            rater_b = np.where(
-                np.random.binomial(1, agree_prob, n) == 1, rater_a, 1 - rater_a
-            )
+        except Exception as e:
+            logger.error("Error generating example data: %s", e)
+            ui.notification_remove(id_notify)
+            ui.notification_show(f"❌ Error: {e!s}", type="error")
 
-            hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
-            glucose = (hba1c * 15) + np.random.normal(0, 15, n)
-            glucose = glucose.round(0)
+        finally:
+            is_loading_data.set(False)
 
-            icc_rater1 = np.random.normal(120, 15, n).round(1)
-            icc_rater2 = icc_rater1 + 5 + np.random.normal(0, 4, n)
-            icc_rater2 = icc_rater2.round(1)
+    def _simulate_clinical_data() -> tuple[pd.DataFrame, dict[str, Any]]:
+        """Separate simulation logic to reduce complexity"""
+        np.random.seed(42)
+        n = 1600
 
-            # [UPDATED] Time-Varying Covariates (Long Format) for TVC Module Testing
-            # [UPDATED] Time-Varying Covariates (Long Format)
-            # Generate EXACTLY n rows of TVC intervals to match the main dataset size.
-            # This creates a "Hybrid" dataset:
-            # - Rows 0-1599 are independent patients for standard analysis.
-            # - Rows 0-1599 ALSO represent intervals for ~500 TVC patients for TVC analysis.
+        # --- Base Variables ---
+        age = np.random.normal(60, 12, n).astype(int).clip(30, 95)
+        sex = np.random.binomial(1, 0.5, n)
+        bmi = np.random.normal(25, 5, n).round(1).clip(15, 50)
 
-            tvc_intervals_template = [0, 3, 6, 12, 24]
-            tvc_data_rows = []
-            current_row_count = 0
-            tvc_patient_id = 1
+        # --- Treatment & Comorbidities ---
+        logit_treat = -4.5 + (0.05 * age) + (0.08 * bmi) + (0.2 * sex)
+        p_treat = 1 / (1 + np.exp(-logit_treat))
+        group = np.random.binomial(1, p_treat, n)
 
-            while current_row_count < n:
-                # Generate a patient profile
-                p_age = np.random.randint(30, 80)
-                p_sex = np.random.choice([0, 1])
-                p_max_followup = np.random.uniform(3, 30)
-                p_has_event = np.random.choice([0, 1], p=[0.4, 0.6])
+        logit_dm = -5 + (0.04 * age) + (0.1 * bmi)
+        p_dm = 1 / (1 + np.exp(-logit_dm))
+        diabetes = np.random.binomial(1, p_dm, n)
 
-                baseline_val = np.random.normal(50, 10)
-                current_val = baseline_val
+        logit_ht = -4 + (0.06 * age) + (0.05 * bmi)
+        p_ht = 1 / (1 + np.exp(-logit_ht))
+        hypertension = np.random.binomial(1, p_ht, n)
 
-                # Generate intervals for this patient
-                patient_intervals = []
-                for i in range(len(tvc_intervals_template) - 1):
-                    start_t = tvc_intervals_template[i]
-                    stop_t = tvc_intervals_template[i + 1]
+        # --- Survival Data ---
+        lambda_base = 0.002
+        linear_predictor = (
+            0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
+        )
+        hazard = lambda_base * np.exp(linear_predictor)
+        surv_time = np.random.exponential(1 / hazard, n)
+        censor_time = np.random.uniform(0, 100, n)
+        time_obs = np.minimum(surv_time, censor_time).round(1)
+        time_obs = np.maximum(time_obs, 0.5)
+        status_death = (surv_time <= censor_time).astype(int)
 
-                    if start_t >= p_max_followup:
-                        break
+        # --- Outcomes & Labs ---
+        logit_cure = 0.5 + 1.2 * group - 0.04 * age - 0.5 * diabetes
+        p_cure = 1 / (1 + np.exp(-logit_cure))
+        outcome_cured = np.random.binomial(1, p_cure, n)
 
-                    actual_stop = min(stop_t, p_max_followup)
+        gold_std = np.random.binomial(1, 0.3, n)
+        rapid_score = np.where(
+            gold_std == 0, np.random.normal(20, 10, n), np.random.normal(50, 15, n)
+        )
+        rapid_score = np.clip(rapid_score, 0, 100).round(1)
 
-                    # Fix zero-length intervals
-                    r_start = round(start_t, 1)
-                    r_stop = round(actual_stop, 1)
-                    if r_stop <= r_start:
-                        r_stop = r_start + 0.1
+        rater_a = np.where(
+            gold_std == 1,
+            np.random.binomial(1, 0.85, n),
+            np.random.binomial(1, 0.10, n),
+        )
 
-                    is_final = (actual_stop >= p_max_followup) or (
-                        stop_t >= p_max_followup
-                    )
-                    event = 1 if (p_has_event and is_final) else 0
+        agree_prob = 0.85
+        rater_b = np.where(
+            np.random.binomial(1, agree_prob, n) == 1, rater_a, 1 - rater_a
+        )
 
-                    drift = np.random.normal(2, 3)
-                    current_val = np.clip(current_val + drift, 10, 120)
+        hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
+        glucose = ((hba1c * 15) + np.random.normal(0, 15, n)).round(0)
 
-                    patient_intervals.append(
+        icc_rater1 = np.random.normal(120, 15, n).round(1)
+        icc_rater2 = (icc_rater1 + 5 + np.random.normal(0, 4, n)).round(1)
+
+        # --- TVC Logic ---
+        tvc_df = _generate_tvc_data(n)
+
+        # --- Additional Variables ---
+        visits = np.random.poisson(2, n)
+        visits = np.where(group == 1, visits + np.random.poisson(1, n), visits)
+
+        cost_base = np.random.gamma(2, 2000, n)
+        cost = cost_base + (diabetes * 1000) + (hypertension * 500) + (group * 2000)
+        cost = cost.round(2)
+
+        chol = np.random.normal(200, 40, n).astype(int).clip(100, 400)
+        statin = np.random.binomial(1, 0.4, n)
+        kidney_dz = np.random.binomial(1, 0.15, n)
+        falls = np.random.poisson(0.5, n)
+
+        data = {
+            "ID": range(1, n + 1),
+            "Treatment_Group": group,
+            "Age_Years": age,
+            "Sex_Male": sex,
+            "BMI_kgm2": bmi,
+            "Comorb_Diabetes": diabetes,
+            "Comorb_Hypertension": hypertension,
+            "Comorb_Kidney_Disease": kidney_dz,
+            "Medication_Statin": statin,
+            "Outcome_Cured": outcome_cured,
+            "Time_Months": time_obs,
+            "Status_Death": status_death,
+            "Count_Hospital_Visits": visits,
+            "History_Falls": falls,
+            "Cost_Treatment_USD": cost,
+            "Lab_Cholesterol_mgdL": chol,
+            "Gold_Standard_Disease": gold_std,
+            "Test_Score_Rapid": rapid_score,
+            "Diagnosis_Dr_A": rater_a,
+            "Diagnosis_Dr_B": rater_b,
+            "Lab_HbA1c": hba1c,
+            "Lab_Glucose": glucose,
+            "ICC_SysBP_Rater1": icc_rater1,
+            "ICC_SysBP_Rater2": icc_rater2,
+            "id_tvc": tvc_df["id_tvc"].values,
+            "time_start": tvc_df["time_start"].values,
+            "time_stop": tvc_df["time_stop"].values,
+            "status_event": tvc_df["status_event"].values,
+            "TVC_Value": tvc_df["TVC_Value"].values,
+            "Static_Age": tvc_df["Static_Age"].values,
+            "Static_Sex": tvc_df["Static_Sex"].values,
+        }
+
+        new_df = pd.DataFrame(data)
+        _apply_random_missingness(new_df)
+
+        meta = _get_example_metadata()
+        return new_df, meta
+
+    def _generate_tvc_data(n: int) -> pd.DataFrame:
+        tvc_intervals_template = [0, 3, 6, 12, 24]
+        tvc_data_rows = []
+        current_row_count = 0
+        tvc_patient_id = 1
+
+        while current_row_count < n:
+            p_age = np.random.randint(30, 80)
+            p_sex = np.random.choice([0, 1])
+            p_max_followup = np.random.uniform(3, 30)
+            p_has_event = np.random.choice([0, 1], p=[0.4, 0.6])
+
+            baseline_val = np.random.normal(50, 10)
+            current_val = baseline_val
+
+            for i in range(len(tvc_intervals_template) - 1):
+                start_t = tvc_intervals_template[i]
+                stop_t = tvc_intervals_template[i + 1]
+
+                if start_t >= p_max_followup:
+                    break
+
+                actual_stop = min(stop_t, p_max_followup)
+                r_start = round(start_t, 1)
+                r_stop = round(actual_stop, 1)
+                if r_stop <= r_start:
+                    r_stop = r_start + 0.1
+
+                is_final = (actual_stop >= p_max_followup) or (stop_t >= p_max_followup)
+                event = 1 if (p_has_event and is_final) else 0
+
+                drift = np.random.normal(2, 3)
+                current_val = np.clip(current_val + drift, 10, 120)
+
+                if current_row_count < n:
+                    tvc_data_rows.append(
                         {
                             "id_tvc": tvc_patient_id,
                             "time_start": r_start,
@@ -281,261 +348,167 @@ def data_server(
                             "Static_Sex": p_sex,
                         }
                     )
-
-                    if actual_stop >= p_max_followup:
-                        break
-
-                # Add to main list, but trim if exceeding n
-                for row in patient_intervals:
-                    if current_row_count >= n:
-                        break
-                    tvc_data_rows.append(row)
                     current_row_count += 1
+                else:
+                    break
 
-                tvc_patient_id += 1
+                if actual_stop >= p_max_followup:
+                    break
+            tvc_patient_id += 1
 
-            tvc_df = pd.DataFrame(tvc_data_rows)
-
-            # Verify length (should be exactly n)
-            if len(tvc_df) < n:
-                # Pad if somehow short (unlikely loop logic, but safe fallback)
-                padding = pd.DataFrame(
-                    np.nan, index=range(n - len(tvc_df)), columns=tvc_df.columns
-                )
-                tvc_df = pd.concat([tvc_df, padding], ignore_index=True)
-            elif len(tvc_df) > n:
-                tvc_df = tvc_df.iloc[:n]
-
-            # [ADDED] Expanded Variables for Comprehensive Testing
-            # Poisson: Count Data
-            visits = np.random.poisson(2, n)
-            # Inflation for some high-risk patients
-            visits = np.where(group == 1, visits + np.random.poisson(1, n), visits)
-
-            # Linear/Gamma: Continuous (Skewed Cost)
-            cost_base = np.random.gamma(2, 2000, n)  # Mean ~ 4000
-            cost = cost_base + (diabetes * 1000) + (hypertension * 500) + (group * 2000)
-            cost = cost.round(2)
-
-            # Linear: Continuous (Normal-ish)
-            chol = np.random.normal(200, 40, n).astype(int).clip(100, 400)
-
-            # Binary Predictors
-            statin = np.random.binomial(1, 0.4, n)
-            kidney_dz = np.random.binomial(1, 0.15, n)
-
-            # Poisson/Count: History of Falls (Rare count)
-            falls = np.random.poisson(0.5, n)
-
-            data = {
-                "ID": range(1, n + 1),
-                "Treatment_Group": group,
-                "Age_Years": age,
-                "Sex_Male": sex,
-                "BMI_kgm2": bmi,
-                "Comorb_Diabetes": diabetes,
-                "Comorb_Hypertension": hypertension,
-                "Comorb_Kidney_Disease": kidney_dz,
-                "Medication_Statin": statin,
-                "Outcome_Cured": outcome_cured,
-                "Time_Months": time_obs,
-                "Status_Death": status_death,
-                "Count_Hospital_Visits": visits,
-                "History_Falls": falls,
-                "Cost_Treatment_USD": cost,
-                "Lab_Cholesterol_mgdL": chol,
-                "Gold_Standard_Disease": gold_std,
-                "Test_Score_Rapid": rapid_score,
-                "Diagnosis_Dr_A": rater_a,
-                "Diagnosis_Dr_B": rater_b,
-                "Lab_HbA1c": hba1c,
-                "Lab_Glucose": glucose,
-                "ICC_SysBP_Rater1": icc_rater1,
-                "ICC_SysBP_Rater2": icc_rater2,
-                # TVC Columns (Hybrid - mapped to rows)
-                "id_tvc": tvc_df["id_tvc"].values,
-                "time_start": tvc_df["time_start"].values,
-                "time_stop": tvc_df["time_stop"].values,
-                "status_event": tvc_df["status_event"].values,
-                "TVC_Value": tvc_df["TVC_Value"].values,
-                "Static_Age": tvc_df["Static_Age"].values,
-                "Static_Sex": tvc_df["Static_Sex"].values,
-            }
-
-            new_df = pd.DataFrame(data)
-
-            # [ADDED] Introduce ~0.618% missing data (NaN) for demonstration
-            # Exclude ID and TVC key columns from having missing values
-            protected_cols = ["ID", "id_tvc", "time_start", "time_stop", "status_event"]
-            for col in new_df.columns:
-                if col not in protected_cols:
-                    # Only apply to rows that already have values
-                    valid_mask = new_df[col].notna()
-                    valid_count = valid_mask.sum()
-                    if valid_count > 0:
-                        # Randomly set ~0.618% of valid values to NaN
-                        random_mask = np.random.choice(
-                            [True, False], size=len(new_df), p=[0.00618, 1 - 0.00618]
-                        )
-                        new_df.loc[valid_mask & random_mask, col] = np.nan
-
-            # Meta logic for example data remains explicit
-            meta = {
-                "Treatment_Group": {
-                    "type": "Categorical",
-                    "map": {0: "Standard Care", 1: "New Drug"},
-                    "label": "Treatment Group",
-                },
-                "Sex_Male": {
-                    "type": "Categorical",
-                    "map": {0: "Female", 1: "Male"},
-                    "label": "Sex",
-                },
-                "Comorb_Diabetes": {
-                    "type": "Categorical",
-                    "map": {0: "No", 1: "Yes"},
-                    "label": "Diabetes",
-                },
-                "Comorb_Hypertension": {
-                    "type": "Categorical",
-                    "map": {0: "No", 1: "Yes"},
-                    "label": "Hypertension",
-                },
-                "Comorb_Kidney_Disease": {
-                    "type": "Categorical",
-                    "map": {0: "No", 1: "Yes"},
-                    "label": "Kidney Disease",
-                },
-                "Medication_Statin": {
-                    "type": "Categorical",
-                    "map": {0: "No", 1: "Yes"},
-                    "label": "Statin Use",
-                },
-                "Outcome_Cured": {
-                    "type": "Categorical",
-                    "map": {0: "Not Cured", 1: "Cured"},
-                    "label": "Outcome (Cured)",
-                },
-                "Status_Death": {
-                    "type": "Categorical",
-                    "map": {0: "Censored/Alive", 1: "Dead"},
-                    "label": "Status (Death)",
-                },
-                "Gold_Standard_Disease": {
-                    "type": "Categorical",
-                    "map": {0: "Healthy", 1: "Disease"},
-                    "label": "Gold Standard",
-                },
-                "Diagnosis_Dr_A": {
-                    "type": "Categorical",
-                    "map": {0: "Normal", 1: "Abnormal"},
-                    "label": "Diagnosis (Dr. A)",
-                },
-                "Diagnosis_Dr_B": {
-                    "type": "Categorical",
-                    "map": {0: "Normal", 1: "Abnormal"},
-                    "label": "Diagnosis (Dr. B)",
-                },
-                # Continuous & Count
-                "Age_Years": {"type": "Continuous", "label": "Age (Years)", "map": {}},
-                "BMI_kgm2": {"type": "Continuous", "label": "BMI (kg/m²)", "map": {}},
-                "Time_Months": {
-                    "type": "Continuous",
-                    "label": "Time (Months)",
-                    "map": {},
-                },
-                "Count_Hospital_Visits": {
-                    "type": "Continuous",  # Treated as numeric
-                    "label": "Hospital Visits (Count)",
-                    "map": {},
-                },
-                "History_Falls": {
-                    "type": "Continuous",
-                    "label": "History of Falls (Count)",
-                    "map": {},
-                },
-                "Cost_Treatment_USD": {
-                    "type": "Continuous",
-                    "label": "Treatment Cost ($)",
-                    "map": {},
-                },
-                "Lab_Cholesterol_mgdL": {
-                    "type": "Continuous",
-                    "label": "Cholesterol (mg/dL)",
-                    "map": {},
-                },
-                "Test_Score_Rapid": {
-                    "type": "Continuous",
-                    "label": "Rapid Test Score (0-100)",
-                    "map": {},
-                },
-                "Lab_HbA1c": {"type": "Continuous", "label": "HbA1c (%)", "map": {}},
-                "Lab_Glucose": {
-                    "type": "Continuous",
-                    "label": "Fasting Glucose (mg/dL)",
-                    "map": {},
-                },
-                "ICC_SysBP_Rater1": {
-                    "type": "Continuous",
-                    "label": "Sys BP (Rater 1)",
-                    "map": {},
-                },
-                "ICC_SysBP_Rater2": {
-                    "type": "Continuous",
-                    "label": "Sys BP (Rater 2)",
-                    "map": {},
-                },
-                # TVC Long-format columns
-                "id_tvc": {"type": "Continuous", "label": "TVC Patient ID", "map": {}},
-                "time_start": {
-                    "type": "Continuous",
-                    "label": "TVC Interval Start",
-                    "map": {},
-                },
-                "time_stop": {
-                    "type": "Continuous",
-                    "label": "TVC Interval Stop",
-                    "map": {},
-                },
-                "status_event": {
-                    "type": "Categorical",
-                    "map": {0: "Censored", 1: "Event"},
-                    "label": "TVC Event Status",
-                },
-                "TVC_Value": {
-                    "type": "Continuous",
-                    "label": "Time-Varying Covariate",
-                    "map": {},
-                },
-                "Static_Age": {
-                    "type": "Continuous",
-                    "label": "TVC Static Age",
-                    "map": {},
-                },
-                "Static_Sex": {
-                    "type": "Categorical",
-                    "map": {0: "Female", 1: "Male"},
-                    "label": "TVC Static Sex",
-                },
-            }
-
-            df.set(new_df)
-            var_meta.set(meta)
-            uploaded_file_info.set({"name": "Example Clinical Data"})
-
-            logger.info(f"✅ Successfully generated {n} records")
-            ui.notification_remove(id_notify)
-            ui.notification_show(
-                f"✅ Loaded {n} Clinical Records (Simulated)", type="message"
+        tvc_df = pd.DataFrame(tvc_data_rows)
+        # Pad if somehow short
+        if len(tvc_df) < n:
+            padding = pd.DataFrame(
+                np.nan, index=range(n - len(tvc_df)), columns=tvc_df.columns
             )
+            tvc_df = pd.concat([tvc_df, padding], ignore_index=True)
+        return tvc_df.iloc[:n]
 
-        except Exception as e:
-            logger.error(f"Error generating example data: {e}")
-            ui.notification_remove(id_notify)
-            ui.notification_show(f"❌ Error: {e}", type="error")
+    def _apply_random_missingness(df_in: pd.DataFrame):
+        protected_cols = ["ID", "id_tvc", "time_start", "time_stop", "status_event"]
+        for col in df_in.columns:
+            if col not in protected_cols:
+                valid_mask = df_in[col].notna()
+                if valid_mask.sum() > 0:
+                    random_mask = np.random.choice(
+                        [True, False], size=len(df_in), p=[0.00618, 1 - 0.00618]
+                    )
+                    df_in.loc[valid_mask & random_mask, col] = np.nan
 
-        finally:
-            is_loading_data.set(False)
+    def _get_example_metadata() -> dict[str, Any]:
+        return {
+            "Treatment_Group": {
+                "type": "Categorical",
+                "map": {0: "Standard Care", 1: "New Drug"},
+                "label": "Treatment Group",
+            },
+            "Sex_Male": {
+                "type": "Categorical",
+                "map": {0: "Female", 1: "Male"},
+                "label": "Sex",
+            },
+            "Comorb_Diabetes": {
+                "type": "Categorical",
+                "map": {0: "No", 1: "Yes"},
+                "label": "Diabetes",
+            },
+            "Comorb_Hypertension": {
+                "type": "Categorical",
+                "map": {0: "No", 1: "Yes"},
+                "label": "Hypertension",
+            },
+            "Comorb_Kidney_Disease": {
+                "type": "Categorical",
+                "map": {0: "No", 1: "Yes"},
+                "label": "Kidney Disease",
+            },
+            "Medication_Statin": {
+                "type": "Categorical",
+                "map": {0: "No", 1: "Yes"},
+                "label": "Statin Use",
+            },
+            "Outcome_Cured": {
+                "type": "Categorical",
+                "map": {0: "Not Cured", 1: "Cured"},
+                "label": "Outcome (Cured)",
+            },
+            "Status_Death": {
+                "type": "Categorical",
+                "map": {0: "Censored/Alive", 1: "Dead"},
+                "label": "Status (Death)",
+            },
+            "Gold_Standard_Disease": {
+                "type": "Categorical",
+                "map": {0: "Healthy", 1: "Disease"},
+                "label": "Gold Standard",
+            },
+            "Diagnosis_Dr_A": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. A)",
+            },
+            "Diagnosis_Dr_B": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. B)",
+            },
+            "Age_Years": {"type": "Continuous", "label": "Age (Years)", "map": {}},
+            "BMI_kgm2": {"type": "Continuous", "label": "BMI (kg/m²)", "map": {}},
+            "Time_Months": {"type": "Continuous", "label": "Time (Months)", "map": {}},
+            "Count_Hospital_Visits": {
+                "type": "Continuous",
+                "label": "Hospital Visits (Count)",
+                "map": {},
+            },
+            "History_Falls": {
+                "type": "Continuous",
+                "label": "History of Falls (Count)",
+                "map": {},
+            },
+            "Cost_Treatment_USD": {
+                "type": "Continuous",
+                "label": "Treatment Cost ($)",
+                "map": {},
+            },
+            "Lab_Cholesterol_mgdL": {
+                "type": "Continuous",
+                "label": "Cholesterol (mg/dL)",
+                "map": {},
+            },
+            "Test_Score_Rapid": {
+                "type": "Continuous",
+                "label": "Rapid Test Score (0-100)",
+                "map": {},
+            },
+            "Lab_HbA1c": {"type": "Continuous", "label": "HbA1c (%)", "map": {}},
+            "Lab_Glucose": {
+                "type": "Continuous",
+                "label": "Fasting Glucose (mg/dL)",
+                "map": {},
+            },
+            "ICC_SysBP_Rater1": {
+                "type": "Continuous",
+                "label": "Sys BP (Rater 1)",
+                "map": {},
+            },
+            "ICC_SysBP_Rater2": {
+                "type": "Continuous",
+                "label": "Sys BP (Rater 2)",
+                "map": {},
+            },
+            "id_tvc": {"type": "Continuous", "label": "TVC Patient ID", "map": {}},
+            "time_start": {
+                "type": "Continuous",
+                "label": "TVC Interval Start",
+                "map": {},
+            },
+            "time_stop": {
+                "type": "Continuous",
+                "label": "TVC Interval Stop",
+                "map": {},
+            },
+            "status_event": {
+                "type": "Categorical",
+                "map": {0: "Censored", 1: "Event"},
+                "label": "TVC Event Status",
+            },
+            "TVC_Value": {
+                "type": "Continuous",
+                "label": "Time-Varying Covariate",
+                "map": {},
+            },
+            "Static_Age": {
+                "type": "Continuous",
+                "label": "TVC Static Age",
+                "map": {},
+            },
+            "Static_Sex": {
+                "type": "Categorical",
+                "map": {0: "Female", 1: "Male"},
+                "label": "TVC Static Sex",
+            },
+        }
 
     @reactive.Effect
     @reactive.event(input.btn_load_example)
@@ -554,7 +527,8 @@ def data_server(
         file_upload_id = session.ns("file_upload")
         ui.insert_ui(
             ui.tags.script(
-                f"document.getElementById('{file_upload_id}').scrollIntoView({{behavior: 'smooth'}});"
+                f"document.getElementById('{file_upload_id}')"
+                ".scrollIntoView({behavior: 'smooth'});"
             ),
             selector="body",
             where="beforeEnd",
@@ -580,7 +554,9 @@ def data_server(
         if df.get() is not None:
             pending_file.set(f)
             m = ui.modal(
-                "Loading a new file will replace the current dataset. All unsaved changes and analysis results will be lost. Are you sure?",
+                "Loading a new file will replace the current dataset. "
+                "All unsaved changes and analysis results will be lost. "
+                "Are you sure?",
                 title="⚠️ Confirm Replace Data",
                 footer=ui.div(
                     ui.input_action_button(
@@ -609,15 +585,18 @@ def data_server(
         data_issues.set([])  # Reset report
 
         try:
+            # --- 1. Load File ---
             if f["name"].lower().endswith(".csv"):
                 new_df = pd.read_csv(f["datapath"])
             else:
                 new_df = pd.read_excel(f["datapath"])
 
-            if len(new_df) > 100000:
-                new_df = new_df.head(100000)
+            # --- 2. Limit Data Size ---
+            max_rows = 100000
+            if len(new_df) > max_rows:
+                new_df = new_df.head(max_rows)
                 ui.notification_show(
-                    "⚠️ Large file: showing first 100,000 rows", type="warning"
+                    f"⚠️ Large file: showing first {max_rows:,} rows", type="warning"
                 )
 
             df.set(new_df)
@@ -626,77 +605,14 @@ def data_server(
             current_meta = var_meta.get() or {}
             current_issues = []
 
-            # --- Improved Type Detection Logic ---
+            # --- 3. Infer Types and Detect Quality Issues ---
             for col in new_df.columns:
                 if col in current_meta:
                     continue
 
-                series = new_df[col]
-                unique_vals = series.dropna().unique()
-                n_unique = len(unique_vals)
-
-                # Default Assumption
-                inferred_type = "Categorical"
-
-                # Check 1: Is it already numeric?
-                if pd.api.types.is_numeric_dtype(series):
-                    # ถ้า unique เยอะๆ (เช่น > 10-15) ถือเป็น Continuous
-                    # แต่ถ้า unique น้อยมากๆ (เช่น 0,1 หรือ 1,2,3) ถือเป็น Categorical
-                    if n_unique > 12:
-                        inferred_type = "Continuous"
-                    else:
-                        inferred_type = "Categorical"
-
-                # Check 2: Is it Object/String but looks like numbers? (Dirty Data)
-                # เช่น "100", ">200", "<5", "40.5"
-                elif pd.api.types.is_object_dtype(series):
-                    # ลองแปลงเป็นตัวเลข (coercing errors)
-                    numeric_conversion = pd.to_numeric(series, errors="coerce")
-                    valid_count = numeric_conversion.notna().sum()
-                    total_count = series.notna().sum()
-
-                    if total_count > 0:
-                        numeric_ratio = valid_count / total_count
-                        # ถ้าแปลงได้สำเร็จเกิน 70% ให้สันนิษฐานว่าเป็น Continuous ที่มีขยะปน
-                        if numeric_ratio > 0.70:
-                            inferred_type = "Continuous"
-                            # Coerce to numeric; non-numeric values become NaN
-                            new_df[col] = numeric_conversion
-
-                            # --- Identify Bad Rows for Reporting ---
-                            # หาจุดที่แปลงไม่ได้ (NaN) แต่ค่าเดิมไม่ใช่ NaN
-                            bad_mask = numeric_conversion.isna() & series.notna()
-                            bad_rows = series[bad_mask]
-
-                            for idx, val in bad_rows.items():
-                                # Limit report items per column to avoid flooding
-                                if (
-                                    len([x for x in current_issues if x["col"] == col])
-                                    < 10
-                                ):
-                                    current_issues.append(
-                                        {
-                                            "col": col,
-                                            "row": idx
-                                            + 2,  # +2 for Excel row style (1-based + header)
-                                            "value": str(val),
-                                            "issue": "Non-numeric value in continuous column",
-                                        }
-                                    )
-                                elif (
-                                    len([x for x in current_issues if x["col"] == col])
-                                    == 10
-                                ):
-                                    current_issues.append(
-                                        {
-                                            "col": col,
-                                            "row": "...",
-                                            "value": "...",
-                                            "issue": "More issues suppressed...",
-                                        }
-                                    )
-
+                inferred_type, issues = _infer_column_type(new_df, col)
                 current_meta[col] = {"type": inferred_type, "map": {}, "label": col}
+                current_issues.extend(issues)
 
             var_meta.set(current_meta)
             data_issues.set(current_issues)  # Store issues for UI
@@ -709,10 +625,61 @@ def data_server(
                 ui.notification_show(msg, type="message")
 
         except Exception as e:
-            logger.error(f"Error: {e}")
-            ui.notification_show(f"❌ Error: {str(e)}", type="error")
+            logger.error("Error: %s", e)
+            ui.notification_show(f"❌ Error: {e!s}", type="error")
         finally:
             is_loading_data.set(False)
+
+    def _infer_column_type(df_in: pd.DataFrame, col: str) -> tuple[str, list[dict]]:
+        series = df_in[col]
+        unique_vals = series.dropna().unique()
+        n_unique = len(unique_vals)
+        inferred_type = "Categorical"
+        issues = []
+
+        # Constants for detection logic
+        max_categorical_unique = 12
+        numeric_threshold = 0.70
+        max_issue_per_col = 10
+
+        # Check 1: Is it already numeric?
+        if pd.api.types.is_numeric_dtype(series):
+            if n_unique > max_categorical_unique:
+                inferred_type = "Continuous"
+        # Check 2: Is it Object/String but looks like numbers?
+        elif pd.api.types.is_object_dtype(series):
+            numeric_conversion = pd.to_numeric(series, errors="coerce")
+            valid_count = numeric_conversion.notna().sum()
+            total_count = series.notna().sum()
+
+            if total_count > 0 and (valid_count / total_count) > numeric_threshold:
+                inferred_type = "Continuous"
+                df_in[col] = numeric_conversion  # Mutates the DF
+
+                # Identify Bad Rows
+                bad_mask = numeric_conversion.isna() & series.notna()
+                bad_rows = series[bad_mask]
+
+                for idx, val in bad_rows.items():
+                    if len(issues) < max_issue_per_col:
+                        issues.append(
+                            {
+                                "col": col,
+                                "row": idx + 2,
+                                "value": str(val),
+                                "issue": "Non-numeric value in continuous column",
+                            }
+                        )
+                    elif len(issues) == max_issue_per_col:
+                        issues.append(
+                            {
+                                "col": col,
+                                "row": "...",
+                                "value": "...",
+                                "issue": "More issues suppressed...",
+                            }
+                        )
+        return inferred_type, issues
 
     @reactive.Effect
     @reactive.event(lambda: input.btn_reset_all())
@@ -734,7 +701,7 @@ def data_server(
     def _update_var_select():
         data = df.get()
         if data is not None:
-            cols = ["Select..."] + data.columns.tolist()
+            cols = ["Select...", *data.columns.tolist()]
             ui.update_select("sel_var_edit", choices=cols)
 
     # Render Settings UI dynamically when a variable is selected
@@ -796,7 +763,9 @@ def data_server(
                             k_val = k_clean
                         new_map[k_val] = v.strip()
                     except (ValueError, AttributeError) as e:
-                        logger.debug(f"Skipping malformed mapping line: {line} - {e}")
+                        logger.debug(
+                            "Skipping malformed mapping line: %s - %s", line, e
+                        )
 
         current_meta = var_meta.get() or {}
         current_meta[var_name] = {
@@ -850,8 +819,8 @@ def data_server(
         missing_codes = []
 
         if missing_input.strip():
-            for item in missing_input.split(","):
-                item = item.strip()
+            for raw_item in missing_input.split(","):
+                item = raw_item.strip()
                 if not item:
                     continue
                 # Try to parse as number
@@ -889,7 +858,10 @@ def data_server(
         if d is None:
             return create_empty_state_ui(
                 message="No Data Uploaded",
-                sub_message="Upload a CSV or Excel (.xlsx) file to start your analysis. You can also load example data to explore features.",
+                sub_message=(
+                    "Upload a CSV or Excel (.xlsx) file to start your analysis. "
+                    "You can also load example data to explore features."
+                ),
                 icon="📂",
                 action_button=ui.div(
                     ui.input_action_button(
@@ -937,7 +909,10 @@ def data_server(
             for col_idx, col_name in enumerate(d.columns):
                 if (row_idx, col_name) in error_cells:
                     styles[col_idx] = (
-                        "background-color: #fee; border: 1px solid #E74856; color: #E74856; font-weight: 600;"
+                        "background-color: #fee; "
+                        "border: 1px solid #E74856; "
+                        "color: #E74856; "
+                        "font-weight: 600;"
                     )
             return styles
 
@@ -974,7 +949,7 @@ def data_server(
 
         return ui.div(
             ui.div(
-                f"📊 {len(d):,} rows × {len(d.columns)} cols", style="font-weight: 600;"
+                f"📊 {len(d):,} rows x {len(d.columns)} cols", style="font-weight: 600;"
             ),
             ui.div(
                 f"📦 Memory: {mem_usage:.2f} MB", style="font-size: 0.9em; color: #666;"
@@ -983,7 +958,10 @@ def data_server(
                 f"📄 {info.get('name', 'Unknown')}" if info else "",
                 style="font-size: 0.85em; font-style: italic; margin-top: 4px;",
             ),
-            style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px solid #e9ecef;",
+            style=(
+                "background: #f8f9fa; padding: 10px; border-radius: 6px; "
+                "margin-top: 10px; border: 1px solid #e9ecef;"
+            ),
         )
 
     @render.ui
@@ -999,13 +977,21 @@ def data_server(
             row = _html.escape(str(item["row"]))
             value = _html.escape(str(item["value"]))
             issue = _html.escape(str(item["issue"]))
-            rows += f"<tr><td>{col}</td><td>{row}</td><td>{value}</td><td class='text-danger'>{issue}</td></tr>"
+            rows += (
+                f"<tr><td>{col}</td><td>{row}</td><td>{value}</td>"
+                f"<td class='text-danger'>{issue}</td></tr>"
+            )
 
         table_html = f"""
         <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
             <table class="table table-sm table-striped table-bordered">
                 <thead class="table-danger">
-                    <tr><th>Column</th><th>Row (Excel)</th><th>Invalid Value</th><th>Issue</th></tr>
+                    <tr>
+                        <th>Column</th>
+                        <th>Row (Excel)</th>
+                        <th>Invalid Value</th>
+                        <th>Issue</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {rows}
@@ -1027,7 +1013,9 @@ def data_server(
             ),
             ui.HTML(table_html),
             ui.markdown(
-                "> *Note: These values are non-numeric characters found in likely continuous columns. Please clean your data source or use Data Cleaning tools.*"
+                "> *Note: These values are non-numeric characters found in likely "
+                "continuous columns. Please clean your data source or use "
+                "Data Cleaning tools.*"
             ),
             class_="mb-3 border-danger shadow-sm",
         )
@@ -1045,7 +1033,6 @@ def data_server(
 
         return ui.accordion(
             ui.accordion_panel(
-                # FIX: เพิ่ม value="quality_alerts" เพราะ title เป็น UI Element (div) ไม่ใช่ string
                 ui.div(
                     ui.tags.span(
                         "🧐 Data Quality Alerts", class_="fw-bold text-warning"
@@ -1059,14 +1046,18 @@ def data_server(
                 ui.div(
                     ui.tags.ul(
                         *list_items,
-                        style="padding-left: 20px; padding-top: 10px; padding-bottom: 10px;",
+                        style=(
+                            "padding-left: 20px; padding-top: 10px; "
+                            "padding-bottom: 10px;"
+                        ),
                     ),
                     ui.markdown(
                         "> [!TIP]\n"
-                        "> These issues might impact statistical analysis results. Consider cleaning these values in the original file."
+                        "> These issues might impact statistical analysis results. "
+                        "Consider cleaning these values in the original file."
                     ),
                 ),
-                value="quality_alerts",  # <--- Added value parameter here
+                value="quality_alerts",
             ),
             open=False,
             id="acc_quality_warnings",
