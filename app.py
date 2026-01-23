@@ -1,24 +1,51 @@
-from shiny import App, ui, reactive, Session, Inputs, Outputs
-from shiny.types import FileInfo
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any
+
+from shiny import App, Inputs, Outputs, Session, reactive, ui
 
 # Import Config/Logger
 from config import CONFIG
-from logger import get_logger, LoggerFactory
-from logic import HAS_FIRTH
+from logger import LoggerFactory, get_logger
 
-# Import Tabs Modules
-from tabs import tab_data           # 🟢 Data Module
-from tabs import tab_baseline_matching
-from tabs import tab_diag
-from tabs import tab_logit
-from tabs import tab_corr
-from tabs import tab_survival
-from tabs import tab_settings
-
-# from tabs._styling import get_shiny_css  # DEPRECATED: Now using external CSS file
+# Import Tabs Modules (Verified)
+from tabs import (
+    tab_advanced_inference,
+    tab_agreement,  # 🟢 Agreement Module
+    tab_baseline_matching,
+    tab_causal_inference,
+    tab_core_regression,
+    tab_corr,
+    tab_data,  # 🟢 Data Module
+    tab_diag,
+    tab_home,  # 🏠 Home Module
+    tab_sample_size,  # 🟢 Sample Size Module
+    tab_settings,
+    tab_survival,
+)
 from tabs._common import wrap_with_container
+from utils.logic import HAS_FIRTH
+
+# ==========================================
+# 0. CONSTANTS & CONFIG
+# ==========================================
+
+
+class TabNames:
+    HOME = "home"
+    DATA = "data"
+    BASELINE_MATCHING = "bm"
+    DIAGNOSTIC = "diagnostic"
+    CORRELATION = "correlation"
+    AGREEMENT = "agreement"
+    REGRESSION = "regression"
+    SURVIVAL = "survival"
+    ADVANCED_REGRESSION = "adv_regression"
+    CAUSAL = "causal"
+    SAMPLE_SIZE = "sample_size"
+    SETTINGS = "settings"
+
 
 # Initialize Logger
 LoggerFactory.configure()
@@ -27,79 +54,154 @@ logger = get_logger(__name__)
 # ==========================================
 # 1. UI DEFINITION
 # ==========================================
-app_ui = ui.page_navbar(
-    # --- 1. Data Management Module ---
-    ui.nav_panel(
-        "📁 Data Management",
-        wrap_with_container(
-            tab_data.data_ui("data")
-        )
-    ),
 
-    # --- 2. Table 1 & Matching Module ---
-    ui.nav_panel("📋 Table 1 & Matching", 
-        wrap_with_container(
-            tab_baseline_matching.baseline_matching_ui("bm")
-        )
+# 🟢 Footer Definition
+footer_ui = ui.tags.div(
+    ui.HTML(
+        """&copy; 2026 <a href="https://github.com/NTWKKM/" target="_blank" rel="noopener noreferrer">NTWKKM n donate</a> | Powered by GitHub, Antigravity, Shiny"""
     ),
+    class_="report-footer",
+    style="text-align: center; padding: 20px 0; border-top: 1px solid #e5e5e5; margin-top: 40px; color: #666;",
+)
 
-    # --- 3. Diagnostic Tests Module ---
-    ui.nav_panel("🧪 Diagnostic Tests", 
-        wrap_with_container(
-            tab_diag.diag_ui("diag")
-        )
+app_ui = ui.page_fluid(
+    # ♿ Accessibility: Skip Links
+    ui.div(
+        ui.a("Skip to main content", href="#main-content", class_="skip-link"),
+        ui.a("Skip to navigation", href="#main_nav", class_="skip-link"),
+        ui.a("Skip to footer", href="#footer", class_="skip-link"),
+        class_="skip-links",
     ),
-
-    # --- 4. Logistic Regression Module ---
-    ui.nav_panel("📊 Risk Factors", 
-        wrap_with_container(
-            tab_logit.logit_ui("logit")
-        )
-    ),
-
-    # --- 5. Correlation & ICC Module ---
-    ui.nav_panel("📈 Correlation & ICC", 
-        wrap_with_container(
-            tab_corr.corr_ui("corr")
-        )
-    ),
-
-    # --- 6. Survival Analysis Module ---
-    ui.nav_panel("⏳ Survival Analysis", 
-        wrap_with_container(
-            # ✅ เรียกใช้ survival_ui โดยระบุแค่ ID (Namespace) เท่านั้น
-            tab_survival.survival_ui("survival")
-        )
-    ),
-
-    # --- 7. Settings Module ---
-    ui.nav_panel("⚙️ Settings", 
-        wrap_with_container(
-            tab_settings.settings_ui("settings")
-        )
-    ),
-
-    title=CONFIG.get('ui.page_title', 'Medical Stat Tool'),
-    id="main_navbar",
-    window_title="Medical Stat Tool",
-    
-    # 🟢 แก้ไข: ลบ inverse=True ออก (Deprecated)
-    navbar_options=ui.navbar_options(),
-    
     # ⬇⬇⬇ inject theme CSS (EXTERNAL - Optimized for performance)
-    # ✅ CSS is loaded from /static/styles.css (served by WSGI server)
-    # ✅ Browser will cache the CSS file for better performance
-    header=ui.tags.head(
+    ui.tags.head(
         ui.tags.meta(charset="utf-8"),
         ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-        
+        # ✅ Google Fonts: Inter
+        ui.tags.link(
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap",
+            rel="stylesheet",
+        ),
         # ✅ Preload CSS for faster loading
-        ui.tags.link(rel="preload", href="/static/styles.css", as_="style"),
-        
+        ui.tags.link(rel="preload", href="static/styles.css", as_="style"),
         # ✅ Link to external CSS file
-        ui.tags.link(rel="stylesheet", href="/static/styles.css"),
+        ui.tags.link(rel="stylesheet", href="static/styles.css"),
+        # ✅ Custom JS Handlers
+        ui.tags.script(src="static/js/custom_handlers.js"),
+        ui.tags.style(".navbar-brand { font-size: 1.5rem !important; }"),
     ),
+    ui.page_navbar(
+        # ========================================
+        # 🏠 TAB 0: HOME
+        # ========================================
+        ui.nav_panel(
+            "🏠 Home",
+            wrap_with_container(tab_home.home_ui("home")),
+            value=TabNames.HOME,
+        ),
+        # ========================================
+        # 📁 TAB 1: DATA MANAGEMENT (Standalone)
+        # ========================================
+        ui.nav_panel(
+            "📁 Data Management",
+            wrap_with_container(tab_data.data_ui("data")),
+            value=TabNames.DATA,
+        ),
+        # ========================================
+        # 📋 TAB 2: TABLE 1 & MATCHING (Standalone)
+        # ========================================
+        ui.nav_panel(
+            "📋 Table 1 & Matching",
+            wrap_with_container(tab_baseline_matching.baseline_matching_ui("bm")),
+            value=TabNames.BASELINE_MATCHING,
+        ),
+        # ========================================
+        # 📊 TAB 3: GENERAL STATISTICS (Dropdown)
+        # ========================================
+        ui.nav_menu(
+            "📊 General Statistics",
+            ui.nav_panel(
+                "Diagnostic Tests",
+                wrap_with_container(tab_diag.diag_ui("diag")),
+                value=TabNames.DIAGNOSTIC,
+            ),
+            ui.nav_panel(
+                "Correlation Analysis",
+                wrap_with_container(tab_corr.corr_ui("corr")),
+                value=TabNames.CORRELATION,
+            ),
+            ui.nav_panel(
+                "Agreement & Reliability",
+                wrap_with_container(tab_agreement.agreement_ui("agreement")),
+                value=TabNames.AGREEMENT,
+            ),
+        ),
+        # ========================================
+        # 🔬 TAB 4: ADVANCED MODELING (Dropdown)
+        # ========================================
+        ui.nav_menu(
+            "🔬 Advanced Statistics",
+            ui.nav_panel(
+                "Regression Analysis",
+                wrap_with_container(tab_core_regression.core_regression_ui("core_reg")),
+                value=TabNames.REGRESSION,
+            ),
+            ui.nav_panel(
+                "Survival Analysis",
+                wrap_with_container(tab_survival.survival_ui("survival")),
+                value=TabNames.SURVIVAL,
+            ),
+            ui.nav_panel(
+                "Advanced Regression",
+                wrap_with_container(
+                    tab_advanced_inference.advanced_inference_ui("adv_inf")
+                ),
+                value=TabNames.ADVANCED_REGRESSION,
+            ),
+        ),
+        # ========================================
+        # 🏥 TAB 5: CLINICAL TOOLS (Dropdown)
+        # ========================================
+        ui.nav_menu(
+            "🏥 Clinical Research Tools",
+            ui.nav_panel(
+                "Sample Size Calculator",
+                wrap_with_container(tab_sample_size.sample_size_ui("sample_size")),
+                value=TabNames.SAMPLE_SIZE,
+            ),
+            ui.nav_panel(
+                "Causal Methods",
+                wrap_with_container(tab_causal_inference.causal_inference_ui("causal")),
+                value=TabNames.CAUSAL,
+            ),
+        ),
+        # ========================================
+        # ⚙️ TAB 6: SETTINGS (Standalone)
+        # ========================================
+        ui.nav_panel(
+            "⚙️ System Settings",
+            wrap_with_container(tab_settings.settings_ui("settings")),
+            value=TabNames.SETTINGS,
+        ),
+        title=ui.tags.a(
+            "🏥 Medical Stat Tool",
+            href="#",
+            id="navbar_brand_home",
+            style="color: var(--color-primary); font-weight: 700; text-decoration: none;",
+        ),
+        id="main_nav",
+        header=ui.tags.div(
+            ui.tags.div(id="main-content"),
+        ),
+        footer=ui.div(
+            footer_ui,
+            class_="main-footer",
+            id="footer",
+            role="contentinfo",
+        ),
+    ),
+    title=CONFIG.get("ui.page_title", "Medical Stat Tool"),
 )
+
 
 # ==========================================
 # 2. SERVER LOGIC
@@ -108,80 +210,90 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     logger.info("📱 Shiny app session started")
 
     # --- Reactive State (Global) ---
-    
+
     # Type hints added for better clarity, though specific DataFrame type isn't enforceble at runtime
-    df: reactive.Value[Optional[Any]] = reactive.Value(None)
-    var_meta: reactive.Value[Dict[str, Any]] = reactive.Value({})
-    uploaded_file_info: reactive.Value[Optional[Dict[str, Any]]] = reactive.Value(None)
-    
+    df: reactive.Value[Any | None] = reactive.Value(None)
+    var_meta: reactive.Value[dict[str, Any]] = reactive.Value({})
+    uploaded_file_info: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
+
     # Matched data state (Shared across tabs)
-    df_matched: reactive.Value[Optional[Any]] = reactive.Value(None)
+    df_matched: reactive.Value[Any | None] = reactive.Value(None)
     is_matched: reactive.Value[bool] = reactive.Value(False)
-    matched_treatment_col: reactive.Value[Optional[str]] = reactive.Value(None)
-    matched_covariates: reactive.Value[List[str]] = reactive.Value([])
+    matched_treatment_col: reactive.Value[str | None] = reactive.Value(None)
+    matched_covariates: reactive.Value[list[str]] = reactive.Value([])
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:
-        # เช็คจากตัวแปร HAS_FIRTH ที่ logic.py เตรียมไว้ให้แล้ว
+        # Check from HAS_FIRTH variable prepared in logic.py
         if HAS_FIRTH:
             logger.info("Optional dependencies: firth=True")
         else:
             logger.warning("Optional dependencies: firth=False")
             ui.notification_show("⚠️ Firth regression unavailable", type="warning")
 
-
     check_optional_deps()
 
     # ==========================================
-    # 3. CALL MODULES SERVER
+    # 3. CALL MODULES SERVER (EAGER LOADING)
     # ==========================================
-    
-    # --- 1. Data Management ---
-    
-    tab_data.data_server("data", 
-        df, var_meta, uploaded_file_info,
-        df_matched, is_matched, matched_treatment_col, matched_covariates
-    )
-    
-    # --- 2. Table 1 & Matching ---
-    tab_baseline_matching.baseline_matching_server("bm", 
-        df, var_meta, df_matched, is_matched, 
-        matched_treatment_col, matched_covariates
+
+    # --- Eager Loading (Core & Statistical Tabs) ---
+    tab_home.home_server("home")
+
+    tab_data.data_server(
+        "data",
+        df,
+        var_meta,
+        uploaded_file_info,
+        df_matched,
+        is_matched,
+        matched_treatment_col,
+        matched_covariates,
     )
 
-    # --- 3. Diagnostic Tests ---
-    tab_diag.diag_server("diag", 
-        df, var_meta, df_matched, is_matched
+    tab_baseline_matching.baseline_matching_server(
+        "bm",
+        df,
+        var_meta,
+        df_matched,
+        is_matched,
+        matched_treatment_col,
+        matched_covariates,
     )
 
-    # --- 4. Logistic Regression ---
-    tab_logit.logit_server("logit",
-        df, var_meta, df_matched, is_matched
-    )
-
-    # --- 5. Correlation & ICC ---
-    tab_corr.corr_server("corr", 
-        df, var_meta, df_matched, is_matched
-    )
-
-    # --- 6. Survival Analysis Module ---
-    # ✅ แก้ไขตรงนี้: ไม่ต้องส่ง input, output, session เข้าไปเองแล้ว
-    # เพราะ @module.server จะดึงค่าเหล่านั้นจาก ID "survival" ให้โดยอัตโนมัติ
-    tab_survival.survival_server("survival",
-        df, var_meta, df_matched, is_matched
-    )
-
-    # --- 7. Settings Module ---
     tab_settings.settings_server("settings", CONFIG)
+
+    # Statistical & Clinical Modules (Eager)
+    tab_diag.diag_server("diag", df, var_meta, df_matched, is_matched)
+    tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched)
+    tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched)
+    tab_core_regression.core_regression_server(
+        "core_reg", df, var_meta, df_matched, is_matched
+    )
+    tab_survival.survival_server("survival", df, var_meta, df_matched, is_matched)
+    tab_advanced_inference.advanced_inference_server(
+        "adv_inf", df, var_meta, df_matched, is_matched
+    )
+    tab_causal_inference.causal_inference_server(
+        "causal", df, var_meta, df_matched, is_matched
+    )
+    tab_sample_size.sample_size_server("sample_size")
+
 
 # ==========================================
 # 4. APP LAUNCHER
 # ==========================================
+
+# Define explicit path to static folder
+static_assets_path = Path(__file__).parent / "static"
+
 # ✅ Create Shiny app instance
-# Note: Static files (./static/) are served by the WSGI server (uvicorn/gunicorn)
-#       Shiny for Python doesn't have static_dir parameter in App()
-#       The server will automatically serve files from ./static/ directory
+# Specify static_assets so /static/styles.css works on Cloud (Posit Connect)
 app = App(
     app_ui,
     server,
+    # 🟢 Mount static directory to /static path
+    # This ensures that when we link to "static/styles.css", it resolves correctly
+    # in both local/Posit (where it's handled here) and Docker/ASGI (where Starlette handles it, but this doesn't hurt)
+    static_assets={"/static": str(static_assets_path)},
 )

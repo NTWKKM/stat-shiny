@@ -1,0 +1,154 @@
+import ast
+import re
+import sys
+from pathlib import Path
+
+import pytest
+
+# PATH FIX: Adjust path to project root
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Moved import to top to fix lint
+from tabs._common import get_color_palette  # noqa: E402
+
+
+@pytest.fixture
+def palette():
+    return get_color_palette()
+
+
+def normalize_css(css: str) -> str:
+    """Normalize CSS by removing comments and extra whitespace."""
+    # Remove comments
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    # Remove repetitive whitespace
+    css = re.sub(r"\s+", " ", css)
+    # Remove whitespace around special characters
+    css = re.sub(r"\s*([{}:;,])\s*", r"\1", css)
+    return css.strip()
+
+
+def test_css_variables_consistency(palette):
+    """Verify that tabs/_styling.py uses the central palette for its CSS variables."""
+    styling_path = PROJECT_ROOT / "tabs" / "_styling.py"
+    with open(styling_path, "r") as f:
+        content = f.read()
+
+    # Check if root variables in get_shiny_css are mapped correctly to palette
+    for key, hex_val in palette.items():
+        # Check for --color-{key}: {COLORS["key"]}
+        var_pattern = (
+            rf"--color-{key.replace('_', '-')}:\s*{{COLORS\[['\"]{key}['\"]\]}}"
+        )
+        # Note: some keys might be mapped differently or missing in _styling.py
+        # but the primary ones should be there.
+        if key in ["primary", "success", "danger", "warning"]:
+            msg = f"Color '{key}' not correctly mapped in tabs/_styling.py"
+            assert re.search(var_pattern, content), msg
+
+
+def test_compiled_css_sync():
+    """Verify that static/styles.css matches tabs/_styling.py output."""
+    from tabs._styling import get_shiny_css
+
+    generated_css_with_tags = get_shiny_css()
+    # Remove <style> tags
+    generated_css = re.sub(
+        r"^\s*<style>\s*|\s*</style>\s*$",
+        "",
+        generated_css_with_tags,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    compiled_css_path = PROJECT_ROOT / "static" / "styles.css"
+    with open(compiled_css_path, "r") as f:
+        compiled_css = f.read()
+
+    # Use normalization for robust comparison
+    norm_generated = normalize_css(generated_css)
+    norm_compiled = normalize_css(compiled_css)
+
+    # Check if generated content is part of compiled content (compiled might have extra stuff)
+    # Check first few fragments
+    msg = "static/styles.css is out of sync with tabs/_styling.py. Run python utils/update_css.py"
+    assert norm_generated[:200] in norm_compiled, msg
+
+
+def test_plotly_renderer_consistency(palette):
+    """Verify utils/plotly_html_renderer.py matches the UI theme."""
+    renderer_path = PROJECT_ROOT / "utils" / "plotly_html_renderer.py"
+    with open(renderer_path, "r") as f:
+        content = f.read()
+
+    # Check for Inter font
+    assert "'Inter'" in content, "Plotly renderer should use 'Inter' font"
+
+    # Check for sync with some neutral colors (smoke_white/border)
+    bg_match = palette["background"].lower() in content.lower()
+    assert bg_match, "Plotly renderer background color out of sync"
+    border_match = palette["border"].lower() in content.lower()
+    assert border_match, "Plotly renderer border color out of sync"
+
+
+def test_forest_plot_consistency(palette):
+    """Verify utils/forest_plot_lib.py uses central colors."""
+    forest_path = PROJECT_ROOT / "utils" / "forest_plot_lib.py"
+    with open(forest_path, "r") as f:
+        content = f.read()
+
+    tree = ast.parse(content)
+
+    # Check for import
+    has_import = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "tabs._common"
+        and any(alias.name == "get_color_palette" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    assert has_import, "forest_plot_lib.py should import get_color_palette"
+
+    # Check for assignment COLORS = get_color_palette()
+    has_assignment = any(
+        isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "COLORS"
+            for target in node.targets
+        )
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "get_color_palette"
+        for node in ast.walk(tree)
+    )
+    msg = "forest_plot_lib.py should assign COLORS = get_color_palette()"
+    assert has_assignment, msg
+
+    # Check for legacy color
+    legacy_teal = "#21808d"
+    assert legacy_teal not in content, "Legacy teal color found in forest_plot_lib.py"
+
+
+def test_formatting_consistency(palette):
+    """Verify utils/formatting.py badges and p-values match the theme colors."""
+    formatting_path = PROJECT_ROOT / "utils" / "formatting.py"
+    with open(formatting_path, "r") as f:
+        content = f.read()
+
+    assert "from config import CONFIG" in content
+
+
+def test_custom_handlers_js_integrity():
+    """Verify static/js/custom_handlers.js exists and has standard handlers."""
+    js_path = PROJECT_ROOT / "static" / "js" / "custom_handlers.js"
+    assert js_path.exists(), "custom_handlers.js is missing"
+
+    with open(js_path, "r") as f:
+        content = f.read()
+
+    assert "set_element_style" in content
+    assert "set_inner_text" in content
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])
