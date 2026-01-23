@@ -651,7 +651,12 @@ def format_ols_results(
             "t-value": coef_df["T-value"],
             "p-value": coef_df["P-value"].apply(format_p_value),
             "95% CI": coef_df.apply(
-                lambda r: format_ci_html(r["CI_Lower"], r["CI_Upper"]), axis=1
+                lambda r: format_ci_html(
+                    f"{r['CI_Lower']:.2f} to {r['CI_Upper']:.2f}",
+                    r["CI_Lower"],
+                    r["CI_Upper"],
+                ),
+                axis=1,
             ),
         }
     )
@@ -965,7 +970,10 @@ def format_bootstrap_results(
             "Variable": df_res["Variable"],
             "Estimate": df_res["Estimate"],
             "Boot SE": df_res["Boot SE"],
-            "95% CI": [format_ci_html(cl, cu) for cl, cu in zip(ci_lower, ci_upper)],
+            "95% CI": [
+                format_ci_html(f"{cl:.2f} to {cu:.2f}", cl, cu)
+                for cl, cu in zip(ci_lower, ci_upper)
+            ],
         }
     )
 

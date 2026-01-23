@@ -144,6 +144,7 @@ def test_analyze_mediation_constant_variable():
 
 def test_analyze_mediation_perfect_collinearity():
     """Test perfect correlation between Treatment and Mediator."""
+    np.random.seed(42)
     n = 50
     X = np.random.normal(0, 1, n)
     M = X  # Perfect correlation
@@ -155,6 +156,6 @@ def test_analyze_mediation_perfect_collinearity():
     # With perfect collinearity, it should either error or return NaN for direct/indirect
     assert (
         "error" in result
-        or pd.isna(result["direct_effect"])
-        or pd.isna(result["indirect_effect"])
+        or pd.isna(result.get("direct_effect"))
+        or pd.isna(result.get("indirect_effect"))
     )

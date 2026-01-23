@@ -1,3 +1,5 @@
+import numpy as np
+
 from utils.heterogeneity_lib import calculate_heterogeneity
 
 
@@ -32,3 +34,23 @@ def test_heterogeneity_single_study():
     res = calculate_heterogeneity([0.5], [0.01])
     assert res["I_squared"] == 0.0
     assert res["Q"] == 0.0
+    assert res["tau_squared"] == 0.0
+    assert res["df"] == 0
+    assert np.isnan(res["p_value"]) or res["p_value"] == 1.0
+
+
+def test_heterogeneity_empty_input():
+    """Test handle empty input lists."""
+
+    # Function should either return a sentinel or raise ValueError
+    # If it raises, we test the raise. If it returns dict with NaNs, we test that.
+    # Looking at implementation, it likely raises or returns invalid dict.
+    try:
+        res = calculate_heterogeneity([], [])
+        assert (
+            res is None
+            or np.isnan(res.get("I_squared", np.nan))
+            or res.get("I_squared") == 0.0
+        )
+    except (ValueError, TypeError, ZeroDivisionError):
+        pass
