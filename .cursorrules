@@ -1,0 +1,26 @@
+# Agent Rules
+
+0. **Rule 0: Architecture First**: Before any logic change, read `docs/ARCHITECTURE.md`.
+
+1. **Python Environment**: always use `.venv` for Python commands.
+   - Run python scripts:
+     - POSIX: `.venv/bin/python script.py`
+     - Windows: `.venv\Scripts\python script.py`
+   - Run tests:
+     - POSIX: `.venv/bin/pytest`
+     - Windows: `.venv\Scripts\pytest`
+   - Install packages:
+     - POSIX: `.venv/bin/pip install ...`
+     - Windows: `.venv\Scripts\pip install ...`
+
+2. **Python Version**: This project strictly requires Python 3.12+. The system default (3.9) will fail.
+
+3. **Workflow**: If you need to run checking scripts, prefer the defined workflows or use the `.venv` explicitly.
+
+4. **CSS Modification**:
+   - **NEVER** edit `static/styles.css` directly. It is an auto-generated file.
+   - To change styles, modify the `get_shiny_css()` function in `tabs/_styling.py`.
+   - After modifying the Python file, regenerate the CSS by running:
+     - POSIX: `.venv/bin/python utils/update_css.py`
+     - Windows: `.venv\Scripts\python utils\update_css.py`
+   - Always commit both the `.py` source and the generated `.css` file.

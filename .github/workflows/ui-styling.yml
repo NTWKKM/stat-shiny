@@ -1,0 +1,215 @@
+name: UI Styling & Compatibility QA
+
+on:
+  push:
+    branches:
+      - main
+      - patch
+  pull_request:
+    branches:
+      - main
+      - patch
+
+jobs:
+  test-styling:
+    name: Test UI Styling System
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # Use Composite Action for environment setup
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
+
+      - name: Verify Styling System integrity
+        run: |
+          MISSING=0
+          if [ ! -f "tabs/_common.py" ]; then echo "❌ tabs/_common.py missing"; MISSING=1; fi
+          if [ ! -f "tabs/_styling.py" ]; then echo "❌ tabs/_styling.py missing"; MISSING=1; fi
+          if [ $MISSING -eq 1 ]; then exit 1; fi
+          echo "✅ All Styling System files found"
+
+      - name: Run UI Styling Tests
+        # Ensure paths are correct
+        run: |
+          pytest tests/unit/test_color_palette.py tests/unit/test_ui_ux_styles.py -v --junitxml=ui-styling-results.xml
+
+      - name: Upload UI Styling Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-styling-results
+          path: ui-styling-*.xml
+          if-no-files-found: warn
+
+  test-multi-version:
+    name: Compatibility Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      matrix:
+        include:
+          - python-version: "3.12"
+            experimental: false
+          - python-version: "3.13"
+            experimental: false
+          - python-version: "3.14-dev"
+            experimental: true
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+          cache: "pip"
+
+      # Use Composite Action for environment setup
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
+
+      - name: Run tests
+        run: |
+          set +e
+          pytest tests/unit/test_color_palette.py -v --junitxml=compatibility-color-${{ matrix.python-version }}.xml
+          EXIT1=$?
+          pytest tests/unit/test_ui_ux_styles.py -v --junitxml=compatibility-ux-${{ matrix.python-version }}.xml
+          EXIT2=$?
+          exit $((EXIT1 | EXIT2))
+
+      - name: Upload Compatibility Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-results-${{ matrix.python-version }}
+          path: compatibility-*.xml
+          if-no-files-found: warn
+
+  code-quality:
+    name: Styling Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Install linter dependencies (Main dependencies handled via action)
+      - name: Setup environment
+        uses: ./.github/actions/setup-test-env
+
+      - name: Install linters
+        run: pip install flake8==7.1.1 black==24.10.0
+
+      - name: Check code style (flake8)
+        # Verify paths are correct
+        run: flake8 tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py tests/unit/test_ui_ux_styles.py --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Check formatting (black)
+        # Verify paths are correct
+        run: black --check tabs/_common.py tabs/_styling.py tests/unit/test_color_palette.py tests/unit/test_ui_ux_styles.py
+
+  # ==========================================
+  # Test Summary & Reporting
+  # ==========================================
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-styling, test-multi-version, code-quality]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: test-results
+          pattern: "*-results*"
+          merge-multiple: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate Detailed Report
+        run: |
+          python - <<EOF
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          summary = []
+          summary.append("# 🎨 UI Styling & Compatibility Report\n")
+
+          # High level summary table
+          summary.append("| Job | Result |")
+          summary.append("| :--- | :--- |")
+          summary.append(f"| UI Styling Tests | {'✅ PASS' if '${{ needs.test-styling.result }}' == 'success' else '❌ FAIL'} |")
+          summary.append(f"| Compatibility Tests | {'✅ PASS' if '${{ needs.test-multi-version.result }}' == 'success' else '❌ FAIL'} |")
+          summary.append(f"| Code Quality | {'✅ PASS' if '${{ needs.code-quality.result }}' == 'success' else '❌ FAIL'} |\n")
+
+          results_dir = Path("test-results")
+          if results_dir.exists():
+              # Group by source job (styling vs compatibility)
+              files = sorted(list(results_dir.glob("*.xml")))
+              for xml_file in files:
+                  suite_name = xml_file.stem.replace("-", " ").title()
+                  summary.append(f"### 🔍 {suite_name}")
+                  summary.append("<details><summary>Click to see detailed function results</summary>\n")
+                  summary.append("| Class / Module | Test Function | Status | Time (s) |")
+                  summary.append("| :--- | :--- | :--- | :--- |")
+                  
+                  try:
+                      tree = ET.parse(xml_file)
+                      root = tree.getroot()
+                      # Handle junit xml schema variations (testsuite vs testsuites)
+                      testcases = root.findall(".//testcase")
+                      for testcase in testcases:
+                          name = testcase.get("name")
+                          classname = testcase.get("classname")
+                          time = testcase.get("time")
+                          status = "✅"
+                          if testcase.find("failure") is not None:
+                              status = "❌"
+                          elif testcase.find("skipped") is not None:
+                              status = "⏭️"
+                          summary.append(f"| {classname} | {name} | {status} | {time} |")
+                  except Exception as e:
+                      summary.append(f"| Error parsing file | {e} | | |")
+                  
+                  summary.append("\n</details>\n")
+          else:
+              summary.append("> [!WARNING]\n> No test result files found.")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(summary))
+
+          # Also output to logs for easier visibility
+          print("\n".join(summary))
+          EOF
+
+      - name: Check final status
+        run: |
+          if [ "${{ needs.test-styling.result }}" != "success" ] || \
+             [ "${{ needs.test-multi-version.result }}" != "success" ]; then
+            echo "❌ CRITICAL: Styling or Compatibility tests failed."
+            exit 1
+          elif [ "${{ needs.code-quality.result }}" != "success" ]; then
+            echo "⚠️ WARNING: Code quality checks failed, but tests passed."
+            exit 0
+          else
+            echo "✅ All styling checks passed!"
+          fi

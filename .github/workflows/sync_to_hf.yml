@@ -14,11 +14,18 @@ jobs:
           fetch-depth: 0
           lfs: true
 
+      - name: Install git-xet
+        run: |
+          set -euo pipefail
+          GIT_XET_VERSION="v0.2.0"
+          curl -fssL "https://raw.githubusercontent.com/huggingface/xet-core/${GIT_XET_VERSION}/git_xet/install.sh" | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           # ระบุ Username ของ Hugging Face
-          HF_USERNAME: ntwkkm 
+          HF_USERNAME: ntwkkm
           # ระบุชื่อ Space (ต้องตรงกับที่สร้างไว้ใน HF)
           SPACE_NAME: shinystat
         run: |
@@ -26,10 +33,21 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
 
-          # 2. เพิ่ม Remote URL ของ Hugging Face โดยแทรก Token เข้าไป
-          # รูปแบบ: https://USER:TOKEN@huggingface.co/spaces/USER/SPACE_NAME
-          git remote add space https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
+          # 2. ติดตั้ง Git Xet ลงใน Git config
+          git xet install
 
-          # 3. สั่ง Push แบบ Force ไปยัง branch main ของ Hugging Face
+          # 3. เพิ่ม Remote URL (token provided via GIT_ASKPASS)
+          # รูปแบบ: https://huggingface.co/spaces/USER/SPACE_NAME
+          cat > /tmp/git-askpass.sh <<'EOF'
+          #!/bin/sh
+          case "$1" in
+            *Username*) echo "$HF_USERNAME" ;;
+            *Password*) echo "$HF_TOKEN" ;;
+          esac
+          EOF
+          chmod 700 /tmp/git-askpass.sh
+
+          git remote add space https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
+          # 4. สั่ง Push แบบ Force ไปยัง branch main ของ Hugging Face
           # (การใช้ --force จะทำให้ปลายทางเหมือนต้นทางเสมอ)
-          git push --force space main
+          GIT_ASKPASS=/tmp/git-askpass.sh GIT_TERMINAL_PROMPT=0 git push --force space main

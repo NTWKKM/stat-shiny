@@ -1,15 +1,18 @@
-from typing import TYPE_CHECKING, Dict, Optional, Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from shiny.ui import TagChild
 
+
 def wrap_with_container(content: "TagChild") -> "TagChild":
     """
     Wraps UI content with the .app-container CSS class.
-    
+
     Args:
         content: The UI content (TagChild) to wrap.
-    
+
     Returns:
         A shiny.ui.div element with class='app-container'.
     """
@@ -18,53 +21,20 @@ def wrap_with_container(content: "TagChild") -> "TagChild":
     return ui.div(content, class_="app-container")
 
 
-def simple_card(title: str, *args: "TagChild", footer: Optional["TagChild"] = None, **kwargs: Any) -> "TagChild":
-    """
-    Creates a Standard Bootstrap Card (Compatible with new CSS).
-    Automatically wraps content in .card, .card-header, and .card-body.
-
-    Args:
-        title: The text for the card header.
-        *args: Content to go inside the card body.
-        footer: Optional content for the card footer.
-        **kwargs: Additional arguments for ui.card (e.g., height, full_screen).
-
-    Returns:
-        A shiny.ui.card component.
-    """
-    from shiny import ui
-
-    # Note: shiny.ui.card automatically generates the '.card' class
-    # shiny.ui.card_header generates '.card-header'
-    # shiny.ui.card_body (if used) generates '.card-body'
-    
-    components = [
-        ui.card_header(title),
-        ui.card_body(*args) # Wrap content in card-body for proper padding
-    ]
-    
-    if footer is not None:
-        components.append(ui.card_footer(footer))
-
-    return ui.card(
-        *components,
-        **kwargs
-    )
-
-
-def get_color_palette() -> Dict[str, str]:
+def get_color_palette() -> dict[str, str]:
     """
     Returns a unified color palette dictionary for all modules.
     Ensures consistency across the application.
-    
+
     Returns:
-        Dict[str, str]: A dictionary mapping color names to hex codes.
+        dict[str, str]: A dictionary mapping color names to hex codes.
     """
     return {
         # Primary colors - Navy Blue theme
         "primary": "#1E3A5F",
         "primary_dark": "#0F2440",
         "primary_light": "#E8EEF7",
+        "secondary": "#6c757d",  # Standard Bootstrap secondary gray
         # Neutral colors - Light theme
         "smoke_white": "#F8F9FA",
         "text": "#1F2328",
@@ -81,123 +51,34 @@ def get_color_palette() -> Dict[str, str]:
     }
 
 
-def get_color_info() -> Dict[str, Any]:
+def select_variable_by_keyword(
+    columns: list[str], keywords: list[str], default_to_first: bool = True
+) -> str | None:
     """
-    Returns information about the color palette for documentation.
-    
+    Intelligently attempts to select a default variable from a list of columns
+    based on a list of keywords.
+
+    Args:
+        columns: List of available column names.
+        keywords: List of keywords to search for (case-insensitive).
+        default_to_first: If True, returns the first column if no keyword match is found.
+
     Returns:
-        Dict[str, Any]: Metadata about the design system.
+        The matched column name, or the first column (if default_to_first is True),
+        or None if no match/no columns.
     """
-    return {
-        "theme": "Professional Medical Analytics - Navy Blue with Smoke White Navbar",
-        "description": "Modern, accessible navy-based theme with light smoke white navbar for statistical analysis",
-        "created": "December 30, 2025",
-        "updated": "December 31, 2025 (Smoke White Navbar)",
-        "accessibility": "WCAG AA compliant (colors tested for accessibility)",
-        "colors": {
-            "primary": {
-                "name": "Navy",
-                "hex": "#1E3A5F",
-                "usage": "Headers, buttons, links, table headers, emphasis",
-                "contrast_ratio": "8.5:1 (on white) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "30, 58, 95",
-            },
-            "primary_dark": {
-                "name": "Dark Navy",
-                "hex": "#0F2440",
-                "usage": "Strong headers, table header backgrounds",
-                "contrast_ratio": "14.2:1 (on white) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "15, 36, 64",
-            },
-            "primary_light": {
-                "name": "Light Navy",
-                "hex": "#E8EEF7",
-                "usage": "Light backgrounds, subtle accents, card headers",
-                "contrast_ratio": "10.8:1 (on dark text) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "232, 238, 247",
-            },
-            "smoke_white": {
-                "name": "Smoke White",
-                "hex": "#F8F9FA",
-                "usage": "Navbar background, light page backgrounds",
-                "contrast_ratio": "16.8:1 (on navy text) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "248, 249, 250",
-            },
-            "success": {
-                "name": "Green",
-                "hex": "#22A765",
-                "usage": "Success status, good balance (SMD < 0.1)",
-                "contrast_ratio": "5.9:1 (on white) - AA",
-                "wcag_level": "AA",
-                "rgb": "34, 167, 101",
-            },
-            "danger": {
-                "name": "Red",
-                "hex": "#E74856",
-                "usage": "Alerts, significant p-values, imbalance",
-                "contrast_ratio": "4.9:1 (on white) - AA",
-                "wcag_level": "AA",
-                "rgb": "231, 72, 86",
-            },
-            "warning": {
-                "name": "Amber",
-                "hex": "#FFB900",
-                "usage": "Warnings, caution, non-critical alerts",
-                "contrast_ratio": "7.1:1 (on white) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "255, 185, 0",
-            },
-            "info": {
-                "name": "Gray-blue",
-                "hex": "#5A7B8E",
-                "usage": "Informational text, metadata",
-                "contrast_ratio": "7.2:1 (on white) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "90, 123, 142",
-            },
-            "text": {
-                "name": "Dark Gray",
-                "hex": "#1F2328",
-                "usage": "Main text content",
-                "contrast_ratio": "10.1:1 (on white) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "31, 35, 40",
-            },
-            "text_secondary": {
-                "name": "Medium Gray",
-                "hex": "#6B7280",
-                "usage": "Secondary text, subtitles, footer",
-                "contrast_ratio": "7.1:1 (on white) - AAA",
-                "wcag_level": "AAA",
-                "rgb": "107, 114, 128",
-            },
-            "border": {
-                "name": "Light Gray",
-                "hex": "#E5E7EB",
-                "usage": "Borders, dividers, subtle lines",
-                "contrast_ratio": "Neutral",
-                "wcag_level": "N/A",
-                "rgb": "229, 231, 235",
-            },
-            "background": {
-                "name": "Off-white",
-                "hex": "#F9FAFB",
-                "usage": "Page background",
-                "contrast_ratio": "Light background",
-                "wcag_level": "N/A",
-                "rgb": "249, 250, 251",
-            },
-            "surface": {
-                "name": "White",
-                "hex": "#FFFFFF",
-                "usage": "Card/container backgrounds",
-                "contrast_ratio": "Light background",
-                "wcag_level": "N/A",
-                "rgb": "255, 255, 255",
-            },
-        },
-    }
+    if not columns:
+        return None
+
+    # Try to find a match by keyword priority
+    for k in keywords:
+        k_lower = k.lower()
+        for col in columns:
+            if k_lower in col.lower():
+                return col
+
+    # Default fallback
+    if default_to_first:
+        return columns[0]
+
+    return None
