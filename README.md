@@ -21,7 +21,7 @@ pinned: false
 > | pip         | Latest     |
 <!-- AI-AGENT-GUIDE-END -->
 
-[Hugging Face Space](https://huggingface.co/spaces/ntwkkm/shinystat)
+[Hugging Face Space](https://ntwkkm-shinystat.hf.space)
 
 [--- REPOSITORY-TREE-START ---]
 
