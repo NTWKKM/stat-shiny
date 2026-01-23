@@ -1409,49 +1409,6 @@
             color: #D1D5DB;
         }
         
-        .loading-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6B7280;
-        }
-        
-        .spinner {
-            animation: spin 1s linear infinite;
-            color: #1E3A5F;
-            margin-bottom: var(--spacing-md);
-        }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        
-        .placeholder-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #D1D5DB;
-            background: #F8F9FA;
-            border-radius: var(--radius-lg);
-            border: 1px dashed #E5E7EB;
-        }
-        
-        .skip-links {
-            position: absolute;
-            top: -9999px;
-            left: -9999px;
-        }
-        
-        .skip-link:focus {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 9999;
-            background: #1E3A5F;
-            color: white;
-            padding: 8px 16px;
-            text-decoration: none;
-            outline: 2px solid #FFB900;
-        }
         /* ===========================
            SECTION 7: EMPTY STATE & SKELETON
            =========================== */
