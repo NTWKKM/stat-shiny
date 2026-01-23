@@ -35,8 +35,6 @@ $(document).ready(function () {
             return sidebar;
         }
 
-        var sidebar = getSidebar();
-
         // Initial state
         if ($(window).width() < 768) {
             getSidebar().hide();
