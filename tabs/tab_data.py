@@ -68,6 +68,7 @@ def data_ui() -> ui.TagChild:
             # 1. Variable Settings Card (3-column layout with Missing Data Config)
             ui.accordion(
                 ui.accordion_panel(
+                    "var_config",
                     ui.tags.span("🛠️ Variable Configuration", class_="fw-bold"),
                     ui.layout_columns(
                         # LEFT COLUMN: Variable Selection
@@ -1043,6 +1044,7 @@ def data_server(
 
         return ui.accordion(
             ui.accordion_panel(
+                "data_quality_alerts",
                 ui.div(
                     ui.tags.span(
                         "🧐 Data Quality Alerts", class_="fw-bold text-warning"
