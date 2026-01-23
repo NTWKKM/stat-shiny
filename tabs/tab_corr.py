@@ -284,7 +284,7 @@ def corr_server(
             original_len = len(original) if original is not None else 0
             matched_len = len(matched) if matched is not None else 0
             return ui.input_radio_buttons(
-                session.ns("radio_corr_source"),  # ✅ FIX: Added session.ns
+                "radio_corr_source",  # ✅ FIX: Removed session.ns
                 "📊 Select Dataset:",
                 {
                     "original": f"📊 Original Data ({original_len:,} rows)",
@@ -303,19 +303,19 @@ def corr_server(
         data = current_df()
         if data is None:
             return ui.input_select(
-                session.ns("cv1"), "Variable 1 (X-axis):", choices=["Select..."]
-            )  # ✅ FIX: Added session.ns
+                "cv1", "Variable 1 (X-axis):", choices=["Select..."]
+            )  # ✅ FIX: Removed session.ns
 
         num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
         default_v = select_variable_by_keyword(
             num_cols, ["glucose", "lab_glucose", "var1"], default_to_first=True
         )
         return ui.input_select(
-            session.ns("cv1"),
+            "cv1",
             "Variable 1 (X-axis):",
             choices=num_cols,
             selected=default_v,
-        )  # ✅ FIX: Added session.ns
+        )  # ✅ FIX: Removed session.ns
 
     @render.ui
     def ui_cv2():
@@ -323,19 +323,19 @@ def corr_server(
         data = current_df()
         if data is None:
             return ui.input_select(
-                session.ns("cv2"), "Variable 2 (Y-axis):", choices=["Select..."]
-            )  # ✅ FIX: Added session.ns
+                "cv2", "Variable 2 (Y-axis):", choices=["Select..."]
+            )  # ✅ FIX: Removed session.ns
 
         num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
         default_v = select_variable_by_keyword(
             num_cols, ["hba1c", "lab_hba1c", "var2"], default_to_first=True
         )
         return ui.input_select(
-            session.ns("cv2"),
+            "cv2",
             "Variable 2 (Y-axis):",
             choices=num_cols,
             selected=default_v,
-        )  # ✅ FIX: Added session.ns
+        )  # ✅ FIX: Removed session.ns
 
     @render.ui
     def ui_matrix_vars():
@@ -343,11 +343,11 @@ def corr_server(
         data = current_df()
         if data is None:
             return ui.input_selectize(
-                session.ns("matrix_vars"),
+                "matrix_vars",
                 "Select Variables:",
                 choices=["Select..."],
                 multiple=True,
-            )  # ✅ FIX: Added session.ns
+            )  # ✅ FIX: Removed session.ns
 
         cols = data.columns.tolist()
         num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
@@ -379,7 +379,7 @@ def corr_server(
             def_matrix = num_cols[:5] if len(num_cols) >= 5 else num_cols
 
         return ui.input_selectize(
-            session.ns("matrix_vars"),  # ✅ FIX: Added session.ns
+            "matrix_vars",  # ✅ FIX: Removed session.ns
             create_tooltip_label(
                 "Select Variables (Multi-select)",
                 "Choose continuous variables for matrix.",
