@@ -17,7 +17,8 @@ jobs:
       - name: Install git-xet
         run: |
           set -euo pipefail
-          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/v0.X.Y/git_xet/install.sh | bash
+          GIT_XET_VERSION="v0.2.0"
+          curl -fssL "https://raw.githubusercontent.com/huggingface/xet-core/${GIT_XET_VERSION}/git_xet/install.sh" | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Push to Hub
@@ -35,8 +36,8 @@ jobs:
           # 2. ติดตั้ง Git Xet ลงใน Git config
           git xet install
 
-          # 3. เพิ่ม Remote URL ของ Hugging Face โดยแทรก Token เข้าไป
-          # รูปแบบ: https://USER:TOKEN@huggingface.co/spaces/USER/SPACE_NAME
+          # 3. เพิ่ม Remote URL (token provided via GIT_ASKPASS)
+          # รูปแบบ: https://huggingface.co/spaces/USER/SPACE_NAME
           cat > /tmp/git-askpass.sh <<'EOF'
           #!/bin/sh
           case "$1" in

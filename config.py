@@ -247,7 +247,15 @@ class ConfigManager:
         if final_key not in config:
             raise KeyError(f"Config key '{key}' does not exist")
         config[final_key] = value
-        if key.startswith("analysis.missing") or key.startswith("analysis.missing_"):
+        if key.startswith("analysis.missing_"):
+            analysis = self._config.get("analysis", {})
+            missing = analysis.get("missing")
+            if isinstance(missing, dict):
+                if key.endswith("missing_strategy"):
+                    missing["strategy"] = value
+                elif key.endswith("missing_threshold_pct"):
+                    missing["report_threshold_pct"] = value
+        if key.startswith("analysis.missing"):
             self._sync_missing_legacy()
 
     def set_nested(self, key: str, value: Any, create: bool = False) -> None:
