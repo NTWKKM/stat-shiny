@@ -711,13 +711,7 @@ patch (base)
 
 ## 📞 Timeline & Resources
 
-### Expected Duration
-
-- **Phase 1:** 3-4 hours (Foundation)
-- **Phase 2:** 2-3 hours (Navigation 5-Tab)
-- **Phase 3:** 6-8 hours (Tab Refactoring - All 10 files)
-- **Phase 4:** 4-5 hours (Testing & Polish)
-- **Total:** ~15-20 hours (2-3 days intensive or 1-2 weeks distributed)
+- **Total:** ~15-20 hours (2-3 weeks)
 
 ---
 

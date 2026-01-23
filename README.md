@@ -253,18 +253,18 @@ Ensure you have **Python 3.12+** installed (required for modern f-string syntax)
    It is recommended to use a virtual environment.
 
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
 3. **Run the app:**
 
    ```bash
-   shiny run app.py
+   shiny run app.py --port 7860
    ```
 
-   The app will be available at `http://localhost:8000`.
+   The app will be available at `http://localhost:7860`.
 
 ### Option 2: Running Tests
 

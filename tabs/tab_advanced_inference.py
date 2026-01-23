@@ -8,11 +8,9 @@ import seaborn as sns
 import statsmodels.api as sm
 from shiny import module, reactive, render, ui
 
-from tabs._common import (
-    get_color_palette,
-    select_variable_by_keyword,
-)
+from tabs._common import get_color_palette, select_variable_by_keyword
 from utils.collinearity_lib import calculate_vif
+from utils.formatting import create_missing_data_report_html
 from utils.heterogeneity_lib import calculate_heterogeneity
 from utils.mediation_lib import analyze_mediation
 from utils.model_diagnostics_lib import (
@@ -29,7 +27,6 @@ from utils.ui_helpers import (
     create_placeholder_state,
     create_results_container,
 )
-from utils.formatting import create_missing_data_report_html
 
 COLORS = get_color_palette()
 
@@ -197,7 +194,11 @@ def advanced_inference_server(
     # --- Dataset Selection Logic ---
     @reactive.Calc
     def current_df():
-        if is_matched.get() and input.radio_ai_source() == "matched":
+        try:
+            source = input.radio_ai_source()
+        except Exception:
+            source = "original"
+        if is_matched.get() and source == "matched":
             return df_matched.get()
         return df.get()
 
@@ -449,8 +450,6 @@ def advanced_inference_server(
         if isinstance(res, dict) and "error" in res:
             return create_error_alert(res["error"])
 
-        from utils.formatting import create_missing_data_report_html
-
         return ui.div(
             ui.output_data_frame("tbl_vif"),
             # Missing Data Report
@@ -645,9 +644,10 @@ def advanced_inference_server(
 
         # Show top 10 influential points by Cook's D
         influential_indices = res["influential_points"]
-        cooks_values = res["cooks_d"][influential_indices]
+        cooks_d = res["cooks_d"]
+        cooks_values = [cooks_d[i] for i in influential_indices]
         # Sort by Cook's D descending and take top 10
-        sorted_order = np.argsort(cooks_values)[::-1][:10]
+        sorted_order = np.argsort(cooks_values)[::-1][:10].tolist()
         top_indices = [influential_indices[i] for i in sorted_order]
         # Reconstruct the cleaned subset to ensure index alignment
         y_col = input.diag_outcome()

@@ -55,15 +55,33 @@ class ConfigManager:
         self._sync_missing_legacy()
 
     def _sync_missing_legacy(self) -> None:
+        """
+        Synchronize the nested 'analysis.missing' dictionary with legacy top-level keys
+        ('missing_strategy', 'missing_threshold_pct') to maintain backward compatibility
+        while preserving explicit overrides.
+        """
         analysis = self._config.get("analysis", {})
         missing = analysis.get("missing", {})
-        if isinstance(missing, dict):
-            analysis["missing_strategy"] = missing.get(
-                "strategy", analysis.get("missing_strategy")
-            )
-            analysis["missing_threshold_pct"] = missing.get(
-                "report_threshold_pct", analysis.get("missing_threshold_pct")
-            )
+        if not isinstance(missing, dict):
+            return
+
+        legacy_strategy = analysis.get("missing_strategy")
+        legacy_threshold = analysis.get("missing_threshold_pct")
+
+        # 1. Backfill nested from legacy if nested keys are missing
+        if legacy_strategy is not None and "strategy" not in missing:
+            missing["strategy"] = legacy_strategy
+        if legacy_threshold is not None and "report_threshold_pct" not in missing:
+            missing["report_threshold_pct"] = legacy_threshold
+
+        # 2. Sync to legacy ONLY if legacy key is absent (preserve overrides)
+        if "missing_strategy" not in analysis and "strategy" in missing:
+            analysis["missing_strategy"] = missing["strategy"]
+        if (
+            "missing_threshold_pct" not in analysis
+            and "report_threshold_pct" in missing
+        ):
+            analysis["missing_threshold_pct"] = missing["report_threshold_pct"]
 
     @staticmethod
     def _get_default_config() -> dict[str, Any]:

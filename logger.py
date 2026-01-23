@@ -53,11 +53,11 @@ class PerformanceLogger:
             yield
             return
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         try:
             yield
         finally:
-            elapsed = time.time() - start_time
+            elapsed = time.perf_counter() - start_time
 
             with self._lock:
                 if operation not in self.timings:

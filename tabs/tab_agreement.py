@@ -388,6 +388,7 @@ def agreement_server(
 
     @render.download(filename="kappa_report.html")
     def btn_dl_kappa_report():
+        req(kappa_html.get())
         yield kappa_html.get()
 
     # ==================== BLAND-ALTMAN LOGIC ====================
@@ -401,7 +402,12 @@ def agreement_server(
         ba_processing.set(True)
 
         try:
-            stats_res, fig, missing_info = diag_test.calculate_bland_altman(d, v1, v2)
+            result = diag_test.calculate_bland_altman(d, v1, v2)
+            if len(result) == 2:
+                stats_res, fig = result
+                missing_info = {}
+            else:
+                stats_res, fig, missing_info = result
 
             if "error" in stats_res:
                 ba_html.set(
@@ -459,6 +465,7 @@ def agreement_server(
 
     @render.download(filename="bland_altman_report.html")
     def btn_dl_ba_report():
+        req(ba_html.get())
         yield ba_html.get()
 
     # ==================== ICC LOGIC ====================
@@ -541,6 +548,7 @@ def agreement_server(
 
     @render.download(filename="icc_report.html")
     def btn_dl_icc_report():
+        req(icc_html.get())
         yield icc_html.get()
 
     # --- Validation ---

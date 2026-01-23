@@ -33,8 +33,16 @@ jobs:
           git xet install
 
           # 3. เพิ่ม Remote URL
-          git remote add space https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
+          cat > /tmp/git-askpass.sh <<'EOF'
+          #!/bin/sh
+          case "$1" in
+            *Username*) echo "$HF_USERNAME" ;;
+            *Password*) echo "$HF_TOKEN" ;;
+          esac
+          EOF
+          chmod 700 /tmp/git-askpass.sh
 
+          git remote add space https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
           # 4. สั่ง Push
           # HEAD:main หมายถึง "เอา Code ปัจจุบัน (ไม่ว่าจะอยู่ branch ไหน) ไปยัดใส่ branch main ของ Hugging Face"
-          git push --force space HEAD:main
+          GIT_ASKPASS=/tmp/git-askpass.sh GIT_TERMINAL_PROMPT=0 git push --force space HEAD:main

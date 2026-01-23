@@ -16,7 +16,8 @@ jobs:
 
       - name: Install git-xet
         run: |
-          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/refs/heads/main/git_xet/install.sh | bash
+          set -euo pipefail
+          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/v0.X.Y/git_xet/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Push to Hub
@@ -36,8 +37,16 @@ jobs:
 
           # 3. เพิ่ม Remote URL ของ Hugging Face โดยแทรก Token เข้าไป
           # รูปแบบ: https://USER:TOKEN@huggingface.co/spaces/USER/SPACE_NAME
-          git remote add space https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
+          cat > /tmp/git-askpass.sh <<'EOF'
+          #!/bin/sh
+          case "$1" in
+            *Username*) echo "$HF_USERNAME" ;;
+            *Password*) echo "$HF_TOKEN" ;;
+          esac
+          EOF
+          chmod 700 /tmp/git-askpass.sh
 
+          git remote add space https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
           # 4. สั่ง Push แบบ Force ไปยัง branch main ของ Hugging Face
           # (การใช้ --force จะทำให้ปลายทางเหมือนต้นทางเสมอ)
-          git push --force space main
+          GIT_ASKPASS=/tmp/git-askpass.sh GIT_TERMINAL_PROMPT=0 git push --force space main

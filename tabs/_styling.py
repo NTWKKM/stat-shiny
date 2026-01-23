@@ -1447,49 +1447,6 @@ def get_shiny_css():
             color: {COLORS["neutral"]};
         }}
         
-        .loading-state {{
-            text-align: center;
-            padding: 60px 20px;
-            color: {COLORS["text_secondary"]};
-        }}
-        
-        .spinner {{
-            animation: spin 1s linear infinite;
-            color: {COLORS["primary"]};
-            margin-bottom: var(--spacing-md);
-        }}
-        
-        @keyframes spin {{
-            from {{ transform: rotate(0deg); }}
-            to {{ transform: rotate(360deg); }}
-        }}
-        
-        .placeholder-state {{
-            text-align: center;
-            padding: 40px 20px;
-            color: {COLORS["neutral"]};
-            background: {COLORS["smoke_white"]};
-            border-radius: var(--radius-lg);
-            border: 1px dashed {COLORS["border"]};
-        }}
-        
-        .skip-links {{
-            position: absolute;
-            top: -9999px;
-            left: -9999px;
-        }}
-        
-        .skip-link:focus {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 9999;
-            background: {COLORS["primary"]};
-            color: white;
-            padding: 8px 16px;
-            text-decoration: none;
-            outline: 2px solid {COLORS["warning"]};
-        }}
         /* ===========================
            SECTION 7: EMPTY STATE & SKELETON
            =========================== */
