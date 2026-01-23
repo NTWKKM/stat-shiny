@@ -264,8 +264,9 @@ def agreement_server(
     @render.ui
     def ui_dataset_selector():
         if is_matched.get():
+            # ✅ FIX: Added session.ns
             return ui.input_radio_buttons(
-                "radio_source",
+                session.ns("radio_source"),
                 "📄 Select Dataset:",
                 {"original": "Original Data", "matched": "Matched Data"},
                 selected="matched",
@@ -283,8 +284,9 @@ def agreement_server(
     def ui_kappa_v1():
         d = current_df()
         if d is None:
+            # ✅ FIX: Added session.ns
             return ui.input_select(
-                "sel_kappa_v1", "Rater/Method 1:", choices=["Select..."]
+                session.ns("sel_kappa_v1"), "Rater/Method 1:", choices=["Select..."]
             )
         cols = d.columns.tolist()
         default_rater1 = select_variable_by_keyword(
@@ -292,16 +294,21 @@ def agreement_server(
             ["diagnosis_dr_a", "diagnosis", "dr_a", "rater1", "obs1", "method1"],
             default_to_first=True,
         )
+        # ✅ FIX: Added session.ns
         return ui.input_select(
-            "sel_kappa_v1", "Rater/Method 1:", choices=cols, selected=default_rater1
+            session.ns("sel_kappa_v1"),
+            "Rater/Method 1:",
+            choices=cols,
+            selected=default_rater1,
         )
 
     @render.ui
     def ui_kappa_v2():
         d = current_df()
         if d is None:
+            # ✅ FIX: Added session.ns
             return ui.input_select(
-                "sel_kappa_v2", "Rater/Method 2:", choices=["Select..."]
+                session.ns("sel_kappa_v2"), "Rater/Method 2:", choices=["Select..."]
             )
         cols = d.columns.tolist()
         v1 = input.sel_kappa_v1()
@@ -311,16 +318,21 @@ def agreement_server(
             ["diagnosis_dr_b", "dr_b", "rater2", "obs2", "method2"],
             default_to_first=True,
         )
+        # ✅ FIX: Added session.ns
         return ui.input_select(
-            "sel_kappa_v2", "Rater/Method 2:", choices=cols, selected=default_rater2
+            session.ns("sel_kappa_v2"),
+            "Rater/Method 2:",
+            choices=cols,
+            selected=default_rater2,
         )
 
     @render.ui
     def ui_ba_v1():
         d = current_df()
         if d is None:
+            # ✅ FIX: Added session.ns
             return ui.input_select(
-                "sel_ba_v1", "Variable 1 (Method A):", choices=["Select..."]
+                session.ns("sel_ba_v1"), "Variable 1 (Method A):", choices=["Select..."]
             )
         num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
         default_ba1 = select_variable_by_keyword(
@@ -336,8 +348,9 @@ def agreement_server(
             ],
             default_to_first=True,
         )
+        # ✅ FIX: Added session.ns
         return ui.input_select(
-            "sel_ba_v1",
+            session.ns("sel_ba_v1"),
             "Variable 1 (Method A):",
             choices=num_cols,
             selected=default_ba1,
@@ -347,8 +360,9 @@ def agreement_server(
     def ui_ba_v2():
         d = current_df()
         if d is None:
+            # ✅ FIX: Added session.ns
             return ui.input_select(
-                "sel_ba_v2", "Variable 2 (Method B):", choices=["Select..."]
+                session.ns("sel_ba_v2"), "Variable 2 (Method B):", choices=["Select..."]
             )
         num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
         v1 = input.sel_ba_v1()
@@ -368,8 +382,9 @@ def agreement_server(
         )
         if not default_ba2 and num_cols:
             default_ba2 = num_cols[0]
+        # ✅ FIX: Added session.ns
         return ui.input_select(
-            "sel_ba_v2",
+            session.ns("sel_ba_v2"),
             "Variable 2 (Method B):",
             choices=num_cols,
             selected=default_ba2,
@@ -379,16 +394,18 @@ def agreement_server(
     def ui_icc_vars():
         d = current_df()
         if d is None:
+            # ✅ FIX: Added session.ns
             return ui.input_selectize(
-                "icc_vars",
+                session.ns("icc_vars"),
                 "Select Variables (Raters/Methods):",
                 choices=["Select..."],
                 multiple=True,
             )
         num_cols = d.select_dtypes(include=[np.number]).columns.tolist()
         icc_defaults = _auto_detect_icc_vars(num_cols)
+        # ✅ FIX: Added session.ns
         return ui.input_selectize(
-            "icc_vars",
+            session.ns("icc_vars"),
             "Select Variables (Raters/Methods):",
             choices=num_cols,
             multiple=True,
@@ -396,8 +413,6 @@ def agreement_server(
         )
 
     # ==================== KAPPA ANALYSIS ====================
-
-    # (Kappa Status removed)
 
     @reactive.Effect
     @reactive.event(input.btn_analyze_kappa)
@@ -473,7 +488,6 @@ def agreement_server(
             yield "No report available."
 
     # ==================== BLAND-ALTMAN ANALYSIS ====================
-    # (Bland-Altman Status removed)
 
     @reactive.Effect
     @reactive.event(input.btn_analyze_ba)
@@ -649,11 +663,7 @@ def agreement_server(
             strength = (
                 "Excellent"
                 if val > 0.9
-                else "Good"
-                if val > 0.75
-                else "Moderate"
-                if val > 0.5
-                else "Poor"
+                else "Good" if val > 0.75 else "Moderate" if val > 0.5 else "Poor"
             )
             icon = "✅" if val > 0.75 else "⚠️" if val > 0.5 else "❌"
             interp_parts.append(

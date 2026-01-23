@@ -1,5 +1,3 @@
-import numpy as np
-
 from utils.heterogeneity_lib import calculate_heterogeneity
 
 

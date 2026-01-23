@@ -190,8 +190,8 @@ app_ui = ui.page_fluid(
         ),
         id="main_nav",
         header=ui.tags.div(
-+            ui.tags.div(id="main-content"),
-+        ),
+            ui.tags.div(id="main-content"),
+        ),
         footer=ui.div(
             footer_ui,
             class_="main-footer",

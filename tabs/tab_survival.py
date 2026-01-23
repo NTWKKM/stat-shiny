@@ -163,16 +163,14 @@ def survival_ui() -> ui.TagChild:
                 ui.card(
                     ui.card_header("Landmark Analysis for Late Endpoints"),
                     ui.div(
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                             **ℹ️ Principle:** Landmark analysis is useful when the treatment effect is delayed (e.g., immune-oncology) or violates proportional hazards initially.
                             
                             **How it works:**
                             1. Select a "Landmark Time" (t).
                             2. Patients who died/censored *before* t are **excluded**.
                             3. Analysis is performed only on patients who survived to time t, resetting their "start" time to t.
-                            """
-                        ),
+                            """),
                         style=f"padding: 15px; margin-bottom: 20px; background-color: {COLORS['info']}10; border-left: 4px solid {COLORS['info']}; border-radius: 4px;",
                     ),
                     ui.layout_columns(

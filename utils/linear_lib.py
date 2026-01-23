@@ -484,9 +484,11 @@ def run_diagnostic_tests(results: OLSResult) -> list[DiagnosticResult]:
                 "test_name": "Shapiro-Wilk Normality Test",
                 "statistic": float(stat),
                 "p_value": float(p),
-                "interpretation": "Residuals are approximately normal"
-                if p > 0.05
-                else "Residuals deviate from normality",
+                "interpretation": (
+                    "Residuals are approximately normal"
+                    if p > 0.05
+                    else "Residuals deviate from normality"
+                ),
                 "passed": bool(p > 0.05),
             }
         )
@@ -505,9 +507,11 @@ def run_diagnostic_tests(results: OLSResult) -> list[DiagnosticResult]:
                 "test_name": "Breusch-Pagan Test",
                 "statistic": float(lm_stat),
                 "p_value": float(lm_pvalue),
-                "interpretation": "No evidence of heteroscedasticity"
-                if lm_pvalue > 0.05
-                else "Evidence of heteroscedasticity",
+                "interpretation": (
+                    "No evidence of heteroscedasticity"
+                    if lm_pvalue > 0.05
+                    else "Evidence of heteroscedasticity"
+                ),
                 "passed": bool(lm_pvalue > 0.05),
             }
         )
@@ -851,9 +855,9 @@ def compare_models(
         rows.append(
             {
                 "Model": name,
-                "Predictors": ", ".join(predictors)
-                if predictors
-                else "(Intercept Only)",
+                "Predictors": (
+                    ", ".join(predictors) if predictors else "(Intercept Only)"
+                ),
                 "AIC": model.aic,
                 "BIC": model.bic,
                 "R²": model.rsquared,

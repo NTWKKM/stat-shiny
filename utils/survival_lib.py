@@ -528,9 +528,9 @@ def calculate_survival_at_times(
                                     "Difference (S1-S2)": (
                                         diff if not pd.isna(diff) else None
                                     ),
-                                    "Z-statistic": z_stat
-                                    if not pd.isna(z_stat)
-                                    else None,
+                                    "Z-statistic": (
+                                        z_stat if not pd.isna(z_stat) else None
+                                    ),
                                     "P-value": p_val if not pd.isna(p_val) else None,
                                 }
                             )
