@@ -68,7 +68,7 @@ app_ui = ui.page_fluid(
     # ♿ Accessibility: Skip Links
     ui.div(
         ui.a("Skip to main content", href="#main-content", class_="skip-link"),
-        ui.a("Skip to navigation", href="#main-nav", class_="skip-link"),
+        ui.a("Skip to navigation", href="#main_nav", class_="skip-link"),
         ui.a("Skip to footer", href="#footer", class_="skip-link"),
         class_="skip-links",
     ),
@@ -188,12 +188,15 @@ app_ui = ui.page_fluid(
             style="color: var(--color-primary); font-weight: 700; text-decoration: none;",
         ),
         id="main_nav",
-        header=ui.tags.head(
-            ui.tags.style(
-                """
+        header=ui.tags.div(
+            ui.tags.div(id="main-content"),
+            ui.tags.head(
+                ui.tags.style(
+                    """
                 .navbar-brand { font-size: 1.5rem !important; }
                 """
-            )
+                )
+            ),
         ),
         footer=ui.div(
             footer_ui,
@@ -241,7 +244,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # ==========================================
 
     # ==========================================
-    # 3. CALL MODULES SERVER (LAZY LOADING)
+    # 3. CALL MODULES SERVER (EAGER LOADING)
     # ==========================================
 
     # --- Eager Loading (Core & Statistical Tabs) ---

@@ -23,7 +23,10 @@ $(document).ready(function () {
         }
     });
     // Mobile Menu Logic
+    var mobileMenuInitialized = false;
     function initMobileMenu() {
+        if (mobileMenuInitialized) return;
+
         var sidebar = $('.app-container .nav-pills').first().closest('[class*="col-"]');
         if (!sidebar.length) sidebar = $('#sidebar'); // Fallback to id if available
 
@@ -49,6 +52,8 @@ $(document).ready(function () {
                 }
             }, 250);
         });
+
+        mobileMenuInitialized = true;
     }
 
     // Navbar Brand Home Click Listener

@@ -39,7 +39,6 @@ jobs:
 
       - name: Run UI Styling Tests
         # Ensure paths are correct
-        continue-on-error: true
         run: |
           pytest tests/unit/test_color_palette.py -v --junitxml=ui-styling-color-results.xml
           pytest tests/unit/test_ui_ux_styles.py -v --junitxml=ui-styling-ux-results.xml
