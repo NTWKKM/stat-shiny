@@ -48,7 +48,7 @@ I have successfully centralized the report generation logic and optimized the re
 
 ## Validation & Testing
 
-- **Comprehensive Testing**: 112 unit tests passed.
+- **Comprehensive Testing**: 268 unit tests passed.
 - **Standalone Verification**: Confirmed correct rendering of all report components (stats boxes, sig-p highlighting, Plotly figs).
 
 ## Refactored Modules
