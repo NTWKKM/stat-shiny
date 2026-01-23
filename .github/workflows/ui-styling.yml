@@ -53,9 +53,16 @@ jobs:
   test-multi-version:
     name: Compatibility Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
-        python-version: ["3.12", "3.13", "3.14-dev"]
+        include:
+          - python-version: "3.12"
+            experimental: false
+          - python-version: "3.13"
+            experimental: false
+          - python-version: "3.14-dev"
+            experimental: true
       fail-fast: false
 
     steps:

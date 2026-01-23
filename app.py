@@ -36,14 +36,14 @@ class TabNames:
     HOME = "home"
     DATA = "data"
     BASELINE_MATCHING = "bm"
-    DIAGNOSTIC = "Diagnostic Tests"
-    CORRELATION = "Correlation Analysis"
-    AGREEMENT = "Agreement & Reliability"
-    REGRESSION = "Regression Analysis"
-    SURVIVAL = "Survival Analysis"
-    ADVANCED_REGRESSION = "Advanced Regression"
-    CAUSAL = "Causal Methods"
-    SAMPLE_SIZE = "Sample Size Calculator"
+    DIAGNOSTIC = "diagnostic"
+    CORRELATION = "correlation"
+    AGREEMENT = "agreement"
+    REGRESSION = "regression"
+    SURVIVAL = "survival"
+    ADVANCED_REGRESSION = "adv_regression"
+    CAUSAL = "causal"
+    SAMPLE_SIZE = "sample_size"
     SETTINGS = "settings"
 
 
@@ -58,7 +58,7 @@ logger = get_logger(__name__)
 # 🟢 Footer Definition
 footer_ui = ui.tags.div(
     ui.HTML(
-        """&copy; 2025 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by GitHub, Antigravity, Shiny"""
+        """&copy; 2026 <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM n donate</a> | Powered by GitHub, Antigravity, Shiny"""
     ),
     class_="report-footer",
     style="text-align: center; padding: 20px 0; border-top: 1px solid #e5e5e5; margin-top: 40px; color: #666;",
@@ -232,10 +232,6 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             ui.notification_show("⚠️ Firth regression unavailable", type="warning")
 
     check_optional_deps()
-
-    # ==========================================
-    # 3. CALL MODULES SERVER
-    # ==========================================
 
     # ==========================================
     # 3. CALL MODULES SERVER (EAGER LOADING)

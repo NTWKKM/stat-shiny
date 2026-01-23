@@ -65,7 +65,7 @@ $(document).ready(function () {
         } else {
             var selector = '.navbar-nav .nav-link[data-value="home"]';
             console.warn("Navbar Brand Home: homeLink not found with selector '" + selector + "'");
-            alert("Unexpected navbar structure: Home link not found.");
+            // Silent fail - already logged to console
         }
     });
 

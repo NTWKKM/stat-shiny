@@ -23,33 +23,13 @@ from scipy import stats
 
 from config import CONFIG
 from logger import get_logger
+from tabs._common import get_color_palette
 from utils.data_cleaning import (
     clean_dataframe,
     clean_numeric_vector,
     prepare_data_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
-
-try:
-    from tabs._common import get_color_palette
-except ImportError:
-
-    def get_color_palette() -> dict[str, str]:
-        return {
-            "primary": "#1B7E8F",
-            "primary_dark": "#0D4D57",
-            "primary_light": "#E0F2F7",
-            "success": "#22A765",
-            "danger": "#E74856",
-            "warning": "#FFB900",
-            "info": "#5A7B8E",
-            "text": "#1F2328",
-            "text_secondary": "#6B7280",
-            "border": "#E5E7EB",
-            "background": "#F9FAFB",
-            "surface": "#FFFFFF",
-        }
-
 
 logger = get_logger(__name__)
 

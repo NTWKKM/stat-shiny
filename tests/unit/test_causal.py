@@ -101,6 +101,9 @@ def test_calculate_e_value():
     assert res_null["e_value_estimate"] == 1.0
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Maximum Likelihood optimization failed to converge:statsmodels.tools.sm_exceptions.ConvergenceWarning"
+)
 def test_calculate_ps_separation():
     """Test PS calculation with perfect separation."""
     df = pd.DataFrame(

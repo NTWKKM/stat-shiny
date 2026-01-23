@@ -234,7 +234,7 @@ jobs:
           summary.append(f"| Unit Tests | {'✅ PASS' if '${{ needs.unit-tests.result }}' == 'success' else '❌ FAIL'} |")
           summary.append(f"| E2E Tests | {'✅ PASS' if '${{ needs.e2e-tests.result }}' == 'success' else '❌ FAIL'} |")
           summary.append(f"| Integration Tests | {'✅ PASS' if '${{ needs.integration-tests.result }}' == 'success' else '❌ FAIL'} |")
-          summary.append(f"| Code Quality | {'✅ PASS' if '${{ needs.code-quality.result }}' == 'success' else '❌ FAIL'} |\n")
+          summary.append(f"| Code Quality | {'✅ PASS' if '${{ needs.code-quality.outputs.code_quality }}' == 'pass' else '❌ FAIL'} |")
 
           results_dir = Path("test-results")
           if results_dir.exists():
