@@ -2,7 +2,7 @@ name: Sync to Hugging Face (Dev)
 on:
   push:
     branches: [patch]
-  # อนุญาตให้กดรัน Manual ได้ด้วยเพื่อความสะดวก
+  # Allow manual trigger for convenience
   workflow_dispatch:
 
 jobs:
@@ -25,17 +25,17 @@ jobs:
           HF_USERNAME: ntwkkm
           SPACE_NAME: patchstat
         run: |
-          # 1. ตั้งค่า Git User
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "GitHub Actions"
+          # 1. Configure Git (local scoping for better privacy/quality)
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions"
 
-          # 2. ติดตั้ง Git Xet ลงใน Git config
+          # 2. Install Git Xet extension
           git xet install
 
-          # 2.5 ตั้งค่า LFS ให้ข้ามไฟล์ที่หายไป (Safety measure)
+          # 2.5 LFS Security: Allow push even if some objects are missing (safety measure)
           git config lfs.allowincompletepush true
 
-          # 3. เพิ่ม Remote URL
+          # 3. Setup authentication using GIT_ASKPASS
           cat > /tmp/git-askpass.sh <<'EOF'
           #!/bin/sh
           case "$1" in
@@ -46,6 +46,8 @@ jobs:
           chmod 700 /tmp/git-askpass.sh
 
           git remote add space https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
-          # 4. สั่ง Push
-          # HEAD:main หมายถึง "เอา Code ปัจจุบัน (ไม่ว่าจะอยู่ branch ไหน) ไปยัดใส่ branch main ของ Hugging Face"
+
+          # 4. Force push
+          # HEAD:main ensures that the current commit (from any source branch) 
+          # is pushed to the 'main' branch of the Hugging Face Space.
           GIT_ASKPASS=/tmp/git-askpass.sh GIT_TERMINAL_PROMPT=0 git push --force space HEAD:main
