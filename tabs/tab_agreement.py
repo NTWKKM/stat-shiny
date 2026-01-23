@@ -12,7 +12,7 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
-from utils import correlation, diag_test
+from utils import diag_test
 from utils.formatting import create_missing_data_report_html
 from utils.ui_helpers import (
     create_error_alert,
@@ -208,8 +208,12 @@ def agreement_server(
     # --- Dataset Selection Logic ---
     @reactive.Calc
     def current_df() -> pd.DataFrame | None:
-        if is_matched.get() and input.radio_source() == "matched":
-            return df_matched.get()
+        if is_matched.get():
+            try:
+                if input.radio_source() == "matched":
+                    return df_matched.get()
+            except Exception:
+                pass
         return df.get()
 
     @render.ui
@@ -288,7 +292,7 @@ def agreement_server(
             default_to_first=True,
         )
         return ui.input_select(
-            "sel_kappa_v2", "Rater/Method 2:", choices=cols, selected=default
+            "sel_kappa_v2", "Rater/Method 2:", choices=rem_cols, selected=default
         )
 
     # --- Bland-Altman Inputs ---
@@ -518,7 +522,7 @@ def agreement_server(
                             ),
                         }
                     )
-                icc_html.set(correlation.generate_report("ICC Reliability Report", rep))
+                icc_html.set(diag_test.generate_report("ICC Reliability Report", rep))
         except Exception as e:
             logger.exception("ICC failed")
             icc_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")

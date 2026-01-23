@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -513,10 +515,13 @@ def advanced_inference_server(
             diag_results.set(None)
             ui.notification_show("Running Diagnostics...", duration=None, id="run_diag")
 
-            d = current_df().dropna()
             y_col = input.diag_outcome()
             x_col = input.diag_predictor()
             covars = list(input.diag_covariates()) if input.diag_covariates() else []
+
+            # Select required columns first, then drop missing
+            required_cols = [y_col, x_col] + covars
+            d = current_df()[required_cols].dropna()
 
             # Fit OLS for diagnostics
             X = d[[x_col] + covars]
@@ -618,9 +623,14 @@ def advanced_inference_server(
         if not res or not res["influential_points"]:
             return None
 
-        # Show top influential points
-        d = current_df().iloc[res["influential_points"]]
-        return d.head(10)  # Show top 10
+        # Show top 10 influential points by Cook's D
+        influential_indices = res["influential_points"]
+        cooks_values = res["cooks_d"][influential_indices]
+        # Sort by Cook's D descending and take top 10
+        sorted_order = np.argsort(cooks_values)[::-1][:10]
+        top_indices = [influential_indices[i] for i in sorted_order]
+        d = current_df().iloc[top_indices]
+        return d
 
     @render.text
     def txt_cooks_summary():
