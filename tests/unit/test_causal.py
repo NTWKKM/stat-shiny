@@ -110,23 +110,24 @@ def test_calculate_ps_separation():
             + [1] * 10,  # Perfect correlation with X if X is sorted
         }
     )
-    # This might log warning or return probabilities close to 0/1
-    # statsmodels Logit might raise PerfectSeparationError
-    try:
-        ps, _ = calculate_ps(df, "Treatment", ["X"])
-        # If successful, check range
+    ps, meta = calculate_ps(df, "Treatment", ["X"])
+    if "error" in meta:
+        assert (
+            "Perfect separation" in meta["error"]
+            or "separation" in meta["error"].lower()
+        )
+    else:
+        # If successful (some solvers might handle it), check range
         assert ps.min() >= 0
         assert ps.max() <= 1
-    except Exception:
-        # If it raises, that's also an acceptable outcome for perfect separation
-        pass
 
 
 def test_check_balance_missing_cols():
     """Test error when cols are missing."""
     df = pd.DataFrame({"A": [1, 2], "T": [0, 1]})
-    with pytest.raises(KeyError):
-        check_balance(df, "T", ["B"])  # B missing
+    res = check_balance(df, "T", ["B"])  # B missing
+    assert res.empty
+    assert "Covariate" in res.columns
 
 
 def test_calculate_e_value_invalid():

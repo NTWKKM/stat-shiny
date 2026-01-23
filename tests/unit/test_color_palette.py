@@ -32,7 +32,6 @@ def get_styling_data():
         from tabs._common import get_color_palette
     except ImportError as e:
         pytest.skip(f"Could not import from tabs._common: {e}")
-        return None
     else:
         palette = get_color_palette()
         return {"colors": palette, "fetcher": get_color_palette}
@@ -40,7 +39,7 @@ def get_styling_data():
 
 def test_styling_files_exist():
     """Verify that both styling system files exist."""
-    # แก้ไข path: ใช้ PROJECT_ROOT ที่ถูกต้องแทนการคำนวณใหม่
+    # Fix path: Use the correct PROJECT_ROOT instead of recalculating.
     base_path = PROJECT_ROOT / "tabs"
 
     # Debug info ในกรณีที่ test fail
@@ -48,12 +47,12 @@ def test_styling_files_exist():
         print(f"\nDEBUG: Looking for _common.py at {base_path / '_common.py'}")
         print(f"DEBUG: Current working dir: {Path.cwd()}")
 
-    assert (
-        base_path / "_common.py"
-    ).exists(), f"tabs/_common.py is missing at {base_path}"
-    assert (
-        base_path / "_styling.py"
-    ).exists(), f"tabs/_styling.py is missing at {base_path}"
+    assert (base_path / "_common.py").exists(), (
+        f"tabs/_common.py is missing at {base_path}"
+    )
+    assert (base_path / "_styling.py").exists(), (
+        f"tabs/_styling.py is missing at {base_path}"
+    )
 
 
 def test_essential_ui_colors():
@@ -92,9 +91,9 @@ def test_color_format_validity():
     hex_regex = re.compile(r"^#([A-Fa-f0-9]{3}){1,2}$")
 
     for key, hex_val in palette.items():
-        assert hex_regex.match(
-            hex_val
-        ), f"Color '{key}' has invalid HEX format: {hex_val}"
+        assert hex_regex.match(hex_val), (
+            f"Color '{key}' has invalid HEX format: {hex_val}"
+        )
 
 
 def test_styling_injector_integration():
@@ -121,9 +120,9 @@ def test_styling_injector_integration():
         # Verify it pulls the primary color from common.py
         data = get_styling_data()
         primary_hex = data["colors"]["primary"]
-        assert (
-            primary_hex in css_content
-        ), "Generated CSS does not contain the primary color from _common.py"
+        assert primary_hex in css_content, (
+            "Generated CSS does not contain the primary color from _common.py"
+        )
 
     except ImportError as e:
         # if ImportError shiny choose skip instead of fail for pass pipeline
@@ -142,9 +141,9 @@ def test_no_hardcoded_old_colors():
     # Check old key
     old_keys = ["text_primary", "bg_main"]
     for old_key in old_keys:
-        assert (
-            old_key not in palette
-        ), f"Old key '{old_key}' found, please use the new naming convention"
+        assert old_key not in palette, (
+            f"Old key '{old_key}' found, please use the new naming convention"
+        )
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import ast
 import re
 import sys
 from pathlib import Path
@@ -18,6 +19,17 @@ def palette():
     return get_color_palette()
 
 
+def normalize_css(css: str) -> str:
+    """Normalize CSS by removing comments and extra whitespace."""
+    # Remove comments
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    # Remove repetitive whitespace
+    css = re.sub(r"\s+", " ", css)
+    # Remove whitespace around special characters
+    css = re.sub(r"\s*([{}:;,])\s*", r"\1", css)
+    return css.strip()
+
+
 def test_css_variables_consistency(palette):
     """Verify that tabs/_styling.py uses the central palette for its CSS variables."""
     styling_path = PROJECT_ROOT / "tabs" / "_styling.py"
@@ -31,9 +43,9 @@ def test_css_variables_consistency(palette):
         # Note: some keys might be mapped differently or missing in _styling.py
         # but the primary ones should be there.
         if key in ["primary", "success", "danger", "warning"]:
-            assert re.search(
-                var_pattern, content
-            ), f"Color '{key}' not correctly mapped in tabs/_styling.py"
+            assert re.search(var_pattern, content), (
+                f"Color '{key}' not correctly mapped in tabs/_styling.py"
+            )
 
 
 def test_compiled_css_sync():
@@ -53,15 +65,15 @@ def test_compiled_css_sync():
     with open(compiled_css_path, "r") as f:
         compiled_css = f.read()
 
-    # We check if the core variables match. Exact string match might fail due to headers/comments.
-    # Check first 500 characters of the content after the header
-    header_end = compiled_css.find("*/") + 2
-    if header_end > 1:
-        pure_compiled = compiled_css[header_end:].strip()
-        # Compare first few lines to ensure they are in sync
-        assert (
-            pure_compiled[:200] in generated_css
-        ), "static/styles.css is out of sync with tabs/_styling.py. Run python utils/update_css.py"
+    # Use normalization for robust comparison
+    norm_generated = normalize_css(generated_css)
+    norm_compiled = normalize_css(compiled_css)
+
+    # Check if generated content is part of compiled content (compiled might have extra stuff)
+    # Check first few fragments
+    assert norm_generated[:200] in norm_compiled, (
+        "static/styles.css is out of sync with tabs/_styling.py. Run python utils/update_css.py"
+    )
 
 
 def test_plotly_renderer_consistency(palette):
@@ -74,13 +86,12 @@ def test_plotly_renderer_consistency(palette):
     assert "'Inter'" in content, "Plotly renderer should use 'Inter' font"
 
     # Check for sync with some neutral colors (smoke_white/border)
-    # Placeholder background #f9fafb is COLORS['background']
-    assert (
-        palette["background"].lower() in content.lower()
-    ), "Plotly renderer background color out of sync"
-    assert (
-        palette["border"].lower() in content.lower()
-    ), "Plotly renderer border color out of sync"
+    assert palette["background"].lower() in content.lower(), (
+        "Plotly renderer background color out of sync"
+    )
+    assert palette["border"].lower() in content.lower(), (
+        "Plotly renderer border color out of sync"
+    )
 
 
 def test_forest_plot_consistency(palette):
@@ -89,11 +100,34 @@ def test_forest_plot_consistency(palette):
     with open(forest_path, "r") as f:
         content = f.read()
 
-    # Check if it imports and uses COLORS
-    assert "from tabs._common import get_color_palette" in content
-    assert "COLORS = get_color_palette()" in content
+    tree = ast.parse(content)
 
-    # Check for hardcoded legacy colors (e.g., #21808d from the docstring/error)
+    # Check for import
+    has_import = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "tabs._common"
+        and any(alias.name == "get_color_palette" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    assert has_import, "forest_plot_lib.py should import get_color_palette"
+
+    # Check for assignment COLORS = get_color_palette()
+    has_assignment = any(
+        isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "COLORS"
+            for target in node.targets
+        )
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "get_color_palette"
+        for node in ast.walk(tree)
+    )
+    assert has_assignment, (
+        "forest_plot_lib.py should assign COLORS = get_color_palette()"
+    )
+
+    # Check for legacy color
     legacy_teal = "#21808d"
     assert legacy_teal not in content, "Legacy teal color found in forest_plot_lib.py"
 
@@ -104,16 +138,7 @@ def test_formatting_consistency(palette):
     with open(formatting_path, "r") as f:
         content = f.read()
 
-    # Formatting.py has a local 'colors' dict in get_badge_html
-    # Check if at least some colors match or are close to the palette
-    # Success in formatting.py: #d4edda (bg), #155724 (color)
-    # Success in palette: #22A765
-
-    # We verify it uses CONFIG-driven styles where possible
     assert "from config import CONFIG" in content
-
-    # Check if 'Inter' is mentioned in creation_missing_data_report_html or similar?
-    # Actually formatting.py doesn't seem to set font-family globally, but uses system defaults.
 
 
 def test_custom_handlers_js_integrity():

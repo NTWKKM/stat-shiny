@@ -55,6 +55,19 @@ def analyze_mediation(
         if df_clean.empty:
             return {"error": "No valid data after cleaning."}
 
+        # Check for constant variables (Treatment and Mediator MUST vary)
+        if df_clean[treatment].nunique() <= 1:
+            return {"error": f"Treatment variable '{treatment}' is constant."}
+        if df_clean[mediator].nunique() <= 1:
+            return {"error": f"Mediator variable '{mediator}' is constant."}
+
+        # Check for perfect collinearity between Treatment and Mediator
+        # Using correlation for a quick check
+        if len(df_clean) > 1:
+            corr = df_clean[[treatment, mediator]].corr().iloc[0, 1]
+            if abs(corr) > 1.0 - 1e-12:
+                return {"error": "Perfect collinearity between Treatment and Mediator."}
+
         # 1. Total Effect (c): Y ~ X + C
         X_total = df_clean[[treatment]]
         if confounders:

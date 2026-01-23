@@ -79,12 +79,8 @@ def corr_ui() -> ui.TagChild:
                             choices={"pearson": "Pearson", "spearman": "Spearman"},
                             selected="pearson",
                         ),
-                        ui.input_select(
-                            "cv1", "Variable 1 (X-axis):", choices=["Select..."]
-                        ),
-                        ui.input_select(
-                            "cv2", "Variable 2 (Y-axis):", choices=["Select..."]
-                        ),
+                        ui.output_ui("ui_cv1"),
+                        ui.output_ui("ui_cv2"),
                         type="required",
                     ),
                     ui.output_ui("out_corr_validation"),
@@ -114,16 +110,7 @@ def corr_ui() -> ui.TagChild:
                     ui.card_header("Correlation Matrix & Heatmap"),
                     create_input_group(
                         "Variables & Method",
-                        ui.input_selectize(
-                            "matrix_vars",
-                            create_tooltip_label(
-                                "Select Variables (Multi-select)",
-                                "Choose continuous variables for matrix.",
-                            ),
-                            choices=["Select..."],
-                            multiple=True,
-                            selected=[],
-                        ),
+                        ui.output_ui("ui_matrix_vars"),
                         ui.input_select(
                             "matrix_method",
                             "Correlation Method:",
@@ -248,10 +235,6 @@ def corr_server(
         None
     )  # Matrix result
 
-    numeric_cols_list: reactive.Value[list[str]] = reactive.Value(
-        []
-    )  # List of numeric columns
-
     # Running States
     corr_is_running = reactive.Value(False)
     matrix_is_running = reactive.Value(False)
@@ -261,7 +244,8 @@ def corr_server(
     @reactive.Calc
     def current_df() -> pd.DataFrame | None:
         """Select between original and matched dataset based on user preference."""
-        if is_matched.get() and input.radio_corr_source() == "matched":
+        source = getattr(input, "radio_corr_source", lambda: None)()
+        if is_matched.get() and source == "matched":
             return df_matched.get()
         return df.get()
 
@@ -311,33 +295,51 @@ def corr_server(
             )
         return None
 
-    # ==================== UPDATE NUMERIC COLUMNS ====================
+    # ==================== UPDATE DYNAMIC INPUTS ====================
 
-    @reactive.Effect
-    def _update_numeric_cols():
-        """Update list of numeric columns when data changes."""
+    @render.ui
+    def ui_cv1():
+        """Render Variable 1 selector with smart defaults."""
         data = current_df()
         if data is None:
-            return
+            return ui.input_select("cv1", "Variable 1 (X-axis):", choices=["Select..."])
 
-        cols = data.columns.tolist()
-        numeric_cols_list.set(data.select_dtypes(include=[np.number]).columns.tolist())
-        num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(data[c])]
-
-        # Update Pairwise Correlation Inputs
-        # Default: Lab_HbA1c vs Lab_Glucose
-        default_cv1 = select_variable_by_keyword(
+        num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+        default_v = select_variable_by_keyword(
             num_cols, ["glucose", "lab_glucose", "var1"], default_to_first=True
         )
-        default_cv2 = select_variable_by_keyword(
-            num_cols, ["hba1c", "lab_hba1c", "var2"], default_to_first=True
+        return ui.input_select(
+            "cv1", "Variable 1 (X-axis):", choices=num_cols, selected=default_v
         )
 
-        ui.update_select("cv1", choices=num_cols, selected=default_cv1)
-        ui.update_select("cv2", choices=num_cols, selected=default_cv2)
+    @render.ui
+    def ui_cv2():
+        """Render Variable 2 selector with smart defaults."""
+        data = current_df()
+        if data is None:
+            return ui.input_select("cv2", "Variable 2 (Y-axis):", choices=["Select..."])
+
+        num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+        default_v = select_variable_by_keyword(
+            num_cols, ["hba1c", "lab_hba1c", "var2"], default_to_first=True
+        )
+        return ui.input_select(
+            "cv2", "Variable 2 (Y-axis):", choices=num_cols, selected=default_v
+        )
+
+    @render.ui
+    def ui_matrix_vars():
+        """Render Matrix variables selector with defaults."""
+        data = current_df()
+        if data is None:
+            return ui.input_selectize(
+                "matrix_vars", "Select Variables:", choices=["Select..."], multiple=True
+            )
+
+        cols = data.columns.tolist()
+        num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
 
         # Update Matrix/Heatmap Inputs
-        # Default: treatment, age, sex, bmi, comorbidities, statin, cost, diagnosis
         desired_keywords = [
             "treatment_group",
             "group",
@@ -353,20 +355,26 @@ def corr_server(
             "dr_",
         ]
 
-        # Filter columns that verify against these keywords (partial match)
         def_matrix = []
         for kw in desired_keywords:
-            # Find columns matching this keyword
             matches = [c for c in cols if kw.lower() in c.lower()]
             for m in matches:
-                if m not in def_matrix:  # Avoid duplicates
+                if m not in def_matrix:
                     def_matrix.append(m)
 
-        # If we found nothing specific, fall back to first 5 numeric
         if not def_matrix:
             def_matrix = num_cols[:5] if len(num_cols) >= 5 else num_cols
 
-        ui.update_selectize("matrix_vars", choices=cols, selected=def_matrix)
+        return ui.input_selectize(
+            "matrix_vars",
+            create_tooltip_label(
+                "Select Variables (Multi-select)",
+                "Choose continuous variables for matrix.",
+            ),
+            choices=num_cols,
+            multiple=True,
+            selected=def_matrix,
+        )
 
     # ==================== PAIRWISE CORRELATION ====================
 

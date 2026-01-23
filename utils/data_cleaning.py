@@ -1017,12 +1017,18 @@ def prepare_data_for_analysis(
                 )
 
         # 5. Handle Missing Data
-        if handle_missing in ["complete_case", "complete-case"]:
+        strategy = handle_missing.lower().replace("_", "-")
+        if strategy == "complete-case":
             df_clean = df_subset.dropna()
             rows_excluded = original_rows - len(df_clean)
-        else:
+        elif strategy in ["none", "pairwise"]:
             df_clean = df_subset
             rows_excluded = 0
+        else:
+            raise ValueError(
+                f"Unknown missing data strategy: '{handle_missing}'. "
+                f"Supported: 'complete-case', 'none', 'pairwise'"
+            )
 
         if df_clean.empty:
             raise DataValidationError(
@@ -1030,7 +1036,7 @@ def prepare_data_for_analysis(
             )
 
         info = {
-            "strategy": handle_missing,
+            "strategy": strategy,
             "rows_original": original_rows,
             "rows_analyzed": len(df_clean),
             "rows_excluded": rows_excluded,
@@ -1041,7 +1047,10 @@ def prepare_data_for_analysis(
         logger.info(
             f"Data prepared: {original_rows} -> {len(df_clean)} rows (excluded {rows_excluded})"
         )
-        return df_clean, info
+
+        if return_info:
+            return df_clean, info
+        return df_clean
 
     except Exception as e:
         logger.exception("Failed to prepare data for analysis")

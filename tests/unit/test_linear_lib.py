@@ -662,6 +662,8 @@ class TestStepwiseSelection:
         assert "selected_vars" in result
         assert "history" in result
         assert isinstance(result["selected_vars"], list)
+        assert len(result["history"]) > 0
+        assert all("step" in s for s in result["history"])
 
     def test_backward_selection(self, sample_medical_data):
         """Test backward stepwise selection."""
@@ -680,7 +682,8 @@ class TestStepwiseSelection:
         # Fix: 'excluded_vars' is not consistently returned, check history instead
         assert "history" in result
         assert "final_model" in result
-        assert len(result["history"]) >= 0
+        assert len(result["history"]) > 0
+        assert "score" in result["history"][0]
 
     def test_both_direction_selection(self, sample_medical_data):
         """Test stepwise (both directions) selection."""
@@ -717,6 +720,8 @@ class TestStepwiseSelection:
 
         assert "Step" in history_df.columns
         assert "Action" in history_df.columns
+        assert len(history_df) > 0
+        assert "Score" in history_df.columns
 
 
 # =============================================================================
