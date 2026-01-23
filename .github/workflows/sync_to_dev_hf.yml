@@ -14,6 +14,11 @@ jobs:
           fetch-depth: 0
           lfs: true
 
+      - name: Install git-xet
+        run: |
+          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/refs/heads/main/git_xet/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -24,9 +29,12 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
 
-          # 2. เพิ่ม Remote URL
+          # 2. ติดตั้ง Git Xet ลงใน Git config
+          git xet install
+
+          # 3. เพิ่ม Remote URL
           git remote add space https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
 
-          # 3. สั่ง Push (แก้ตรงนี้)
+          # 4. สั่ง Push
           # HEAD:main หมายถึง "เอา Code ปัจจุบัน (ไม่ว่าจะอยู่ branch ไหน) ไปยัดใส่ branch main ของ Hugging Face"
           git push --force space HEAD:main
