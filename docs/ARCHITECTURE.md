@@ -70,11 +70,14 @@ The application covers a wide range of medical statistical needs, organized into
 
 The data flow is standardized to ensure consistent handling of missing values and variable metadata.
 
-### 1. Ingestion (`tab_data.py`)
+### 1. Ingestion & Quality Check (`tab_data.py` & `utils/data_quality.py`)
 
 - Users upload files (CSV/Excel) or load example data.
-- **Initial Quality Check**: Immediate identification of missingness and data types.
-- **Configuration**: Individual variable type casting and missing value strategy selection.
+- **Immediate Data Health Report**: Uses `check_data_quality()` to perform deep validation:
+  - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`) that often appear in medical data but break standard numeric parsing.
+  - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories (threshold < 5) which might lead to unstable statistical estimates.
+  - **Row-level Reporting**: Provides exact row indices and unique offending values for fast debugging.
+- **Configuration**: Individual variable type casting and missing value strategy selection based on the health report.
 
 ### 2. Central Preparation (`utils/data_cleaning.py`)
 

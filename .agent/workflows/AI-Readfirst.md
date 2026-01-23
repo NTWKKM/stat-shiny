@@ -1,5 +1,5 @@
 ---
-description: AI-AGENT-GUIDE
+description: Project guide and requirements for AI agents
 ---
 
 <!-- Keep a top-level heading for MD041 -->
