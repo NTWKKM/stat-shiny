@@ -374,7 +374,9 @@ def agreement_server(
                 kappa_html.set(diag_test.generate_report(f"Kappa: {v1} vs {v2}", rep))
         except Exception as e:
             logger.exception("Kappa failed")
-            kappa_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+            kappa_html.set(
+                f"<div class='alert alert-danger'>Error: {_html.escape(str(e))}</div>"
+            )
         finally:
             kappa_processing.set(False)
 
@@ -453,7 +455,9 @@ def agreement_server(
                 )
         except Exception as e:
             logger.exception("Bland-Altman failed")
-            ba_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+            ba_html.set(
+                f"<div class='alert alert-danger'>Error: {_html.escape(str(e))}</div>"
+            )
         finally:
             ba_processing.set(False)
 
@@ -502,7 +506,9 @@ def agreement_server(
                         else (
                             "Good"
                             if val > 0.75
-                            else "Moderate" if val > 0.5 else "Poor"
+                            else "Moderate"
+                            if val > 0.5
+                            else "Poor"
                         )
                     )
                     icon = "✅" if val > 0.75 else "⚠️" if val > 0.5 else "❌"
@@ -538,7 +544,9 @@ def agreement_server(
                 icc_html.set(diag_test.generate_report("ICC Reliability Report", rep))
         except Exception as e:
             logger.exception("ICC failed")
-            icc_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+            icc_html.set(
+                f"<div class='alert alert-danger'>Error: {_html.escape(str(e))}</div>"
+            )
         finally:
             icc_processing.set(False)
 

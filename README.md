@@ -327,7 +327,7 @@ If you use VS Code, you can open the project in a pre-configured [Dev Container]
   - **Core**: SciPy, Statsmodels (OLS, GLM, GEE, MixedLM)
   - **Machine Learning**: Scikit-learn
   - **Survival**: Lifelines (KM, CoxPH)
-  - **Causal Inference**: EconML, PsmPy (implied)
+  - **Causal Inference**: EconML, PsmPy
   - **Advanced**: FirthModels (Penalized Logistic)
 - **Visualization**: Plotly (Interactive), Matplotlib, Seaborn
 - **Quality & Testing**: Pytest, Playwright, Ruff
