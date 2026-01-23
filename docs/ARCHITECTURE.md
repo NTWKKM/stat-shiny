@@ -41,7 +41,10 @@ The application uses a centralized styling system to ensure visual consistency a
 | `utils/update_css.py` | **Sync Utility** | Script to update `static/styles.css` whenever `_styling.py` changes. |
 
 > [!TIP]
-> **To update styles**: Edit `tabs/_styling.py` then run `.venv/bin/python utils/update_css.py`.
+**To update styles**: Edit `tabs/_styling.py` then run:
+
+- Unix/Linux/macOS: `.venv/bin/python utils/update_css.py`
+- Windows: `.venv\Scripts\python.exe utils/update_css.py`
 
 ### Visual Consistency (Plotly & HTML)
 

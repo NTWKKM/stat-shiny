@@ -29,6 +29,7 @@ from utils.ui_helpers import (
     create_placeholder_state,
     create_results_container,
 )
+from utils.formatting import create_missing_data_report_html
 
 COLORS = get_color_palette()
 
@@ -365,8 +366,6 @@ def advanced_inference_server(
         if "error" in res:
             return create_error_alert(res["error"])
 
-        from utils.formatting import create_missing_data_report_html
-
         return ui.div(
             ui.output_data_frame("tbl_mediation"),
             # Missing Data Report
@@ -538,6 +537,20 @@ def advanced_inference_server(
                     type="warning",
                 )
             Y = pd.to_numeric(Y, errors="coerce")
+
+            # Drop rows where Y became NaN after coercion
+            valid_mask = ~Y.isna()
+            if valid_mask.sum() < len(Y):
+                n_dropped = len(Y) - valid_mask.sum()
+                ui.notification_show(
+                    f"{n_dropped} rows dropped due to non-numeric outcome values",
+                    type="warning",
+                )
+                X = X.loc[valid_mask]
+                Y = Y.loc[valid_mask]
+
+            if len(Y) < X.shape[1] + 1:
+                raise ValueError("Insufficient observations after cleaning")
 
             model = sm.OLS(Y, X).fit()
 
