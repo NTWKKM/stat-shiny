@@ -49,7 +49,7 @@ def test_run_gee(mock_longitudinal_data):
     df = mock_longitudinal_data
 
     # Test Basic GEE
-    results = run_gee(
+    results, missing_info = run_gee(
         df,
         outcome_col="Outcome",
         treatment_col="Group",
@@ -70,7 +70,7 @@ def test_run_gee(mock_longitudinal_data):
     ), f"Time not found in params: {param_names}"
 
     # Test with different correlation structure
-    results_indep = run_gee(
+    results_indep, _ = run_gee(
         df,
         outcome_col="Outcome",
         treatment_col="Group",
@@ -87,7 +87,7 @@ def test_run_lmm(mock_longitudinal_data):
     df = mock_longitudinal_data
 
     # Test Basic LMM (Random Intercept)
-    results = run_lmm(
+    results, _ = run_lmm(
         df,
         outcome_col="Outcome",
         treatment_col="Group",
@@ -104,7 +104,7 @@ def test_run_lmm(mock_longitudinal_data):
     ), f"Group not found in params: {param_names}"
 
     # Test LMM with Random Slope
-    results_slope = run_lmm(
+    results_slope, _ = run_lmm(
         df,
         outcome_col="Outcome",
         treatment_col="Group",

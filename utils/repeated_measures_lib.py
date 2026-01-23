@@ -87,10 +87,10 @@ def run_gee(
             cov_struct=covariance,
         )
         results = model.fit()
-        return results
+        return results, _missing_info
     except Exception as e:
         logger.exception("GEE failed")
-        return {"error": f"Error running GEE: {str(e)}"}
+        return {"error": f"Error running GEE: {str(e)}"}, {}
 
 
 def run_lmm(
@@ -152,10 +152,10 @@ def run_lmm(
             model = MixedLM.from_formula(formula, groups=subject_col, data=df_clean)
 
         results = model.fit()
-        return results
+        return results, _missing_info
     except Exception as e:
         logger.exception("LMM failed")
-        return {"error": f"Error running LMM: {str(e)}"}
+        return {"error": f"Error running LMM: {str(e)}"}, {}
 
 
 def create_trajectory_plot(

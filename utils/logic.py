@@ -1042,7 +1042,7 @@ def analyze_outcome(
             if not vif_df.empty:
                 vif_rows = []
                 for _, row in vif_df.iterrows():
-                    feat = html.escape(str(row["feature"]).replace("::", ": "))
+                    feat = html.escape(str(row["Variable"]).replace("::", ": "))
                     val = row["VIF"]
 
                     if np.isinf(val):

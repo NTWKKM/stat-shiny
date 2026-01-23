@@ -674,12 +674,17 @@ def analyze_linear_outcome(
     predictor_cols: list[str] | None = None,
     regression_type: Literal["ols", "robust"] = "ols",
     var_meta: dict[str, dict[str, Any]] | None = None,
+    exclude_cols: list[str] | None = None,
+    robust_se: bool = False,
 ) -> tuple[str, OLSResult, dict[str, go.Figure], dict[str, Any]]:
     """High-level API to run full linear regression pipeline and return HTML report."""
     if predictor_cols is None or len(predictor_cols) == 0:
         # Auto-select numeric predictors excluding outcome
         numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
         predictor_cols = [c for c in numeric_cols if c != outcome_name]
+
+    if exclude_cols:
+        predictor_cols = [c for c in predictor_cols if c not in exclude_cols]
 
     # Prepare data
     df_clean, missing_info = prepare_data_for_ols(
@@ -690,7 +695,9 @@ def analyze_linear_outcome(
     if regression_type == "robust":
         results = run_robust_regression(df_clean, outcome_name, predictor_cols)
     else:
-        results = run_ols_regression(df_clean, outcome_name, predictor_cols)
+        results = run_ols_regression(
+            df_clean, outcome_name, predictor_cols, robust_se=robust_se
+        )
 
     # Diagnostics and plots
     diagnostics = run_diagnostic_tests(results)
