@@ -16,9 +16,7 @@ jobs:
 
       - name: Install git-xet
         run: |
-          set -euo pipefail
-          GIT_XET_VERSION="v0.2.0"
-          curl -fssL "https://raw.githubusercontent.com/huggingface/xet-core/${GIT_XET_VERSION}/git_xet/install.sh" | bash
+          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/refs/heads/main/git_xet/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Push to Hub
