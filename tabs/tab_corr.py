@@ -438,7 +438,8 @@ def corr_server(
                 ui.notification_show("Analysis failed", type="error")
             else:
                 # Determine data label
-                if is_matched.get() and input.radio_corr_source() == "matched":
+                source = getattr(input, "radio_corr_source", lambda: None)()
+                if is_matched.get() and source == "matched":
                     data_label = f"✅ Matched Data ({len(data)} rows)"
                 else:
                     data_label = f"📊 Original Data ({len(data)} rows)"
@@ -699,7 +700,8 @@ def corr_server(
 
             if corr_matrix is not None:
                 # Determine data label
-                if is_matched.get() and input.radio_corr_source() == "matched":
+                source = getattr(input, "radio_corr_source", lambda: None)()
+                if is_matched.get() and source == "matched":
                     data_label = f"✅ Matched Data ({len(data)} rows)"
                 else:
                     data_label = f"📊 Original Data ({len(data)} rows)"

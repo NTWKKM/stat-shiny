@@ -87,6 +87,7 @@ app_ui = ui.page_fluid(
         ui.tags.link(rel="stylesheet", href="static/styles.css"),
         # ✅ Custom JS Handlers
         ui.tags.script(src="static/js/custom_handlers.js"),
+        ui.tags.style(".navbar-brand { font-size: 1.5rem !important; }"),
     ),
     ui.page_navbar(
         # ========================================
@@ -189,15 +190,8 @@ app_ui = ui.page_fluid(
         ),
         id="main_nav",
         header=ui.tags.div(
-            ui.tags.div(id="main-content"),
-            ui.tags.head(
-                ui.tags.style(
-                    """
-                .navbar-brand { font-size: 1.5rem !important; }
-                """
-                )
-            ),
-        ),
++            ui.tags.div(id="main-content"),
++        ),
         footer=ui.div(
             footer_ui,
             class_="main-footer",
