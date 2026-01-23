@@ -68,7 +68,7 @@ def data_ui() -> ui.TagChild:
             # 1. Variable Settings Card (3-column layout with Missing Data Config)
             ui.accordion(
                 ui.accordion_panel(
-                    "var_config",
+                    # FIX: เพิ่ม value="var_config" เพราะ title เป็น UI Element (span) ไม่ใช่ string
                     ui.tags.span("🛠️ Variable Configuration", class_="fw-bold"),
                     ui.layout_columns(
                         # LEFT COLUMN: Variable Selection
@@ -111,6 +111,7 @@ def data_ui() -> ui.TagChild:
                         ),
                         col_widths=(3, 6, 3),
                     ),
+                    value="var_config",  # <--- Added value parameter here
                 ),
                 open=True,
                 id="acc_var_config",
@@ -1044,7 +1045,7 @@ def data_server(
 
         return ui.accordion(
             ui.accordion_panel(
-                "data_quality_alerts",
+                # FIX: เพิ่ม value="quality_alerts" เพราะ title เป็น UI Element (div) ไม่ใช่ string
                 ui.div(
                     ui.tags.span(
                         "🧐 Data Quality Alerts", class_="fw-bold text-warning"
@@ -1065,6 +1066,7 @@ def data_server(
                         "> These issues might impact statistical analysis results. Consider cleaning these values in the original file."
                     ),
                 ),
+                value="quality_alerts",  # <--- Added value parameter here
             ),
             open=False,
             id="acc_quality_warnings",
