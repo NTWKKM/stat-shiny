@@ -244,7 +244,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # 3. CALL MODULES SERVER (LAZY LOADING)
     # ==========================================
 
-    # --- Eager Loading (Core Tabs) ---
+    # --- Eager Loading (Core & Statistical Tabs) ---
     tab_home.home_server("home")
 
     tab_data.data_server(
@@ -270,93 +270,21 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 
     tab_settings.settings_server("settings", CONFIG)
 
-    # --- Lazy Loading (Heavy/Secondary Tabs) ---
-    # Store loaded state locally in the server function
-    loaded_modules: set[str] = set()
-
-    @reactive.Effect
-    def _lazy_load_tabs():
-        current_tab = input.main_nav()
-        loaded = loaded_modules
-
-        # Helper to load module once
-        def load_module(name, loader_func):
-            if name not in loaded:
-                with ui.Progress(min=0, max=1) as p:
-                    p.set(
-                        message=f"Loading {name} module...",
-                        detail="This may take a moment",
-                    )
-                    logger.info(f"⚡ Lazy Loading Module: {name}")
-                    loader_func()
-                    loaded.add(name)
-
-        # Map tab names (from UI) to module loaders
-        # Note: Tab names must match ui.nav_panel titles EXACTLY
-
-        # General Stats
-        if current_tab == TabNames.DIAGNOSTIC:
-            load_module(
-                "diag",
-                lambda: tab_diag.diag_server(
-                    "diag", df, var_meta, df_matched, is_matched
-                ),
-            )
-
-        elif current_tab == TabNames.CORRELATION:
-            load_module(
-                "corr",
-                lambda: tab_corr.corr_server(
-                    "corr", df, var_meta, df_matched, is_matched
-                ),
-            )
-
-        elif current_tab == TabNames.AGREEMENT:
-            load_module(
-                "agreement",
-                lambda: tab_agreement.agreement_server(
-                    "agreement", df, var_meta, df_matched, is_matched
-                ),
-            )
-
-        # Advanced Statistics
-        elif current_tab == TabNames.REGRESSION:
-            load_module(
-                "core_reg",
-                lambda: tab_core_regression.core_regression_server(
-                    "core_reg", df, var_meta, df_matched, is_matched
-                ),
-            )
-
-        elif current_tab == TabNames.SURVIVAL:
-            load_module(
-                "survival",
-                lambda: tab_survival.survival_server(
-                    "survival", df, var_meta, df_matched, is_matched
-                ),
-            )
-
-        elif current_tab == TabNames.ADVANCED_REGRESSION:
-            load_module(
-                "adv_inf",
-                lambda: tab_advanced_inference.advanced_inference_server(
-                    "adv_inf", df, var_meta, df_matched, is_matched
-                ),
-            )
-
-        # Clinical
-        elif current_tab == TabNames.CAUSAL:
-            load_module(
-                "causal",
-                lambda: tab_causal_inference.causal_inference_server(
-                    "causal", df, var_meta, df_matched, is_matched
-                ),
-            )
-
-        elif current_tab == TabNames.SAMPLE_SIZE:
-            load_module(
-                "sample_size", lambda: tab_sample_size.sample_size_server("sample_size")
-            )
+    # Statistical & Clinical Modules (Eager)
+    tab_diag.diag_server("diag", df, var_meta, df_matched, is_matched)
+    tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched)
+    tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched)
+    tab_core_regression.core_regression_server(
+        "core_reg", df, var_meta, df_matched, is_matched
+    )
+    tab_survival.survival_server("survival", df, var_meta, df_matched, is_matched)
+    tab_advanced_inference.advanced_inference_server(
+        "adv_inf", df, var_meta, df_matched, is_matched
+    )
+    tab_causal_inference.causal_inference_server(
+        "causal", df, var_meta, df_matched, is_matched
+    )
+    tab_sample_size.sample_size_server("sample_size")
 
 
 # ==========================================
