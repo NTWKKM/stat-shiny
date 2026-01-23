@@ -1,11 +1,17 @@
 # Agent Rules
 
-0. **Architecture First**: Before any logic change, read `docs/ARCHITECTURE.md`.
+0. **Rule 0: Architecture First**: Before any logic change, read `docs/ARCHITECTURE.md`.
 
 1. **Python Environment**: always use `.venv` for Python commands.
-   - Run python scripts: `.venv/bin/python script.py`
-   - Run tests: `.venv/bin/pytest`
-   - Install packages: `.venv/bin/pip install ...`
+   - Run python scripts:
+     - POSIX: `.venv/bin/python script.py`
+     - Windows: `.venv\Scripts\python script.py`
+   - Run tests:
+     - POSIX: `.venv/bin/pytest`
+     - Windows: `.venv\Scripts\pytest`
+   - Install packages:
+     - POSIX: `.venv/bin/pip install ...`
+     - Windows: `.venv\Scripts\pip install ...`
 
 2. **Python Version**: This project strictly requires Python 3.12+. The system default (3.9) will fail.
 
