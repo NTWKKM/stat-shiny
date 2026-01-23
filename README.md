@@ -133,7 +133,10 @@ This application is a complete statistical workbench organized into modular tabs
 ### 📁 Data Management
 
 - **Comprehensive Data Control**: Upload CSV/Excel or load example datasets.
-- **Data Health Report**: Automated checks for missing values and data quality.
+- **Data Health Report**: Automated deep checks via `utils/data_quality.py` for:
+  - **Missing Data**: Detailed reporting of missing values with row positions.
+  - **Non-standard Numeric**: Smart detection of medical strings like `"<5"`, `">10"`, or currency.
+  - **Categorical Integrity**: Identifies numeric values in categorical text and flags rare categories (< 5 occurrences).
 - **Variable Configuration**: Interactive type casting and missing value handling.
 
 ### 📋 Baseline & Matching

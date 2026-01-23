@@ -1,9 +1,19 @@
 ---
 description: Update static CSS from _styling.py
 ---
+
+# Update CSS
+
 // turbo-all
+
 1. Run the CSS extraction script:
+
 ```bash
-python3 utils/update_css.py
+# POSIX
+.venv/bin/python utils/update_css.py
+
+# Windows
+.venv\Scripts\python utils/update_css.py
 ```
-2. Verify that `static/styles.css` has been updated.
+
+1. Verify that `static/styles.css` has been updated.
