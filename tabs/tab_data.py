@@ -66,50 +66,53 @@ def data_ui() -> ui.TagChild:
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
             # 1. Variable Settings Card (3-column layout with Missing Data Config)
-            ui.card(
-                ui.card_header(
-                    ui.tags.span("🛠️ Variable Configuration", class_="fw-bold")
-                ),
-                ui.layout_columns(
-                    # LEFT COLUMN: Variable Selection
-                    ui.div(
-                        ui.input_select(
-                            "sel_var_edit",
-                            "Select Variable to Edit:",
-                            choices=["Select..."],
-                            width="100%",
+            ui.accordion(
+                ui.accordion_panel(
+                    ui.tags.span("🛠️ Variable Configuration", class_="fw-bold"),
+                    ui.layout_columns(
+                        # LEFT COLUMN: Variable Selection
+                        ui.div(
+                            ui.input_select(
+                                "sel_var_edit",
+                                "Select Variable to Edit:",
+                                choices=["Select..."],
+                                width="100%",
+                            ),
+                            ui.markdown("""
+                                > [!NOTE]
+                                > **Categorical Mapping**: 
+                                > Format as `0=Control, 1=Treat`.
+                                """),
+                            class_="p-2",
                         ),
-                        ui.markdown("""
-                            > [!NOTE]
-                            > **Categorical Mapping**: 
-                            > Format as `0=Control, 1=Treat`.
-                            """),
-                        class_="p-2",
+                        # MIDDLE COLUMN: Variable Settings
+                        ui.div(ui.output_ui("ui_var_settings"), class_="p-2"),
+                        # RIGHT COLUMN: Missing Data Configuration
+                        ui.div(
+                            ui.h6(
+                                "🔍 Missing Data",
+                                style="margin-top: 0; color: #0066cc;",
+                            ),
+                            ui.input_text(
+                                "txt_missing_codes",
+                                "Missing Value Codes:",
+                                placeholder="e.g., -99, -999, 99",
+                                value="",
+                            ),
+                            ui.output_ui("ui_missing_preview"),
+                            ui.input_action_button(
+                                "btn_save_missing",
+                                "💾 Save Missing Config",
+                                class_="btn-secondary w-100 mt-2",
+                            ),
+                            class_="p-2",
+                            style="background-color: #f8f9fa; border-radius: 6px;",
+                        ),
+                        col_widths=(3, 6, 3),
                     ),
-                    # MIDDLE COLUMN: Variable Settings
-                    ui.div(ui.output_ui("ui_var_settings"), class_="p-2"),
-                    # RIGHT COLUMN: Missing Data Configuration
-                    ui.div(
-                        ui.h6(
-                            "🔍 Missing Data", style="margin-top: 0; color: #0066cc;"
-                        ),
-                        ui.input_text(
-                            "txt_missing_codes",
-                            "Missing Value Codes:",
-                            placeholder="e.g., -99, -999, 99",
-                            value="",
-                        ),
-                        ui.output_ui("ui_missing_preview"),
-                        ui.input_action_button(
-                            "btn_save_missing",
-                            "💾 Save Missing Config",
-                            class_="btn-secondary w-100 mt-2",
-                        ),
-                        class_="p-2",
-                        style="background-color: #f8f9fa; border-radius: 6px;",
-                    ),
-                    col_widths=(3, 6, 3),
                 ),
+                open=True,
+                id="acc_var_config",
                 class_="mb-3 shadow-sm border-0",
             ),
             # 2. Data Preview Card
@@ -1038,8 +1041,8 @@ def data_server(
             ui.tags.li(ui.markdown(w), style="margin-bottom: 8px;") for w in warnings
         ]
 
-        return ui.card(
-            ui.card_header(
+        return ui.accordion(
+            ui.accordion_panel(
                 ui.div(
                     ui.tags.span(
                         "🧐 Data Quality Alerts", class_="fw-bold text-warning"
@@ -1049,17 +1052,19 @@ def data_server(
                         class_="badge bg-warning text-dark ms-2",
                     ),
                     class_="d-flex justify-content-between align-items-center",
-                )
-            ),
-            ui.div(
-                ui.tags.ul(
-                    *list_items,
-                    style="padding-left: 20px; padding-top: 10px; padding-bottom: 10px;",
+                ),
+                ui.div(
+                    ui.tags.ul(
+                        *list_items,
+                        style="padding-left: 20px; padding-top: 10px; padding-bottom: 10px;",
+                    ),
+                    ui.markdown(
+                        "> [!TIP]\n"
+                        "> These issues might impact statistical analysis results. Consider cleaning these values in the original file."
+                    ),
                 ),
             ),
-            ui.markdown(
-                "> [!TIP]\n"
-                "> These issues might impact statistical analysis results. Consider cleaning these values in the original file."
-            ),
+            open=False,
+            id="acc_quality_warnings",
             class_="mb-3 border-warning shadow-sm",
         )
