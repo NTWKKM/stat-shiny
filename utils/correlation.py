@@ -204,7 +204,8 @@ def compute_correlation_matrix(
             )
             missing_data_info["strategy"] = strategy
             data = data_clean
-        except Exception:
+        except Exception as e:
+            logger.error(f"Data preparation for correlation matrix failed: {e}")
             return None, None, None
 
         if data.empty:
@@ -359,7 +360,8 @@ def compute_correlation_matrix(
         )
 
         return corr_matrix_rounded, fig, summary
-    except Exception:
+    except Exception as e:
+        logger.error(f"Correlation matrix computation failed: {e}")
         return None, None, None
 
 
@@ -374,9 +376,14 @@ def calculate_correlation(
     ENHANCED: Calculate correlation between two variables with pipeline integration.
     Returns (results, error_msg, figure).
     """
+    SUPPORTED_METHODS = {"pearson", "spearman", "kendall"}
+
     try:
         # Use existing matrix function for unified cleaning/logic
         cols = [var1, var2]
+
+        if method not in SUPPORTED_METHODS:
+            return None, f"Unsupported correlation method: {method}", None
 
         # Determine strategy from config (matrix forces pairwise, but single pair should honor config)
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}

@@ -23,7 +23,7 @@ Modules are loaded **on-demand** to minimize initial bundle size and improve sta
 3. If not, it performs an **asynchronous import** of the tab module.
 4. Static assets (`styles.css`, `custom_handlers.js`) are served once and shared across all modules.
 
-![Navigation Workflow](file:///Users/ntwkkm/shiny-stat/stat-shiny/docs/assets/navigation_sequence.png)
+![Navigation Workflow](./assets/navigation_sequence.png)
 
 ---
 
