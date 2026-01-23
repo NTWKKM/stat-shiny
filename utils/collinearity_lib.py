@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 def calculate_vif(
     data: pd.DataFrame, predictors: list[str], var_meta: dict[str, Any] | None = None
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Calculate Variance Inflation Factor (VIF) for a list of predictors.
 
@@ -24,7 +24,7 @@ def calculate_vif(
         var_meta: Variable metadata for missing data handling
 
     Returns:
-        DataFrame with VIF results
+        Tuple of (VIF DataFrame, missing-data info dict)
     """
     try:
         if not predictors or data is None or data.empty:

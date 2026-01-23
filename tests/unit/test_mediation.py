@@ -86,16 +86,8 @@ def test_analyze_mediation_empty_data():
     # indicates invalid calculation (e.g., NaN values).
     results = analyze_mediation(df, "Y", "X", "M")
 
-    # Case 1: Function returns None or a dictionary containing an error key.
-    if results is None or "error" in results:
-        return
-
-    # Case 2: Function returns the standard dictionary structure,
-    # but the calculated values should be NaN.
-    assert "total_effect" in results
-    assert np.isnan(
-        results["total_effect"]
-    ), "Total effect should be NaN when input data is empty"
+    assert results is not None
+    assert "error" in results, "Expected an error for empty input data"
 
 
 def test_analyze_mediation_missing_columns():
