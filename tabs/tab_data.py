@@ -10,6 +10,7 @@ from shiny.types import FileInfo
 
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.data_quality import check_data_quality
 from utils.ui_helpers import (
     create_empty_state_ui,
 )
@@ -60,6 +61,8 @@ def data_ui() -> ui.TagChild:
             title="Data Management",
         ),
         ui.div(
+            # New: Data Quality Warnings
+            ui.output_ui("ui_data_quality_warnings"),
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
             # 1. Variable Settings Card (3-column layout with Missing Data Config)
@@ -139,6 +142,13 @@ def data_server(
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
     # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
     data_issues: reactive.Value[list[dict[str, Any]]] = reactive.Value([])
+
+    @reactive.Calc
+    def quality_warnings() -> list[str]:
+        data = df.get()
+        if data is None:
+            return []
+        return check_data_quality(data)
 
     # --- 1. Data Loading Logic ---
     def generate_example_data_logic():
@@ -1017,4 +1027,41 @@ def data_server(
                 "> *Note: These values are non-numeric characters found in likely continuous columns. Please clean your data source or use Data Cleaning tools.*"
             ),
             class_="mb-3 border-danger shadow-sm",
+        )
+
+    @render.ui
+    def ui_data_quality_warnings():
+        warnings = quality_warnings()
+        if not warnings:
+            return None
+
+        # Format as list of items
+        list_items = [
+            ui.tags.li(ui.markdown(w), style="margin-bottom: 8px;") for w in warnings
+        ]
+
+        return ui.card(
+            ui.card_header(
+                ui.div(
+                    ui.tags.span(
+                        "🧐 Data Quality Alerts", class_="fw-bold text-warning"
+                    ),
+                    ui.tags.span(
+                        f"{len(warnings)} affected columns",
+                        class_="badge bg-warning text-dark ms-2",
+                    ),
+                    class_="d-flex justify-content-between align-items-center",
+                )
+            ),
+            ui.div(
+                ui.tags.ul(
+                    *list_items,
+                    style="padding-left: 20px; padding-top: 10px; padding-bottom: 10px;",
+                ),
+            ),
+            ui.markdown(
+                "> [!TIP]\n"
+                "> These issues might impact statistical analysis results. Consider cleaning these values in the original file."
+            ),
+            class_="mb-3 border-warning shadow-sm",
         )

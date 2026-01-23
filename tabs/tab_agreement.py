@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as _html
 import re
 from typing import Any
 
@@ -387,7 +388,9 @@ def agreement_server(
             "Select variables and click 'Calculate Kappa'.", icon="🤝"
         )
 
-    @render.download(filename="kappa_report.html")
+    @render.download(
+        filename=lambda: f"kappa_{_safe_filename_part(input.sel_kappa_v1())}_{_safe_filename_part(input.sel_kappa_v2())}_report.html"
+    )
     def btn_dl_kappa_report():
         req(kappa_html.get())
         yield kappa_html.get()
@@ -418,11 +421,11 @@ def agreement_server(
                 stats_df = pd.DataFrame(
                     [
                         {
-                            "Mean Diff (Bias)": f"{stats_res['mean_diff']:.4f}",
-                            "95% CI Bias": f"{stats_res['ci_mean_diff'][0]:.4f} to {stats_res['ci_mean_diff'][1]:.4f}",
-                            "Upper LoA": f"{stats_res['upper_loa']:.4f}",
-                            "Lower LoA": f"{stats_res['lower_loa']:.4f}",
-                            "N (Valid Pairs)": stats_res["n"],
+                            "Mean Diff (Bias)": f"{stats_res.get('mean_diff', 0):.4f}",
+                            "95% CI Bias": f"{stats_res.get('ci_mean_diff', [0, 0])[0]:.4f} to {stats_res.get('ci_mean_diff', [0, 0])[1]:.4f}",
+                            "Upper LoA": f"{stats_res.get('upper_loa', 0):.4f}",
+                            "Lower LoA": f"{stats_res.get('lower_loa', 0):.4f}",
+                            "N (Valid Pairs)": stats_res.get("n", 0),
                         }
                     ]
                 ).T
@@ -464,7 +467,9 @@ def agreement_server(
             "Select variables and click 'Analyze Agreement'.", icon="📉"
         )
 
-    @render.download(filename="bland_altman_report.html")
+    @render.download(
+        filename=lambda: f"ba_{_safe_filename_part(input.sel_ba_v1())}_{_safe_filename_part(input.sel_ba_v2())}_report.html"
+    )
     def btn_dl_ba_report():
         req(ba_html.get())
         yield ba_html.get()
@@ -502,7 +507,7 @@ def agreement_server(
                     )
                     icon = "✅" if val > 0.75 else "⚠️" if val > 0.5 else "❌"
                     interp_parts.append(
-                        f"<li>{icon} <strong>{row.get('Type')}</strong>: {val:.3f} ({strength})</li>"
+                        f"<li>{icon} <strong>{_html.escape(str(row.get('Type', '')))}</strong>: {val:.3f} ({strength})</li>"
                     )
 
                 interp_html = f"""
@@ -547,7 +552,9 @@ def agreement_server(
             "Select 2+ variables and click 'Calculate ICC'.", icon="🔍"
         )
 
-    @render.download(filename="icc_report.html")
+    @render.download(
+        filename=lambda: f"icc_report_{_safe_filename_part('_'.join(input.icc_vars()[:3]))}.html"
+    )
     def btn_dl_icc_report():
         req(icc_html.get())
         yield icc_html.get()
