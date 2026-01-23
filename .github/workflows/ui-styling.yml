@@ -75,8 +75,8 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/unit/test_color_palette.py -v --junitxml=compatibility-color-${{ matrix.python-version }}.xml || true
-          pytest tests/unit/test_ui_ux_styles.py -v --junitxml=compatibility-ux-${{ matrix.python-version }}.xml || true
+          pytest tests/unit/test_color_palette.py -v --junitxml=compatibility-color-${{ matrix.python-version }}.xml
+          pytest tests/unit/test_ui_ux_styles.py -v --junitxml=compatibility-ux-${{ matrix.python-version }}.xml
 
       - name: Upload Compatibility Results
         if: always()

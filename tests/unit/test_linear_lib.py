@@ -55,7 +55,7 @@ requires_plotly = pytest.mark.skipif(
 # =============================================================================
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def mock_dependencies():
     """
     Mock external dependencies used inside utils.linear_lib.
@@ -71,10 +71,15 @@ def mock_dependencies():
         "info": "#17a2b8",
     }
 
-    # Mock format_ci_html to accept 2 arguments (lower, upper) as used in linear_lib
-    mock_format_ci = MagicMock(
-        side_effect=lambda lower, upper: f"{lower:.2f} - {upper:.2f}"
-    )
+    # Mock format_ci_html to accept 3 arguments (ci_str, lower, upper)
+    def safe_format_ci(ci_str, lower, upper):
+        if not isinstance(lower, (int, float, np.number)) or not isinstance(
+            upper, (int, float, np.number)
+        ):
+            return "N/A"
+        return ci_str
+
+    mock_format_ci = MagicMock(side_effect=safe_format_ci)
 
     # Patch them where they are used (in utils.linear_lib namespace)
     with (
@@ -459,7 +464,7 @@ class TestDiagnosticTests:
 class TestDiagnosticPlots:
     """Tests for create_diagnostic_plots function."""
 
-    def test_plots_created(self, sample_medical_data):
+    def test_plots_created(self, sample_medical_data, mock_dependencies):
         """Test that all diagnostic plots are created."""
         df_clean, _ = prepare_data_for_ols(
             sample_medical_data, "SystolicBP", ["Age", "BMI"]
@@ -474,7 +479,7 @@ class TestDiagnosticPlots:
         assert "scale_location" in plots
         assert "residuals_vs_leverage" in plots
 
-    def test_plots_are_figures(self, sample_medical_data):
+    def test_plots_are_figures(self, sample_medical_data, mock_dependencies):
         """Test that plots are Plotly figures."""
         import plotly.graph_objects as go
 
@@ -497,7 +502,7 @@ class TestDiagnosticPlots:
 class TestFormatOLSResults:
     """Tests for format_ols_results function."""
 
-    def test_formatting(self, sample_medical_data):
+    def test_formatting(self, sample_medical_data, mock_dependencies):
         """Test result formatting."""
         df_clean, _ = prepare_data_for_ols(
             sample_medical_data, "SystolicBP", ["Age", "BMI"]
@@ -512,7 +517,7 @@ class TestFormatOLSResults:
         assert "p-value" in formatted_coef.columns
         assert "95% CI" in formatted_coef.columns
 
-    def test_var_meta_labels(self, sample_medical_data):
+    def test_var_meta_labels(self, sample_medical_data, mock_dependencies):
         """Test that variable metadata labels are used."""
         df_clean, _ = prepare_data_for_ols(
             sample_medical_data, "SystolicBP", ["Age", "BMI"]
@@ -542,7 +547,7 @@ class TestFormatOLSResults:
 class TestAnalyzeLinearOutcome:
     """Tests for analyze_linear_outcome function."""
 
-    def test_full_analysis(self, sample_medical_data):
+    def test_full_analysis(self, sample_medical_data, mock_dependencies):
         """Test complete analysis pipeline."""
         html_report, results, plots, missing_info = analyze_linear_outcome(
             outcome_name="SystolicBP",
@@ -556,7 +561,7 @@ class TestAnalyzeLinearOutcome:
         assert len(plots) > 0
         assert "strategy" in missing_info
 
-    def test_auto_predictor_selection(self, sample_medical_data):
+    def test_auto_predictor_selection(self, sample_medical_data, mock_dependencies):
         """Test auto-selection of predictors when none specified."""
         html_report, results, plots, missing_info = analyze_linear_outcome(
             outcome_name="SystolicBP",
@@ -566,7 +571,7 @@ class TestAnalyzeLinearOutcome:
 
         assert results["n_obs"] > 0
 
-    def test_robust_regression_option(self, sample_medical_data):
+    def test_robust_regression_option(self, sample_medical_data, mock_dependencies):
         """Test robust regression through main function."""
         html_report, results, plots, missing_info = analyze_linear_outcome(
             outcome_name="SystolicBP",
@@ -577,7 +582,9 @@ class TestAnalyzeLinearOutcome:
 
         assert results is not None
 
-    def test_html_report_contains_sections(self, sample_medical_data):
+    def test_html_report_contains_sections(
+        self, sample_medical_data, mock_dependencies
+    ):
         """Test that HTML report contains expected sections."""
         html_report, _, _, _ = analyze_linear_outcome(
             outcome_name="SystolicBP",
@@ -598,7 +605,7 @@ class TestAnalyzeLinearOutcome:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_variable_names_with_spaces(self):
+    def test_variable_names_with_spaces(self, mock_dependencies):
         """Test handling of variable names with spaces."""
         if not PLOTLY_AVAILABLE:
             pytest.skip("Plotly not available")
@@ -778,7 +785,7 @@ class TestModelComparison:
 class TestBootstrapCI:
     """Tests for bootstrap_ols function."""
 
-    def test_basic_bootstrap(self, sample_medical_data):
+    def test_basic_bootstrap(self, sample_medical_data, mock_dependencies):
         """Test basic bootstrap CI calculation."""
         from utils.linear_lib import bootstrap_ols
 
@@ -796,7 +803,7 @@ class TestBootstrapCI:
         assert "n_bootstrap" in result
         assert result["n_bootstrap"] > 0
 
-    def test_bootstrap_ci_columns(self, sample_medical_data):
+    def test_bootstrap_ci_columns(self, sample_medical_data, mock_dependencies):
         """Test that bootstrap results have correct columns."""
         from utils.linear_lib import bootstrap_ols
 
@@ -819,7 +826,7 @@ class TestBootstrapCI:
         assert "Samples" in results_df.columns
         # 'CI Lower (Pct)' is added during formatting, not in raw results
 
-    def test_bootstrap_formatting(self, sample_medical_data):
+    def test_bootstrap_formatting(self, sample_medical_data, mock_dependencies):
         """Test bootstrap results formatting."""
         from utils.linear_lib import bootstrap_ols, format_bootstrap_results
 
@@ -839,7 +846,7 @@ class TestBootstrapCI:
         assert "Variable" in formatted.columns
         assert "95% CI" in formatted.columns
 
-    def test_bca_method(self, sample_medical_data):
+    def test_bca_method(self, sample_medical_data, mock_dependencies):
         """Test BCa confidence interval method."""
         from utils.linear_lib import bootstrap_ols, format_bootstrap_results
 

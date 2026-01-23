@@ -55,7 +55,13 @@ $(document).ready(function () {
     $(document).on('click', '#navbar_brand_home', function (e) {
         e.preventDefault();
         var homeLink = document.querySelector('.navbar-nav .nav-link[data-value="home"]');
-        if (homeLink) homeLink.click();
+        if (homeLink) {
+            homeLink.click();
+        } else {
+            var selector = '.navbar-nav .nav-link[data-value="home"]';
+            console.warn("Navbar Brand Home: homeLink not found with selector '" + selector + "'");
+            alert("Unexpected navbar structure: Home link not found.");
+        }
     });
 
     // Initialize when Shiny connects (ensures DOM is ready)

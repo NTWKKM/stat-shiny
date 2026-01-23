@@ -536,9 +536,10 @@ def data_server(
     @reactive.event(input.btn_jump_upload_trigger)
     def _jump_to_upload():
         """Smooth scroll to upload area when clicking the jump button in empty state"""
+        file_upload_id = session.ns("file_upload")
         ui.insert_ui(
             ui.tags.script(
-                "document.getElementById('file_upload').scrollIntoView({behavior: 'smooth'});"
+                f"document.getElementById('{file_upload_id}').scrollIntoView({{behavior: 'smooth'}});"
             ),
             selector="body",
             where="beforeEnd",
