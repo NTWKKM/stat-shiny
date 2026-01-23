@@ -496,7 +496,9 @@ def agreement_server(
                         else (
                             "Good"
                             if val > 0.75
-                            else "Moderate" if val > 0.5 else "Poor"
+                            else "Moderate"
+                            if val > 0.5
+                            else "Poor"
                         )
                     )
                     icon = "✅" if val > 0.75 else "⚠️" if val > 0.5 else "❌"
