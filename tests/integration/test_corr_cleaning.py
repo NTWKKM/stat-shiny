@@ -29,9 +29,18 @@ class TestCorrPipeline:
         }
 
     def setup_method(self):
+        # Save original values to restore later
+        self._orig_strategy = CONFIG.get("analysis.missing.strategy")
+        self._orig_user_defined = CONFIG.get("analysis.missing.user_defined_values")
+
         # Reset Config
         CONFIG.update("analysis.missing.strategy", "complete-case")
         CONFIG.update("analysis.missing.user_defined_values", [999, 999.0])
+
+    def teardown_method(self):
+        # Restore original values
+        CONFIG.update("analysis.missing.strategy", self._orig_strategy)
+        CONFIG.update("analysis.missing.user_defined_values", self._orig_user_defined)
 
     def test_calculate_correlation_pipeline(self, mock_data, var_meta):
         """Test single pair correlation with pipeline integration"""

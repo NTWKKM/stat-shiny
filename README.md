@@ -282,15 +282,22 @@ To run the test suite, ensure you use the `pytest` from your virtual environment
 
 ### Option 3: Run with Docker
 
-This project is containerized for easy deployment and local development.
+This project is containerized for easy deployment and local development. An automated image is published to **Docker Hub** on every update to the `main` branch.
 
-1. **Build and run with Docker Compose (Recommended for Local):**
+1. **Pull and run from Docker Hub (Easiest):**
+
+   ```bash
+   docker run -p 7860:7860 ntwkkm/statiomed:latest
+   ```
+
+2. **Local Development with Docker Compose (Live Reload):**
+   This method mounts your local code into the container, allowing for real-time updates as you edit files.
 
    ```bash
    docker compose up --build
    ```
 
-2. **Using standard Docker commands:**
+3. **Standard Local Build:**
 
    ```bash
    # Build the image
@@ -299,7 +306,7 @@ This project is containerized for easy deployment and local development.
    docker run -p 7860:7860 medical-stat-tool
    ```
 
-   Access the app at `http://localhost:7860`.
+Access the app at `http://localhost:7860`.
 
 ### Option 4: VS Code Dev Containers
 

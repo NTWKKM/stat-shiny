@@ -135,6 +135,11 @@ def test_analyze_mediation_constant_variable():
     # This might log warnings or return specific error dict
     result = analyze_mediation(df, outcome="Y", treatment="X", mediator="M")
     assert result is not None
+    assert (
+        "error" in result
+        or pd.isna(result.get("total_effect", 0))
+        or result.get("total_effect") == 0.0
+    )
 
 
 def test_analyze_mediation_perfect_collinearity():
@@ -147,3 +152,9 @@ def test_analyze_mediation_perfect_collinearity():
 
     result = analyze_mediation(df, outcome="Y", treatment="X", mediator="M")
     assert result is not None
+    # With perfect collinearity, it should either error or return NaN for direct/indirect
+    assert (
+        "error" in result
+        or pd.isna(result["direct_effect"])
+        or pd.isna(result["indirect_effect"])
+    )

@@ -109,16 +109,16 @@ def calculate_vif(
 
 def condition_index(
     data: pd.DataFrame, predictors: list[str], var_meta: dict[str, Any] | None = None
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
     Calculate Condition Index (CI) for assessing multicollinearity.
 
     Returns:
-        DataFrame with condition index results
+        tuple: (DataFrame with results, dict with missing data info)
     """
     try:
         if not predictors or data is None or data.empty:
-            return pd.DataFrame()
+            return pd.DataFrame(), {"error": "Insufficient data"}
 
         # --- DATA PREPARATION ---
         missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -135,15 +135,21 @@ def condition_index(
         )
 
         if X_clean.empty:
-            return pd.DataFrame()
+            return pd.DataFrame(), missing_info
 
         # Scale the data for CI
-        X_norm = X_clean / np.sqrt((X_clean**2).sum(axis=0))
+        # Guard against columns with all zeros to prevent division by zero
+        sums_of_squares = (X_clean**2).sum(axis=0)
+        sums_of_squares = np.where(sums_of_squares == 0, 1.0, sums_of_squares)
+        X_norm = X_clean / np.sqrt(sums_of_squares)
 
         # Use SVD for numerical stability
         U, S, Vt = np.linalg.svd(X_norm, full_matrices=False)
 
         max_sv = S.max()
+        if max_sv == 0:
+            return pd.DataFrame(), missing_info
+
         condition_indices = max_sv / S
 
         results = []
@@ -152,8 +158,8 @@ def condition_index(
                 {"Dimension": i + 1, "Condition Index": ci, "Eigenvalue": S[i] ** 2}
             )
 
-        return pd.DataFrame(results)
+        return pd.DataFrame(results), missing_info
 
-    except Exception:
+    except Exception as e:
         logger.exception("Condition Index calculation failed")
-        return pd.DataFrame()
+        return pd.DataFrame(), {"error": str(e)}

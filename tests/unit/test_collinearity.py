@@ -48,7 +48,7 @@ def test_calculate_vif_single_var(collinear_data):
 
 def test_condition_index(collinear_data):
     """Test Condition Index calculation."""
-    ci_df = condition_index(collinear_data, predictors=["x1", "x2", "x3"])
+    ci_df, _ = condition_index(collinear_data, predictors=["x1", "x2", "x3"])
 
     assert not ci_df.empty
     assert "Condition Index" in ci_df.columns
