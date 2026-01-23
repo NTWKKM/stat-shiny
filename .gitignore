@@ -12,3 +12,4 @@ __pycache__/
 # Test Logs
 pytest_output.txt
 test_output.txt
+tests/.DS_Store
