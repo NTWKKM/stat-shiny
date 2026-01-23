@@ -34,6 +34,7 @@ def get_color_palette() -> dict[str, str]:
         "primary": "#1E3A5F",
         "primary_dark": "#0F2440",
         "primary_light": "#E8EEF7",
+        "secondary": "#6c757d",  # Standard Bootstrap secondary gray
         # Neutral colors - Light theme
         "smoke_white": "#F8F9FA",
         "text": "#1F2328",

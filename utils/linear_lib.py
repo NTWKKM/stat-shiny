@@ -659,6 +659,7 @@ def format_ols_results(
                     f"{r['CI_Lower']:.2f} to {r['CI_Upper']:.2f}",
                     r["CI_Lower"],
                     r["CI_Upper"],
+                    null_val=0.0,
                 ),
                 axis=1,
             ),

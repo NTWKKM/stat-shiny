@@ -72,7 +72,7 @@ def mock_dependencies():
     }
 
     # Mock format_ci_html to accept 3 arguments (ci_str, lower, upper)
-    def safe_format_ci(ci_str, lower, upper):
+    def safe_format_ci(ci_str, lower, upper, **kwargs):
         if not isinstance(lower, (int, float, np.number)) or not isinstance(
             upper, (int, float, np.number)
         ):

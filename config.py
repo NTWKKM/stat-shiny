@@ -49,7 +49,9 @@ class ConfigManager:
         Parameters:
             config_dict (dict | None): Optional initial configuration dictionary to use instead of the built-in defaults. If None, the manager is initialized from the default configuration.
         """
-        self._config: dict[str, Any] = config_dict or self._get_default_config()
+        self._config: dict[str, Any] = (
+            config_dict if config_dict is not None else self._get_default_config()
+        )
         self._env_prefix = "MEDSTAT_"
         self._load_env_overrides()
         self._sync_missing_legacy()
