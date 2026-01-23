@@ -37,7 +37,7 @@ Established a standard naming convention for Shiny reactive values:
 
 ## Centralized Reporting Utility
 
-I have successfully centralized the report generation logic and optimized the repository for high-confidence AI bot collaboration. I moved the fragmented `generate_report` logic from individual modules into a unified utility: `utils.formatting.generate_standard_report()`.
+The report generation logic has been centralized and the repository optimized for high-confidence AI bot collaboration. The fragmented `generate_report` logic from individual modules has been moved into a unified utility: `utils.formatting.generate_standard_report()`.
 
 ### Key Improvements
 
