@@ -72,7 +72,7 @@ def calculate_vif(
             )
 
         vif_data = []
-        for i, col in enumerate(valid_predictors):
+        for col in valid_predictors:
             try:
                 # Find index in X_with_const
                 idx = list(X_with_const.columns).index(col)
@@ -143,7 +143,7 @@ def condition_index(
         # Scale the data for CI
         # Guard against columns with all zeros to prevent division by zero
         sums_of_squares = (X_clean**2).sum(axis=0)
-        sums_of_squares = np.where(sums_of_squares == 0, 1.0, sums_of_squares)
+        sums_of_squares = sums_of_squares.replace(0, 1.0)
         X_norm = X_clean / np.sqrt(sums_of_squares)
 
         # Use SVD for numerical stability
