@@ -34,6 +34,9 @@ jobs:
           # 2. ติดตั้ง Git Xet ลงใน Git config
           git xet install
 
+          # 2.5 ตั้งค่า LFS ให้ข้ามไฟล์ที่หายไป (Safety measure)
+          git config lfs.allowincompletepush true
+
           # 3. เพิ่ม Remote URL (token provided via GIT_ASKPASS)
           # รูปแบบ: https://huggingface.co/spaces/USER/SPACE_NAME
           cat > /tmp/git-askpass.sh <<'EOF'
