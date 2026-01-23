@@ -841,7 +841,7 @@ def diag_server(
             prob = input.sel_dca_prob()
 
             # Calculate Net Benefits
-            nb_model = decision_curve_lib.calculate_net_benefit(
+            nb_model, _ = decision_curve_lib.calculate_net_benefit(
                 d, truth, prob, model_name="Current Model"
             )
             nb_all = decision_curve_lib.calculate_net_benefit_all(d, truth)
