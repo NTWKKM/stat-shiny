@@ -209,7 +209,7 @@ The application is built with a modular architecture that separates styling, dat
 
 ### 🎨 UI Styling System
 
-The application uses a centralized styling system to ensures visual consistency across all modules.
+The application uses a centralized styling system to ensure visual consistency across all modules.
 
 | File | Role | Description |
 | :--- | :--- | :--- |
