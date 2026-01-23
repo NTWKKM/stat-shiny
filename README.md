@@ -30,14 +30,22 @@ pinned: false
 This content reflects the repository structure (updated by GitHub Actions):
 
 ```text
+|-- AI_CONTEXT.md
 |-- Dockerfile
 |-- app.py
 |-- asgi.py
 |-- config.py
+|-- docker-compose.yml
+|-- docs /
+|   |-- ARCHITECTURE.md
+|   |-- UI_IMPROVEMENT_COMPLETE_10FILES.md
+|   |-- UX_UI_audit_report.md
+|   |-- assets /
+|   |   `-- navigation_sequence.png
+|   |-- deep-ai-bot-optimization.md
+|   `-- rabbitai-report.md
 |-- firthmodels.md
 |-- logger.py
-|-- md /
-|   `-- 20.1.26_stat-shiny-analysis v2
 |-- pyproject.toml
 |-- pytest.ini
 |-- requirements-prod.txt
@@ -53,12 +61,14 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- _tvc_components.py
 |   |-- tab_advanced_inference.py
 |   |-- tab_advanced_stats.py
+|   |-- tab_agreement.py
 |   |-- tab_baseline_matching.py
 |   |-- tab_causal_inference.py
 |   |-- tab_core_regression.py
 |   |-- tab_corr.py
 |   |-- tab_data.py
 |   |-- tab_diag.py
+|   |-- tab_home.py
 |   |-- tab_sample_size.py
 |   |-- tab_settings.py
 |   `-- tab_survival.py
@@ -66,59 +76,88 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- .DS_Store
 |   |-- conftest.py
 |   |-- e2e /
-|   |   `-- test_app_flow.py
+|   |   |-- test_app_flow.py
+|   |   |-- test_load_example_data.py
+|   |   `-- test_smart_defaults.py
 |   |-- integration /
+|   |   |-- test_advanced_features.py
+|   |   |-- test_corr_cleaning.py
 |   |   |-- test_corr_pipeline.py
+|   |   |-- test_data_cleaning_pipeline.py
+|   |   |-- test_diag_cleaning.py
 |   |   |-- test_diag_pipeline.py
 |   |   |-- test_forest_plot_lib.py
 |   |   |-- test_interaction_pipeline.py
 |   |   |-- test_logic_pipeline.py
+|   |   |-- test_poisson_cleaning.py
 |   |   |-- test_poisson_pipeline.py
 |   |   |-- test_psm_pipeline.py
+|   |   |-- test_robustness_check.py
 |   |   |-- test_subgroup_pipeline.py
+|   |   |-- test_survival_cleaning.py
 |   |   |-- test_survival_pipeline.py
 |   |   `-- test_table_one_pipeline.py
-|   |-- test_bland_altman.py
-|   |-- test_color_palette.py
-|   |-- test_dca.py
-|   |-- test_diag_returns.py
-|   |-- test_glm.py
-|   |-- test_plotly_html_rendering.py
-|   |-- test_repeated_measures.py
-|   |-- test_sample_size.py
 |   `-- unit /
 |       |-- test_advanced_stats.py
+|       |-- test_bland_altman.py
+|       |-- test_causal.py
+|       |-- test_collinearity.py
+|       |-- test_color_palette.py
+|       |-- test_correlation_returns.py
 |       |-- test_data_cleaning.py
 |       |-- test_data_cleaning_workflow.py
+|       |-- test_data_quality.py
+|       |-- test_dca.py
+|       |-- test_diag_returns.py
 |       |-- test_formatting.py
+|       |-- test_glm.py
+|       |-- test_heterogeneity.py
 |       |-- test_linear_lib.py
+|       |-- test_mediation.py
 |       |-- test_missing_data.py
+|       |-- test_model_diagnostics.py
+|       |-- test_model_diagnostics_plots.py
+|       |-- test_plotly_html_rendering.py
+|       |-- test_poisson_lib.py
+|       |-- test_repeated_measures.py
+|       |-- test_sample_size.py
+|       |-- test_sensitivity.py
 |       |-- test_statistics.py
 |       |-- test_tvc_lib.py
+|       |-- test_ui_ux_styles.py
 |       `-- verify_table_one.py
-|-- utils /
-|   |-- __init__.py
-|   |-- advanced_stats_lib.py
-|   |-- correlation.py
-|   |-- data_cleaning.py
-|   |-- decision_curve_lib.py
-|   |-- diag_test.py
-|   |-- forest_plot_lib.py
-|   |-- formatting.py
-|   |-- interaction_lib.py
-|   |-- linear_lib.py
-|   |-- logic.py
-|   |-- plotly_html_renderer.py
-|   |-- poisson_lib.py
-|   |-- psm_lib.py
-|   |-- repeated_measures_lib.py
-|   |-- sample_size_lib.py
-|   |-- subgroup_analysis_module.py
-|   |-- survival_lib.py
-|   |-- table_one.py
-|   |-- tvc_lib.py
-|   `-- update_css.py
+`-- utils /
+    |-- __init__.py
+    |-- advanced_stats_lib.py
+    |-- collinearity_lib.py
+    |-- correlation.py
+    |-- data_cleaning.py
+    |-- data_quality.py
+    |-- decision_curve_lib.py
+    |-- diag_test.py
+    |-- forest_plot_lib.py
+    |-- formatting.py
+    |-- heterogeneity_lib.py
+    |-- interaction_lib.py
+    |-- linear_lib.py
+    |-- logic.py
+    |-- mediation_lib.py
+    |-- model_diagnostics_lib.py
+    |-- plotly_html_renderer.py
+    |-- poisson_lib.py
+    |-- psm_lib.py
+    |-- repeated_measures_lib.py
+    |-- sample_size_lib.py
+    |-- sensitivity_lib.py
+    |-- stratified_lib.py
+    |-- subgroup_analysis_module.py
+    |-- survival_lib.py
+    |-- table_one.py
+    |-- tvc_lib.py
+    |-- ui_helpers.py
+    `-- update_css.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
