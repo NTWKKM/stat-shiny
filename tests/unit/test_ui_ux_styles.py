@@ -45,9 +45,8 @@ def test_css_variables_consistency(palette):
         # Note: some keys might be mapped differently or missing in _styling.py
         # but the primary ones should be there.
         if key in ["primary", "success", "danger", "warning"]:
-            assert re.search(var_pattern, content), (
-                f"Color '{key}' not correctly mapped in tabs/_styling.py"
-            )
+            msg = f"Color '{key}' not correctly mapped in tabs/_styling.py"
+            assert re.search(var_pattern, content), msg
 
 
 def test_compiled_css_sync():
@@ -73,9 +72,8 @@ def test_compiled_css_sync():
 
     # Check if generated content is part of compiled content (compiled might have extra stuff)
     # Check first few fragments
-    assert norm_generated[:200] in norm_compiled, (
-        "static/styles.css is out of sync with tabs/_styling.py. Run python utils/update_css.py"
-    )
+    msg = "static/styles.css is out of sync with tabs/_styling.py. Run python utils/update_css.py"
+    assert norm_generated[:200] in norm_compiled, msg
 
 
 def test_plotly_renderer_consistency(palette):
@@ -88,12 +86,10 @@ def test_plotly_renderer_consistency(palette):
     assert "'Inter'" in content, "Plotly renderer should use 'Inter' font"
 
     # Check for sync with some neutral colors (smoke_white/border)
-    assert palette["background"].lower() in content.lower(), (
-        "Plotly renderer background color out of sync"
-    )
-    assert palette["border"].lower() in content.lower(), (
-        "Plotly renderer border color out of sync"
-    )
+    bg_match = palette["background"].lower() in content.lower()
+    assert bg_match, "Plotly renderer background color out of sync"
+    border_match = palette["border"].lower() in content.lower()
+    assert border_match, "Plotly renderer border color out of sync"
 
 
 def test_forest_plot_consistency(palette):
@@ -125,9 +121,8 @@ def test_forest_plot_consistency(palette):
         and node.value.func.id == "get_color_palette"
         for node in ast.walk(tree)
     )
-    assert has_assignment, (
-        "forest_plot_lib.py should assign COLORS = get_color_palette()"
-    )
+    msg = "forest_plot_lib.py should assign COLORS = get_color_palette()"
+    assert has_assignment, msg
 
     # Check for legacy color
     legacy_teal = "#21808d"
