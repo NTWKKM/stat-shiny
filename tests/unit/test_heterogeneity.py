@@ -41,16 +41,6 @@ def test_heterogeneity_single_study():
 
 def test_heterogeneity_empty_input():
     """Test handle empty input lists."""
-
-    # Function should either return a sentinel or raise ValueError
-    # If it raises, we test the raise. If it returns dict with NaNs, we test that.
-    # Looking at implementation, it likely raises or returns invalid dict.
-    try:
-        res = calculate_heterogeneity([], [])
-        assert (
-            res is None
-            or np.isnan(res.get("I_squared", np.nan))
-            or res.get("I_squared") == 0.0
-        )
-    except (ValueError, TypeError, ZeroDivisionError):
-        pass
+    res = calculate_heterogeneity([], [])
+    sentinel = {"Q": 0.0, "df": 0, "p_value": 1.0, "I_squared": 0.0, "tau_squared": 0.0}
+    assert res == sentinel

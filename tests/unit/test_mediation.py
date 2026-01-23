@@ -114,12 +114,9 @@ def test_analyze_mediation_missing_columns():
 
     # If it returns result with error key
     if result and "error" in result:
-        assert True
-    else:
-        # If it returns partial results or crash, we want to know.
-        # But if it crashes with KeyError that is not caught, test implementation above catches it?
-        # logic.py usually handles missing columns gracefully?
-        pass
+        return
+    # Unexpected behavior - test should fail if we get here
+    pytest.fail(f"Expected error for missing columns, but got: {result}")
 
 
 def test_analyze_mediation_constant_variable():

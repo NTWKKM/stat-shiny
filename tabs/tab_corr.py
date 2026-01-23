@@ -349,7 +349,6 @@ def corr_server(
                 multiple=True,
             )  # ✅ FIX: Removed session.ns
 
-        cols = data.columns.tolist()
         num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
 
         # Update Matrix/Heatmap Inputs
@@ -370,7 +369,7 @@ def corr_server(
 
         def_matrix = []
         for kw in desired_keywords:
-            matches = [c for c in cols if kw.lower() in c.lower()]
+            matches = [c for c in num_cols if kw.lower() in c.lower()]
             for m in matches:
                 if m not in def_matrix:
                     def_matrix.append(m)
