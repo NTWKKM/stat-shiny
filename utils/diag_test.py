@@ -15,7 +15,6 @@ OPTIMIZATIONS: DeLong method vectorized (106x faster), ICC vectorized (9x faster
 
 from __future__ import annotations
 
-import html as _html
 from typing import Any, Literal
 
 import numpy as np
@@ -30,6 +29,7 @@ from tabs._common import get_color_palette
 from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
+from utils.formatting import generate_standard_report
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -1356,278 +1356,6 @@ def calculate_icc(
         return None, str(e), None, {}
 
 
-def render_contingency_table_html(
-    df: pd.DataFrame, row_var_name: str, _col_var_name: str = ""
-) -> str:
-    """
-    Render contingency table with proper 2-row header with rowspan/colspan.
-
-    Expected DataFrame structure:
-    - MultiIndex columns: (col_var_name or 'Total', category)
-    - Index: row categories + 'Total'
-    - Index name: row_var_name
-    """
-
-    # Extract data
-    col_level_0 = [col[0] for col in df.columns]
-    col_level_1 = [col[1] for col in df.columns]
-
-    # Build header HTML
-    # Row 1: Variable name spans, with merged cells
-    header_row_1 = "<tr>"
-
-    # First cell: row variable name (rowspan=2)
-    header_row_1 += f'<th rowspan="2" style="vertical-align: middle;">{_html.escape(row_var_name)}</th>'
-
-    # Group columns by level 0 to create colspan
-    current_group = None
-    group_count = 0
-    col_groups = []
-
-    for l0, _ in zip(col_level_0, col_level_1, strict=True):
-        if l0 != current_group:
-            if current_group is not None:
-                col_groups.append((current_group, group_count))
-            current_group = l0
-            group_count = 1
-        else:
-            group_count += 1
-    if current_group is not None:
-        col_groups.append((current_group, group_count))
-
-    # Add column variable headers
-    for group_name, count in col_groups:
-        if group_name == "Total":
-            header_row_1 += '<th rowspan="2" style="vertical-align: middle;">Total</th>'
-        else:
-            header_row_1 += (
-                f'<th colspan="{count}">{_html.escape(str(group_name))}</th>'
-            )
-
-    header_row_1 += "</tr>"
-
-    # Row 2: Category labels (only for non-Total columns)
-    header_row_2 = "<tr>"
-    for l0, l1 in zip(col_level_0, col_level_1, strict=True):
-        if l0 != "Total" and l1 != "":  # Skip Total (already rowspan) and empty
-            header_row_2 += f"<th>{_html.escape(str(l1))}</th>"
-    header_row_2 += "</tr>"
-
-    # Build body HTML
-    body_html = ""
-    for idx in df.index:
-        body_html += "<tr>"
-        # Row header
-        body_html += f"<th>{_html.escape(str(idx))}</th>"
-        # Data cells
-        for val in df.loc[idx]:
-            body_html += f"<td>{val}</td>"
-        body_html += "</tr>"
-
-    # Combine into full table
-    table_html = f"""
-    <table class="contingency-table">
-        <thead>
-            {header_row_1}
-            {header_row_2}
-        </thead>
-        <tbody>
-            {body_html}
-        </tbody>
-    </table>
-    """
-
-    return table_html
-
-
-def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
-    """
-    Generate HTML report from elements.
-    Copied from utils.correlation.py for standalone usage in diag_test module.
-    """
-    primary_color = COLORS["primary"]
-    primary_dark = COLORS["primary_dark"]
-    text_color = "#333333"
-
-    css_style = f"""
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            margin: 20px;
-            background-color: #f8f9fa;
-            color: {text_color};
-            line-height: 1.6;
-        }}
-        h1 {{
-            color: {primary_dark};
-            border-bottom: 3px solid {primary_color};
-            padding-bottom: 12px;
-            font-size: 2em;
-            margin-bottom: 20px;
-        }}
-        h2 {{
-            color: {primary_dark};
-            margin-top: 25px;
-            font-size: 1.35em;
-            border-left: 5px solid {primary_color};
-            padding-left: 12px;
-            margin-bottom: 15px;
-        }}
-        table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-            background-color: white;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-            border-radius: 6px;
-            overflow: hidden;
-            border: 1px solid #dee2e6;
-        }}
-        table th, table td {{
-            padding: 12px 15px;
-            text-align: center;
-            border: 1px solid #dee2e6;
-        }}
-        table th {{
-            background-color: {primary_color};
-            color: white;
-            font-weight: 600;
-        }}
-        
-        /* 🎨 Navy Blue Contingency Table Theme */
-        .contingency-table {{
-            width: 100%;
-            border-collapse: separate !important;
-            border-spacing: 0;
-            border: 1px solid #d1d9e6;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin: 24px 0;
-            font-family: 'Segoe UI', sans-serif;
-        }}
-        
-        /* Header Rows (Variable Names & Categories) */
-        .contingency-table thead tr th {{
-            background: linear-gradient(135deg, {primary_dark} 0%, #004080 100%) !important;
-            color: white !important;
-            font-weight: 600;
-            text-align: center;
-            padding: 12px 15px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            vertical-align: middle;
-        }}
-        
-        /* Row Headers (Index - Variable 1 Categories) */
-        .contingency-table tbody th {{
-            background-color: #f1f8ff !important;
-            color: {primary_dark} !important;
-            font-weight: bold;
-            text-align: center;
-            border-right: 2px solid #d1d9e6;
-            border-bottom: 1px solid #e0e0e0;
-            vertical-align: middle;
-        }}
-        
-        /* Data Cells */
-        .contingency-table tbody td {{
-            background-color: #ffffff;
-            color: #2c3e50;
-            text-align: center;
-            padding: 10px 15px;
-            border-bottom: 1px solid #e0e0e0;
-            border-right: 1px solid #f0f0f0;
-            font-variant-numeric: tabular-nums;
-        }}
-        
-        /* Hover Effect for Rows */
-        .contingency-table tbody tr:hover td {{
-            background-color: #e6f3ff !important;
-            transition: background-color 0.2s ease;
-        }}
-        
-        .interpretation {{
-            background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
-            border-left: 4px solid {primary_color};
-            padding: 14px 15px;
-            margin: 16px 0;
-            border-radius: 5px;
-            line-height: 1.7;
-            color: {text_color};
-        }}
-        .report-footer {{
-            text-align: center;
-            font-size: 0.85em;
-            color: #7f8c8d;
-            margin-top: 40px;
-            border-top: 1px solid #ecf0f1;
-            padding-top: 20px;
-        }}
-    </style>
-    """
-
-    html = f"<!DOCTYPE html>\n<html>\n<head><meta charset='utf-8'>{css_style}</head>\n<body>"
-    html += f"<h1>{_html.escape(str(title))}</h1>"
-
-    for element in elements:
-        element_type = element.get("type")
-        data = element.get("data")
-        header = element.get("header")
-
-        if header:
-            html += f"<h2>{_html.escape(str(header))}</h2>"
-
-        if element_type == "text":
-            html += f"<p>{_html.escape(str(data))}</p>"
-
-        elif element_type == "interpretation":
-            html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
-
-        elif element_type == "raw_html":
-            html += str(data)
-
-        elif element_type in ("contingency_table", "contingency"):
-            # Use custom renderer for contingency tables
-            if hasattr(data, "index") and hasattr(data, "columns"):
-                row_var = data.index.name or "Row Variable"
-                # Extract col var from MultiIndex
-                if isinstance(data.columns, pd.MultiIndex):
-                    col_var = (
-                        data.columns.levels[0][0]
-                        if len(data.columns.levels[0]) > 0
-                        else "Column Variable"
-                    )
-                    # Find the actual variable name (not 'Total')
-                    for name in data.columns.get_level_values(0).unique():
-                        if name != "Total":
-                            col_var = name
-                            break
-                else:
-                    col_var = "Column Variable"
-                html += render_contingency_table_html(data, row_var, col_var)
-            else:
-                html += str(data)
-
-        elif element_type == "table":
-            if hasattr(data, "to_html"):
-                html += data.to_html(index=True, classes="", escape=False)
-            else:
-                html += str(data)
-
-        elif element_type == "raw_html":
-            # Note: Producers of 'raw_html' elements (e.g., create_missing_data_report_html)
-            # are responsible for escaping user-supplied metadata.
-            html += str(data)
-
-        elif element_type == "plot":
-            if hasattr(data, "to_html"):
-                html += data.to_html(full_html=False, include_plotlyjs="cdn")
-
-    html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
-    html += "</body>\n</html>"
-    return html
-
-
 # ==============================================================================
 # Bland-Altman
 # ==============================================================================
@@ -1763,3 +1491,13 @@ def calculate_bland_altman(
     except Exception as e:
         logger.error(f"Bland-Altman calculation error: {e}")
         return {"error": str(e)}, go.Figure(), {}
+
+
+def generate_report(
+    title: str,
+    elements: list[dict[str, Any]],
+    missing_data_info: dict[str, Any] | None = None,
+    var_meta: dict[str, Any] | None = None,
+) -> str:
+    """Wrapper for backward compatibility."""
+    return generate_standard_report(title, elements, missing_data_info, var_meta)

@@ -349,9 +349,9 @@ class TestLogisticRegression:
         assert "age" in params.index, "Age coefficient should exist"
 
         # Age coefficient should be positive (matches synthetic pattern)
-        assert (
-            params["age"] > 0
-        ), f"Expected positive age coefficient, got {params['age']}"
+        assert params["age"] > 0, (
+            f"Expected positive age coefficient, got {params['age']}"
+        )
 
         # Model quality checks
         assert metrics["mcfadden"] > 0, "McFadden R² should be > 0"

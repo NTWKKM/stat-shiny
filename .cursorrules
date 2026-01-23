@@ -1,5 +1,7 @@
 # Agent Rules
 
+0. **Architecture First**: Before any logic change, read `docs/ARCHITECTURE.md`.
+
 1. **Python Environment**: always use `.venv` for Python commands.
    - Run python scripts: `.venv/bin/python script.py`
    - Run tests: `.venv/bin/pytest`

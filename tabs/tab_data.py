@@ -1012,9 +1012,7 @@ def data_server(
         return ui.card(
             ui.card_header(
                 ui.div(
-                    ui.tags.span(
-                        "⚠️ Data Quality Report", class_="fw-bold text-danger"
-                    ),
+                    ui.tags.span("⚠️ Data Quality Report", class_="fw-bold text-danger"),
                     ui.tags.span(
                         f"Found {len(issues)} potential issues",
                         class_="badge bg-danger ms-2",

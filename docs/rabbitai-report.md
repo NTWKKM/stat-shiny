@@ -1,100 +1,306 @@
 # RabbitAI Report
 
-In `@config.py` around lines 57 - 67, _sync_missing_legacy currently always copies
-nested "analysis.missing" into legacy keys, which overwrites explicit legacy
-overrides; change it to preserve legacy values when present by: detect if
-analysis contains legacy keys ("missing_strategy", "missing_threshold_pct") and
-if so backfill the nested dict ("missing.strategy",
-"missing.report_threshold_pct") when missing, otherwise copy nested to legacy
-only if the legacy key is absent—update the logic in _sync_missing_legacy to
-perform this bidirectional/backfill sync so explicit legacy overrides are not
-clobbered.
+In @.agent/workflows/format.md at line 16, The Markdown code block in the
+workflow doc has the closing triple backticks on the same line as the command,
+breaking the block; update the snippet so the command string ".venv\Scripts\ruff
+format ." (the existing code content) remains on its own line and the
+terminating ``` triple backticks are placed on the following new line to
+properly close the code block.
 
-In `@docs/UI_IMPROVEMENT_COMPLETE_10FILES.md` around lines 7 - 9, Update the
-inconsistent timeline estimates in the document by choosing one unified duration
-and applying it in both the header "Duration: 2-3 weeks" and the later aggregate
-estimates (~15–20 hours / 2–3 days / 1–2 weeks) referenced around lines 714–720;
-ensure the chosen estimate is reflected in the header line containing "Date:
-January 21, 2026" and the summary totals so all mentions (header "Duration: 2-3
-weeks" and the later "~15–20 hours (2–3 days) / 1–2 weeks") match exactly and
-use the same units (hours/days/weeks) and wording.
+⚠️ Potential issue | 🔴 Critical
 
-In `@docs/UX_UI_audit_report.md` around lines 12 - 15, The document declares "ALL
-ITEMS RESOLVED" while unchecked roadmap items (e.g., "empty states/skeleton
-loaders") remain; update the UX_UI_audit_report.md to reconcile these by either
-removing the all-resolved badge or marking specific checklist items as
-completed, and ensure the generated design system reference (`_styling.py` →
-`static/styles.css`) and checklist lines (around the "empty states/skeleton
-loaders" entries) reflect the true status; update the Status line and
-corresponding checklist entries so they are consistent and unambiguous.
+Fix Markdown syntax error: missing newline before closing backticks.
 
-In `@pytest.ini` around lines 8 - 14, The global ignores for statsmodels
-ConvergenceWarning in pytest.ini (the entries matching "ignore:The MLE may be on
-the boundary of the parameter
-space:statsmodels.tools.sm_exceptions.ConvergenceWarning", "ignore:Maximum
-Likelihood optimization failed to
-converge:statsmodels.tools.sm_exceptions.ConvergenceWarning", and
-"ignore:Retrying MixedLM optimization with
-lbfgs:statsmodels.tools.sm_exceptions.ConvergenceWarning") should be removed or
-narrowed; instead, delete these global filterwarnings lines and apply
-pytest.mark.filterwarnings on the specific tests or test modules where
-convergence instability is expected (or add local context managers in those
-tests) so ConvergenceWarning is no longer suppressed project-wide while still
-silencing it where intentional.
+The closing triple backticks must be on a new line to properly terminate the code block.
 
-In `@requirements-prod.txt` around lines 9 - 34, Update the loose >= version pins
-to bounded ranges for stability: replace entries like pandas>=3.0.0,
-numpy>=2.0.0, starlette>=0.49.1 (and any other major libs: scikit-learn, scipy,
-statsmodels, plotly, matplotlib, seaborn, etc.) with conservative ranges such as
->=X.Y.0,<X+1.0.0 (e.g., pandas>=3.0.0,<4.0.0) to prevent automatic upgrades to
-the next major version; edit requirements-prod.txt to apply these upper bounds
-consistently for each package named (pandas, numpy, starlette, scikit-learn,
-scipy, statsmodels, plotly, matplotlib, seaborn, etc.).
+📝 Proposed fix
 
-In `@requirements.txt` around lines 13 - 33, The requirements pin currently allows
-potentially incompatible major releases (pandas>=3.0.0, numpy>=2.0.0,
-scipy>=1.15.0, scikit-learn>=1.6.0); update requirements.txt to prevent
-unexpected breakage by adding conservative upper bounds (e.g., pandas<4,
-numpy<3, scipy<2, scikit-learn<2) or switch to exact pins/compatible pins and
-generate a lock file (poetry.lock/Pipfile.lock/requirements.lock) to lock
-working combinations; annotate the pandas>=3.0.0 and numpy>=2.0.0 lines with a
-short comment noting the need to test for ABI/compatibility and include
-instructions to run integration tests before upgrading these majors.
+# Windows
 
-In `@tabs/_styling.py` around lines 1450 - 1492, The file contains duplicated CSS
-blocks for .loading-state, .spinner, `@keyframes` spin, .placeholder-state,
-.skip-links and .skip-link:focus; remove or consolidate the duplicate
-definitions so each selector/animation is defined only once (keep the canonical
-styling and delete the redundant block shown in the diff or merge any differing
-properties into the single canonical definition) to avoid later overrides and
-reduce CSS size.
+-.venv\Scripts\ruff format .```
++.venv\Scripts\ruff format .
++```
+------------------------------
 
-In `@tabs/tab_advanced_inference.py` around lines 1 - 32, The import block in
-tabs.tab_advanced_inference.py is not sorted/formatted; run the automatic fixer
-(e.g., ruff check --fix) or manually reorder and format imports so they follow
-the project's import sorting rules (stdlib, third-party, local) and
-line-wrapping conventions. Locate the top import section containing symbols like
-matplotlib.pyplot as plt, numpy as np, pandas as pd, plotly.express as px,
-seaborn as sns, statsmodels.api as sm, from shiny import
-module/reactive/render/ui, and the local utility imports (get_color_palette,
-select_variable_by_keyword, calculate_vif, calculate_heterogeneity,
-analyze_mediation, calculate_cooks_distance, get_diagnostic_plot_data,
-run_heteroscedasticity_test, run_reset_test, plotly_figure_to_html,
-create_error_alert, create_input_group, create_loading_state,
-create_placeholder_state, create_results_container,
-create_missing_data_report_html) and reorder/format them to satisfy ruff/CI.
+In `@README.md` around lines 16 - 21, Replace the incorrect justification about
+"modern f-string syntax" in the README with a statement that the codebase
+requires Python 3.12+ because it uses PEP 695 features (e.g., type aliases/type
+parameters like `type X = Literal[...]`); specifically update the descriptive
+text at the two occurrences referenced (the paragraph around the Python
+requirement and the explanatory note near line 246) to mention PEP 695 type
+aliases/type parameters as the reason for requiring Python 3.12+, and ensure the
+table entry still shows "Python ≥ 3.12".
 
-In `@config.py` around lines 57 - 67, _sync_missing_legacy currently always copies
-nested "analysis.missing" into legacy keys, which overwrites explicit legacy
-overrides; change it to preserve legacy values when present by: detect if
-analysis contains legacy keys ("missing_strategy", "missing_threshold_pct") and
-if so backfill the nested dict ("missing.strategy",
-"missing.report_threshold_pct") when missing, otherwise copy nested to legacy
-only if the legacy key is absent—update the logic in _sync_missing_legacy to
-perform this bidirectional/backfill sync so explicit legacy overrides are not
-clobbered.
+⚠️ Potential issue | 🟠 Major
 
-tabs/_common.py (1)
-24-50: Single source of truth for the color palette.
+🧩 Analysis chain
 
-There is another get_color_palette() in utils/table_one.py Line 36-50 with different values. Consider consolidating to avoid palette drift (e.g., import from this module or move to a shared utilities module).
+🏁 Script executed:
+
+find . -maxdepth 2 -type f \( -name "pyproject.toml" -o -name "setup.py" -o -name "setup.cfg" -o -name "requirements*.txt" \) | head -20
+Repository: NTWKKM/stat-shiny
+
+Length of output: 120
+
+🏁 Script executed:
+
+cat README.md | sed -n '240,250p'
+Repository: NTWKKM/stat-shiny
+
+Length of output: 378
+
+🏁 Script executed:
+
+rg -n --type=py "type\s+\w+\s*=" . | head -20
+Repository: NTWKKM/stat-shiny
+
+Length of output: 250
+
+🏁 Script executed:
+
+rg -n --type=py "def\s+\w+\[.*\]\s*\(" . | head -20
+Repository: NTWKKM/stat-shiny
+
+Length of output: 43
+
+🏁 Script executed:
+
+rg -n --type=py "class\s+\w+\[.*\]\s*:" . | head -20
+Repository: NTWKKM/stat-shiny
+
+Length of output: 43
+
+🏁 Script executed:
+
+rg -n "python" README.md -i
+Repository: NTWKKM/stat-shiny
+
+Length of output: 147
+
+🏁 Script executed:
+
+cat pyproject.toml | grep -A 5 -B 5 "python"
+Repository: NTWKKM/stat-shiny
+
+Length of output: 356
+
+🏁 Script executed:
+
+cat requirements.txt
+Repository: NTWKKM/stat-shiny
+
+Length of output: 2930
+
+🏁 Script executed:
+
+cat requirements-prod.txt
+Repository: NTWKKM/stat-shiny
+
+Length of output: 1000
+
+Update Python 3.12+ justification in README.
+
+The codebase uses PEP 695 type aliases (type X = Literal[...]), which require Python 3.12+. However, the README cites "modern f-string syntax" as the reason—f-strings have been available since Python 3.6 and are not a valid justification. Update lines 16 and 246 to cite PEP 695 type parameters/aliases instead
+--------------------------------------------
+
+In `@README.md` around lines 135 - 139, The README references
+utils/data_quality.py but that module is missing from the repo; either add the
+missing file (implementing the Data Health Report utilities referenced) or
+update the README to point to the correct module/path or remove the mention.
+Locate references to utils/data_quality.py in README.md and either (a) create
+and commit the utils/data_quality.py file implementing the described functions
+(missing-data reporting, non-standard numeric detection, categorical integrity
+checks) or (b) change the README to reference the actual existing file or
+example script that implements those features, ensuring the README’s bullet
+points (Comprehensive Data Control, Data Health Report, Missing Data,
+Non-standard Numeric, Categorical Integrity) map to real code symbols. Ensure
+the README and repository are consistent before merging.
+
+⚠️ Potential issue | 🟡 Minor
+
+Docs reference a file that doesn’t appear in the tree.
+
+utils/data_quality.py is mentioned, but the repository tree shown doesn’t list it. Please confirm the file exists or update the reference
+--------------------------------------------
+
+In `@tabs/tab_agreement.py` at line 25, Remove the dead assignment to COLORS from
+get_color_palette() — the variable COLORS is never used in this module, so
+delete the line "COLORS = get_color_palette()" and, if get_color_palette is only
+imported for this unused assignment, also remove the unused import to avoid dead
+code and unnecessary dependencies; ensure no other symbol in this file
+references COLORS or get_color_palette before deleting.
+
+🧹 Nitpick | 🔵 Trivial
+
+Unused variable COLORS.
+
+COLORS is assigned from get_color_palette() but never referenced in this module. Consider removing it to reduce unnecessary imports and dead code.
+
+♻️ Suggested fix
+-from tabs._common import (
+
+- get_color_palette,
+- select_variable_by_keyword,
+-)
++from tabs._common import select_variable_by_keyword
+ from utils import diag_test
+...
+-COLORS = get_color_palette()
+
+-----------------------------------------
+In `@tabs/tab_agreement.py` around lines 213 - 218, The bare except in the block
+around input.radio_source() hides real errors; change it to catch the specific
+expected exception (e.g., AttributeError or RuntimeError depending on how input
+is initialized) and/or log the exception at debug level before falling back to
+return df.get(); update the try/except that surrounds input.radio_source() so it
+only handles the anticipated failure and retains the fallback to df.get() while
+preserving visibility of unexpected errors from input.radio_source(),
+referencing input.radio_source(), df_matched.get(), and df.get() in your
+changes.
+
+🧹 Nitpick | 🔵 Trivial
+
+Broad exception handling may hide real errors.
+
+The bare except Exception: pass silently swallows all errors when accessing input.radio_source(). While this provides a safe fallback, it could mask legitimate issues (e.g., input not yet initialized). Consider catching only the expected exception type or logging at debug level.
+
+♻️ Suggested improvement
+         if is_matched.get():
+             try:
+                 if input.radio_source() == "matched":
+                     return df_matched.get()
+
+-            except Exception:
+-                pass
+
++            except (AttributeError, KeyError):
+-                # Input not yet initialized, fall back to original
+-                pass
+         return df.get()
+
+---------------------------------------
+In `@tabs/tab_agreement.py` around lines 349 - 350, The error string from
+calculate_kappa is being inserted directly into the HTML via
+kappa_html.set(f"<div class='alert alert-danger'>{err}</div>") which can expose
+user data to XSS; instead HTML-escape the err value before embedding (use a safe
+escaping utility such as html.escape or MarkupSafe.escape) and then pass the
+escaped string into kappa_html.set so the error message is rendered safely;
+locate the branch that checks "if err:" and update the construction of the alert
+HTML to use the escaped error value.
+
+⚠️ Potential issue | 🟡 Minor
+
+Error message from calculate_kappa is not HTML-escaped.
+
+The err string may contain column names from user data. Embed it safely to prevent potential XSS, consistent with the exception handling below.
+
+🐛 Proposed fix
+             if err:
+
+-                kappa_html.set(f"<div class='alert alert-danger'>{err}</div>")
+
++                kappa_html.set(f"<div class='alert alert-danger'>{_html.escape(str(err))}</div>")
+
+---------------------------------------
+In `@tabs/tab_agreement.py` around lines 418 - 421, The Bland-Altman error string
+from stats_res is inserted into HTML without escaping; update the code around
+ba_html.set(...) to HTML-escape stats_res['error'] (same approach used in the
+Kappa error handling) before embedding it in the <div>, e.g., call the project’s
+HTML-escape utility (or python's html.escape) on stats_res['error'] and pass the
+escaped value to ba_html.set to prevent injection.
+
+⚠️ Potential issue | 🟡 Minor
+
+Error message from Bland-Altman result is not HTML-escaped.
+
+Similar to the Kappa error handling, the error string should be escaped before embedding in HTML
+
+🐛 Proposed fix
+             if "error" in stats_res:
+                 ba_html.set(
+
+-                    f"<div class='alert alert-danger'>{stats_res['error']}</div>"
+
++                    f"<div class='alert alert-danger'>{_html.escape(str(stats_res['error']))}</div>"
+                 )
+
+---------------------------------------
+In `@tabs/tab_agreement.py` around lines 494 - 495, The error message assigned to
+the ICc display is not HTML-escaped; update the block that calls icc_html.set
+(the one using the err variable returned from calculate_icc) to escape err
+before embedding it into the HTML string (e.g., use Python's html.escape on err
+or an equivalent HTML-escaping utility), guarding for None so you don't pass a
+non-string, and then use the escaped value in the f-string to avoid injecting
+raw HTML.
+
+⚠️ Potential issue | 🟡 Minor
+
+Error message from calculate_icc is not HTML-escaped.
+
+For consistency and defense-in-depth, escape the error string.
+
+🐛 Proposed fix
+             if err:
+
+-                icc_html.set(f"<div class='alert alert-danger'>{err}</div>")
+
++                icc_html.set(f"<div class='alert alert-danger'>{_html.escape(str(err))}</div>")
+
+---------------------------------------
+In `@tabs/tab_agreement.py` around lines 563 - 568, The filename lambda in the
+render.download decorator can crash if input.icc_vars() returns None or an empty
+sequence; update the btn_dl_icc_report filename generation to defensively read
+vars = input.icc_vars() or [] (or use a safe getter), then take the first three
+items safely (e.g., vars[:3] or use defaults when missing), join them, pass
+through_safe_filename_part, and fallback to a fixed token like "untitled" when
+the resulting name is empty so the render.download filename lambda never errors.
+
+🧹 Nitpick | 🔵 Trivial
+
+Defensive handling for filename generation.
+
+If input.icc_vars() returns None or an empty sequence at download time, the slice operation will fail. Add a fallback for robustness.
+
+♻️ Suggested improvement
+     `@render.download`(
+
+-        filename=lambda: f"icc_report_{_safe_filename_part('_'.join(input.icc_vars()[:3]))}.html"
+
++        filename=lambda: f"icc_report_{_safe_filename_part('_'.join((input.icc_vars() or [])[:3]) or 'analysis')}.html"
+     )
+     def btn_dl_icc_report():
+         req(icc_html.get())
+         yield icc_html.get()
+
+--------------------------------------
+In `@tabs/tab_agreement.py` around lines 589 - 599, Replace the inline
+ui.div/ui.tags.small in the out_icc_validation render function with the shared
+create_error_alert utility to match Kappa and Bland-Altman validations: in
+out_icc_validation (which checks input.icc_vars()), when there are fewer than 2
+columns return create_error_alert with the same message ("Please select at least
+2 rater/method columns.") so styling and behavior are consistent across
+validations; keep the conditional logic and return None otherwise.
+
+🧹 Nitpick | 🔵 Trivial
+
+Consider using create_error_alert for consistency.
+
+The ICC validation uses an inline ui.div with text-warning styling, while Kappa and Bland-Altman validation use create_error_alert. Consider using a consistent approach across all validations for uniform UX.
+
+♻️ Suggested improvement
+     `@render.ui`
+     def out_icc_validation():
+         cols = input.icc_vars()
+         if cols and len(cols) < 2:
+
+-            return ui.div(
+-                ui.tags.small(
+-                    "Please select at least 2 rater/method columns.",
+-                    class_="text-warning",
+-                )
+-            )
+
++            return create_error_alert(
+-                "Please select at least 2 rater/method columns."
+-            )
+         return None

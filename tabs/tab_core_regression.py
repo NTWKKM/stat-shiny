@@ -980,9 +980,7 @@ def core_regression_server(
             if c != default_linear_y
             and c not in ["ID", "id_tvc"]
             and not c.startswith("Time_")
-        ][
-            :5
-        ]  # limit to 5
+        ][:5]  # limit to 5
         ui.update_selectize(
             "linear_predictors", choices=numeric_cols, selected=default_linear_x
         )

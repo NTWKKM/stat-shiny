@@ -7,6 +7,7 @@ Driven by central configuration from config.py
 from __future__ import annotations
 
 import html as _html
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -219,3 +220,302 @@ def _get_pct(pct_str: str) -> float:
         return float(pct_str.rstrip("%"))
     except (ValueError, AttributeError):
         return 0.0
+
+
+def render_contingency_table_html(
+    df: pd.DataFrame, row_var_name: str, _col_var_name: str = ""
+) -> str:
+    """
+    Render contingency table with proper 2-row header with rowspan/colspan.
+    """
+    # Extract data
+    col_level_0 = [col[0] for col in df.columns]
+    col_level_1 = [col[1] for col in df.columns]
+
+    # Build header HTML
+    header_row_1 = "<tr>"
+    header_row_1 += f'<th rowspan="2" style="vertical-align: middle;">{_html.escape(row_var_name)}</th>'
+
+    current_group = None
+    group_count = 0
+    col_groups = []
+
+    for l0, _1 in zip(col_level_0, col_level_1, strict=True):
+        if l0 != current_group:
+            if current_group is not None:
+                col_groups.append((current_group, group_count))
+            current_group = l0
+            group_count = 1
+        else:
+            group_count += 1
+    if current_group is not None:
+        col_groups.append((current_group, group_count))
+
+    for group_name, count in col_groups:
+        if group_name == "Total":
+            header_row_1 += '<th rowspan="2" style="vertical-align: middle;">Total</th>'
+        else:
+            header_row_1 += (
+                f'<th colspan="{count}">{_html.escape(str(group_name))}</th>'
+            )
+
+    header_row_1 += "</tr>"
+
+    header_row_2 = "<tr>"
+    for l0, l1 in zip(col_level_0, col_level_1, strict=True):
+        if l0 != "Total" and l1 != "":
+            header_row_2 += f"<th>{_html.escape(str(l1))}</th>"
+    header_row_2 += "</tr>"
+
+    body_html = ""
+    for idx in df.index:
+        body_html += "<tr>"
+        body_html += f"<th>{_html.escape(str(idx))}</th>"
+        for val in df.loc[idx]:
+            body_html += f"<td>{val}</td>"
+        body_html += "</tr>"
+
+    return f"""
+    <table class="contingency-table">
+        <thead>
+            {header_row_1}
+            {header_row_2}
+        </thead>
+        <tbody>
+            {body_html}
+        </tbody>
+    </table>
+    """
+
+
+def generate_standard_report(
+    title: str,
+    elements: list[dict[str, Any]],
+    missing_data_info: dict[str, Any] | None = None,
+    var_meta: dict[str, Any] | None = None,
+) -> str:
+    """
+    Unified report generator for all statistical modules.
+    Supports: text, header, table, plot (plotly), interpretation, html, and contingency tables.
+
+    Parameters:
+        title: Main report title
+        elements: List of element dicts: {"type": "...", "data": ..., "header": "..."}
+        missing_data_info: Optional dict from prepare_data_for_analysis()
+        var_meta: Optional variable metadata for labeling
+    """
+    from tabs._common import get_color_palette
+
+    colors = get_color_palette()
+    primary_color = colors["primary"]
+    primary_dark = colors["primary_dark"]
+    text_color = colors.get("text", "#333333")
+
+    css_style = f"""
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+            color: {text_color};
+            line-height: 1.6;
+        }}
+        h1 {{
+            color: {primary_dark};
+            border-bottom: 3px solid {primary_color};
+            padding-bottom: 12px;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }}
+        h2 {{
+            color: {primary_dark};
+            margin-top: 25px;
+            font-size: 1.35em;
+            border-left: 5px solid {primary_color};
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }}
+        table {{
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }}
+        table th, table td {{
+            padding: 12px 15px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }}
+        table th {{
+            background-color: {primary_color};
+            color: white;
+            font-weight: 600;
+        }}
+        .interpretation {{
+            background: linear-gradient(135deg, #ecf0f1 0%, #f8f9fa 100%);
+            border-left: 4px solid {primary_color};
+            padding: 14px 15px;
+            margin: 16px 0;
+            border-radius: 5px;
+            line-height: 1.7;
+            color: {text_color};
+        }}
+        .report-footer {{
+            text-align: center;
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-top: 40px;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }}
+        .sig-p {{
+            font-weight: bold;
+            color: #d63384;
+        }}
+        /* 🎨 Navy Blue Contingency Table Theme */
+        .contingency-table {{
+            width: 100%;
+            border-collapse: separate !important;
+            border-spacing: 0;
+            border: 1px solid #d1d9e6;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin: 24px 0;
+        }}
+        .contingency-table thead tr th {{
+            background: linear-gradient(135deg, {primary_dark} 0%, #004080 100%) !important;
+            color: white !important;
+            font-weight: 600;
+            text-align: center;
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            vertical-align: middle;
+        }}
+        .contingency-table tbody th {{
+            background-color: #f1f8ff !important;
+            color: {primary_dark} !important;
+            font-weight: bold;
+            text-align: center;
+            border-right: 2px solid #d1d9e6;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: middle;
+        }}
+        .contingency-table tbody td {{
+            background-color: #ffffff;
+            color: #2c3e50;
+            text-align: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            border-right: 1px solid #f0f0f0;
+        }}
+        .contingency-table tbody tr:hover td {{
+            background-color: #e6f3ff !important;
+            transition: background-color 0.2s ease;
+        }}
+    </style>
+    """
+
+    html = f"<!DOCTYPE html>\n<html>\n<head><meta charset='utf-8'>{css_style}</head>\n<body>"
+    html += f"<h1>{_html.escape(str(title))}</h1>"
+
+    # Add Model Stats at the top if provided (standard for TVC/Cox models)
+    if elements and any(e.get("type") == "stats_box" for e in elements):
+        # Already in elements, skip automatic box
+        pass
+    elif var_meta and "model_stats" in var_meta:  # Alternative pass-through
+        model_stats = var_meta.get("model_stats")
+        if isinstance(model_stats, dict):
+            html += "<h2>📊 Model Summary</h2>"
+            html += "<div class='interpretation' style='display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;'>"
+            for key, val in model_stats.items():
+                html += f"<div><strong>{_html.escape(str(key))}:</strong> {_html.escape(str(val))}</div>"
+            html += "</div>"
+
+    for element in elements:
+        element_type = element.get("type")
+        data = element.get("data")
+        header = element.get("header")
+
+        if header:
+            html += f"<h2>{_html.escape(str(header))}</h2>"
+
+        if element_type == "text":
+            html += f"<p>{_html.escape(str(data))}</p>"
+
+        elif element_type == "header":
+            html += f"<h2>{_html.escape(str(data))}</h2>"
+
+        elif element_type == "interpretation":
+            html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
+
+        elif element_type in {"summary", "html", "raw_html"}:
+            # raw_html is used in some modules
+            html += str(data)
+
+        elif element_type == "table":
+            if isinstance(data, pd.DataFrame):
+                d_styled = data.copy()
+                # Apply P-value highlighting if column exists
+                p_col = next(
+                    (
+                        c
+                        for c in d_styled.columns
+                        if c.lower() in ["p", "p-value", "p_value"]
+                    ),
+                    None,
+                )
+                if p_col:
+                    p_vals = pd.to_numeric(d_styled[p_col], errors="coerce")
+                    new_p_val_col = []
+                    for val, pv in zip(d_styled[p_col], p_vals):
+                        if not pd.isna(pv) and pv < CONFIG.get(
+                            "analysis.significance_level", 0.05
+                        ):
+                            new_p_val_col.append(f'<span class="sig-p">{val}</span>')
+                        else:
+                            new_p_val_col.append(str(val))
+                    d_styled[p_col] = new_p_val_col
+
+                html += d_styled.to_html(
+                    classes="table table-striped", border=0, escape=False, index=True
+                )
+            else:
+                html += str(data)
+
+        elif element_type in ("contingency_table", "contingency"):
+            if hasattr(data, "to_html"):
+                html += data.to_html(
+                    classes="contingency-table", escape=False, index=True
+                )
+            else:
+                html += str(data)
+
+        elif element_type == "plot":
+            if hasattr(data, "to_html"):
+                html += data.to_html(full_html=False, include_plotlyjs="cdn")
+            elif hasattr(data, "savefig"):
+                import base64
+                import io
+
+                buf = io.BytesIO()
+                data.savefig(buf, format="png", bbox_inches="tight")
+                b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+                html += (
+                    f'<img src="data:image/png;base64,{b64}" style="max-width:100%"/>'
+                )
+
+    if missing_data_info:
+        html += create_missing_data_report_html(missing_data_info, var_meta or {})
+
+    html += f"""
+    <div class='report-footer'>
+        © {pd.Timestamp.now().year} <a href="https://github.com/NTWKKM/" target="_blank">NTWKKM</a> | Powered by stat-shiny
+    </div>
+    </body>\n</html>
+    """
+    return html
