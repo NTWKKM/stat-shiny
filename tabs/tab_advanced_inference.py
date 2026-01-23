@@ -636,8 +636,13 @@ def advanced_inference_server(
         # Sort by Cook's D descending and take top 10
         sorted_order = np.argsort(cooks_values)[::-1][:10]
         top_indices = [influential_indices[i] for i in sorted_order]
-        d = current_df().iloc[top_indices]
-        return d
+        # Reconstruct the cleaned subset to ensure index alignment
+        y_col = input.diag_outcome()
+        x_col = input.diag_predictor()
+        covars = list(input.diag_covariates()) if input.diag_covariates() else []
+        required_cols = [y_col, x_col] + covars
+        d_clean = current_df()[required_cols].dropna()
+        return d_clean.iloc[top_indices]
 
     @render.text
     def txt_cooks_summary():

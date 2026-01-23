@@ -794,31 +794,27 @@ def diag_server(
     @render.ui
     def ui_dca_truth():
         cols = all_cols()
-        def_idx = 0
-        for i, c in enumerate(cols):
-            if "gold" in c.lower() or "standard" in c.lower() or "outcome" in c.lower():
-                def_idx = i
-                break
+        default = select_variable_by_keyword(
+            cols, ["gold", "standard", "outcome"], default_to_first=True
+        )
         return ui.input_select(
             "sel_dca_truth",
             "Outcome (Truth):",
             choices=cols,
-            selected=cols[def_idx] if cols else None,
+            selected=default,
         )
 
     @render.ui
     def ui_dca_prob():
         cols = all_cols()
-        score_idx = 0
-        for i, c in enumerate(cols):
-            if "score" in c.lower() or "prob" in c.lower() or "pred" in c.lower():
-                score_idx = i
-                break
+        default = select_variable_by_keyword(
+            cols, ["score", "prob", "pred"], default_to_first=True
+        )
         return ui.input_select(
             "sel_dca_prob",
             "Prediction/Score (Probability):",
             choices=cols,
-            selected=cols[score_idx] if cols else None,
+            selected=default,
         )
 
     @render.ui
@@ -884,6 +880,17 @@ def diag_server(
                     "data": df_disp,
                 },
             ]
+
+            # Missing Data Report
+            if missing_info:
+                rep.append(
+                    {
+                        "type": "html",
+                        "data": create_missing_data_report_html(
+                            missing_info, var_meta.get() or {}
+                        ),
+                    }
+                )
 
             html_content = diag_test.generate_report(f"DCA: {prob} vs {truth}", rep)
             dca_html.set(html_content)
