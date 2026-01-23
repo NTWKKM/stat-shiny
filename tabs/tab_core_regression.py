@@ -1253,7 +1253,7 @@ def core_regression_server(
                 return create_error_alert(res["error"])
 
             return ui.navset_tab(
-                ui.nav_panel("🌳 Forest Plots", ui_forest_tabs()),
+                ui.nav_panel("🌳 Forest Plots", ui.output_ui("ui_forest_tabs")),
                 ui.nav_panel("📋 Detailed Report", ui.HTML(res["html_fragment"])),
                 ui.nav_panel(
                     "✅ Assumptions",
