@@ -440,16 +440,36 @@ def generate_table(
     strategy = missing_cfg.get("strategy", "complete-case")
     missing_codes = missing_cfg.get("user_defined_values", [])
 
-    # --- MISSING DATA HANDLING ---
+    # --- ROBUSTNESS: Filter non-existent and all-missing columns ---
+    valid_selected = []
+    for c in selected_vars:
+        if c in df.columns:
+            if not df[c].isna().all():
+                valid_selected.append(c)
+            else:
+                logger.warning(
+                    f"Skipping column '{c}' in Table 1 - all values are missing."
+                )
+        else:
+            logger.warning(
+                f"Skipping column '{c}' in Table 1 - not found in DataFrame."
+            )
 
-    required_cols = (selected_vars + ([group_col] if has_group else [])).copy()
+    selected_vars = valid_selected
+
+    if not selected_vars:
+        raise ValueError(
+            "No valid columns selected for Table 1 (either not found or all values missing)."
+        )
+
+    required_cols = (list(selected_vars) + ([group_col] if has_group else [])).copy()
     required_cols = list(dict.fromkeys(required_cols))
 
-    # Identfy numeric columns to avoid wiping categorical data
+    # Identify numeric columns to avoid wiping categorical data
     numeric_cols = [c for c in required_cols if pd.api.types.is_numeric_dtype(df[c])]
 
     try:
-        df, missing_data_info = prepare_data_for_analysis(
+        df_clean, missing_data_info = prepare_data_for_analysis(
             df,
             required_cols=required_cols,
             numeric_cols=numeric_cols,
@@ -457,9 +477,11 @@ def generate_table(
             missing_codes=missing_codes,
             handle_missing=strategy,
         )
+        # Use cleaning result
+        df = df_clean
         missing_data_info["strategy"] = strategy
     except Exception as e:
-        logger.error(f"Data preparation failed: {e}")
+        logger.error(f"Table 1 data preparation failed: {e}")
         raise ValueError(f"Cannot generate table: data preparation error - {e}") from e
 
     # CRITICAL: Create cleaned copy for statistics ONLY
