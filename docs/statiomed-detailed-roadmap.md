@@ -161,9 +161,7 @@ python-multipart==0.0.7        # Async support
 
 # Specialized Statistics (UPDATED)
 # Bias-reduced regression (Corrected Source)
-firthmodels @ git+[https://github.com/jzluo/firthmodels.git@v0.1.1](https://github.com/jzluo/firthmodels.git@v0.1.1) 
-
-```
+firthmodels @ git+[https://github.com/jzluo/firthmodels/tree/main](https://github.com/jzluo/firthmodels/tree/main) 
 
 ---
 
