@@ -28,7 +28,7 @@ RUN apt-get update && \
 
 # Pre-install latest security tools into the target directory
 # This fixes CVE-2026-24049 (wheel/setuptools) for the app dependencies
-RUN pip install --target=/build/deps --no-cache-dir --upgrade pip setuptools wheel
+RUN pip install --target=/build/deps --no-cache-dir --upgrade pip "setuptools>=80.10.1" "wheel>=0.46.3"
 
 # Copy and install requirements
 COPY requirements-prod.txt ./
