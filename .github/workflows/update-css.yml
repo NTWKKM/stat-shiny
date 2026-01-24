@@ -3,9 +3,9 @@ name: Update Static CSS
 on:
   push:
     paths:
-      - 'tabs/_styling.py'  # Trigger เมื่อแก้ styling
-      - 'tabs/_common.py'   # Trigger เมื่อแก้ color palette
-      - 'utils/update_css.py'
+      - "tabs/_styling.py" # Trigger เมื่อแก้ styling
+      - "tabs/_common.py" # Trigger เมื่อแก้ color palette
+      - "utils/update_css.py"
     branches:
       - main
       - patch
@@ -15,23 +15,23 @@ jobs:
   update-css:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # ⭐ ต้องมีสิทธิ์ Write เพื่อ push กลับ
-    
+      contents: write # ⭐ ต้องมีสิทธิ์ Write เพื่อ push กลับ
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # ใช้ Token มาตรฐาน
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
-          python-version: '3.12' # แนะนำให้ใช้ version เดียวกับที่รันจริง
+          python-version: "3.12" # แนะนำให้ใช้ version เดียวกับที่รันจริง
 
       - name: Install dependencies
         # ต้องลง shiny เพราะ utils/update_css.py มีการ import shiny
         run: |
-          pip install shiny pandas 
+          pip install shiny pandas
 
       - name: Generate static CSS
         run: |
@@ -41,7 +41,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
+
           # Check changes specifically in styles.css
           if git diff --quiet static/styles.css; then
             echo "No CSS changes to commit."
