@@ -3,6 +3,7 @@
 [![CI](https://github.com/jzluo/firthmodels/actions/workflows/ci.yml/badge.svg)](https://github.com/jzluo/firthmodels/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/firthmodels)](https://pypi.org/project/firthmodels/)
 ![Pepy Total Downloads](https://img.shields.io/pepy/dt/firthmodels)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/firthmodels)](https://anaconda.org/channels/conda-forge/packages/firthmodels/overview)
 ![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fjzluo%2Ffirthmodels%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)
 ![GitHub License](https://img.shields.io/github/license/jzluo/firthmodels)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17863280.svg)](https://doi.org/10.5281/zenodo.17863280)
@@ -15,7 +16,7 @@ Firth-penalized models in Python:
 Firth penalization reduces small-sample bias and produces finite estimates even when
 standard MLE fails due to (quasi-)complete separation or monotone likelihood.
 
-See [#12](https://github.com/jzluo/firthmodels/issues/12) and [#32](https://github.com/jzluo/firthmodels/issues/32) for benchmarking results.
+See [benchmarking results here](https://github.com/jzluo/firthmodels/blob/main/benchmarks/README.md) comparing firthmodels, [logistf](https://cran.r-project.org/web/packages/logistf/index.html), [brglm2](https://cran.r-project.org/web/packages/brglm2/index.html), and [coxphf](https://cran.r-project.org/web/packages/coxphf/index.html).
 
 ## Why Firth penalization?
 
@@ -28,18 +29,45 @@ In Cox proportional hazards, an analogous failure mode is monotone likelihood, w
 partial likelihood becomes unbounded (often due to small samples, rare events, or
 near-perfect risk separation).
 
-Firth's method adds a penalty term that:
-- Produces **finite, well-defined estimates** even with separated data
-- **Reduces small-sample bias** in coefficient estimates
-
 These problems are common in:
 - Case-control studies with rare exposures
 - Small clinical trials
 - Genome-wide or Phenome-wide association studies (GWAS/PheWAS)
 - Any dataset where events are rare relative to predictors
 
+Firth's method adds a penalty term that:
+- Produces **finite, well-defined estimates** even with separated data
+- **Reduces small-sample bias** in coefficient estimates
+
+Kosmidis and Firth (2021) formally proved that bias reduction for logistic regression
+models guarantees finite estimates as long as the model matrix has full rank.
+
+### Detecting separation
+You can use `detect_separation` to check if your data has separation before fitting.
+This implements the linear programming method from Konis (2007), as used in the
+R detectseparation package by Kosmidis et al (2022).
+
+The following example is based on the endometrial dataset used in Heinze and Schemper (2002),
+where the `NV` feature causes quasi-complete separation.
+
+```python
+from firthmodels import detect_separation
+
+result = detect_separation(X, y)
+result.separation    # True
+result.is_finite     # array([False,  True,  True,  True])
+result.directions    # array([1, 0, 0, 0])  # where 1 = +Inf, -1 = -Inf, 0 = finite
+print(result.summary())
+# Separation: True
+#   NV         +Inf
+#   PI         finite
+#   EH         finite
+#   intercept  finite
+```
+
 ## Installation
 
+### Pip
 ```bash
 pip install firthmodels
 ```
@@ -47,9 +75,25 @@ pip install firthmodels
 Requires Python 3.11+ and depends on NumPy, SciPy, and scikit-learn.
 
 Optional dependencies:
+- Numba acceleration: `pip install firthmodels[numba]`
+  - The first run with the Numba backend after installing or updating firthmodels may take 10-30 seconds due to JIT compilation. Subsequent runs are fast thanks to caching.
 
 - Formula interface for the statsmodels adapter: `pip install firthmodels[formula]`
 (or simply install [formulaic](https://matthewwardrop.github.io/formulaic/latest/)).
+
+**Note:**
+Performance is significantly improved when NumPy/SciPy are built against a well-optimized BLAS/LAPACK library. You can check which library yours is using with `np.show_config()`. As a rule of thumb, MKL offers the best performance for Intel CPUs, while OpenBLAS is also a good choice for Intel and generally the best option for AMD. On macOS, ensure NumPy/SciPy are linked to Apple Accelerate.
+
+The most straightforward way to control the BLAS/LAPACK library is to install `firthmodels` in a conda environment:
+
+### conda
+```bash
+conda install -c conda-forge firthmodels  # usually defaults to OpenBLAS
+conda install -c conda-forge firthmodels "libblas=*=*_newaccelerate"  # Apple Accelerate
+conda install -c conda-forge firthmodels "libblas=*=*mkl"  # Intel MKL
+conda install -c conda-forge firthmodels "libblas=*=*openblas"  # OpenBLAS
+```
+Add numba to the conda install command to enable Numba acceleration.
 
 ## Quick start
 
@@ -93,6 +137,9 @@ S = model.predict_survival_function(X)  # shape: (n_samples, n_event_times)
 `FirthCoxPH` also accepts `y` as a structured array with boolean `event` and float `time`
 fields (scikit-survival style).
 
+Both estimators take a `backend` parameter that can be one of `'auto'` (default), `'numba'`, or `'numpy'`. If `'auto'`, firthmodels auto-detects Numba availability and uses
+it if installed, otherwise numpy/scipy.
+
 ## Estimators
 
 ### scikit-learn compatible API
@@ -111,7 +158,7 @@ scores = cross_val_score(pipe, X, y, cv=5)
 ```
 
 `FirthCoxPH` also follows the sklearn estimator API (`fit`, `predict`, `score`, etc.).
-It additionally features a scikit-survival-like interface:
+It also has a scikit-survival-like interface:
   - methods: `fit(X, y)`, `predict(X)` (linear predictor), `score(X, y)` (C-index),
   `predict_survival_function(X, return_array=True)`,
   `predict_cumulative_hazard_function(X, return_array=True)`.
@@ -136,14 +183,15 @@ model.lrt_bse_         # Back-corrected standard errors (separate from Wald bse_
 ```
 
 Each feature requires a separate constrained model fit, so you can test selectively to
-avoid unnecessary computation:
+avoid unnecessary computation. By default, LRT uses a warm start based on the full-model
+covariance to reduce Newton-Raphson iterations; pass `warm_start=False` to disable it.
 
 ```python
 model.lrt(0)              # Single feature by index
 model.lrt([0, 2])         # Multiple features
 model.lrt(['snp', 'age']) # By name (if fitted with DataFrame)
 model.lrt(['snp', 2])     # Mixed
-
+model.lrt(warm_start=False)  # Disable warm start
 ```
 
 ### Confidence intervals
@@ -158,6 +206,7 @@ model.conf_int(method='pl', features=['snp', 'age'])  # can selectively compute 
 ### Sample weights and offsets
 
 ```python
+# currently for FirthLogisticRegression only
 model.fit(X, y, sample_weight=weights)
 model.fit(X, y, offset=offset)
 ```
@@ -210,12 +259,14 @@ res = FirthLogit.from_formula("y ~ age + treatment", df).fit()
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `backend` | `'auto'` | `'auto'`, `'numba'`, or `'numpy'`. `'auto'` uses numba if available. |
 | `fit_intercept` | `True` | Whether to add an intercept term |
 | `max_iter` | `25` | Maximum Newton-Raphson iterations |
 | `gtol` | `1e-4` | Gradient convergence tolerance (converged when max\|gradient\| < gtol) |
 | `xtol` | `1e-4` | Parameter convergence tolerance (converged when max\|delta\| < xtol) |
 | `max_step` | `5.0` | Maximum step size per coefficient |
 | `max_halfstep` | `25` | Maximum step-halvings per iteration |
+| `penalty_weight` | `0.5` | Weight of the Firth penalty term. The default 0.5 corresponds to the standard Firth bias reduction method (Firth, 1993), equivalent to using Jeffreys' invariant prior. Set to `0.0` for unpenalized maximum likelihood estimation. |
 
 ### `FirthLogisticRegression` attributes (after fitting)
 
@@ -230,36 +281,72 @@ res = FirthLogit.from_formula("y ~ age + treatment", df).fit()
 | `converged_` | Whether the solver converged |
 | `lrt_pvalues_` | LRT p-values (after calling `lrt()`); includes intercept if `fit_intercept=True` |
 | `lrt_bse_` | Back-corrected SEs (after calling `lrt()`); includes intercept if `fit_intercept=True` |
+| `classes_` | Class labels (shape `(2,)`) |
+| `n_features_in_` | Number of features seen during fit |
+| `feature_names_in_` | Feature names (if X had string column names) |
 
 
 ### `FirthCoxPH` parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `backend` | `'auto'` | `'auto'`, `'numba'`, or `'numpy'`. `'auto'` uses numba if available. |
 | `max_iter` | `50` | Maximum Newton-Raphson iterations |
 | `gtol` | `1e-4` | Gradient convergence tolerance (converged when max\|gradient\| < gtol) |
 | `xtol` | `1e-6` | Parameter convergence tolerance (converged when max\|delta\| < xtol) |
 | `max_step` | `5.0` | Maximum step size per coefficient |
 | `max_halfstep` | `5` | Maximum step-halvings per iteration |
+| `penalty_weight` | `0.5` | Weight of the Firth penalty term. The default 0.5 corresponds to the standard Firth bias reduction method (Heinze and Schemper, 2001), equivalent to using Jeffreys' invariant prior. Set to `0.0` for unpenalized Cox partial likelihood estimation. |
 
-Key methods/attributes:
+### `FirthCoxPH` attributes (after fitting)
 
-- `predict(X)` returns the linear predictor `X @ coef_` (log partial hazard).
-- `predict_cumulative_hazard_function(X)` returns an array evaluated at `unique_times_`.
-- `predict_survival_function(X)` returns an array evaluated at `unique_times_`.
-- Baseline functions: `unique_times_`, `cum_baseline_hazard_`, `baseline_survival_`.
+| Attribute | Description |
+|-----------|-------------|
+| `coef_` | Coefficient estimates (log hazard ratios) |
+| `bse_` | Wald standard errors |
+| `pvalues_` | Wald p-values |
+| `loglik_` | Penalized log partial likelihood |
+| `n_iter_` | Number of iterations |
+| `converged_` | Whether the solver converged |
+| `lrt_pvalues_` | LRT p-values (after calling `lrt()`) |
+| `lrt_bse_` | Back-corrected SEs (after calling `lrt()`) |
+| `unique_times_` | Unique event times (ascending order) |
+| `cum_baseline_hazard_` | Breslow cumulative baseline hazard at `unique_times_` |
+| `baseline_survival_` | Baseline survival function at `unique_times_` |
+| `n_features_in_` | Number of features seen during fit |
+| `feature_names_in_` | Feature names (if X had string column names) |
+
+`predict(X)` returns the linear predictor `X @ coef_` (log partial hazard).
+`predict_cumulative_hazard_function(X)` and `predict_survival_function(X)` return arrays
+evaluated at `unique_times_`.
 
 ## References
 
 Firth D (1993). Bias reduction of maximum likelihood estimates. *Biometrika* 80, 27-38.
 
-Heinze G, Schemper M (2001). A solution to the problem of monotone likelihood in Cox regression. *Biometrics* 57, 114-119.
+Heinze G, Schemper M (2001). A solution to the problem of monotone likelihood in
+Cox regression. *Biometrics* 57, 114-119.
 
-Heinze G, Schemper M (2002). A solution to the problem of separation in logistic regression. *Statistics in Medicine* 21, 2409-2419.
+Heinze G, Schemper M (2002). A solution to the problem of separation in
+logistic regression. *Statistics in Medicine* 21, 2409-2419.
 
-Mbatchou J et al. (2021). Computationally efficient whole-genome regression for quantitative and binary traits. *Nature Genetics* 53, 1097-1103.
+Konis, K. (2007). Linear Programming Algorithms for Detecting Separated
+Data in Binary Logistic Regression Models. DPhil thesis, University of Oxford.
 
-Venzon DJ, Moolgavkar SH (1988). A method for computing profile-likelihood-based confidence intervals. *Applied Statistics* 37, 87-94.
+Kosmidis I, Firth D (2021). Jeffreys-prior penalty, finiteness and shrinkage in
+binomial-response generalized linear models. *Biometrika* 108, 71-82.
+
+Kosmidis I, Schumacher D, Schwendinger F (2022). _detectseparation:
+Detect and Check for Separation and Infinite Maximum Likelihood
+Estimates_. doi:10.32614/CRAN.package.detectseparation
+<https://doi.org/10.32614/CRAN.package.detectseparation>, R package
+version 0.3, <https://CRAN.R-project.org/package=detectseparation>.
+
+Mbatchou J et al. (2021). Computationally efficient whole-genome regression for
+quantitative and binary traits. *Nature Genetics* 53, 1097-1103.
+
+Venzon DJ, Moolgavkar SH (1988). A method for computing profile-likelihood-based
+confidence intervals. *Applied Statistics* 37, 87-94.
 
 ## License
 
