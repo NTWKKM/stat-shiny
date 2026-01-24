@@ -14,14 +14,9 @@ The application uses a fluid, multi-menu navbar designed for responsiveness and 
 - **Navigation**: Utilizes nested `ui.page_navbar` and `ui.nav_menu` to organize 10+ statistical modules into logical groups (General Stats, Inference, etc.).
 - **Accessibility**: Includes skip-links, ARIA landmarks, and standardized focus states.
 
-### ⚡ Lazy Loading Mechanism
+### ⚡ Modular Structure
 
-Modules are loaded **on-demand** to minimize initial bundle size and improve startup performance.
-
-1. **Browser** triggers a navigation event.
-2. **App Shell** checks if the module (UI/Server) is already initialized.
-3. If not, it performs an **asynchronous import** of the tab module.
-4. Static assets (`styles.css`, `custom_handlers.js`) are served once and shared across all modules.
+The application is built on a modular architecture where each tab is a self-contained component. While modules follow a common structure for consistency, they are fully initialized during the application startup to ensure immediate availability and a smooth user experience.
 
 ![Navigation Workflow](./assets/navigation_sequence.png)
 

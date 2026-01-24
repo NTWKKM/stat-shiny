@@ -1,6 +1,3 @@
-นี่คือไฟล์ Markdown (`.md`) ที่ถูกจัดรูปแบบให้ตรงกับโครงสร้างและเนื้อหาในไฟล์ PDF ต้นฉบับที่คุณแนบมา โดยมีการใช้ Mermaid Diagram สำหรับแผนภาพ Architecture และจัดรูปแบบตาราง/Code block ให้สวยงามตามมาตรฐาน Markdown ครับ
-
-```markdown
 # 📊 Medical Stat Tool - Master Optimization & Development Plan
 
 **Document Version:** 3.2 (Single-File Embedded HTML Edition)  
@@ -28,6 +25,7 @@
 The Medical Stat Tool (stat-shiny) is a comprehensive Python Shiny application designed for professional medical statistics. Currently comprising 15 modules and 28 utility libraries, the system is robust but requires targeted optimization to meet interactive reporting standards.
 
 ### Strategic Focus
+
 * **Target:** Achieve >80% code coverage and exact numerical matches with R/SAS.
 * **HTML-First Export Strategy:** Prioritize standalone, single-file HTML reports (**Embedded**). All reports must be self-contained (no external dependencies required for viewing) to ensure portability across devices (iPad, Mobile, Desktop).
 * **Critical Path:** Prioritize "Big 4" modules: Regression, Survival, Baseline Table, Diagnostics.
@@ -37,18 +35,40 @@ The Medical Stat Tool (stat-shiny) is a comprehensive Python Shiny application d
 ## 2. Current Architecture & Health
 
 ### 2.1 System Overview
-The application follows a modular Shiny architecture.
+
+The application follows a modular Shiny architecture using a fluid App Shell.
+
+#### App Shell & Navigation
+
+* **Container**: Built using `ui.page_fluid` for full-width flexibility across devices.
+* **Navigation**: Utilizes nested `ui.page_navbar` and `ui.nav_menu` to organize 10+ statistical modules.
+* **Accessibility**: Includes skip-links, ARIA landmarks, and standardized focus states.
+
+#### ⚡ Strategic Development Approach
+
+The application prioritizes **statistical reliability** and **report portability**. Rather than complex optimizations like lazy loading, the current focus is on a robust App Shell that ensures all modules are verified and ready for use immediately upon startup.
 
 ```mermaid
 graph TD
     User[User] --> Entry[app.py / Main Entry]
-    Entry --> UI[Presentation Layer / tabs/]
-    UI --> Logic[Business Logic / utils/]
+    Entry --> UI[Presentation Layer / App Shell]
+    UI --> Modules[Modular Tab Components / tabs/]
+    Modules --> Logic[Business Logic / utils/]
     Logic --> Stats[Statistical Engines]
-    Logic --> Viz[Visualization Libs]
+    Logic --> Viz[Visualization Libs / Plotly]
     Stats --> Deps[Pandas/SciPy/Statsmodels/Lifelines]
-
 ```
+
+#### 🎨 UI Styling System
+
+A centralized system ensuring visual consistency.
+
+| File | Role | Description |
+| :--- | :--- | :--- |
+| `tabs/_common.py` | **Source of Truth** | Central `get_color_palette()` and UI constants. |
+| `tabs/_styling.py` | **CSS Generator** | Generates CSS using `_common.py`. |
+| `static/styles.css` | **Compiled CSS** | Auto-generated. **DO NOT EDIT.** |
+| `utils/update_css.py` | **Sync Utility** | Script to sync CSS when `_styling.py` changes. |
 
 ### 2.2 Critical Issues Identified
 
@@ -220,6 +240,25 @@ if __name__ == "__main__":
 
 ```
 
+### 4.3 Data Processing & Statistical Pipeline
+
+Standardized data flow ensuring consistent handling of missing values and metadata.
+
+#### 1. Ingestion & Quality Check (`utils/data_quality.py`)
+
+* **Immediate Data Health Report**: Uses `check_data_quality()` for deep validation (Numeric cleanup, Categorical flags, Row-level reporting).
+* **Configuration**: Variable type casting and missing value strategy selection.
+
+#### 2. Central Preparation (`utils/data_cleaning.py`)
+
+* **`prepare_data_for_analysis()`**: Standard call for every module.
+* **Tasks**: Handles missing value exclusion, type enforcement, and logging analyzed indices.
+
+#### 3. Reporting (`utils/formatting.py`)
+
+* Standardized "Missing Data Summary" automatically included in every statistical output.
+* `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
+
 ---
 
 ## 5. Quality Assurance & Validation Strategy
@@ -230,7 +269,21 @@ if __name__ == "__main__":
 * **Integration Tests:** >80% (Focus: Data pipeline, UI interaction)
 * **Validation:** 100% Match with R/SAS results on benchmark datasets.
 
-### 5.2 CI/CD Pipeline (GitHub Actions)
+### 5.2 CI/CD Pipeline & Test Suites
+
+#### Continuous Integration (GitHub Actions)
+
+* `quality_check.yml`: Runs Unit, Integration, and E2E (Playwright) tests.
+* `ui-styling.yml`: Verifies CSS/JS/Python styling consistency.
+* `docker-publish.yml`: Automates production image builds.
+
+#### Test Suites
+
+* **Unit**: Core utilities, statistics math, color palette.
+* **Integration**: PSM pipelines, data cleaning flow.
+* **E2E**: Multi-tab navigation, smart variable defaults, loading states.
+
+#### Statistical Validation Workflow
 
 Add this to `.github/workflows/test.yml`:
 
@@ -252,7 +305,6 @@ jobs:
           Rscript -e "install.packages(c('survival', 'pROC', 'tableone'))"
       - name: Run Comparison Tests
         run: pytest tests/validation/ --verbose
-
 ```
 
 ---
@@ -323,21 +375,22 @@ Use this to standardize tasks.
 >
 >
 
-### 8.2 Execution Schedule (8-10 Weeks)
+### 8.2 Execution Schedule (Current Plan)
 
 | Phase | Duration | Focus Area | Key Deliverable |
 | --- | --- | --- | --- |
-| **Phase 1** | Weeks 1-2 | Core Refactoring | Modular Regression, HTML Model Summary (Embedded) |
-| **Phase 2** | Weeks 3-4 | Survival & Matching | PH Tests, Interactive Table 1 HTML (Embedded) |
-| **Phase 3** | Weeks 5-6 | Diagnostics & Static Export | Interactive ROC/DCA, Start Word/Excel research |
-| **Phase 4** | Weeks 7-8 | Integration & Docs | Full E2E Tests, User Manual, Release v2.0 |
+| **Phase 1** | Weeks 1-2 | **Architecture Stability** | Refactor Core Regression, finalize MVC separation, HTML Summary |
+| **Phase 2** | Weeks 3-4 | **Validation & Portability** | PH Assumption tests, Survival Interactive HTML, Table 1 styling |
+| **Phase 3** | Weeks 5-6 | **Visual Intelligence** | Diagnostic Dashboard (ROC/DCA/Calibration), 95% CI bands |
+| **Phase 4** | Weeks 7-8 | **Integration & Polish** | Full E2E suite, Performance optimization, User Manual v2.0 |
+
+### 8.3 Future Development Roadmap (R&D)
+
+Beyond the initial optimization phase, the project will pivot towards advanced analytical capabilities:
+
+1. **AI-Assisted Interpretation**: Integration of LLMs to provide natural language summaries of statistical results.
+2. **Advanced Causal Inference**: Enhancing `tab_causal_inference` with Double Machine Learning (DML) and Sensitivity Analysis.
+3. **Omics Data Support**: Specialized pipelines for High-Dimensional data and Gene Set Enrichment Analysis (GSEA).
+4. **Cloud-Native Deployment**: Kubernetes-ready scaling for enterprise hospital environments.
 
 ---
-
-### Conclusion
-
-This Revised Plan adopts the **Single-File Embedding strategy**. This ensures that every report generated by the tool is a standalone, professional-grade artifact that functions perfectly across all devices.
-
-```
-
-```
