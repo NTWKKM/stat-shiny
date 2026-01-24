@@ -1,6 +1,6 @@
 # 📊 Medical Stat Tool - Master Optimization & Development Plan
 
-**Document Version:** 4.1 (International Enterprise Edition)
+**Document Version:** 4.3 (7-Tab Standard Edition)
 **Date:** January 24, 2026
 **Status:** 🚀 Production-Hardening (Validation & Optimization Phase)
 **Target:** Enterprise-Grade / Medical Publication Standard
@@ -22,12 +22,19 @@
 
 The Medical Stat Tool (stat-shiny) has transitioned into a **High Stability Phase**. The current architecture successfully decouples **Statistical Logic** from the **User Interface (UI)**, strictly adhering to the **MVC (Model-View-Controller) Pattern**.
 
-### 🎯 Strategic Focus (v4.1)
+### 🎯 Strategic Focus (v4.3)
 
 * **Logic Isolation:** Complex statistical logic (e.g., Logistic Regression in `utils/logic.py`) is completely isolated from UI files to enhance testability and maintainability.
-* **5-Tab Navigation Standard:** The UI has been standardized into 5 core navigation tabs: **Data, General, Advanced, Clinical, and Settings**.
+* **7-Tab Navigation Standard:** The UI has been standardized into **7 core navigation tabs** to prioritize Table 1 access:
+    1. **🏠 Home** (Dashboard & Quick Start)
+    2. **📋 Table 1** (Baseline Characteristics & Matching)
+    3. **📁 Data** (Management & Health)
+    4. **📊 General** (Descriptive & Diagnostic)
+    5. **🔬 Advanced** (Regression & Survival)
+    6. **🏥 Clinical** (Sample Size & Causal)
+    7. **⚙️ Settings** (Configuration)
 * **Data Integrity:** The `utils/data_cleaning.py` module acts as the primary **Gatekeeper**, enforcing strict Missing Data handling and Type Casting rules.
-* **HTML-First Export:** Every module is required to generate self-contained **Single-File HTML Reports** capable of embedding interactive Plotly graphs (via `utils/plotly_html_renderer.py`).
+* **HTML-First Export:** Every module is required to generate self-contained **Single-File HTML Reports** capable of embedding interactive Plotly graphs.
 
 ---
 
@@ -39,7 +46,7 @@ The system has evolved from a Monolithic Shiny App into a fully **Modular Archit
 
 ```mermaid
 graph TD
-    User[User / Client] --> App[app.py / Navbar Shell (5 Tabs)]
+    User[User / Client] --> App[app.py / Navbar Shell (7 Tabs)]
     App --> Tabs[UI Components (tabs/*)]
     Tabs --> Helper[UI Helpers (utils/ui_helpers.py)]
     Tabs --> DataPipe[Data Cleaning Pipeline (utils/data_cleaning.py)]
@@ -53,11 +60,12 @@ graph TD
 
 | Component | File Source | Status | Improvement Needed |
 | --- | --- | --- | --- |
-| **Data Pipeline** | `utils/data_cleaning.py` | 🟢 **Excellent** | Includes vectorized cleaning, outlier detection, and comprehensive quality reports. |
-| **Core Regression** | `utils/logic.py` | 🟢 **Good** | Logic isolated; supports Firth/Logit, Interaction Terms, and VIF calculation. |
-| **Diagnostic UI** | `tabs/tab_diag.py` | 🟢 **Feature-Rich** | Fully functional ROC, DCA, and Chi-Square analysis with HTML report export. |
-| **UI Structure** | `tabs/*` | 🟡 **Transitioning** | Currently migrating legacy files to the new **5-Tab Standard** per the `UI_IMPROVEMENT` plan. |
-| **Validation** | `tests/*` | 🟡 **In Progress** | E2E tests (`test_app_flow.py`) are active; Statistical Validation against R is pending. |
+| **Home Dashboard** | `tabs/tab_home.py` | 🟢 **Ready** | Landing page with project overview. |
+| **Table 1 & Matching** | `tabs/tab_baseline_matching.py` | 🟢 **Promoted** | Now a top-level tab for instant access to Table 1 generation. |
+| **Data Pipeline** | `utils/data_cleaning.py` | 🟢 **Excellent** | Vectorized cleaning & quality reports. |
+| **Core Regression** | `utils/logic.py` | 🟢 **Good** | Logic isolated; supports Firth/Logit. |
+| **Diagnostic UI** | `tabs/tab_diag.py` | 🟢 **Feature-Rich** | ROC, DCA, Chi-Square with HTML export. |
+| **UI Structure** | `tabs/*` | 🟡 **Transitioning** | Refactoring navigation to match the **7-Tab Standard**. |
 
 ---
 
@@ -73,19 +81,21 @@ graph TD
 
 ### 🟡 PHASE 2: UI Standardization & Clinical Validation (Current Focus)
 
-* **Objective:** Standardize the UI into the 5-Tab structure and validate statistical accuracy against R.
+* **Objective:** Standardize the UI into the **7-Tab structure** and validate statistical accuracy against R.
 * **Action Items:**
 
-#### A. UI Refactoring (Big 5 Restructure)
+#### A. UI Refactoring (Big 7 Restructure)
 
-* [ ] **Merge Tabs:** Consolidate `tab_core_regression.py` and `tab_survival.py` under the "🔬 Advanced Statistics" NavMenu.
-* [ ] **Code Reduction:** Utilize `utils/ui_helpers.py` to eliminate redundant code in UI files (e.g., Card Wrappers, Section Headers).
+* [ ] **Navigation Update:** Update `app.py` to display the 7 distinct tabs.
+* [ ] **Promote Table 1:** Ensure `tab_baseline_matching.py` is directly accessible via the "Table 1" tab.
+* [ ] **Consolidate Advanced:** Group `tab_core_regression.py` and `tab_survival.py` under the "🔬 Advanced" NavMenu.
+* [ ] **Code Reduction:** Utilize `utils/ui_helpers.py` to eliminate redundant code in UI files.
 
 #### B. Statistical Validation (Hardening)
 
 * [ ] **Regression:** Implement Unit Tests to verify OR/CI values in `utils/logic.py` against R benchmarks (`glm`).
 * [ ] **Survival:** Validate Assumption Checks (Schoenfeld residuals) within `tab_survival.py`.
-* [ ] **Table 1:** Ensure decimal rounding standardization aligns with medical journal requirements.
+* [ ] **Table 1:** Ensure decimal rounding standardization aligns with medical journal requirements (e.g., "Table 1" tab output).
 
 ### 🔴 PHASE 3: Advanced Features & Reporting (Next Steps)
 
@@ -143,7 +153,7 @@ Technique for embedding Plotly JS and CSS into a single file, ensuring reports a
 Currently utilizing **Playwright** for User Flow validation:
 
 * ✅ App Loading & Title Verification
-* ✅ Tab Navigation (Verification of all 5 main categories)
+* ✅ Tab Navigation (Verification of all **7 main categories**)
 * ✅ File Upload Interaction
 * ✅ Error Handling (Console Log Monitoring)
 
