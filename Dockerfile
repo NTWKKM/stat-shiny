@@ -22,7 +22,8 @@ WORKDIR /build
 # Update OS packages to fix system vulnerabilities
 RUN apt-get update && \
   apt-get upgrade -y && \
-  apt-get install -y --no-install-recommends gcc && \
+  apt-cache policy gcc && \
+  apt-get install -y --no-install-recommends gcc=4:12.2.0-3 && \
   rm -rf /var/lib/apt/lists/*
 
 # Pre-install latest security tools into the target directory
