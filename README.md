@@ -163,7 +163,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 
 [--- REPOSITORY-TREE-END ---]
 
-# 🏥 Medical Statistical Tool (Shiny for Python)
+## 🏥 Medical Statistical Tool (Shiny for Python)
 
 A comprehensive, interactive web application for medical statistical analysis, built with [Shiny for Python](https://shiny.posit.co/py/). This tool simplifies the process of data management, cohort matching, and advanced statistical modeling for medical researchers.
 
