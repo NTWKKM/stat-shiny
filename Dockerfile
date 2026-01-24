@@ -1,5 +1,5 @@
 # ==============================================================================
-# Medical Stat Tool (stat-shiny) - Dockerfile
+# Medical Stat Tool (stat-shiny) - Dockerfile (Secured & Patched)
 # ==============================================================================
 # Optimized for HuggingFace Spaces deployment
 # Build: docker build -t stat-shiny .
@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Builder - Install dependencies
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim-bookworm AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -19,20 +19,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-# Install build dependencies (if needed for C extensions)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  gcc \
-  && rm -rf /var/lib/apt/lists/*
+# Update OS packages to fix system vulnerabilities
+RUN apt-get update && \
+  apt-get upgrade -y && \
+  apt-cache policy gcc && \
+  apt-get install -y --no-install-recommends gcc=4:12.2.0-3 && \
+  rm -rf /var/lib/apt/lists/*
+
+# Pre-install latest security tools into the target directory (ensuring fresh install)
+# This fixes CVE-2026-24049 (wheel/setuptools) for the app dependencies
+RUN rm -rf /build/deps && mkdir -p /build/deps && \
+  pip install --target=/build/deps --no-cache-dir --upgrade pip "setuptools>=80.10.1" "wheel>=0.46.3"
 
 # Copy and install requirements
-# Copy only requirements first to leverage Docker cache
 COPY requirements-prod.txt ./
+
+# Install remaining dependencies
 RUN pip install --target=/build/deps --no-cache-dir -r requirements-prod.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime - Lean production image
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 
 # OCI Labels
 LABEL org.opencontainers.image.title="Medical Stat Tool" \
@@ -47,6 +55,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
   HOME=/home/appuser
 
 WORKDIR /app
+
+# -----------------------------------------------------------------------------
+# SECURITY FIXES (Runtime)
+# -----------------------------------------------------------------------------
+# 1. Update OS packages (fixes system-level CVEs like glibc, openssl)
+# 2. Update System PIP (fixes CVE-2025-8869: pip <= 25.2)
+RUN apt-get update && \
+  apt-get upgrade -y && \
+  pip install --no-cache-dir --upgrade "pip>=25.3" && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
+# -----------------------------------------------------------------------------
 
 # Copy installed dependencies from builder stage
 COPY --from=builder /build/deps /app/deps
@@ -69,8 +89,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860', timeout=3)" || exit 1
 
 # Run with Gunicorn + Uvicorn worker
-# - workers: 2 (Increased to 2 for better concurrency if memory allows, or keep 1)
-# - timeout: 120s (for long-running statistical computations)
 CMD ["python", "-m", "gunicorn", \
   "-k", "uvicorn.workers.UvicornWorker", \
   "-w", "2", \
