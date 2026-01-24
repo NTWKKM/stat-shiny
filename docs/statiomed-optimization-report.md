@@ -1,396 +1,180 @@
 # 📊 Medical Stat Tool - Master Optimization & Development Plan
 
-**Document Version:** 3.2 (Single-File Embedded HTML Edition)  
-**Date:** January 24, 2026  
-**Status:** Production-Ready (Execution Phase)  
-**Target:** Enterprise-Grade / Interactive Reporting Standard
+**Document Version:** 4.0 (Integrated Logic & UI Edition)
+**Date:** January 24, 2026
+**Status:** 🚀 Production-Hardening (Validation & Optimization Phase)
+**Target:** Enterprise-Grade / Medical Publication Standard
 
 ---
 
 ## 📑 Table of Contents
 
 1. [Executive Summary](#1-executive-summary)
-2. [Current Architecture & Health](#2-current-architecture--health)
-3. [Module Optimization Roadmap](#3-module-optimization-roadmap-tiers-1-4)
-4. [Deep Dive: Critical Technical Implementations](#4-deep-dive-critical-technical-implementations)
-5. [Quality Assurance & Validation Strategy](#5-quality-assurance--validation-strategy)
-6. [Documentation & Publication Standards](#6-documentation--publication-standards)
-7. [DevOps, Deployment & Maintenance](#7-devops-deployment--maintenance)
-8. [Project Management & Timeline](#8-project-management--timeline)
+2. [System Architecture & Health](#2-system-architecture--health)
+3. [Module Optimization Roadmap (Updated)](#3-module-optimization-roadmap-updated)
+4. [Deep Dive: Key Technical Implementations](#4-deep-dive-key-technical-implementations)
+5. [Quality Assurance & R-Validation](#5-quality-assurance--r-validation)
+6. [Deployment & DevOps](#6-deployment--devops)
 
 ---
 
 ## 1. Executive Summary
 
-The Medical Stat Tool (stat-shiny) is a comprehensive Python Shiny application designed for professional medical statistics. Currently comprising 15 modules and 28 utility libraries, the system is robust but requires targeted optimization to meet interactive reporting standards.
+Medical Stat Tool (stat-shiny) ได้พัฒนาเข้าสู่ระยะที่มีความเสถียรสูง (High Stability) โครงสร้างปัจจุบันได้แยกส่วนการคำนวณทางสถิติ (Statistical Logic) ออกจากส่วนแสดงผล (UI) อย่างชัดเจน ตามหลักการ MVC Pattern
 
-### Strategic Focus
+### 🎯 Strategic Focus (v4.0)
 
-* **Target:** Achieve >80% code coverage and exact numerical matches with R/SAS.
-* **HTML-First Export Strategy:** Prioritize standalone, single-file HTML reports (**Embedded**). All reports must be self-contained (no external dependencies required for viewing) to ensure portability across devices (iPad, Mobile, Desktop).
-* **Critical Path:** Prioritize "Big 4" modules: Regression, Survival, Baseline Table, Diagnostics.
+* **Logic Isolation:** แยก Logic ที่ซับซ้อน (เช่น Logistic Regression ใน `utils/logic.py`) ออกจาก UI files เพื่อให้ง่ายต่อการ Test และ Maintain
+* **5-Tab Navigation Standard:** ยึดโครงสร้าง UI ใหม่ 5 Tabs (Data, General, Advanced, Clinical, Settings) เป็นมาตรฐานหลัก
+* **Data Integrity:** ใช้ `utils/data_cleaning.py` เป็น Gatekeeper หลักในการจัดการ Missing Data และ Type Casting อย่างเข้มงวด
+* **HTML-First Export:** ทุก Module ต้องสามารถออกรายงาน Single-File HTML ที่ฝัง Plotly Interactive Graph ได้สมบูรณ์ (`utils/plotly_html_renderer.py`)
 
 ---
 
-## 2. Current Architecture & Health
+## 2. System Architecture & Health
 
-### 2.1 System Overview
+### 2.1 Hybrid Architecture (Shiny + Pure Python)
 
-The application follows a modular Shiny architecture using a fluid App Shell.
-
-#### App Shell & Navigation
-
-* **Container**: Built using `ui.page_fluid` for full-width flexibility across devices.
-* **Navigation**: Utilizes nested `ui.page_navbar` and `ui.nav_menu` to organize 10+ statistical modules.
-* **Accessibility**: Includes skip-links, ARIA landmarks, and standardized focus states.
-
-#### ⚡ Strategic Development Approach
-
-The application prioritizes **statistical reliability** and **report portability**. Rather than complex optimizations like lazy loading, the current focus is on a robust App Shell that ensures all modules are verified and ready for use immediately upon startup.
+ระบบได้เปลี่ยนจาก Monolithic Shiny App มาเป็น **Modular Architecture** ที่สมบูรณ์:
 
 ```mermaid
 graph TD
-    User[User] --> Entry[app.py / Main Entry]
-    Entry --> UI[Presentation Layer / App Shell]
-    UI --> Modules[Modular Tab Components / tabs/]
-    Modules --> Logic[Business Logic / utils/]
-    Logic --> Stats[Statistical Engines]
-    Logic --> Viz[Visualization Libs / Plotly]
-    Stats --> Deps[Pandas/SciPy/Statsmodels/Lifelines]
+    User[User / Client] --> App[app.py / Navbar Shell (5 Tabs)]
+    App --> Tabs[UI Components (tabs/*)]
+    Tabs --> Helper[UI Helpers (utils/ui_helpers.py)]
+    Tabs --> DataPipe[Data Cleaning Pipeline (utils/data_cleaning.py)]
+    Tabs --> StatEngine[Pure Python Logic (utils/logic.py, diag_test.py)]
+    StatEngine --> Libs[Statsmodels / Scikit-learn / Lifelines]
+    StatEngine --> Renderer[Plotly HTML Renderer (utils/plotly_html_renderer.py)]
+
 ```
 
-#### 🎨 UI Styling System
+### 2.2 Critical Components Status
 
-A centralized system ensuring visual consistency.
-
-| File | Role | Description |
-| :--- | :--- | :--- |
-| `tabs/_common.py` | **Source of Truth** | Central `get_color_palette()` and UI constants. |
-| `tabs/_styling.py` | **CSS Generator** | Generates CSS using `_common.py`. |
-| `static/styles.css` | **Compiled CSS** | Auto-generated. **DO NOT EDIT.** |
-| `utils/update_css.py` | **Sync Utility** | Script to sync CSS when `_styling.py` changes. |
-
-### 2.2 Critical Issues Identified
-
-| Severity | Module | Issue | Impact |
+| Component | File Source | Status | Improvement Needed |
 | --- | --- | --- | --- |
-| 🔴 **Critical** | **Core Regression** | Monolithic file (3,700 lines), mixed UI/Logic | Hard to maintain, untestable |
-| 🔴 **Critical** | **Survival** | Missing PH assumption checks, TVC validation | Risk of statistical errors |
-| 🟡 **High** | **Table 1** | Inconsistent decimal formatting, limited export | Not publication-ready |
-| 🟡 **High** | **Diagnostics** | Missing ROC CI bands, Calibration plots | Limited clinical utility |
+| **Data Pipeline** | `utils/data_cleaning.py` | 🟢 **Excellent** | Vectorized cleaning, Outlier detection, Quality reports ครบถ้วน |
+| **Core Regression** | `utils/logic.py` | 🟢 **Good** | แยก Logic แล้ว รองรับ Firth/Logit, Interaction Terms, VIF |
+| **Diagnostic UI** | `tabs/tab_diag.py` | 🟢 **Feature-Rich** | รองรับ ROC, DCA, Chi-Square พร้อม Download Report |
+| **UI Structure** | `tabs/*` | 🟡 **Transitioning** | กำลังปรับเข้าสู่โครงสร้าง 5 Tabs ตามแผน `UI_IMPROVEMENT` |
+| **Validation** | `tests/*` | 🟡 **In Progress** | มี E2E (`test_app_flow.py`) แล้ว แต่ต้องการ Statistical Validation เทียบกับ R เพิ่มเติม |
 
 ---
 
-## 3. Module Optimization Roadmap
+## 3. Module Optimization Roadmap (Updated)
 
-### 🔴 TIER 1: CRITICAL (Immediate Action - Weeks 1-4)
+### 🟢 PHASE 1: Architecture & Core Logic (Completed/Refining)
 
-#### A. Core Regression Refactoring (`tab_core_regression.py`)
+* **Objective:** แยก Business Logic ออกจาก UI และสร้าง Data Pipeline ที่แข็งแกร่ง
+* **Achievements:**
+* ✅ **Data Cleaning:** `utils/data_cleaning.py` รองรับการจัดการ Missing Values และ Outliers แบบ Vectorized
+* ✅ **Regression Logic:** `utils/logic.py` รองรับการทำ Logistic Regression แบบ MVC, คำนวณ OR/AOR และ Interaction Terms ได้
+* ✅ **Diagnostic Tool:** `tabs/tab_diag.py` สามารถรัน ROC/DCA และ Export HTML ได้จริง
 
-* **Objective:** Split monolithic file into MVC pattern.
+### 🟡 PHASE 2: UI Standardization & Clinical Validation (Current Focus)
+
+* **Objective:** ปรับ UI ให้เป็น 5 Tabs (ตามแผน UI Improvement) และตรวจสอบความถูกต้องทางสถิติเทียบกับ R
 * **Action Items:**
 
-1. Create `utils/_core_regression_logic.py` for pure statistical functions.
-2. Create `tabs/_core_regression_ui.py` for Shiny UI components.
-3. Implement precise error handling (e.g., `SingularMatrixError`).
-4. **Export:** Generate Single-File HTML Model Summary embedding residual plots and coefficient tables.
+#### A. UI Refactoring (Big 5 Restructure)
 
-#### B. Survival Analysis Validation (`tab_survival.py`)
+* [ ] **Merge Tabs:** ย้าย `tab_core_regression.py`, `tab_survival.py` เข้าไปอยู่ภายใต้ NavMenu "🔬 Advanced Statistics"
+* [ ] **Code Reduction:** ใช้ `utils/ui_helpers.py` เพื่อลดโค้ดที่ซ้ำซ้อนในไฟล์ UI (เช่น Card Wrapper, Section Header)
 
-* **Objective:** Validate against R survival package.
+#### B. Statistical Validation (Hardening)
+
+* [ ] **Regression:** เพิ่ม Unit Test ตรวจสอบค่า OR/CI ของ `utils/logic.py` เทียบกับ output จาก R (glm)
+* [ ] **Survival:** ตรวจสอบ Assumption Checks (Schoenfeld residuals) ใน `tab_survival.py`
+* [ ] **Table 1:** ตรวจสอบการปัดเศษทศนิยม (Decimal Standardization) ให้ตรงตามมาตรฐานวารสารการแพทย์
+
+### 🔴 PHASE 3: Advanced Features & Reporting (Next Steps)
+
+* **Objective:** เพิ่มขีดความสามารถในการออกรายงานและการวิเคราะห์ขั้นสูง
 * **Action Items:**
 
-1. Implement Schoenfeld residuals test.
-2. Validate TVC data transformation.
-3. **Export:** Generate Interactive HTML Survival Report containing embedded Kaplan-Meier curves (Zoomable) and Risk Tables.
-
-#### C. Baseline Table & Matching (`tab_baseline_matching.py`)
-
-* **Objective:** Interactive Table 1.
-* **Action Items:**
-
-1. Standardize decimals.
-2. Add Wilcoxon rank-sum and Fisher's exact test.
-3. **Export:** Create Self-contained HTML Table using Bootstrap styling for clean, copy-paste ready tables.
-
-#### D. Diagnostic Tests (`tab_diag.py`)
-
-* **Objective:** Comprehensive model evaluation.
-* **Action Items:**
-
-1. Add 95% Confidence Intervals for ROC Curves.
-2. Implement DeLong’s test.
-3. **Export:** Generate Interactive Diagnostic Dashboard (HTML) combining ROC, DCA, and Calibration plots in one single file.
-
-### 🟡 TIER 2: HIGH PRIORITY (Weeks 5-6)
-
-* **Static Exports (Word/Excel/PDF):** Implement `python-docx` and `xlsxwriter` for manuscript submission formats.
-* **Causal Inference:** Add IPW diagnostic plots.
-* **Data Management:** Add KNN Imputation.
-
-### 🟢 TIER 3: MEDIUM PRIORITY (Weeks 7-8)
-
-* **Advanced Inference:** Complete Mediation Analysis.
-* **Sample Size:** Add non-inferiority trial calculation.
+1. **Batch Report Generation:** สร้างปุ่ม "Generate All Reports" เพื่อรวมผลวิเคราะห์หลาย Module เป็น HTML ไฟล์เดียว
+2. **AI Integration:** เตรียม Prompt Template สำหรับส่งผล Stats ไปให้ LLM ช่วยเขียนสรุปผล (Interpretation)
+3. **Performance:** Implement Caching (`@functools.lru_cache` หรือ Shiny caching) สำหรับ dataset ขนาดใหญ่ (>50k rows)
 
 ---
 
-## 4. Deep Dive: Critical Technical Implementations
+## 4. Deep Dive: Key Technical Implementations
 
-### 4.1 Advanced Single-File HTML Embedding Utility
+### 4.1 The Statistical Engine (`utils/logic.py`)
 
-This utility uses Embedding (not iFrames) to ensure the report is truly portable. It injects CSS for styling and Plotly JS for interactivity directly into the document structure.
+หัวใจสำคัญของการคำนวณที่แยกออกจาก UI รองรับการทำงานแบบ "Pure Python" ทำให้ Test ง่าย
 
 ```python
-# utils/export_html.py
-import plotly.io as pio
-import pandas as pd
-from datetime import datetime
-
-def generate_embedded_html_report(title, sections):
+# ตัวอย่างโครงสร้างที่ใช้งานจริง
+def run_binary_logit(y, X, method="default", ci_method="wald"):
     """
-    Generates a high-quality, single-file HTML report.
-    Args:
-        title (str): Report title.
-        sections (list of dict): Content blocks.
-        Example: [{'type': 'text', 'content': '...'}, 
-                  {'type': 'plot', 'content': fig}, 
-                  {'type': 'table', 'content': df}]
+    Core function ที่ return raw params, conf_int, pvalues
+    โดยไม่มี dependency กับ Shiny UI
     """
-    # 1. Header with Bootstrap CDN for instant professional styling
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{title}</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-        <style>
-            body {{ background-color: #f8f9fa; padding: 40px; }}
-            .report-container {{ background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-            .section-title {{ border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-top: 30px; color: #007bff; }}
-            .footer {{ margin-top: 50px; font-size: 0.8em; color: #6c757d; text-align: center; }}
-        </style>
-    </head>
-    <body>
-        <div class="report-container">
-            <h1 class="text-center mb-4">{title}</h1>
-            <hr>
-    """
-    
-    # 2. Iterate through content and Embed
-    for section in sections:
-        if section['type'] == 'header':
-            html_content += f"<h3 class='section-title'>{section['content']}</h3>"
-        elif section['type'] == 'text':
-            html_content += f"<p>{section['content']}</p>"
-        elif section['type'] == 'table':
-            # Embed DataFrame as Bootstrap Table
-            if isinstance(section['content'], pd.DataFrame):
-                html_content += section['content'].to_html(classes='table table-striped table-hover', index=False)
-        elif section['type'] == 'plot':
-            # Embed Plotly Figure (Full HTML=False keeps just the div)
-            plot_div = pio.to_html(section['content'], full_html=False, include_plotlyjs=False)
-            html_content += f"<div class='plot-container'>{plot_div}</div>"
-
-    # 3. Footer & Close
-    html_content += f"""
-            <div class="footer">
-                Generated by Medical Stat Tool on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html_content
+    # 1. Validation (via validate_logit_data)
+    # 2. Method Selection (Firth vs Logit)
+    # 3. Model Fitting (statsmodels)
+    # 4. Return Dictionary/TypedDict
 
 ```
 
-### 4.2 Health Check Script
+### 4.2 Robust Data Cleaning (`utils/data_cleaning.py`)
 
-Implement this for production monitoring.
+ระบบทำความสะอาดข้อมูลที่ออกแบบมาเพื่อ Medical Data โดยเฉพาะ:
+
+* **Smart Numeric Conversion:** จัดการค่าติด Special Characters เช่น `"<5"`, `">100"`, `1,200` ได้อัตโนมัติ
+* **Missing Data Strategy:** รองรับทั้ง `complete-case` และการระบุ `missing_codes` (เช่น -99, 999)
+* **Audit Trail:** ทุกขั้นตอนการ Clean จะถูก Log และสามารถ generate report สรุปผลกระทบ (Data Loss) ได้
+
+### 4.3 Embedded HTML Reports (`utils/plotly_html_renderer.py`)
+
+เทคนิคการฝัง Plotly JS และ CSS ลงในไฟล์เดียว เพื่อให้รายงานเปิดได้ทุกที่โดยไม่ต้องต่อเน็ต (Offline-ready)
+
+* ใช้ **CDN Injection** สำหรับ Bootstrap/MathJax เมื่อออนไลน์
+* ใช้ **Base64 Encoding** สำหรับรูปภาพ static
+* รองรับ **Responsive Design** สำหรับการเปิดบน iPad/Tablet
+
+---
+
+## 5. Quality Assurance & R-Validation
+
+### 5.1 E2E Testing Strategy (`tests/e2e/test_app_flow.py`)
+
+ปัจจุบันใช้ **Playwright** ในการทดสอบ User Flow:
+
+* ✅ App Loading & Title Check
+* ✅ Tab Navigation (ครบ 5 หมวดหมู่หลัก)
+* ✅ File Upload Interaction
+* ✅ Error Handling (Console Log Check)
+
+### 5.2 Statistical Unit Tests Needed
+
+ต้องเพิ่ม Test Suite เพื่อเทียบผลลัพธ์กับ R โดยเฉพาะ:
 
 ```python
-# monitoring/health_check.py
-import subprocess
-import json
-from datetime import datetime
-
-def run_health_check():
-    report = {"timestamp": datetime.now().isoformat(), "status": "healthy"}
+# ตัวอย่างแผนการ Test ในอนาคต
+def test_logistic_vs_r_results():
+    # Load Benchmark Dataset (e.g., Titanic)
+    py_res = run_binary_logit(y, X)
+    r_res = load_r_benchmark("logistic_benchmark.csv")
     
-    # 1. Unit Tests Quick Check
-    test_run = subprocess.run(["pytest", "tests/unit", "-q"], capture_output=True)
-    if test_run.returncode != 0:
-        report["status"] = "degraded"
-        report["failed_tests"] = str(test_run.stdout)
-    
-    # 2. Security Scan
-    snyk_run = subprocess.run(["snyk", "test", "--json"], capture_output=True)
-    if snyk_run.returncode != 0:
-        report["security_alert"] = "Vulnerabilities found"
-        
-    with open("health_log.json", "a") as f:
-        json.dump(report, f)
-
-if __name__ == "__main__":
-    run_health_check()
-
-```
-
-### 4.3 Data Processing & Statistical Pipeline
-
-Standardized data flow ensuring consistent handling of missing values and metadata.
-
-#### 1. Ingestion & Quality Check (`utils/data_quality.py`)
-
-* **Immediate Data Health Report**: Uses `check_data_quality()` for deep validation (Numeric cleanup, Categorical flags, Row-level reporting).
-* **Configuration**: Variable type casting and missing value strategy selection.
-
-#### 2. Central Preparation (`utils/data_cleaning.py`)
-
-* **`prepare_data_for_analysis()`**: Standard call for every module.
-* **Tasks**: Handles missing value exclusion, type enforcement, and logging analyzed indices.
-
-#### 3. Reporting (`utils/formatting.py`)
-
-* Standardized "Missing Data Summary" automatically included in every statistical output.
-* `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
-
----
-
-## 5. Quality Assurance & Validation Strategy
-
-### 5.1 Coverage Targets
-
-* **Unit Tests:** >85% (Focus: Statistical logic, edge cases)
-* **Integration Tests:** >80% (Focus: Data pipeline, UI interaction)
-* **Validation:** 100% Match with R/SAS results on benchmark datasets.
-
-### 5.2 CI/CD Pipeline & Test Suites
-
-#### Continuous Integration (GitHub Actions)
-
-* `quality_check.yml`: Runs Unit, Integration, and E2E (Playwright) tests.
-* `ui-styling.yml`: Verifies CSS/JS/Python styling consistency.
-* `docker-publish.yml`: Automates production image builds.
-
-#### Test Suites
-
-* **Unit**: Core utilities, statistics math, color palette.
-* **Integration**: PSM pipelines, data cleaning flow.
-* **E2E**: Multi-tab navigation, smart variable defaults, loading states.
-
-#### Statistical Validation Workflow
-
-Add this to `.github/workflows/test.yml`:
-
-```yaml
-name: Statistical Validation
-on: [push, pull_request]
-
-jobs:
-  validate-stats:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup R and Python
-        uses: r-lib/actions/setup-r@v2
-      - uses: actions/setup-python@v4
-      - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt
-          Rscript -e "install.packages(c('survival', 'pROC', 'tableone'))"
-      - name: Run Comparison Tests
-        run: pytest tests/validation/ --verbose
-```
-
----
-
-## 6. Documentation & Publication Standards
-
-### 6.1 Output Format (Interactive HTML)
-
-All modules must provide a "Download Report" button that generates a single `.html` file containing:
-
-1. **Embedded Assets:** All CSS and JS must be CDN-linked or Inlined (Base64). No relative paths allowed.
-2. **Interactive Plots:** Zoom/Pan enabled (Plotly).
-3. **Methodology Footnotes:** Clear explanation of statistical tests used.
-
-### 6.2 Docstring Standard
-
-Every statistical function must include:
-
-* **Methodology Reference:** (e.g., "Based on Kaplan & Meier (1958)").
-* **Assumptions:** (e.g., "Assumes proportional hazards").
-* **Parameters:** Detailed type hints.
-
----
-
-## 7. DevOps, Deployment & Maintenance
-
-### 7.1 Release Checklist
-
-* [ ] All Tier 1 modules optimized with Single-File HTML export.
-* [ ] Test coverage > 80%.
-* [ ] Documentation updated (User Guide + API).
-* [ ] Performance: Response time < 3s for 10k rows.
-
-### 7.2 Containerization
-
-Ensure Dockerfile uses specific versions for reproducibility:
-
-```dockerfile
-FROM python:3.11-slim
-RUN pip install pandas==2.2.0 statsmodels==0.14.1 shiny==0.6.0
-# ...
+    # Assert Coefficient match within tolerance 1e-5
+    assert np.allclose(py_res['coef'], r_res['coef'], atol=1e-5)
 
 ```
 
 ---
 
-## 8. Project Management & Timeline
+## 6. Deployment & DevOps
 
-### 8.1 GitHub Issue Template
+### 6.1 Containerization
 
-Use this to standardize tasks.
+* **Docker:** ใช้งาน `Dockerfile` ที่ optimize แล้ว (Python 3.12-slim)
+* **Environment:** แยก `requirements.txt` (Dev) และ `requirements-prod.txt` (Prod) เพื่อลดขนาด Image
 
-> **[Module Name] Optimization Task**
-> **Priority:** [Critical/High/Medium]
-> **Objective:**
-> (e.g., Implement Single-File HTML export for ROC curves)
-> **Technical Requirements:**
->
-> * [ ] Refactor function `x` in `utils/logic.py`
-> * [ ] Implement `generate_embedded_html_report` integration
-> * [ ] Update UI in `tabs/tab_diag.py` with Download Button
->
->
-> **Validation:**
->
-> * [ ] Check HTML rendering in Chrome/Safari (Offline & Online)
-> * [ ] Verify no external file dependencies (except CDN)
->
->
+### 6.2 Maintenance Protocol
 
-### 8.2 Execution Schedule (Current Plan)
-
-| Phase | Duration | Focus Area | Key Deliverable |
-| --- | --- | --- | --- |
-| **Phase 1** | Weeks 1-2 | **Architecture Stability** | Refactor Core Regression, finalize MVC separation, HTML Summary |
-| **Phase 2** | Weeks 3-4 | **Validation & Portability** | PH Assumption tests, Survival Interactive HTML, Table 1 styling |
-| **Phase 3** | Weeks 5-6 | **Visual Intelligence** | Diagnostic Dashboard (ROC/DCA/Calibration), 95% CI bands |
-| **Phase 4** | Weeks 7-8 | **Integration & Polish** | Full E2E suite, Performance optimization, User Manual v2.0 |
-
-### 8.3 Future Development Roadmap (R&D)
-
-Beyond the initial optimization phase, the project will pivot towards advanced analytical capabilities:
-
-1. **AI-Assisted Interpretation**: Integration of LLMs to provide natural language summaries of statistical results.
-2. **Advanced Causal Inference**: Enhancing `tab_causal_inference` with Double Machine Learning (DML) and Sensitivity Analysis.
-3. **Omics Data Support**: Specialized pipelines for High-Dimensional data and Gene Set Enrichment Analysis (GSEA).
-4. **Cloud-Native Deployment**: Kubernetes-ready scaling for enterprise hospital environments.
+1. **CSS Sync:** ห้ามแก้ `static/styles.css` โดยตรง ให้แก้ใน `tabs/_styling.py` แล้วรัน `utils/update_css.py`
+2. **Repo Structure:** รักษาโครงสร้าง Folder ให้สะอาด ห้ามวางไฟล์ Python นอกเหนือจาก `app.py`, `config.py` ไว้ที่ Root โดยไม่จำเป็น
 
 ---
