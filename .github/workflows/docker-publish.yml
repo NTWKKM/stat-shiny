@@ -31,7 +31,7 @@ jobs:
             ntwkkm/statiomed:${{ github.sha }}
 
       - name: Update Docker Hub Description
-        uses: peter-evans/dockerhub-description@e98e4dc090e546fa0f146f483b8b17849c7bc29d # v4.0.0
+        uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
