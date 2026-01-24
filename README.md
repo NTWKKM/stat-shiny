@@ -12,16 +12,19 @@ pinned: false
 > [!IMPORTANT]
 > **🤖 FOR AI AGENTS & BOTS (Antigravity, Cursor, etc.)**:
 >
-> 1. **Architecture First**: ALWAYS Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the Styling System and Data Processing Pipeline before editing.
+> 1. **Architecture First**: ALWAYS Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the **Styling System** and **Data Processing Pipeline** before editing.
 > 2. **Environment**: This project requires **Python 3.12+**. Versions < 3.12 will cause SyntaxErrors due to the use of **PEP 695** (Type Parameter Syntax/Type Aliases).
+> 3. **Context**: See [docs/deep-ai-bot-optimization.md](docs/deep-ai-bot-optimization.md) for detailed implementation rules.
 >
 > | Requirement | Version    |
 > | ----------- | ---------- |
 > | Python      | **≥ 3.12** |
-> | pip         | Latest     |
+> | Environment | `.venv`    |
 <!-- AI-AGENT-GUIDE-END -->
 
-[Hugging Face Space](https://ntwkkm-shinystat.hf.space)
+**Available StatioMed**:  
+👉 [HuggingFace Space](https://ntwkkm-shinystat.hf.space)  
+👉 [Posit Cloud](https://ntwkkm-shinymedstat.share.connect.posit.cloud/)  
 
 [--- REPOSITORY-TREE-START ---]
 
@@ -156,7 +159,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- ui_helpers.py
     `-- update_css.py
 ```
-
 
 [--- REPOSITORY-TREE-END ---]
 
