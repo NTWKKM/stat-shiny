@@ -203,7 +203,7 @@ firthmodels @ git+[https://github.com/jzluo/firthmodels/tree/main](https://githu
 **Priority:** CRITICAL
 **Timeline:** Weeks 1-2
 
-**Validation Plan:**
+**Validation Plan:** detailed in docs/updated-R-benchmark-script.md
 
 1. **Generate Benchmarks (R):** Run `tests/benchmarks/r_scripts/test_firth.R` to create `benchmark_firth_logistic.csv` and `benchmark_firth_cox.csv`.
 2. **Verify Python Implementation:**
