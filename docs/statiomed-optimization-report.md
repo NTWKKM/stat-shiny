@@ -1,6 +1,6 @@
 # 📊 Medical Stat Tool - Master Optimization & Development Plan
 
-**Document Version:** 4.3 (7-Tab Standard Edition)
+**Document Version:** 4.4 (7-Tab Standard Edition)
 **Date:** January 24, 2026
 **Status:** 🚀 Production-Hardening (Validation & Optimization Phase)
 **Target:** Enterprise-Grade / Medical Publication Standard
@@ -22,17 +22,17 @@
 
 The Medical Stat Tool (stat-shiny) has transitioned into a **High Stability Phase**. The current architecture successfully decouples **Statistical Logic** from the **User Interface (UI)**, strictly adhering to the **MVC (Model-View-Controller) Pattern**.
 
-### 🎯 Strategic Focus (v4.3)
+### 🎯 Strategic Focus (v4.4)
 
-* **Logic Isolation:** Complex statistical logic (e.g., Logistic Regression in `utils/logic.py`) is completely isolated from UI files to enhance testability and maintainability.
-* **7-Tab Navigation Standard:** The UI has been standardized into **7 core navigation tabs** to prioritize Table 1 access:
+* **Logic Isolation:** Complex statistical logic (e.g., Logistic Regression in `utils/logic.py`, TVC in `utils/tvc_lib.py`) is completely isolated from UI files.
+* **7-Tab Navigation Standard:** The UI is standardized into **7 core navigation tabs** to prioritize clinical workflow and Table 1 access:
     1. **🏠 Home** (Dashboard & Quick Start)
-    2. **📋 Table 1** (Baseline Characteristics & Matching)
-    3. **📁 Data** (Management & Health)
-    4. **📊 General** (Descriptive & Diagnostic)
-    5. **🔬 Advanced** (Regression & Survival)
-    6. **🏥 Clinical** (Sample Size & Causal)
-    7. **⚙️ Settings** (Configuration)
+    2. **📋 Table 1** (Baseline Characteristics & PSM Matching)
+    3. **📁 Data** (Management, Cleaning & Health)
+    4. **📊 General** (Correlation, Agreement & Diagnostic Tests)
+    5. **🔬 Advanced** (Regression, Survival, TVC & Mediation)
+    6. **🏥 Clinical** (Sample Size & Causal Inference)
+    7. **⚙️ Settings** (Configuration & UI Styling)
 * **Data Integrity:** The `utils/data_cleaning.py` module acts as the primary **Gatekeeper**, enforcing strict Missing Data handling and Type Casting rules.
 * **HTML-First Export:** Every module is required to generate self-contained **Single-File HTML Reports** capable of embedding interactive Plotly graphs.
 
@@ -50,22 +50,39 @@ graph TD
     App --> Tabs[UI Components (tabs/*)]
     Tabs --> Helper[UI Helpers (utils/ui_helpers.py)]
     Tabs --> DataPipe[Data Cleaning Pipeline (utils/data_cleaning.py)]
-    Tabs --> StatEngine[Pure Python Logic (utils/logic.py, diag_test.py)]
+    Tabs --> StatEngine[Pure Python Logic (utils/logic.py, tvc_lib.py, etc.)]
     StatEngine --> Libs[Statsmodels / Scikit-learn / Lifelines]
     StatEngine --> Renderer[Plotly HTML Renderer (utils/plotly_html_renderer.py)]
 
 ```
 
-### 2.2 Critical Components Status
+### 2.2 Critical Components Status (Validated against Repo)
 
-| Component | File Source | Status | Improvement Needed |
+| Tab / Component | Corresponding Files | Status | Improvement Needed |
 | --- | --- | --- | --- |
-| **Home Dashboard** | `tabs/tab_home.py` | 🟢 **Ready** | Landing page with project overview. |
-| **Table 1 & Matching** | `tabs/tab_baseline_matching.py` | 🟢 **Promoted** | Now a top-level tab for instant access to Table 1 generation. |
-| **Data Pipeline** | `utils/data_cleaning.py` | 🟢 **Excellent** | Vectorized cleaning & quality reports. |
-| **Core Regression** | `utils/logic.py` | 🟢 **Good** | Logic isolated; supports Firth/Logit. |
-| **Diagnostic UI** | `tabs/tab_diag.py` | 🟢 **Feature-Rich** | ROC, DCA, Chi-Square with HTML export. |
-| **UI Structure** | `tabs/*` | 🟡 **Transitioning** | Refactoring navigation to match the **7-Tab Standard**. |
+| **1. Home Dashboard** | `tabs/tab_home.py` | 🟢 **Ready** | Landing page with project overview. |
+| **2. Table 1 & Matching** | `tabs/tab_baseline_matching.py`<br>
+
+<br>`utils/table_one.py` | 🟢 **Promoted** | Top-level tab for Table 1 generation & PSM. |
+| **3. Data Pipeline** | `tabs/tab_data.py`<br>
+
+<br>`utils/data_cleaning.py` | 🟢 **Excellent** | Vectorized cleaning & quality reports. |
+| **4. General Stats** | `tabs/tab_diag.py` (Diag)<br>
+
+<br>`tabs/tab_corr.py` (Correlation)<br>
+
+<br>`tabs/tab_agreement.py` (Bland-Altman) | 🟢 **Feature-Rich** | Consolidate these 3 files under one "General" NavMenu. |
+| **5. Advanced Stats** | `tabs/tab_core_regression.py`<br>
+
+<br>`tabs/tab_survival.py`<br>
+
+<br>`tabs/tab_advanced_inference.py` | 🟡 **Complex** | Ensure TVC (`utils/tvc_lib.py`) is fully integrated into Survival UI. |
+| **6. Clinical Tools** | `tabs/tab_sample_size.py`<br>
+
+<br>`tabs/tab_causal_inference.py` | 🟢 **Good** | Causal Inference and Power Calculation isolated. |
+| **7. Settings** | `tabs/tab_settings.py` | 🟢 **Ready** | Theme toggles and configuration. |
+
+> **Asset Note:** Navigation flow documented in `docs/assets/navigation_sequence.png`.
 
 ---
 
@@ -76,8 +93,8 @@ graph TD
 * **Objective:** Decouple Business Logic from UI and establish a robust Data Pipeline.
 * **Achievements:**
 * ✅ **Data Cleaning:** `utils/data_cleaning.py` now supports vectorized handling of Missing Values and Outliers.
-* ✅ **Regression Logic:** `utils/logic.py` implements Logistic Regression via MVC, enabling calculation of OR/AOR and Interaction Terms.
-* ✅ **Diagnostic Tool:** `tabs/tab_diag.py` successfully executes ROC/DCA analysis and exports standalone HTML reports.
+* ✅ **Regression Logic:** `utils/logic.py` implements Logistic Regression via MVC.
+* ✅ **Advanced Logic:** Added `utils/tvc_lib.py` for Time-Varying Covariates and `utils/forest_plot_lib.py` for visualization.
 
 ### 🟡 PHASE 2: UI Standardization & Clinical Validation (Current Focus)
 
@@ -86,16 +103,16 @@ graph TD
 
 #### A. UI Refactoring (Big 7 Restructure)
 
-* [ ] **Navigation Update:** Update `app.py` to display the 7 distinct tabs.
-* [ ] **Promote Table 1:** Ensure `tab_baseline_matching.py` is directly accessible via the "Table 1" tab.
-* [ ] **Consolidate Advanced:** Group `tab_core_regression.py` and `tab_survival.py` under the "🔬 Advanced" NavMenu.
-* [ ] **Code Reduction:** Utilize `utils/ui_helpers.py` to eliminate redundant code in UI files.
+* [ ] **Navigation Update:** Update `app.py` to explicitly render the 7 distinct tabs mapped in Section 2.2.
+* [ ] **General Tab Grouping:** Use `nav_menu` to group `tab_diag.py`, `tab_corr.py`, and `tab_agreement.py` under the "General" header.
+* [ ] **Advanced Tab Grouping:** Group `tab_core_regression.py`, `tab_survival.py`, and `tab_advanced_inference.py` under "Advanced".
+* [ ] **Code Reduction:** Utilize `utils/ui_helpers.py` to eliminate redundant card/layout code in `tabs/*.py`.
 
 #### B. Statistical Validation (Hardening)
 
 * [ ] **Regression:** Implement Unit Tests to verify OR/CI values in `utils/logic.py` against R benchmarks (`glm`).
 * [ ] **Survival:** Validate Assumption Checks (Schoenfeld residuals) within `tab_survival.py`.
-* [ ] **Table 1:** Ensure decimal rounding standardization aligns with medical journal requirements (e.g., "Table 1" tab output).
+* [ ] **Agreement:** Validate Kappa and ICC calculations in `tabs/tab_agreement.py`.
 
 ### 🔴 PHASE 3: Advanced Features & Reporting (Next Steps)
 
@@ -104,37 +121,28 @@ graph TD
 
 1. **Batch Report Generation:** Develop a "Generate All Reports" feature to aggregate analysis from multiple modules into a single HTML dossier.
 2. **AI Integration:** Design Prompt Templates to feed statistical outputs into LLMs for automated clinical interpretation.
-3. **Performance Optimization:** Implement Caching (`@functools.lru_cache` or Shiny caching) to support datasets exceeding 50k rows.
+3. **Performance Optimization:** Implement Caching to support datasets exceeding 50k rows.
 
 ---
 
 ## 4. Deep Dive: Key Technical Implementations
 
-### 4.1 The Statistical Engine (`utils/logic.py`)
+### 4.1 The Statistical Engine (`utils/logic.py` & `utils/tvc_lib.py`)
 
-The core calculation engine is now completely separated from the UI, supporting a "Pure Python" workflow that facilitates rigorous testing.
+The core calculation engine is now completely separated from the UI.
 
-```python
-# Production Code Structure Example
-def run_binary_logit(y, X, method="default", ci_method="wald"):
-    """
-    Core function returning raw params, conf_int, and pvalues.
-    Zero dependency on Shiny UI elements.
-    """
-    # 1. Validation (via validate_logit_data)
-    # 2. Method Selection (Firth vs Logit)
-    # 3. Model Fitting (statsmodels)
-    # 4. Return Dictionary/TypedDict
+**Example: Time-Varying Covariates (TVC)**
+Support for complex survival analysis is handled in `utils/tvc_lib.py`, allowing for:
 
-```
+* Merge of longitudinal data with baseline survival data.
+* Cox Proportional Hazards with time-dependent covariates.
 
 ### 4.2 Robust Data Cleaning (`utils/data_cleaning.py`)
 
 A data cleaning system specifically architected for Medical Data:
 
-* **Smart Numeric Conversion:** Automatically handles special characters common in clinical data (e.g., `"<5"`, `">100"`, `1,200`).
-* **Missing Data Strategy:** Supports both `complete-case` analysis and user-defined `missing_codes` (e.g., -99, 999).
-* **Audit Trail:** Every cleaning step is logged, allowing for the generation of impact reports (Data Loss analysis).
+* **Smart Numeric Conversion:** Automatically handles special characters common in clinical data (e.g., `"<5"`, `">100"`).
+* **Missing Data Strategy:** Supports `complete-case` analysis and user-defined `missing_codes`.
 
 ### 4.3 Embedded HTML Reports (`utils/plotly_html_renderer.py`)
 
@@ -159,7 +167,11 @@ Currently utilizing **Playwright** for User Flow validation:
 
 ### 5.2 Statistical Unit Tests Needed
 
-A comprehensive Test Suite is required to benchmark results against R:
+A comprehensive Test Suite is required to benchmark results against R. Priority modules for validation:
+
+* `tests/unit/test_agreement.py` (Bland-Altman/Kappa accuracy)
+* `tests/unit/test_causal.py` (ATE/IPW calculation accuracy)
+* `tests/unit/test_tvc_lib.py` (Time-varying dataset structuring)
 
 ```python
 # Future Test Plan Example
@@ -180,7 +192,7 @@ def test_logistic_vs_r_results():
 ### 6.1 Containerization
 
 * **Docker:** Deployed using an optimized `Dockerfile` (Python 3.12-slim).
-* **Environment Strategy:** Separation of `requirements.txt` (Development) and `requirements-prod.txt` (Production) to minimize Image size.
+* **Environment Strategy:** Separation of `requirements.txt` (Dev) and `requirements-prod.txt` (Prod).
 
 ### 6.2 Maintenance Protocol
 
