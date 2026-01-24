@@ -26,9 +26,10 @@ RUN apt-get update && \
   apt-get install -y --no-install-recommends gcc=4:12.2.0-3 && \
   rm -rf /var/lib/apt/lists/*
 
-# Pre-install latest security tools into the target directory
+# Pre-install latest security tools into the target directory (ensuring fresh install)
 # This fixes CVE-2026-24049 (wheel/setuptools) for the app dependencies
-RUN pip install --target=/build/deps --no-cache-dir --upgrade pip "setuptools>=80.10.1" "wheel>=0.46.3"
+RUN rm -rf /build/deps && mkdir -p /build/deps && \
+  pip install --target=/build/deps --no-cache-dir --upgrade pip "setuptools>=80.10.1" "wheel>=0.46.3"
 
 # Copy and install requirements
 COPY requirements-prod.txt ./
