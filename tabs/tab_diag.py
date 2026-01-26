@@ -677,9 +677,7 @@ def diag_server(
                         "data": f"Variables: {input.sel_chi_v1()} vs {input.sel_chi_v2()}",
                     },
                     {
-                        "type": "html"
-                        if "<" in status_text and ">" in status_text
-                        else "text",
+                        "type": "text",
                         "data": status_text,
                     },
                     {

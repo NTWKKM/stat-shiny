@@ -496,13 +496,6 @@ def run_binary_logit(
         logger.error(f"Logistic regression wrapper failed: {e}")
         return None, None, None, str(e), stats_metrics
 
-    except Exception as e:
-        err_msg = str(e)
-        if "Singular matrix" in err_msg or "LinAlgError" in err_msg:
-            err_msg = "Model fitting failed: data may have perfect separation or too much collinearity."
-        logger.error(f"Logistic regression failed: {e}")
-        return None, None, None, err_msg, stats_metrics
-
 
 def run_glm(
     y: pd.Series,
@@ -1594,15 +1587,7 @@ def analyze_outcome(
             "<strong>ℹ️ Method Used:</strong> Firth's Penalized Likelihood (useful for rare events or separation)."
             "</div>"
         )
-        # Construct the final HTML by injecting the banner
-        # Ideally, we inject it inside the container or at the top.
-        # Since html_table starts with <style> and then a div, let's prepend it but after style if possible,
-        # or just prepend to the whole string (styles usually map globally or scoped).
-        if "<div id=" in html_table:
-            # Try to insert after the first div opening that acts as container?
-            # Or just prepend. Prepending is fine as long as it's valid HTML.
-            pass
-        # Simple prepend:
+
         html_table = banner + html_table
 
     return html_table, or_results, aor_results, interaction_results

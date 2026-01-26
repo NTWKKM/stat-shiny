@@ -169,7 +169,7 @@ def corr_ui() -> ui.TagChild:
                             * **Robust to:** Outliers.
                             * **Kendall's Tau** is often preferred for small datasets with many tied ranks.
 
-                            **Interpretation of Coefficient (r or rho):**
+                            **Interpretation of Coefficient (r, rho, or tau):**
                             * **+1.0:** Perfect Positive (As X goes up, Y goes up).
                             * **-1.0:** Perfect Negative (As X goes up, Y goes down).
                             * **0.0:** No relationship.

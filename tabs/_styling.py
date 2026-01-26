@@ -1562,6 +1562,13 @@ def get_shiny_css():
             }}
         }}
 
+        @media (prefers-reduced-motion: reduce) {{
+            .fade-in-entry {{
+                animation: none;
+                opacity: 1;
+                transform: none;
+            }}
+        }}
     </style>
     """
 

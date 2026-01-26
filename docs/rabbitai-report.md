@@ -1,306 +1,483 @@
 # RabbitAI Report
 
-In @.agent/workflows/format.md at line 16, The Markdown code block in the
-workflow doc has the closing triple backticks on the same line as the command,
-breaking the block; update the snippet so the command string ".venv\Scripts\ruff
-format ." (the existing code content) remains on its own line and the
-terminating ``` triple backticks are placed on the following new line to
-properly close the code block.
+In @.agent/rules/architecture.md at line 25, Update the markdown image reference
+line "![Navigation Workflow](./assets/navigation_sequence.png)" in
+.agent/rules/architecture.md so it points to the actual image location by
+replacing the target with "docs/assets/navigation_sequence.png"; ensure the alt
+text and surrounding markup remain unchanged.
+
+🧩 Analysis chain
+🏁 Script executed:
+
+fd "navigation_sequence.png" --type f
+Repository: NTWKKM/stat-shiny
+
+Length of output: 96
+
+Fix the image reference path in the architecture documentation.
+
+The document references ./assets/navigation_sequence.png, but the image is located at docs/assets/navigation_sequence.png. The relative path will not resolve correctly from .agent/rules/architecture.md. Update the reference to the correct path pointing to the actual image location
+---------------------------------------------
+
+In `@docs/DEEP-OPTIMIZATION-PLAN.md` around lines 496 - 525, The fenced code block
+showing the CURRENT/TARGET plan lacks a language specifier; update the opening
+backticks for that block (the triple-backtick block containing "CURRENT
+(Monolithic):" and "TARGET (Modular):") to include a language identifier (e.g.,
+text or txt) so syntax highlighting/accessibility works (replace ``` with
+
+```text).
+
+🧹 Nitpick | 🔵 Trivial
+
+Add language specifier to fenced code block.
+
+This code block lacks a language identifier, which affects syntax highlighting and accessibility.
+
+♻️ Suggested fix
+-```
++```text
+ CURRENT (Monolithic):
+   tabs/tab_core_regression.py (3,700 lines
+------------------------------------------------
+In `@docs/statiomed-detailed-roadmap.md` around lines 12 - 16, The TOC anchor
+fragments (e.g., "Executive Summary", "Current System Architecture & Health",
+"Verified Component Status", "Phase 2 - Deep Dive Implementation Plan", "Phase 3
+- Advanced Features Roadmap") do not match the actual generated heading IDs
+causing markdownlint errors; update each link to the correct slugified ID
+(lowercase, spaces to hyphens, remove/translate punctuation/emoji) or add
+explicit anchor tags/HTML anchors immediately before the corresponding headings
+so the TOC links resolve correctly and lint warnings disappear.
+
+⚠️ Potential issue | 🟡 Minor
+
+Fix TOC anchor fragments so links resolve.
+
+markdownlint flags the fragments; update the TOC to match the actual heading IDs (numbers/emoji/punctuation often alter anchors), or add explicit anchors in the headings
+--------------------------------------------------
+In `@docs/statiomed-detailed-roadmap.md` around lines 58 - 105, The fenced ASCII
+diagram blocks (the triple-backtick sections showing "Shiny Web Layer" and the
+module lists including app.py, tab_home.py, data_cleaning.py, etc.) lack
+language identifiers; update each fenced block in
+docs/statiomed-detailed-roadmap.md to include a language tag (e.g., ```text or
+```ascii) immediately after the opening ``` so Markdown linting/renderers treat
+them consistently, and apply the same change to the other similar fenced blocks
+referenced in the review (the additional large ASCII diagrams elsewhere in the
+file).
+
+⚠️ Potential issue | 🟡 Minor
+
+Add language identifiers to fenced blocks.
+
+This improves Markdown linting and rendering consistency.
+
+✅ Example fix (apply to each fenced block)
+-```
++```text
+Also applies to: 109-137, 337-363, 387-398
+
+--------------------------------------------------
+In `@tabs/tab_corr.py` around lines 70 - 74, The coefficient key used in
+tabs/tab_corr.py is mismatched for Kendall: update out_corr_table() and
+btn_dl_corr() (and the other similar lookup around lines 120-124) to first try
+the new key "Coefficient (r/rho/tau)" returned by utils/correlation.py and, if
+missing, fall back to the legacy key "Coefficient (r)"; implement this
+conditional lookup when accessing the coefficient column in both display and
+download code paths so a KeyError is avoided for Kendall and other methods.
 
 ⚠️ Potential issue | 🔴 Critical
 
-Fix Markdown syntax error: missing newline before closing backticks.
+🧩 Analysis chain
+🏁 Script executed:
 
-The closing triple backticks must be on a new line to properly terminate the code block.
+find . -name "correlation.py" -o -name "*corr*.py" | head -20
+Repository: NTWKKM/stat-shiny
 
-📝 Proposed fix
+Length of output: 227
 
-# Windows
+🏁 Script executed:
 
--.venv\Scripts\ruff format .```
-+.venv\Scripts\ruff format .
-+```
-------------------------------
+git ls-files | grep -E "(correlation|corr)" | head -20
+Repository: NTWKKM/stat-shiny
 
-In `@README.md` around lines 16 - 21, Replace the incorrect justification about
-"modern f-string syntax" in the README with a statement that the codebase
-requires Python 3.12+ because it uses PEP 695 features (e.g., type aliases/type
-parameters like `type X = Literal[...]`); specifically update the descriptive
-text at the two occurrences referenced (the paragraph around the Python
-requirement and the explanatory note near line 246) to mention PEP 695 type
-aliases/type parameters as the reason for requiring Python 3.12+, and ensure the
-table entry still shows "Python ≥ 3.12".
+Length of output: 217
 
-⚠️ Potential issue | 🟠 Major
+🏁 Script executed:
+
+rg -n "Coefficient" utils/correlation.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 110
+
+🏁 Script executed:
+
+rg -n "Coefficient" tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 338
+
+🏁 Script executed:
+
+sed -n '445,450p' utils/correlation.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 257
+
+🏁 Script executed:
+
+sed -n '68,75p' tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 439
+
+🏁 Script executed:
+
+sed -n '450,470p' tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 776
+
+🏁 Script executed:
+
+sed -n '520,530p' tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 296
+
+🏁 Script executed:
+
+rg -n "Coefficient \(r\)" tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 201
+
+🏁 Script executed:
+
+cat -n utils/correlation.py | sed -n '445,450p'
+Repository: NTWKKM/stat-shiny
+
+Length of output: 299
+
+🏁 Script executed:
+
+wc -l tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 81
+
+🏁 Script executed:
+
+sed -n '440,480p' utils/correlation.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 1482
+
+🏁 Script executed:
+
+sed -n '455,475p' tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 739
+
+🏁 Script executed:
+
+sed -n '520,545p' tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 822
+
+🏁 Script executed:
+
+sed -n '120,130p' tabs/tab_corr.py
+Repository: NTWKKM/stat-shiny
+
+Length of output: 524
+
+🏁 Script executed:
+
+rg -n "try|except" tabs/tab_corr.py | head -20
+Repository: NTWKKM/stat-shiny
+
+Length of output: 140
+
+Fix coefficient key mismatch that breaks Kendall correlation
+
+utils/correlation.py returns "Coefficient (r/rho/tau)" for all methods (line 447), but tabs/tab_corr.py hardcodes lookups for "Coefficient (r)" at lines 463 and 525. Selecting Kendall will raise a KeyError when displaying or downloading results. Implement a fallback that checks for the new key first, then falls back to the old one, and apply it consistently across both out_corr_table() and btn_dl_corr() functions.
+
+🔧 Suggested fallback for coefficient key
+
+@@ def out_corr_table():
+-        display_data = {
+-            "Metric": [
+-                "Method",
+-                "Correlation Coefficient (r)",
++        coef_key = (
++            "Coefficient (r/rho/tau)"
++            if "Coefficient (r/rho/tau)" in stats
++            else "Coefficient (r)"
++        )
++        coef_val = stats.get(coef_key)
++        display_data = {
++            "Metric": [
++                "Method",
++                "Correlation Coefficient",
+@@
+-                f"{stats['Coefficient (r)']:.4f}",
++                f"{coef_val:.4f}" if isinstance(coef_val, (int, float)) else str(coef_val),
+@@ def btn_dl_corr():
+-        for key in [
+-            "Method",
+-            "Coefficient (r)",
++        coef_key = (
++            "Coefficient (r/rho/tau)"
++            if "Coefficient (r/rho/tau)" in stats
++            else "Coefficient (r)"
++        )
++        for key in [
++            "Method",
++            coef_key,
+---------------------------------------
+In `@tests/benchmarks/r_scripts/test_firth.R` around lines 8 - 10, The test
+currently auto-installs missing packages using install.packages with variables
+required_packages and new_packages, which can fail in CI; instead remove the
+runtime install step and either (a) document these packages in a project
+DESCRIPTION (or similar CI setup) so CI installs them before tests run, or (b)
+replace the install logic with a CI-friendly check that fails the test with a
+clear message if packages in required_packages are missing (using
+installed.packages() and new_packages) so CI/shell setup can install them;
+reference the required_packages, new_packages and install.packages usage to
+locate and update the code.
+
+🧹 Nitpick | 🔵 Trivial
+
+Consider CI environment implications for auto-installing packages.
+
+Auto-installing packages (install.packages) may fail or behave unexpectedly in CI environments without a configured CRAN mirror or with restricted network access. Consider documenting the required packages in a separate DESCRIPTION file or adding a CI setup step
+------------------------------------
+In `@utils/correlation.py` around lines 445 - 457, The results dict key was
+renamed to "Coefficient (r/rho/tau)" causing KeyError where the old key
+"Coefficient (r)" is accessed; update all references in tabs/tab_corr.py (e.g.,
+the formatted access f"{stats['Coefficient (r)']:.4f}" and the loop over keys
+that includes "Coefficient (r)") to use the new key "Coefficient (r/rho/tau)";
+alternatively, replace string literals with a single constant (e.g., COEFF_KEY)
+used both in utils/correlation.py (where results is built) and in
+tabs/tab_corr.py to avoid future mismatches.
+
+⚠️ Potential issue | 🔴 Critical
 
 🧩 Analysis chain
-
 🏁 Script executed:
 
-find . -maxdepth 2 -type f \( -name "pyproject.toml" -o -name "setup.py" -o -name "setup.cfg" -o -name "requirements*.txt" \) | head -20
+# Search for usages of the old key name "Coefficient (r)"
+rg -n "Coefficient \(r\)" --type py
 Repository: NTWKKM/stat-shiny
 
-Length of output: 120
+Length of output: 252
 
 🏁 Script executed:
 
-cat README.md | sed -n '240,250p'
+# Search for usages and imports of calculate_correlation function
+rg -n "calculate_correlation" --type py -A 2
 Repository: NTWKKM/stat-shiny
 
-Length of output: 378
+Length of output: 2024
 
 🏁 Script executed:
 
-rg -n --type=py "type\s+\w+\s*=" . | head -20
+# Check the actual function definition to understand its scope
+rg -n "def calculate_correlation" --type py -A 10
 Repository: NTWKKM/stat-shiny
 
-Length of output: 250
+Length of output: 695
 
 🏁 Script executed:
 
-rg -n --type=py "def\s+\w+\[.*\]\s*\(" . | head -20
+# Look at the context around line 463 in tabs/tab_corr.py where the old key is accessed
+cat -n tabs/tab_corr.py | sed -n '450,470p'
+Repository: NTWKKM/stat-shiny
+
+Length of output: 923
+
+🏁 Script executed:
+
+# Also check line 525
+cat -n tabs/tab_corr.py | sed -n '515,535p'
+Repository: NTWKKM/stat-shiny
+
+Length of output: 796
+
+🏁 Script executed:
+
+# Check if test_corr_cleaning.py or other integration tests call the display code path
+rg -n "display_data\|elements\|Statistical Results" tests/ --type py
 Repository: NTWKKM/stat-shiny
 
 Length of output: 43
 
 🏁 Script executed:
 
-rg -n --type=py "class\s+\w+\[.*\]\s*:" . | head -20
+# Check what line 364 in tabs/tab_corr.py does after calling calculate_correlation
+cat -n tabs/tab_corr.py | sed -n '360,380p'
+Repository: NTWKKM/stat-shiny
+
+Length of output: 1003
+
+Unresolved breaking change: production code will crash with KeyError.
+
+The rename from "Coefficient (r)" to "Coefficient (r/rho/tau)" breaks production code in tabs/tab_corr.py at lines 463 and 525, where the old key name is accessed:
+
+Line 463: f"{stats['Coefficient (r)']:.4f}"
+Lines 525–532: Loop iterates over keys including "Coefficient (r)" and accesses stats[key]
+These code paths are executed when users interact with the correlation analysis feature and will raise KeyError at runtime. Update all references to use the new key name "Coefficient (r/rho/tau)".
+
+----------------------------------
+In `@utils/diag_test.py` around lines 1180 - 1185, Add validation that input
+scores are actual probabilities before clipping in the calibration plot: check
+the array/column referred to as y_score (or the parameter from score_col) for
+values outside [0,1], and if any exist emit a warning via the module logger (or
+raise a clear ValueError) instead of silently clipping; keep the current
+clipping to avoid errors but ensure the warning mentions that calibration_curve
+(from sklearn.calibration) expects probabilities and that raw scores/logits
+should be converted via a sigmoid or probability calibration first; also update
+the function docstring to state that score_col must contain predicted
+probabilities.
+
+⚠️ Potential issue | 🟡 Minor
+
+🧩 Analysis chain
+🏁 Script executed:
+
+#!/bin/bash
+# Get the file and examine the analyze_roc function
+cd /tmp && find . -name "diag_test.py" -o -name "utils" -type d 2>/dev/null | head -5
+# If not found in /tmp, search from root
+rg -l "diag_test.py" --type=py 2>/dev/null | head -3
 Repository: NTWKKM/stat-shiny
 
 Length of output: 43
 
 🏁 Script executed:
 
-rg -n "python" README.md -i
+#!/bin/bash
+# Search for the analyze_roc function definition and its docstring
+rg -A 50 "def analyze_roc" --type=py -n
 Repository: NTWKKM/stat-shiny
 
-Length of output: 147
+Length of output: 3077
 
 🏁 Script executed:
 
-cat pyproject.toml | grep -A 5 -B 5 "python"
+#!/bin/bash
+# Check the context around lines 1180-1185 in diag_test.py
+rg -B 20 -A 5 "calibration_curve" --type=py -n | head -100
 Repository: NTWKKM/stat-shiny
 
-Length of output: 356
+Length of output: 1909
 
 🏁 Script executed:
 
-cat requirements.txt
+#!/bin/bash
+# Get full docstring and more context
+sed -n '1071,1150p' utils/diag_test.py
 Repository: NTWKKM/stat-shiny
 
-Length of output: 2930
+Length of output: 2801
 
 🏁 Script executed:
 
-cat requirements-prod.txt
+#!/bin/bash
+# Search for any validation or documentation about score ranges/types
+rg "score" utils/diag_test.py -B2 -A2 -n | grep -E "(probability|calibr|range|clip|validate)" | head -30
 Repository: NTWKKM/stat-shiny
 
-Length of output: 1000
+Length of output: 263
 
-Update Python 3.12+ justification in README.
+🏁 Script executed:
 
-The codebase uses PEP 695 type aliases (type X = Literal[...]), which require Python 3.12+. However, the README cites "modern f-string syntax" as the reason—f-strings have been available since Python 3.6 and are not a valid justification. Update lines 16 and 246 to cite PEP 695 type parameters/aliases instead
---------------------------------------------
+#!/bin/bash
+# Check if there are tests or usage examples that show what scores are expected
+rg "analyze_roc" --type=py -B2 -A5 | head -100
+Repository: NTWKKM/stat-shiny
 
-In `@README.md` around lines 135 - 139, The README references
-utils/data_quality.py but that module is missing from the repo; either add the
-missing file (implementing the Data Health Report utilities referenced) or
-update the README to point to the correct module/path or remove the mention.
-Locate references to utils/data_quality.py in README.md and either (a) create
-and commit the utils/data_quality.py file implementing the described functions
-(missing-data reporting, non-standard numeric detection, categorical integrity
-checks) or (b) change the README to reference the actual existing file or
-example script that implements those features, ensuring the README’s bullet
-points (Comprehensive Data Control, Data Health Report, Missing Data,
-Non-standard Numeric, Categorical Integrity) map to real code symbols. Ensure
-the README and repository are consistent before merging.
+Length of output: 6309
 
-⚠️ Potential issue | 🟡 Minor
+🏁 Script executed:
 
-Docs reference a file that doesn’t appear in the tree.
+#!/bin/bash
+# Look for any comments or documentation about what y_score represents
+sed -n '1100,1200p' utils/diag_test.py | grep -E "(#|score|probability)"
+Repository: NTWKKM/stat-shiny
 
-utils/data_quality.py is mentioned, but the repository tree shown doesn’t list it. Please confirm the file exists or update the reference
---------------------------------------------
+Length of output: 1241
 
-In `@tabs/tab_agreement.py` at line 25, Remove the dead assignment to COLORS from
-get_color_palette() — the variable COLORS is never used in this module, so
-delete the line "COLORS = get_color_palette()" and, if get_color_palette is only
-imported for this unused assignment, also remove the unused import to avoid dead
-code and unnecessary dependencies; ensure no other symbol in this file
-references COLORS or get_color_palette before deleting.
+🏁 Script executed:
 
-🧹 Nitpick | 🔵 Trivial
+#!/bin/bash
+# Look for how analyze_roc is called in the application
+rg "analyze_roc" --type=py -B3 -A3 | grep -v test | head -80
+Repository: NTWKKM/stat-shiny
 
-Unused variable COLORS.
+Length of output: 1146
 
-COLORS is assigned from get_color_palette() but never referenced in this module. Consider removing it to reduce unnecessary imports and dead code.
+🏁 Script executed:
 
-♻️ Suggested fix
--from tabs._common import (
+#!/bin/bash
+# Check if there's any preprocessing or documentation about score ranges
+rg "score.*range|probability|calibr" --type=py -i | grep -v test | head -30
+Repository: NTWKKM/stat-shiny
 
-- get_color_palette,
-- select_variable_by_keyword,
--)
-+from tabs._common import select_variable_by_keyword
- from utils import diag_test
-...
--COLORS = get_color_palette()
+Length of output: 2161
 
------------------------------------------
-In `@tabs/tab_agreement.py` around lines 213 - 218, The bare except in the block
-around input.radio_source() hides real errors; change it to catch the specific
-expected exception (e.g., AttributeError or RuntimeError depending on how input
-is initialized) and/or log the exception at debug level before falling back to
-return df.get(); update the try/except that surrounds input.radio_source() so it
-only handles the anticipated failure and retains the fallback to df.get() while
-preserving visibility of unexpected errors from input.radio_source(),
-referencing input.radio_source(), df_matched.get(), and df.get() in your
-changes.
+🏁 Script executed:
 
-🧹 Nitpick | 🔵 Trivial
+#!/bin/bash
+# Check the sklearn documentation comments or any function parameters that hint at expected input
+sed -n '1063,1076p' utils/diag_test.py && echo "---" && rg "score_col" utils/diag_test.py -B2 -A2 | head -40
+Repository: NTWKKM/stat-shiny
 
-Broad exception handling may hide real errors.
+Length of output: 1195
 
-The bare except Exception: pass silently swallows all errors when accessing input.radio_source(). While this provides a safe fallback, it could mask legitimate issues (e.g., input not yet initialized). Consider catching only the expected exception type or logging at debug level.
+🏁 Script executed:
 
-♻️ Suggested improvement
-         if is_matched.get():
-             try:
-                 if input.radio_source() == "matched":
-                     return df_matched.get()
+#!/bin/bash
+# Look at the entire calibration section to see if clipping causes any actual issues
+sed -n '1174,1210p' utils/diag_test.py
+Repository: NTWKKM/stat-shiny
 
--            except Exception:
--                pass
+Length of output: 1330
 
-+            except (AttributeError, KeyError):
--                # Input not yet initialized, fall back to original
--                pass
-         return df.get()
+🏁 Script executed:
 
+#!/bin/bash
+# Check if there's any validation that y_score is in [0,1] range
+sed -n '1100,1160p' utils/diag_test.py | grep -E "(clip|range|0.*1|probability)"
+Repository: NTWKKM/stat-shiny
+
+Length of output: 43
+
+🏁 Script executed:
+
+#!/bin/bash
+# Check what the UI says about score input
+rg "Prediction.*Probability|Score.*Probability" tabs/tab_diag.py -B3 -A3
+Repository: NTWKKM/stat-shiny
+
+Length of output: 243
+
+🏁 Script executed:
+
+#!/bin/bash
+# Look for any documentation or comments about expected score values in the codebase
+rg "score.*probability|probability.*score" --type=py -i -B1 -A1 | grep -v test | head -40
+Repository: NTWKKM/stat-shiny
+
+Length of output: 587
+
+Add validation or warning for non-probability score inputs to calibration plot.
+
+The code clips y_score to [0, 1] only when computing the calibration curve, but applies no validation that the input scores actually represent probabilities. If score_col contains raw model outputs (logits, unbounded scores, etc.) rather than probabilities, the calibration plot will be misleading since clipping distorts the score distribution. The ROC and PR curves use raw scores (correct), but the asymmetric treatment creates confusion.
+
+Given the UI explicitly labels this as "Prediction/Score (Probability):", add either:
+
+A validation check that logs a warning if scores fall outside [0, 1], or
+Documentation in the function docstring clarifying that scores must represent predicted probabilities.
 ---------------------------------------
-In `@tabs/tab_agreement.py` around lines 349 - 350, The error string from
-calculate_kappa is being inserted directly into the HTML via
-kappa_html.set(f"<div class='alert alert-danger'>{err}</div>") which can expose
-user data to XSS; instead HTML-escape the err value before embedding (use a safe
-escaping utility such as html.escape or MarkupSafe.escape) and then pass the
-escaped string into kappa_html.set so the error message is rendered safely;
-locate the branch that checks "if err:" and update the construction of the alert
-HTML to use the escaped error value.
-
-⚠️ Potential issue | 🟡 Minor
-
-Error message from calculate_kappa is not HTML-escaped.
-
-The err string may contain column names from user data. Embed it safely to prevent potential XSS, consistent with the exception handling below.
-
-🐛 Proposed fix
-             if err:
-
--                kappa_html.set(f"<div class='alert alert-danger'>{err}</div>")
-
-+                kappa_html.set(f"<div class='alert alert-danger'>{_html.escape(str(err))}</div>")
-
----------------------------------------
-In `@tabs/tab_agreement.py` around lines 418 - 421, The Bland-Altman error string
-from stats_res is inserted into HTML without escaping; update the code around
-ba_html.set(...) to HTML-escape stats_res['error'] (same approach used in the
-Kappa error handling) before embedding it in the <div>, e.g., call the project’s
-HTML-escape utility (or python's html.escape) on stats_res['error'] and pass the
-escaped value to ba_html.set to prevent injection.
-
-⚠️ Potential issue | 🟡 Minor
-
-Error message from Bland-Altman result is not HTML-escaped.
-
-Similar to the Kappa error handling, the error string should be escaped before embedding in HTML
-
-🐛 Proposed fix
-             if "error" in stats_res:
-                 ba_html.set(
-
--                    f"<div class='alert alert-danger'>{stats_res['error']}</div>"
-
-+                    f"<div class='alert alert-danger'>{_html.escape(str(stats_res['error']))}</div>"
-                 )
-
----------------------------------------
-In `@tabs/tab_agreement.py` around lines 494 - 495, The error message assigned to
-the ICc display is not HTML-escaped; update the block that calls icc_html.set
-(the one using the err variable returned from calculate_icc) to escape err
-before embedding it into the HTML string (e.g., use Python's html.escape on err
-or an equivalent HTML-escaping utility), guarding for None so you don't pass a
-non-string, and then use the escaped value in the f-string to avoid injecting
-raw HTML.
-
-⚠️ Potential issue | 🟡 Minor
-
-Error message from calculate_icc is not HTML-escaped.
-
-For consistency and defense-in-depth, escape the error string.
-
-🐛 Proposed fix
-             if err:
-
--                icc_html.set(f"<div class='alert alert-danger'>{err}</div>")
-
-+                icc_html.set(f"<div class='alert alert-danger'>{_html.escape(str(err))}</div>")
-
----------------------------------------
-In `@tabs/tab_agreement.py` around lines 563 - 568, The filename lambda in the
-render.download decorator can crash if input.icc_vars() returns None or an empty
-sequence; update the btn_dl_icc_report filename generation to defensively read
-vars = input.icc_vars() or [] (or use a safe getter), then take the first three
-items safely (e.g., vars[:3] or use defaults when missing), join them, pass
-through_safe_filename_part, and fallback to a fixed token like "untitled" when
-the resulting name is empty so the render.download filename lambda never errors.
-
-🧹 Nitpick | 🔵 Trivial
-
-Defensive handling for filename generation.
-
-If input.icc_vars() returns None or an empty sequence at download time, the slice operation will fail. Add a fallback for robustness.
-
-♻️ Suggested improvement
-     `@render.download`(
-
--        filename=lambda: f"icc_report_{_safe_filename_part('_'.join(input.icc_vars()[:3]))}.html"
-
-+        filename=lambda: f"icc_report_{_safe_filename_part('_'.join((input.icc_vars() or [])[:3]) or 'analysis')}.html"
-     )
-     def btn_dl_icc_report():
-         req(icc_html.get())
-         yield icc_html.get()
-
---------------------------------------
-In `@tabs/tab_agreement.py` around lines 589 - 599, Replace the inline
-ui.div/ui.tags.small in the out_icc_validation render function with the shared
-create_error_alert utility to match Kappa and Bland-Altman validations: in
-out_icc_validation (which checks input.icc_vars()), when there are fewer than 2
-columns return create_error_alert with the same message ("Please select at least
-2 rater/method columns.") so styling and behavior are consistent across
-validations; keep the conditional logic and return None otherwise.
-
-🧹 Nitpick | 🔵 Trivial
-
-Consider using create_error_alert for consistency.
-
-The ICC validation uses an inline ui.div with text-warning styling, while Kappa and Bland-Altman validation use create_error_alert. Consider using a consistent approach across all validations for uniform UX.
-
-♻️ Suggested improvement
-     `@render.ui`
-     def out_icc_validation():
-         cols = input.icc_vars()
-         if cols and len(cols) < 2:
-
--            return ui.div(
--                ui.tags.small(
--                    "Please select at least 2 rater/method columns.",
--                    class_="text-warning",
--                )
--            )
-
-+            return create_error_alert(
--                "Please select at least 2 rater/method columns."
--            )
-         return None

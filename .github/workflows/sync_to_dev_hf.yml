@@ -16,7 +16,8 @@ jobs:
 
       - name: Install git-xet
         run: |
-          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/refs/heads/main/git_xet/install.sh | bash
+          # Pin to specific commit SHA for security and reproducibility (76fd5da - Update git-xet install script `#575`)
+          curl -fssL https://raw.githubusercontent.com/huggingface/xet-core/76fd5dab6e63e91d45f35bab0c264f3d81106edd/git_xet/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Push to Hub
