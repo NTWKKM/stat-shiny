@@ -41,13 +41,16 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- docker-compose.yml
 |-- docs /
 |   |-- ARCHITECTURE.md
+|   |-- DEEP-OPTIMIZATION-PLAN.md
 |   |-- UI_IMPROVEMENT_COMPLETE_10FILES.md
 |   |-- UX_UI_audit_report.md
 |   |-- assets /
 |   |   `-- navigation_sequence.png
 |   |-- deep-ai-bot-optimization.md
-|   `-- rabbitai-report.md
-|-- firthmodels.md
+|   |-- firthmodels.md
+|   |-- rabbitai-report.md
+|   |-- statiomed-detailed-roadmap.md
+|   `-- updated-R-benchmark-script.md
 |-- logger.py
 |-- pyproject.toml
 |-- pytest.ini
@@ -76,6 +79,14 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- tab_settings.py
 |   `-- tab_survival.py
 |-- tests /
+|   |-- benchmarks /
+|   |   |-- python_results /
+|   |   |   |-- benchmark_firth_cox.csv
+|   |   |   |-- benchmark_firth_logistic.csv
+|   |   |   |-- dataset_breast.csv
+|   |   |   `-- dataset_sex2.csv
+|   |   `-- r_scripts /
+|   |       `-- test_firth.R
 |   |-- conftest.py
 |   |-- e2e /
 |   |   |-- test_app_flow.py
@@ -103,6 +114,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_advanced_stats.py
 |       |-- test_bland_altman.py
 |       |-- test_causal.py
+|       |-- test_chi_html.py
 |       |-- test_collinearity.py
 |       |-- test_color_palette.py
 |       |-- test_correlation_returns.py
@@ -111,6 +123,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_data_quality.py
 |       |-- test_dca.py
 |       |-- test_diag_returns.py
+|       |-- test_firth_regression.py
 |       |-- test_formatting.py
 |       |-- test_glm.py
 |       |-- test_heterogeneity.py
@@ -121,10 +134,12 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_model_diagnostics_plots.py
 |       |-- test_plotly_html_rendering.py
 |       |-- test_poisson_lib.py
+|       |-- test_regression_publication.py
 |       |-- test_repeated_measures.py
 |       |-- test_sample_size.py
 |       |-- test_sensitivity.py
 |       |-- test_statistics.py
+|       |-- test_tab_diag_html_logic.py
 |       |-- test_tvc_lib.py
 |       |-- test_ui_ux_styles.py
 |       `-- verify_table_one.py
