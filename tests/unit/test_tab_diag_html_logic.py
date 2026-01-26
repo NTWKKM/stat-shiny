@@ -7,7 +7,7 @@ def test_create_status_elements_plain_text():
     msg = "Analysis completed successfully."
     elements = _create_status_elements(msg)
 
-    # Expect single element wrapped in <p>
+    # Expect single text element
     assert len(elements) == 1
     assert elements[0]["type"] == "text"
     assert elements[0]["data"] == "Analysis completed successfully."
@@ -26,7 +26,7 @@ def test_create_status_elements_with_html_block():
     # Expect split into two elements
     assert len(elements) == 2
 
-    # 1. Plain text wrapped in <p>
+    # 1. Plain text segment (type="text")
     assert elements[0]["type"] == "text"
     assert elements[0]["data"] == plain
 
