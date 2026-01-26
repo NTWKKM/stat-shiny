@@ -78,12 +78,11 @@ import pytest
 import pandas as pd
 import numpy as np
 from firthmodels import FirthLogisticRegression, FirthCoxPH
-from utils.logic import fit_firth_logistic
 
 def test_firth_logistic_vs_r():
     """Compare coefficients, CIs, p-values against R logistf()"""
-    r_bench = pd.read_csv("tests/benchmarks/python_results/benchmark_firth_logistic.csv")
-    df = pd.read_csv("tests/benchmarks/python_results/dataset_sex2.csv")
+    r_bench = pd.read_csv("tests/benchmarks/r_results/benchmark_firth_logistic.csv")
+    df = pd.read_csv("tests/benchmarks/r_results/dataset_sex2.csv")
     
     X = df[['age', 'oc', 'vic', 'vicl', 'vis', 'dia']]
     y = df['case']
@@ -299,10 +298,12 @@ def test_firth_workflow_complete():
 
 ### Additional Metrics
 - [ ] Decision Curve Analysis (DCA) integrated
-- [ ] Net Reclassification Index (NRI)
-- [ ] Integrated Discrimination Index (IDI)
-- [ ] Brier score (calibration)
-- [ ] Bootstrap confidence intervals
+- [ ] Model comparison metrics:
+  * Net Reclassification Index (NRI)
+  * Integrated Discrimination Index (IDI)
+- [ ] Calibration metrics:
+  * Brier score (calibration)
+  * Bootstrap confidence intervals
 
 ### Cutoff Strategy
 - [ ] Interactive cutoff exploration
@@ -375,7 +376,9 @@ def test_firth_workflow_complete():
 **Optimizations:**
 
 ```markdown
-### Performance (Target: 10x speedup on 100k rows)
+### Performance
+- [ ] Establish baseline: measure current processing time on 100k rows
+- [ ] Target: 10x speedup (e.g., if baseline is 30s, target <3s)
 - [ ] Vectorize all operations (avoid loops)
 - [ ] Use dask for out-of-memory datasets
 - [ ] Lazy evaluation for preview
@@ -585,7 +588,9 @@ TARGET (Modular):
 ### Input Validation
 - [ ] CSV/Excel upload size limits (max 100MB)
 - [ ] File type validation (block executables)
-- [ ] Data sanitization (prevent SQL injection)
+- [ ] File type validation (block executables, check magic bytes)
+- [ ] CSV formula injection prevention (sanitize =, +, -, @ prefixes)
+- [ ] Excel macro detection and blocking
 - [ ] User permission checks
 
 ### Secrets Management
@@ -742,10 +747,14 @@ TARGET (Modular):
 
 ### Statistical References
 
-- Kosmidis & Firth (2021): Bias reduction & finite estimates
-- Heinze & Schemper (2002): Firth for logistic regression
-- Heinze & Schemper (2001): Firth for Cox regression
-- Konis (2007): Separation detection via linear programming
+- Kosmidis & Firth (2021): Bias reduction & finite estimates  
+  DOI: [Add if available]
+- Heinze & Schemper (2002): Firth for logistic regression  
+  DOI: 10.1002/sim.1047
+- Heinze & Schemper (2001): Firth for Cox regression  
+  DOI: 10.1002/sim.985
+- Konis (2007): Separation detection via linear programming  
+  [Add citation details]
 
 ### Technical References
 
@@ -807,9 +816,9 @@ def generate_publication_table(model_results):
         'Predictor': model_results['term'],
         'Estimate': model_results['estimate'].apply(lambda x: f"{x:.3f}"),
         'SE': model_results['se'].apply(lambda x: f"{x:.3f}"),
-        '95% CI': [f"{l:.3f}–{u:.3f}" 
-                   for l, u in zip(model_results['conf.low'], 
-                                    model_results['conf.high'])],
+        '95% CI': [f"{low:.3f}–{high:.3f}" 
+                   for low, high in zip(model_results['conf.low'], 
+                                        model_results['conf.high'])],
         'P-value': [format_pvalue(p) for p in model_results['p.value']]
     })
     

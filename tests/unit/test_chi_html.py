@@ -1,3 +1,4 @@
+import html
 import pytest
 from utils.diag_test import generate_report
 
@@ -15,10 +16,11 @@ def test_generate_report_html_rendering():
     report_text = generate_report("Test Text", elements_text)
 
     # Assert that < matches &lt;
-    assert "&lt;div" in report_text, "HTML tags should be escaped for type='text'"
-    assert "<div" not in report_text.replace("&lt;", "<").replace("<body>", "").replace(
-        "<html>", ""
-    ).replace("<h1>", ""), "HTML tags should be escaped for type='text'"
+    escaped = html.escape(raw_html_content)
+    assert escaped in report_text, "HTML tags should be escaped for type='text'"
+    assert raw_html_content not in report_text, (
+        "Raw HTML should not appear for type='text'"
+    )
 
     # 2. Test with type="html" (Should NOT be escaped)
     elements_html = [{"type": "html", "data": raw_html_content}]
