@@ -60,9 +60,9 @@ The application covers a wide range of medical statistical needs, organized into
 
 | Category | Modules | Key Features |
 | :--- | :--- | :--- |
-| **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Correlation Matrix, ROC/AUC, Kappa, ICC, Bland-Altman. |
-| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions, Subgroup analysis. |
-| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM). |
+| **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Kappa** (Weighted), **ICC** (pingouin integration), Bland-Altman (LoA CI). |
+| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions, Subgroup analysis, Forrest Plots. |
+| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, Time-Varying Cox, G-Computation, Power Analysis. |
 
 ---
@@ -86,11 +86,12 @@ The data flow is standardized to ensure consistent handling of missing values an
 - **Tasks**: Handles missing value exclusion (Listwise/Pairwise), type enforcement, and logging analyzed indices.
 - **Metadata**: Generates a `missing_data_info` dictionary detailing what was excluded and why.
 
-### 3. Reporting (`utils/formatting.py`)
-
-- When a module finishes analysis, it generates an HTML report.
+- When a module finishes analysis, it generates an HTML report using `generate_report()`.
 - The `missing_data_info` is passed to `create_missing_data_report_html()`.
-- **Outcome**: A standardized "Missing Data Summary" is automatically included at the start of every statistical output.
+- **Standards**:
+  - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation).
+  - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) provide immediate clinical context.
+- **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
 
 ---
 

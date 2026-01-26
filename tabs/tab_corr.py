@@ -67,7 +67,11 @@ def corr_ui() -> ui.TagChild:
                         ui.input_select(
                             "coeff_type",
                             "Correlation Coefficient:",
-                            choices={"pearson": "Pearson", "spearman": "Spearman"},
+                            choices={
+                                "pearson": "Pearson",
+                                "spearman": "Spearman",
+                                "kendall": "Kendall",
+                            },
                             selected="pearson",
                         ),
                         ui.input_select(
@@ -113,7 +117,11 @@ def corr_ui() -> ui.TagChild:
                     ui.input_select(
                         "matrix_method",
                         "Correlation Method:",
-                        choices={"pearson": "Pearson", "spearman": "Spearman"},
+                        choices={
+                            "pearson": "Pearson",
+                            "spearman": "Spearman",
+                            "kendall": "Kendall",
+                        },
                         selected="pearson",
                     ),
                     ui.layout_columns(
@@ -148,14 +156,18 @@ def corr_ui() -> ui.TagChild:
                             **Concept:** Measures the strength and direction of the relationship between 
                             **two continuous variables**.
 
+                            > [!WARNING]
+                            > **Correlation does not imply causation.** A strong relationship between two variables does not mean one causes the other.
+
                             **1. Pearson (r):**
                             * **Best for:** Linear relationships (straight line), normally distributed data.
                             * **Sensitive to:** Outliers.
                             * **Returns:** R-squared (R²) = proportion of variance explained
 
-                            **2. Spearman (rho):**
+                            **2. Spearman (rho) & Kendall (tau):**
                             * **Best for:** Monotonic relationships, non-normal data, or ranks.
                             * **Robust to:** Outliers.
+                            * **Kendall's Tau** is often preferred for small datasets with many tied ranks.
 
                             **Interpretation of Coefficient (r or rho):**
                             * **+1.0:** Perfect Positive (As X goes up, Y goes up).

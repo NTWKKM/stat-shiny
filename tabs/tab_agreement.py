@@ -62,8 +62,9 @@ def agreement_ui() -> ui.TagChild:
                 "🤝 Cohen's Kappa",
                 ui.markdown("##### Cohen's Kappa (Categorical Data Agreement)"),
                 ui.row(
-                    ui.column(6, ui.output_ui("ui_kappa_v1")),
-                    ui.column(6, ui.output_ui("ui_kappa_v2")),
+                    ui.column(4, ui.output_ui("ui_kappa_v1")),
+                    ui.column(4, ui.output_ui("ui_kappa_v2")),
+                    ui.column(4, ui.output_ui("ui_kappa_weights")),
                 ),
                 ui.output_ui("out_kappa_validation"),
                 ui.row(
@@ -155,11 +156,14 @@ def agreement_ui() -> ui.TagChild:
                     ### 🤝 Cohen's Kappa
                     Used for **categorical (groups)** data to measure agreement between two raters/methods.
                     It accounts for the agreement occurring by chance.
-                    - **Kappa > 0.8:** Almost perfect agreement ✅
-                    - **Kappa 0.6-0.8:** Substantial agreement
-                    - **Kappa 0.4-0.6:** Moderate agreement
-                    - **Kappa 0.2-0.4:** Fair agreement ⚠️
-                    - **Kappa < 0.2:** Slight/Poor agreement ❌
+
+                    **Landis–Koch (1977) scale for Kappa interpretation:**
+                    - **Kappa > 0.81:** Almost perfect agreement ✅
+                    - **Kappa 0.61–0.80:** Substantial agreement
+                    - **Kappa 0.41–0.60:** Moderate agreement
+                    - **Kappa 0.21–0.40:** Fair agreement ⚠️
+                    - **Kappa 0.00–0.20:** Slight agreement ❌
+                    - **Kappa < 0.00:** Poor agreement
 
                     ### 📉 Bland-Altman Plot
                     Used for **continuous** data to compare two measurement methods.
@@ -169,13 +173,12 @@ def agreement_ui() -> ui.TagChild:
 
                     ### 🔍 Intraclass Correlation (ICC)
                     Used for **continuous** data to measure reliability among 2 or more raters/measurements.
-                    - **ICC(2,1):** Two-way random effects, absolute agreement (Single rater).
-                    - **ICC(3,1):** Two-way mixed effects, consistency (Fixed raters).
-                    - **Interpretation:**
-                        - **> 0.90:** Excellent Reliability 🌟
-                        - **0.75 - 0.90:** Good Reliability
-                        - **0.50 - 0.75:** Moderate Reliability ⚠️
-                        - **< 0.50:** Poor Reliability ❌
+                    
+                    **ICC Interpretation (Cicchetti, 1994):**
+                    - **> 0.75:** Excellent Reliability 🌟
+                    - **0.60 – 0.75:** Good Reliability
+                    - **0.40 – 0.60:** Fair Reliability ⚠️
+                    - **< 0.40:** Poor Reliability ❌
                     """),
             ),
         ),
@@ -330,19 +333,33 @@ def agreement_server(
             selected=defaults,
         )
 
+    @render.ui
+    def ui_kappa_weights():
+        return ui.input_select(
+            "sel_kappa_weights",
+            "Weights (for Ordinal):",
+            choices={
+                "": "Unweighted (Categorical)",
+                "linear": "Linear (Ordinal)",
+                "quadratic": "Quadratic (Ordinal)",
+            },
+            selected="",
+        )
+
     # ==================== KAPPA LOGIC ====================
     @reactive.Effect
     @reactive.event(input.btn_analyze_kappa)
     def _run_kappa():
         d = current_df()
         v1, v2 = input.sel_kappa_v1(), input.sel_kappa_v2()
+        weights = input.sel_kappa_weights() or None
         req(d is not None, v1, v2)
 
         kappa_processing.set(True)
 
         try:
             res, err, conf, missing_info = diag_test.calculate_kappa(
-                d, v1, v2, var_meta=var_meta.get() or {}
+                d, v1, v2, weights=weights, var_meta=var_meta.get() or {}
             )
             if err:
                 kappa_html.set(
@@ -489,7 +506,7 @@ def agreement_server(
         icc_processing.set(True)
 
         try:
-            res_df, err, anova_df, missing_info = diag_test.calculate_icc(d, list(cols))
+            res_df, err, _, missing_info = diag_test.calculate_icc(d, list(cols))
 
             if err:
                 icc_html.set(
@@ -500,27 +517,23 @@ def agreement_server(
                 interp_parts = []
                 for _, row in res_df.iterrows():
                     val = row.get("ICC", 0)
-                    if pd.isna(val):
+                    if pd.isna(val) or val is None:
                         continue
-                    strength = (
-                        "Excellent"
-                        if val > 0.9
-                        else (
-                            "Good"
-                            if val > 0.75
-                            else "Moderate"
-                            if val > 0.5
-                            else "Poor"
-                        )
+                    strength = row.get("Strength", "Poor")
+                    icon = (
+                        "✅"
+                        if strength in ["Excellent", "Good"]
+                        else "⚠️"
+                        if strength == "Fair"
+                        else "❌"
                     )
-                    icon = "✅" if val > 0.75 else "⚠️" if val > 0.5 else "❌"
                     interp_parts.append(
-                        f"<li>{icon} <strong>{_html.escape(str(row.get('Type', '')))}</strong>: {val:.3f} ({strength})</li>"
+                        f"<li>{icon} <strong>{_html.escape(str(row.get('Description', '')))}</strong> ({_html.escape(str(row.get('Type', '')))}): {val:.3f} ({strength})</li>"
                     )
 
                 interp_html = f"""
                 <div class='alert alert-info mt-3'>
-                    <h5>📊 ICC Interpretation</h5>
+                    <h5>📊 ICC Interpretation (Cicchetti, 1994)</h5>
                     <ul>{"".join(interp_parts)}</ul>
                 </div>
                 """
@@ -532,7 +545,6 @@ def agreement_server(
                     },
                     {"type": "html", "data": interp_html},
                     {"type": "table", "header": "ICC Results", "data": res_df},
-                    {"type": "table", "header": "ANOVA Source Table", "data": anova_df},
                 ]
                 if missing_info:
                     rep.append(
