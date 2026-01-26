@@ -211,7 +211,7 @@ def test_firth_workflow_complete():
 - ✅ Kaplan-Meier curves: Good, tested
 - ⚠️ Cox PH models: Basic, needs Firth validation
 - ⚠️ Time-varying covariates: Implemented but untested
-- ❌ Penalized Cox: Not yet integrated
+- ❌ Firth Cox (penalized Cox): Not yet integrated
 
 **Validation Tasks:**
 
@@ -778,7 +778,6 @@ TARGET (Modular):
 
 ```python
 from firthmodels import FirthLogisticRegression
-from utils.data_quality import detect_separation
 
 def fit_best_logistic_model(X, y):
     """Auto-select standard vs Firth based on separation detection"""
