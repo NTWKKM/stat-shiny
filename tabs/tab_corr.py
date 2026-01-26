@@ -454,7 +454,12 @@ def corr_server(
             if "Coefficient (r/rho/tau)" in stats
             else "Coefficient (r)"
         )
-        coef_val = stats.get(coef_key, 0.0)
+        coef_val = stats.get(coef_key)
+        coef_display = (
+            f"{coef_val:.4f}"
+            if isinstance(coef_val, (int, float)) and not pd.isna(coef_val)
+            else "N/A"
+        )
 
         display_data = {
             "Metric": [
@@ -469,13 +474,13 @@ def corr_server(
             ],
             "Value": [
                 stats["Method"],
-                f"{coef_val:.4f}",
-                f"{stats['95% CI Lower']:.4f}",
-                f"{stats['95% CI Upper']:.4f}",
-                f"{stats['R-squared (R²)']:.4f}",
-                f"{stats['P-value']:.4f}",
-                str(stats["N"]),
-                stats["Interpretation"],
+                coef_display,
+                f"{stats.get('95% CI Lower', float('nan')):.4f}",
+                f"{stats.get('95% CI Upper', float('nan')):.4f}",
+                f"{stats.get('R-squared (R²)', float('nan')):.4f}",
+                f"{stats.get('P-value', float('nan')):.4f}",
+                str(stats.get("N", "N/A")),
+                stats.get("Interpretation", "N/A"),
             ],
         }
 

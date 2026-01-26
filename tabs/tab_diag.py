@@ -586,11 +586,12 @@ def diag_server(
                     )
 
                     # Add Calibration Plot if available
-                    if "calibration_plot" in res:
+                    calib_plot = res.get("calibration_plot")
+                    if calib_plot is not None:
                         rep.append(
                             {
                                 "type": "plot",
-                                "data": res["calibration_plot"],
+                                "data": calib_plot,
                             }
                         )
 

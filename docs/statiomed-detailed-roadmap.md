@@ -110,7 +110,7 @@ The **stat-shiny** project has successfully reached **Production-Ready State** w
 
 User Upload (CSV/Excel)
 ↓
-[tap_data.py] → Data Preview & Validation
+[tab_data.py] → Data Preview & Validation
 ↓
 [utils/data_cleaning.py] → Vectorized Cleaning & QA Report
 ├─ Smart Numeric Conversion (handles "<5", ">100")
@@ -156,13 +156,14 @@ plotly==6.1.0                   # Interactive charts
 
 # Advanced Features
 fastavro==1.10.2               # Data serialization
-python-multipart==0.0.7        # File upload handling
-python-multipart==0.0.7        # Async support
+python-multipart==0.0.7        # File upload handling / async support
 
 # Specialized Statistics (UPDATED)
 # Bias-reduced regression (source: jzluo/firthmodels)
 # See docs/firthmodels.md for details
 firthmodels @ git+https://github.com/jzluo/firthmodels.git
+```
+
 ---
 
 ## <a id="3-verified-component-status"></a>3. Verified Component Status

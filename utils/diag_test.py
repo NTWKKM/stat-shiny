@@ -907,6 +907,11 @@ def calculate_kappa(
             if y1_num.notna().all() and y2_num.notna().all():
                 kappa = cohen_kappa_score(y1_num, y2_num, weights=weights)
             else:
+                if weights:
+                    logger.warning(
+                        f"Weighted kappa requested but data is non-numeric; "
+                        f"weights='{weights}' may not be meaningful for categorical labels."
+                    )
                 kappa = cohen_kappa_score(
                     y1.astype(str), y2.astype(str), weights=weights
                 )
@@ -1114,16 +1119,38 @@ def analyze_roc(
     try:
         y_true_raw = data[truth_col]
         y_score = pd.to_numeric(data[score_col], errors="coerce").dropna()
+
+        if y_score.empty:
+            logger.error("Prediction score is non-numeric or empty")
+            return (
+                None,
+                f"Error: '{score_col}' has no numeric values for ROC analysis.",
+                None,
+                None,
+            )
+
         y_true_raw = y_true_raw.loc[y_score.index]
 
-        if y_true_raw.nunique() != 2 or pos_label_user is None:
-            logger.error("Binary outcome required")
+        if y_true_raw.nunique() != 2:
+            logger.error(
+                f"Binary outcome required. Found {y_true_raw.nunique()} classes."
+            )
             return (
                 None,
                 "Error: Binary outcome required (must have exactly 2 unique classes).",
                 None,
                 None,
             )
+
+        if pos_label_user is None:
+            # Infer a default positive label to preserve backward compatibility
+            # We take the second value in sorted list (usually correct for 0/1 or No/Yes)
+            try:
+                unique_vals = sorted(y_true_raw.astype(str).unique())
+                pos_label_user = unique_vals[-1]
+                logger.info(f"Inferred positive label: {pos_label_user}")
+            except Exception:
+                pos_label_user = str(y_true_raw.unique()[-1])
 
         y_true = np.where(y_true_raw.astype(str) == pos_label_user, 1, 0)
 
