@@ -1255,7 +1255,12 @@ def analyze_roc(
                 y=[tpr[best_idx]],
                 mode="markers",
                 name=f"Best Threshold ({thresholds[best_idx]:.3f})",
-                marker={"color": "red", "size": 10, "symbol": "star"},
+                marker={
+                    "color": "#d62728",
+                    "size": 12,
+                    "symbol": "circle",
+                    "line": {"color": "white", "width": 2},
+                },
             )
         )
 
@@ -1264,9 +1269,12 @@ def analyze_roc(
             xaxis_title="False Positive Rate (1 - Specificity)",
             yaxis_title="True Positive Rate (Sensitivity)",
             template="plotly_white",
-            height=500,
+            height=550,
+            width=550,
             hovermode="x unified",
             legend={"x": 0.6, "y": 0.1},
+            xaxis={"constrain": "domain"},
+            yaxis={"scaleanchor": "x", "scaleratio": 1},
         )
 
         coords_df = pd.DataFrame(
