@@ -1523,3 +1523,11 @@
                 transform: translateY(0);
             }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            .fade-in-entry {
+                animation: none;
+                opacity: 1;
+                transform: none;
+            }
+        }
