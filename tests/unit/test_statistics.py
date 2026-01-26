@@ -690,7 +690,7 @@ class TestKappaAnalysis:
 
         assert res_df is not None
         assert error_msg is None
-        assert "Cohen's Kappa" in res_df["Statistic"].values
+        assert "Cohen's Kappa (Unweighted)" in res_df["Statistic"].values
 
     def test_calculate_kappa_perfect_agreement(self):
         """✅ Test Kappa with perfect agreement."""

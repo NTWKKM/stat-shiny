@@ -680,6 +680,13 @@ def analyze_outcome(
         ci_method,
     )
 
+    # --- INITIALIZE VARIABLES ---
+    final_n_multi = 0  # Initialize to prevent UnboundLocalError
+    vif_html = ""  # Initialize to prevent UnboundLocalError
+    model_diagnostics_html = ""  # Initialize to prevent UnboundLocalError
+    effective_ci_method = ci_method  # Initialize fallback
+    ci_note = ""  # Initialize fallback
+
     # --- MISSING DATA HANDLING ---
     missing_cfg = CONFIG.get("analysis.missing", {}) or {}
     strategy = missing_cfg.get("strategy", "complete-case")
