@@ -17,6 +17,14 @@ import pandas as pd
 import scipy.stats as stats
 import statsmodels.api as sm
 
+# Try importing sklearn metrics for AUC
+try:
+    from sklearn.metrics import roc_auc_score
+
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
+
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -83,6 +91,11 @@ class StatsMetrics(TypedDict):
     mcfadden: float
     nagelkerke: float
     p_value: float | None
+    aic: float | None  # New
+    bic: float | None  # New
+    auc: float | None  # New
+    hl_pvalue: float | None  # New
+    hl_stat: float | None  # New
 
 
 # Functional syntax for TypedDict to support 'or' as a key
@@ -129,6 +142,63 @@ class AORResult(TypedDict):
     p_value: float
     p_adj: float | None
     label: str | None  # Added for flexible labeling
+
+
+# ✅ NEW: Helper function for Hosmer-Lemeshow Test
+def calculate_hosmer_lemeshow(y_true, y_pred, g=10):
+    """
+    Calculate Hosmer-Lemeshow goodness of fit test.
+    Returns (chi2_stat, p_value).
+    """
+    try:
+        data = pd.DataFrame({"obs": y_true, "pred": y_pred})
+        # Create deciles, handling duplicates
+        data["decile"] = pd.qcut(data["pred"], g, duplicates="drop")
+
+        grouped = data.groupby("decile", observed=False)
+        obs = grouped["obs"].sum()
+        total_prob = grouped["pred"].sum()
+        count = grouped["obs"].count()
+
+        # HL Statistic formula
+        # chi2 = sum( (O - E)^2 / (E * (1 - E/n)) )  <-- Simplified variance approx
+        # Standard: sum ( (Ok - nk*pik)^2 / (nk * pik * (1-pik)) )
+
+        numerator = (obs - total_prob) ** 2
+        denominator = total_prob * (1 - (total_prob / count))
+
+        # Avoid division by zero
+        valid = denominator > 1e-9
+        hl_stat = (numerator[valid] / denominator[valid]).sum()
+
+        dof = len(grouped) - 2
+        if dof < 1:
+            dof = 1
+
+        p_val = 1 - stats.chi2.cdf(hl_stat, dof)
+        return hl_stat, p_val
+    except Exception as e:
+        logger.warning(f"HL Test failed: {e}")
+        return np.nan, np.nan
+
+
+# ✅ NEW: Helper to calculate all diagnostics
+def calculate_model_diagnostics(y_true, y_pred) -> dict:
+    metrics = {"auc": np.nan, "hl_stat": np.nan, "hl_pvalue": np.nan}
+
+    # 1. AUC / C-Statistic
+    if HAS_SKLEARN and len(np.unique(y_true)) == 2:
+        try:
+            metrics["auc"] = roc_auc_score(y_true, y_pred)
+        except Exception:
+            pass
+
+    # 2. Hosmer-Lemeshow (Calibration)
+    hl_stat, hl_p = calculate_hosmer_lemeshow(y_true, y_pred)
+    metrics["hl_stat"] = hl_stat
+    metrics["hl_pvalue"] = hl_p
+
+    return metrics
 
 
 # ✅ NEW: Helper function to load static CSS
@@ -237,6 +307,11 @@ def fit_firth_logistic(
         "mcfadden": np.nan,
         "nagelkerke": np.nan,
         "p_value": np.nan,
+        "aic": np.nan,
+        "bic": np.nan,
+        "auc": np.nan,
+        "hl_pvalue": np.nan,
+        "hl_stat": np.nan,
     }
 
     if not HAS_FIRTH:
@@ -277,14 +352,22 @@ def fit_firth_logistic(
 
         conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
 
-        # Firth likelihood metrics
-        # loglik_ is penalized log-likelihood.
-        # For McFadden, we need null model.
-        # This is expensive to compute every time for Firth.
-        # For now, we return NaNs or simple stats if available.
-        if hasattr(fl, "loglik_"):
-            # Approx metrics?
-            pass
+        # ✅ NEW: Calculate Predictions & Diagnostics
+        try:
+            # firthmodels mimics sklearn, predict_proba returns [prob_0, prob_1]
+            y_pred = fl.predict_proba(X_const)[:, 1]
+            diag = calculate_model_diagnostics(y, y_pred)
+            stats_metrics.update(diag)
+
+            # Estimate Log-Likelihood for AIC/BIC (Approximate)
+            if hasattr(fl, "loglik_"):
+                llf = fl.loglik_
+                k = len(params)
+                n = len(y)
+                stats_metrics["aic"] = 2 * k - 2 * llf
+                stats_metrics["bic"] = k * np.log(n) - 2 * llf
+        except Exception as e:
+            logger.warning(f"Firth diagnostics failed: {e}")
 
         return params, conf_int, pvalues, "OK", stats_metrics
 
@@ -306,6 +389,11 @@ def fit_standard_logistic(
         "mcfadden": np.nan,
         "nagelkerke": np.nan,
         "p_value": np.nan,
+        "aic": np.nan,
+        "bic": np.nan,
+        "auc": np.nan,
+        "hl_pvalue": np.nan,
+        "hl_stat": np.nan,
     }
 
     try:
@@ -325,13 +413,25 @@ def fit_standard_logistic(
             cox_snell = 1 - np.exp((2 / nobs) * (llnull - llf))
             max_r2 = 1 - np.exp((2 / nobs) * llnull)
             nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
-            stats_metrics = {
-                "mcfadden": mcfadden,
-                "nagelkerke": nagelkerke,
-                "p_value": getattr(result, "llr_pvalue", np.nan),
-            }
+            stats_metrics.update(
+                {
+                    "mcfadden": mcfadden,
+                    "nagelkerke": nagelkerke,
+                    "p_value": getattr(result, "llr_pvalue", np.nan),
+                    "aic": result.aic,
+                    "bic": result.bic,
+                }
+            )
         except (AttributeError, ZeroDivisionError, TypeError) as e:
             logger.debug(f"Failed to calculate R2: {e}")
+
+        # ✅ NEW: Advanced Diagnostics (AUC, HL)
+        try:
+            y_pred = result.predict(X_const)
+            diag = calculate_model_diagnostics(y, y_pred)
+            stats_metrics.update(diag)
+        except Exception as e:
+            logger.warning(f"Standard logit diagnostics failed: {e}")
 
         if ci_method == "profile":
             logger.debug(
@@ -371,6 +471,11 @@ def run_binary_logit(
         "mcfadden": np.nan,
         "nagelkerke": np.nan,
         "p_value": np.nan,
+        "aic": np.nan,
+        "bic": np.nan,
+        "auc": np.nan,
+        "hl_pvalue": np.nan,
+        "hl_stat": np.nan,
     }
 
     # ✅ NEW: Initial Validation
@@ -932,10 +1037,10 @@ def analyze_outcome(
     aor_results: dict[str, AORResult] = {}
     interaction_results: dict[str, InteractionResult] = {}
     int_meta = {}
-    final_n_multi = 0
     predictors_for_vif = []
     multi_data = None
     mv_metrics_text = ""
+    model_diagnostics_html = ""  # New variable for diagnostics table
 
     def _is_candidate_valid(col):
         mode = mode_map.get(col, "linear")
@@ -1005,6 +1110,8 @@ def analyze_outcome(
             )
 
             if status == "OK":
+                final_n_multi = len(multi_data)
+                # 1. Format Basic Metrics (Existing logic enhanced)
                 r2_parts = []
                 mcf = mv_stats.get("mcfadden")
                 nag = mv_stats.get("nagelkerke")
@@ -1014,6 +1121,163 @@ def analyze_outcome(
                     r2_parts.append(f"Nagelkerke R² = {nag:.3f}")
                 if r2_parts:
                     mv_metrics_text = " | ".join(r2_parts)
+
+                # ✅ 2. Construct Professional Diagnostics Table (New)
+                diag_rows = []
+
+                # Discrimination (AUC)
+                auc = mv_stats.get("auc")
+                if pd.notna(auc):
+                    auc_interp = (
+                        "Excellent"
+                        if auc > 0.8
+                        else "Acceptable"
+                        if auc > 0.7
+                        else "Poor"
+                    )
+                    diag_rows.append(
+                        f"<tr><td>Discrimination (C-stat)</td><td>{auc:.3f}</td><td>{auc_interp}</td></tr>"
+                    )
+
+                # Calibration (HL Test)
+                hl_p = mv_stats.get("hl_pvalue")
+                hl_stat = mv_stats.get("hl_stat")
+                if pd.notna(hl_p):
+                    hl_res = (
+                        "Good Fit (p > 0.05)" if hl_p > 0.05 else "Poor Fit (p < 0.05)"
+                    )
+                    hl_color = "green" if hl_p > 0.05 else "red"
+                    diag_rows.append(
+                        f"<tr><td>Calibration (Hosmer-Lemeshow)</td><td>Chi2={hl_stat:.2f}, p=<span style='color:{hl_color}'>{hl_p:.3f}</span></td><td>{hl_res}</td></tr>"
+                    )
+
+                # AIC/BIC
+                aic = mv_stats.get("aic")
+                bic = mv_stats.get("bic")
+                if pd.notna(aic):
+                    diag_rows.append(
+                        f"<tr><td>AIC / BIC</td><td>{aic:.1f} / {bic:.1f}</td><td>Lower is better</td></tr>"
+                    )
+
+                # ✅ VIF CALCULATION (Moved up for alignment text)
+                vif_html = ""
+                vif_df = None
+                if (
+                    vif_enable
+                    and multi_data is not None
+                    and final_n_multi > 10
+                    and len(predictors_for_vif) > 1
+                ):
+                    try:
+                        vif_df, _ = calculate_vif(
+                            multi_data[predictors_for_vif], var_meta=var_meta
+                        )
+
+                        if vif_df is not None and not vif_df.empty:
+                            vif_rows = []
+                            for _, row in vif_df.iterrows():
+                                feat = html.escape(
+                                    str(row["Variable"]).replace("::", ": ")
+                                )
+                                val = row["VIF"]
+
+                                if np.isinf(val):
+                                    vif_str = "∞ (Perfect Collinearity)"
+                                    vif_class = "vif-warning"
+                                    icon = "⚠️"
+                                elif val > vif_threshold:
+                                    vif_str = f"{val:.2f}"
+                                    vif_class = "vif-warning"
+                                    icon = "⚠️"
+                                elif val > 5:
+                                    vif_str = f"{val:.2f}"
+                                    vif_class = "vif-caution"
+                                    icon = ""
+                                else:
+                                    vif_str = f"{val:.2f}"
+                                    vif_class = ""
+                                    icon = ""
+
+                                vif_rows.append(f"""
+                                    <tr>
+                                        <td>{feat}</td>
+                                        <td class='{vif_class}'><strong>{vif_str}</strong> {icon}</td>
+                                    </tr>
+                                """)
+
+                            vif_body = "".join(vif_rows)
+
+                            vif_html = f"""
+                            <div class='vif-container' style='margin-top: 16px;'>
+                                <div class='vif-title'>🔹 Collinearity Diagnostics (VIF)</div>
+                                <table class='table' style='max-width: 500px;'>
+                                    <thead>
+                                        <tr>
+                                            <th>Predictor</th>
+                                            <th>VIF</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>{vif_body}</tbody>
+                                </table>
+                                <div class='vif-footer'>
+                                    VIF &gt; {vif_threshold}: potential high collinearity. ∞ = perfect correlation with other predictors.
+                                </div>
+                            </div>
+                            """
+                    except (ValueError, np.linalg.LinAlgError) as e:
+                        logger.warning("VIF calculation failed: %s", e)
+                    except TypeError as e:
+                        logger.warning(
+                            "VIF calculation failed due to type error: %s", e
+                        )
+
+                # ✅ 3. Alignment text (STROBE/TRIPOD)
+                alignment_parts = []
+                if len(predictors_for_vif) > 0:
+                    adj_list = ", ".join(
+                        [str(p).replace("::", ": ") for p in predictors_for_vif[:5]]
+                    )
+                    if len(predictors_for_vif) > 5:
+                        adj_list += " et al."
+                    alignment_parts.append(
+                        f"This multivariable model adjusted for: <i>{adj_list}</i>."
+                    )
+
+                if vif_enable and vif_df is not None and not vif_df.empty:
+                    max_vif = vif_df["VIF"].max()
+                    if max_vif < 5:
+                        alignment_parts.append(
+                            "No evidence of multicollinearity detected (all VIF < 5)."
+                        )
+                    elif max_vif < 10:
+                        alignment_parts.append(
+                            "Minor multicollinearity detected (VIF < 10)."
+                        )
+
+                if preferred_method == "firth":
+                    alignment_parts.append(
+                        "Firth's penalized likelihood was used to account for potential separation or small sample bias."
+                    )
+
+                alignment_html = ""
+                if alignment_parts:
+                    alignment_html = f"<div style='margin-top: 10px; font-style: italic; color: {COLORS['primary']};'>{' '.join(alignment_parts)}</div>"
+
+                if diag_rows:
+                    model_diagnostics_html = f"""
+                    <div class='diag-container' style='margin-top: 15px; border: 1px solid #eee; padding: 10px; border-radius: 5px; background: #fafafa;'>
+                        <div class='vif-title' style='margin-bottom: 5px;'>🩺 Model Diagnostics (Publication Grade)</div>
+                        <table class='table table-sm' style='width: 100%; font-size: 0.9em;'>
+                            <thead style='background: #f1f1f1;'><tr><th>Metric</th><th>Value</th><th>Interpretation</th></tr></thead>
+                            <tbody>{"".join(diag_rows)}</tbody>
+                        </table>
+                        {alignment_html}
+                    </div>
+                    """
+
+                coef_map = params
+                p_map = pvals
+                ci_map = conf
 
                 for var in cand_valid:
                     mode = mode_map.get(var, "linear")
@@ -1111,71 +1375,6 @@ def analyze_outcome(
                 adj_p = apply_mcc(mv_p_vals, method=mcc_method, alpha=mcc_alpha)
                 for k, p_adj in zip(mv_keys, adj_p, strict=True):
                     aor_results[k]["p_adj"] = p_adj
-
-    # ✅ VIF CALCULATION
-    vif_html = ""
-    if (
-        vif_enable
-        and multi_data is not None
-        and final_n_multi > 10
-        and len(predictors_for_vif) > 1
-    ):
-        try:
-            vif_df, _ = calculate_vif(multi_data[predictors_for_vif], var_meta=var_meta)
-
-            if not vif_df.empty:
-                vif_rows = []
-                for _, row in vif_df.iterrows():
-                    feat = html.escape(str(row["Variable"]).replace("::", ": "))
-                    val = row["VIF"]
-
-                    if np.isinf(val):
-                        vif_str = "∞ (Perfect Collinearity)"
-                        vif_class = "vif-warning"
-                        icon = "⚠️"
-                    elif val > vif_threshold:
-                        vif_str = f"{val:.2f}"
-                        vif_class = "vif-warning"
-                        icon = "⚠️"
-                    elif val > 5:
-                        vif_str = f"{val:.2f}"
-                        vif_class = "vif-caution"
-                        icon = ""
-                    else:
-                        vif_str = f"{val:.2f}"
-                        vif_class = ""
-                        icon = ""
-
-                    vif_rows.append(f"""
-                        <tr>
-                            <td>{feat}</td>
-                            <td class='{vif_class}'><strong>{vif_str}</strong> {icon}</td>
-                        </tr>
-                    """)
-
-                vif_body = "".join(vif_rows)
-
-                vif_html = f"""
-                <div class='vif-container' style='margin-top: 16px;'>
-                    <div class='vif-title'>🔹 Collinearity Diagnostics (VIF)</div>
-                    <table class='table' style='max-width: 500px;'>
-                        <thead>
-                            <tr>
-                                <th>Predictor</th>
-                                <th>VIF</th>
-                            </tr>
-                        </thead>
-                        <tbody>{vif_body}</tbody>
-                    </table>
-                    <div class='vif-footer'>
-                        VIF &gt; {vif_threshold}: potential high collinearity. ∞ = perfect correlation with other predictors.
-                    </div>
-                </div>
-                """
-        except (ValueError, np.linalg.LinAlgError) as e:
-            logger.warning("VIF calculation failed: %s", e)
-        except TypeError as e:
-            logger.warning("VIF calculation failed due to type error: %s", e)
 
     # Build HTML
     html_rows = []
@@ -1367,6 +1566,7 @@ def analyze_outcome(
         f"({ci_note})" if ci_note else ""
     }
             {model_fit_html}
+            {model_diagnostics_html}
             {vif_html}
             {
         f"<br><b>Interactions Tested:</b> {len(interaction_pairs)} pairs"
