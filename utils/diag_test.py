@@ -806,7 +806,11 @@ def calculate_chi2(
                         "Metric": "Risk Ratio (RR)",
                         "Value": f"{rr:.4f}" if np.isfinite(rr) else "-",
                         "95% CI": rr_ci_display if rr_ci_display else "-",
-                        "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}",
+                        "Interpretation": (
+                            f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}"
+                            if np.isfinite(rr)
+                            else "Risk ratio undefined due to zero baseline risk"
+                        ),
                     },
                     {
                         "Metric": "Absolute Risk Reduction (ARR)",
@@ -1230,7 +1234,10 @@ def analyze_roc(
             auc_badge = get_badge_html("Worse than Chance", "danger")
 
         # AUC Confidence Interval Formatting
-        auc_ci_str = f"{ci_lower_f:.4f}-{ci_upper_f:.4f}"
+        if np.isfinite(ci_lower_f) and np.isfinite(ci_upper_f):
+            auc_ci_str = f"{ci_lower_f:.4f}-{ci_upper_f:.4f}"
+        else:
+            auc_ci_str = "-"
 
         # Calculate Youden Index and best threshold
         j_scores = tpr - fpr
