@@ -156,8 +156,9 @@ def corr_ui() -> ui.TagChild:
                             **Concept:** Measures the strength and direction of the relationship between 
                             **two continuous variables**.
 
-                            > [!WARNING]
-                            > **Correlation does not imply causation.** A strong relationship between two variables does not mean one causes the other.
+                            <div class="alert alert-warning" role="alert">
+                            <strong>Warning:</strong> Correlation does not imply causation. A strong relationship between two variables does not mean one causes the other.
+                            </div>
 
                             **1. Pearson (r):**
                             * **Best for:** Linear relationships (straight line), normally distributed data.
