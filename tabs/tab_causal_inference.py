@@ -399,18 +399,21 @@ def causal_inference_server(
         from utils.formatting import create_missing_data_report_html
 
         return ui.div(
-            ui.h5("Inverse Probability of Treatment Weighting (IPTW)"),
-            ipw_div,
-            ui.hr(),
-            ui.h5("Standardized Mean Differences (Balance Check)"),
-            ui.output_data_frame("out_balance_table"),
-            ui.hr(),
-            # Missing Data Report
-            ui.HTML(
-                create_missing_data_report_html(
-                    res.get("missing_data_info", {}), var_meta.get() or {}
-                )
+            ui.div(
+                ui.h5("Inverse Probability of Treatment Weighting (IPTW)"),
+                ipw_div,
+                ui.hr(),
+                ui.h5("Standardized Mean Differences (Balance Check)"),
+                ui.output_data_frame("out_balance_table"),
+                ui.hr(),
+                # Missing Data Report
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
             ),
+            class_="fade-in-entry",
         )
 
     @render.data_frame
@@ -512,21 +515,24 @@ def causal_inference_server(
         from utils.formatting import create_missing_data_report_html
 
         return ui.div(
-            ui.h5("Mantel-Haenszel Odds Ratio"),
-            mh_ui,
-            ui.br(),
-            ui.h5("Test for Homogeneity (Breslow-Day / Interaction)"),
-            bd_ui,
-            ui.br(),
-            ui.h5("Stratum-Specific Estimates"),
-            ui.output_data_frame("out_stratum_table"),
-            ui.hr(),
-            # Missing Data Report (using MH info as representative since both clean same way)
-            ui.HTML(
-                create_missing_data_report_html(
-                    mh.get("missing_data_info", {}), var_meta.get() or {}
-                )
+            ui.div(
+                ui.h5("Mantel-Haenszel Odds Ratio"),
+                mh_ui,
+                ui.br(),
+                ui.h5("Test for Homogeneity (Breslow-Day / Interaction)"),
+                bd_ui,
+                ui.br(),
+                ui.h5("Stratum-Specific Estimates"),
+                ui.output_data_frame("out_stratum_table"),
+                ui.hr(),
+                # Missing Data Report (using MH info as representative since both clean same way)
+                ui.HTML(
+                    create_missing_data_report_html(
+                        mh.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
             ),
+            class_="fade-in-entry",
         )
 
     @render.data_frame
@@ -571,15 +577,18 @@ def causal_inference_server(
             return create_error_alert(res["error"])
 
         return ui.div(
-            ui.h5("E-Value for Unmeasured Confounding"),
             ui.div(
-                ui.h5(f"E-Value for Estimate: {res['e_value_estimate']}"),
-                ui.p(f"E-Value for CI Limit: {res['e_value_ci_limit']}"),
+                ui.h5("E-Value for Unmeasured Confounding"),
+                ui.div(
+                    ui.h5(f"E-Value for Estimate: {res['e_value_estimate']}"),
+                    ui.p(f"E-Value for CI Limit: {res['e_value_ci_limit']}"),
+                ),
+                ui.br(),
+                ui.markdown("""
+                **Interpretation:** The E-value is the minimum strength of association that an unmeasured confounder would need to have with both the treatment and the outcome to fully explain away a specific treatment-outcome association, conditional on the measured covariates.
+                """),
             ),
-            ui.br(),
-            ui.markdown("""
-            **Interpretation:** The E-value is the minimum strength of association that an unmeasured confounder would need to have with both the treatment and the outcome to fully explain away a specific treatment-outcome association, conditional on the measured covariates.
-            """),
+            class_="fade-in-entry",
         )
 
     # ==================== VALIDATION LOGIC ====================

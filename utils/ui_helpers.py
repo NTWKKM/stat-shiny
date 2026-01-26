@@ -90,13 +90,14 @@ def create_workflow_indicator(steps, current_step_index):
     return ui.div(*items, class_="workflow-progress")
 
 
-def create_results_container(title, *content):
+def create_results_container(title, *content, class_=""):
     """
     Create a standardized container for analysis results.
 
     Args:
         title (str): Title of the results section.
         *content (ui.Tag): Content elements (tables, plots, etc.).
+        class_ (str): Additional CSS classes.
 
     Returns:
         ui.Tag: A styled results container.
@@ -105,7 +106,7 @@ def create_results_container(title, *content):
         ui.div(ui.h3(title, class_="results-title"), class_="results-header"),
         ui.hr(class_="results-divider"),
         *content,
-        class_="results-section",
+        class_=f"results-section {class_}".strip(),
     )
 
 

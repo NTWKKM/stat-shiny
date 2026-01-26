@@ -80,11 +80,11 @@ def data_ui() -> ui.TagChild:
                                 choices=["Select..."],
                                 width="100%",
                             ),
-                            ui.markdown("""
-                                > [!NOTE]
-                                > **Categorical Mapping**:
-                                > Format as `0=Control, 1=Treat`.
-                                """),
+                            ui.div(
+                                ui.tags.strong("Categorical Mapping:"),
+                                " Format as `0=Control, 1=Treat`.",
+                                class_="alert alert-info p-2 mb-0",
+                            ),
                             class_="p-2",
                         ),
                         # MIDDLE COLUMN: Variable Settings
@@ -1051,10 +1051,12 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                             "padding-bottom: 10px;"
                         ),
                     ),
-                    ui.markdown(
-                        "> [!TIP]\n"
-                        "> These issues might impact statistical analysis results. "
-                        "Consider cleaning these values in the original file."
+                    ui.div(
+                        ui.tags.strong("Tip: "),
+                        "These issues might impact statistical analysis results. "
+                        "Consider cleaning these values in the original file.",
+                        class_="alert alert-light border-warning text-dark p-2 mt-2",
+                        style="font-size: 0.9em;",
                     ),
                 ),
                 value="quality_alerts",

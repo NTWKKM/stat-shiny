@@ -527,7 +527,7 @@ def baseline_matching_server(
     @render.ui
     def out_table1_html():
         if html_content.get():
-            return ui.HTML(html_content.get())
+            return ui.div(ui.HTML(html_content.get()), class_="fade-in-entry")
         return create_empty_state_ui(
             message="No Table 1 Generated",
             sub_message="Select variables and click '📊 Generate Table 1' to view baseline characteristics.",
@@ -768,84 +768,91 @@ def baseline_matching_server(
             )
 
         # Display results with nested tabs
-        return ui.navset_card_underline(
-            # Tab 1: Match Quality
-            ui.nav_panel(
-                "📊 Match Quality",
-                ui.h5("Step 3️⃣: Match Quality Summary"),
-                ui.layout_columns(
-                    ui.value_box(
-                        "Pairs Matched", ui.output_ui("val_pairs"), theme="primary"
+        return ui.div(
+            ui.navset_card_underline(
+                # Tab 1: Match Quality
+                ui.nav_panel(
+                    "📊 Match Quality",
+                    ui.h5("Step 3️⃣: Match Quality Summary"),
+                    ui.layout_columns(
+                        ui.value_box(
+                            "Pairs Matched", ui.output_ui("val_pairs"), theme="primary"
+                        ),
+                        ui.value_box(
+                            "Sample Retained",
+                            ui.output_ui("val_retained"),
+                            theme="primary",
+                        ),
+                        ui.value_box(
+                            "Good Balance", ui.output_ui("val_balance"), theme="success"
+                        ),
+                        ui.value_box(
+                            "SMD Improvement",
+                            ui.output_ui("val_smd_imp"),
+                            theme="success",
+                        ),
+                        col_widths=[3, 3, 3, 3],
                     ),
-                    ui.value_box(
-                        "Sample Retained", ui.output_ui("val_retained"), theme="primary"
-                    ),
-                    ui.value_box(
-                        "Good Balance", ui.output_ui("val_balance"), theme="success"
-                    ),
-                    ui.value_box(
-                        "SMD Improvement", ui.output_ui("val_smd_imp"), theme="success"
-                    ),
-                    col_widths=[3, 3, 3, 3],
-                ),
-                ui.output_ui("ui_balance_alert"),
-                ui.div(
-                    ui.tags.blockquote(
-                        "🔍 Interpretability Guide: Standardized mean differences (SMD) < 0.1 indicate good balance. "
-                        "Ideally, all variables in the Love Plot should be within the vertical dashed lines.",
-                        style="border-left: 4px solid #ccc; padding-left: 10px; margin-top: 10px; color: #555; background: #f9f9f9; padding: 10px;",
-                    ),
-                ),
-                # Missing Data Report
-                ui.HTML(
-                    create_missing_data_report_html(
-                        res.get("missing_data_info", {}), var_meta.get() or {}
-                    )
-                ),
-                ui.hr(),
-                ui.h5("Step 4️⃣: Balance Assessment"),
-                ui.navset_card_underline(
-                    ui.nav_panel(
-                        "📉 Love Plot",
-                        ui.output_ui("out_love_plot"),
-                        ui.p(
-                            "Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)",
-                            style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;",
+                    ui.output_ui("ui_balance_alert"),
+                    ui.div(
+                        ui.tags.blockquote(
+                            "🔍 Interpretability Guide: Standardized mean differences (SMD) < 0.1 indicate good balance. "
+                            "Ideally, all variables in the Love Plot should be within the vertical dashed lines.",
+                            style="border-left: 4px solid #ccc; padding-left: 10px; margin-top: 10px; color: #555; background: #f9f9f9; padding: 10px;",
                         ),
                     ),
-                    ui.nav_panel(
-                        "📋 SMD Table",
-                        ui.output_data_frame("out_smd_table"),
-                        ui.p(
-                            "✅ Good balance: SMD < 0.1 after matching",
-                            style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;",
+                    # Missing Data Report
+                    ui.HTML(
+                        create_missing_data_report_html(
+                            res.get("missing_data_info", {}), var_meta.get() or {}
+                        )
+                    ),
+                    ui.hr(),
+                    ui.h5("Step 4️⃣: Balance Assessment"),
+                    ui.navset_card_underline(
+                        ui.nav_panel(
+                            "📉 Love Plot",
+                            ui.output_ui("out_love_plot"),
+                            ui.p(
+                                "Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)",
+                                style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;",
+                            ),
+                        ),
+                        ui.nav_panel(
+                            "📋 SMD Table",
+                            ui.output_data_frame("out_smd_table"),
+                            ui.p(
+                                "✅ Good balance: SMD < 0.1 after matching",
+                                style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;",
+                            ),
+                        ),
+                        ui.nav_panel(
+                            "📊 Group Comparison",
+                            ui.output_data_frame("out_group_comparison_table"),
                         ),
                     ),
-                    ui.nav_panel(
-                        "📊 Group Comparison",
-                        ui.output_data_frame("out_group_comparison_table"),
+                ),
+                # Tab 2: Export
+                ui.nav_panel(
+                    "📥 Export & Next Steps",
+                    ui.h5("Step 5️⃣: Export & Next Steps"),
+                    ui.layout_columns(
+                        ui.download_button(
+                            "btn_dl_psm_csv", "📥 Download CSV", class_="w-100 btn-sm"
+                        ),
+                        ui.download_button(
+                            "btn_dl_psm_report", "📥 Report HTML", class_="w-100 btn-sm"
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.p(
+                        "✅ Full matched data available in **Subtab 3 (Matched Data View)**",
+                        style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0; margin-top: 10px;",
                     ),
                 ),
+                id="psm_results_tabs",
             ),
-            # Tab 2: Export
-            ui.nav_panel(
-                "📥 Export & Next Steps",
-                ui.h5("Step 5️⃣: Export & Next Steps"),
-                ui.layout_columns(
-                    ui.download_button(
-                        "btn_dl_psm_csv", "📥 Download CSV", class_="w-100 btn-sm"
-                    ),
-                    ui.download_button(
-                        "btn_dl_psm_report", "📥 Report HTML", class_="w-100 btn-sm"
-                    ),
-                    col_widths=[6, 6],
-                ),
-                ui.p(
-                    "✅ Full matched data available in **Subtab 3 (Matched Data View)**",
-                    style="background-color: #f0fdf4; padding: 10px; border-radius: 5px; border: 1px solid #bbf7d0; margin-top: 10px;",
-                ),
-            ),
-            id="psm_results_tabs",
+            class_="fade-in-entry",
         )
 
     # --- PSM Output Components ---

@@ -95,7 +95,7 @@ class TestDiagnosticPipeline:
 
         assert err is None
         assert stats_df is not None
-        assert "Cohen's Kappa" in stats_df["Statistic"].values
+        assert "Cohen's Kappa (Unweighted)" in stats_df["Statistic"].values
 
     def test_icc_flow(self, diagnostic_data):
         """🔄 Test Intraclass Correlation Coefficient (ICC)"""

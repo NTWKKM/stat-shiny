@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # 🏗️ System Architecture & AI Context
 
 This document provides a deep technical overview of the **Medical Statistical Tool** for developers and AI agents (Antigravity/Bots).
@@ -18,7 +22,7 @@ The application uses a fluid, multi-menu navbar designed for responsiveness and 
 
 The application is built on a modular architecture where each tab is a self-contained component. While modules follow a common structure for consistency, they are fully initialized during the application startup to ensure immediate availability and a smooth user experience.
 
-![Navigation Workflow](./assets/navigation_sequence.png)
+![Navigation Workflow](docs/assets/navigation_sequence.png)
 
 ---
 
@@ -46,12 +50,6 @@ The application uses a centralized styling system to ensure visual consistency a
 - `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
 - `utils/formatting.py`: Handles P-value styling, logic-driven badges, and statistical report HTML structure (syncing with `config.py`).
 
-### Dynamic UI Enhancements (Animations)
-
-- **Fade-in Entry**: All statistical results utilize a smooth fade-in animation to improve user experience.
-- **Logic**: Defined in `tabs/_styling.py` as the `.fade-in-entry` class, providing a 0.4s ease-out entry with a subtle upward translate.
-- **Standardized Wrapper**: The `create_results_container` utility in `utils/ui_helpers.py` has been updated to support these animations via the `class_` parameter.
-
 ---
 
 ## 📊 Analysis Modules
@@ -60,9 +58,9 @@ The application covers a wide range of medical statistical needs, organized into
 
 | Category | Modules | Key Features |
 | :--- | :--- | :--- |
-| **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Kappa** (Weighted), **ICC** (pingouin integration), Bland-Altman (LoA CI). |
-| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), Subgroup analysis, Forrest Plots. |
-| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance. |
+| **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Correlation Matrix, ROC/AUC, Kappa, ICC, Bland-Altman. |
+| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions, Subgroup analysis. |
+| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM). |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, Time-Varying Cox, G-Computation, Power Analysis. |
 
 ---
@@ -86,12 +84,11 @@ The data flow is standardized to ensure consistent handling of missing values an
 - **Tasks**: Handles missing value exclusion (Listwise/Pairwise), type enforcement, and logging analyzed indices.
 - **Metadata**: Generates a `missing_data_info` dictionary detailing what was excluded and why.
 
-- When a module finishes analysis, it generates an HTML report using `generate_report()`.
+### 3. Reporting (`utils/formatting.py`)
+
+- When a module finishes analysis, it generates an HTML report.
 - The `missing_data_info` is passed to `create_missing_data_report_html()`.
-- **Standards**:
-  - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation). **Logistic Regression** now includes deep diagnostics (**AUC/C-stat, Hosmer-Lemeshow, AIC/BIC**) with standardized interpretations.
-  - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) and **STROBE/TRIPOD alignment text** provide immediate clinical and reporting context.
-- **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
+- **Outcome**: A standardized "Missing Data Summary" is automatically included at the start of every statistical output.
 
 ---
 

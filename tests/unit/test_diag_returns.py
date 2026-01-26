@@ -59,6 +59,12 @@ def test_diag_returns():
     )
     print("✅ calculate_descriptive: OK")
 
+    # 6. Test calculate_icc
+    print("Checking calculate_icc...")
+    res = diag_test.calculate_icc(df, ["score", "truth"])
+    assert len(res) == 4, f"calculate_icc should return 4 values, got {len(res)}"
+    print("✅ calculate_icc: OK")
+
     print("\n🎉 All Diagnostic Test return signatures verified successfully!")
 
 

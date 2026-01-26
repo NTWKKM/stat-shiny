@@ -19,7 +19,7 @@ def test_correlation_returns():
 
     expected_keys = [
         "Method",
-        "Coefficient (r)",
+        "Coefficient (r/rho/tau)",
         "P-value",
         "N",
         "95% CI Lower",
