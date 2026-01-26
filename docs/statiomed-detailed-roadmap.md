@@ -10,7 +10,7 @@
 ## 📑 Table of Contents
 
 1. [Executive Summary](#1-executive-summary)
-2. [Current System Architecture & Health](#2-current-system-architecture--health)
+2. [Current System Architecture & Health](#2-current-system-architecture-health)
 3. [Verified Component Status](#3-verified-component-status)
 4. [Phase 2 - Deep Dive Implementation Plan](#4-phase-2-deep-dive-implementation-plan)
 5. [Phase 3 - Advanced Features Roadmap](#5-phase-3-advanced-features-roadmap)
@@ -20,7 +20,7 @@
 
 ---
 
-## 1. Executive Summary
+## <a id="1-executive-summary"></a>1. Executive Summary
 
 ### 🎯 Achievement Status
 
@@ -51,11 +51,11 @@ The **stat-shiny** project has successfully reached **Production-Ready State** w
 
 ---
 
-## 2. Current System Architecture & Health
+## <a id="2-current-system-architecture-health"></a>2. Current System Architecture & Health
 
 ### 2.1 Proven Hybrid Architecture
 
-```
+```text
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Shiny Web Layer                         │
@@ -106,7 +106,7 @@ The **stat-shiny** project has successfully reached **Production-Ready State** w
 
 ### 2.2 Data Flow Architecture
 
-```
+```text
 
 User Upload (CSV/Excel)
 ↓
@@ -166,7 +166,7 @@ firthmodels
 in docs/firthmodels.md
 ---
 
-## 3. Verified Component Status
+## <a id="3-verified-component-status"></a>3. Verified Component Status
 
 ### 3.1 Tab Components - Current Implementation
 
@@ -194,7 +194,7 @@ in docs/firthmodels.md
 
 ---
 
-## 4. Phase 2 - Deep Dive Implementation Plan
+## <a id="4-phase-2-deep-dive-implementation-plan"></a>4. Phase 2 - Deep Dive Implementation Plan
 
 ### 4.1 Statistical Validation Against R (CRITICAL PATH)
 
@@ -301,7 +301,7 @@ def test_cox_model_vs_r():
 
 ---
 
-## 5. Phase 3 - Advanced Features Roadmap
+## <a id="5-phase-3-advanced-features-roadmap"></a>5. Phase 3 - Advanced Features Roadmap
 
 ### 5.1 Batch Report Generation System
 
@@ -334,7 +334,7 @@ def test_cox_model_vs_r():
 
 ### 6.1 Comprehensive Test Suite Structure
 
-```
+```text
 tests/
 ├── unit/
 │   ├── test_data_cleaning.py          # utils/data_cleaning.py tests
@@ -384,7 +384,7 @@ tests/
 
 ### 8.1 Phase 2B Timeline (Weeks 1-8)
 
-```
+```text
 Week 1-2: Statistical Validation (CRITICAL PATH)
 ├─ Logistic regression R benchmarks
 ├─ Firth/Penalized Cox R benchmarks (NEW)

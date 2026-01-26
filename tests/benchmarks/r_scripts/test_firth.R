@@ -6,8 +6,13 @@
 # 1. Setup & Dependencies
 # -----------------------------------------------------------------------------
 required_packages <- c("logistf", "survival", "coxphf", "broom", "dplyr")
-new_packages <- required_packages[!(required_packages %in% installed.packages()[, "Package"])]
-if (length(new_packages)) install.packages(new_packages)
+missing_packages <- required_packages[!(required_packages %in% installed.packages()[, "Package"])]
+if (length(missing_packages)) {
+    stop(paste(
+        "Missing required R packages:", paste(missing_packages, collapse = ", "),
+        ". Please install them manually or via CI configuration."
+    ))
+}
 
 library(logistf)
 library(survival)

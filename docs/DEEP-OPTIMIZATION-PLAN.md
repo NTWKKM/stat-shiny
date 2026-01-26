@@ -508,7 +508,7 @@ def test_firth_workflow_complete():
 
 ### Module Refactoring Plan
 
-```
+```text
 CURRENT (Monolithic):
   tabs/tab_core_regression.py (3,700 lines)
     ├─ UI components (1,500 lines)
