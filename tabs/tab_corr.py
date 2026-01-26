@@ -447,10 +447,18 @@ def corr_server(
 
         # Create formatted table
         stats = result["stats"]
+        # Helper to get coefficient safely
+        coef_key = (
+            "Coefficient (r/rho/tau)"
+            if "Coefficient (r/rho/tau)" in stats
+            else "Coefficient (r)"
+        )
+        coef_val = stats.get(coef_key, 0.0)
+
         display_data = {
             "Metric": [
                 "Method",
-                "Correlation Coefficient (r)",
+                "Correlation Coefficient",
                 "95% CI Lower",
                 "95% CI Upper",
                 "R-squared (R²)",
@@ -460,7 +468,7 @@ def corr_server(
             ],
             "Value": [
                 stats["Method"],
-                f"{stats['Coefficient (r)']:.4f}",
+                f"{coef_val:.4f}",
                 f"{stats['95% CI Lower']:.4f}",
                 f"{stats['95% CI Upper']:.4f}",
                 f"{stats['R-squared (R²)']:.4f}",
@@ -520,22 +528,30 @@ def corr_server(
         ]
 
         # Add statistics
+        # Helper for key lookup
+        coef_key = (
+            "Coefficient (r/rho/tau)"
+            if "Coefficient (r/rho/tau)" in stats
+            else "Coefficient (r)"
+        )
+
         for key in [
             "Method",
-            "Coefficient (r)",
+            coef_key,
             "95% CI Lower",
             "95% CI Upper",
             "R-squared (R²)",
             "P-value",
             "N",
         ]:
-            val = stats[key]
+            val = stats.get(key, "N/A")
+            # Format numeric if possible
             if isinstance(val, (int, float)):
                 elements.append(
                     {
                         "type": "text",
                         "data": (
-                            f"{key}: {val:.4f}"
+                            f"{key if key != coef_key else 'Correlation Coefficient'}: {val:.4f}"
                             if isinstance(val, float)
                             else f"{key}: {val}"
                         ),

@@ -23,13 +23,13 @@ import pandas as pd
 import pingouin as pg
 import plotly.graph_objects as go
 import scipy.stats as stats
+from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
     cohen_kappa_score,
+    precision_recall_curve,
     roc_auc_score,
     roc_curve,
-    precision_recall_curve,
 )
-from sklearn.calibration import calibration_curve
 
 from config import CONFIG
 from logger import get_logger
@@ -1182,10 +1182,20 @@ def analyze_roc(
         f1_scores = (2 * precisions * recalls) / (precisions + recalls + 1e-10)
         max_f1 = np.max(f1_scores)
 
-        # Calibration Curve (Reliability)
-        # Clip y_score to [0, 1] to prevent ValueError
-        y_score_calib = np.clip(y_score, 0, 1)
-        prob_true, prob_pred = calibration_curve(y_true, y_score_calib, n_bins=10)
+        if y_score is not None:
+            # Check if scores are probabilities (0-1)
+            # Use score_col name for better error message
+            if np.any((y_score < 0) | (y_score > 1)):
+                logger.warning(
+                    f"Scores in '{score_col}' are outside [0, 1]. Calibration curve requires probabilities. Clipping applied."
+                )
+
+            # Calibration Curve (Reliability Diagram)
+            # sklearn.calibration.calibration_curve expects probabilities
+            # Clip to [0, 1] to be safe if minor precision errors exist, but warn above if completely off
+            prob_true, prob_pred = calibration_curve(
+                y_true, np.clip(y_score, 0, 1), n_bins=10
+            )
         cal_fig = go.Figure()
         cal_fig.add_trace(
             go.Scatter(

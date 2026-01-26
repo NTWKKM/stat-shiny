@@ -22,7 +22,7 @@ The application uses a fluid, multi-menu navbar designed for responsiveness and 
 
 The application is built on a modular architecture where each tab is a self-contained component. While modules follow a common structure for consistency, they are fully initialized during the application startup to ensure immediate availability and a smooth user experience.
 
-![Navigation Workflow](./assets/navigation_sequence.png)
+![Navigation Workflow](docs/assets/navigation_sequence.png)
 
 ---
 
