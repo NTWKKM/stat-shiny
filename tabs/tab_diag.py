@@ -38,7 +38,7 @@ def _create_status_elements(msg: str) -> list[dict[str, str]]:
         elements.append({"type": "html", "data": html_content})
         return elements
 
-    # Default case: just wrap in paragraph
+    # Default case: return a single text element
     return [{"type": "text", "data": msg}]
 
 
