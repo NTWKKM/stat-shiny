@@ -732,73 +732,85 @@ def calculate_chi2(
                 table2_data = [
                     {
                         "Metric": "Sensitivity (TPR)",
-                        "Value": f"{sensitivity:.4f}",
-                        "95% CI": f"[{se_ci_lower:.4f}, {se_ci_upper:.4f}]",
+                        "Value": f"{sensitivity:.4f}"
+                        if np.isfinite(sensitivity)
+                        else "-",
+                        "95% CI": f"[{se_ci_lower:.4f}, {se_ci_upper:.4f}]"
+                        if np.isfinite(se_ci_lower)
+                        else "-",
                         "Interpretation": "True Positive Rate: Ability to detect disease",
                     },
                     {
                         "Metric": "Specificity (TNR)",
-                        "Value": f"{specificity:.4f}",
-                        "95% CI": f"[{sp_ci_lower:.4f}, {sp_ci_upper:.4f}]",
+                        "Value": f"{specificity:.4f}"
+                        if np.isfinite(specificity)
+                        else "-",
+                        "95% CI": f"[{sp_ci_lower:.4f}, {sp_ci_upper:.4f}]"
+                        if np.isfinite(sp_ci_lower)
+                        else "-",
                         "Interpretation": "True Negative Rate: Ability to exclude disease",
                     },
                     {
                         "Metric": "Positive Predictive Value (PPV)",
-                        "Value": f"{ppv:.4f}",
-                        "95% CI": f"[{ppv_ci_lower:.4f}, {ppv_ci_upper:.4f}]",
+                        "Value": f"{ppv:.4f}" if np.isfinite(ppv) else "-",
+                        "95% CI": f"[{ppv_ci_lower:.4f}, {ppv_ci_upper:.4f}]"
+                        if np.isfinite(ppv_ci_lower)
+                        else "-",
                         "Interpretation": "Prob. disease is present given positive test",
                     },
                     {
                         "Metric": "Negative Predictive Value (NPV)",
-                        "Value": f"{npv:.4f}",
-                        "95% CI": f"[{npv_ci_lower:.4f}, {npv_ci_upper:.4f}]",
+                        "Value": f"{npv:.4f}" if np.isfinite(npv) else "-",
+                        "95% CI": f"[{npv_ci_lower:.4f}, {npv_ci_upper:.4f}]"
+                        if np.isfinite(npv_ci_lower)
+                        else "-",
                         "Interpretation": "Prob. disease is absent given negative test",
                     },
                     {
                         "Metric": "Positive Likelihood Ratio (LR+)",
-                        "Value": f"{lr_plus:.4f}",
+                        "Value": f"{lr_plus:.4f}" if np.isfinite(lr_plus) else "-",
                         "95% CI": "-",
                         "Interpretation": f"{lr_plus_badge} How much pos result increases odds",
                     },
                     {
                         "Metric": "Negative Likelihood Ratio (LR-)",
-                        "Value": f"{lr_minus:.4f}",
+                        "Value": f"{lr_minus:.4f}" if np.isfinite(lr_minus) else "-",
                         "95% CI": "-",
                         "Interpretation": f"{lr_minus_badge} How much neg result decreases odds",
                     },
                     {
                         "Metric": "Accuracy",
-                        "Value": f"{accuracy:.4f}",
+                        "Value": f"{accuracy:.4f}" if np.isfinite(accuracy) else "-",
                         "95% CI": "-",
                         "Interpretation": "Overall correct classification rate",
                     },
                     {
                         "Metric": "Youden Index (J)",
-                        "Value": f"{youden_j:.4f}",
+                        "Value": f"{youden_j:.4f}" if np.isfinite(youden_j) else "-",
                         "95% CI": "-",
                         "Interpretation": "Summary measure (Se + Sp - 1)",
                     },
                     {
                         "Metric": "F1-Score",
-                        "Value": f"{f1_score:.4f}" if not np.isnan(f1_score) else "-",
+                        "Value": f"{f1_score:.4f}" if np.isfinite(f1_score) else "-",
                         "95% CI": "-",
                         "Interpretation": "Harmonic mean of precision and recall",
                     },
                     {
                         "Metric": "Odds Ratio (OR)",
-                        "Value": f"{or_value:.4f}",
-                        "95% CI": or_ci_display,
+                        "Value": f"{or_value:.4f}" if np.isfinite(or_value) else "-",
+                        "95% CI": or_ci_display if or_ci_display else "-",
                         "Interpretation": f"{or_badge} Odds of event in {label_exp} vs {label_unexp}",
                     },
                     {
                         "Metric": "Risk Ratio (RR)",
-                        "Value": f"{rr:.4f}",
-                        "95% CI": rr_ci_display,
+                        "Value": f"{rr:.4f}" if np.isfinite(rr) else "-",
+                        "95% CI": rr_ci_display if rr_ci_display else "-",
                         "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}",
                     },
                     {
                         "Metric": "Absolute Risk Reduction (ARR)",
-                        "Value": f"{arr:.2f}%",
+                        "Value": f"{arr:.2f}%" if np.isfinite(arr) else "-",
                         "95% CI": "-",
                         "Interpretation": "Absolute difference in event rates",
                     },
@@ -810,14 +822,18 @@ def calculate_chi2(
                     },
                     {
                         "Metric": "Diagnostic OR (DOR)",
-                        "Value": f"{dor:.4f}" if not np.isnan(dor) else "-",
+                        "Value": f"{dor:.4f}" if np.isfinite(dor) else "-",
                         "95% CI": "-",
                         "Interpretation": "Overall discriminative power (LR+/LR-)",
                     },
                     {
                         "Metric": nnt_label,
-                        "Value": f"{nnt_abs:.2f}" if nnt_abs != np.inf else "Inf",
-                        "95% CI": nnt_ci_display,
+                        "Value": f"{nnt_abs:.2f}"
+                        if np.isfinite(nnt_abs) and nnt_abs != np.inf
+                        else "Inf"
+                        if nnt_abs == np.inf
+                        else "-",
+                        "95% CI": nnt_ci_display if nnt_ci_display else "-",
                         "Interpretation": f"{nnt_badge} Patients to treat/harm for 1 outcome",
                     },
                 ]
@@ -1151,6 +1167,18 @@ def analyze_roc(
                 logger.info(f"Inferred positive label: {pos_label_user}")
             except Exception:
                 pos_label_user = str(y_true_raw.unique()[-1])
+        else:
+            valid_labels = set(y_true_raw.astype(str).unique())
+            if str(pos_label_user) not in valid_labels:
+                logger.error(
+                    f"Positive label '{pos_label_user}' not found in '{truth_col}'"
+                )
+                return (
+                    None,
+                    f"Error: Positive label '{pos_label_user}' not found in '{truth_col}'. Valid labels: {sorted(list(valid_labels))}",
+                    None,
+                    None,
+                )
 
         y_true = np.where(y_true_raw.astype(str) == pos_label_user, 1, 0)
 
@@ -1258,7 +1286,11 @@ def analyze_roc(
             "AUC": f"{auc_val:.4f}",
             "95% CI": auc_ci_str,
             "P-value": format_p_value(p_val_auc),
-            "Method": f"{m_name} (SE={se:.4f})" if se else m_name,
+            "Method": (
+                f"{m_name} (SE={se:.4f})"
+                if se is not None and np.isfinite(se) and se > 0
+                else m_name
+            ),
             "Interpretation": f"{auc_badge}",
             "Best Threshold": f"{thresholds[best_idx]:.4f}",
             "Youden Index (J)": f"{youden_j:.4f}",
