@@ -224,6 +224,131 @@ def _robust_sort_key(x: Any) -> tuple[int, float | str]:
         return (1, str(x))
 
 
+def fit_firth_logistic(
+    y: pd.Series, X_const: pd.DataFrame
+) -> tuple[
+    pd.Series | None, pd.DataFrame | None, pd.Series | None, FitStatus, StatsMetrics
+]:
+    """Fit Firth logistic regression."""
+    stats_metrics: StatsMetrics = {
+        "mcfadden": np.nan,
+        "nagelkerke": np.nan,
+        "p_value": np.nan,
+    }
+
+    if not HAS_FIRTH:
+        return None, None, None, "firthmodels not installed", stats_metrics
+
+    try:
+        # Check for separation detection to log it (optional, usually done before)
+        # Using firthmodels
+        fl = FirthLogisticRegression(fit_intercept=False)
+
+        fl.fit(X_const, y)
+
+        # Explicitly call LRT for better p-values
+        try:
+            fl.lrt()
+            pvalues_src = getattr(fl, "lrt_pvalues_", fl.pvalues_)
+        except Exception:
+            pvalues_src = fl.pvalues_
+
+        coef = np.asarray(fl.coef_).reshape(-1)
+        if coef.shape[0] != len(X_const.columns):
+            return None, None, None, "Firth output shape mismatch", stats_metrics
+
+        params = pd.Series(coef, index=X_const.columns)
+        pvalues = pd.Series(
+            pvalues_src
+            if pvalues_src is not None
+            else np.full(len(X_const.columns), np.nan),
+            index=X_const.columns,
+        )
+
+        try:
+            # Try Profile Likelihood CIs first
+            ci = fl.conf_int(method="pl")
+        except Exception:
+            # Fallback to Wald
+            ci = fl.conf_int(method="wald")
+
+        conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
+
+        # Firth likelihood metrics
+        # loglik_ is penalized log-likelihood.
+        # For McFadden, we need null model.
+        # This is expensive to compute every time for Firth.
+        # For now, we return NaNs or simple stats if available.
+        if hasattr(fl, "loglik_"):
+            # Approx metrics?
+            pass
+
+        return params, conf_int, pvalues, "OK", stats_metrics
+
+    except Exception as e:
+        logger.error(f"Firth fit failed: {e}")
+        return None, None, None, str(e), stats_metrics
+
+
+def fit_standard_logistic(
+    y: pd.Series,
+    X_const: pd.DataFrame,
+    method: str = "default",
+    ci_method: str = "wald",
+) -> tuple[
+    pd.Series | None, pd.DataFrame | None, pd.Series | None, FitStatus, StatsMetrics
+]:
+    """Fit standard MLE logistic regression."""
+    stats_metrics: StatsMetrics = {
+        "mcfadden": np.nan,
+        "nagelkerke": np.nan,
+        "p_value": np.nan,
+    }
+
+    try:
+        if method == "bfgs":
+            model = sm.Logit(y, X_const)
+            result = model.fit(method="bfgs", maxiter=100, disp=0)
+        else:
+            model = sm.Logit(y, X_const)
+            result = model.fit(disp=0)
+
+        # Calculate R-squared metrics
+        try:
+            llf = result.llf
+            llnull = result.llnull
+            nobs = result.nobs
+            mcfadden = 1 - (llf / llnull) if llnull != 0 else np.nan
+            cox_snell = 1 - np.exp((2 / nobs) * (llnull - llf))
+            max_r2 = 1 - np.exp((2 / nobs) * llnull)
+            nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
+            stats_metrics = {
+                "mcfadden": mcfadden,
+                "nagelkerke": nagelkerke,
+                "p_value": getattr(result, "llr_pvalue", np.nan),
+            }
+        except (AttributeError, ZeroDivisionError, TypeError) as e:
+            logger.debug(f"Failed to calculate R2: {e}")
+
+        if ci_method == "profile":
+            logger.debug(
+                "Profile likelihood CI requested but not fully implemented, falling back to Wald"
+            )
+
+        return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
+
+    except Exception as e:
+        # Detect separation error messages from Statsmodels
+        err_msg = str(e)
+        if "Singular matrix" in err_msg or "LinAlgError" in err_msg:
+            err_msg = "Model fitting failed: data may have perfect separation or too much collinearity."
+        elif "Perfect separation" in err_msg:
+            err_msg = "Perfect separation detected."
+
+        logger.error(f"Standard logistic failed: {e}")
+        return None, None, None, err_msg, stats_metrics
+
+
 def run_binary_logit(
     y: pd.Series,
     X: pd.DataFrame,
@@ -254,58 +379,14 @@ def run_binary_logit(
         X_const = sm.add_constant(X, has_constant="add")
 
         if method == "firth":
-            if not HAS_FIRTH:
-                return None, None, None, "firthmodels not installed", stats_metrics
+            return fit_firth_logistic(y, X_const)
 
-            fl = FirthLogisticRegression(fit_intercept=False)
-            fl.fit(X_const, y)
+        # Default or BFGS
+        return fit_standard_logistic(y, X_const, method=method, ci_method=ci_method)
 
-            coef = np.asarray(fl.coef_).reshape(-1)
-            if coef.shape[0] != len(X_const.columns):
-                return None, None, None, "Firth output shape mismatch", stats_metrics
-
-            params = pd.Series(coef, index=X_const.columns)
-            pvalues = pd.Series(
-                getattr(fl, "pvalues_", np.full(len(X_const.columns), np.nan)),
-                index=X_const.columns,
-            )
-            try:
-                ci = fl.conf_int()
-                conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
-            except Exception:
-                conf_int = pd.DataFrame(np.nan, index=X_const.columns, columns=[0, 1])
-            return params, conf_int, pvalues, "OK", stats_metrics
-
-        elif method == "bfgs":
-            model = sm.Logit(y, X_const)
-            result = model.fit(method="bfgs", maxiter=100, disp=0)
-        else:
-            model = sm.Logit(y, X_const)
-            result = model.fit(disp=0)
-
-        # Calculate R-squared metrics
-        try:
-            llf = result.llf
-            llnull = result.llnull
-            nobs = result.nobs
-            mcfadden = 1 - (llf / llnull) if llnull != 0 else np.nan
-            cox_snell = 1 - np.exp((2 / nobs) * (llnull - llf))
-            max_r2 = 1 - np.exp((2 / nobs) * llnull)
-            nagelkerke = cox_snell / max_r2 if max_r2 > 1e-9 else np.nan
-            stats_metrics = {
-                "mcfadden": mcfadden,
-                "nagelkerke": nagelkerke,
-                "p_value": getattr(result, "llr_pvalue", np.nan),
-            }
-        except (AttributeError, ZeroDivisionError, TypeError) as e:
-            logger.debug(f"Failed to calculate R2: {e}")
-
-        if ci_method == "profile":
-            logger.debug(
-                "Profile likelihood CI requested but not fully implemented, falling back to Wald"
-            )
-
-        return result.params, result.conf_int(), result.pvalues, "OK", stats_metrics
+    except Exception as e:
+        logger.error(f"Logistic regression wrapper failed: {e}")
+        return None, None, None, str(e), stats_metrics
 
     except Exception as e:
         err_msg = str(e)
@@ -1296,6 +1377,23 @@ def analyze_outcome(
         else ""
     }
     </div><br>"""
+
+    if preferred_method == "firth":
+        banner = (
+            f"<div style='background-color: {COLORS['info']}20; border: 1px solid {COLORS['info']}; padding: 10px; border-radius: 5px; margin-bottom: 20px;'>"
+            "<strong>ℹ️ Method Used:</strong> Firth's Penalized Likelihood (useful for rare events or separation)."
+            "</div>"
+        )
+        # Construct the final HTML by injecting the banner
+        # Ideally, we inject it inside the container or at the top.
+        # Since html_table starts with <style> and then a div, let's prepend it but after style if possible,
+        # or just prepend to the whole string (styles usually map globally or scoped).
+        if "<div id=" in html_table:
+            # Try to insert after the first div opening that acts as container?
+            # Or just prepend. Prepending is fine as long as it's valid HTML.
+            pass
+        # Simple prepend:
+        html_table = banner + html_table
 
     return html_table, or_results, aor_results, interaction_results
 

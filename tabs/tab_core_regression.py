@@ -1033,8 +1033,12 @@ def core_regression_server(
                 ui.h6("⚠️ Perfect Separation Risk", class_="text-warning"),
                 ui.p(f"Variables: {', '.join(risky)}"),
                 ui.p(
-                    "Recommendation: Use 'Auto' method or exclude variables.",
-                    style="font-size: 0.8em;",
+                    "Result: Standard logistic regression may fail (infinite coefficients).",
+                    style="font-size: 0.9em;",
+                ),
+                ui.p(
+                    "Recommendation: Select 'Firth's (Penalized)' method or use 'Auto'.",
+                    style="font-weight: bold; font-size: 0.9em;",
                 ),
             )
         return None
@@ -1389,13 +1393,8 @@ def core_regression_server(
             # 1. Create Fragment for UI (Table + Plots)
             logit_fragment_html = html_rep
 
-            # Prepend Firth Info if used
-            if method == "firth":
-                logit_fragment_html = (
-                    f"<div style='background-color: {COLORS['info']}20; border: 1px solid {COLORS['info']}; padding: 10px; border-radius: 5px; margin-bottom: 20px;'>"
-                    "<strong>ℹ️ Method Used:</strong> Firth's Penalized Likelihood (useful for rare events or separation)."
-                    "</div>" + logit_fragment_html
-                )
+            # Note: The "Method Used" banner is now handled inside logic.py -> analyze_outcome
+            # to correctly reflect "Auto" decisions.
 
             # Append Adjusted Plot if available
             if fig_adj:

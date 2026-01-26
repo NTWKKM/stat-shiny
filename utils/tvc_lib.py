@@ -1049,7 +1049,9 @@ def generate_tvc_report(
                     (
                         f'<span class="sig-p">{val:.4f}</span>'
                         if not pd.isna(pv) and pv < 0.05
-                        else f"{val:.4f}" if isinstance(val, float) else str(val)
+                        else f"{val:.4f}"
+                        if isinstance(val, float)
+                        else str(val)
                     )
                     for val, pv in zip(d_styled["p-value"], p_vals)
                 ]
