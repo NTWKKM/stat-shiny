@@ -678,8 +678,8 @@ def diag_server(
                         "data": f"Variables: {input.sel_chi_v1()} vs {input.sel_chi_v2()}",
                     },
                     {
-                        "type": "text",
-                        "data": status_text,
+                        "type": "html",
+                        "data": f"<p>{status_text}</p>",
                     },
                     {
                         "type": "contingency_table",
