@@ -1,108 +1,219 @@
 # RabbitAI Report
 
-In `@utils/logic.py` around lines 1125 - 1160, The AUC interpretation thresholds
-used when building diag_rows (variable auc_interp derived from mv_stats["auc"])
-need an inline comment documenting the source of those cutoffs; update the block
-that sets auc_interp (around the AUC/Discrimination logic) to add a brief
-comment citing the reference or guideline that justifies ">0.8 Excellent, >0.7
-Acceptable, else Poor" (e.g., Hosmer & Lemeshow or another authoritative paper),
-and if appropriate include a short note linking to the citation or paper title
-so future readers know where the thresholds came from.
+In `@docs/DEEP-OPTIMIZATION-PLAN.md` around lines 38 - 41, Replace the bolded
+section titles with proper Markdown headings (e.g., change "**Implementation
+Plan:**" to an appropriate level heading like "### Implementation Plan" and
+"**A. R Benchmark Generation (Test 1 of 3)**" to "### A. R Benchmark Generation
+(Test 1 of 3)"); update any other similarly bolded section titles in the file
+(the other occurrences of bolded headings noted in the review) to use consistent
+heading syntax so MD036 is satisfied and document structure/navigation is
+preserved.
 
 🧹 Nitpick | 🔵 Trivial
 
-AUC interpretation thresholds are reasonable but consider documenting the source.
+Use proper headings instead of bold text for section titles.
 
-The interpretation thresholds (>0.8 Excellent, >0.7 Acceptable, else Poor) follow common conventions but vary across literature. Consider adding a comment citing the source (e.g., Hosmer-Lemeshow 2000, or similar)
-------------------------------------------------------------
+These lines are used as headings but formatted with emphasis, which breaks structure and triggers MD036. Convert them to ### (or appropriate level) headings for readability and navigation.
 
-In `@tabs/tab_corr.py` around lines 159 - 161, The markdown uses GitHub-flavored
-alert syntax (the literal string "> [!WARNING]") which Shiny's ui.markdown()
-won't render as a styled alert; locate the ui.markdown(...) call(s) that include
-the "> [!WARNING]" block in tab_corr.py (and the similar occurrences in
-tab_data.py) and replace them with HTML alert markup (e.g., a <div class="alert
-alert-warning">...</div>) or use Shiny's alert component API so the warning is
-rendered properly; ensure you update each occurrence of the exact string ">
-[!WARNING]" and keep the same message text ("Correlation does not imply
-causation...") inside the new HTML or Shiny alert wrapper.
+♻️ Proposed fix
+
+-**A. R Benchmark Generation (Test 1 of 3)**
++### A. R Benchmark Generation (Test 1 of 3)
+
+-**B. Python Validation (Test 2 of 3)**
++### B. Python Validation (Test 2 of 3)
+
+-**C. Integration Test (Test 3 of 3)**
++### C. Integration Test (Test 3 of 3)
+
+--------------------------
+In `@docs/DEEP-OPTIMIZATION-PLAN.md` around lines 653 - 681, Several fenced code
+blocks under the milestone checklists (e.g., the blocks following "All Firth
+regression tests PASSING", "Milestone 2: Core Module Stability", and "Milestone
+3: Feature Parity with R") are missing language identifiers and trigger MD040;
+update each triple-backtick fence to include the language identifier "text"
+(i.e., replace ``` with ```text) so the checklist-style blocks are properly
+marked, ensuring all similar checklist blocks in this file use ```text
+consistently.
+
+🧹 Nitpick | 🔵 Trivial
+
+Add language identifiers to fenced blocks.
+
+These fenced blocks lack a language, which triggers MD040. Use text for checklist-style blocks.
+
+♻️ Proposed fix
+-```
++```text
+ ✅ All Firth regression tests PASSING
+ ✅ Coefficients match R within ±0.0001
+ ✅ P-values match within ±0.001
+ ✅ Documentation updated
+
+- +text
+✅ Core regression module refactored & tested (85%+ coverage)
+✅ All regression types documented
+✅ Export to PDF/Word working
+✅ Performance benchmarks established
+
+-```
++```text
+✅ All statistical outputs validated against R
+✅ Diagnostic tests comprehensive
+✅ Survival analysis complete with TVC
+✅ Causal inference methods working
+✅ >80% overall test coverage
+
+- +text
+✅ Advanced features fully implemented
+✅ Performance: <2s median response time
+✅ Security audit passed
+✅ Comprehensive documentation
+✅ Docker image optimized (<1.3GB)
+✅ Production deployment checklist complete
+
+-------------------------------------
+tabs/tab_corr.py (1)
+472-478: Consider consistent defensive access for stats dictionary.
+
+Several keys like '95% CI Lower', '95% CI Upper', 'R-squared (R²)', and 'P-value' are accessed directly without .get(). While these are likely always present, applying consistent defensive access would prevent runtime errors if the upstream API changes.
+
+♻️ Example defensive pattern
+"Value": [
+    stats.get("Method", "N/A"),
+    f"{coef_val:.4f}",
+    f"{stats.get('95% CI Lower', float('nan')):.4f}",
+    f"{stats.get('95% CI Upper', float('nan')):.4f}",
+    f"{stats.get('R-squared (R²)', float('nan')):.4f}",
+    f"{stats.get('P-value', float('nan')):.4f}",
+    str(stats.get("N", "N/A")),
+    stats.get("Interpretation", "N/A"),
+],
+
+-----------------------------------
+utils/diag_test.py (1)
+904-919: Warn whenever weighted kappa falls back to string labels, not only on exceptions.
+
+If numeric coercion yields NaNs (no exception), weighted kappa still uses string labels without warning, which can mislead.
+
+🐛 Proposed fix
+
+-            if y1_num.notna().all() and y2_num.notna().all():
+-                kappa = cohen_kappa_score(y1_num, y2_num, weights=weights)
+-            else:
+-                kappa = cohen_kappa_score(
+-                    y1.astype(str), y2.astype(str), weights=weights
+-                )
+
+-            if y1_num.notna().all() and y2_num.notna().all():
+
+-                kappa = cohen_kappa_score(y1_num, y2_num, weights=weights)
+-            else:
+-                if weights:
+-                    logger.warning(
+-                        f"Weighted kappa requested but data is non-numeric; "
+-                        f"weights='{weights}' may not be meaningful for categorical labels."
+-                    )
+-                kappa = cohen_kappa_score(
+-                    y1.astype(str), y2.astype(str), weights=weights
+-                )
+
+------------------------------------
+In `@tabs/tab_corr.py` around lines 451 - 458, The code currently sets coef_val =
+stats.get(coef_key, 0.0) which causes missing coefficients to show as 0.0000;
+change the default to a sentinel like None or the string "N/A" (e.g., coef_val =
+stats.get(coef_key, None)), then wherever coef_val is formatted for display (the
+formatting calls that assume numeric values), guard with a numeric check
+(isinstance(coef_val, (int, float))) and only apply "{:.4f}".format for numeric
+values, otherwise render "N/A"; apply the same change for the other coef_val
+retrievals that use stats.get in this module.
 
 ⚠️ Potential issue | 🟡 Minor
 
-🧩 Analysis chain
-🏁 Script executed:
+Avoid displaying a missing coefficient as 0.0000.
 
-# !/bin/bash
+Defaulting to 0.0 hides missing data and can mislead users. Prefer an explicit “N/A” and guard formatting for non-numeric values.
 
-# Check if there are other usages of GFM alert syntax in the codebase
+🔧 Suggested fix
 
-rg -n '\[!WARNING\]|\[!NOTE\]|\[!TIP\]|\[!CAUTION\]|\[!IMPORTANT\]' --type=py
-Repository: NTWKKM/stat-shiny
+-        coef_val = stats.get(coef_key, 0.0)
 
-Length of output: 243
++        coef_val = stats.get(coef_key)
+-        coef_display = (
+-            f"{coef_val:.4f}"
+-            if isinstance(coef_val, (int, float)) and not pd.isna(coef_val)
+-            else "N/A"
+-        )
 
-🏁 Script executed:
+@@
 
-# !/bin/bash
+-                f"{coef_val:.4f}",
 
-# Also check the file context to understand how the markdown is being used in Shiny
++                coef_display,
 
-head -n 180 tabs/tab_corr.py | tail -n 30
-Repository: NTWKKM/stat-shiny
+---------------------------------
 
-Length of output: 1855
+In `@utils/diag_test.py` around lines 1114 - 1129, The current logic conflates an
+empty/invalid score column and a missing pos_label_user; first validate y_score
+after coercion (if y_score.empty, log and return a clear error about no numeric
+scores in score_col), then align y_true_raw = data[truth_col].loc[y_score.index]
+and verify it has exactly 2 unique classes (if not, log and return the
+binary-outcome error using logger.error). If pos_label_user is None, infer a
+default positive label from the two unique classes (e.g., choose one of the two
+unique values deterministically, such as sorted[unique_values](1) or the second
+element) and then set y_true = np.where(y_true_raw.astype(str) ==
+chosen_pos_label, 1, 0); otherwise use pos_label_user. Ensure all returned error
+messages are specific (separate messages for empty/invalid score column vs
+non-binary truth column) and reference score_col, truth_col, y_score,
+y_true_raw, and pos_label_user in your changes.
 
-🏁 Script executed:
+⚠️ Potential issue | 🟠 Major
 
-# !/bin/bash
+pos_label_user=None now hard-fails despite being optional.
 
-# Find imports to understand if this is a Shiny app and how markdown is used
+With the current check, any caller relying on the default (None) gets a misleading “binary outcome required” error. Separate the checks and either infer a default positive label or return a specific error. Also handle the case where the score column becomes empty after numeric coercion
 
-grep -n "import\|from.*import" tabs/tab_corr.py | head -20
-Repository: NTWKKM/stat-shiny
+🐛 Proposed fix
 
-Length of output: 470
+-        y_true_raw = data[truth_col]
+-        y_score = pd.to_numeric(data[score_col], errors="coerce").dropna()
+-        y_true_raw = y_true_raw.loc[y_score.index]
+-
+-        if y_true_raw.nunique() != 2 or pos_label_user is None:
+-            logger.error("Binary outcome required")
+-            return (
+-                None,
+-                "Error: Binary outcome required (must have exactly 2 unique classes).",
+-                None,
+-                None,
+-            )
 
-🌐 Web query:
++        y_true_raw = data[truth_col]
+-        y_score = pd.to_numeric(data[score_col], errors="coerce").dropna()
+-        if y_score.empty:
+-            logger.error("Prediction score is non-numeric or empty")
+-            return (
+-                None,
+-                f"Error: '{score_col}' has no numeric values for ROC analysis.",
+-                None,
+-                None,
+-            )
+-        y_true_raw = y_true_raw.loc[y_score.index]
+-
+-        if y_true_raw.nunique() != 2:
+-            logger.error("Binary outcome required")
+-            return (
+-                None,
+-                "Error: Binary outcome required (must have exactly 2 unique classes).",
+-                None,
+-                None,
+-            )
+-        if pos_label_user is None:
+-            # Infer a default positive label to preserve backward compatibility
+-            pos_label_user = sorted(y_true_raw.astype(str).unique())[-1]
+ 
+         y_true = np.where(y_true_raw.astype(str) == pos_label_user, 1, 0)
 
-Shiny Python ui.markdown GFM alert syntax support [!WARNING] rendering
+Also applies to: 1130-1145
 
-💡 Result:
-
-Shiny for Python’s ui.markdown() renders Markdown server-side using a customized markdown_id.main.MarkdownIt (from the markdown-it ecosystem) and generally supports “GitHub-flavored markdown”, but GitHub’s alert blocks syntax (> [!WARNING], etc.) typically won’t render as a styled alert unless an alert plugin is enabled—otherwise it will just look like a normal blockquote with text. [1]
-
-Workaround: supply your own renderer (with a GFM-alerts plugin)
-Use render_func= to plug in a MarkdownIt instance that enables a GFM-alerts plugin (Python ecosystem example shown below). Shiny explicitly supports providing a custom renderer via render_func. [1]
-
-from shiny import ui
-from markdown_it import MarkdownIt
-from mdformat_gfm_alerts.mdit_plugins import gfm_alerts_plugin
-
-md = MarkdownIt("gfm").use(gfm_alerts_plugin)
-
-ui.markdown(
-    """> [!WARNING]
-> This is a warning.""",
-    render_func=md.render,
-)
-The mdformat-gfm-alerts plugin is designed to turn > [!WARNING] into HTML with alert classes (e.g., markdown-alert markdown-alert-warning). [2]
-
-Styling
-Alert plugins usually emit specific CSS classes; you’ll likely want to add CSS for those classes (either your own, or the plugin’s provided styles in its ecosystem). GFM-alert plugins document the expected syntax and behavior. [3]
-
-Sources: Shiny ui.markdown API (custom render_func) [1]; mdformat-gfm-alerts plugin example output [2]; GFM alert plugin syntax overview [3].
-
-[1] (shiny.posit.co)
-[2] (pypi.org)
-[3] (mdit-plugins.github.io)
-
-Citations:
-
-1: <https://shiny.posit.co/py/api/core/ui.markdown.html?utm_source=openai>
-2: <https://pypi.org/project/mdformat-gfm-alerts/?utm_source=openai>
-3: <https://mdit-plugins.github.io/alert.html?utm_source=openai>
-GFM alert syntax won't render as styled alerts in Shiny.
-
-The > [!WARNING] syntax is GitHub-flavored markdown, but Shiny's ui.markdown() doesn't support it by default—it will render as a plain blockquote with literal [!WARNING] text. This pattern appears in at least three files (tab_corr.py:159, tab_data.py:84, tab_data.py:1055).
-
-Use HTML markup, Shiny alert components, or a custom markdown renderer with the mdformat-gfm-alerts plugin instead
--------------------------------------
+--------------------------

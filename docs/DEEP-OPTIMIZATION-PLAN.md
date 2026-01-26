@@ -37,7 +37,7 @@ The **stat-shiny** application is a **production-ready medical statistics platfo
 
 **Implementation Plan:**
 
-**A. R Benchmark Generation (Test 1 of 3)**
+### A. R Benchmark Generation (Test 1 of 3)
 
 ```r
 # File: tests/benchmarks/r_scripts/test_firth.R
@@ -70,7 +70,7 @@ results_cox <- data.frame(
 write.csv(results_cox, "benchmark_firth_cox.csv")
 ```
 
-**B. Python Validation (Test 2 of 3)**
+### B. Python Validation (Test 2 of 3)
 
 ```python
 # File: tests/unit/test_firth_regression.py
@@ -114,7 +114,7 @@ def test_firth_cox_vs_r():
     print("✅ Firth Cox coefficients match R coxphf()")
 ```
 
-**C. Integration Test (Test 3 of 3)**
+### C. Integration Test (Test 3 of 3)
 
 ```python
 # File: tests/integration/test_firth_pipeline.py
@@ -650,7 +650,7 @@ TARGET (Modular):
 
 ### Milestone 1: Statistical Validation (End of Week 2)
 
-```
+```text
 ✅ All Firth regression tests PASSING
 ✅ Coefficients match R within ±0.0001
 ✅ P-values match within ±0.001
@@ -659,7 +659,7 @@ TARGET (Modular):
 
 ### Milestone 2: Core Module Stability (End of Week 4)
 
-```
+```text
 ✅ Core regression module refactored & tested (85%+ coverage)
 ✅ All regression types documented
 ✅ Export to PDF/Word working
@@ -668,7 +668,7 @@ TARGET (Modular):
 
 ### Milestone 3: Feature Parity with R (End of Week 8)
 
-```
+```text
 ✅ All statistical outputs validated against R
 ✅ Diagnostic tests comprehensive
 ✅ Survival analysis complete with TVC
@@ -678,7 +678,7 @@ TARGET (Modular):
 
 ### Milestone 4: Enterprise Ready (End of Week 16)
 
-```
+```text
 ✅ Advanced features fully implemented
 ✅ Performance: <2s median response time
 ✅ Security audit passed
