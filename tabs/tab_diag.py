@@ -15,6 +15,33 @@ from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 
+
+def _create_status_elements(msg: str) -> list[dict[str, str]]:
+    """
+    Split status message into components if it contains the HTML block.
+    This prevents wrapping block-level elements (div) inside a logical paragraph (p).
+    """
+    # Marker for the start of the Likelihood Ratio explanation block
+    # (Matches utils/diag_test.py)
+    html_block_marker = "<div class='alert alert-light border mt-3'>"
+
+    if html_block_marker in msg:
+        parts = msg.split(html_block_marker, 1)
+        plain_text = parts[0].strip()
+        # Reconstruct the HTML block (marker + rest)
+        html_content = html_block_marker + parts[1]
+
+        elements = []
+        if plain_text:
+            elements.append({"type": "html", "data": f"<p>{plain_text}</p>"})
+
+        elements.append({"type": "html", "data": html_content})
+        return elements
+
+    # Default case: just wrap in paragraph
+    return [{"type": "html", "data": f"<p>{msg}</p>"}]
+
+
 COLORS = get_color_palette()
 
 
@@ -677,16 +704,18 @@ def diag_server(
                         "type": "text",
                         "data": f"Variables: {input.sel_chi_v1()} vs {input.sel_chi_v2()}",
                     },
-                    {
-                        "type": "html",
-                        "data": f"<p>{status_text}</p>",
-                    },
+                ]
+
+                # Add status message (split if contains HTML block)
+                rep.extend(_create_status_elements(status_text))
+
+                rep.append(
                     {
                         "type": "contingency_table",
                         "header": "Contingency Table",
                         "data": tab,
-                    },
-                ]
+                    }
+                )
                 if stats is not None:
                     rep.append(
                         {
