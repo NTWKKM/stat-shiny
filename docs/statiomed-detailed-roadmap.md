@@ -160,10 +160,9 @@ python-multipart==0.0.7        # File upload handling
 python-multipart==0.0.7        # Async support
 
 # Specialized Statistics (UPDATED)
-# Bias-reduced regression (Corrected Source)
-firthmodels 
-@ git+[https://github.com/jzluo/firthmodels/tree/main](https://github.com/jzluo/firthmodels/tree/main) 
-in docs/firthmodels.md
+# Bias-reduced regression (source: jzluo/firthmodels)
+# See docs/firthmodels.md for details
+firthmodels @ git+https://github.com/jzluo/firthmodels.git
 ---
 
 ## <a id="3-verified-component-status"></a>3. Verified Component Status

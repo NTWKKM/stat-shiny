@@ -173,7 +173,10 @@ def calculate_hosmer_lemeshow(y_true, y_pred, g=10):
 
         dof = len(grouped) - 2
         if dof < 1:
-            dof = 1
+            logger.warning(
+                f"HL test: insufficient groups ({len(grouped)}), returning NaN"
+            )
+            return np.nan, np.nan
 
         p_val = 1 - stats.chi2.cdf(hl_stat, dof)
         return hl_stat, p_val
@@ -190,8 +193,8 @@ def calculate_model_diagnostics(y_true, y_pred) -> dict:
     if HAS_SKLEARN and len(np.unique(y_true)) == 2:
         try:
             metrics["auc"] = roc_auc_score(y_true, y_pred)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"AUC calculation failed: {e}")
 
     # 2. Hosmer-Lemeshow (Calibration)
     hl_stat, hl_p = calculate_hosmer_lemeshow(y_true, y_pred)
@@ -1135,6 +1138,8 @@ def analyze_outcome(
                         if auc > 0.7
                         else "Poor"
                     )
+                    # Source: Hosmer, D.W., & Lemeshow, S. (2000). Applied Logistic Regression.
+                    # Commonly cited thresholds: >0.8 Excellent, >0.7 Acceptable, <0.7 Poor/Fair.
                     diag_rows.append(
                         f"<tr><td>Discrimination (C-stat)</td><td>{auc:.3f}</td><td>{auc_interp}</td></tr>"
                     )

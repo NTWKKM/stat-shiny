@@ -911,6 +911,11 @@ def calculate_kappa(
                     y1.astype(str), y2.astype(str), weights=weights
                 )
         except Exception:
+            if weights:
+                logger.warning(
+                    f"Weighted kappa requested but data is non-numeric; "
+                    f"weights='{weights}' may not be meaningful for categorical labels."
+                )
             kappa = cohen_kappa_score(y1.astype(str), y2.astype(str), weights=weights)
 
         # Landis & Koch (1977) Scale for Interpretation
@@ -931,7 +936,7 @@ def calculate_kappa(
             badge = get_badge_html("Substantial", "success")
         else:
             interp = "Almost perfect agreement"
-            badge = get_badge_html("Perfect", "success")
+            badge = get_badge_html("Almost Perfect", "success")
 
         weight_label = (
             f" ({weights.capitalize()} Weighted)" if weights else " (Unweighted)"
@@ -1663,7 +1668,7 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
 # ==============================================================================
 def calculate_bland_altman(
     df: pd.DataFrame, col1: str, col2: str
-) -> tuple[dict[str, Any], go.Figure]:
+) -> tuple[dict[str, Any], go.Figure, dict[str, Any]]:
     """
     Calculate Bland-Altman statistics and generate plot.
 

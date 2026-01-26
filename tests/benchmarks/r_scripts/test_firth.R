@@ -5,7 +5,7 @@
 # -----------------------------------------------------------------------------
 # 1. Setup & Dependencies
 # -----------------------------------------------------------------------------
-required_packages <- c("logistf", "survival", "coxphf", "broom", "dplyr")
+required_packages <- c("logistf", "survival", "coxphf", "dplyr")
 missing_packages <- required_packages[!(required_packages %in% installed.packages()[, "Package"])]
 if (length(missing_packages)) {
     stop(paste(
