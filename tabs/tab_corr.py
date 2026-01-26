@@ -67,7 +67,11 @@ def corr_ui() -> ui.TagChild:
                         ui.input_select(
                             "coeff_type",
                             "Correlation Coefficient:",
-                            choices={"pearson": "Pearson", "spearman": "Spearman"},
+                            choices={
+                                "pearson": "Pearson",
+                                "spearman": "Spearman",
+                                "kendall": "Kendall",
+                            },
                             selected="pearson",
                         ),
                         ui.input_select(
@@ -113,7 +117,11 @@ def corr_ui() -> ui.TagChild:
                     ui.input_select(
                         "matrix_method",
                         "Correlation Method:",
-                        choices={"pearson": "Pearson", "spearman": "Spearman"},
+                        choices={
+                            "pearson": "Pearson",
+                            "spearman": "Spearman",
+                            "kendall": "Kendall",
+                        },
                         selected="pearson",
                     ),
                     ui.layout_columns(
@@ -148,16 +156,21 @@ def corr_ui() -> ui.TagChild:
                             **Concept:** Measures the strength and direction of the relationship between 
                             **two continuous variables**.
 
+                            <div class="alert alert-warning" role="alert">
+                            <strong>Warning:</strong> Correlation does not imply causation. A strong relationship between two variables does not mean one causes the other.
+                            </div>
+
                             **1. Pearson (r):**
                             * **Best for:** Linear relationships (straight line), normally distributed data.
                             * **Sensitive to:** Outliers.
                             * **Returns:** R-squared (R²) = proportion of variance explained
 
-                            **2. Spearman (rho):**
+                            **2. Spearman (rho) & Kendall (tau):**
                             * **Best for:** Monotonic relationships, non-normal data, or ranks.
                             * **Robust to:** Outliers.
+                            * **Kendall's Tau** is often preferred for small datasets with many tied ranks.
 
-                            **Interpretation of Coefficient (r or rho):**
+                            **Interpretation of Coefficient (r, rho, or tau):**
                             * **+1.0:** Perfect Positive (As X goes up, Y goes up).
                             * **-1.0:** Perfect Negative (As X goes up, Y goes down).
                             * **0.0:** No relationship.
@@ -405,20 +418,23 @@ def corr_server(
         </div>
         """
 
-        return ui.card(
-            ui.card_header("Results"),
-            ui.markdown(f"**Data Source:** {result['data_label']}"),
-            ui.markdown(f"**Method:** {result['method'].title()}"),
-            ui.output_data_frame("out_corr_table"),
-            ui.HTML(interp_html),
-            # Missing Data Report
-            ui.HTML(
-                create_missing_data_report_html(
-                    stats.get("missing_data_info", {}), var_meta.get() or {}
-                )
+        return ui.div(
+            ui.card(
+                ui.card_header("Results"),
+                ui.markdown(f"**Data Source:** {result['data_label']}"),
+                ui.markdown(f"**Method:** {result['method'].title()}"),
+                ui.output_data_frame("out_corr_table"),
+                ui.HTML(interp_html),
+                # Missing Data Report
+                ui.HTML(
+                    create_missing_data_report_html(
+                        stats.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
+                ui.card_header("Scatter Plot"),
+                ui.output_ui("out_corr_plot_widget"),
             ),
-            ui.card_header("Scatter Plot"),
-            ui.output_ui("out_corr_plot_widget"),
+            class_="fade-in-entry",
         )
 
     @render.data_frame
@@ -432,10 +448,23 @@ def corr_server(
 
         # Create formatted table
         stats = result["stats"]
+        # Helper to get coefficient safely
+        coef_key = (
+            "Coefficient (r/rho/tau)"
+            if "Coefficient (r/rho/tau)" in stats
+            else "Coefficient (r)"
+        )
+        coef_val = stats.get(coef_key)
+        coef_display = (
+            f"{coef_val:.4f}"
+            if isinstance(coef_val, (int, float)) and not pd.isna(coef_val)
+            else "N/A"
+        )
+
         display_data = {
             "Metric": [
                 "Method",
-                "Correlation Coefficient (r)",
+                "Correlation Coefficient",
                 "95% CI Lower",
                 "95% CI Upper",
                 "R-squared (R²)",
@@ -445,13 +474,13 @@ def corr_server(
             ],
             "Value": [
                 stats["Method"],
-                f"{stats['Coefficient (r)']:.4f}",
-                f"{stats['95% CI Lower']:.4f}",
-                f"{stats['95% CI Upper']:.4f}",
-                f"{stats['R-squared (R²)']:.4f}",
-                f"{stats['P-value']:.4f}",
-                str(stats["N"]),
-                stats["Interpretation"],
+                coef_display,
+                f"{stats.get('95% CI Lower', float('nan')):.4f}",
+                f"{stats.get('95% CI Upper', float('nan')):.4f}",
+                f"{stats.get('R-squared (R²)', float('nan')):.4f}",
+                f"{stats.get('P-value', float('nan')):.4f}",
+                str(stats.get("N", "N/A")),
+                stats.get("Interpretation", "N/A"),
             ],
         }
 
@@ -505,22 +534,30 @@ def corr_server(
         ]
 
         # Add statistics
+        # Helper for key lookup
+        coef_key = (
+            "Coefficient (r/rho/tau)"
+            if "Coefficient (r/rho/tau)" in stats
+            else "Coefficient (r)"
+        )
+
         for key in [
             "Method",
-            "Coefficient (r)",
+            coef_key,
             "95% CI Lower",
             "95% CI Upper",
             "R-squared (R²)",
             "P-value",
             "N",
         ]:
-            val = stats[key]
+            val = stats.get(key, "N/A")
+            # Format numeric if possible
             if isinstance(val, (int, float)):
                 elements.append(
                     {
                         "type": "text",
                         "data": (
-                            f"{key}: {val:.4f}"
+                            f"{key if key != coef_key else 'Correlation Coefficient'}: {val:.4f}"
                             if isinstance(val, float)
                             else f"{key}: {val}"
                         ),
@@ -645,23 +682,28 @@ def corr_server(
         </div>
         """
 
-        return ui.card(
-            ui.card_header("Matrix Results"),
-            ui.markdown(f"**Data Source:** {result['data_label']}"),
-            ui.markdown(f"**Method:** {result['method'].title()}"),
-            ui.markdown(f"**Missing Data Strategy:** {result['strategy'].title()}"),
-            ui.HTML(summary_html),
-            # Missing Data Report
-            ui.HTML(
-                create_missing_data_report_html(
-                    summary.get("missing_data_info", {}), var_meta.get() or {}
-                )
+        return ui.div(
+            ui.card(
+                ui.card_header("Matrix Results"),
+                ui.markdown(f"**Data Source:** {result['data_label']}"),
+                ui.markdown(f"**Method:** {result['method'].title()}"),
+                ui.markdown(f"**Missing Data Strategy:** {result['strategy'].title()}"),
+                ui.HTML(summary_html),
+                # Missing Data Report
+                ui.HTML(
+                    create_missing_data_report_html(
+                        summary.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
+                ui.card_header("Heatmap"),
+                ui.output_ui("out_heatmap_widget"),
+                ui.card_header("Correlation Table"),
+                ui.markdown(
+                    "*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"
+                ),
+                ui.output_data_frame("out_matrix_table"),
             ),
-            ui.card_header("Heatmap"),
-            ui.output_ui("out_heatmap_widget"),
-            ui.card_header("Correlation Table"),
-            ui.markdown("*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"),
-            ui.output_data_frame("out_matrix_table"),
+            class_="fade-in-entry",
         )
 
     @render.ui

@@ -77,6 +77,22 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
             line-height: 1.7;
             color: {text_color};
         }}
+        .causation-warning {{
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }}
+        .causation-warning::before {{
+            content: '⚠️';
+            margin-right: 10px;
+            font-size: 1.2em;
+        }}
         .report-footer {{
             text-align: center;
             font-size: 0.85em;
@@ -90,6 +106,7 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
 
     html = f"<!DOCTYPE html>\n<html>\n<head><meta charset='utf-8'>{css_style}</head>\n<body>"
     html += f"<h1>{_html.escape(str(title))}</h1>"
+    html += '<div class="causation-warning">Correlation does not imply causation. A strong relationship does not mean one variable causes the other.</div>'
 
     for element in elements:
         element_type = element.get("type")
@@ -427,13 +444,14 @@ def calculate_correlation(
 
         results = {
             "Method": method.capitalize(),
-            "Coefficient (r)": r_val,
+            "Coefficient (r/rho/tau)": r_val,
             "P-value": p_val,
             "N": n,
             "95% CI Lower": ci_lower,
             "95% CI Upper": ci_upper,
             "R-squared (R²)": r_val**2,
             "Interpretation": _interpret_correlation(r_val),
+            "Caution": "Correlation does not imply causation.",
             "Sample Note": f"Analysis based on {n} complete pairs.",
             "missing_data_info": summary_info,
         }

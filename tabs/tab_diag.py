@@ -15,6 +15,33 @@ from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
 
+
+def _create_status_elements(msg: str) -> list[dict[str, str]]:
+    """
+    Split status message into components if it contains the HTML block.
+    This prevents wrapping block-level elements (div) inside a logical paragraph (p).
+    """
+    # Marker for the start of the Likelihood Ratio explanation block
+    # (Matches utils/diag_test.py)
+    html_block_marker = "<div class='alert alert-light border mt-3'>"
+
+    if html_block_marker in msg:
+        parts = msg.split(html_block_marker, 1)
+        plain_text = parts[0].strip()
+        # Reconstruct the HTML block (marker + rest)
+        html_content = html_block_marker + parts[1]
+
+        elements = []
+        if plain_text:
+            elements.append({"type": "text", "data": plain_text})
+
+        elements.append({"type": "html", "data": html_content})
+        return elements
+
+    # Default case: return a single text element
+    return [{"type": "text", "data": msg}]
+
+
 COLORS = get_color_palette()
 
 
@@ -571,9 +598,11 @@ def diag_server(
 
                 # Add statistics table
                 if res is not None:
-                    # Filter out missing_data_info/metadata from the main stats table
+                    # Filter out metadata from the main stats table
                     res_display = {
-                        k: v for k, v in res.items() if k != "missing_data_info"
+                        k: v
+                        for k, v in res.items()
+                        if k not in ["missing_data_info", "calibration_plot"]
                     }
                     rep.append(
                         {
@@ -582,6 +611,16 @@ def diag_server(
                             "data": pd.DataFrame([res_display]).T,
                         }
                     )
+
+                    # Add Calibration Plot if available
+                    calib_plot = res.get("calibration_plot")
+                    if calib_plot is not None:
+                        rep.append(
+                            {
+                                "type": "plot",
+                                "data": calib_plot,
+                            }
+                        )
 
                 # Add performance coordinates table
                 if coords is not None:
@@ -619,7 +658,7 @@ def diag_server(
     @render.ui
     def out_roc_results():
         if roc_html.get():
-            return ui.HTML(roc_html.get())
+            return ui.div(ui.HTML(roc_html.get()), class_="fade-in-entry")
         return ui.div(
             "Click 'Analyze ROC' to view results.",
             class_="text-secondary p-3",
@@ -665,13 +704,18 @@ def diag_server(
                         "type": "text",
                         "data": f"Variables: {input.sel_chi_v1()} vs {input.sel_chi_v2()}",
                     },
-                    {"type": "text", "data": status_text},
+                ]
+
+                # Add status message (split if contains HTML block)
+                rep.extend(_create_status_elements(status_text))
+
+                rep.append(
                     {
                         "type": "contingency_table",
                         "header": "Contingency Table",
                         "data": tab,
-                    },
-                ]
+                    }
+                )
                 if stats is not None:
                     rep.append(
                         {
@@ -721,7 +765,7 @@ def diag_server(
     @render.ui
     def out_chi_results():
         if chi_html.get():
-            return ui.HTML(chi_html.get())
+            return ui.div(ui.HTML(chi_html.get()), class_="fade-in-entry")
         return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="chi2_report.html")
@@ -779,7 +823,7 @@ def diag_server(
     @render.ui
     def out_desc_results():
         if desc_html.get():
-            return ui.HTML(desc_html.get())
+            return ui.div(ui.HTML(desc_html.get()), class_="fade-in-entry")
         return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="descriptive_report.html")
@@ -904,7 +948,7 @@ def diag_server(
     @render.ui
     def out_dca_results():
         if dca_html.get():
-            return ui.HTML(dca_html.get())
+            return ui.div(ui.HTML(dca_html.get()), class_="fade-in-entry")
         return ui.div("Click 'Run DCA' to view results.", class_="text-secondary p-3")
 
     @render.download(filename="dca_report.html")

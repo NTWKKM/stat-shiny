@@ -1542,6 +1542,33 @@ def get_shiny_css():
             100% {{ background-position: -200% 0; }}
         }}
 
+        /* ===========================
+           RESULT TRANSITIONS
+           =========================== */
+        .fade-in-entry {{
+            animation: fadeInAnimation 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }}
+
+        @keyframes fadeInAnimation {{
+            0% {{
+                opacity: 0;
+                transform: translateY(10px);
+            }}
+            100% {{
+                opacity: 1;
+                transform: translateY(0);
+            }}
+        }}
+
+        @media (prefers-reduced-motion: reduce) {{
+            .fade-in-entry {{
+                animation: none;
+                opacity: 1;
+                transform: none;
+            }}
+        }}
     </style>
     """
 
