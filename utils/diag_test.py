@@ -1603,7 +1603,9 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
         elif element_type == "interpretation":
             html += f"<div class='interpretation'>{_html.escape(str(data))}</div>"
 
-        elif element_type == "raw_html":
+        elif element_type in ("raw_html", "html"):
+            # Note: Producers of 'raw_html' or 'html' elements (e.g., create_missing_data_report_html)
+            # are responsible for escaping user-supplied metadata.
             html += str(data)
 
         elif element_type in ("contingency_table", "contingency"):
@@ -1633,11 +1635,6 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
                 html += data.to_html(index=True, classes="", escape=False)
             else:
                 html += str(data)
-
-        elif element_type == "raw_html":
-            # Note: Producers of 'raw_html' elements (e.g., create_missing_data_report_html)
-            # are responsible for escaping user-supplied metadata.
-            html += str(data)
 
         elif element_type == "plot":
             if hasattr(data, "to_html"):
