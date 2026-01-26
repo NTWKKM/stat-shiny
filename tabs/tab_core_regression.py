@@ -1252,25 +1252,27 @@ def core_regression_server(
         res = logit_res.get()
         if res:
             if "error" in res:
-                return create_error_alert(res["error"])
+                return ui.div(create_error_alert(res["error"]), class_="fade-in-entry")
 
-            return ui.navset_tab(
-                ui.nav_panel("🌳 Forest Plots", ui.output_ui("ui_forest_tabs")),
-                ui.nav_panel("📋 Detailed Report", ui.HTML(res["html_fragment"])),
-                ui.nav_panel(
-                    "✅ Assumptions",
-                    ui.markdown("""
-                        ### 🧐 Model Assumptions Checklist
-                        
-                        1.  **Multicollinearity:** Check standard errors in the report. Extremely large SEs often indicate high correlation between predictors (VIF > 5-10).
-                        2.  **Linearity:** Log-odds should be linearly related to continuous predictors (Box-Tidwell test).
-                        3.  **Independence:** Observations should be independent. If you have repeated measures per patient, use the **Repeated Measures** tab.
-                        4.  **Separation:** If standard errors are huge (e.g., > 1000), you may have "Perfect Separation". Consider using **Firth's Method**.
-                        """),
+            return ui.div(
+                ui.navset_tab(
+                    ui.nav_panel("🌳 Forest Plots", ui.output_ui("ui_forest_tabs")),
+                    ui.nav_panel("📋 Detailed Report", ui.HTML(res["html_fragment"])),
+                    ui.nav_panel(
+                        "✅ Assumptions",
+                        ui.markdown("""
+                            ### 🧐 Model Assumptions Checklist
+                            
+                            1.  **Multicollinearity:** Check standard errors in the report. Extremely large SEs often indicate high correlation between predictors (VIF > 5-10).
+                            2.  **Linearity:** Log-odds should be linearly related to continuous predictors (Box-Tidwell test).
+                            3.  **Independence:** Observations should be independent. If you have repeated measures per patient, use the **Repeated Measures** tab.
+                            4.  **Separation:** If standard errors are huge (e.g., > 1000), you may have "Perfect Separation". Consider using **Firth's Method**.
+                            """),
+                    ),
                 ),
+                class_="fade-in-entry",
             )
 
-        # Default Placeholder
         # Default Placeholder
         return create_empty_state_ui(
             message="No Logistic Regression Results",
@@ -1717,33 +1719,36 @@ def core_regression_server(
             if "error" in res:
                 return create_error_alert(res["error"])
 
-            return ui.navset_tab(
-                ui.nav_panel(
-                    "🌳 Forest Plots",
-                    ui.output_ui("ui_poisson_forest_tabs"),
+            return ui.div(
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "🌳 Forest Plots",
+                        ui.output_ui("ui_poisson_forest_tabs"),
+                    ),
+                    ui.nav_panel(
+                        "📋 Detailed Report",
+                        ui.HTML(res["html_fragment"]),
+                    ),
+                    ui.nav_panel(
+                        "📚 Reference",
+                        ui.markdown("""
+                        ### Poisson Regression Reference
+                        
+                        **When to Use:**
+                        * Count outcomes (e.g., number of events, visits, infections)
+                        * Rate data with exposure offset (e.g., events per person-year)
+                        
+                        **Interpretation:**
+                        * **IRR > 1**: Higher incidence rate (Risk factor) 🔴
+                        * **IRR < 1**: Lower incidence rate (Protective) 🟢
+                        * **IRR = 1**: No effect on rate
+                        
+                        **Overdispersion:**
+                        If variance >> mean, consider Negative Binomial regression.
+                        """),
+                    ),
                 ),
-                ui.nav_panel(
-                    "📋 Detailed Report",
-                    ui.HTML(res["html_fragment"]),
-                ),
-                ui.nav_panel(
-                    "📚 Reference",
-                    ui.markdown("""
-                    ### Poisson Regression Reference
-                    
-                    **When to Use:**
-                    * Count outcomes (e.g., number of events, visits, infections)
-                    * Rate data with exposure offset (e.g., events per person-year)
-                    
-                    **Interpretation:**
-                    * **IRR > 1**: Higher incidence rate (Risk factor) 🔴
-                    * **IRR < 1**: Lower incidence rate (Protective) 🟢
-                    * **IRR = 1**: No effect on rate
-                    
-                    **Overdispersion:**
-                    If variance >> mean, consider Negative Binomial regression.
-                    """),
-                ),
+                class_="fade-in-entry",
             )
 
         # Default Placeholder
@@ -2011,30 +2016,33 @@ def core_regression_server(
             if "error" in res:
                 return create_error_alert(res["error"])
 
-            return ui.navset_tab(
-                ui.nav_panel(
-                    "🌳 Forest Plots",
-                    ui.output_ui("ui_nb_forest_tabs"),
+            return ui.div(
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "🌳 Forest Plots",
+                        ui.output_ui("ui_nb_forest_tabs"),
+                    ),
+                    ui.nav_panel(
+                        "📋 Detailed Report",
+                        ui.HTML(res["html_fragment"]),
+                    ),
+                    ui.nav_panel(
+                        "📚 Reference",
+                        ui.markdown("""
+                        ### Negative Binomial Regression Reference
+                        
+                        **When to Use:**
+                        * Overdispersed count data (Variance > Mean)
+                        * When Poisson model shows lack of fit due to overdispersion
+                        
+                        **Interpretation:**
+                        * Similar to Poisson (IRR)
+                        * **Alpha**: Dispersion parameter estimated by the model
+                        * **IRR**: Incidence Rate Ratio
+                        """),
+                    ),
                 ),
-                ui.nav_panel(
-                    "📋 Detailed Report",
-                    ui.HTML(res["html_fragment"]),
-                ),
-                ui.nav_panel(
-                    "📚 Reference",
-                    ui.markdown("""
-                    ### Negative Binomial Regression Reference
-                    
-                    **When to Use:**
-                    * Overdispersed count data (Variance > Mean)
-                    * When Poisson model shows lack of fit due to overdispersion
-                    
-                    **Interpretation:**
-                    * Similar to Poisson (IRR)
-                    * **Alpha**: Dispersion parameter estimated by the model
-                    * **IRR**: Incidence Rate Ratio
-                    """),
-                ),
+                class_="fade-in-entry",
             )
 
         return create_empty_state_ui(
@@ -2275,6 +2283,7 @@ def core_regression_server(
                             """),
                     ),
                 ),
+                class_="fade-in-entry",
             )
 
         return create_empty_state_ui(
@@ -2891,6 +2900,7 @@ def core_regression_server(
                         )
                     ),
                 ),
+                class_="fade-in-entry",
             )
 
         # Default Placeholder
@@ -2938,31 +2948,36 @@ def core_regression_server(
             # Or just render it on top of the generic content.
             # But ui_glm_results_area is inside create_results_container.
 
-            return ui.navset_tab(
-                ui.nav_panel(
-                    "📋 Model Results",
-                    ui.div(
+            return ui.div(
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "📋 Model Results",
                         ui.div(
-                            ui.h5(
-                                f"✅ Analysis Complete (AIC: {metrics.get('aic', 'N/A'):.2f}, Deviance: {metrics.get('deviance', 'N/A'):.2f})"
+                            ui.div(
+                                ui.h5(
+                                    f"✅ Analysis Complete (AIC: {metrics.get('aic', 'N/A'):.2f}, Deviance: {metrics.get('deviance', 'N/A'):.2f})"
+                                ),
+                                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
                             ),
-                            style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                            ui.HTML(res["html_report"]),
                         ),
-                        ui.HTML(res["html_report"]),
                     ),
-                ),
-                ui.nav_panel(
-                    "🌳 Forest Plot",
-                    (
-                        ui.HTML(
-                            plotly_figure_to_html(
-                                res["forest_plot"], include_plotlyjs="cdn"
+                    ui.nav_panel(
+                        "🌳 Forest Plot",
+                        (
+                            ui.HTML(
+                                plotly_figure_to_html(
+                                    res["forest_plot"], include_plotlyjs="cdn"
+                                )
                             )
-                        )
-                        if res.get("forest_plot")
-                        else ui.div("No forest plot available", class_="text-muted p-3")
+                            if res.get("forest_plot")
+                            else ui.div(
+                                "No forest plot available", class_="text-muted p-3"
+                            )
+                        ),
                     ),
                 ),
+                class_="fade-in-entry",
             )
 
         return create_placeholder_state(

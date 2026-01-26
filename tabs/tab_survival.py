@@ -906,7 +906,7 @@ def survival_server(
                 )
             )
 
-        return ui.div(*elements)
+        return ui.div(*elements, class_="fade-in-entry")
 
     @render.ui
     def out_curves_plot():
@@ -1077,7 +1077,7 @@ def survival_server(
                 )
             )
 
-        return ui.div(*elements)
+        return ui.div(*elements, class_="fade-in-entry")
 
     @render.ui
     def out_landmark_plot():
@@ -1259,7 +1259,7 @@ def survival_server(
                 )
             )
 
-        return ui.div(*elements)
+        return ui.div(*elements, class_="fade-in-entry")
 
     @render.data_frame
     def out_cox_table():
@@ -1306,7 +1306,7 @@ def survival_server(
 
             elements.append(ui.HTML(html_plots))
 
-        return ui.div(*elements)
+        return ui.div(*elements, class_="fade-in-entry")
 
     @render.download(filename="cox_report.html")
     def btn_dl_cox():
@@ -1439,7 +1439,7 @@ def survival_server(
                 )
             )
 
-        return ui.div(*elements)
+        return ui.div(*elements, class_="fade-in-entry")
 
     @render.ui
     def out_sg_forest():
@@ -1902,7 +1902,7 @@ def survival_server(
                 )
             )
 
-        return ui.div(*elements)
+        return ui.div(*elements, class_="fade-in-entry")
 
     @render.data_frame
     def out_tvc_table():
@@ -1948,7 +1948,7 @@ def survival_server(
                 html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
             elements.append(ui.HTML(html_plots))
 
-        return ui.div(*elements)
+        return ui.div(*elements, class_="fade-in-entry")
 
     @render.download(filename="tvc_report.html")
     def btn_dl_tvc():

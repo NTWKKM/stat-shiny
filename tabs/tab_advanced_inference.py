@@ -368,13 +368,16 @@ def advanced_inference_server(
             return create_error_alert(res["error"])
 
         return ui.div(
-            ui.output_data_frame("tbl_mediation"),
-            # Missing Data Report
-            ui.HTML(
-                create_missing_data_report_html(
-                    res.get("missing_data_info", {}), var_meta.get() or {}
-                )
+            ui.div(
+                ui.output_data_frame("tbl_mediation"),
+                # Missing Data Report
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
             ),
+            class_="fade-in-entry",
         )
 
     @render.ui
@@ -452,15 +455,18 @@ def advanced_inference_server(
             return create_error_alert(res["error"])
 
         return ui.div(
-            ui.output_data_frame("tbl_vif"),
-            # Missing Data Report
-            ui.HTML(
-                create_missing_data_report_html(
-                    res.get("missing_info", {}), var_meta.get() or {}
-                )
+            ui.div(
+                ui.output_data_frame("tbl_vif"),
+                # Missing Data Report
+                ui.HTML(
+                    create_missing_data_report_html(
+                        res.get("missing_info", {}), var_meta.get() or {}
+                    )
+                ),
+                ui.h5("Correlation Heatmap", class_="mt-4"),
+                ui.output_ui("plot_corr_heatmap"),
             ),
-            ui.h5("Correlation Heatmap", class_="mt-4"),
-            ui.output_ui("plot_corr_heatmap"),
+            class_="fade-in-entry",
         )
 
     @render.data_frame
@@ -588,20 +594,23 @@ def advanced_inference_server(
         if isinstance(res, dict) and "error" in res:
             return create_error_alert(res["error"])
 
-        return ui.navset_tab(
-            ui.nav_panel("📋 Tests", ui.output_data_frame("tbl_diagnostics")),
-            ui.nav_panel(
-                "📉 Plots",
-                ui.layout_columns(
-                    ui.output_plot("plot_residuals"),
-                    ui.output_plot("plot_qq"),
+        return ui.div(
+            ui.navset_tab(
+                ui.nav_panel("📋 Tests", ui.output_data_frame("tbl_diagnostics")),
+                ui.nav_panel(
+                    "📉 Plots",
+                    ui.layout_columns(
+                        ui.output_plot("plot_residuals"),
+                        ui.output_plot("plot_qq"),
+                    ),
+                ),
+                ui.nav_panel(
+                    "⚠️ Influence",
+                    ui.output_data_frame("tbl_cooks"),
+                    ui.output_text_verbatim("txt_cooks_summary"),
                 ),
             ),
-            ui.nav_panel(
-                "⚠️ Influence",
-                ui.output_data_frame("tbl_cooks"),
-                ui.output_text_verbatim("txt_cooks_summary"),
-            ),
+            class_="fade-in-entry",
         )
 
     @render.data_frame
@@ -732,7 +741,7 @@ def advanced_inference_server(
         if "error" in res:
             return create_error_alert(res["error"])
 
-        return ui.output_data_frame("tbl_heterogeneity")
+        return ui.div(ui.output_data_frame("tbl_heterogeneity"), class_="fade-in-entry")
 
     @render.data_frame
     def tbl_heterogeneity():

@@ -46,6 +46,12 @@ The application uses a centralized styling system to ensure visual consistency a
 - `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
 - `utils/formatting.py`: Handles P-value styling, logic-driven badges, and statistical report HTML structure (syncing with `config.py`).
 
+### Dynamic UI Enhancements (Animations)
+
+- **Fade-in Entry**: All statistical results utilize a smooth fade-in animation to improve user experience.
+- **Logic**: Defined in `tabs/_styling.py` as the `.fade-in-entry` class, providing a 0.4s ease-out entry with a subtle upward translate.
+- **Standardized Wrapper**: The `create_results_container` utility in `utils/ui_helpers.py` has been updated to support these animations via the `class_` parameter.
+
 ---
 
 ## 📊 Analysis Modules
