@@ -1,4 +1,5 @@
 # 🚀 DEEP DETAILED OPTIMIZATION PLAN - stat-shiny (patch branch)
+
 **Generated:** January 24, 2026 | **Status:** Comprehensive Enterprise-Grade Optimization Blueprint  
 **Repository:** [NTWKKM/stat-shiny/tree/patch](https://github.com/NTWKKM/stat-shiny/tree/patch)  
 **Author:** Consolidated from 4 detailed analysis documents  
@@ -25,9 +26,11 @@ The **stat-shiny** application is a **production-ready medical statistics platfo
 ### TIER 🔴 CRITICAL - START IMMEDIATELY
 
 #### 1. Firth Regression Validation Against R (Week 1-2)
+
 **Why Critical:** Core statistical accuracy determines publication readiness
 
 **Current State:**
+
 - Python: Using `firthmodels` (jzluo/firthmodels) via GitHub
 - Gap: Not yet validated against R's `logistf` and `coxphf` packages
 - Risk: Users may publish incorrect results if estimates differ significantly
@@ -35,6 +38,7 @@ The **stat-shiny** application is a **production-ready medical statistics platfo
 **Implementation Plan:**
 
 **A. R Benchmark Generation (Test 1 of 3)**
+
 ```r
 # File: tests/benchmarks/r_scripts/test_firth.R
 library(logistf)
@@ -67,6 +71,7 @@ write.csv(results_cox, "benchmark_firth_cox.csv")
 ```
 
 **B. Python Validation (Test 2 of 3)**
+
 ```python
 # File: tests/unit/test_firth_regression.py
 import pytest
@@ -110,6 +115,7 @@ def test_firth_cox_vs_r():
 ```
 
 **C. Integration Test (Test 3 of 3)**
+
 ```python
 # File: tests/integration/test_firth_pipeline.py
 def test_firth_workflow_complete():
@@ -122,6 +128,7 @@ def test_firth_workflow_complete():
 ```
 
 **Acceptance Criteria:**
+
 - [ ] Coefficient estimates match R within ±0.0001 (4 decimal places)
 - [ ] P-values match within ±0.001
 - [ ] Confidence intervals overlap
@@ -133,9 +140,11 @@ def test_firth_workflow_complete():
 ---
 
 #### 2. Core Regression Module (`tab_core_regression.py`) Refactoring (Week 1-2)
+
 **Why Critical:** Most-used module (3,700 lines), handles 3 model types
 
 **Current Issues:**
+
 1. ❌ No Firth regression option for separated data
 2. ❌ Interaction handling unclear
 3. ❌ Coefficient table formatting inconsistent
@@ -181,6 +190,7 @@ def test_firth_workflow_complete():
 ```
 
 **Implementation Priority (Order of Execution):**
+
 1. Separation detection (4 hours)
 2. Firth integration (6 hours)
 3. Refactor code structure (8 hours)
@@ -193,9 +203,11 @@ def test_firth_workflow_complete():
 ---
 
 #### 3. Survival Analysis Module Validation (Week 2-3)
+
 **Why Critical:** Second-most complex module, Firth integration for Cox needed
 
 **Current State:**
+
 - ✅ Kaplan-Meier curves: Good, tested
 - ⚠️ Cox PH models: Basic, needs Firth validation
 - ⚠️ Time-varying covariates: Implemented but untested
@@ -240,6 +252,7 @@ def test_firth_workflow_complete():
 **Current State:** 1,400+ lines, solid foundation
 
 **Improvements:**
+
 ```markdown
 ### Standardized Reporting
 - [ ] Add Standardized Mean Difference (SMD) with thresholds
@@ -388,6 +401,7 @@ def test_firth_workflow_complete():
 ### 8. Advanced Features Implementation
 
 **Sample Size Calculator Enhancements:**
+
 ```markdown
 - [ ] Non-inferiority trials
 - [ ] Adaptive/group sequential designs
@@ -396,6 +410,7 @@ def test_firth_workflow_complete():
 ```
 
 **Advanced Stats Tab (Currently stub):**
+
 ```markdown
 - [ ] Elastic Net / Ridge / Lasso regression
 - [ ] Random Forest models
@@ -525,6 +540,7 @@ TARGET (Modular):
 ```
 
 **Benefits:**
+
 - ✅ Easier testing (unit test individual functions)
 - ✅ Code reuse across tabs
 - ✅ Simpler maintenance
@@ -633,6 +649,7 @@ TARGET (Modular):
 ## 🎯 SUCCESS CRITERIA & MILESTONES
 
 ### Milestone 1: Statistical Validation (End of Week 2)
+
 ```
 ✅ All Firth regression tests PASSING
 ✅ Coefficients match R within ±0.0001
@@ -641,6 +658,7 @@ TARGET (Modular):
 ```
 
 ### Milestone 2: Core Module Stability (End of Week 4)
+
 ```
 ✅ Core regression module refactored & tested (85%+ coverage)
 ✅ All regression types documented
@@ -649,6 +667,7 @@ TARGET (Modular):
 ```
 
 ### Milestone 3: Feature Parity with R (End of Week 8)
+
 ```
 ✅ All statistical outputs validated against R
 ✅ Diagnostic tests comprehensive
@@ -658,6 +677,7 @@ TARGET (Modular):
 ```
 
 ### Milestone 4: Enterprise Ready (End of Week 16)
+
 ```
 ✅ Advanced features fully implemented
 ✅ Performance: <2s median response time
@@ -680,7 +700,8 @@ TARGET (Modular):
 | Dependency version conflicts | MEDIUM | LOW | CI/CD testing, version pinning |
 | Complex refactoring breaks UI | HIGH | LOW | Comprehensive test coverage, gradual rollout |
 
-### Mitigation Actions:
+### Mitigation Actions
+
 1. **Early validation** - Start Firth testing immediately
 2. **Incremental deployment** - Feature branches, staged rollout
 3. **Comprehensive testing** - Unit + integration + E2E tests
@@ -692,6 +713,7 @@ TARGET (Modular):
 ## 💡 KEY RECOMMENDATIONS
 
 ### Immediate Actions (This Week)
+
 1. **Pull R benchmark script** into `tests/benchmarks/r_scripts/test_firth.R`
 2. **Run R benchmarks** locally to generate CSV files
 3. **Create Python tests** that load R benchmarks and validate
@@ -699,6 +721,7 @@ TARGET (Modular):
 5. **Set up CI/CD** to run benchmarks on every commit
 
 ### Process Improvements
+
 1. **Use issue checklists** for tracking task progress
 2. **Daily standup notes** (5-min updates in dedicated channel)
 3. **Weekly code reviews** for merged PRs
@@ -706,6 +729,7 @@ TARGET (Modular):
 5. **Quarterly roadmap updates** based on user feedback
 
 ### Development Standards
+
 - **Code style:** Black (Python), line length 100
 - **Docstrings:** NumPy format (required)
 - **Test coverage:** >80% target
@@ -717,22 +741,25 @@ TARGET (Modular):
 ## 📚 REFERENCE MATERIALS
 
 ### Statistical References
+
 - Kosmidis & Firth (2021): Bias reduction & finite estimates
 - Heinze & Schemper (2002): Firth for logistic regression
 - Heinze & Schemper (2001): Firth for Cox regression
 - Konis (2007): Separation detection via linear programming
 
 ### Technical References
-- Python Shiny: https://shiny.posit.co/py/
-- firthmodels: https://github.com/jzluo/firthmodels
-- lifelines: https://lifelines.readthedocs.io/
-- statsmodels: https://www.statsmodels.org/
+
+- Python Shiny: <https://shiny.posit.co/py/>
+- firthmodels: <https://github.com/jzluo/firthmodels>
+- lifelines: <https://lifelines.readthedocs.io/>
+- statsmodels: <https://www.statsmodels.org/>
 
 ### Publication Standards
-- NEJM: https://www.nejm.org/authors/manuscript-submission
-- Lancet: https://www.thelancet.com/authors
-- BMJ: https://www.bmj.com/about-bmj/resources-authors
-- JAMA: https://jamanetwork.com/journals/jama
+
+- NEJM: <https://www.nejm.org/authors/manuscript-submission>
+- Lancet: <https://www.thelancet.com/authors>
+- BMJ: <https://www.bmj.com/about-bmj/resources-authors>
+- JAMA: <https://jamanetwork.com/journals/jama>
 
 ---
 
@@ -748,6 +775,7 @@ TARGET (Modular):
 ## APPENDIX A: Code Examples
 
 ### Example 1: Firth Regression Integration
+
 ```python
 from firthmodels import FirthLogisticRegression
 from utils.data_quality import detect_separation
@@ -771,6 +799,7 @@ def fit_best_logistic_model(X, y):
 ```
 
 ### Example 2: Publication Table Generation
+
 ```python
 def generate_publication_table(model_results):
     """Format regression output for journal submission"""
@@ -800,6 +829,7 @@ def format_pvalue(p):
 ```
 
 ### Example 3: Benchmark Testing
+
 ```python
 import pandas as pd
 import numpy as np

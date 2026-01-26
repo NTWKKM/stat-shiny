@@ -23,7 +23,13 @@ import pandas as pd
 import pingouin as pg
 import plotly.graph_objects as go
 import scipy.stats as stats
-from sklearn.metrics import cohen_kappa_score, roc_auc_score, roc_curve
+from sklearn.metrics import (
+    cohen_kappa_score,
+    roc_auc_score,
+    roc_curve,
+    precision_recall_curve,
+)
+from sklearn.calibration import calibration_curve
 
 from config import CONFIG
 from logger import get_logger
@@ -42,6 +48,7 @@ type BadgeLevel = Literal[
 
 def get_badge_html(text: str, level: BadgeLevel = "info") -> str:
     """Generate HTML string for a styled badge."""
+    safe_text = _html.escape(str(text))
     colors = {
         "success": {"bg": "#d4edda", "color": "#155724", "border": "#c3e6cb"},
         "warning": {"bg": "#fff3cd", "color": "#856404", "border": "#ffeeba"},
@@ -51,7 +58,7 @@ def get_badge_html(text: str, level: BadgeLevel = "info") -> str:
     }
     c = colors.get(level, colors["neutral"])
     style = f"padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; display: inline-block; background-color: {c['bg']}; color: {c['color']}; border: 1px solid {c['border']};"
-    return f'<span style="{style}">{text}</span>'
+    return f'<span style="{style}">{safe_text}</span>'
 
 
 def format_p_value(p: float) -> str:
@@ -987,7 +994,7 @@ def calculate_kappa(
 
     except Exception as e:
         logger.error(f"Kappa calculation error: {e}")
-        return None, str(e), None
+        return None, str(e), None, {}
 
 
 def auc_ci_hanley_mcneil(auc: float, n1: int, n2: int) -> tuple[float, float, float]:
@@ -1171,15 +1178,11 @@ def analyze_roc(
         youden_j = j_scores[best_idx]
 
         # Approximate F1-score at best threshold
-        from sklearn.metrics import precision_recall_curve
-
         precisions, recalls, _ = precision_recall_curve(y_true, y_score)
         f1_scores = (2 * precisions * recalls) / (precisions + recalls + 1e-10)
         max_f1 = np.max(f1_scores)
 
         # Calibration Curve (Reliability)
-        from sklearn.calibration import calibration_curve
-
         # Clip y_score to [0, 1] to prevent ValueError
         y_score_calib = np.clip(y_score, 0, 1)
         prob_true, prob_pred = calibration_curve(y_true, y_score_calib, n_bins=10)
@@ -1680,7 +1683,7 @@ def calculate_bland_altman(
             return {"error": f"Data preparation failed: {e}"}, go.Figure(), {}
 
         if len(d_clean) < 2:
-            return {"error": "Not enough data (n < 2)"}, go.Figure()
+            return {"error": "Not enough data (n < 2)"}, go.Figure(), {}
 
         v1 = d_clean[col1]
         v2 = d_clean[col2]

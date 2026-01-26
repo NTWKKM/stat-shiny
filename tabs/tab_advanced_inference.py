@@ -503,7 +503,8 @@ def advanced_inference_server(
         )
         fig.update_layout(title="Correlation Heatmap")
 
-        return plotly_figure_to_html(fig)
+        html_str = plotly_figure_to_html(fig, include_plotlyjs="cdn", responsive=True)
+        return ui.HTML(html_str)
 
     # --- Model Diagnostics Logic ---
     # (Reactive values moved to top init block)

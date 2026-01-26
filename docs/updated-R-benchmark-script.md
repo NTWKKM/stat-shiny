@@ -1,4 +1,10 @@
-### 1. Updated R Benchmark Script (`tests/benchmarks/r_scripts/test_firth.R`)
+#
+
+# Updated R Benchmark Script
+
+#
+
+## 1. Updated R Benchmark Script (`tests/benchmarks/r_scripts/test_firth.R`)
 
 This script is specifically designed to validate `firthmodels` (Python) against the gold-standard R packages `logistf` (for logistic regression) and `coxphf` (for survival analysis).
 
