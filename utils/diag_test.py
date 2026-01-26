@@ -1099,186 +1099,193 @@ def analyze_roc(
         logger.error("No data available for ROC analysis")
         return None, "Error: No data available.", None, None
 
-    y_true_raw = data[truth_col]
-    y_score = pd.to_numeric(data[score_col], errors="coerce").dropna()
-    y_true_raw = y_true_raw.loc[y_score.index]
+    try:
+        y_true_raw = data[truth_col]
+        y_score = pd.to_numeric(data[score_col], errors="coerce").dropna()
+        y_true_raw = y_true_raw.loc[y_score.index]
 
-    if y_true_raw.nunique() != 2 or pos_label_user is None:
-        logger.error("Binary outcome required")
-        return (
-            None,
-            "Error: Binary outcome required (must have exactly 2 unique classes).",
-            None,
-            None,
+        if y_true_raw.nunique() != 2 or pos_label_user is None:
+            logger.error("Binary outcome required")
+            return (
+                None,
+                "Error: Binary outcome required (must have exactly 2 unique classes).",
+                None,
+                None,
+            )
+
+        y_true = np.where(y_true_raw.astype(str) == pos_label_user, 1, 0)
+
+        if y_score.nunique() < 2:
+            logger.error("Prediction score is constant")
+            return (
+                None,
+                "Error: Prediction score is constant. Cannot compute ROC.",
+                None,
+                None,
+            )
+
+        n1 = int((y_true == 1).sum())
+        n0 = int((y_true == 0).sum())
+
+        if n1 == 0 or n0 == 0:
+            logger.error("Missing positive or negative cases")
+            return None, "Error: Need both Positive and Negative cases.", None, None
+
+        fpr, tpr, thresholds = roc_curve(y_true, y_score)
+        auc_val = roc_auc_score(y_true, y_score)
+
+        if method == "delong":
+            ci_lower, ci_upper, se = auc_ci_delong(y_true, y_score.values)
+            m_name = "DeLong"
+        else:
+            ci_lower, ci_upper, se = auc_ci_hanley_mcneil(auc_val, n1, n0)
+            m_name = "Hanley"
+
+        p_val_auc = (
+            stats.norm.sf(abs((auc_val - 0.5) / se)) * 2
+            if (se is not None and np.isfinite(se) and se > 0)
+            else np.nan
         )
 
-    y_true = np.where(y_true_raw.astype(str) == pos_label_user, 1, 0)
+        ci_lower_f = ci_lower if np.isfinite(ci_lower) else np.nan
+        ci_upper_f = ci_upper if np.isfinite(ci_upper) else np.nan
 
-    if y_score.nunique() < 2:
-        logger.error("Prediction score is constant")
-        return (
-            None,
-            "Error: Prediction score is constant. Cannot compute ROC.",
-            None,
-            None,
+        # Interpretation Badge for AUC
+        if auc_val >= 0.9:
+            auc_badge = get_badge_html("Outstanding", "success")
+        elif auc_val >= 0.8:
+            auc_badge = get_badge_html("Excellent", "success")
+        elif auc_val >= 0.7:
+            auc_badge = get_badge_html("Acceptable", "info")
+        elif auc_val >= 0.5:
+            auc_badge = get_badge_html("Poor", "warning")
+        else:
+            auc_badge = get_badge_html("Worse than Chance", "danger")
+
+        # AUC Confidence Interval Formatting
+        auc_ci_str = f"{ci_lower_f:.4f}-{ci_upper_f:.4f}"
+
+        # Calculate Youden Index and best threshold
+        j_scores = tpr - fpr
+        best_idx = np.argmax(j_scores)
+        youden_j = j_scores[best_idx]
+
+        # Approximate F1-score at best threshold
+        from sklearn.metrics import precision_recall_curve
+
+        precisions, recalls, _ = precision_recall_curve(y_true, y_score)
+        f1_scores = (2 * precisions * recalls) / (precisions + recalls + 1e-10)
+        max_f1 = np.max(f1_scores)
+
+        # Calibration Curve (Reliability)
+        from sklearn.calibration import calibration_curve
+
+        # Clip y_score to [0, 1] to prevent ValueError
+        y_score_calib = np.clip(y_score, 0, 1)
+        prob_true, prob_pred = calibration_curve(y_true, y_score_calib, n_bins=10)
+        cal_fig = go.Figure()
+        cal_fig.add_trace(
+            go.Scatter(
+                x=prob_pred,
+                y=prob_true,
+                mode="lines+markers",
+                name="Calibration",
+                line=dict(color=COLORS["primary"]),
+            )
+        )
+        cal_fig.add_trace(
+            go.Scatter(
+                x=[0, 1],
+                y=[0, 1],
+                mode="lines",
+                name="Perfect",
+                line=dict(color="gray", dash="dash"),
+            )
+        )
+        cal_fig.update_layout(
+            title="Calibration Plot",
+            xaxis_title="Predicted Prob",
+            yaxis_title="Observed Fraction",
+            template="simple_white",
         )
 
-    n1 = int((y_true == 1).sum())
-    n0 = int((y_true == 0).sum())
-
-    if n1 == 0 or n0 == 0:
-        logger.error("Missing positive or negative cases")
-        return None, "Error: Need both Positive and Negative cases.", None, None
-
-    fpr, tpr, thresholds = roc_curve(y_true, y_score)
-    auc_val = roc_auc_score(y_true, y_score)
-
-    if method == "delong":
-        ci_lower, ci_upper, se = auc_ci_delong(y_true, y_score.values)
-        m_name = "DeLong"
-    else:
-        ci_lower, ci_upper, se = auc_ci_hanley_mcneil(auc_val, n1, n0)
-        m_name = "Hanley"
-
-    p_val_auc = (
-        stats.norm.sf(abs((auc_val - 0.5) / se)) * 2
-        if (se is not None and np.isfinite(se) and se > 0)
-        else np.nan
-    )
-
-    ci_lower_f = ci_lower if np.isfinite(ci_lower) else np.nan
-    ci_upper_f = ci_upper if np.isfinite(ci_upper) else np.nan
-
-    # Interpretation Badge for AUC
-    if auc_val >= 0.9:
-        auc_badge = get_badge_html("Outstanding", "success")
-    elif auc_val >= 0.8:
-        auc_badge = get_badge_html("Excellent", "success")
-    elif auc_val >= 0.7:
-        auc_badge = get_badge_html("Acceptable", "info")
-    elif auc_val >= 0.5:
-        auc_badge = get_badge_html("Poor", "warning")
-    else:
-        auc_badge = get_badge_html("Worse than Chance", "danger")
-
-    # AUC Confidence Interval Formatting
-    auc_ci_str = f"{ci_lower_f:.4f}-{ci_upper_f:.4f}"
-
-    # Calculate Youden Index and best threshold
-    j_scores = tpr - fpr
-    best_idx = np.argmax(j_scores)
-    youden_j = j_scores[best_idx]
-
-    # Approximate F1-score at best threshold
-    from sklearn.metrics import precision_recall_curve
-
-    precisions, recalls, _ = precision_recall_curve(y_true, y_score)
-    f1_scores = (2 * precisions * recalls) / (precisions + recalls + 1e-10)
-    max_f1 = np.max(f1_scores)
-
-    # Calibration Curve (Reliability)
-    from sklearn.calibration import calibration_curve
-
-    prob_true, prob_pred = calibration_curve(y_true, y_score, n_bins=10)
-    cal_fig = go.Figure()
-    cal_fig.add_trace(
-        go.Scatter(
-            x=prob_pred,
-            y=prob_true,
-            mode="lines+markers",
-            name="Calibration",
-            line=dict(color=COLORS["primary"]),
-        )
-    )
-    cal_fig.add_trace(
-        go.Scatter(
-            x=[0, 1],
-            y=[0, 1],
-            mode="lines",
-            name="Perfect",
-            line=dict(color="gray", dash="dash"),
-        )
-    )
-    cal_fig.update_layout(
-        title="Calibration Plot",
-        xaxis_title="Predicted Prob",
-        yaxis_title="Observed Fraction",
-        template="simple_white",
-    )
-
-    stats_dict = {
-        "AUC": f"{auc_val:.4f}",
-        "95% CI": auc_ci_str,
-        "P-value": format_p_value(p_val_auc),
-        "Method": f"{m_name} (SE={se:.4f})" if se else m_name,
-        "Interpretation": f"{auc_badge}",
-        "Best Threshold": f"{thresholds[best_idx]:.4f}",
-        "Youden Index (J)": f"{youden_j:.4f}",
-        "Sensitivity at Best": f"{tpr[best_idx]:.4f}",
-        "Specificity at Best": f"{1 - fpr[best_idx]:.4f}",
-        "Max F1-Score": f"{max_f1:.4f}",
-        "calibration_plot": cal_fig,
-    }
-
-    # Plotly Figure
-    fig = go.Figure()
-
-    # ROC Curve
-    fig.add_trace(
-        go.Scatter(
-            x=fpr,
-            y=tpr,
-            mode="lines",
-            name=f"ROC (AUC = {auc_val:.3f})",
-            line={"color": COLORS["primary"], "width": 3},
-        )
-    )
-
-    # Diagonal Line
-    fig.add_trace(
-        go.Scatter(
-            x=[0, 1],
-            y=[0, 1],
-            mode="lines",
-            name="Chance (AUC = 0.50)",
-            line={"color": "gray", "dash": "dash"},
-        )
-    )
-
-    # Best Threshold Point
-    fig.add_trace(
-        go.Scatter(
-            x=[fpr[best_idx]],
-            y=[tpr[best_idx]],
-            mode="markers",
-            name=f"Best Threshold ({thresholds[best_idx]:.3f})",
-            marker={"color": "red", "size": 10, "symbol": "star"},
-        )
-    )
-
-    fig.update_layout(
-        title=f"ROC Curve ({method.capitalize()} Method)",
-        xaxis_title="False Positive Rate (1 - Specificity)",
-        yaxis_title="True Positive Rate (Sensitivity)",
-        template="plotly_white",
-        height=500,
-        hovermode="x unified",
-        legend={"x": 0.6, "y": 0.1},
-    )
-
-    coords_df = pd.DataFrame(
-        {
-            "Threshold": thresholds,
-            "Sensitivity": tpr,
-            "Specificity": 1 - fpr,
-            "J-Index": j_scores,
+        stats_dict = {
+            "AUC": f"{auc_val:.4f}",
+            "95% CI": auc_ci_str,
+            "P-value": format_p_value(p_val_auc),
+            "Method": f"{m_name} (SE={se:.4f})" if se else m_name,
+            "Interpretation": f"{auc_badge}",
+            "Best Threshold": f"{thresholds[best_idx]:.4f}",
+            "Youden Index (J)": f"{youden_j:.4f}",
+            "Sensitivity at Best": f"{tpr[best_idx]:.4f}",
+            "Specificity at Best": f"{1 - fpr[best_idx]:.4f}",
+            "Max F1-Score": f"{max_f1:.4f}",
+            "calibration_plot": cal_fig,
         }
-    )
 
-    if missing_data_info:
-        stats_dict["missing_data_info"] = missing_data_info
+        # Plotly Figure
+        fig = go.Figure()
 
-    return stats_dict, None, fig, coords_df
+        # ROC Curve
+        fig.add_trace(
+            go.Scatter(
+                x=fpr,
+                y=tpr,
+                mode="lines",
+                name=f"ROC (AUC = {auc_val:.3f})",
+                line={"color": COLORS["primary"], "width": 3},
+            )
+        )
+
+        # Diagonal Line
+        fig.add_trace(
+            go.Scatter(
+                x=[0, 1],
+                y=[0, 1],
+                mode="lines",
+                name="Chance (AUC = 0.50)",
+                line={"color": "gray", "dash": "dash"},
+            )
+        )
+
+        # Best Threshold Point
+        fig.add_trace(
+            go.Scatter(
+                x=[fpr[best_idx]],
+                y=[tpr[best_idx]],
+                mode="markers",
+                name=f"Best Threshold ({thresholds[best_idx]:.3f})",
+                marker={"color": "red", "size": 10, "symbol": "star"},
+            )
+        )
+
+        fig.update_layout(
+            title=f"ROC Curve ({method.capitalize()} Method)",
+            xaxis_title="False Positive Rate (1 - Specificity)",
+            yaxis_title="True Positive Rate (Sensitivity)",
+            template="plotly_white",
+            height=500,
+            hovermode="x unified",
+            legend={"x": 0.6, "y": 0.1},
+        )
+
+        coords_df = pd.DataFrame(
+            {
+                "Threshold": thresholds,
+                "Sensitivity": tpr,
+                "Specificity": 1 - fpr,
+                "J-Index": j_scores,
+            }
+        )
+
+        if missing_data_info:
+            stats_dict["missing_data_info"] = missing_data_info
+
+        return stats_dict, None, fig, coords_df
+
+    except Exception as e:
+        logger.error(f"ROC analysis unexpected error: {e}")
+        return None, f"Analysis Error: {str(e)}", None, None
 
 
 def calculate_icc(
