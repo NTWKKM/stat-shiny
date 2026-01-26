@@ -555,11 +555,16 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             return create_error_alert(res["error"])
 
         return ui.div(
-            ui.h2(f"Total N = {int(res['total'])}", class_="text-primary text-center"),
-            ui.hr(),
-            ui.p(f"Group 1 (n1): {int(res['n1'])}"),
-            ui.p(f"Group 2 (n2): {int(res['n2'])}"),
-            style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
+            ui.div(
+                ui.h2(
+                    f"Total N = {int(res['total'])}", class_="text-primary text-center"
+                ),
+                ui.hr(),
+                ui.p(f"Group 1 (n1): {int(res['n1'])}"),
+                ui.p(f"Group 2 (n2): {int(res['n2'])}"),
+                style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
+            ),
+            class_="fade-in-entry",
         )
 
     def _render_power_curve_plot(
@@ -637,15 +642,18 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             return create_error_alert(res["error"])
 
         return ui.div(
-            ui.h2(
-                f"Total Events = {int(res['total_events'])}",
-                class_="text-primary text-center",
+            ui.div(
+                ui.h2(
+                    f"Total Events = {int(res['total_events'])}",
+                    class_="text-primary text-center",
+                ),
+                ui.p(
+                    f"Hazard Ratio detected: {res['hr']:.2f}",
+                    class_="text-center text-muted",
+                ),
+                style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
             ),
-            ui.p(
-                f"Hazard Ratio detected: {res['hr']:.2f}",
-                class_="text-center text-muted",
-            ),
-            style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
+            class_="fade-in-entry",
         )
 
     @render.ui
@@ -667,8 +675,11 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
             return create_error_alert(res["error"])
 
         return ui.div(
-            ui.h2(f"Total N = {int(res)}", class_="text-primary text-center"),
-            style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
+            ui.div(
+                ui.h2(f"Total N = {int(res)}", class_="text-primary text-center"),
+                style="background: #f8f9fa; padding: 20px; border-radius: 10px;",
+            ),
+            class_="fade-in-entry",
         )
 
     @render.ui
@@ -679,15 +690,18 @@ def sample_size_server(input: Any, output: Any, session: Any) -> None:
         if not txt:
             return None
         return ui.div(
-            ui.h5("📝 Methods Text (Copy-Ready)"),
-            ui.pre(
-                txt,
-                style="background: #f8f9fa; padding: 10px; border-radius: 5px; white-space: pre-wrap;",
+            ui.div(
+                ui.h5("📝 Methods Text (Copy-Ready)"),
+                ui.pre(
+                    txt,
+                    style="background: #f8f9fa; padding: 10px; border-radius: 5px; white-space: pre-wrap;",
+                ),
+                ui.p(
+                    "You can copy/paste this into your protocol or manuscript.",
+                    style="font-size: 0.8em; color: gray;",
+                ),
             ),
-            ui.p(
-                "You can copy/paste this into your protocol or manuscript.",
-                style="font-size: 0.8em; color: gray;",
-            ),
+            class_="fade-in-entry",
         )
 
     @render.ui

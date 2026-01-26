@@ -619,7 +619,7 @@ def diag_server(
     @render.ui
     def out_roc_results():
         if roc_html.get():
-            return ui.HTML(roc_html.get())
+            return ui.div(ui.HTML(roc_html.get()), class_="fade-in-entry")
         return ui.div(
             "Click 'Analyze ROC' to view results.",
             class_="text-secondary p-3",
@@ -721,7 +721,7 @@ def diag_server(
     @render.ui
     def out_chi_results():
         if chi_html.get():
-            return ui.HTML(chi_html.get())
+            return ui.div(ui.HTML(chi_html.get()), class_="fade-in-entry")
         return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="chi2_report.html")
@@ -779,7 +779,7 @@ def diag_server(
     @render.ui
     def out_desc_results():
         if desc_html.get():
-            return ui.HTML(desc_html.get())
+            return ui.div(ui.HTML(desc_html.get()), class_="fade-in-entry")
         return ui.div("Results will appear here.", class_="text-secondary p-3")
 
     @render.download(filename="descriptive_report.html")
@@ -904,7 +904,7 @@ def diag_server(
     @render.ui
     def out_dca_results():
         if dca_html.get():
-            return ui.HTML(dca_html.get())
+            return ui.div(ui.HTML(dca_html.get()), class_="fade-in-entry")
         return ui.div("Click 'Run DCA' to view results.", class_="text-secondary p-3")
 
     @render.download(filename="dca_report.html")

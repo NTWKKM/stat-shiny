@@ -385,7 +385,7 @@ def agreement_server(
         if kappa_processing.get():
             return create_loading_state("Calculating Kappa Statistics...")
         if kappa_html.get():
-            return ui.HTML(kappa_html.get())
+            return ui.div(ui.HTML(kappa_html.get()), class_="fade-in-entry")
         return create_placeholder_state(
             "Select variables and click 'Calculate Kappa'.", icon="🤝"
         )
@@ -466,7 +466,7 @@ def agreement_server(
         if ba_processing.get():
             return create_loading_state("Generating Bland-Altman Analysis...")
         if ba_html.get():
-            return ui.HTML(ba_html.get())
+            return ui.div(ui.HTML(ba_html.get()), class_="fade-in-entry")
         return create_placeholder_state(
             "Select variables and click 'Analyze Agreement'.", icon="📉"
         )
@@ -557,7 +557,7 @@ def agreement_server(
         if icc_processing.get():
             return create_loading_state("Calculating ICC Reliability...")
         if icc_html.get():
-            return ui.HTML(icc_html.get())
+            return ui.div(ui.HTML(icc_html.get()), class_="fade-in-entry")
         return create_placeholder_state(
             "Select 2+ variables and click 'Calculate ICC'.", icon="🔍"
         )

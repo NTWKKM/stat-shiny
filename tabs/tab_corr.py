@@ -405,20 +405,23 @@ def corr_server(
         </div>
         """
 
-        return ui.card(
-            ui.card_header("Results"),
-            ui.markdown(f"**Data Source:** {result['data_label']}"),
-            ui.markdown(f"**Method:** {result['method'].title()}"),
-            ui.output_data_frame("out_corr_table"),
-            ui.HTML(interp_html),
-            # Missing Data Report
-            ui.HTML(
-                create_missing_data_report_html(
-                    stats.get("missing_data_info", {}), var_meta.get() or {}
-                )
+        return ui.div(
+            ui.card(
+                ui.card_header("Results"),
+                ui.markdown(f"**Data Source:** {result['data_label']}"),
+                ui.markdown(f"**Method:** {result['method'].title()}"),
+                ui.output_data_frame("out_corr_table"),
+                ui.HTML(interp_html),
+                # Missing Data Report
+                ui.HTML(
+                    create_missing_data_report_html(
+                        stats.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
+                ui.card_header("Scatter Plot"),
+                ui.output_ui("out_corr_plot_widget"),
             ),
-            ui.card_header("Scatter Plot"),
-            ui.output_ui("out_corr_plot_widget"),
+            class_="fade-in-entry",
         )
 
     @render.data_frame
@@ -645,23 +648,28 @@ def corr_server(
         </div>
         """
 
-        return ui.card(
-            ui.card_header("Matrix Results"),
-            ui.markdown(f"**Data Source:** {result['data_label']}"),
-            ui.markdown(f"**Method:** {result['method'].title()}"),
-            ui.markdown(f"**Missing Data Strategy:** {result['strategy'].title()}"),
-            ui.HTML(summary_html),
-            # Missing Data Report
-            ui.HTML(
-                create_missing_data_report_html(
-                    summary.get("missing_data_info", {}), var_meta.get() or {}
-                )
+        return ui.div(
+            ui.card(
+                ui.card_header("Matrix Results"),
+                ui.markdown(f"**Data Source:** {result['data_label']}"),
+                ui.markdown(f"**Method:** {result['method'].title()}"),
+                ui.markdown(f"**Missing Data Strategy:** {result['strategy'].title()}"),
+                ui.HTML(summary_html),
+                # Missing Data Report
+                ui.HTML(
+                    create_missing_data_report_html(
+                        summary.get("missing_data_info", {}), var_meta.get() or {}
+                    )
+                ),
+                ui.card_header("Heatmap"),
+                ui.output_ui("out_heatmap_widget"),
+                ui.card_header("Correlation Table"),
+                ui.markdown(
+                    "*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"
+                ),
+                ui.output_data_frame("out_matrix_table"),
             ),
-            ui.card_header("Heatmap"),
-            ui.output_ui("out_heatmap_widget"),
-            ui.card_header("Correlation Table"),
-            ui.markdown("*Significance: \\* p<0.05, \\*\\* p<0.01, \\*\\*\\* p<0.001*"),
-            ui.output_data_frame("out_matrix_table"),
+            class_="fade-in-entry",
         )
 
     @render.ui
