@@ -9,8 +9,8 @@ def test_create_status_elements_plain_text():
 
     # Expect single element wrapped in <p>
     assert len(elements) == 1
-    assert elements[0]["type"] == "html"
-    assert elements[0]["data"] == "<p>Analysis completed successfully.</p>"
+    assert elements[0]["type"] == "text"
+    assert elements[0]["data"] == "Analysis completed successfully."
 
 
 def test_create_status_elements_with_html_block():
@@ -27,8 +27,8 @@ def test_create_status_elements_with_html_block():
     assert len(elements) == 2
 
     # 1. Plain text wrapped in <p>
-    assert elements[0]["type"] == "html"
-    assert elements[0]["data"] == f"<p>{plain}</p>"
+    assert elements[0]["type"] == "text"
+    assert elements[0]["data"] == plain
 
     # 2. HTML block as raw HTML (no extra wrapper)
     assert elements[1]["type"] == "html"
@@ -41,4 +41,4 @@ def test_create_status_elements_empty():
     elements = _create_status_elements(msg)
     # Should probably be empty or single empty p
     assert len(elements) == 1
-    assert elements[0]["data"] == "<p></p>"
+    assert elements[0]["data"] == ""

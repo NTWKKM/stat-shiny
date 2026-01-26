@@ -33,13 +33,13 @@ def _create_status_elements(msg: str) -> list[dict[str, str]]:
 
         elements = []
         if plain_text:
-            elements.append({"type": "html", "data": f"<p>{plain_text}</p>"})
+            elements.append({"type": "text", "data": plain_text})
 
         elements.append({"type": "html", "data": html_content})
         return elements
 
     # Default case: just wrap in paragraph
-    return [{"type": "html", "data": f"<p>{msg}</p>"}]
+    return [{"type": "text", "data": msg}]
 
 
 COLORS = get_color_palette()

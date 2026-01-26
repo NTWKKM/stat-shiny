@@ -134,7 +134,7 @@ def test_firth_workflow_complete():
 - [ ] All tests pass (PASSING status)
 - [ ] Document any discrepancies and rationale
 
-**Timeline:** 6 hours R setup + 4 hours Python testing = **10 hours**
+**Timeline:** 6 hours R setup + 4 hours Python testing + 3 hours integration test = **13 hours**
 
 ---
 
