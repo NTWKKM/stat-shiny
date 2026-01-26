@@ -1,19 +1,36 @@
 # RabbitAI Report
 
-In `@tabs/tab_diag.py` around lines 680 - 683, status_text (aka msg from
-utils/diag_test.calculate_chi2) may contain HTML blocks so wrapping it inside a
-single "<p>" creates invalid markup; change the construction that currently
-creates {"type":"html","data": f"<p>{status_text}</p>"} to split the plain
-status line (escaped text) from any LR/HTML block: emit one element for the
-escaped status string (use a non-HTML/text element or an HTML element with only
-escaped text) and, if the msg contains the LR HTML block, append a separate
-{"type":"html","data": html_block} element for that HTML content; locate the use
-of status_text in tabs/tab_diag.py and adjust the code that builds the list of
-message elements accordingly.
+In `@tests/unit/test_tab_diag_html_logic.py` around lines 5 - 44, The tests assume
+HTML-wrapped results but the implementation returns escaped plain text entries
+with type "text"; update the assertions in the three tests to match
+_create_status_elements: check elements[*]["type"] == "text" for plain segments,
+assert elements[0]["data"] equals the unwrapped plain string (e.g. "Analysis
+completed successfully." and "Note: Analysis completed." respectively) rather
+than "<p>...</p>", and for the empty message assert elements[0]["data"] == ""
+instead of "<p></p>" so the tests reflect escaped/text output.
 
 ⚠️ Potential issue | 🟡 Minor
 
-Avoid wrapping HTML-rich status_text inside <p>
-msg can now include the LR explanation HTML block (see utils/diag_test.calculate_chi2), so wrapping it in <p> creates invalid markup and may break layout. Consider splitting the status line (as escaped text) from the LR HTML block and append the HTML as a separate "html" element instead of embedding both in one <p>
+Align expectations with escaped text output for safety.
 
------------------------------
+If _create_status_elements returns type: "text" for plain content, these assertions should reflect unwrapped text data and type: "text".
+
+✏️ Proposed update
+
+- assert elements[0]["type"] == "html"
+- assert elements[0]["data"] == "<p>Analysis completed successfully.</p>"
+
++ assert elements[0]["type"] == "text"
+- assert elements[0]["data"] == "Analysis completed successfully."
+@@
+
+- assert elements[0]["type"] == "html"
+- assert elements[0]["data"] == f"<p>{plain}</p>"
+
++ assert elements[0]["type"] == "text"
+- assert elements[0]["data"] == plain
+@@
+
+- assert elements[0]["data"] == "<p></p>"
+
++ assert elements[0]["data"] == ""
