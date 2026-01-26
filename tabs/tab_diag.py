@@ -571,9 +571,11 @@ def diag_server(
 
                 # Add statistics table
                 if res is not None:
-                    # Filter out missing_data_info/metadata from the main stats table
+                    # Filter out metadata from the main stats table
                     res_display = {
-                        k: v for k, v in res.items() if k != "missing_data_info"
+                        k: v
+                        for k, v in res.items()
+                        if k not in ["missing_data_info", "calibration_plot"]
                     }
                     rep.append(
                         {
@@ -582,6 +584,15 @@ def diag_server(
                             "data": pd.DataFrame([res_display]).T,
                         }
                     )
+
+                    # Add Calibration Plot if available
+                    if "calibration_plot" in res:
+                        rep.append(
+                            {
+                                "type": "plot",
+                                "data": res["calibration_plot"],
+                            }
+                        )
 
                 # Add performance coordinates table
                 if coords is not None:

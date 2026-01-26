@@ -20,6 +20,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+import pingouin as pg
 import plotly.graph_objects as go
 import scipy.stats as stats
 from sklearn.metrics import cohen_kappa_score, roc_auc_score, roc_curve
@@ -628,7 +629,7 @@ def calculate_chi2(
 
                 accuracy = (a + d) / (a + b + c + d)
                 youden_j = sensitivity + specificity - 1
-                # f1_score = (2 * a) / (2*a + b + c) if (2*a + b + c) > 0 else 0
+                f1_score = (2 * a) / (2 * a + b + c) if (2 * a + b + c) > 0 else np.nan
 
                 # --- BADGE GENERATION LOGIC ---
 
@@ -720,25 +721,73 @@ def calculate_chi2(
                     nnt_ci_display = f'<span style="font-weight: bold; color: #198754;">{nnt_ci_str}</span>'
 
                 # --- BUILD COMPREHENSIVE TABLE ---
-                risk_data = [
-                    # SECTION: RISK
+                # --- CONSTRUCT PUBLICATION-GRADE TABLE (TABLE 2 STYLE) ---
+                table2_data = [
                     {
-                        "Metric": "═══════════ RISK METRICS ═══════════",
-                        "Value": "",
-                        "95% CI": "",
-                        "Interpretation": "Rows=Exposure, Cols=Outcome",
+                        "Metric": "Sensitivity (TPR)",
+                        "Value": f"{sensitivity:.4f}",
+                        "95% CI": f"[{se_ci_lower:.4f}, {se_ci_upper:.4f}]",
+                        "Interpretation": "True Positive Rate: Ability to detect disease",
                     },
                     {
-                        "Metric": "Risk Ratio (RR)",
-                        "Value": f"{rr:.4f}",
-                        "95% CI": rr_ci_display,
-                        "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}",
+                        "Metric": "Specificity (TNR)",
+                        "Value": f"{specificity:.4f}",
+                        "95% CI": f"[{sp_ci_lower:.4f}, {sp_ci_upper:.4f}]",
+                        "Interpretation": "True Negative Rate: Ability to exclude disease",
+                    },
+                    {
+                        "Metric": "Positive Predictive Value (PPV)",
+                        "Value": f"{ppv:.4f}",
+                        "95% CI": f"[{ppv_ci_lower:.4f}, {ppv_ci_upper:.4f}]",
+                        "Interpretation": "Prob. disease is present given positive test",
+                    },
+                    {
+                        "Metric": "Negative Predictive Value (NPV)",
+                        "Value": f"{npv:.4f}",
+                        "95% CI": f"[{npv_ci_lower:.4f}, {npv_ci_upper:.4f}]",
+                        "Interpretation": "Prob. disease is absent given negative test",
+                    },
+                    {
+                        "Metric": "Positive Likelihood Ratio (LR+)",
+                        "Value": f"{lr_plus:.4f}",
+                        "95% CI": "-",
+                        "Interpretation": f"{lr_plus_badge} How much pos result increases odds",
+                    },
+                    {
+                        "Metric": "Negative Likelihood Ratio (LR-)",
+                        "Value": f"{lr_minus:.4f}",
+                        "95% CI": "-",
+                        "Interpretation": f"{lr_minus_badge} How much neg result decreases odds",
+                    },
+                    {
+                        "Metric": "Accuracy",
+                        "Value": f"{accuracy:.4f}",
+                        "95% CI": "-",
+                        "Interpretation": "Overall correct classification rate",
+                    },
+                    {
+                        "Metric": "Youden Index (J)",
+                        "Value": f"{youden_j:.4f}",
+                        "95% CI": "-",
+                        "Interpretation": "Summary measure (Se + Sp - 1)",
+                    },
+                    {
+                        "Metric": "F1-Score",
+                        "Value": f"{f1_score:.4f}" if not np.isnan(f1_score) else "-",
+                        "95% CI": "-",
+                        "Interpretation": "Harmonic mean of precision and recall",
                     },
                     {
                         "Metric": "Odds Ratio (OR)",
                         "Value": f"{or_value:.4f}",
                         "95% CI": or_ci_display,
                         "Interpretation": f"{or_badge} Odds of event in {label_exp} vs {label_unexp}",
+                    },
+                    {
+                        "Metric": "Risk Ratio (RR)",
+                        "Value": f"{rr:.4f}",
+                        "95% CI": rr_ci_display,
+                        "Interpretation": f"Risk in {label_exp} is {rr:.2f}x that of {label_unexp}",
                     },
                     {
                         "Metric": "Absolute Risk Reduction (ARR)",
@@ -753,82 +802,35 @@ def calculate_chi2(
                         "Interpretation": "Reduction in risk relative to baseline (if RR < 1)",
                     },
                     {
-                        "Metric": nnt_label,
-                        "Value": f"{nnt_abs:.1f}",
-                        "95% CI": nnt_ci_display,
-                        "Interpretation": f"{nnt_badge} Patients to treat/harm for 1 outcome",
-                    },
-                    # SECTION: DIAGNOSTIC
-                    {"Metric": "", "Value": "", "95% CI": "", "Interpretation": ""},
-                    {
-                        "Metric": "═════════ DIAGNOSTIC METRICS ═════════",
-                        "Value": "",
-                        "95% CI": "",
-                        "Interpretation": "Rows=Test, Cols=Disease",
-                    },
-                    {
-                        "Metric": "Sensitivity (Recall)",
-                        "Value": f"{sensitivity:.4f}",
-                        "95% CI": f"{se_ci_lower:.4f}-{se_ci_upper:.4f}",
-                        "Interpretation": "True Positive Rate: Ability to detect disease",
-                    },
-                    {
-                        "Metric": "Specificity",
-                        "Value": f"{specificity:.4f}",
-                        "95% CI": f"{sp_ci_lower:.4f}-{sp_ci_upper:.4f}",
-                        "Interpretation": "True Negative Rate: Ability to exclude disease",
-                    },
-                    {
-                        "Metric": "PPV (Precision)",
-                        "Value": f"{ppv:.4f}",
-                        "95% CI": f"{ppv_ci_lower:.4f}-{ppv_ci_upper:.4f}",
-                        "Interpretation": "Prob. disease is present given positive test",
-                    },
-                    {
-                        "Metric": "NPV",
-                        "Value": f"{npv:.4f}",
-                        "95% CI": f"{npv_ci_lower:.4f}-{npv_ci_upper:.4f}",
-                        "Interpretation": "Prob. disease is absent given negative test",
-                    },
-                    {
-                        "Metric": "LR+ (Likelihood Ratio +)",
-                        "Value": f"{lr_plus:.2f}",
-                        "95% CI": "-",
-                        "Interpretation": f"{lr_plus_badge} How much pos result increases odds",
-                    },
-                    {
-                        "Metric": "LR- (Likelihood Ratio -)",
-                        "Value": f"{lr_minus:.2f}",
-                        "95% CI": "-",
-                        "Interpretation": f"{lr_minus_badge} How much neg result decreases odds",
-                    },
-                    {
                         "Metric": "Diagnostic OR (DOR)",
-                        "Value": f"{dor:.2f}",
+                        "Value": f"{dor:.4f}" if not np.isnan(dor) else "-",
                         "95% CI": "-",
                         "Interpretation": "Overall discriminative power (LR+/LR-)",
                     },
                     {
-                        "Metric": "Accuracy",
-                        "Value": f"{accuracy:.4f}",
-                        "95% CI": "-",
-                        "Interpretation": "Overall correct classification rate",
-                    },
-                    {
-                        "Metric": "Accuracy",
-                        "Value": f"{accuracy:.4f}",
-                        "95% CI": "-",
-                        "Interpretation": "Overall correct classification rate",
-                    },
-                    {
-                        "Metric": "Youden's Index",
-                        "Value": f"{youden_j:.4f}",
-                        "95% CI": "-",
-                        "Interpretation": "Summary measure (Se + Sp - 1)",
+                        "Metric": nnt_label,
+                        "Value": f"{nnt_abs:.2f}" if nnt_abs != np.inf else "Inf",
+                        "95% CI": nnt_ci_display,
+                        "Interpretation": f"{nnt_badge} Patients to treat/harm for 1 outcome",
                     },
                 ]
+                risk_df = pd.DataFrame(table2_data)
 
-                risk_df = pd.DataFrame(risk_data)
+                # --- EXPLANATION BLOCK FOR LIKELIHOOD RATIOS ---
+                lr_explanation = """
+                <div class='alert alert-light border mt-3'>
+                    <h5>💡 Interpreting Likelihood Ratios (EBM Standards)</h5>
+                    <p>Likelihood ratios indicate how much a test result will change the probability of having a disease.</p>
+                    <ul>
+                        <li><strong>LR+ > 10:</strong> Large and often conclusive increase in the likelihood of disease (Strong Rule-In).</li>
+                        <li><strong>LR+ 5-10:</strong> Moderate increase in likelihood.</li>
+                        <li><strong>LR- < 0.1:</strong> Large and often conclusive decrease in the likelihood of disease (Strong Rule-Out).</li>
+                        <li><strong>LR- 0.1-0.2:</strong> Moderate decrease in likelihood.</li>
+                        <li><strong>Value of 1.0:</strong> The test provides no information.</li>
+                    </ul>
+                </div>
+                """
+                msg = msg + lr_explanation
 
             except (ZeroDivisionError, ValueError, KeyError) as e:
                 logger.error(f"Risk metrics calculation error: {e}")
@@ -844,7 +846,11 @@ def calculate_chi2(
 
 
 def calculate_kappa(
-    df: pd.DataFrame, col1: str, col2: str, var_meta: dict[str, Any] | None = None
+    df: pd.DataFrame,
+    col1: str,
+    col2: str,
+    weights: str | None = None,
+    var_meta: dict[str, Any] | None = None,
 ) -> tuple[
     pd.DataFrame | None,
     str | None,
@@ -883,12 +889,24 @@ def calculate_kappa(
         logger.warning("No data after dropping NAs")
         return None, "No data after dropping NAs", None, missing_data_info
 
-    y1 = data[col1].astype(str)
-    y2 = data[col2].astype(str)
+    y1 = data[col1]
+    y2 = data[col2]
 
     try:
-        kappa = cohen_kappa_score(y1, y2)
+        # Convert to numeric if possible for weighted kappa
+        try:
+            y1_num = pd.to_numeric(y1, errors="coerce")
+            y2_num = pd.to_numeric(y2, errors="coerce")
+            if y1_num.notna().all() and y2_num.notna().all():
+                kappa = cohen_kappa_score(y1_num, y2_num, weights=weights)
+            else:
+                kappa = cohen_kappa_score(
+                    y1.astype(str), y2.astype(str), weights=weights
+                )
+        except Exception:
+            kappa = cohen_kappa_score(y1.astype(str), y2.astype(str), weights=weights)
 
+        # Landis & Koch (1977) Scale for Interpretation
         if kappa < 0:
             interp = "Poor agreement"
             badge = get_badge_html("Poor", "danger")
@@ -905,12 +923,19 @@ def calculate_kappa(
             interp = "Substantial agreement"
             badge = get_badge_html("Substantial", "success")
         else:
-            interp = "Perfect/Almost perfect agreement"
+            interp = "Almost perfect agreement"
             badge = get_badge_html("Perfect", "success")
 
+        weight_label = (
+            f" ({weights.capitalize()} Weighted)" if weights else " (Unweighted)"
+        )
         res_df = pd.DataFrame(
             {
-                "Statistic": ["Cohen's Kappa", "N (Pairs)", "Interpretation"],
+                "Statistic": [
+                    f"Cohen's Kappa{weight_label}",
+                    "N (Pairs)",
+                    "Interpretation (Landis & Koch)",
+                ],
                 "Value": [f"{kappa:.4f}", f"{len(data)}", f"{badge} {interp}"],
             }
         )
@@ -1121,9 +1146,6 @@ def analyze_roc(
         else np.nan
     )
 
-    j_scores = tpr - fpr
-    best_idx = np.argmax(j_scores)
-
     ci_lower_f = ci_lower if np.isfinite(ci_lower) else np.nan
     ci_upper_f = ci_upper if np.isfinite(ci_upper) else np.nan
 
@@ -1142,6 +1164,48 @@ def analyze_roc(
     # AUC Confidence Interval Formatting
     auc_ci_str = f"{ci_lower_f:.4f}-{ci_upper_f:.4f}"
 
+    # Calculate Youden Index and best threshold
+    j_scores = tpr - fpr
+    best_idx = np.argmax(j_scores)
+    youden_j = j_scores[best_idx]
+
+    # Approximate F1-score at best threshold
+    from sklearn.metrics import precision_recall_curve
+
+    precisions, recalls, _ = precision_recall_curve(y_true, y_score)
+    f1_scores = (2 * precisions * recalls) / (precisions + recalls + 1e-10)
+    max_f1 = np.max(f1_scores)
+
+    # Calibration Curve (Reliability)
+    from sklearn.calibration import calibration_curve
+
+    prob_true, prob_pred = calibration_curve(y_true, y_score, n_bins=10)
+    cal_fig = go.Figure()
+    cal_fig.add_trace(
+        go.Scatter(
+            x=prob_pred,
+            y=prob_true,
+            mode="lines+markers",
+            name="Calibration",
+            line=dict(color=COLORS["primary"]),
+        )
+    )
+    cal_fig.add_trace(
+        go.Scatter(
+            x=[0, 1],
+            y=[0, 1],
+            mode="lines",
+            name="Perfect",
+            line=dict(color="gray", dash="dash"),
+        )
+    )
+    cal_fig.update_layout(
+        title="Calibration Plot",
+        xaxis_title="Predicted Prob",
+        yaxis_title="Observed Fraction",
+        template="simple_white",
+    )
+
     stats_dict = {
         "AUC": f"{auc_val:.4f}",
         "95% CI": auc_ci_str,
@@ -1149,8 +1213,11 @@ def analyze_roc(
         "Method": f"{m_name} (SE={se:.4f})" if se else m_name,
         "Interpretation": f"{auc_badge}",
         "Best Threshold": f"{thresholds[best_idx]:.4f}",
+        "Youden Index (J)": f"{youden_j:.4f}",
         "Sensitivity at Best": f"{tpr[best_idx]:.4f}",
         "Specificity at Best": f"{1 - fpr[best_idx]:.4f}",
+        "Max F1-Score": f"{max_f1:.4f}",
+        "calibration_plot": cal_fig,
     }
 
     # Plotly Figure
@@ -1215,17 +1282,14 @@ def analyze_roc(
 
 
 def calculate_icc(
-    df: pd.DataFrame, cols: list[str]
-) -> tuple[pd.DataFrame | None, str | None, pd.DataFrame | None]:
+    df: pd.DataFrame,
+    cols: list[str],
+) -> tuple[pd.DataFrame | None, str | None, pd.DataFrame | None, dict[str, Any] | None]:
     """
-    Calculate Intraclass Correlation Coefficient (ICC).
-    Uses statsmodels ANOVA to compute ICC(1), ICC(2), ICC(3).
-
-    Returns:
-        tuple: (icc_results_df, error_msg, anova_table)
+    Calculate Intraclass Correlation Coefficient (ICC) using pingouin.
     """
     if len(cols) < 2:
-        return None, "Neet at least 2 columns for ICC", None
+        return None, "Need at least 2 columns for ICC", None, {}
 
     # --- DATA PREPARATION ---
     missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -1237,7 +1301,7 @@ def calculate_icc(
             df,
             required_cols=cols,
             numeric_cols=cols,
-            var_meta=None,  # ICC doesn't usually use var_meta mapping for the scores themselves
+            var_meta=None,
             missing_codes=missing_codes,
             handle_missing=strategy,
         )
@@ -1249,107 +1313,48 @@ def calculate_icc(
         return None, "No data available after cleaning", None, missing_info
 
     try:
-        # Reshape to long format for ANOVA
-        # Subject | Rater | Score
+        # Reshape to long format for pingouin
         n = len(data)
-        k = len(cols)
-
-        # Create long format
         data = data.copy()
         data["Subject"] = range(n)
         long_df = data.melt(
             id_vars="Subject", value_vars=cols, var_name="Rater", value_name="Score"
         )
 
-        # Grand Mean
-        grand_mean = long_df["Score"].mean()
+        # Calculate ICC with pingouin
+        icc_results = pg.intraclass_corr(
+            data=long_df, targets="Subject", raters="Rater", ratings="Score"
+        )
 
-        # Calculate Sum of Squares
-        # SST (Total)
-        sst = ((long_df["Score"] - grand_mean) ** 2).sum()
-        df_t = n * k - 1
+        # Simplify output for user
+        # We usually show all types but can highlight based on common needs
+        res_display = icc_results[
+            ["Type", "Description", "ICC", "F", "df1", "df2", "pval", "CI95%"]
+        ].copy()
 
-        # SSBS (Between Subjects)
-        subj_means = long_df.groupby("Subject")["Score"].mean()
-        ssbs = k * ((subj_means - grand_mean) ** 2).sum()
-        df_bs = n - 1
-        msbs = ssbs / df_bs
+        # Add interpretation based on Cicchetti (1994)
+        def interpret_icc(val):
+            if val < 0.40:
+                return "Poor"
+            if val < 0.60:
+                return "Fair"
+            if val < 0.75:
+                return "Good"
+            return "Excellent"
 
-        # SSBM (Between Methods/Raters)
-        rater_means = long_df.groupby("Rater")["Score"].mean()
-        ssbm = n * ((rater_means - grand_mean) ** 2).sum()
-        df_bm = k - 1
-        msbm = ssbm / df_bm
+        res_display["Strength"] = res_display["ICC"].apply(interpret_icc)
 
-        # SSWS (Within Subjects)
-        ssws = sst - ssbs
-        df_ws = df_t - df_bs
+        # Format CI column for readability
+        res_display["95% CI"] = res_display["CI95%"].apply(
+            lambda x: f"[{x[0]:.3f}, {x[1]:.3f}]"
+        )
+        res_display = res_display.drop(columns=["CI95%"])
 
-        # SSE (Error)
-        sse = ssws - ssbm
-        df_e = df_ws - df_bm
-        mse = sse / df_e
+        # Create ANOVA-like table for reference (extracting from pingouin if needed or providing simplified version)
+        # Pingouin doesn't return the full ANOVA table in one go easily, so we can just return the ICC results
+        # which include F-stats and degrees of freedom.
 
-        # --- ICC Formulas (Shrout & Fleiss, 1979) ---
-
-        # ICC(1): One-way random
-        # Absolute agreement, rater effect is random noise
-        # icc1 = (msbs - msws) / (msbs + (k-1)*msws)
-        # Using correct MSWS term for ICC(1) is actually just MSWS from One-way ANOVA,
-        # but here we derived MSWS from Two-way. For One-way, MSWS_1 = (SST - SSBS) / (n(k-1))
-        # Let's stick to the standard Two-Way output which is what people usually want for "Rater consistency"
-
-        # ICC(1) - One Way Random - Rare in this context but calculated as:
-        # MSW_oneway = (sst - ssbs) / (n*(k-1))
-        # icc1 = (msbs - MSW_oneway) / (msbs + (k-1)*MSW_oneway)
-
-        # ICC(2): Two-way random (Absolute Agreement) <--- Most common
-        # Raters are random sample from population of raters
-        icc2 = (msbs - mse) / (msbs + (k - 1) * mse + (k / n) * (msbm - mse))
-
-        # ICC(3): Two-way mixed (Consistency)
-        # Raters are fixed (e.g., the specific machines used)
-        icc3 = (msbs - mse) / (msbs + (k - 1) * mse)
-
-        # Formatting results
-        res_data = [
-            # {'Type': 'ICC(1) One-way random', 'ICC': icc1, 'Description': 'Reliability if raters were different for each subject'},
-            {
-                "Type": "ICC(2) Absolute Agreement",
-                "ICC": icc2,
-                "Description": "Raters are random (Generalize to other raters)",
-            },
-            {
-                "Type": "ICC(3) Consistency",
-                "ICC": icc3,
-                "Description": "Raters are fixed (Specific to these raters)",
-            },
-        ]
-
-        results_df = pd.DataFrame(res_data)
-
-        # Anova Table for reference
-        anova_data = [
-            {
-                "Source": "Subjects",
-                "SS": ssbs,
-                "df": df_bs,
-                "MS": msbs,
-                "F": msbs / mse if mse > 0 else np.nan,
-            },
-            {
-                "Source": "Raters",
-                "SS": ssbm,
-                "df": df_bm,
-                "MS": msbm,
-                "F": msbm / mse if mse > 0 else np.nan,
-            },
-            {"Source": "Error", "SS": sse, "df": df_e, "MS": mse, "F": np.nan},
-            {"Source": "Total", "SS": sst, "df": df_t, "MS": np.nan, "F": np.nan},
-        ]
-        anova_df = pd.DataFrame(anova_data)
-
-        return results_df, None, anova_df, missing_info
+        return res_display, None, None, missing_info
 
     except Exception as e:
         logger.error(f"ICC calculation failed: {e}")
