@@ -676,7 +676,12 @@ def diag_server(
                         "type": "text",
                         "data": f"Variables: {input.sel_chi_v1()} vs {input.sel_chi_v2()}",
                     },
-                    {"type": "text", "data": status_text},
+                    {
+                        "type": "html"
+                        if "<" in status_text and ">" in status_text
+                        else "text",
+                        "data": status_text,
+                    },
                     {
                         "type": "contingency_table",
                         "header": "Contingency Table",
