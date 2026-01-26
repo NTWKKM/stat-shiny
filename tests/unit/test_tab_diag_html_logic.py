@@ -1,4 +1,3 @@
-import pytest
 from tabs.tab_diag import _create_status_elements
 
 
