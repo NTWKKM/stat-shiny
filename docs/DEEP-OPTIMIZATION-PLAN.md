@@ -626,7 +626,7 @@ TARGET (Modular):
 | 6-7 | Data module optimization | 🟢 MEDIUM | 14 | 📅 Week 6 |
 | 7-8 | Testing expansion & CI/CD | 🟢 MEDIUM | 25 | 📅 Week 7 |
 
-**Phase 2B Total: ~162 hours (~20 hours/week)**
+### Phase 2B Total: ~162 hours (~20 hours/week)
 
 ### Phase 3: Advanced Features & Polish (Weeks 9-16)
 
@@ -640,9 +640,9 @@ TARGET (Modular):
 | 14-15 | Documentation completion | 🟢 MEDIUM | 12 |
 | 15-16 | Deployment & QA | 🟢 MEDIUM | 18 |
 
-**Phase 3 Total: ~111 hours (~14 hours/week)**
+### Phase 3 Total: ~111 hours (~14 hours/week)
 
-**Grand Total: ~273 hours = 6.8 weeks full-time equivalent**
+### Grand Total: ~273 hours = 6.8 weeks full-time equivalent
 
 ---
 
@@ -867,4 +867,4 @@ def validate_against_r_benchmark(python_results, r_results_csv):
 
 ---
 
-**END OF OPTIMIZATION PLAN**
+## END OF OPTIMIZATION PLAN
