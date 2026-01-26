@@ -488,7 +488,7 @@ def calculate_chi2(
             stats_res["Effect Interpretation"] = badge
 
             if (ex < 5).any() and is_2x2 and not use_correction:
-                msg = "⚠️ Warning: Expected count < 5. Consider Fisher's Exact Test."
+                msg = "⚠️ Warning: Expected count &lt; 5. Consider Fisher's Exact Test."
 
         stats_df = pd.DataFrame(stats_res, index=[0]).T.reset_index()
         stats_df.columns = ["Statistic", "Value"]
