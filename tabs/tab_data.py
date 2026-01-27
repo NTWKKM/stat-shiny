@@ -106,7 +106,7 @@ def data_ui() -> ui.TagChild:
                                     ui.div(
                                         ui.h6(
                                             "🔍 Missing Data",
-                                            style="color: #0066cc;",
+                                            style=f"color: {COLORS['primary']};",
                                         ),
                                         ui.input_text(
                                             "txt_missing_codes",
@@ -984,9 +984,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             if "error" in res:
                 return ui.div(f"Error: {res['error']}", class_="alert alert-danger")
 
-            color = (
-                "#198754" if res["is_normal"] else "#dc3545"
-            )  # bootstrap success/danger
+            color = COLORS["success"] if res["is_normal"] else COLORS["danger"]
             status_text = (
                 "Normal Distribution" if res["is_normal"] else "NOT Normal Distribution"
             )
@@ -1062,24 +1060,28 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             return ui.div(
                 ui.p(
                     "Select a variable to view missing data configuration.",
-                    style="color: #999; font-size: 0.85em;",
+                    style=f"color: {COLORS['text_secondary']}; font-size: 0.85em;",
                 ),
             )
 
         meta = var_meta.get()
         if not meta or var_name not in meta:
-            return ui.p("No config yet", style="color: #999; font-size: 0.85em;")
+            return ui.p(
+                "No config yet",
+                style=f"color: {COLORS['text_secondary']}; font-size: 0.85em;",
+            )
 
         missing_vals = meta[var_name].get("missing_values", [])
         if not missing_vals:
             return ui.p(
-                "No missing codes configured", style="color: #999; font-size: 0.85em;"
+                "No missing codes configured",
+                style=f"color: {COLORS['text_secondary']}; font-size: 0.85em;",
             )
 
         codes_str = ", ".join(str(v) for v in missing_vals)
         return ui.p(
             f"✓ Codes: {codes_str}",
-            style="color: #198754; font-weight: 500; font-size: 0.9em;",
+            style=f"color: {COLORS['success']}; font-weight: 500; font-size: 0.9em;",
         )
 
     @reactive.Effect
@@ -1187,8 +1189,8 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                 if (row_idx, col_name) in error_cells:
                     styles[col_idx] = (
                         "background-color: #fee; "
-                        "border: 1px solid #E74856; "
-                        "color: #E74856; "
+                        f"border: 1px solid {COLORS['danger']}; "
+                        f"color: {COLORS['danger']}; "
                         "font-weight: 600;"
                     )
             return styles
@@ -1229,15 +1231,16 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                 f"📊 {len(d):,} rows x {len(d.columns)} cols", style="font-weight: 600;"
             ),
             ui.div(
-                f"📦 Memory: {mem_usage:.2f} MB", style="font-size: 0.9em; color: #666;"
+                f"📦 Memory: {mem_usage:.2f} MB",
+                style=f"font-size: 0.9em; color: {COLORS['text_secondary']};",
             ),
             ui.div(
                 f"📄 {info.get('name', 'Unknown')}" if info else "",
                 style="font-size: 0.85em; font-style: italic; margin-top: 4px;",
             ),
             style=(
-                "background: #f8f9fa; padding: 10px; border-radius: 6px; "
-                "margin-top: 10px; border: 1px solid #e9ecef;"
+                f"background: {COLORS['smoke_white']}; padding: 10px; border-radius: 6px; "
+                f"margin-top: 10px; border: 1px solid {COLORS['border']};"
             ),
         )
 
