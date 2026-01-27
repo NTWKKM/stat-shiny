@@ -833,48 +833,74 @@ def core_regression_ui() -> ui.TagChild:
             ui.nav_panel(
                 "ℹ️ Reference",
                 ui.markdown("""
-                ## 📚 Logistic Regression Reference
+                ## 📚 Core Regression Reference Guide
+
+                ### 1. 📈 Binary Outcomes (Logistic Regression)
+                **Use For:** Predicting Yes/No outcomes (e.g., Disease vs Healthy, Died vs Survived).
                 
-                ### When to Use:
-                * Predicting binary outcomes (Disease/No Disease)
-                * Understanding risk/protective factors (Odds Ratios)
-                * Adjustment for confounders in observational studies
+                **Interpretation:**
+                *   **Odds Ratio (OR):**
+                    *   **OR > 1:** Risk factor (Increases likelihood of event).
+                    *   **OR < 1:** Protective factor (Decreases likelihood).
+                    *   **OR = 1:** No association.
                 
-                ### Interpretation:
+                **Methods:**
+                *   **Standard (MLE):** Best for large datasets. Fails with "Perfect Separation".
+                *   **Firth's Penalized:** Use for small samples or rare events. Fixes perfect separation.
+                *   **Auto:** Automatically switches to Firth if separation is detected.
+
+                ---
+
+                ### 2. 📉 Continuous Outcomes (Linear Regression)
+                **Use For:** Predicting numeric values (e.g., Blood Pressure, Length of Stay, Cost).
                 
-                **Odds Ratios (OR):**
-                * **OR > 1**: Risk Factor (Increased odds) 🔴
-                * **OR < 1**: Protective Factor (Decreased odds) 🟢
-                * **OR = 1**: No Effect
-                * **CI crosses 1**: Not statistically significant
+                **Interpretation:**
+                *   **Beta Coefficient (β):**
+                    *   **β > 0:** Positive relationship (As X increases, Y increases).
+                    *   **β < 0:** Negative relationship (As X increases, Y decreases).
+                *   **R-squared (R²):** Percentage of variance explained by the model (>0.7 is usually strong).
+
+                **Assumptions Checking:**
+                *   **Linearity:** Residuals vs Fitted plot should be flat.
+                *   **Normality:** Q-Q plot points should follow the diagonal line.
+                *   **Homoscedasticity:** Scale-Location plot should have constant spread.
+
+                ---
+
+                ### 3. 🔢 Count Outcomes (Poisson / Neg. Binomial)
+                **Use For:** Count data (e.g., Number of exacerbations, Days in hospital).
                 
-                **Example:**
-                * OR = 2.5 (CI 1.2-5.0): Exposure increases odds of outcome by 2.5× (Range: 1.2× to 5×)
+                **Model Choice:**
+                *   **Poisson:** Variance = Mean. Good for simple counts.
+                *   **Negative Binomial:** Variance > Mean (Overdispersion). Use if Poisson fails.
+                *   **Zero-Inflated:** If there are excess zeros (e.g., many patients with 0 visits).
+
+                **Interpretation:**
+                *   **Incidence Rate Ratio (IRR):** Similar to OR. 
+                    *   **IRR = 1.5:** Count increases by 50% for every 1-unit increase in X.
+
+                ---
+
+                ### 4. 🔄 Repeated Measures (GEE / LMM)
+                **Use For:** Clustered data (e.g., Multiple visits per patient, Eyes per patient).
+
+                **Model Choice:**
+                *   **GEE (Generalized Estimating Equations):** Population-averaged effects. Robust to correlation structure errors. Best for binary/count outcomes.
+                *   **LMM (Linear Mixed Models):** Subject-specific effects. Handles missing data better. Best for continuous outcomes.
+
+                **Correlation Structures:**
+                *   **Exchangeable:** All time points equally correlated.
+                *   **AR(1):** Correlation decays over time.
+                *   **Unstructured:** No assumption (requires more data).
+
+                ---
+
+                ### 5. 🔛 Subgroup Analysis
+                **Use For:** Checking if treatment effect differs across groups (Heterogeneity).
                 
-                ### Regression Methods:
-                
-                **Standard (MLE)** - Most common
-                * Uses Maximum Likelihood Estimation
-                * Fast and reliable for most datasets
-                * Issues: Perfect separation causes failure
-                
-                **Firth's (Penalized)** - For separation issues
-                * Reduces bias using penalized likelihood
-                * Better for rare outcomes or small samples
-                * Handles perfect separation well
-                
-                **Auto** - Recommended
-                * Automatically detects separation
-                * Uses Firth if needed, Standard otherwise
-                
-                ### Perfect Separation:
-                Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
-                * **Solution:** Use **Auto** or **Firth's** method, or exclude the variable.
-                
-                ### Subgroup Analysis:
-                * Tests if treatment effect varies by group (Interaction test)
-                * **P-interaction < 0.05**: Significant heterogeneity → Report subgroups separately
-                * **P-interaction ≥ 0.05**: Homogeneous effect → Report overall effect
+                **Interpretation:**
+                *   **P-interaction < 0.05:** Significant difference in effect. Report results separately for each group.
+                *   **P-interaction ≥ 0.05:** Consistent effect. Report the overall main effect.
                 """),
             ),
         ),

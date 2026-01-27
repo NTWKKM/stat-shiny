@@ -158,14 +158,29 @@ def advanced_inference_ui():
                     ui.card_header("Advanced Inference Reference"),
                     ui.markdown("""
                         **Mediation Analysis:**
-                        * **ACME**: Average Causal Mediation Effect (Indirect Effect)
-                        * **ADE**: Average Direct Effect
-                        * **Total Effect**: ACME + ADE
-                        
-                        **Collinearity:**
-                        * **VIF > 5-10**: High multicollinearity
-                        * **Tolerance < 0.1**: High multicollinearity
-                     """),
+                        * **ACME (Indirect Effect):** The portion of the effect mediated by M. (Effect of X on Y via M).
+                        * **ADE (Direct Effect):** The effect of X on Y, keeping M constant.
+                        * **Total Effect:** ACME + ADE.
+
+                        **Collinearity Diagnostics:**
+                        * **VIF (Variance Inflation Factor):**
+                            * **VIF > 5:** Moderate multicollinarity (Caution).
+                            * **VIF > 10:** Severe multicollinarity (Consider removing variable).
+                        * **Tolerance:** 1/VIF. Values < 0.1 indicate problems.
+
+                        **Model Diagnostics (OLS):**
+                        * **Residuals vs Fitted:** Checks linearity. Ideally, points fluctuate randomly around 0 (horizontal line).
+                        * **Q-Q Plot:** Checks normality of residuals. Points should fall along the diagonal line.
+                        * **Cook's Distance:** Measures influence. Points with Cook's D > 4/n (or > 1) are highly influential and may skew results.
+
+                        **Heterogeneity (Meta-Analysis):**
+                        * **I-squared (I²):**
+                            * **< 25%:** Low heterogeneity.
+                            * **25-75%:** Moderate heterogeneity.
+                            * **> 75%:** High heterogeneity.
+                        * **Q-Statistic P-value:**
+                            * **P < 0.05:** Significant heterogeneity exists.
+                        """),
                 ),
             ),
         ),
