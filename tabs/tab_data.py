@@ -1098,6 +1098,19 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                 logger.error(f"Transformation error: {e}")
                 ui.notification_show(f"❌ Transformation failed: {e}", type="error")
 
+    @render.text
+    def txt_trans_preview():
+        """
+        Show a text preview/status of the selected transformation.
+        """
+        var_name = input.sel_trans_var()
+        method = input.sel_trans_method()
+
+        if not var_name or var_name == "Select...":
+            return "Please select a variable and transformation method."
+
+        return f"Ready to apply '{method}' transformation to '{var_name}'."
+
     # --- Missing Data Configuration Handlers ---
     @render.ui
     def ui_missing_preview():

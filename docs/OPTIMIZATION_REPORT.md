@@ -1269,7 +1269,7 @@ class MissingDataStatement:
 
 For future modules, adopt the decomposition pattern established in the refactoring:
 
-```
+```text
 PATTERN: Multi-Page Tab Module
 
 tabs/
@@ -1292,7 +1292,7 @@ utils/
 
 **Example Applied to Regression**:
 
-```
+```text
 tabs/
 ├── tab_core_regression.py (40 lines - simple dispatcher)
 │   def core_regression_ui(id): return ui.page()
@@ -1484,7 +1484,7 @@ Your statistical application has excellent **foundational architecture** but nee
 
 ### Critical Path (Must Do)
 
-```
+```text
 WEEK 1: Regression Refactor
 ├── Day 1-2: Create tabs/regression/ structure
 ├── Day 3-4: Extract logistic regression module

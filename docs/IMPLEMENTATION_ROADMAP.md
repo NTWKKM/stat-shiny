@@ -7,7 +7,7 @@
 
 ---
 
-### Step 1: อัปเกรด Backend Logic (`utils/data_cleaning.py`)
+## Step 1: อัปเกรด Backend Logic (`utils/data_cleaning.py`)
 
 คุณต้องเพิ่มไลบรารี `sklearn` และ `scipy` เข้าไปเพื่อรองรับ MICE, KNN และ Statistical Tests เพิ่มฟังก์ชันเหล่านี้ต่อท้ายไฟล์เดิม:
 
@@ -116,7 +116,7 @@ def check_assumptions(series: pd.Series) -> dict[str, Any]:
 
 ---
 
-### Step 2: ปรับปรุง UI (`tabs/tab_data.py`)
+## Step 2: ปรับปรุง UI (`tabs/tab_data.py`)
 
 ปรับโครงสร้างใน `data_ui` โดยเพิ่ม **Tabset** หรือ **Accordion** แยกสำหรับการจัดการข้อมูลขั้นสูง เพื่อไม่ให้หน้าจอรกรุงรัง
 
@@ -190,7 +190,7 @@ ui.navset_card_tab(
 
 ---
 
-### Step 3: เชื่อมต่อ Server Logic (`tabs/tab_data.py`)
+## Step 3: เชื่อมต่อ Server Logic (`tabs/tab_data.py`)
 
 เพิ่ม Logic ใน `data_server` เพื่อรองรับปุ่มกดใหม่ๆ:
 
