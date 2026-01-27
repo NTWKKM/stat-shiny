@@ -80,18 +80,22 @@ The data flow is standardized to ensure consistent handling of missing values an
   - **Row-level Reporting**: Provides exact row indices and unique offending values for fast debugging.
 - **Configuration**: Individual variable type casting and missing value strategy selection based on the health report.
 
-### 2. Central Preparation (`utils/data_cleaning.py`)
+### 2. **Configuration & Cleaning**
 
-- **`prepare_data_for_analysis()`**: Every statistical module calls this before execution.
-- **Tasks**: Handles missing value exclusion (Listwise/Pairwise), type enforcement, and logging analyzed indices.
-- **Metadata**: Generates a `missing_data_info` dictionary detailing what was excluded and why.
+- **Interactive Setup**: Users interactively cast variable types and choose missing value strategies.
+- **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
 
-- When a module finishes analysis, it generates an HTML report using `generate_report()`.
-- The `missing_data_info` is passed to `create_missing_data_report_html()`.
-- **Standards**:
+### 3. Central Preparation (`utils/data_cleaning.py`)
+
+- **Before Analysis**: Data is passed through `prepare_data_for_analysis()` which handles exclusion logic and logging.
+- **Outlier Logic**: `handle_outliers()` supports 'iqr' and 'zscore' detection with 'remove', 'winsorize', or 'cap' actions.
+
+### 4. Integrated Reporting (`utils/formatting.py`)
+
+- **Missing Data Statistics**: Automatically analyzed and included in the final report.
   - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation). **Logistic Regression** now includes deep diagnostics (**AUC/C-stat, Hosmer-Lemeshow, AIC/BIC**) with standardized interpretations.
   - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) and **STROBE/TRIPOD alignment text** provide immediate clinical and reporting context.
-- **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
+  - **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
 
 ---
 
