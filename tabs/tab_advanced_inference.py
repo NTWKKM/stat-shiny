@@ -33,7 +33,13 @@ COLORS = get_color_palette()
 
 @module.ui
 def advanced_inference_ui():
-    """UI for Advanced Inference."""
+    """
+    Constructs the Advanced Inference user interface with tabs for mediation analysis, collinearity diagnostics, OLS model diagnostics, heterogeneity testing, and an informational reference.
+    
+    Builds and returns a composite UI containing:
+    - A header with dataset/matching status controls.
+    - Tabbed panels for Mediation Analysis, Collinearity, Model Diagnostics (OLS), Heterogeneity Testing, and a Reference card describing key metrics (ACME/ADE/Total Effect, VIF/Tolerance guidance, residual diagnostics, Cook's Distance thresholds, and heterogeneity interpretation).
+    """
     return ui.div(
         # Title + Data Summary inline
         ui.div(

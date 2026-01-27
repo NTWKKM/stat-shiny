@@ -13,6 +13,15 @@ from utils.data_cleaning import (
 class TestAdvancedCleaning:
     @pytest.fixture
     def sample_df(self):
+        """
+        Provide a small sample DataFrame for tests with numeric columns that contain specific missing values and a categorical column.
+        
+        Returns:
+            pd.DataFrame: DataFrame with 5 rows and columns:
+                - A (float): [1.0, 2.0, NaN, 4.0, 5.0] (NaN at index 2)
+                - B (float): [10.0, NaN, 30.0, 40.0, 50.0] (NaN at index 1)
+                - C (object): ["x", "y", "z", "w", "v"] (categorical strings)
+        """
         np.random.seed(42)
         return pd.DataFrame(
             {
