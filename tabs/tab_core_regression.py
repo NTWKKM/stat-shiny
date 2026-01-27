@@ -90,10 +90,10 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
 def core_regression_ui() -> ui.TagChild:
     """
     Builds the main user interface for the core regression module.
-    
+
     Provides the dataset selector and info header plus a tabbed interface with controls, actions, and result panels for:
     Binary Outcomes (logistic), Subgroup Analysis (logit), Count & Special (Poisson, Negative Binomial, GLM), Continuous Outcomes (linear), Repeated Measures (GEE/LMM), and a Reference guide.
-    
+
     Returns:
         ui.TagChild: A UI fragment containing the dataset selector/info and the tabbed analysis panels with inputs, run/download controls, and result containers.
     """
@@ -1037,9 +1037,9 @@ def core_regression_server(
     def _update_inputs():
         """
         Update all regression module input widgets to reflect the currently active dataframe.
-        
+
         Inspects the active dataframe and refreshes choices and sensible defaults across tabs (Binary Logit, Logit Subgroup, Poisson, Negative Binomial, Linear, GLM, and Repeated Measures). If no dataframe is available or it is empty, no updates are performed.
-        
+
         Detailed behavior:
         - Detects binary, count (non-negative integer), numeric, and candidate subgroup columns to build choice lists.
         - Chooses preferred default variables by keyword heuristics for outcomes, treatments, subgroups, offsets, time/subject identifiers, and predictors.
@@ -2907,7 +2907,7 @@ def core_regression_server(
     def dl_sg_json():
         """
         Produce a JSON-formatted representation of the latest subgroup analysis results.
-        
+
         Yields:
             str: A JSON-formatted string of the subgroup results (indent=2). Non-JSON-native types (e.g., NumPy scalars/arrays) are converted to strings to ensure serializability.
         """
@@ -2924,7 +2924,7 @@ def core_regression_server(
     def out_sg_logit_status():
         """
         Render a loading indicator while the logistic subgroup analysis is running.
-        
+
         Returns:
             ui.TagChild | None: A loading UI element when the subgroup analysis is in progress, otherwise None.
         """
@@ -2937,7 +2937,7 @@ def core_regression_server(
     def _run_sg_logit():
         """
         Execute a logistic subgroup analysis using the current dataset and UI selections.
-        
+
         Validates that outcome, treatment, and subgroup are selected, shows progress notifications, and sets the running state while the analysis executes. On success stores the analysis results (including a generated `forest_plot`) in `logit_sg_res`; on error stores an error in `logit_sg_res` and displays an error notification. Does not return a value.
         """
         d = current_df()
@@ -2998,12 +2998,12 @@ def core_regression_server(
     def out_sg_logit_result():
         """
         Render the logistic subgroup analysis results UI.
-        
+
         If no results are available, returns a placeholder prompting the user to run the analysis.
         If the results contain an error, returns an error alert. Otherwise, returns a composed UI
         containing a forest plot card, a detailed results table card, and an interaction test card
         displaying the interaction p-value and a heterogeneity message.
-        
+
         Returns:
             ui.TagChild: A UI element representing the subgroup analysis output (placeholder, error alert,
             or cards with forest plot, results table, and interaction test).
@@ -3065,9 +3065,9 @@ def core_regression_server(
     def btn_dl_sg_logit():
         """
         Produce an HTML report for the completed logistic subgroup analysis.
-        
+
         Yields a single HTML string containing a forest plot and a detailed results table when analysis results exist; yields the message "No results available." if no results are present.
-        
+
         Returns:
             generator (str): Yields the HTML report string or an availability message.
         """

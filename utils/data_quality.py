@@ -10,11 +10,11 @@ def _is_numeric_column(
 ) -> tuple[bool, pd.Series, pd.Series, pd.Series, int]:
     """
     Determine whether a pandas Series should be treated as a numeric column and identify non-standard or unparseable numeric values.
-    
+
     Parameters:
         series (pd.Series): Column values to analyze.
         total_rows (int): Total number of rows in the DataFrame (used to compute the numeric ratio).
-    
+
     Returns:
         tuple:
             is_numeric_col (bool): `True` if more than 50% of entries parse as numbers after coercion, `False` otherwise.
@@ -62,11 +62,11 @@ def _is_numeric_column(
 def _format_row_list(rows: Sequence[Any], max_show: int = 400) -> str:
     """
     Format a sequence of row indices or values into a concise, comma-separated string for reporting.
-    
+
     Parameters:
         rows (Sequence[Any]): Sequence of values (e.g., row indices or category values); each element will be converted to a string.
         max_show (int): Maximum number of items to include before truncating the list and appending a summary of remaining items.
-    
+
     Returns:
         str: A comma-separated string of the items. If `rows` is empty returns an empty string. If the sequence length exceeds `max_show`, the returned string contains the first `max_show` items followed by ", ... (+N more)" where N is the number of omitted items.
     """
@@ -86,16 +86,16 @@ def _format_row_list(rows: Sequence[Any], max_show: int = 400) -> str:
 def check_data_quality(df: pd.DataFrame) -> list[str]:
     """
     Generate human-readable data-quality warnings for each column in the provided DataFrame.
-    
+
     Checks performed for each column:
     - Missing values: reports count and row indices where present.
     - Numeric columns: detects non-standard numeric representations (e.g., "<5", "10%") and reports their row indices and example values.
     - Categorical columns: detects values that look numeric and reports their row indices and example values.
     - Rare categories: when the column is not dominated by unique values (unique ratio < 0.8), reports categories that occur fewer than 5 times.
-    
+
     Parameters:
         df (pd.DataFrame): DataFrame to analyze.
-    
+
     Returns:
         list[str]: A list of formatted warning messages, one per column with detected issues.
     """
