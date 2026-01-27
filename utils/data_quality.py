@@ -46,7 +46,7 @@ def _is_numeric_column(
     )
 
 
-def _format_row_list(rows: list[any], max_show: int = 100) -> str:
+def _format_row_list(rows: list[any], max_show: int = 400) -> str:
     """Helper to format a list of row indices for reporting."""
     if not rows:
         return ""
@@ -84,8 +84,8 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
         missing_count = is_na.sum()
         if missing_count > 0:
             error_rows = df.index[is_na].tolist()
-            # Show detailed list (up to 100) to sync with visualization
-            row_str = _format_row_list(error_rows, max_show=100)
+            # Show detailed list (up to 10000 - practically all) to serve as full log
+            row_str = _format_row_list(error_rows, max_show=10000)
             col_issues.append(f"Missing {missing_count} values at rows `{row_str}`.")
 
         # Type detection helper
@@ -103,7 +103,7 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
                 error_rows = df.index[is_strict_nan].tolist()
                 bad_values = series.loc[is_strict_nan].unique()
 
-                row_str = _format_row_list(error_rows, max_show=100)
+                row_str = _format_row_list(error_rows, max_show=10000)
                 val_str = _format_row_list(
                     bad_values, max_show=20
                 )  # Keep values concise
@@ -124,7 +124,7 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
                 error_rows = df.index[is_numeric_in_text].tolist()
                 bad_values = series.loc[is_numeric_in_text].unique()
 
-                row_str = _format_row_list(error_rows, max_show=100)
+                row_str = _format_row_list(error_rows, max_show=10000)
                 val_str = _format_row_list(bad_values, max_show=20)
 
                 col_issues.append(
