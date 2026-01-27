@@ -18,7 +18,214 @@ The application uses a fluid, multi-menu navbar designed for responsiveness and 
 
 The application is built on a modular architecture where each tab is a self-contained component. While modules follow a common structure for consistency, they are fully initialized during the application startup to ensure immediate availability and a smooth user experience.
 
-![Navigation Workflow](./assets/navigation_sequence.png)
+## 1. Overall Application Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Shiny UI
+    participant Server as Shiny Server
+    participant DataMgmt as Data Management
+    participant Analysis as Core Analysis
+    participant Viz as Visualization
+    participant Report as Report Generator
+    
+    User->>UI: Upload data / Select variables
+    UI->>Server: Trigger data load
+    Server->>DataMgmt: Load & validate data
+    DataMgmt-->>Server: Return validated data + metadata
+    Server-->>UI: Update status & preview
+    
+    User->>UI: Configure analysis parameters
+    UI->>Server: User selections
+    Server->>Analysis: Prepare & run analysis
+    Analysis->>Analysis: Execute statistical tests
+    Analysis-->>Server: Return results
+    
+    Server->>Viz: Generate visualizations
+    Viz-->>Server: Return plots (Plotly/Matplotlib)
+    Server-->>UI: Display results + plots
+    
+    User->>UI: Request report download
+    UI->>Server: Generate report
+    Server->>Report: Compile HTML/PDF report
+    Report-->>Server: Return report file
+    Server-->>UI: Download report
+    UI-->>User: Report downloaded
+```
+
+## 2. Advanced Data Cleaning Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Data Tab UI
+    participant Server as Data Server
+    participant Cleaning as data_cleaning.py
+    participant Quality as data_quality.py
+    participant Viz as visualizations.py
+    
+    User->>UI: Navigate to Cleaning & Imputation
+    UI->>Server: Load numeric columns
+    Server->>Quality: Get missing summary
+    Quality-->>Server: Return missing stats
+    Server->>Viz: Generate missing pattern
+    Viz-->>Server: Return heatmap + bar chart
+    Server-->>UI: Display missing data viz
+    
+    User->>UI: Select imputation method (KNN/MICE)
+    User->>UI: Click "Run Imputation"
+    UI->>Server: Trigger imputation
+    Server->>Cleaning: impute_missing_data(df, cols, method)
+    Cleaning->>Cleaning: Validate inputs
+    Cleaning->>Cleaning: Apply imputation (KNN/MICE/mean/median)
+    Cleaning-->>Server: Return imputed DataFrame
+    Server-->>UI: Show success notification
+    
+    User->>UI: Select transformation (log/sqrt/zscore)
+    UI->>Server: Request transformation
+    Server->>Cleaning: transform_variable(series, method)
+    Cleaning->>Cleaning: Apply transformation
+    Cleaning-->>Server: Return transformed series
+    Server->>Cleaning: check_assumptions(series)
+    Cleaning-->>Server: Return normality test results
+    Server-->>UI: Display transformation preview + tests
+    
+    User->>UI: Configure outlier handling
+    UI->>Server: Trigger outlier detection
+    Server->>Cleaning: handle_outliers(df, cols, method, action)
+    Cleaning->>Cleaning: Detect outliers (IQR/Z-score)
+    Cleaning->>Cleaning: Apply action (winsorize/cap/remove)
+    Cleaning-->>Server: Return cleaned DataFrame
+    Server-->>UI: Show outlier handling results
+```
+
+## 3. Logistic Regression Subgroup Analysis Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Core Regression UI
+    participant Server as Regression Server
+    participant Analysis as SubgroupAnalysisLogit
+    participant Forest as Forest Plot Generator
+    participant Report as HTML Report
+    
+    User->>UI: Navigate to Subgroup Analysis tab
+    UI->>Server: Load available variables
+    Server-->>UI: Populate dropdowns
+    
+    User->>UI: Select outcome, treatment, subgroup
+    User->>UI: Select adjustment variables (optional)
+    User->>UI: Configure minimum counts
+    User->>UI: Click "Run Subgroup Analysis"
+    
+    UI->>Server: Trigger _run_sg_logit()
+    Server->>Server: Validate inputs (outcome, treatment, subgroup)
+    Server->>Server: Check minimum counts per stratum
+    
+    Server->>Analysis: SubgroupAnalysisLogit.run()
+    Analysis->>Analysis: Split data by subgroup levels
+    loop For each subgroup level
+        Analysis->>Analysis: Fit logistic regression
+        Analysis->>Analysis: Extract OR, CI, p-value
+    end
+    Analysis->>Analysis: Perform interaction test
+    Analysis-->>Server: Return subgroup results + interaction p
+    
+    Server->>Forest: Generate forest plot
+    Forest->>Forest: Create Matplotlib figure with ORs + CIs
+    Forest-->>Server: Return base64-encoded plot
+    
+    Server-->>UI: Display forest plot + results table
+    
+    User->>UI: Click "Download Report"
+    UI->>Server: Generate HTML report
+    Server->>Report: Compile results + plot + interaction test
+    Report-->>Server: Return HTML string
+    Server-->>UI: Download HTML file
+```
+
+## 4. Report Generation & Download Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Analysis Tab UI
+    participant Server as Tab Server
+    participant Results as Results Storage
+    participant HTML as HTML Builder
+    participant Download as Download Handler
+    
+    User->>UI: Complete analysis
+    UI->>Server: Analysis request
+    Server->>Server: Run statistical analysis
+    Server->>Results: Store results (reactive.Value)
+    Results-->>Server: Confirm storage
+    Server-->>UI: Display results
+    
+    User->>UI: Click "Download Report"
+    UI->>Server: Trigger download handler
+    Server->>Results: Retrieve stored results
+    Results-->>Server: Return results dict
+    
+    Server->>HTML: Build HTML structure
+    HTML->>HTML: Add header & metadata
+    HTML->>HTML: Add results tables
+    HTML->>HTML: Embed visualizations (base64)
+    HTML->>HTML: Add interpretation text
+    HTML->>HTML: Add footer with timestamp
+    HTML-->>Server: Return complete HTML string
+    
+    Server->>Download: Prepare download response
+    Download->>Download: Set filename (with timestamp)
+    Download->>Download: Set content-type: text/html
+    Download-->>Server: Return download object
+    Server-->>UI: Initiate browser download
+    UI-->>User: File downloaded
+```
+
+## 5. Data Quality Check & Validation Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Data Tab
+    participant Server as Data Server
+    participant Quality as data_quality.py
+    participant Viz as Missing Pattern Viz
+    participant Meta as Variable Metadata
+    
+    User->>UI: Upload CSV/Excel file
+    UI->>Server: File upload event
+    Server->>Server: Read file into DataFrame
+    
+    Server->>Quality: run_data_quality_checks(df, var_meta)
+    Quality->>Quality: Check for missing data
+    Quality->>Quality: Check for numeric in text columns
+    Quality->>Quality: Check for rare categories
+    Quality->>Quality: Check for strict NaN violations
+    Quality-->>Server: Return error_cells dict + warnings
+    
+    Server->>Meta: Parse variable metadata
+    Meta->>Meta: Detect variable types
+    Meta->>Meta: Parse missing value codes
+    Meta-->>Server: Return var_meta dict
+    
+    Server->>Viz: plot_missing_pattern(df)
+    Viz->>Viz: Calculate missing percentages
+    Viz->>Viz: Generate bar chart + heatmap
+    Viz->>Viz: Apply Golden Ratio sampling
+    Viz-->>Server: Return Plotly figure
+    
+    Server-->>UI: Display data preview with highlighted errors
+    Server-->>UI: Show quality warnings accordion
+    Server-->>UI: Display missing pattern visualization
+    
+    User->>UI: Review quality issues
+    User->>UI: Navigate to Cleaning tab
+    Note over User,Server: Proceed to cleaning workflow
+```
 
 ---
 
@@ -61,7 +268,7 @@ The application covers a wide range of medical statistical needs, organized into
 | Category | Modules | Key Features |
 | :--- | :--- | :--- |
 | **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Kappa** (Weighted), **ICC** (pingouin integration), Bland-Altman (LoA CI). |
-| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), Subgroup analysis, Forrest Plots. |
+| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox), Forest Plots. |
 | **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, Time-Varying Cox, G-Computation, Power Analysis. |
 
@@ -77,21 +284,29 @@ The data flow is standardized to ensure consistent handling of missing values an
 - **Immediate Data Health Report**: Uses `check_data_quality()` to perform deep validation:
   - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`) that often appear in medical data but break standard numeric parsing.
   - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories (threshold < 5) which might lead to unstable statistical estimates.
-  - **Row-level Reporting**: Provides exact row indices and unique offending values for fast debugging.
+  - **Detailed Diagnostic Log**: Provides a **complete list of all** row indices for issues, serving as the full "Error Log" to complement the subsampled visual heatmap.(show 10,000 row cap enforced by the implementation)
 - **Configuration**: Individual variable type casting and missing value strategy selection based on the health report.
 
-### 2. Central Preparation (`utils/data_cleaning.py`)
+### 2. **Configuration & Cleaning**
 
-- **`prepare_data_for_analysis()`**: Every statistical module calls this before execution.
-- **Tasks**: Handles missing value exclusion (Listwise/Pairwise), type enforcement, and logging analyzed indices.
-- **Metadata**: Generates a `missing_data_info` dictionary detailing what was excluded and why.
+- **Interactive Setup**: Users interactively cast variable types and choose missing value strategies.
+- **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
+- **UI Standardization**: Recent updates have unified the "Variable Selection" UI across modules (e.g., Table 1, Survival Analysis, Regression), utilizing full-width Selectize inputs with "remove button" plugins for better usability. Action buttons are also standardized to full-width (`w-100`) for consistent click targets.
 
-- When a module finishes analysis, it generates an HTML report using `generate_report()`.
-- The `missing_data_info` is passed to `create_missing_data_report_html()`.
-- **Standards**:
-  - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation). **Logistic Regression** now includes deep diagnostics (**AUC/C-stat, Hosmer-Lemeshow, AIC/BIC**) with standardized interpretations.
+### 3. Central Preparation (`utils/data_cleaning.py`)
+
+- **Before Analysis**: Data is passed through `prepare_data_for_analysis()` which handles exclusion logic and logging.
+- **Outlier Logic**: `handle_outliers()` supports 'iqr' and 'zscore' detection with 'remove', 'winsorize', or 'cap' actions.
+
+### 4. Integrated Reporting (`utils/formatting.py`)
+
+- **Missing Data Statistics**: Automatically analyzed and included in the final report.
+  - **Smart Visualization Sync**: The report is architected to be the "detailed companion" to the visualization, covering "blind spots" if the heatmap is subsampled.
+  - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation).
+  - **Logistic Regression**: Deep diagnostics (AUC/C-stat, Hosmer-Lemeshow, AIC/BIC)
+  - **Subgroup Analysis**: Interaction Tests and Forest Plots
   - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) and **STROBE/TRIPOD alignment text** provide immediate clinical and reporting context.
-- **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
+  - **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
 
 ---
 

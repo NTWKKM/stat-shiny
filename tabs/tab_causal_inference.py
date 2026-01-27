@@ -24,7 +24,19 @@ COLORS = get_color_palette()
 
 @module.ui
 def causal_inference_ui():
-    """UI for Causal Inference."""
+    """
+    Constructs the Causal Inference tab UI with panels for propensity score methods, stratified analysis, sensitivity analysis, balance diagnostics, and reference material.
+    
+    The returned container includes dataset info/selector, inputs and run controls for:
+    - PSM & IPW: treatment/outcome/covariate selectors, run button, and IPW & balance results.
+    - Stratified Analysis: treatment/outcome/stratum selectors, run button, and stratified results.
+    - Sensitivity Analysis: observed estimate and CI inputs, E-value calculator, and results.
+    - Balance Diagnostics: Love plot output.
+    - Reference: explanatory markdown about methods.
+    
+    Returns:
+        ui_div: A Shiny UI div assembling the causal inference interface and its panels.
+    """
     return ui.div(
         ui.h3("🎯 Causal Inference"),
         # Dataset info and selector
@@ -51,6 +63,8 @@ def causal_inference_ui():
                                 "Covariates for Matching",
                                 choices=[],
                                 multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="required",
                         ),

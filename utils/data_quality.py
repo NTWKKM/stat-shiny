@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, Sequence
+
 import pandas as pd
 
 
@@ -7,8 +9,19 @@ def _is_numeric_column(
     series: pd.Series, total_rows: int
 ) -> tuple[bool, pd.Series, pd.Series, pd.Series, int]:
     """
-    Helper to detect if a column is numeric and identify non-standard values.
-    Returns: (is_numeric, numeric_strict, numeric_coerced, is_strict_nan, strict_nan_count)
+    Determine whether a pandas Series should be treated as a numeric column and identify non-standard or unparseable numeric values.
+    
+    Parameters:
+        series (pd.Series): Column values to analyze.
+        total_rows (int): Total number of rows in the DataFrame (used to compute the numeric ratio).
+    
+    Returns:
+        tuple:
+            is_numeric_col (bool): `True` if more than 50% of entries parse as numbers after coercion, `False` otherwise.
+            numeric_strict (pd.Series): Result of a strict numeric conversion where non-numeric entries are `NaN`.
+            numeric_coerced (pd.Series): Numeric conversion after cleaning common non-numeric symbols (e.g., percent signs, currency, comparison symbols); may parse values that strict conversion did not.
+            is_strict_nan (pd.Series): Boolean mask marking positions where strict conversion is `NaN` but the original entry was non-empty (i.e., non-standard numeric-like values).
+            strict_nan_count (int): Number of `True` values in `is_strict_nan`.
     """
     # Try strict conversion
     numeric_strict = pd.to_numeric(series, errors="coerce")
@@ -46,14 +59,45 @@ def _is_numeric_column(
     )
 
 
+def _format_row_list(rows: Sequence[Any], max_show: int = 400) -> str:
+    """
+    Format a sequence of row indices or values into a concise, comma-separated string for reporting.
+    
+    Parameters:
+        rows (Sequence[Any]): Sequence of values (e.g., row indices or category values); each element will be converted to a string.
+        max_show (int): Maximum number of items to include before truncating the list and appending a summary of remaining items.
+    
+    Returns:
+        str: A comma-separated string of the items. If `rows` is empty returns an empty string. If the sequence length exceeds `max_show`, the returned string contains the first `max_show` items followed by ", ... (+N more)" where N is the number of omitted items.
+    """
+    # FIX: Use len(rows) == 0 instead of 'if not rows' to handle numpy arrays safely
+    if len(rows) == 0:
+        return ""
+
+    count = len(rows)
+    if count <= max_show:
+        return ",".join(map(str, rows))
+    else:
+        shown = ",".join(map(str, rows[:max_show]))
+        remaining = count - max_show
+        return f"{shown}, ... (+{remaining} more)"
+
+
 def check_data_quality(df: pd.DataFrame) -> list[str]:
     """
-    Data Quality Checker:
-    1. Numeric Column -> Non-standard values (e.g., "<5", "10%")
-    2. Categorical Column -> Numeric values and Rare categories (<5)
-    3. Missing Data reporting per column
-
-    Returns a list of warning strings for each column with issues.
+    Generate human-readable data-quality warnings for each column in the provided DataFrame.
+    
+    Checks performed for each column:
+    - Missing values: reports count and row indices where present.
+    - Numeric columns: detects non-standard numeric representations (e.g., "<5", "10%") and reports their row indices and example values.
+    - Categorical columns: detects values that look numeric and reports their row indices and example values.
+    - Rare categories: when the column is not dominated by unique values (unique ratio < 0.8), reports categories that occur fewer than 5 times.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame to analyze.
+    
+    Returns:
+        list[str]: A list of formatted warning messages, one per column with detected issues.
     """
     warnings = []
     total_rows = len(df)
@@ -70,10 +114,8 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
         missing_count = is_na.sum()
         if missing_count > 0:
             error_rows = df.index[is_na].tolist()
-            # Show first 5 rows and count
-            row_str = ",".join(map(str, error_rows[:5])) + (
-                "..." if len(error_rows) > 5 else ""
-            )
+            # Show detailed list (up to 10000 - practically all) to serve as full log
+            row_str = _format_row_list(error_rows, max_show=10000)
             col_issues.append(f"Missing {missing_count} values at rows `{row_str}`.")
 
         # Type detection helper
@@ -90,12 +132,12 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
             if strict_nan_count > 0:
                 error_rows = df.index[is_strict_nan].tolist()
                 bad_values = series.loc[is_strict_nan].unique()
-                row_str = ",".join(map(str, error_rows[:5])) + (
-                    "..." if len(error_rows) > 5 else ""
-                )
-                val_str = ",".join(map(lambda v: f"'{v}'", bad_values[:5])) + (
-                    "..." if len(bad_values) > 5 else ""
-                )
+
+                row_str = _format_row_list(error_rows, max_show=10000)
+                val_str = _format_row_list(
+                    bad_values, max_show=20
+                )  # Keep values concise
+
                 col_issues.append(
                     f"Found {strict_nan_count} non-standard values at rows `{row_str}` (Values: `{val_str}`)."
                 )
@@ -111,12 +153,10 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
             if numeric_in_text_count > 0:
                 error_rows = df.index[is_numeric_in_text].tolist()
                 bad_values = series.loc[is_numeric_in_text].unique()
-                row_str = ",".join(map(str, error_rows[:5])) + (
-                    "..." if len(error_rows) > 5 else ""
-                )
-                val_str = ",".join(map(lambda v: f"'{v}'", bad_values[:5])) + (
-                    "..." if len(bad_values) > 5 else ""
-                )
+
+                row_str = _format_row_list(error_rows, max_show=10000)
+                val_str = _format_row_list(bad_values, max_show=20)
+
                 col_issues.append(
                     f"Found {numeric_in_text_count} numeric values inside categorical column at rows `{row_str}` (Values: `{val_str}`)."
                 )
@@ -131,9 +171,7 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
                 rare_vals = val_counts[rare_mask].index.tolist()
 
                 if rare_vals:
-                    val_str = ", ".join(map(lambda v: f"'{v}'", rare_vals[:3])) + (
-                        "..." if len(rare_vals) > 3 else ""
-                    )
+                    val_str = _format_row_list(rare_vals, max_show=20)
                     col_issues.append(
                         f"Found rare categories (<{rare_threshold} times): `{val_str}`."
                     )

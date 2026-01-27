@@ -175,7 +175,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- update_css.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 ## 🏥 Medical Statistical Tool (Shiny for Python)
@@ -194,6 +193,10 @@ This application is a complete statistical workbench organized into modular tabs
   - **Non-standard Numeric**: Smart detection of medical strings like `"<5"`, `">10"`, or currency.
   - **Categorical Integrity**: Identifies numeric values in categorical text and flags rare categories (< 5 occurrences).
 - **Variable Configuration**: Interactive type casting and missing value handling.
+- **Advanced Cleaning**:
+  - **Imputation**: Support for Mean, Median, KNN, and MICE strategies.
+  - **Transformation**: Log, Sqrt, and Z-Score standardization with normality assumption checks (Shapiro-Wilk/K-S).
+  - **Outlier Handling**: Detection (IQR/Z-Score) and treatment (Winsorize, Cap, Remove).
 
 ### 📋 Baseline & Matching
 
@@ -213,7 +216,7 @@ This application is a complete statistical workbench organized into modular tabs
 ### 📈 Core Regression Models
 
 - **GLM Framework**:
-  - **Logistic Regression**: Standard, Auto, and **Firth's Regression** (for rare events).
+  - **Logistic Regression**: Standard, Auto, **Firth's Regression** (rare events), and **Subgroup Analysis** (Forest Plots).
   - **Count Models**: Poisson and Negative Binomial regression.
   - **Linear Regression**: OLS with options for robust standard errors.
 - **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).
@@ -285,7 +288,9 @@ The application uses a centralized styling system to ensure visual consistency a
 Every statistical analysis follows a rigorous, standardized data flow to ensure reliable results:
 
 1. **Ingestion & Quality Check (`tab_data.py`)**: Immediate identification of missingness and data types upon upload or example loading.
-2. **Configuration**: Users interactively cast variable types and choose missing value strategies (e.g., complete-case).
+2. **Configuration & Cleaning**:
+   - **Interactive Setup**: Users interactively cast variable types and choose missing value strategies.
+   - **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
 3. **Central Preparation (`utils/data_cleaning.py`)**: Before analysis, data is passed through `prepare_data_for_analysis()` which handles exclusion logic and logging.
 4. **Integrated Reporting (`utils/formatting.py`)**: Missing data statistics are automatically analyzed and included in the final report for every module.
 
