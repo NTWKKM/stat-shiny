@@ -31,7 +31,12 @@ COLORS = get_color_palette()
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
     """
-    Constructs the baseline matching user interface...
+    Builds the multi-tab Baseline Matching user interface with controls and results panels.
+
+    The returned UI contains five main subtabs: Baseline Characteristics (Table 1) for generating and downloading Table 1 HTML; Propensity Score Matching (PSM) for configuring, running, and inspecting matching results; Matched Data View for previewing, exporting, and analyzing matched data; Sample Size tools (embedded from sample_size module); and Reference & Interpretation guidance. Each subtab groups configuration controls, action buttons, and result/content containers appropriate to its purpose.
+
+    Returns:
+        ui.TagChild: The root navset_tab element representing the complete Baseline Matching UI.
     """
     return ui.navset_tab(
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
@@ -75,6 +80,8 @@ def baseline_matching_ui() -> ui.TagChild:
                             ),
                             choices=[],
                             multiple=True,
+                            width="100%",
+                            options={"plugins": ["remove_button"]},
                         ),
                         type="required",
                     ),
@@ -85,12 +92,12 @@ def baseline_matching_ui() -> ui.TagChild:
                     ui.input_action_button(
                         "btn_gen_table1",
                         "📊 Generate Table 1",
-                        class_="btn-primary btn-sm w-100",
+                        class_="btn-primary w-100",
                     ),
                     ui.download_button(
                         "btn_dl_table1",
                         "📥 Download HTML",
-                        class_="btn-success btn-sm w-100",
+                        class_="btn-success w-100",
                     ),
                     col_widths=[6, 6],
                 ),
@@ -138,6 +145,8 @@ def baseline_matching_ui() -> ui.TagChild:
                             ),
                             choices=[],
                             multiple=True,
+                            width="100%",
+                            options={"plugins": ["remove_button"]},
                         ),
                         type="required",
                     ),
@@ -184,7 +193,7 @@ def baseline_matching_ui() -> ui.TagChild:
                     ui.input_action_button(
                         "btn_run_psm",
                         "🚀 Run Propensity Score Matching",
-                        class_="btn-danger btn-sm w-100",
+                        class_="btn-primary w-100",
                     ),
                     ui.output_ui("ui_psm_run_status"),
                     col_widths=[9, 3],
@@ -208,13 +217,13 @@ def baseline_matching_ui() -> ui.TagChild:
                         ui.download_button(
                             "btn_dl_matched_csv_view",
                             "📥 CSV Format",
-                            class_="w-100 btn-sm",
+                            class_="w-100",
                         ),
                         ui.br(),
                         ui.download_button(
                             "btn_dl_matched_xlsx_view",
                             "📥 Excel Format",
-                            class_="w-100 btn-sm",
+                            class_="w-100",
                         ),
                     ),
                     ui.card(
@@ -237,7 +246,7 @@ def baseline_matching_ui() -> ui.TagChild:
                         ui.input_action_button(
                             "btn_clear_matched_tab3",
                             "🔄 Clear Matched Data",
-                            class_="btn-warning btn-sm w-100",
+                            class_="btn-warning w-100",
                         ),
                     ),
                     col_widths=[3, 3, 3, 3],
@@ -359,9 +368,6 @@ def baseline_matching_server(
     matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
-    # -------------------------------------------------------------------------
-    # SHARED REACTIVE VALUES
-    # -------------------------------------------------------------------------
     """
     Set up server-side reactive logic and UI renderers for the Baseline Matching module.
 
@@ -382,6 +388,9 @@ def baseline_matching_server(
         matched_treatment_col (reactive.Value[str | None]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
         matched_covariates (reactive.Value[list[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
     """
+    # -------------------------------------------------------------------------
+    # SHARED REACTIVE VALUES
+    # -------------------------------------------------------------------------
     psm_results: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     html_content: reactive.Value[str | None] = reactive.Value(None)
 
@@ -936,8 +945,14 @@ def baseline_matching_server(
         if not res:
             return None
 
-        good = (res["smd_post"]["SMD"] < 0.1).sum()
-        total = len(res["smd_post"])
+        smd_post = res.get("smd_post")
+        if smd_post is None or smd_post.empty:
+            return None
+        if "SMD" not in smd_post.columns or smd_post["SMD"].dropna().empty:
+            return None
+
+        good = (smd_post["SMD"] < 0.1).sum()
+        total = len(smd_post)
 
         if good == total:
             return ui.div(

@@ -65,7 +65,17 @@ COLORS = get_color_palette()
 # ============================================================================
 @module.ui
 def survival_ui() -> ui.TagChild:
-    """Modern Shiny UI module - no namespace argument needed."""
+    """
+    Builds the Modern Shiny UI for the Survival Analysis module with controls and result areas for multiple survival methods.
+    
+    This function returns the complete UI tag tree that provides:
+    - Dataset selection and summary header.
+    - Six main analysis tabs: Survival Curves (KM & Nelson–Aalen), Landmark Analysis, Cox Regression, Subgroup Analysis, Time‑Varying Cox (with Analysis/Configuration/Reference subtabs), and Reference/Interpretation.
+    - Per-tab input controls, validation output placeholders, action/download buttons, and persistent result containers.
+    
+    Returns:
+        ui.TagChild: The assembled UI component tree for embedding the Survival Analysis module.
+    """
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
@@ -249,7 +259,11 @@ def survival_ui() -> ui.TagChild:
                                 choices=[],
                                 selected=[],
                                 multiple=True,
-                                options={"placeholder": "Select predictors..."},
+                                width="100%",
+                                options={
+                                    "placeholder": "Select predictors...",
+                                    "plugins": ["remove_button"],
+                                },
                             ),
                             type="required",
                         ),
@@ -318,12 +332,16 @@ def survival_ui() -> ui.TagChild:
                                 ),
                                 choices=["Select..."],
                             ),
-                            create_tooltip_label(
-                                "Adjustment Variables",
-                                "Covariates to adjust for within subgroups.",
-                            ),
-                            ui.input_checkbox_group(
-                                "sg_adjust", label=None, choices=[]
+                            ui.input_selectize(
+                                "sg_adjust",
+                                create_tooltip_label(
+                                    "Adjustment Variables",
+                                    "Covariates to adjust for within subgroups.",
+                                ),
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="required",
                         ),
@@ -374,43 +392,108 @@ def survival_ui() -> ui.TagChild:
                     "Subgroup Analysis Results", ui.output_ui("out_sg_result")
                 ),
             ),
-            # TAB 5: Time-Varying Cox (NEW)
+            # TAB 5: Time-Varying Cox (NEW) - SUBTAB LAYOUT
             ui.nav_panel(
                 "⏱️ Time-Varying Cox",
-                ui.card(
-                    ui.card_header(
-                        "Time-Dependent Survival Analysis (Time-Varying Covariates)"
-                    ),
-                    ui.layout_columns(
-                        tvc_data_format_selector_ui(),
-                        tvc_model_config_ui(),
-                        col_widths=[8, 4],
-                    ),
-                    ui.layout_columns(
-                        tvc_column_config_ui(), tvc_info_panel_ui(), col_widths=[8, 4]
-                    ),
-                    # Risk intervals (for wide format) + data preview
-                    ui.layout_columns(
-                        tvc_risk_interval_picker_ui(),
-                        tvc_data_preview_card_ui(),
-                        col_widths=[6, 6],
-                    ),
-                    ui.output_ui("out_tvc_validation"),
-                    ui.hr(),
-                    ui.layout_columns(
-                        ui.input_action_button(
-                            "btn_run_tvc",
-                            "🚀 Run Time-Varying Cox Model",
-                            class_="btn-primary w-100",
+                # --- INPUT SECTION (Tabbed Card) ---
+                ui.navset_card_underline(
+                    # Subtab 1: Analysis (Variables & Execution)
+                    ui.nav_panel(
+                        "📊 Analysis",
+                        ui.div(
+                            ui.p(
+                                "Select data format and variables to run the model.",
+                                class_="text-muted mb-3",
+                            ),
+                            # 1. Format & Columns (Things changed frequently)
+                            tvc_data_format_selector_ui(),
+                            ui.br(),
+                            tvc_column_config_ui(),
+                            ui.br(),
+                            ui.output_ui("out_tvc_validation"),
+                            ui.hr(),
+                            # Action Buttons
+                            ui.layout_columns(
+                                ui.input_action_button(
+                                    "btn_run_tvc",
+                                    "🚀 Run Model",
+                                    class_="btn-primary w-100",
+                                ),
+                                ui.download_button(
+                                    "btn_dl_tvc",
+                                    "📥 Download Report",
+                                    class_="btn-secondary w-100",
+                                ),
+                                col_widths=[6, 6],
+                            ),
                         ),
-                        ui.download_button(
-                            "btn_dl_tvc",
-                            "📥 Download TVC Report",
-                            class_="btn-secondary w-100",
-                        ),
-                        col_widths=[6, 6],
                     ),
+                    # Subtab 2: Configuration (Advanced Settings & Preview)
+                    ui.nav_panel(
+                        "⚙️ Configuration",
+                        ui.div(
+                            ui.p(
+                                "Advanced settings, risk intervals, and data inspection.",
+                                class_="text-muted mb-3",
+                            ),
+                            ui.layout_columns(
+                                # Left Col: Settings
+                                ui.div(
+                                    # Risk Intervals (Only for Wide format)
+                                    tvc_risk_interval_picker_ui(),
+                                    ui.br(),
+                                    # Model Config (Penalizer etc.)
+                                    tvc_model_config_ui(),
+                                ),
+                                # Right Col: Preview & Info
+                                ui.div(
+                                    tvc_data_preview_card_ui(),
+                                    ui.br(),
+                                    tvc_info_panel_ui(),
+                                ),
+                                col_widths=[6, 6],
+                            ),
+                        ),
+                    ),
+                    # Subtab 3: Reference (Specific to TVC)
+                    ui.nav_panel(
+                        "ℹ️ Reference",
+                        ui.markdown("""
+                            ### ⏱️ Time-Varying Cox Reference
+
+                            #### 1. What is Time-Varying Cox?
+                            Standard Cox regression assumes predictors (like treatment) are constant over time. 
+                            **Time-Varying Cox** allows values to change.
+                            
+                            **Examples:**
+                            *   **Treatment Switch:** A patient starts on Placebo but switches to Drug at Month 6.
+                            *   **Lab Values:** Cholesterol changes at every visit.
+                            *   **Cumulative Exposure:** Total dose received increases over time.
+
+                            #### 2. Data Formats
+                            
+                            **A. Long Format (Counting Process):**
+                            *   Most flexible. Each row is an *interval* of time.
+                            *   Requires: `ID`, `Start_Time`, `Stop_Time`, `Event_Status`, and covariate values for that interval.
+                            *   *Example:* Patient A (0-6 months, Drug=0), Patient A (6-12 months, Drug=1).
+
+                            **B. Wide Format (Simple):**
+                            *   Standard one-row-per-patient.
+                            *   We convert it to Long Format using "Risk Intervals" (e.g., [0-12], [12-24]).
+                            *   Useful for handling values recorded at fixed visits.
+
+                            #### 3. Interpretation
+                            *   **Hazard Ratio (HR):** Represents the *instantaneous* risk.
+                            *   **HR = 1.5:** At any given moment, having the condition (or 1 unit higher value) increases the risk of the event by 50% *compared to not having it at that same moment*.
+
+                            #### 4. Assumptions
+                            *   **Proportional Hazards:** Still applies! The effect of the variable (HR) is assumed constant over time, even if the variable's value changes.
+                        """),
+                    ),
+                    id="tvc_input_tabs",
                 ),
+                # --- RESULTS SECTION (Persistent Card) ---
+                # แยกออกมาด้านนอก navset_card เพื่อให้แสดงผลตลอดเวลา
                 ui.output_ui("out_tvc_status"),
                 create_results_container(
                     "Analysis Results", ui.output_ui("out_tvc_result")
@@ -432,6 +515,24 @@ def survival_ui() -> ui.TagChild:
                     | **Cox** | Multiple predictors of survival | HR, CI, p-value per variable + forest plot |
                     | **Subgroup Analysis** | Treatment effect heterogeneity | HR by subgroup, interaction test |
                     | **Time-Varying Cox** | Time-dependent covariates | Dynamic HR, interval-based risk |
+
+                    ### 📝 Detailed Interpretation:
+
+                    #### 1. Hazard Ratios (HR)
+                    The main measure of effect in survival analysis.
+                    *   **HR = 1:** No difference in risk between groups.
+                    *   **HR > 1:** Increased risk of event (e.g., HR 1.5 = 50% higher risk). **Hazardous / Bad Outcome.**
+                    *   **HR < 1:** Reduced risk of event (e.g., HR 0.7 = 30% lower risk). **Protective / Good Outcome.**
+
+                    #### 2. Log-Rank Test
+                    Used in Kaplan-Meier analysis to compare survival curves.
+                    *   **P < 0.05:** There is a statistically significant difference between the survival curves of the groups.
+
+                    #### 3. Landmark Analysis
+                    Addresses **Immortal Time Bias** or violation of Proportional Hazards.
+                    *   By selecting a "Landmark Time" (e.g., 6 months), you exclude patients who died/censored before 6 months.
+                    *   You then compare survival *given that* the patient has already survived to 6 months.
+                    *   *Note: This reduces your sample size but provides a fairer comparison for late-acting treatments.*
                     """),
                 ),
             ),
@@ -684,7 +785,7 @@ def survival_server(
         ui.update_select(
             "sg_subgroup", choices=choices_with_labels, selected=default_subgr
         )
-        ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
+        ui.update_selectize("sg_adjust", choices=choices_with_labels)
 
         # TVC: Column configuration (use specialized detection for long-format TVC data)
         if len(cols) > 0:

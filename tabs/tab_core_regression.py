@@ -89,23 +89,13 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
 @module.ui
 def core_regression_ui() -> ui.TagChild:
     """
-    Constructs the main UI for the core regression module.
-
-    Structure:
-    - Binary Outcomes (formerly Binary Logistic)
-    - Continuous Outcomes (formerly Linear & Diagnostics)
-    - Count & Special (formerly Poisson & GLM)
-    - Repeated Measures (kept)
-    - Reference & Guidelines
-    """
-    """
-    Constructs the main UI for the regression module, providing controls and result panels for logistic, Poisson, and subgroup analyses.
-
+    Builds the main user interface for the core regression module.
+    
+    Provides the dataset selector and info header plus a tabbed interface with controls, actions, and result panels for:
+    Binary Outcomes (logistic), Subgroup Analysis (logit), Count & Special (Poisson, Negative Binomial, GLM), Continuous Outcomes (linear), Repeated Measures (GEE/LMM), and a Reference guide.
+    
     Returns:
-        ui.TagChild: A UI fragment containing dataset selectors and info, tabbed panels for
-        Binary Logistic Regression, Poisson Regression, Subgroup Analysis, and Reference,
-        each with controls (variable selection, method/settings, exclusions, interactions),
-        run/download actions, and result panels for forest plots and detailed reports.
+        ui.TagChild: A UI fragment containing the dataset selector/info and the tabbed analysis panels with inputs, run/download controls, and result containers.
     """
     return ui.div(
         # Title + Data Summary inline
@@ -164,7 +154,12 @@ def core_regression_ui() -> ui.TagChild:
                                 "Remove specific variables from the model.",
                             ),
                             ui.input_selectize(
-                                "sel_exclude", label=None, choices=[], multiple=True
+                                "sel_exclude",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             # Interaction Pairs selector
                             ui.h6("🔗 Interaction Pairs:"),
@@ -173,8 +168,10 @@ def core_regression_ui() -> ui.TagChild:
                                 label=None,
                                 choices=[],
                                 multiple=True,
+                                width="100%",
                                 options={
-                                    "placeholder": "Select variable pairs to test interactions..."
+                                    "placeholder": "Select variable pairs to test interactions...",
+                                    "plugins": ["remove_button"],
                                 },
                             ),
                             type="optional",
@@ -198,6 +195,96 @@ def core_regression_ui() -> ui.TagChild:
                 ui.output_ui("out_logit_status"),
                 create_results_container(
                     "Analysis Results", ui.output_ui("ui_logit_results_area")
+                ),
+            ),
+            # =====================================================================
+            # TAB 1.5: Subgroup Analysis (Logit)
+            # =====================================================================
+            ui.nav_panel(
+                "🔛 Subgroup Analysis",
+                ui.card(
+                    ui.card_header("Binary Logistic Subgroup Analysis - Heterogeneity"),
+                    ui.layout_columns(
+                        create_input_group(
+                            "Variables",
+                            ui.input_select(
+                                "sg_logit_outcome",
+                                create_tooltip_label(
+                                    "Outcome (Y)", "Must be binary (0/1 or Yes/No)."
+                                ),
+                                choices=["Select..."],
+                            ),
+                            ui.input_select(
+                                "sg_logit_treatment",
+                                create_tooltip_label(
+                                    "Treatment/Exposure",
+                                    "Primary variable of interest.",
+                                ),
+                                choices=["Select..."],
+                            ),
+                            create_input_group(
+                                "Stratification & Adjustment",
+                                ui.input_select(
+                                    "sg_logit_subgroup",
+                                    create_tooltip_label(
+                                        "Stratify By",
+                                        "Categorical variable defining subgroups.",
+                                    ),
+                                    choices=["Select..."],
+                                ),
+                                ui.input_selectize(
+                                    "sg_logit_adjust",
+                                    create_tooltip_label(
+                                        "Adjustment Variables",
+                                        "Covariates to adjust for within subgroups.",
+                                    ),
+                                    choices=[],
+                                    multiple=True,
+                                    width="100%",
+                                    options={"plugins": ["remove_button"]},
+                                ),
+                                type="required",
+                            ),
+                            type="required",
+                        ),
+                        col_widths=[12],
+                    ),
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "⚠️ Advanced Settings",
+                            create_input_group(
+                                "Minimum Counts",
+                                ui.input_numeric(
+                                    "sg_logit_min_n",
+                                    "Min N per subgroup:",
+                                    value=10,
+                                    min=5,
+                                    max=100,
+                                ),
+                                type="advanced",
+                            ),
+                        ),
+                        open=False,
+                    ),
+                    ui.output_ui("out_sg_logit_validation"),
+                    ui.hr(),
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_sg_logit",
+                            "🚀 Run Subgroup Analysis",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.download_button(
+                            "btn_dl_sg_logit",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                ),
+                ui.output_ui("out_sg_logit_status"),
+                create_results_container(
+                    "Subgroup Analysis Results", ui.output_ui("out_sg_logit_result")
                 ),
             ),
             # =====================================================================
@@ -246,6 +333,8 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
+                                        options={"plugins": ["remove_button"]},
                                     ),
                                     type="advanced",
                                 ),
@@ -261,8 +350,10 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
                                         options={
-                                            "placeholder": "Select variable pairs to test interactions..."
+                                            "placeholder": "Select variable pairs to test interactions...",
+                                            "plugins": ["remove_button"],
                                         },
                                     ),
                                     type="optional",
@@ -326,6 +417,8 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
+                                        options={"plugins": ["remove_button"]},
                                     ),
                                     type="advanced",
                                 ),
@@ -340,8 +433,10 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
                                         options={
-                                            "placeholder": "Select variable pairs to test interactions..."
+                                            "placeholder": "Select variable pairs to test interactions...",
+                                            "plugins": ["remove_button"],
                                         },
                                     ),
                                     type="optional",
@@ -421,14 +516,18 @@ def core_regression_ui() -> ui.TagChild:
                                         ),
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
+                                        options={"plugins": ["remove_button"]},
                                     ),
                                     ui.input_selectize(
                                         "glm_interactions",
                                         "Interactions:",
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
                                         options={
-                                            "placeholder": "Select variable pairs..."
+                                            "placeholder": "Select variable pairs...",
+                                            "plugins": ["remove_button"],
                                         },
                                     ),
                                     type="required",
@@ -483,8 +582,10 @@ def core_regression_ui() -> ui.TagChild:
                                 ),
                                 choices=[],
                                 multiple=True,
+                                width="100%",
                                 options={
-                                    "placeholder": "Select predictors or leave empty for auto-selection..."
+                                    "placeholder": "Select predictors or leave empty for auto-selection...",
+                                    "plugins": ["remove_button"],
                                 },
                             ),
                             ui.p(
@@ -581,7 +682,12 @@ def core_regression_ui() -> ui.TagChild:
                                 "Exclude Variables", "Remove specific variables."
                             ),
                             ui.input_selectize(
-                                "linear_exclude", label=None, choices=[], multiple=True
+                                "linear_exclude",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="optional",
                         )
@@ -690,7 +796,12 @@ def core_regression_ui() -> ui.TagChild:
                                 "Adjustments (Covariates)", "Control variables."
                             ),
                             ui.input_selectize(
-                                "rep_covariates", label=None, choices=[], multiple=True
+                                "rep_covariates",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="required",
                         ),
@@ -712,48 +823,74 @@ def core_regression_ui() -> ui.TagChild:
             ui.nav_panel(
                 "ℹ️ Reference",
                 ui.markdown("""
-                ## 📚 Logistic Regression Reference
+                ## 📚 Core Regression Reference Guide
+
+                ### 1. 📈 Binary Outcomes (Logistic Regression)
+                **Use For:** Predicting Yes/No outcomes (e.g., Disease vs Healthy, Died vs Survived).
                 
-                ### When to Use:
-                * Predicting binary outcomes (Disease/No Disease)
-                * Understanding risk/protective factors (Odds Ratios)
-                * Adjustment for confounders in observational studies
+                **Interpretation:**
+                *   **Odds Ratio (OR):**
+                    *   **OR > 1:** Risk factor (Increases likelihood of event).
+                    *   **OR < 1:** Protective factor (Decreases likelihood).
+                    *   **OR = 1:** No association.
                 
-                ### Interpretation:
+                **Methods:**
+                *   **Standard (MLE):** Best for large datasets. Fails with "Perfect Separation".
+                *   **Firth's Penalized:** Use for small samples or rare events. Fixes perfect separation.
+                *   **Auto:** Automatically switches to Firth if separation is detected.
+
+                ---
+
+                ### 2. 📉 Continuous Outcomes (Linear Regression)
+                **Use For:** Predicting numeric values (e.g., Blood Pressure, Length of Stay, Cost).
                 
-                **Odds Ratios (OR):**
-                * **OR > 1**: Risk Factor (Increased odds) 🔴
-                * **OR < 1**: Protective Factor (Decreased odds) 🟢
-                * **OR = 1**: No Effect
-                * **CI crosses 1**: Not statistically significant
+                **Interpretation:**
+                *   **Beta Coefficient (β):**
+                    *   **β > 0:** Positive relationship (As X increases, Y increases).
+                    *   **β < 0:** Negative relationship (As X increases, Y decreases).
+                *   **R-squared (R²):** Percentage of variance explained by the model (>0.7 is usually strong).
+
+                **Assumptions Checking:**
+                *   **Linearity:** Residuals vs Fitted plot should be flat.
+                *   **Normality:** Q-Q plot points should follow the diagonal line.
+                *   **Homoscedasticity:** Scale-Location plot should have constant spread.
+
+                ---
+
+                ### 3. 🔢 Count Outcomes (Poisson / Neg. Binomial)
+                **Use For:** Count data (e.g., Number of exacerbations, Days in hospital).
                 
-                **Example:**
-                * OR = 2.5 (CI 1.2-5.0): Exposure increases odds of outcome by 2.5× (Range: 1.2× to 5×)
+                **Model Choice:**
+                *   **Poisson:** Variance = Mean. Good for simple counts.
+                *   **Negative Binomial:** Variance > Mean (Overdispersion). Use if Poisson fails.
+                *   **Zero-Inflated:** If there are excess zeros (e.g., many patients with 0 visits).
+
+                **Interpretation:**
+                *   **Incidence Rate Ratio (IRR):** Similar to OR. 
+                    *   **IRR = 1.5:** Count increases by 50% for every 1-unit increase in X.
+
+                ---
+
+                ### 4. 🔄 Repeated Measures (GEE / LMM)
+                **Use For:** Clustered data (e.g., Multiple visits per patient, Eyes per patient).
+
+                **Model Choice:**
+                *   **GEE (Generalized Estimating Equations):** Population-averaged effects. Robust to correlation structure errors. Best for binary/count outcomes.
+                *   **LMM (Linear Mixed Models):** Subject-specific effects. Handles missing data better. Best for continuous outcomes.
+
+                **Correlation Structures:**
+                *   **Exchangeable:** All time points equally correlated.
+                *   **AR(1):** Correlation decays over time.
+                *   **Unstructured:** No assumption (requires more data).
+
+                ---
+
+                ### 5. 🔛 Subgroup Analysis
+                **Use For:** Checking if treatment effect differs across groups (Heterogeneity).
                 
-                ### Regression Methods:
-                
-                **Standard (MLE)** - Most common
-                * Uses Maximum Likelihood Estimation
-                * Fast and reliable for most datasets
-                * Issues: Perfect separation causes failure
-                
-                **Firth's (Penalized)** - For separation issues
-                * Reduces bias using penalized likelihood
-                * Better for rare outcomes or small samples
-                * Handles perfect separation well
-                
-                **Auto** - Recommended
-                * Automatically detects separation
-                * Uses Firth if needed, Standard otherwise
-                
-                ### Perfect Separation:
-                Occurs when a predictor perfectly predicts the outcome (e.g., all smokers died).
-                * **Solution:** Use **Auto** or **Firth's** method, or exclude the variable.
-                
-                ### Subgroup Analysis:
-                * Tests if treatment effect varies by group (Interaction test)
-                * **P-interaction < 0.05**: Significant heterogeneity → Report subgroups separately
-                * **P-interaction ≥ 0.05**: Homogeneous effect → Report overall effect
+                **Interpretation:**
+                *   **P-interaction < 0.05:** Significant difference in effect. Report results separately for each group.
+                *   **P-interaction ≥ 0.05:** Consistent effect. Report the overall main effect.
                 """),
             ),
         ),
@@ -796,6 +933,8 @@ def core_regression_server(
     """
     logit_res = reactive.Value(None)
     logit_is_running = reactive.Value(False)  # Track running state
+    logit_sg_res = reactive.Value(None)
+    logit_sg_is_running = reactive.Value(False)  # Track subgroup running state
     # Store Poisson results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
     poisson_res = reactive.Value(None)
     poisson_is_running = reactive.Value(False)
@@ -896,6 +1035,16 @@ def core_regression_server(
     # --- Dynamic Input Updates ---
     @reactive.Effect
     def _update_inputs():
+        """
+        Update all regression module input widgets to reflect the currently active dataframe.
+        
+        Inspects the active dataframe and refreshes choices and sensible defaults across tabs (Binary Logit, Logit Subgroup, Poisson, Negative Binomial, Linear, GLM, and Repeated Measures). If no dataframe is available or it is empty, no updates are performed.
+        
+        Detailed behavior:
+        - Detects binary, count (non-negative integer), numeric, and candidate subgroup columns to build choice lists.
+        - Chooses preferred default variables by keyword heuristics for outcomes, treatments, subgroups, offsets, time/subject identifiers, and predictors.
+        - Updates select and selectize widgets for outcomes, predictors, exclusions, interactions, offsets, subgroup adjustment, repeated-measures fields, and GLM inputs.
+        """
         d = current_df()
         if d is None or d.empty:
             return
@@ -986,11 +1135,22 @@ def core_regression_server(
         )
         ui.update_selectize("linear_exclude", choices=cols)
 
-        # Update Tab 4 (Subgroup) Inputs
-        ui.update_select("sg_outcome", choices=binary_cols, selected=default_logit_y)
-        ui.update_select("sg_treatment", choices=cols)
-        ui.update_select("sg_subgroup", choices=sg_cols)
-        ui.update_selectize("sg_adjust", choices=cols)
+        # Update Tab 1.5 (Logit Subgroup) Inputs
+        ui.update_select(
+            "sg_logit_outcome", choices=binary_cols, selected=default_logit_y
+        )
+
+        def_sg_treat = select_variable_by_keyword(
+            cols, ["treatment", "group"], default_to_first=True
+        )
+        ui.update_select("sg_logit_treatment", choices=cols, selected=def_sg_treat)
+
+        def_sg_sub = select_variable_by_keyword(
+            sg_cols, ["group", "subgroup"], default_to_first=True
+        )
+        ui.update_select("sg_logit_subgroup", choices=sg_cols, selected=def_sg_sub)
+
+        ui.update_selectize("sg_logit_adjust", choices=cols)
 
         # Update Tab 5 (Repeated Measures) Inputs
         # Default: Outcome_Cured, Treatment_Group, Time_Months, ID
@@ -2745,10 +2905,191 @@ def core_regression_server(
 
     @render.download(filename=lambda: f"subgroup_data_{input.sg_subgroup()}.json")
     def dl_sg_json():
+        """
+        Produce a JSON-formatted representation of the latest subgroup analysis results.
+        
+        Yields:
+            str: A JSON-formatted string of the subgroup results (indent=2). Non-JSON-native types (e.g., NumPy scalars/arrays) are converted to strings to ensure serializability.
+        """
         res = subgroup_res.get()
         if res:
             # Need to handle numpy types for JSON serialization
             yield json.dumps(res, indent=2, default=str)
+
+    # =========================================================================
+    # LOGISTIC SUBGROUP SERVER LOGIC
+    # =========================================================================
+
+    @render.ui
+    def out_sg_logit_status():
+        """
+        Render a loading indicator while the logistic subgroup analysis is running.
+        
+        Returns:
+            ui.TagChild | None: A loading UI element when the subgroup analysis is in progress, otherwise None.
+        """
+        if logit_sg_is_running.get():
+            return create_loading_state("Running Subgroup Analysis...")
+        return None
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_sg_logit)
+    def _run_sg_logit():
+        """
+        Execute a logistic subgroup analysis using the current dataset and UI selections.
+        
+        Validates that outcome, treatment, and subgroup are selected, shows progress notifications, and sets the running state while the analysis executes. On success stores the analysis results (including a generated `forest_plot`) in `logit_sg_res`; on error stores an error in `logit_sg_res` and displays an error notification. Does not return a value.
+        """
+        d = current_df()
+        y = input.sg_logit_outcome()
+        treat = input.sg_logit_treatment()
+        subgroup = input.sg_logit_subgroup()
+        adjust = input.sg_logit_adjust()
+        min_n = input.sg_logit_min_n()
+
+        if d is None:
+            return
+
+        if not all([y, treat, subgroup]) or any(
+            x == "Select..." for x in [y, treat, subgroup]
+        ):
+            ui.notification_show("Please select all required variables", type="warning")
+            return
+
+        logit_sg_is_running.set(True)
+        logit_sg_res.set(None)
+        ui.notification_show(
+            "Running Subgroup Analysis...", duration=None, id="run_sg_logit"
+        )
+
+        try:
+            analyzer = SubgroupAnalysisLogit(d)
+            result = analyzer.analyze(
+                outcome_col=y,
+                treatment_col=treat,
+                subgroup_col=subgroup,
+                adjustment_cols=list(adjust) if adjust else None,
+                min_subgroup_n=min_n,
+                var_meta=var_meta.get(),
+            )
+
+            if "error" in result:
+                logit_sg_res.set({"error": result["error"]})
+                ui.notification_show(result["error"], type="error")
+                ui.notification_remove("run_sg_logit")
+                return
+
+            # Generate forest plot
+            forest_fig = analyzer.create_forest_plot()
+            result["forest_plot"] = forest_fig
+
+            logit_sg_res.set(result)
+            ui.notification_remove("run_sg_logit")
+            ui.notification_show("✅ Analysis Complete", type="message")
+
+        except Exception as e:
+            ui.notification_remove("run_sg_logit")
+            ui.notification_show(f"Analysis failed: {e}", type="error")
+            logger.exception("Logit Subgroup Analysis Error")
+        finally:
+            logit_sg_is_running.set(False)
+
+    @render.ui
+    def out_sg_logit_result():
+        """
+        Render the logistic subgroup analysis results UI.
+        
+        If no results are available, returns a placeholder prompting the user to run the analysis.
+        If the results contain an error, returns an error alert. Otherwise, returns a composed UI
+        containing a forest plot card, a detailed results table card, and an interaction test card
+        displaying the interaction p-value and a heterogeneity message.
+        
+        Returns:
+            ui.TagChild: A UI element representing the subgroup analysis output (placeholder, error alert,
+            or cards with forest plot, results table, and interaction test).
+        """
+        res = logit_sg_res.get()
+        if res is None:
+            return create_placeholder_state("Run analysis to see results", "🔛")
+        if "error" in res:
+            return create_error_alert(res["error"])
+
+        # Create summary table
+        summary_df = pd.DataFrame(res["results_df"])
+        # Format P-values
+        if "p_value" in summary_df.columns:
+            summary_df["p_value"] = summary_df["p_value"].apply(
+                lambda x: f"{x:.4f}" if isinstance(x, float) else x
+            )
+
+        table_html = summary_df.to_html(
+            classes="table table-striped table-hover", index=False
+        )
+
+        # Plot
+        fig = res.get("forest_plot")
+        plot_html = plotly_figure_to_html(fig) if fig else ""
+
+        return ui.div(
+            ui.card(
+                ui.card_header("🌳 Forest Plot (Treatment Effect by Subgroup)"),
+                ui.HTML(plot_html),
+            ),
+            ui.br(),
+            ui.card(
+                ui.card_header("📊 Detailed Results"),
+                ui.HTML(table_html),
+            ),
+            ui.br(),
+            ui.card(
+                ui.card_header("Interaction Test"),
+                ui.div(
+                    ui.p(
+                        f"P-interaction: {res['interaction']['p_value']:.4f}"
+                        if res["interaction"]["p_value"] is not None
+                        else "N/A"
+                    ),
+                    ui.p(
+                        "Significant Heterogeneity detected."
+                        if res["interaction"]["significant"]
+                        else "No significant heterogeneity detected."
+                    ),
+                    class_="alert alert-info"
+                    if not res["interaction"]["significant"]
+                    else "alert alert-warning",
+                ),
+            ),
+        )
+
+    @render.download(filename="logit_subgroup_report.html")
+    def btn_dl_sg_logit():
+        """
+        Produce an HTML report for the completed logistic subgroup analysis.
+        
+        Yields a single HTML string containing a forest plot and a detailed results table when analysis results exist; yields the message "No results available." if no results are present.
+        
+        Returns:
+            generator (str): Yields the HTML report string or an availability message.
+        """
+        res = logit_sg_res.get()
+        if not res:
+            yield "No results available."
+            return
+
+        # Simplified Report generation for now
+        html_content = f"""
+        <html>
+        <head><title>Subgroup Analysis Report</title></head>
+        <body>
+            <h1>Subgroup Analysis (Logistic Regression)</h1>
+            <h2>Forest Plot</h2>
+            {plotly_figure_to_html(res.get("forest_plot"))}
+            <h2>Detailed Results</h2>
+            {pd.DataFrame(res["results_df"]).to_html()}
+        </body>
+        </html>
+        """
+        yield html_content
 
     # ==========================================================================
     # LOGIC: Repeated Measures
