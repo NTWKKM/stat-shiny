@@ -9,8 +9,19 @@ def _is_numeric_column(
     series: pd.Series, total_rows: int
 ) -> tuple[bool, pd.Series, pd.Series, pd.Series, int]:
     """
-    Helper to detect if a column is numeric and identify non-standard values.
-    Returns: (is_numeric, numeric_strict, numeric_coerced, is_strict_nan, strict_nan_count)
+    Determine whether a pandas Series should be treated as a numeric column and identify non-standard or unparseable numeric values.
+    
+    Parameters:
+        series (pd.Series): Column values to analyze.
+        total_rows (int): Total number of rows in the DataFrame (used to compute the numeric ratio).
+    
+    Returns:
+        tuple:
+            is_numeric_col (bool): `True` if more than 50% of entries parse as numbers after coercion, `False` otherwise.
+            numeric_strict (pd.Series): Result of a strict numeric conversion where non-numeric entries are `NaN`.
+            numeric_coerced (pd.Series): Numeric conversion after cleaning common non-numeric symbols (e.g., percent signs, currency, comparison symbols); may parse values that strict conversion did not.
+            is_strict_nan (pd.Series): Boolean mask marking positions where strict conversion is `NaN` but the original entry was non-empty (i.e., non-standard numeric-like values).
+            strict_nan_count (int): Number of `True` values in `is_strict_nan`.
     """
     # Try strict conversion
     numeric_strict = pd.to_numeric(series, errors="coerce")
@@ -49,7 +60,16 @@ def _is_numeric_column(
 
 
 def _format_row_list(rows: Sequence[Any], max_show: int = 400) -> str:
-    """Helper to format a list of row indices for reporting."""
+    """
+    Format a sequence of row indices or values into a concise, comma-separated string for reporting.
+    
+    Parameters:
+        rows (Sequence[Any]): Sequence of values (e.g., row indices or category values); each element will be converted to a string.
+        max_show (int): Maximum number of items to include before truncating the list and appending a summary of remaining items.
+    
+    Returns:
+        str: A comma-separated string of the items. If `rows` is empty returns an empty string. If the sequence length exceeds `max_show`, the returned string contains the first `max_show` items followed by ", ... (+N more)" where N is the number of omitted items.
+    """
     # FIX: Use len(rows) == 0 instead of 'if not rows' to handle numpy arrays safely
     if len(rows) == 0:
         return ""
@@ -65,12 +85,19 @@ def _format_row_list(rows: Sequence[Any], max_show: int = 400) -> str:
 
 def check_data_quality(df: pd.DataFrame) -> list[str]:
     """
-    Data Quality Checker:
-    1. Numeric Column -> Non-standard values (e.g., "<5", "10%")
-    2. Categorical Column -> Numeric values and Rare categories (<5)
-    3. Missing Data reporting per column
-
-    Returns a list of warning strings for each column with issues.
+    Generate human-readable data-quality warnings for each column in the provided DataFrame.
+    
+    Checks performed for each column:
+    - Missing values: reports count and row indices where present.
+    - Numeric columns: detects non-standard numeric representations (e.g., "<5", "10%") and reports their row indices and example values.
+    - Categorical columns: detects values that look numeric and reports their row indices and example values.
+    - Rare categories: when the column is not dominated by unique values (unique ratio < 0.8), reports categories that occur fewer than 5 times.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame to analyze.
+    
+    Returns:
+        list[str]: A list of formatted warning messages, one per column with detected issues.
     """
     warnings = []
     total_rows = len(df)

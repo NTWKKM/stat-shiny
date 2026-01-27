@@ -31,7 +31,12 @@ COLORS = get_color_palette()
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
     """
-    Constructs the baseline matching user interface...
+    Builds the multi-tab Baseline Matching user interface with controls and results panels.
+    
+    The returned UI contains five main subtabs: Baseline Characteristics (Table 1) for generating and downloading Table 1 HTML; Propensity Score Matching (PSM) for configuring, running, and inspecting matching results; Matched Data View for previewing, exporting, and analyzing matched data; Sample Size tools (embedded from sample_size module); and Reference & Interpretation guidance. Each subtab groups configuration controls, action buttons, and result/content containers appropriate to its purpose.
+    
+    Returns:
+        ui.TagChild: The root navset_tab element representing the complete Baseline Matching UI.
     """
     return ui.navset_tab(
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====

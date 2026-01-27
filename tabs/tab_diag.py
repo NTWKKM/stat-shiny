@@ -50,6 +50,12 @@ COLORS = get_color_palette()
 # ==============================================================================
 @module.ui
 def diag_ui() -> ui.TagChild:
+    """
+    Create the Diagnostics page UI containing controls and result areas for ROC, Chi-Square, Descriptive, Decision Curve Analysis, and a reference/interpretation guide.
+    
+    Returns:
+        ui.TagChild: A top-level UI container with title and dataset selector followed by a tabset of five panels (ROC Curve & AUC, Chi-Square & Risk, Descriptive statistics, Decision Curve Analysis, and Reference & Interpretation) including inputs, action/download buttons, status displays, and result output regions.
+    """
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
