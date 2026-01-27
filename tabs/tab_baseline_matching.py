@@ -368,9 +368,6 @@ def baseline_matching_server(
     matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
-    # -------------------------------------------------------------------------
-    # SHARED REACTIVE VALUES
-    # -------------------------------------------------------------------------
     """
     Set up server-side reactive logic and UI renderers for the Baseline Matching module.
 
@@ -391,6 +388,9 @@ def baseline_matching_server(
         matched_treatment_col (reactive.Value[str | None]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
         matched_covariates (reactive.Value[list[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
     """
+    # -------------------------------------------------------------------------
+    # SHARED REACTIVE VALUES
+    # -------------------------------------------------------------------------
     psm_results: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     html_content: reactive.Value[str | None] = reactive.Value(None)
 
