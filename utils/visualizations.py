@@ -39,12 +39,41 @@ def plot_missing_pattern(
     df_plot = df[display_cols].copy()
     missing_pct_plot = missing_pct[display_cols]
 
-    # --- 2. Row Subsampling (for Heatmap) ---
+    # --- 2. Row Subsampling (Smart Sampling) ---
     original_rows = len(df_plot)
     if original_rows > max_rows:
-        # Random sample for visualization speed & readability
-        df_heatmap = df_plot.sample(n=max_rows, random_state=42).sort_index()
-        y_axis_title = f"Row Index (Sampled {max_rows}/{original_rows})"
+        # Smart Sampling: Prioritize rows with missing data
+        # Identify rows with any missing values in the selected columns
+        rows_with_missing = df_plot[df_plot.isna().any(axis=1)]
+        rows_complete = df_plot.drop(rows_with_missing.index)
+
+        n_missing = len(rows_with_missing)
+
+        if n_missing >= max_rows:
+            # Scenario A: Too many missing rows, sample from them
+            df_heatmap = rows_with_missing.sample(
+                n=max_rows, random_state=42
+            ).sort_index()
+            y_axis_title = (
+                f"Row Index (Sampled {max_rows}/{original_rows} - Missing Only)"
+            )
+        else:
+            # Scenario B: Include all missing, fill with complete
+            n_remaining = max_rows - n_missing
+            # Sample complete rows if we have enough, otherwise take all (unlikely if original_rows > max_rows)
+            if len(rows_complete) > n_remaining:
+                rows_complete_sample = rows_complete.sample(
+                    n=n_remaining, random_state=42
+                )
+            else:
+                rows_complete_sample = rows_complete
+
+            df_heatmap = pd.concat(
+                [rows_with_missing, rows_complete_sample]
+            ).sort_index()
+            y_axis_title = (
+                f"Row Index (Sampled {max_rows}/{original_rows} - Prioritized Missing)"
+            )
     else:
         df_heatmap = df_plot
         y_axis_title = "Row Index"
