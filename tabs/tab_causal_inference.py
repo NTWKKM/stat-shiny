@@ -51,6 +51,8 @@ def causal_inference_ui():
                                 "Covariates for Matching",
                                 choices=[],
                                 multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="required",
                         ),

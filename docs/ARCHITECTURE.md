@@ -84,7 +84,7 @@ The data flow is standardized to ensure consistent handling of missing values an
 
 - **Interactive Setup**: Users interactively cast variable types and choose missing value strategies.
 - **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
-- **UI Standardization**: Recent updates have unified the "Variable Selection" UI across modules (e.g., Table 1, Survival Analysis, Regression), utilizing full-width Selectize inputs with "remove button" plugins for better usability.
+- **UI Standardization**: Recent updates have unified the "Variable Selection" UI across modules (e.g., Table 1, Survival Analysis, Regression), utilizing full-width Selectize inputs with "remove button" plugins for better usability. Action buttons are also standardized to full-width (`w-100`) for consistent click targets.
 
 ### 3. Central Preparation (`utils/data_cleaning.py`)
 
