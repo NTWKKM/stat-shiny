@@ -2935,7 +2935,9 @@ def core_regression_server(
         if d is None:
             return
 
-        if any(x == "Select..." for x in [y, treat, subgroup]):
+        if not all([y, treat, subgroup]) or any(
+            x == "Select..." for x in [y, treat, subgroup]
+        ):
             ui.notification_show("Please select all required variables", type="warning")
             return
 
@@ -2957,6 +2959,7 @@ def core_regression_server(
             )
 
             if "error" in result:
+                logit_sg_res.set({"error": result["error"]})
                 ui.notification_show(result["error"], type="error")
                 ui.notification_remove("run_sg_logit")
                 return
@@ -2982,6 +2985,8 @@ def core_regression_server(
         res = logit_sg_res.get()
         if res is None:
             return create_placeholder_state("Run analysis to see results", "🔛")
+        if "error" in res:
+            return create_error_alert(res["error"])
 
         # Create summary table
         summary_df = pd.DataFrame(res["results_df"])

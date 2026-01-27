@@ -828,7 +828,7 @@ def get_missing_summary_df(
                 "N_Valid": stats["valid_count"],
                 "N_Missing": stats["missing_count"],
                 # FIX: Format percentage as string with % to match test expectations
-                "Pct_Missing": f"{stats['missing_pct']}%",
+                "Pct_Missing": stats["missing_pct"],
             }
         )
 
@@ -840,6 +840,7 @@ def get_missing_summary_df(
     # but for simple display purposes it's usually acceptable or handled by UI grid.
     # To be perfectly correct, we'd sort before formatting, but this function returns formatted DF.
     summary_df = summary_df.sort_values("Pct_Missing", ascending=False)
+    summary_df["Pct_Missing"] = summary_df["Pct_Missing"].map(lambda v: f"{v}%")
 
     return summary_df
 

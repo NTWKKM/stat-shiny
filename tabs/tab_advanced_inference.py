@@ -164,8 +164,8 @@ def advanced_inference_ui():
 
                         **Collinearity Diagnostics:**
                         * **VIF (Variance Inflation Factor):**
-                            * **VIF > 5:** Moderate multicollinarity (Caution).
-                            * **VIF > 10:** Severe multicollinarity (Consider removing variable).
+                            * **VIF > 5:** Moderate multicollinearity (Caution).
+                            * **VIF > 10:** Severe multicollinearity (Consider removing variable).
                         * **Tolerance:** 1/VIF. Values < 0.1 indicate problems.
 
                         **Model Diagnostics (OLS):**

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from typing import Any, Sequence
+
 
 def _is_numeric_column(
     series: pd.Series, total_rows: int
@@ -46,7 +48,7 @@ def _is_numeric_column(
     )
 
 
-def _format_row_list(rows: list[any], max_show: int = 400) -> str:
+def _format_row_list(rows: Sequence[Any], max_show: int = 400) -> str:
     """Helper to format a list of row indices for reporting."""
     # FIX: Use len(rows) == 0 instead of 'if not rows' to handle numpy arrays safely
     if len(rows) == 0:
