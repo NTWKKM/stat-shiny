@@ -1017,7 +1017,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                     type="message",
                 )
             except Exception as e:
-                logger.error(f"Imputation error: {e}")
+                logger.error("Imputation error: %s", e)
                 ui.notification_show(f"❌ Imputation failed: {e}", type="error")
 
     @reactive.Effect
@@ -1050,7 +1050,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                     f"✅ Handled outliers in {count} columns ({action})", type="message"
                 )
             except Exception as e:
-                logger.error(f"Outlier error: {e}")
+                logger.error("Outlier error: %s", e)
                 ui.notification_show(f"❌ Outlier handling failed: {e}", type="error")
 
     @render.ui
@@ -1064,11 +1064,6 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         d = df.get()
         if d is None:
             return None
-        # Using render_plotly requires shinywidgets
-        # Let's check imports.
-        # Actually, standard way in this app seems to be using ui.output_ui and returning HTML string for plotly?
-        # Let's check other tabs.
-        # tab_diag uses utils.plotly_html_renderer.create_responsive_plotly_html
 
         fig = plot_missing_pattern(d)
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
@@ -1179,7 +1174,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                 )
 
             except Exception as e:
-                logger.error(f"Transformation error: {e}")
+                logger.error("Transformation error: %s", e)
                 ui.notification_show(f"❌ Transformation failed: {e}", type="error")
 
     @render.text
