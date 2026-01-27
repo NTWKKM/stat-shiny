@@ -945,8 +945,14 @@ def baseline_matching_server(
         if not res:
             return None
 
-        good = (res["smd_post"]["SMD"] < 0.1).sum()
-        total = len(res["smd_post"])
+        smd_post = res.get("smd_post")
+        if smd_post is None or smd_post.empty:
+            return None
+        if "SMD" not in smd_post.columns or smd_post["SMD"].dropna().empty:
+            return None
+
+        good = (smd_post["SMD"] < 0.1).sum()
+        total = len(smd_post)
 
         if good == total:
             return ui.div(
