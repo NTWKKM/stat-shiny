@@ -42,8 +42,8 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- docs /
 |   |-- ARCHITECTURE.md
 |   |-- DEEP-OPTIMIZATION-PLAN.md
-|   |-- UI_IMPROVEMENT_COMPLETE_10FILES.md
-|   |-- UX_UI_audit_report.md
+|   |-- IMPLEMENTATION_ROADMAP.md
+|   |-- OPTIMIZATION_REPORT.md
 |   |-- assets /
 |   |   `-- navigation_sequence.png
 |   |-- deep-ai-bot-optimization.md
@@ -119,6 +119,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_color_palette.py
 |       |-- test_correlation_returns.py
 |       |-- test_data_cleaning.py
+|       |-- test_data_cleaning_advanced.py
 |       |-- test_data_cleaning_workflow.py
 |       |-- test_data_quality.py
 |       |-- test_dca.py
@@ -172,8 +173,10 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- table_one.py
     |-- tvc_lib.py
     |-- ui_helpers.py
-    `-- update_css.py
+    |-- update_css.py
+    `-- visualizations.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
