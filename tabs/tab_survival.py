@@ -67,12 +67,12 @@ COLORS = get_color_palette()
 def survival_ui() -> ui.TagChild:
     """
     Builds the Modern Shiny UI for the Survival Analysis module with controls and result areas for multiple survival methods.
-    
+
     This function returns the complete UI tag tree that provides:
     - Dataset selection and summary header.
     - Six main analysis tabs: Survival Curves (KM & Nelson–Aalen), Landmark Analysis, Cox Regression, Subgroup Analysis, Time‑Varying Cox (with Analysis/Configuration/Reference subtabs), and Reference/Interpretation.
     - Per-tab input controls, validation output placeholders, action/download buttons, and persistent result containers.
-    
+
     Returns:
         ui.TagChild: The assembled UI component tree for embedding the Survival Analysis module.
     """
@@ -465,29 +465,29 @@ def survival_ui() -> ui.TagChild:
                             Standard Cox regression assumes predictors (like treatment) are constant over time. 
                             **Time-Varying Cox** allows values to change.
                             
-                            **Examples:**
-                            *   **Treatment Switch:** A patient starts on Placebo but switches to Drug at Month 6.
-                            *   **Lab Values:** Cholesterol changes at every visit.
-                            *   **Cumulative Exposure:** Total dose received increases over time.
+                            ---
 
                             #### 2. Data Formats
                             
-                            **A. Long Format (Counting Process):**
-                            *   Most flexible. Each row is an *interval* of time.
-                            *   Requires: `ID`, `Start_Time`, `Stop_Time`, `Event_Status`, and covariate values for that interval.
-                            *   *Example:* Patient A (0-6 months, Drug=0), Patient A (6-12 months, Drug=1).
+                            **A. Long Format (Recommended)**
+                            * **Structure:** Multiple rows per patient. Each row represents a specific time interval.
+                            * **Columns:** `patient_id`, `start_time`, `stop_time`, `event`, and [covariates].
+                            * **Status:** Ready for direct analysis.
+                            * *Example:* Patient A (0-6 months, Drug=0), Patient A (6-12 months, Drug=1).
 
-                            **B. Wide Format (Simple):**
-                            *   Standard one-row-per-patient.
-                            *   We convert it to Long Format using "Risk Intervals" (e.g., [0-12], [12-24]).
-                            *   Useful for handling values recorded at fixed visits.
+                            **B. Wide Format**
+                            * **Structure:** One row per patient with multiple columns for covariate measurements at different times.
+                            * **Columns:** `patient_id`, `followup_time`, `event`, `tvc_baseline`, `tvc_3m`, `tvc_6m`, etc.
+                            * **Status:** Requires transformation (we convert it to Long Format using "Risk Intervals").
+
+                            ---
 
                             #### 3. Interpretation
-                            *   **Hazard Ratio (HR):** Represents the *instantaneous* risk.
-                            *   **HR = 1.5:** At any given moment, having the condition (or 1 unit higher value) increases the risk of the event by 50% *compared to not having it at that same moment*.
+                            * **Hazard Ratio (HR):** Represents the *instantaneous* risk.
+                            * **HR = 1.5:** At any given moment, having the condition (or 1 unit higher value) increases the risk of the event by 50% *compared to not having it at that same moment*.
 
                             #### 4. Assumptions
-                            *   **Proportional Hazards:** Still applies! The effect of the variable (HR) is assumed constant over time, even if the variable's value changes.
+                            * **Proportional Hazards:** Still applies! The effect of the variable (HR) is assumed constant over time, even if the variable's value changes.
                         """),
                     ),
                     id="tvc_input_tabs",

@@ -43,34 +43,30 @@ logger = get_logger(__name__)
 def tvc_data_format_selector_ui() -> ui.TagChild:
     """
     Create UI for selecting input data format (Wide vs Long).
-
-    Returns:
-        ui.TagChild: Card containing format selector and info
+    Minimal version: Moved detailed explanation to Reference tab.
     """
     return ui.card(
         ui.card_header("📄 Data Format Selection"),
-        ui.markdown("""
-            **What's your data structure?**
-            
-            - **Long Format (Recommended):** Multiple rows per patient, each row represents a time interval
-              - Columns: patient_id, start_time, stop_time, event, [covariates...]
-              - Ready for direct analysis
-            
-            - **Wide Format:** One row per patient with multiple covariate measurements
-              - Columns: patient_id, followup_time, event, tvc_baseline, tvc_3m, tvc_6m, [static vars...]
-              - Requires transformation to long format
-            """),
+        ui.div(
+            ui.span("Select your data structure below. "),
+            ui.span(
+                "(See 'Reference' tab for detailed format specifications)",
+                class_="text-muted",
+                style="font-size: 0.9em;",
+            ),
+            class_="mb-2",
+        ),
         ui.input_radio_buttons(
             "tvc_data_format",
-            "Select your data format:",
+            None,  # Label removed for cleaner look
             {
-                "long": "📊 Long Format (I have multiple rows per patient)",
-                "wide": "📈 Wide Format (I have one row per patient)",
+                "long": "📊 Long Format (Multiple rows per patient - Recommended)",
+                "wide": "📈 Wide Format (One row per patient)",
             },
             selected="long",
             inline=False,
         ),
-        class_="alert alert-info",
+        class_="mb-3",
     )
 
 
