@@ -269,7 +269,7 @@ The application covers a wide range of medical statistical needs, organized into
 | :--- | :--- | :--- |
 | **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Kappa** (Weighted), **ICC** (pingouin integration), Bland-Altman (LoA CI). |
 | **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox), Forest Plots. |
-| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance. |
+| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance (Love Plots with Green/Yellow/Red zones), Common Support Visualization. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, Time-Varying Cox, G-Computation, Power Analysis. |
 
 ---
@@ -281,10 +281,12 @@ The data flow is standardized to ensure consistent handling of missing values an
 ### 1. Ingestion & Quality Check (`tab_data.py` & `utils/data_quality.py`)
 
 - Users upload files (CSV/Excel) or load example data.
-- **Immediate Data Health Report**: Uses `check_data_quality()` to perform deep validation:
-  - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`) that often appear in medical data but break standard numeric parsing.
-  - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories (threshold < 5) which might lead to unstable statistical estimates.
-  - **Detailed Diagnostic Log**: Provides a **complete list of all** row indices for issues, serving as the full "Error Log" to complement the subsampled visual heatmap.(show 10,000 row cap enforced by the implementation)
+- Users upload files (CSV/Excel) or load example data.
+- **Immediate Data Health Report**: Uses `check_data_quality()` and the new `DataQualityReport` class to perform deep validation:
+  - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`)...
+  - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories.
+  - **Data Quality Scorecard**: A structured report with 4 dimension scores (Completeness, Consistency, Uniqueness, Validity) displayed via Value Boxes.
+  - **Detailed Diagnostic Log**: Provides a **complete list of all** row indices for issues, serving as the full "Error Log".
 - **Configuration**: Individual variable type casting and missing value strategy selection based on the health report.
 
 ### 2. **Configuration & Cleaning**

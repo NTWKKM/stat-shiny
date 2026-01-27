@@ -730,6 +730,7 @@ def baseline_matching_server(
             # เตรียมข้อมูลผลลัพธ์ให้พร้อมก่อนทำการ set ค่าให้กับ reactive values
             new_results = {
                 "df_matched": df_m,
+                "df_pre_match": df_ps,  # NEW: Store pre-match data for distribution plot
                 "smd_pre": smd_pre,
                 "smd_post": smd_post,
                 "final_treat_col": final_treat_col,
@@ -820,20 +821,34 @@ def baseline_matching_server(
                     ui.h5("Step 4️⃣: Balance Assessment"),
                     ui.navset_card_underline(
                         ui.nav_panel(
-                            "📉 Love Plot",
+                            "📉 Love Plot (Balance)",
                             ui.output_ui("out_love_plot"),
+                            ui.div(
+                                ui.span(
+                                    "■ Green Zone (<0.1): Excellent Balance",
+                                    style="color: green; margin-right: 15px;",
+                                ),
+                                ui.span(
+                                    "■ Yellow Zone (0.1-0.2): Acceptable",
+                                    style="color: #d4a017; margin-right: 15px;",
+                                ),
+                                ui.span(
+                                    "■ Red Zone (>0.2): Imbalanced", style="color: red;"
+                                ),
+                                style="font-size: 0.85em; margin-top: 10px; text-align: center;",
+                            ),
+                        ),
+                        ui.nav_panel(
+                            "🏔️ Common Support (Distribution)",
+                            ui.output_ui("out_ps_distribution"),  # NEW OUTPUT
                             ui.p(
-                                "Green (diamond) = matched, Red (circle) = unmatched. Target: All on left (SMD < 0.1)",
+                                "💡 Checks if treated and control groups overlap enough to be comparable.",
                                 style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;",
                             ),
                         ),
                         ui.nav_panel(
                             "📋 SMD Table",
                             ui.output_data_frame("out_smd_table"),
-                            ui.p(
-                                "✅ Good balance: SMD < 0.1 after matching",
-                                style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;",
-                            ),
                         ),
                         ui.nav_panel(
                             "📊 Group Comparison",
@@ -1002,6 +1017,29 @@ def baseline_matching_server(
             )
         html_str = plotly_figure_to_html(
             fig, div_id="plot_balance_love", include_plotlyjs="cdn", responsive=True
+        )
+        return ui.HTML(html_str)
+
+    @render.ui
+    def out_ps_distribution():
+        res = psm_results.get()
+        if res is None:
+            return None
+
+        # Extract data from results
+        df_pre = res.get("df_pre_match")
+        df_post = res.get("df_matched")
+        treat_col = res.get("final_treat_col")
+
+        if df_pre is None:
+            return None
+
+        fig = psm_lib.plot_ps_distribution(
+            df_pre, df_post, treat_col, ps_col="propensity_score"
+        )
+
+        html_str = plotly_figure_to_html(
+            fig, div_id="plot_ps_dist", include_plotlyjs="cdn", responsive=True
         )
         return ui.HTML(html_str)
 

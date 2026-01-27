@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Dict, List, Sequence
 
+import numpy as np
 import pandas as pd
 
 
@@ -181,3 +182,109 @@ def check_data_quality(df: pd.DataFrame) -> list[str]:
             warnings.append(f"**Column '{col}':** {full_msg}")
 
     return warnings
+
+
+# ==========================================
+# NEW: Data Quality Framework (Optimization)
+# ==========================================
+
+
+class DataQualityReport:
+    """
+    Advanced Data Quality Assessment Framework.
+    Provides structured scoring across multiple dimensions:
+    - Completeness (Missing values)
+    - Consistency (Type mismatch, outliers)
+    - Validity (Format compliance)
+    - Uniqueness (Duplication)
+    """
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df
+        self.total_rows = len(df)
+        self.total_cells = df.size if df.size > 0 else 1
+
+    def completeness_score(self) -> float:
+        """Score 0-100: Based on percentage of non-missing cells."""
+        if self.total_cells == 0:
+            return 0.0
+        missing_cells = self.df.isna().sum().sum()
+        return 100 * (1 - (missing_cells / self.total_cells))
+
+    def consistency_score(self) -> float:
+        """
+        Score 0-100: Checks for mixed types or non-standard values in numeric columns.
+        Uses _is_numeric_column logic to detect dirty data.
+        """
+        if self.total_rows == 0:
+            return 100.0
+
+        consistency_scores = []
+        for col in self.df.columns:
+            series = self.df[col]
+            (is_num, _, _, _, strict_nan_count) = _is_numeric_column(
+                series, self.total_rows
+            )
+
+            if is_num:
+                # Penalize based on ratio of dirty numeric values
+                col_score = 100 * (1 - (strict_nan_count / self.total_rows))
+                consistency_scores.append(col_score)
+            else:
+                # For categorical, check for numeric values mixed in text (reuse logic)
+                numeric_strict = pd.to_numeric(series, errors="coerce")
+                original_vals = series.astype(str).str.strip()
+                is_numeric_in_text = (numeric_strict.notna()) & (original_vals != "")
+                numeric_count = is_numeric_in_text.sum()
+
+                col_score = 100 * (1 - (numeric_count / self.total_rows))
+                consistency_scores.append(col_score)
+
+        return np.mean(consistency_scores) if consistency_scores else 100.0
+
+    def uniqueness_score(self) -> float:
+        """Score 0-100: Penalizes exact duplicate rows."""
+        if self.total_rows == 0:
+            return 100.0
+        duplicates = self.df.duplicated().sum()
+        return 100 * (1 - (duplicates / self.total_rows))
+
+    def validity_score(self) -> float:
+        """Score 0-100: Placeholder for future specific constraints (e.g. range checks)."""
+        # Currently defaults to 100 as we don't have schema constraints yet
+        return 100.0
+
+    def generate_report(self) -> Dict[str, Any]:
+        """Return structured quality report with overall score."""
+        scores = {
+            "completeness": self.completeness_score(),
+            "consistency": self.consistency_score(),
+            "uniqueness": self.uniqueness_score(),
+            "validity": self.validity_score(),
+        }
+
+        overall_score = np.mean(list(scores.values()))
+
+        # Get detailed text issues using existing function
+        text_issues = check_data_quality(self.df)
+
+        return {
+            "overall_score": round(overall_score, 1),
+            "dimension_scores": {k: round(v, 1) for k, v in scores.items()},
+            "issues": text_issues,
+            "recommendations": self._generate_recommendations(scores),
+        }
+
+    def _generate_recommendations(self, scores: Dict[str, float]) -> List[str]:
+        recs = []
+        if scores["completeness"] < 90:
+            recs.append(
+                "Data has significant missing values. Consider imputation or removing sparse columns."
+            )
+        if scores["consistency"] < 95:
+            recs.append(
+                "Found inconsistent data types (e.g., text in numeric columns). Use cleaning tools."
+            )
+        if scores["uniqueness"] < 100:
+            recs.append("Duplicate rows detected. Verify if this is expected.")
+        return recs
