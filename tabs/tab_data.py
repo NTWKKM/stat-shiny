@@ -1025,6 +1025,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
             if "error" in res:
                 return ui.div(f"Error: {res['error']}", class_="alert alert-danger")
+            if res.get("normality_test") == "Insufficient Data":
+                return ui.div(
+                    "Insufficient data for normality test (minimum 3 observations required).",
+                    class_="alert alert-warning",
+                )
 
             color = COLORS["success"] if res["is_normal"] else COLORS["danger"]
             status_text = (
