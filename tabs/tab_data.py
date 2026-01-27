@@ -31,9 +31,12 @@ COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
 @module.ui
 def data_ui() -> ui.TagChild:
     """
-    UI for the Data Management tab.
-    Refactored for UI consistency using ui.card and theme-aligned styling.
-    Now includes Data Health Report section.
+    Constructs the Data Management tab UI with controls and panels for loading, inspecting, configuring, cleaning, imputing, transforming, and previewing a dataset.
+    
+    The layout includes a left sidebar for data actions and metadata, a main area with data quality warnings and a data health report, an accordion of tools (Variable Config, Cleaning & Imputation, Transformation, Reference), and a data preview card.
+    
+    Returns:
+        ui.TagChild: A UI tag tree representing the complete Data Management tab layout.
     """
     return ui.layout_sidebar(
         ui.sidebar(
@@ -306,6 +309,29 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
+    """
+    Initialize the server-side logic for the Data Management Shiny module, wiring data loading, metadata handling, cleaning/imputation/outlier/transform workflows, data-quality detection, and UI renderers.
+    
+    This function sets up reactive state and event/effect handlers that:
+    - generate example clinical data and simulate time-varying covariates,
+    - load and infer column types from uploaded CSV/Excel files (with basic quality issue detection),
+    - configure per-variable metadata and missing-value codes,
+    - run imputation, outlier handling, and variable transformations (creating new variables and updating metadata),
+    - provide UI outputs for data preview, data quality warnings, a data quality report card, file metadata, missing-data pattern plots, and transformation assumption checks,
+    - manage matched-data state and reset/confirmation flows.
+    
+    Parameters:
+        df (reactive.Value[pd.DataFrame | None]): Reactive reference that holds the current dataset.
+        var_meta (reactive.Value[dict[str, Any]]): Reactive reference for per-variable metadata (type, label, mappings, missing codes).
+        uploaded_file_info (reactive.Value[dict[str, Any] | None]): Reactive reference storing uploaded file information (e.g., name).
+        df_matched (reactive.Value[pd.DataFrame | None]): Reactive reference holding a matched/processed dataset variant when applicable.
+        is_matched (reactive.Value[bool]): Reactive flag indicating whether matching has been performed.
+        matched_treatment_col (reactive.Value[str | None]): Reactive reference storing the treatment column name used for matching.
+        matched_covariates (reactive.Value[list[str]]): Reactive reference listing covariates used for matching.
+    
+    Note:
+        This function mutates the provided reactive.Value objects to drive the module's UI and behavior and does not return a value.
+    """
     is_loading_data: reactive.Value[bool] = reactive.Value(value=False)
     # เก็บข้อมูลปัญหาของข้อมูล (Row, Col, Value) เพื่อรายงาน
     data_issues: reactive.Value[list[dict[str, Any]]] = reactive.Value([])
@@ -905,6 +931,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     @reactive.Effect
     @reactive.event(lambda: input.btn_save_meta())
     def _save_metadata():
+        """
+        Save the currently selected variable's metadata (type, label, and value mapping) into the shared var_meta store and notify the user.
+        
+        Parses the mapping text from input.txt_var_map() where each non-empty line with an '=' defines a source=>label pair. Keys that parse as numbers are converted to int when integer-valued or float otherwise; all other keys are kept as stripped strings. Malformed mapping lines are ignored and logged at debug level. If no variable is selected ("Select..."), the function exits without changing metadata. After updating, the variable's metadata entry is set with keys "type", "map", and "label", and a success notification is shown.
+        """
         var_name = input.sel_var_edit()
         if var_name == "Select...":
             return
@@ -951,6 +982,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     @reactive.Effect
     @reactive.event(input.btn_run_impute)
     def _handle_imputation():
+        """
+        Imputes missing values for the currently loaded dataframe on the user-selected columns using the chosen method.
+        
+        If a dataframe and one or more target columns are selected, updates the module's dataframe in-place with the imputed result and shows a success notification; on error the dataframe is left unchanged and a failure notification is shown (exceptions are caught and logged).
+        """
         d = df.get()
         cols = input.sel_impute_cols()
         method = input.sel_impute_method()
@@ -973,6 +1009,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     @reactive.Effect
     @reactive.event(input.btn_run_outlier)
     def _handle_outliers():
+        """
+        Apply the configured outlier handling to the selected columns and update the active dataframe.
+        
+        Reads the target columns, method, action, and threshold from the module inputs, applies outlier handling to each selected column, replaces those columns in the active dataframe, and shows a success notification with the number of processed columns. If no dataframe is loaded or no columns are selected, no changes are made. On error, logs the exception and shows an error notification.
+        """
         d = df.get()
         cols = input.sel_outlier_cols()
         method = input.sel_outlier_method()
@@ -1000,6 +1041,12 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
     @render.ui
     def ui_missing_plot():
+        """
+        Render the dataset's missing-value pattern as an embeddable Plotly HTML fragment.
+        
+        Returns:
+            html_fragment (str): HTML string containing a Plotly figure showing missing-data patterns for the current dataframe, or `None` if no dataframe is loaded.
+        """
         d = df.get()
         if d is None:
             return None
@@ -1014,6 +1061,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
     @render.ui
     def ui_assumption_result():
+        """
+        Render a UI summary of distributional assumption checks for the currently selected transformation variable.
+        
+        When a variable is selected and data is available, returns a UI fragment that displays the normality test name, p-value, pass/fail status (with color coding), and optional skewness and kurtosis values. If no data or variable is selected, returns None. If an error occurs while checking assumptions, returns an alert UI element describing the error.
+        
+        Returns:
+            ui_element: A UI component summarizing normality/assumption results for the selected variable, or `None` when no data/variable is available. If an error occurs during the check, an alert UI element is returned containing the error message.
+        """
         var_name = input.sel_trans_var()
         d = df.get()
 
@@ -1064,6 +1119,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     @reactive.Effect
     @reactive.event(input.btn_run_trans)
     def _handle_transform():
+        """
+        Create a new transformed variable from a selected column and add it to the dataset and metadata.
+        
+        Applies the chosen transformation method to the currently selected variable, appends the resulting series to the reactive DataFrame under a generated name "<variable>_<method>" (adding a numeric suffix if that name already exists), and records metadata for the new variable with type "Continuous" and label "<original> (<method>)". Shows a success notification on completion or an error notification if the transformation fails.
+        """
         d = df.get()
         var_name = input.sel_trans_var()
         method = input.sel_trans_method()
@@ -1106,7 +1166,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     @render.text
     def txt_trans_preview():
         """
-        Show a text preview/status of the selected transformation.
+        Return a short status message describing the selected variable transformation.
+        
+        Returns:
+            str: `"Please select a variable and transformation method."` when no variable or method is selected, otherwise
+            `"Ready to apply '<method>' transformation to '<variable>'."`
         """
         var_name = input.sel_trans_var()
         method = input.sel_trans_method()
@@ -1119,7 +1183,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     # --- Missing Data Configuration Handlers ---
     @render.ui
     def ui_missing_preview():
-        """Preview currently configured missing values for selected variable"""
+        """
+        Render a preview of the configured missing-value codes for the currently selected variable.
+        
+        If no variable is selected or the variable has no metadata or missing-value configuration, the returned UI element displays an explanatory message; otherwise it displays the configured codes.
+        
+        Returns:
+            ui_element: A Shiny UI element that displays either an explanatory message or the list of missing-value codes for the selected variable.
+        """
         var_name = input.sel_var_edit()
         if not var_name or var_name == "Select...":
             return ui.div(
@@ -1225,6 +1296,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
     @render.data_frame
     def out_df_preview():
+        """
+        Render the current dataframe as a preview table with detected data quality issues visually highlighted.
+        
+        If the module has recorded data quality issues for specific cells, those cells are visually emphasized in the preview (e.g., colored background and border). If no dataframe is loaded, returns None.
+        
+        Returns:
+            render.DataTable or None: A DataTable rendering of the current dataframe with issue cells highlighted, or `None` when no data is available.
+        """
         d = df.get()
         if d is None:
             return None
@@ -1248,6 +1327,12 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         # Apply styling using pandas Styler
         def highlight_errors(row):
             # Create style array for this row
+            """
+            Create a list of CSS style strings that highlight cells in a dataframe row flagged as errors.
+            
+            Returns:
+                list[str]: A list of CSS style strings (one per column). Entries are an empty string for unmodified cells or a CSS rule that applies a red-tinted background, red border, red text color, and bold font for cells whose (row_index, column_name) tuple is present in the global `error_cells` set.
+            """
             styles = [""] * len(row)
             row_idx = row.name  # Get the row index
             for col_idx, col_name in enumerate(d.columns):
@@ -1282,6 +1367,12 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     # --- New: Data Health Report Renderer ---
     @render.ui
     def ui_file_metadata():
+        """
+        Render a compact metadata card showing dataset dimensions, approximate memory usage, and the uploaded file name.
+        
+        Returns:
+            ui_element (Optional[ui.div]): A UI div containing the dataset "rows x cols" summary, approximate memory usage in MB, and the uploaded file name. Returns `None` if no dataset is loaded.
+        """
         d = df.get()
         info = uploaded_file_info.get()
         if d is None:
