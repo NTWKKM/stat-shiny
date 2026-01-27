@@ -48,7 +48,8 @@ def _is_numeric_column(
 
 def _format_row_list(rows: list[any], max_show: int = 400) -> str:
     """Helper to format a list of row indices for reporting."""
-    if not rows:
+    # FIX: Use len(rows) == 0 instead of 'if not rows' to handle numpy arrays safely
+    if len(rows) == 0:
         return ""
 
     count = len(rows)
