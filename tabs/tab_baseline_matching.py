@@ -31,7 +31,12 @@ COLORS = get_color_palette()
 @module.ui
 def baseline_matching_ui() -> ui.TagChild:
     """
-    Constructs the baseline matching user interface...
+    Builds the multi-tab Baseline Matching user interface with controls and results panels.
+    
+    The returned UI contains five main subtabs: Baseline Characteristics (Table 1) for generating and downloading Table 1 HTML; Propensity Score Matching (PSM) for configuring, running, and inspecting matching results; Matched Data View for previewing, exporting, and analyzing matched data; Sample Size tools (embedded from sample_size module); and Reference & Interpretation guidance. Each subtab groups configuration controls, action buttons, and result/content containers appropriate to its purpose.
+    
+    Returns:
+        ui.TagChild: The root navset_tab element representing the complete Baseline Matching UI.
     """
     return ui.navset_tab(
         # ===== SUBTAB 1: BASELINE CHARACTERISTICS (TABLE 1) =====
@@ -363,9 +368,6 @@ def baseline_matching_server(
     matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
 ) -> None:
-    # -------------------------------------------------------------------------
-    # SHARED REACTIVE VALUES
-    # -------------------------------------------------------------------------
     """
     Set up server-side reactive logic and UI renderers for the Baseline Matching module.
 
@@ -386,6 +388,9 @@ def baseline_matching_server(
         matched_treatment_col (reactive.Value[str | None]): Reactive storage for the treatment column name used in the matched dataset (may be an encoded column name).
         matched_covariates (reactive.Value[list[str]]): Reactive list of covariate column names used for matching; updated after running PSM.
     """
+    # -------------------------------------------------------------------------
+    # SHARED REACTIVE VALUES
+    # -------------------------------------------------------------------------
     psm_results: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     html_content: reactive.Value[str | None] = reactive.Value(None)
 

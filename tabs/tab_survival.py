@@ -65,7 +65,17 @@ COLORS = get_color_palette()
 # ============================================================================
 @module.ui
 def survival_ui() -> ui.TagChild:
-    """Modern Shiny UI module - no namespace argument needed."""
+    """
+    Builds the Modern Shiny UI for the Survival Analysis module with controls and result areas for multiple survival methods.
+    
+    This function returns the complete UI tag tree that provides:
+    - Dataset selection and summary header.
+    - Six main analysis tabs: Survival Curves (KM & Nelson–Aalen), Landmark Analysis, Cox Regression, Subgroup Analysis, Time‑Varying Cox (with Analysis/Configuration/Reference subtabs), and Reference/Interpretation.
+    - Per-tab input controls, validation output placeholders, action/download buttons, and persistent result containers.
+    
+    Returns:
+        ui.TagChild: The assembled UI component tree for embedding the Survival Analysis module.
+    """
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
