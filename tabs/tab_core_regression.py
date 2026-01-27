@@ -201,6 +201,96 @@ def core_regression_ui() -> ui.TagChild:
                 ),
             ),
             # =====================================================================
+            # TAB 1.5: Subgroup Analysis (Logit)
+            # =====================================================================
+            ui.nav_panel(
+                "🔛 Subgroup Analysis",
+                ui.card(
+                    ui.card_header("Binary Logistic Subgroup Analysis - Heterogeneity"),
+                    ui.layout_columns(
+                        create_input_group(
+                            "Variables",
+                            ui.input_select(
+                                "sg_logit_outcome",
+                                create_tooltip_label(
+                                    "Outcome (Y)", "Must be binary (0/1 or Yes/No)."
+                                ),
+                                choices=["Select..."],
+                            ),
+                            ui.input_select(
+                                "sg_logit_treatment",
+                                create_tooltip_label(
+                                    "Treatment/Exposure",
+                                    "Primary variable of interest.",
+                                ),
+                                choices=["Select..."],
+                            ),
+                            create_input_group(
+                                "Stratification & Adjustment",
+                                ui.input_select(
+                                    "sg_logit_subgroup",
+                                    create_tooltip_label(
+                                        "Stratify By",
+                                        "Categorical variable defining subgroups.",
+                                    ),
+                                    choices=["Select..."],
+                                ),
+                                ui.input_selectize(
+                                    "sg_logit_adjust",
+                                    create_tooltip_label(
+                                        "Adjustment Variables",
+                                        "Covariates to adjust for within subgroups.",
+                                    ),
+                                    choices=[],
+                                    multiple=True,
+                                    width="100%",
+                                    options={"plugins": ["remove_button"]},
+                                ),
+                                type="required",
+                            ),
+                            type="required",
+                        ),
+                        col_widths=[12],
+                    ),
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "⚠️ Advanced Settings",
+                            create_input_group(
+                                "Minimum Counts",
+                                ui.input_numeric(
+                                    "sg_logit_min_n",
+                                    "Min N per subgroup:",
+                                    value=10,
+                                    min=5,
+                                    max=100,
+                                ),
+                                type="advanced",
+                            ),
+                        ),
+                        open=False,
+                    ),
+                    ui.output_ui("out_sg_logit_validation"),
+                    ui.hr(),
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_sg_logit",
+                            "🚀 Run Subgroup Analysis",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.download_button(
+                            "btn_dl_sg_logit",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                ),
+                ui.output_ui("out_sg_logit_status"),
+                create_results_container(
+                    "Subgroup Analysis Results", ui.output_ui("out_sg_logit_result")
+                ),
+            ),
+            # =====================================================================
             # TAB 3: Count & Special (formerly Poisson & GLM)
             # =====================================================================
             # =====================================================================
@@ -796,6 +886,8 @@ def core_regression_server(
     """
     logit_res = reactive.Value(None)
     logit_is_running = reactive.Value(False)  # Track running state
+    logit_sg_res = reactive.Value(None)
+    logit_sg_is_running = reactive.Value(False)  # Track subgroup running state
     # Store Poisson results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
     poisson_res = reactive.Value(None)
     poisson_is_running = reactive.Value(False)
@@ -986,11 +1078,22 @@ def core_regression_server(
         )
         ui.update_selectize("linear_exclude", choices=cols)
 
-        # Update Tab 4 (Subgroup) Inputs
-        ui.update_select("sg_outcome", choices=binary_cols, selected=default_logit_y)
-        ui.update_select("sg_treatment", choices=cols)
-        ui.update_select("sg_subgroup", choices=sg_cols)
-        ui.update_selectize("sg_adjust", choices=cols)
+        # Update Tab 1.5 (Logit Subgroup) Inputs
+        ui.update_select(
+            "sg_logit_outcome", choices=binary_cols, selected=default_logit_y
+        )
+
+        def_sg_treat = select_variable_by_keyword(
+            cols, ["treatment", "group"], default_to_first=True
+        )
+        ui.update_select("sg_logit_treatment", choices=cols, selected=def_sg_treat)
+
+        def_sg_sub = select_variable_by_keyword(
+            sg_cols, ["group", "subgroup"], default_to_first=True
+        )
+        ui.update_select("sg_logit_subgroup", choices=sg_cols, selected=def_sg_sub)
+
+        ui.update_selectize("sg_logit_adjust", choices=cols)
 
         # Update Tab 5 (Repeated Measures) Inputs
         # Default: Outcome_Cured, Treatment_Group, Time_Months, ID
@@ -2749,6 +2852,149 @@ def core_regression_server(
         if res:
             # Need to handle numpy types for JSON serialization
             yield json.dumps(res, indent=2, default=str)
+
+    # =========================================================================
+    # LOGISTIC SUBGROUP SERVER LOGIC
+    # =========================================================================
+
+    @render.ui
+    def out_sg_logit_status():
+        """Show running status."""
+        if logit_sg_is_running.get():
+            return create_loading_state("Running Subgroup Analysis...")
+        return None
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_sg_logit)
+    def _run_sg_logit():
+        """Run logistic subgroup analysis."""
+        d = current_df()
+        y = input.sg_logit_outcome()
+        treat = input.sg_logit_treatment()
+        subgroup = input.sg_logit_subgroup()
+        adjust = input.sg_logit_adjust()
+        min_n = input.sg_logit_min_n()
+
+        if d is None:
+            return
+
+        if any(x == "Select..." for x in [y, treat, subgroup]):
+            ui.notification_show("Please select all required variables", type="warning")
+            return
+
+        logit_sg_is_running.set(True)
+        logit_sg_res.set(None)
+        ui.notification_show(
+            "Running Subgroup Analysis...", duration=None, id="run_sg_logit"
+        )
+
+        try:
+            analyzer = SubgroupAnalysisLogit(d)
+            result = analyzer.analyze(
+                outcome_col=y,
+                treatment_col=treat,
+                subgroup_col=subgroup,
+                adjustment_cols=list(adjust) if adjust else None,
+                min_subgroup_n=min_n,
+                var_meta=var_meta.get(),
+            )
+
+            if "error" in result:
+                ui.notification_show(result["error"], type="error")
+                ui.notification_remove("run_sg_logit")
+                return
+
+            # Generate forest plot
+            forest_fig = analyzer.create_forest_plot()
+            result["forest_plot"] = forest_fig
+
+            logit_sg_res.set(result)
+            ui.notification_remove("run_sg_logit")
+            ui.notification_show("✅ Analysis Complete", type="message")
+
+        except Exception as e:
+            ui.notification_remove("run_sg_logit")
+            ui.notification_show(f"Analysis failed: {e}", type="error")
+            logger.exception("Logit Subgroup Analysis Error")
+        finally:
+            logit_sg_is_running.set(False)
+
+    @render.ui
+    def out_sg_logit_result():
+        """Render subgroup results."""
+        res = logit_sg_res.get()
+        if res is None:
+            return create_placeholder_state("Run analysis to see results", "🔛")
+
+        # Create summary table
+        summary_df = pd.DataFrame(res["results_df"])
+        # Format P-values
+        if "p_value" in summary_df.columns:
+            summary_df["p_value"] = summary_df["p_value"].apply(
+                lambda x: f"{x:.4f}" if isinstance(x, float) else x
+            )
+
+        table_html = summary_df.to_html(
+            classes="table table-striped table-hover", index=False
+        )
+
+        # Plot
+        fig = res.get("forest_plot")
+        plot_html = plotly_figure_to_html(fig) if fig else ""
+
+        return ui.div(
+            ui.card(
+                ui.card_header("🌳 Forest Plot (Treatment Effect by Subgroup)"),
+                ui.HTML(plot_html),
+            ),
+            ui.br(),
+            ui.card(
+                ui.card_header("📊 Detailed Results"),
+                ui.HTML(table_html),
+            ),
+            ui.br(),
+            ui.card(
+                ui.card_header("Interaction Test"),
+                ui.div(
+                    ui.p(
+                        f"P-interaction: {res['interaction']['p_value']:.4f}"
+                        if res["interaction"]["p_value"] is not None
+                        else "N/A"
+                    ),
+                    ui.p(
+                        "Significant Heterogeneity detected."
+                        if res["interaction"]["significant"]
+                        else "No significant heterogeneity detected."
+                    ),
+                    class_="alert alert-info"
+                    if not res["interaction"]["significant"]
+                    else "alert alert-warning",
+                ),
+            ),
+        )
+
+    @render.download(filename="logit_subgroup_report.html")
+    def btn_dl_sg_logit():
+        """Download report."""
+        res = logit_sg_res.get()
+        if not res:
+            yield "No results available."
+            return
+
+        # Simplified Report generation for now
+        html_content = f"""
+        <html>
+        <head><title>Subgroup Analysis Report</title></head>
+        <body>
+            <h1>Subgroup Analysis (Logistic Regression)</h1>
+            <h2>Forest Plot</h2>
+            {plotly_figure_to_html(res.get("forest_plot"))}
+            <h2>Detailed Results</h2>
+            {pd.DataFrame(res["results_df"]).to_html()}
+        </body>
+        </html>
+        """
+        yield html_content
 
     # ==========================================================================
     # LOGIC: Repeated Measures

@@ -216,7 +216,7 @@ This application is a complete statistical workbench organized into modular tabs
 ### 📈 Core Regression Models
 
 - **GLM Framework**:
-  - **Logistic Regression**: Standard, Auto, and **Firth's Regression** (for rare events).
+  - **Logistic Regression**: Standard, Auto, **Firth's Regression** (rare events), and **Subgroup Analysis** (Forest Plots).
   - **Count Models**: Poisson and Negative Binomial regression.
   - **Linear Regression**: OLS with options for robust standard errors.
 - **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).

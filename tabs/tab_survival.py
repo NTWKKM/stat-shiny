@@ -318,12 +318,16 @@ def survival_ui() -> ui.TagChild:
                                 ),
                                 choices=["Select..."],
                             ),
-                            create_tooltip_label(
-                                "Adjustment Variables",
-                                "Covariates to adjust for within subgroups.",
-                            ),
-                            ui.input_checkbox_group(
-                                "sg_adjust", label=None, choices=[]
+                            ui.input_selectize(
+                                "sg_adjust",
+                                create_tooltip_label(
+                                    "Adjustment Variables",
+                                    "Covariates to adjust for within subgroups.",
+                                ),
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="required",
                         ),
@@ -684,7 +688,7 @@ def survival_server(
         ui.update_select(
             "sg_subgroup", choices=choices_with_labels, selected=default_subgr
         )
-        ui.update_checkbox_group("sg_adjust", choices=choices_with_labels)
+        ui.update_selectize("sg_adjust", choices=choices_with_labels)
 
         # TVC: Column configuration (use specialized detection for long-format TVC data)
         if len(cols) > 0:
