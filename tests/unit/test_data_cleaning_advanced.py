@@ -15,7 +15,7 @@ class TestAdvancedCleaning:
     def sample_df(self):
         """
         Provide a small sample DataFrame for tests with numeric columns that contain specific missing values and a categorical column.
-        
+
         Returns:
             pd.DataFrame: DataFrame with 5 rows and columns:
                 - A (float): [1.0, 2.0, NaN, 4.0, 5.0] (NaN at index 2)
