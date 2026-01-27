@@ -97,15 +97,6 @@ def core_regression_ui() -> ui.TagChild:
     Returns:
         ui.TagChild: A UI fragment containing the dataset selector/info and the tabbed analysis panels with inputs, run/download controls, and result containers.
     """
-    """
-    Constructs the main UI for the regression module, providing controls and result panels for logistic, Poisson, and subgroup analyses.
-
-    Returns:
-        ui.TagChild: A UI fragment containing dataset selectors and info, tabbed panels for
-        Binary Logistic Regression, Poisson Regression, Subgroup Analysis, and Reference,
-        each with controls (variable selection, method/settings, exclusions, interactions),
-        run/download actions, and result panels for forest plots and detailed reports.
-    """
     return ui.div(
         # Title + Data Summary inline
         ui.output_ui("ui_title_with_summary"),
