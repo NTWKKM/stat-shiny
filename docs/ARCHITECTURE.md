@@ -77,7 +77,7 @@ The data flow is standardized to ensure consistent handling of missing values an
 - **Immediate Data Health Report**: Uses `check_data_quality()` to perform deep validation:
   - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`) that often appear in medical data but break standard numeric parsing.
   - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories (threshold < 5) which might lead to unstable statistical estimates.
-  - **Detailed Diagnostic Log**: Provides a comprehensive list of **up to 100 specific row indices** for every issue (missing data, non-standard values), acting as a detailed companion to the visual heatmap.
+  - **Detailed Diagnostic Log**: Provides a **comprehensive list (practically all)** row indices for issues, serving as the complete "Error Log" to complement the subsampled visual heatmap.
 - **Configuration**: Individual variable type casting and missing value strategy selection based on the health report.
 
 ### 2. **Configuration & Cleaning**
