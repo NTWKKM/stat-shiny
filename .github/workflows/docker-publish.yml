@@ -3,6 +3,7 @@ name: Publish to Docker Hub
 on:
   push:
     branches: ["main"] # run when code is changed in branch main
+  workflow_dispatch:   # run manual
 
 permissions:
   contents: read
