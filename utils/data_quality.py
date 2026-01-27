@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import pandas as pd
-
 from typing import Any, Sequence
+
+import pandas as pd
 
 
 def _is_numeric_column(
