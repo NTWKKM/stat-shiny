@@ -791,13 +791,13 @@ def get_missing_summary_df(
 ) -> pd.DataFrame:
     """
     Builds a per-variable missing-data summary DataFrame.
-    
+
     Parameters:
         df (pd.DataFrame): Input table to summarize.
         var_meta (dict[str, Any]): Optional variable metadata; if a column name is present, its "type" key will be used to label the variable.
         missing_codes (list[Any] | None): Global list of coded missing values to count as missing when normal NaNs are not present.
         already_normalized (bool): If True, treat coded missing values in `df` as already converted to `NaN` and do not re-check `missing_codes`.
-    
+
     Returns:
         pd.DataFrame: A DataFrame with columns:
             - Variable: column name from `df`.
@@ -861,14 +861,14 @@ def impute_missing_data(
 ) -> pd.DataFrame:
     """
     Imputes missing values for specified numeric columns using the chosen strategy.
-    
+
     Performs imputation only on numeric columns among `cols`; non-numeric columns are skipped with a warning.
     Supported methods:
     - "knn": K-Nearest Neighbors imputation (uses `n_neighbors`).
     - "mice": Multiple imputation by chained equations (uses `random_state`, `max_iter`).
     - "mean": Column-wise mean imputation.
     - "median": Column-wise median imputation.
-    
+
     Parameters:
         df (pd.DataFrame): Input DataFrame.
         cols (list[str]): Columns to consider for imputation; must exist in `df`. Non-numeric columns in this list are ignored.
@@ -877,10 +877,10 @@ def impute_missing_data(
             - n_neighbors (int): For "knn" (default 5).
             - random_state (int): For "mice" (default 42).
             - max_iter (int): For "mice" (default 10).
-    
+
     Returns:
         pd.DataFrame: A copy of `df` with missing values imputed for the processed numeric columns.
-    
+
     Raises:
         ValueError: If any column in `cols` is not present in `df` or if `method` is unknown.
         DataCleaningError: If the imputation process fails for other reasons.
@@ -948,19 +948,19 @@ def impute_missing_data(
 def transform_variable(series: pd.Series, method: str = "log") -> pd.Series:
     """
     Apply a statistical transformation to a numeric series.
-    
+
     This function first cleans the input to numeric values and then applies one of:
     - "log": natural logarithm; if the series contains values <= 0 it is shifted by (abs(min) + 1) before taking the log.
     - "sqrt": square root; negative values are converted to `NaN` before transformation.
     - "zscore": standard score (mean 0, standard deviation 1); if the standard deviation is zero the result is the series centered at zero (all zeros).
-    
+
     Parameters:
         series (pd.Series): Input values to be cleaned and transformed.
         method (str): Transformation to apply. One of "log", "sqrt", or "zscore".
-    
+
     Returns:
         pd.Series: Transformed numeric series.
-    
+
     Raises:
         ValueError: If `method` is not one of the supported transformations.
         DataCleaningError: If an error occurs during cleaning or transformation.
@@ -1007,12 +1007,12 @@ def transform_variable(series: pd.Series, method: str = "log") -> pd.Series:
 def check_assumptions(series: pd.Series) -> dict[str, Any]:
     """
     Evaluate basic distributional assumptions for a numeric series.
-    
+
     The function cleans the input, drops missing values, computes sample size, skewness, and kurtosis,
     and performs a normality test (Shapiro-Wilk for n < 5000; Kolmogorov-Smirnov against a standard normal for n >= 5000).
     If fewer than 3 non-missing observations are available the function returns an "Insufficient Data" result.
     Any exceptions encountered are captured in the returned dictionary under the `error` key.
-    
+
     Returns:
         dict: Dictionary with the following keys:
             - n (int): Number of non-missing observations used.
@@ -1055,7 +1055,11 @@ def check_assumptions(series: pd.Series) -> dict[str, Any]:
             test_name = "Shapiro-Wilk"
         else:
             # Standardize for KS test against standard normal
-            std_s = (clean_s - clean_s.mean()) / clean_s.std()
+            std = clean_s.std()
+            if std == 0 or np.isnan(std):
+                result["normality_test"] = "Insufficient Variance"
+                return result
+            std_s = (clean_s - clean_s.mean()) / std
             stat, p_val = stats.kstest(std_s, "norm")
             test_name = "K-S Test"
 
@@ -1085,9 +1089,9 @@ def handle_missing_for_analysis(
 ) -> pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]]:
     """
     Handle missing values in a DataFrame according to a specified strategy.
-    
+
     Applies configured or provided missing-value codes to the DataFrame (converting them to NaN) and then performs the chosen missing-data handling strategy.
-    
+
     Parameters:
         df (pd.DataFrame): Input DataFrame to process.
         var_meta (dict[str, Any]): Variable metadata used to determine per-column missing-value codes (passed to apply_missing_values_to_df).
@@ -1096,14 +1100,14 @@ def handle_missing_for_analysis(
             - "complete-case": drop rows containing any NaN.
             - "drop": drop columns containing any NaN (keep only complete variables).
         return_counts (bool): If True, also return a counts dictionary summarizing rows before/after and percentage removed.
-    
+
     Returns:
         pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]]: Cleaned DataFrame. If `return_counts` is True, returns a tuple of (cleaned DataFrame, counts) where `counts` contains:
             - original_rows: number of rows before handling
             - final_rows: number of rows after handling
             - rows_removed: number of rows removed
             - pct_removed: percentage of rows removed (rounded to two decimals)
-    
+
     Raises:
         ValueError: If `strategy` is not one of the supported values.
     """
