@@ -20,6 +20,7 @@ The application is built on a modular architecture where each tab is a self-cont
 
 ![Navigation Workflow](./assets/navigation_sequence.png)
 
+```mermaid
 sequenceDiagram
     participant User as User (Core Regression)
     participant UI as Subgroup UI
@@ -47,6 +48,7 @@ sequenceDiagram
     User->>Server: btn_dl_sg_logit (download)
     Server->>Server: compile HTML report
     Server->>User: provide download
+```
 
 ---
 
