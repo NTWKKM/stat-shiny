@@ -1339,8 +1339,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         for issue in issues:
             col = issue["col"]
             # Convert Excel row (1-based + header) to DataFrame index (0-based)
-            row_idx = issue["row"] - 2  # -2 because Excel is 1-based and has header
-            if isinstance(row_idx, int) and 0 <= row_idx < len(d):
+            row_val = issue.get("row")
+            if not isinstance(row_val, int):
+                continue
+            row_idx = row_val - 2  # -2 because Excel is 1-based and has header
+            if 0 <= row_idx < len(d):
                 error_cells[(row_idx, col)] = True
 
         # Apply styling using pandas Styler
