@@ -18,8 +18,6 @@ The application uses a fluid, multi-menu navbar designed for responsiveness and 
 
 The application is built on a modular architecture where each tab is a self-contained component. While modules follow a common structure for consistency, they are fully initialized during the application startup to ensure immediate availability and a smooth user experience.
 
-![Navigation Workflow]
-
 ## 1. Overall Application Flow
 
 ```mermaid
@@ -286,7 +284,7 @@ The data flow is standardized to ensure consistent handling of missing values an
 - **Immediate Data Health Report**: Uses `check_data_quality()` to perform deep validation:
   - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`) that often appear in medical data but break standard numeric parsing.
   - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories (threshold < 5) which might lead to unstable statistical estimates.
-  - **Detailed Diagnostic Log**: Provides a **complete list of all** row indices for issues, serving as the full "Error Log" to complement the subsampled visual heatmap.
+  - **Detailed Diagnostic Log**: Provides a **complete list of all** row indices for issues, serving as the full "Error Log" to complement the subsampled visual heatmap.(show 10,000 row cap enforced by the implementation)
 - **Configuration**: Individual variable type casting and missing value strategy selection based on the health report.
 
 ### 2. **Configuration & Cleaning**
