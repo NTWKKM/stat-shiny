@@ -39,41 +39,65 @@ def plot_missing_pattern(
     df_plot = df[display_cols].copy()
     missing_pct_plot = missing_pct[display_cols]
 
-    # --- 2. Row Subsampling (Smart Sampling) ---
+    # --- 2. Row Subsampling (Golden Ratio Smart Sampling) ---
     original_rows = len(df_plot)
     if original_rows > max_rows:
-        # Smart Sampling: Prioritize rows with missing data
-        # Identify rows with any missing values in the selected columns
+        # Golden Ratio Target: ~61.8% Missing (Problem), ~38.2% Clean (Context)
+        # This ensures the visualization focuses on the "problems" while providing a baseline.
+        target_missing_count = int(max_rows * 0.618)  # Approx 247 rows
+        target_clean_count = max_rows - target_missing_count  # Approx 153 rows
+
+        # Identify rows
         rows_with_missing = df_plot[df_plot.isna().any(axis=1)]
         rows_complete = df_plot.drop(rows_with_missing.index)
 
         n_missing = len(rows_with_missing)
+        n_complete = len(rows_complete)
 
-        if n_missing >= max_rows:
-            # Scenario A: Too many missing rows, sample from them
-            df_heatmap = rows_with_missing.sample(
-                n=max_rows, random_state=42
-            ).sort_index()
-            y_axis_title = (
-                f"Row Index (Sampled {max_rows}/{original_rows} - Missing Only)"
-            )
-        else:
-            # Scenario B: Include all missing, fill with complete
+        if n_missing <= target_missing_count:
+            # Scenario A: Missing count is manageable. Show ALL missing rows.
+            # Fill the rest with clean rows.
+            rows_missing_sample = rows_with_missing
+
             n_remaining = max_rows - n_missing
-            # Sample complete rows if we have enough, otherwise take all (unlikely if original_rows > max_rows)
-            if len(rows_complete) > n_remaining:
+            if n_complete > n_remaining:
                 rows_complete_sample = rows_complete.sample(
                     n=n_remaining, random_state=42
                 )
             else:
-                rows_complete_sample = rows_complete
+                rows_complete_sample = (
+                    rows_complete  # Take all if not enough to fill limit
+                )
 
-            df_heatmap = pd.concat(
-                [rows_with_missing, rows_complete_sample]
-            ).sort_index()
+            y_axis_title = f"Row Index (Sampled {len(rows_missing_sample) + len(rows_complete_sample)}/{original_rows} - Prioritized Missing)"
+
+        else:
+            # Scenario B: Too many missing rows. Enforce Golden Ratio.
+            # However, if clean rows are scarce, we shouldn't force empty space.
+            # We fill strictly with missing if clean is not available.
+
+            if n_complete >= target_clean_count:
+                # Default Golden Ratio Split
+                rows_missing_sample = rows_with_missing.sample(
+                    n=target_missing_count, random_state=42
+                )
+                rows_complete_sample = rows_complete.sample(
+                    n=target_clean_count, random_state=42
+                )
+            else:
+                # Clean Scarcity: Take all clean, fill rest with missing
+                rows_complete_sample = rows_complete
+                remaining_for_missing = max_rows - n_complete
+                rows_missing_sample = rows_with_missing.sample(
+                    n=remaining_for_missing, random_state=42
+                )
+
             y_axis_title = (
-                f"Row Index (Sampled {max_rows}/{original_rows} - Prioritized Missing)"
+                f"Row Index (Sampled {max_rows}/{original_rows} - Golden Ratio)"
             )
+
+        df_heatmap = pd.concat([rows_missing_sample, rows_complete_sample]).sort_index()
+
     else:
         df_heatmap = df_plot
         y_axis_title = "Row Index"
