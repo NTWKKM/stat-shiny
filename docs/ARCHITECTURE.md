@@ -20,6 +20,34 @@ The application is built on a modular architecture where each tab is a self-cont
 
 ![Navigation Workflow](./assets/navigation_sequence.png)
 
+sequenceDiagram
+    participant User as User (Core Regression)
+    participant UI as Subgroup UI
+    participant Server as Server Logic
+    participant Core as Analysis Engine
+    participant Viz as Forest Plot Generator
+
+    User->>UI: select outcome, treatment, subgroup, adjusters
+    UI->>Server: trigger _run_sg_logit
+    Server->>Server: set logit_sg_is_running = TRUE
+    Server->>UI: show "Analysis running..."
+
+    Server->>Core: subset data per subgroup & fit logistic models
+    Core-->>Server: subgroup estimates & CIs
+    Server->>Core: run interaction test
+    Core-->>Server: interaction p-value
+
+    Server->>Viz: generate forest plot from estimates
+    Viz-->>Server: forest plot figure
+    Server->>State: store logit_sg_res
+    Server->>Server: set logit_sg_is_running = FALSE
+    Server->>UI: out_sg_logit_result (plot + table + interaction summary)
+    UI->>User: display forest plot and results
+
+    User->>Server: btn_dl_sg_logit (download)
+    Server->>Server: compile HTML report
+    Server->>User: provide download
+
 ---
 
 ## 🎨 UI Styling System
