@@ -1,5 +1,5 @@
 import html
-import pytest
+
 from utils.diag_test import generate_report
 
 
