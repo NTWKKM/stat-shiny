@@ -249,7 +249,11 @@ def survival_ui() -> ui.TagChild:
                                 choices=[],
                                 selected=[],
                                 multiple=True,
-                                options={"placeholder": "Select predictors..."},
+                                width="100%",
+                                options={
+                                    "placeholder": "Select predictors...",
+                                    "plugins": ["remove_button"],
+                                },
                             ),
                             type="required",
                         ),

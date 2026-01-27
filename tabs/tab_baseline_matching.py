@@ -87,12 +87,12 @@ def baseline_matching_ui() -> ui.TagChild:
                     ui.input_action_button(
                         "btn_gen_table1",
                         "📊 Generate Table 1",
-                        class_="btn-primary btn-sm w-100",
+                        class_="btn-primary w-100",
                     ),
                     ui.download_button(
                         "btn_dl_table1",
                         "📥 Download HTML",
-                        class_="btn-success btn-sm w-100",
+                        class_="btn-success w-100",
                     ),
                     col_widths=[6, 6],
                 ),
@@ -140,6 +140,8 @@ def baseline_matching_ui() -> ui.TagChild:
                             ),
                             choices=[],
                             multiple=True,
+                            width="100%",
+                            options={"plugins": ["remove_button"]},
                         ),
                         type="required",
                     ),
@@ -186,7 +188,7 @@ def baseline_matching_ui() -> ui.TagChild:
                     ui.input_action_button(
                         "btn_run_psm",
                         "🚀 Run Propensity Score Matching",
-                        class_="btn-danger btn-sm w-100",
+                        class_="btn-danger w-100",
                     ),
                     ui.output_ui("ui_psm_run_status"),
                     col_widths=[9, 3],
@@ -210,13 +212,13 @@ def baseline_matching_ui() -> ui.TagChild:
                         ui.download_button(
                             "btn_dl_matched_csv_view",
                             "📥 CSV Format",
-                            class_="w-100 btn-sm",
+                            class_="w-100",
                         ),
                         ui.br(),
                         ui.download_button(
                             "btn_dl_matched_xlsx_view",
                             "📥 Excel Format",
-                            class_="w-100 btn-sm",
+                            class_="w-100",
                         ),
                     ),
                     ui.card(
@@ -239,7 +241,7 @@ def baseline_matching_ui() -> ui.TagChild:
                         ui.input_action_button(
                             "btn_clear_matched_tab3",
                             "🔄 Clear Matched Data",
-                            class_="btn-warning btn-sm w-100",
+                            class_="btn-warning w-100",
                         ),
                     ),
                     col_widths=[3, 3, 3, 3],

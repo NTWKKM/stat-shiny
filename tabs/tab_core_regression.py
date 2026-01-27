@@ -164,7 +164,12 @@ def core_regression_ui() -> ui.TagChild:
                                 "Remove specific variables from the model.",
                             ),
                             ui.input_selectize(
-                                "sel_exclude", label=None, choices=[], multiple=True
+                                "sel_exclude",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             # Interaction Pairs selector
                             ui.h6("🔗 Interaction Pairs:"),
@@ -173,8 +178,10 @@ def core_regression_ui() -> ui.TagChild:
                                 label=None,
                                 choices=[],
                                 multiple=True,
+                                width="100%",
                                 options={
-                                    "placeholder": "Select variable pairs to test interactions..."
+                                    "placeholder": "Select variable pairs to test interactions...",
+                                    "plugins": ["remove_button"],
                                 },
                             ),
                             type="optional",
@@ -336,6 +343,8 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
+                                        options={"plugins": ["remove_button"]},
                                     ),
                                     type="advanced",
                                 ),
@@ -351,8 +360,10 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
                                         options={
-                                            "placeholder": "Select variable pairs to test interactions..."
+                                            "placeholder": "Select variable pairs to test interactions...",
+                                            "plugins": ["remove_button"],
                                         },
                                     ),
                                     type="optional",
@@ -416,6 +427,8 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
+                                        options={"plugins": ["remove_button"]},
                                     ),
                                     type="advanced",
                                 ),
@@ -430,8 +443,10 @@ def core_regression_ui() -> ui.TagChild:
                                         label=None,
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
                                         options={
-                                            "placeholder": "Select variable pairs to test interactions..."
+                                            "placeholder": "Select variable pairs to test interactions...",
+                                            "plugins": ["remove_button"],
                                         },
                                     ),
                                     type="optional",
@@ -511,14 +526,18 @@ def core_regression_ui() -> ui.TagChild:
                                         ),
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
+                                        options={"plugins": ["remove_button"]},
                                     ),
                                     ui.input_selectize(
                                         "glm_interactions",
                                         "Interactions:",
                                         choices=[],
                                         multiple=True,
+                                        width="100%",
                                         options={
-                                            "placeholder": "Select variable pairs..."
+                                            "placeholder": "Select variable pairs...",
+                                            "plugins": ["remove_button"],
                                         },
                                     ),
                                     type="required",
@@ -573,8 +592,10 @@ def core_regression_ui() -> ui.TagChild:
                                 ),
                                 choices=[],
                                 multiple=True,
+                                width="100%",
                                 options={
-                                    "placeholder": "Select predictors or leave empty for auto-selection..."
+                                    "placeholder": "Select predictors or leave empty for auto-selection...",
+                                    "plugins": ["remove_button"],
                                 },
                             ),
                             ui.p(
@@ -671,7 +692,12 @@ def core_regression_ui() -> ui.TagChild:
                                 "Exclude Variables", "Remove specific variables."
                             ),
                             ui.input_selectize(
-                                "linear_exclude", label=None, choices=[], multiple=True
+                                "linear_exclude",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="optional",
                         )
@@ -780,7 +806,12 @@ def core_regression_ui() -> ui.TagChild:
                                 "Adjustments (Covariates)", "Control variables."
                             ),
                             ui.input_selectize(
-                                "rep_covariates", label=None, choices=[], multiple=True
+                                "rep_covariates",
+                                label=None,
+                                choices=[],
+                                multiple=True,
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="required",
                         ),
