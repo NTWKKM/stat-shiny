@@ -445,6 +445,41 @@ def survival_ui() -> ui.TagChild:
                             ),
                         ),
                     ),
+                    # Subtab 3: Reference (Specific to TVC)
+                    ui.nav_panel(
+                        "ℹ️ Reference",
+                        ui.markdown("""
+                            ### ⏱️ Time-Varying Cox Reference
+
+                            #### 1. What is Time-Varying Cox?
+                            Standard Cox regression assumes predictors (like treatment) are constant over time. 
+                            **Time-Varying Cox** allows values to change.
+                            
+                            **Examples:**
+                            *   **Treatment Switch:** A patient starts on Placebo but switches to Drug at Month 6.
+                            *   **Lab Values:** Cholesterol changes at every visit.
+                            *   **Cumulative Exposure:** Total dose received increases over time.
+
+                            #### 2. Data Formats
+                            
+                            **A. Long Format (Counting Process):**
+                            *   Most flexible. Each row is an *interval* of time.
+                            *   Requires: `ID`, `Start_Time`, `Stop_Time`, `Event_Status`, and covariate values for that interval.
+                            *   *Example:* Patient A (0-6 months, Drug=0), Patient A (6-12 months, Drug=1).
+
+                            **B. Wide Format (Simple):**
+                            *   Standard one-row-per-patient.
+                            *   We convert it to Long Format using "Risk Intervals" (e.g., [0-12], [12-24]).
+                            *   Useful for handling values recorded at fixed visits.
+
+                            #### 3. Interpretation
+                            *   **Hazard Ratio (HR):** Represents the *instantaneous* risk.
+                            *   **HR = 1.5:** At any given moment, having the condition (or 1 unit higher value) increases the risk of the event by 50% *compared to not having it at that same moment*.
+
+                            #### 4. Assumptions
+                            *   **Proportional Hazards:** Still applies! The effect of the variable (HR) is assumed constant over time, even if the variable's value changes.
+                        """),
+                    ),
                     id="tvc_input_tabs",
                 ),
                 # --- RESULTS SECTION (Persistent Card) ---
@@ -470,6 +505,24 @@ def survival_ui() -> ui.TagChild:
                     | **Cox** | Multiple predictors of survival | HR, CI, p-value per variable + forest plot |
                     | **Subgroup Analysis** | Treatment effect heterogeneity | HR by subgroup, interaction test |
                     | **Time-Varying Cox** | Time-dependent covariates | Dynamic HR, interval-based risk |
+
+                    ### 📝 Detailed Interpretation:
+
+                    #### 1. Hazard Ratios (HR)
+                    The main measure of effect in survival analysis.
+                    *   **HR = 1:** No difference in risk between groups.
+                    *   **HR > 1:** Increased risk of event (e.g., HR 1.5 = 50% higher risk). **Hazardous / Bad Outcome.**
+                    *   **HR < 1:** Reduced risk of event (e.g., HR 0.7 = 30% lower risk). **Protective / Good Outcome.**
+
+                    #### 2. Log-Rank Test
+                    Used in Kaplan-Meier analysis to compare survival curves.
+                    *   **P < 0.05:** There is a statistically significant difference between the survival curves of the groups.
+
+                    #### 3. Landmark Analysis
+                    Addresses **Immortal Time Bias** or violation of Proportional Hazards.
+                    *   By selecting a "Landmark Time" (e.g., 6 months), you exclude patients who died/censored before 6 months.
+                    *   You then compare survival *given that* the patient has already survived to 6 months.
+                    *   *Note: This reduces your sample size but provides a fairer comparison for late-acting treatments.*
                     """),
                 ),
             ),

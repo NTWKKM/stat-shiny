@@ -214,8 +214,8 @@ def diag_ui() -> ui.TagChild:
                     | My test is a **score** (e.g., 0-100) and I want to see how well it predicts a **disease** (Yes/No)? | **ROC Curve & AUC** | Risk Score vs Diabetes |
                     | I want to find the **best cut-off** value for my test score? | **ROC Curve (Youden Index)** | Finding optimal BP for Hypertension |
                     | Are these two **groups** (e.g., Treatment vs Control) different in outcome (Cured vs Not Cured)? | **Chi-Square** | Drug A vs Placebo on Recovery |
-                    | Do two doctors **agree** on the same diagnosis? | **Cohen's Kappa** | Radiologist A vs Radiologist B |
-                    | I just want to summarize **one variable** (Mean, Count)? | **Descriptive** | Age distribution |
+                    | Is my model **clinically useful** at a specific threshold? | **Decision Curve (DCA)** | Should we biopsy everyone with PSA > 4? |
+                    | *(For Agreement/Kappa, see "Agreement" tab)* | | |
 
                     ### ⚖️ Interpretation Guidelines
 
@@ -233,15 +233,14 @@ def diag_ui() -> ui.TagChild:
                     - **Risk Ratio (RR):** Similar interpretation as OR
                     - Use **Fisher's Exact Test** when expected counts < 5
 
-                    #### Cohen's Kappa
-                    - **Kappa > 0.8:** Almost perfect/excellent agreement
-                    - **Kappa 0.6-0.8:** Substantial agreement
-                    - **Kappa 0.4-0.6:** Moderate agreement
-                    - **Kappa 0.2-0.4:** Fair agreement
-                    - **Kappa 0.0-0.2:** Slight agreement
-                    - **Kappa < 0:** Poor agreement (worse than chance)
+                    #### Decision Curve Analysis (DCA)
+                    - **Net Benefit:** The benefit of treating true positives minus the harm of treating false positives.
+                    - **Interpretation:** The model is useful if the model's curve (Red) is **higher** than both:
+                        - **Treat All** (Gray line): Treating everyone assuming they have the disease.
+                        - **Treat None** (Horizontal line at 0): Treating no one.
+                    - **Threshold Probability:** The patient's/doctor's preference (e.g., how worried are they about missing a case vs unnecessary treatment?).
 
-                    ### 📊 Descriptive Statistics
+                    #### Descriptive Statistics
                     - **Mean:** Average value (affected by outliers)
                     - **Median:** Middle value (robust to outliers)
                     - **SD (Standard Deviation):** Spread of data around mean
