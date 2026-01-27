@@ -382,85 +382,73 @@ def survival_ui() -> ui.TagChild:
                     "Subgroup Analysis Results", ui.output_ui("out_sg_result")
                 ),
             ),
-            # TAB 5: Time-Varying Cox (NEW) - REFACTORED LAYOUT
+            # TAB 5: Time-Varying Cox (NEW) - SUBTAB LAYOUT
             ui.nav_panel(
                 "⏱️ Time-Varying Cox",
-                ui.div(
-                    # Header Section
-                    ui.div(
-                        ui.h4("Time-Dependent Survival Analysis"),
-                        ui.p(
-                            "Model covariates that change over time (e.g., lab values, medication changes).",
-                            class_="text-muted",
-                        ),
-                        style="margin-bottom: 20px;",
-                    ),
-                    # Main Layout: 2 Columns
-                    # Left: Essential Inputs (Format & Columns)
-                    # Right: Advanced Settings & Context (Intervals, Model Config, Preview)
-                    ui.layout_columns(
-                        # --- LEFT COLUMN: CORE INPUTS ---
+                # --- INPUT SECTION (Tabbed Card) ---
+                ui.navset_card_underline(
+                    # Subtab 1: Analysis (Variables & Execution)
+                    ui.nav_panel(
+                        "📊 Analysis",
                         ui.div(
+                            ui.p(
+                                "Select data format and variables to run the model.",
+                                class_="text-muted mb-3",
+                            ),
+                            # 1. Format & Columns (Things changed frequently)
                             tvc_data_format_selector_ui(),
                             ui.br(),
                             tvc_column_config_ui(),
                             ui.br(),
                             ui.output_ui("out_tvc_validation"),
                             ui.hr(),
-                            # Action Buttons moved here for better flow
-                            ui.row(
-                                ui.column(
-                                    6,
-                                    ui.input_action_button(
-                                        "btn_run_tvc",
-                                        "🚀 Run Model",
-                                        class_="btn-primary w-100",
-                                    ),
+                            # Action Buttons
+                            ui.layout_columns(
+                                ui.input_action_button(
+                                    "btn_run_tvc",
+                                    "🚀 Run Model",
+                                    class_="btn-primary w-100",
                                 ),
-                                ui.column(
-                                    6,
-                                    ui.download_button(
-                                        "btn_dl_tvc",
-                                        "📥 Report",
-                                        class_="btn-secondary w-100",
-                                    ),
+                                ui.download_button(
+                                    "btn_dl_tvc",
+                                    "📥 Download Report",
+                                    class_="btn-secondary w-100",
                                 ),
+                                col_widths=[6, 6],
                             ),
                         ),
-                        # --- RIGHT COLUMN: CONTEXT & ADVANCED ---
+                    ),
+                    # Subtab 2: Configuration (Advanced Settings & Preview)
+                    ui.nav_panel(
+                        "⚙️ Configuration",
                         ui.div(
-                            ui.accordion(
-                                # Panel 1: Risk Intervals (Crucial for Wide format)
-                                ui.accordion_panel(
-                                    "📊 Risk Intervals (For Wide Format)",
+                            ui.p(
+                                "Advanced settings, risk intervals, and data inspection.",
+                                class_="text-muted mb-3",
+                            ),
+                            ui.layout_columns(
+                                # Left Col: Settings
+                                ui.div(
+                                    # Risk Intervals (Only for Wide format)
                                     tvc_risk_interval_picker_ui(),
-                                    # Open by default only if logic suggests wide format (optional logic not added to keep clean)
-                                ),
-                                # Panel 2: Data Preview
-                                ui.accordion_panel(
-                                    "👀 Data Preview & Structure",
-                                    tvc_data_preview_card_ui(),
-                                ),
-                                # Panel 3: Model Configuration
-                                ui.accordion_panel(
-                                    "🔧 Advanced Model Settings",
+                                    ui.br(),
+                                    # Model Config (Penalizer etc.)
                                     tvc_model_config_ui(),
                                 ),
-                                # Panel 4: Help
-                                ui.accordion_panel(
-                                    "ℹ️ Help & FAQ",
+                                # Right Col: Preview & Info
+                                ui.div(
+                                    tvc_data_preview_card_ui(),
+                                    ui.br(),
                                     tvc_info_panel_ui(),
                                 ),
-                                # Open Preview by default to show user data is ready
-                                open=["👀 Data Preview & Structure"],
-                            )
+                                col_widths=[6, 6],
+                            ),
                         ),
-                        col_widths=[
-                            5,
-                            7,
-                        ],  # Give slightly more space to right column for tables
                     ),
+                    id="tvc_input_tabs",
                 ),
+                # --- RESULTS SECTION (Persistent Card) ---
+                # แยกออกมาด้านนอก navset_card เพื่อให้แสดงผลตลอดเวลา
                 ui.output_ui("out_tvc_status"),
                 create_results_container(
                     "Analysis Results", ui.output_ui("out_tvc_result")
