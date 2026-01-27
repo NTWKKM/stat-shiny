@@ -8,14 +8,14 @@ def plot_missing_pattern(
 ) -> go.Figure:
     """
     Create a two-panel visualization of a DataFrame's missingness pattern.
-    
+
     Selects up to max_cols columns (prioritizing columns with missing values), and builds a top bar chart showing percentage missing per displayed column and a bottom heatmap indicating missing cells (1 = missing, 0 = present). If the DataFrame has more rows than max_rows, the heatmap rows are subsampled using a "Golden Ratio" strategy that prioritizes rows containing missing values while preserving a portion of complete rows for context.
-    
+
     Parameters:
         df (pd.DataFrame): DataFrame to visualize.
         max_cols (int): Maximum number of columns to display (columns with missing values are prioritized).
         max_rows (int): Maximum number of rows to include in the heatmap; when exceeded, rows are subsampled using the Golden Ratio strategy described above.
-    
+
     Returns:
         fig (go.Figure): Plotly Figure with two subplots: a top bar chart of percent-missing per displayed column and a bottom heatmap of missingness for the sampled rows.
     """
