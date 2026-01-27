@@ -75,6 +75,8 @@ def baseline_matching_ui() -> ui.TagChild:
                             ),
                             choices=[],
                             multiple=True,
+                            width="100%",
+                            options={"plugins": ["remove_button"]},
                         ),
                         type="required",
                     ),

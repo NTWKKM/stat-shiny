@@ -61,7 +61,7 @@ The application covers a wide range of medical statistical needs, organized into
 | Category | Modules | Key Features |
 | :--- | :--- | :--- |
 | **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Kappa** (Weighted), **ICC** (pingouin integration), Bland-Altman (LoA CI). |
-| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), Subgroup analysis, Forrest Plots. |
+| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox), Forrest Plots. |
 | **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, Time-Varying Cox, G-Computation, Power Analysis. |
 
@@ -84,6 +84,7 @@ The data flow is standardized to ensure consistent handling of missing values an
 
 - **Interactive Setup**: Users interactively cast variable types and choose missing value strategies.
 - **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
+- **UI Standardization**: Recent updates have unified the "Variable Selection" UI across modules (e.g., Table 1, Survival Analysis, Regression), utilizing full-width Selectize inputs with "remove button" plugins for better usability.
 
 ### 3. Central Preparation (`utils/data_cleaning.py`)
 
@@ -94,7 +95,7 @@ The data flow is standardized to ensure consistent handling of missing values an
 
 - **Missing Data Statistics**: Automatically analyzed and included in the final report.
   - **Smart Visualization Sync**: The report is architected to be the "detailed companion" to the visualization, covering "blind spots" if the heatmap is subsampled.
-  - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation). **Logistic Regression** now includes deep diagnostics (**AUC/C-stat, Hosmer-Lemeshow, AIC/BIC**) with standardized interpretations.
+  - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation). **Logistic Regression** now includes deep diagnostics (**AUC/C-stat, Hosmer-Lemeshow, AIC/BIC**) and **Subgroup Analysis** (Interaction Tests, Forest Plots).
   - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) and **STROBE/TRIPOD alignment text** provide immediate clinical and reporting context.
   - **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
 
