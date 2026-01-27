@@ -382,41 +382,83 @@ def survival_ui() -> ui.TagChild:
                     "Subgroup Analysis Results", ui.output_ui("out_sg_result")
                 ),
             ),
-            # TAB 5: Time-Varying Cox (NEW)
+            # TAB 5: Time-Varying Cox (NEW) - REFACTORED LAYOUT
             ui.nav_panel(
                 "⏱️ Time-Varying Cox",
-                ui.card(
-                    ui.card_header(
-                        "Time-Dependent Survival Analysis (Time-Varying Covariates)"
-                    ),
-                    ui.layout_columns(
-                        tvc_data_format_selector_ui(),
-                        tvc_model_config_ui(),
-                        col_widths=[8, 4],
-                    ),
-                    ui.layout_columns(
-                        tvc_column_config_ui(), tvc_info_panel_ui(), col_widths=[8, 4]
-                    ),
-                    # Risk intervals (for wide format) + data preview
-                    ui.layout_columns(
-                        tvc_risk_interval_picker_ui(),
-                        tvc_data_preview_card_ui(),
-                        col_widths=[6, 6],
-                    ),
-                    ui.output_ui("out_tvc_validation"),
-                    ui.hr(),
-                    ui.layout_columns(
-                        ui.input_action_button(
-                            "btn_run_tvc",
-                            "🚀 Run Time-Varying Cox Model",
-                            class_="btn-primary w-100",
+                ui.div(
+                    # Header Section
+                    ui.div(
+                        ui.h4("Time-Dependent Survival Analysis"),
+                        ui.p(
+                            "Model covariates that change over time (e.g., lab values, medication changes).",
+                            class_="text-muted",
                         ),
-                        ui.download_button(
-                            "btn_dl_tvc",
-                            "📥 Download TVC Report",
-                            class_="btn-secondary w-100",
+                        style="margin-bottom: 20px;",
+                    ),
+                    # Main Layout: 2 Columns
+                    # Left: Essential Inputs (Format & Columns)
+                    # Right: Advanced Settings & Context (Intervals, Model Config, Preview)
+                    ui.layout_columns(
+                        # --- LEFT COLUMN: CORE INPUTS ---
+                        ui.div(
+                            tvc_data_format_selector_ui(),
+                            ui.br(),
+                            tvc_column_config_ui(),
+                            ui.br(),
+                            ui.output_ui("out_tvc_validation"),
+                            ui.hr(),
+                            # Action Buttons moved here for better flow
+                            ui.row(
+                                ui.column(
+                                    6,
+                                    ui.input_action_button(
+                                        "btn_run_tvc",
+                                        "🚀 Run Model",
+                                        class_="btn-primary w-100",
+                                    ),
+                                ),
+                                ui.column(
+                                    6,
+                                    ui.download_button(
+                                        "btn_dl_tvc",
+                                        "📥 Report",
+                                        class_="btn-secondary w-100",
+                                    ),
+                                ),
+                            ),
                         ),
-                        col_widths=[6, 6],
+                        # --- RIGHT COLUMN: CONTEXT & ADVANCED ---
+                        ui.div(
+                            ui.accordion(
+                                # Panel 1: Risk Intervals (Crucial for Wide format)
+                                ui.accordion_panel(
+                                    "📊 Risk Intervals (For Wide Format)",
+                                    tvc_risk_interval_picker_ui(),
+                                    # Open by default only if logic suggests wide format (optional logic not added to keep clean)
+                                ),
+                                # Panel 2: Data Preview
+                                ui.accordion_panel(
+                                    "👀 Data Preview & Structure",
+                                    tvc_data_preview_card_ui(),
+                                ),
+                                # Panel 3: Model Configuration
+                                ui.accordion_panel(
+                                    "🔧 Advanced Model Settings",
+                                    tvc_model_config_ui(),
+                                ),
+                                # Panel 4: Help
+                                ui.accordion_panel(
+                                    "ℹ️ Help & FAQ",
+                                    tvc_info_panel_ui(),
+                                ),
+                                # Open Preview by default to show user data is ready
+                                open=["👀 Data Preview & Structure"],
+                            )
+                        ),
+                        col_widths=[
+                            5,
+                            7,
+                        ],  # Give slightly more space to right column for tables
                     ),
                 ),
                 ui.output_ui("out_tvc_status"),
