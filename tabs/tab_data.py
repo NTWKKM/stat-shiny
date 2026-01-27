@@ -1070,6 +1070,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
                 # Create description for the new variable
                 new_var_name = f"{var_name}_{method}"
+                if new_var_name in d.columns:
+                    suffix = 1
+                    while f"{new_var_name}_{suffix}" in d.columns:
+                        suffix += 1
+                    new_var_name = f"{new_var_name}_{suffix}"
 
                 # Update DataFrame
                 new_df = d.copy()

@@ -12,6 +12,7 @@
 Your medical statistical Shiny application is a sophisticated, modular system with **16 statistical modules** serving professional medical research and publication requirements. The current architecture demonstrates strong foundational patterns (centralized styling, standardized data pipelines, comprehensive testing), but several critical improvements are needed to achieve **publication-grade quality** suitable for world-class medical journals.
 
 ### Current Status
+
 - ✅ **Architecture**: Well-modularized with clear separation of concerns
 - ✅ **Testing**: Comprehensive test coverage (unit, integration, e2e)
 - ✅ **Deployment**: Multi-platform ready (Docker, HuggingFace, Posit Connect)
@@ -21,7 +22,9 @@ Your medical statistical Shiny application is a sophisticated, modular system wi
 - ⚠️ **Documentation**: Missing statistical guidelines and assumptions documentation
 
 ### Optimization Priority: Module Improvements (Not Addition)
+
 **Decision Made**: Refactor existing modules for publication quality rather than adding new statistical methods. This approach:
+
 1. Improves maintainability and code consistency
 2. Ensures each module meets publication standards
 3. Provides proper diagnostic outputs for every analysis
@@ -33,7 +36,7 @@ Your medical statistical Shiny application is a sophisticated, modular system wi
 
 ### 1.1 Project Structure Overview
 
-```
+```text
 stat-shiny/
 ├── Core Application Layer
 │   ├── app.py                 # Main Shiny application (10.5 KB)
@@ -100,6 +103,7 @@ stat-shiny/
 ### 1.2 Module Inventory & Analysis
 
 #### **Group A: Data Management & Quality**
+
 | Module | Size | Quality | Issues | Priority |
 |--------|------|---------|--------|----------|
 | `tab_data.py` | 39 KB | Good | Missing deep validation rules | HIGH |
@@ -107,6 +111,7 @@ stat-shiny/
 | `data_quality.py` | 5 KB | Fair | Limited outlier detection | MEDIUM |
 
 #### **Group B: Descriptive Statistics**
+
 | Module | Size | Quality | Issues | Priority |
 |--------|------|---------|--------|----------|
 | `tab_baseline_matching.py` | 49 KB | Good | Needs love plot standardization | HIGH |
@@ -114,6 +119,7 @@ stat-shiny/
 | `tab_corr.py` | 31 KB | Fair | No partial correlation, limited options | MEDIUM |
 
 #### **Group C: Diagnostic & Agreement**
+
 | Module | Size | Quality | Issues | Priority |
 |--------|------|---------|--------|----------|
 | `tab_diag.py` | 33 KB | Fair | Missing threshold optimization | HIGH |
@@ -121,6 +127,7 @@ stat-shiny/
 | `tab_agreement.py` | 21 KB | Fair | Missing ICC type selection validation | MEDIUM |
 
 #### **Group D: Regression Models** (CRITICAL)
+
 | Module | Size | Quality | Issues | Priority |
 |--------|------|---------|--------|----------|
 | `tab_core_regression.py` | 129 KB | Fair | **Monolithic** - needs decomposition | CRITICAL |
@@ -128,6 +135,7 @@ stat-shiny/
 | `poisson_lib.py` | 52 KB | Good | Dispersion testing incomplete | HIGH |
 
 #### **Group E: Survival Analysis**
+
 | Module | Size | Quality | Issues | Priority |
 |--------|------|---------|--------|----------|
 | `tab_survival.py` | 79 KB | Good | TVC handling needs validation | HIGH |
@@ -135,6 +143,7 @@ stat-shiny/
 | `tvc_lib.py` | 38 KB | Fair | Needs methodology documentation | MEDIUM |
 
 #### **Group F: Causal & Advanced**
+
 | Module | Size | Quality | Issues | Priority |
 |--------|------|---------|--------|----------|
 | `tab_causal_inference.py` | 23 KB | Good | Missing overlap diagnostics | HIGH |
@@ -142,6 +151,7 @@ stat-shiny/
 | `tab_advanced_inference.py` | 30 KB | Fair | Mediation diagnostics limited | HIGH |
 
 #### **Group G: Utility & Support**
+
 | Module | Size | Quality | Issues | Priority |
 |--------|------|---------|--------|----------|
 | `formatting.py` | 8 KB | Good | Needs publication-grade templates | MEDIUM |
@@ -155,6 +165,7 @@ stat-shiny/
 ### 2.1 Issue Severity Classification
 
 #### 🔴 **CRITICAL** (Blocks Publication)
+
 1. **`tab_core_regression.py` Monolithic Design** (129 KB)
    - Single file handles Logistic, Linear, Poisson, and variants
    - Difficult to maintain and test independently
@@ -174,6 +185,7 @@ stat-shiny/
    - **Action**: Centralize reporting templates
 
 #### 🟠 **HIGH** (Impacts Quality)
+
 1. **Deep Reporting Incomplete**
    - Missing effect size metrics in many modules
    - Limited assumption testing
@@ -190,6 +202,7 @@ stat-shiny/
    - Missing references to publications/standards
 
 #### 🟡 **MEDIUM** (Improves Professionalism)
+
 1. **Module Organization**
    - Some utilities could be better grouped
    - Shared patterns not centralized enough
@@ -207,6 +220,7 @@ stat-shiny/
 #### **Priority 1: `tab_data.py` + `data_cleaning.py` Enhancement**
 
 **Current Capabilities**:
+
 - ✅ CSV/Excel upload with type detection
 - ✅ Missing data reporting
 - ✅ Basic categorical validation
@@ -301,6 +315,7 @@ class DataQualityReport:
 #### **Priority 1: `tab_baseline_matching.py` Standardization**
 
 **Current State**:
+
 - ✅ Table 1 generation with p-values
 - ✅ Basic PSM implementation
 - ✅ SMD calculation
@@ -400,6 +415,7 @@ class Table1Generator:
 #### **Priority 1: `tab_diag.py` + `diag_test.py` Comprehensive Refactor**
 
 **Critical Issues**:
+
 - ❌ ROC curve threshold optimization not available
 - ❌ Missing confidence intervals for sensitivity/specificity
 - ❌ No category-specific performance metrics
@@ -559,7 +575,7 @@ class AgreementAnalysis:
 
 **Solution**: Decompose into modular, testable units
 
-```
+```text
 BEFORE (Current):
 tabs/tab_core_regression.py (129 KB)
 ├── Logistic UI + server
@@ -591,6 +607,7 @@ utils/ (Refactored)
 ```
 
 **Decomposition Benefits**:
+
 1. ✅ Each regression type independently testable
 2. ✅ Easier to add new model types
 3. ✅ Better code organization and navigation
@@ -1210,6 +1227,7 @@ class MissingDataStatement:
 ## Part 4: Implementation Priority Matrix
 
 ### Tier 1: CRITICAL (Blocks Publication) - 3-4 Weeks
+
 | Task | Impact | Effort | Files | Start |
 |------|--------|--------|-------|-------|
 | Decompose `tab_core_regression.py` | ⭐⭐⭐ | High | 8-10 | Week 1 |
@@ -1220,6 +1238,7 @@ class MissingDataStatement:
 **Total Effort**: ~16-17 developer days
 
 ### Tier 2: HIGH (Impacts Quality) - 2-3 Weeks
+
 | Task | Impact | Effort | Files | Depends On |
 |------|--------|--------|-------|-----------|
 | Table 1 automation & standardization | ⭐⭐ | Medium | 2 | - |
@@ -1232,6 +1251,7 @@ class MissingDataStatement:
 **Total Effort**: ~12-14 developer days
 
 ### Tier 3: MEDIUM (Improves Professionalism) - 1-2 Weeks
+
 | Task | Impact | Effort | Files |
 |------|--------|--------|-------|
 | Documentation: Assumptions per module | ⭐ | Low | 1 per module (16) |
@@ -1304,6 +1324,7 @@ utils/
 ### Testing Strategy
 
 #### 1. Unit Tests (Per Module Enhancement)
+
 ```python
 # Example: Test diagnostic threshold optimization
 def test_roc_optimal_threshold_youden():
@@ -1324,6 +1345,7 @@ def test_proportional_hazards_schoenfeld():
 ```
 
 #### 2. Integration Tests (Analysis End-to-End)
+
 ```python
 def test_regression_full_workflow():
     """Upload data → select model → generate diagnostics → export"""
@@ -1339,6 +1361,7 @@ def test_causal_common_support_workflow():
 ```
 
 #### 3. Publication Quality Checks
+
 ```python
 def test_output_formatting_consistency():
     """All modules use same number format, CI style, p-value notation"""
@@ -1488,6 +1511,7 @@ WEEK 5 (Optional): Additional Enhancements
 ### Quick Reference: Files to Create/Modify
 
 **CREATE (New Files)**:
+
 - `tabs/regression/__init__.py`
 - `tabs/regression/_common_regression.py`
 - `tabs/regression/logistic_page.py` + `logistic_server.py`
@@ -1501,6 +1525,7 @@ WEEK 5 (Optional): Additional Enhancements
 - `docs/STATISTICAL_STANDARDS.md`
 
 **MODIFY (Existing Files)**:
+
 - `tabs/tab_core_regression.py` → Simplify to dispatcher only
 - `tabs/tab_diag.py` → Add CI bands, threshold optimization
 - `tabs/tab_survival.py` → Add proportional hazards testing
@@ -1530,6 +1555,7 @@ Your application is **80% of the way** to publication quality. The remaining 20%
 ### Priority Action: Start with Regression Refactor
 
 The regression module refactor is the **quickest way to unlock** significant quality improvements:
+
 - Eliminates the bottleneck (129 KB monolithic file)
 - Provides template for future module organization
 - Enables comprehensive diagnostic implementation
@@ -1547,4 +1573,3 @@ The regression module refactor is the **quickest way to unlock** significant qua
 **Report Generated**: January 27, 2026  
 **Prepared by**: AI-Assisted Code Analysis System  
 **Version**: 1.0
-
