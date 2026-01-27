@@ -244,9 +244,40 @@ def calculate_smd(data, treatment, covariates, weights=None):
 
 def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
     """
-    Create a Love Plot (SMD Comparison) using Plotly.
+    Create a Love Plot (SMD Comparison) using Plotly with enhanced diagnostics zones.
     """
     fig = go.Figure()
+
+    # --- ENHANCEMENT: Add colored background zones for interpretation ---
+    # Green Zone (Excellent Balance: < 0.1)
+    fig.add_shape(
+        type="rect",
+        xref="x",
+        yref="paper",
+        x0=0,
+        y0=0,
+        x1=0.1,
+        y1=1,
+        fillcolor="green",
+        opacity=0.1,
+        layer="below",
+        line_width=0,
+    )
+    # Yellow Zone (Acceptable: 0.1 - 0.2)
+    fig.add_shape(
+        type="rect",
+        xref="x",
+        yref="paper",
+        x0=0.1,
+        y0=0,
+        x1=0.2,
+        y1=1,
+        fillcolor="yellow",
+        opacity=0.1,
+        layer="below",
+        line_width=0,
+    )
+    # Red Zone (Imbalanced: > 0.2) - Optional visual indicator, usually implied by outside zones
 
     # Pre-matching
     fig.add_trace(
@@ -255,7 +286,8 @@ def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
             y=smd_pre.get("Variable", smd_pre.get("Covariate")),
             mode="markers",
             name="Unadjusted",
-            marker=dict(color="red", size=10, symbol="circle-open"),
+            marker=dict(color="#d62728", size=10, symbol="circle-open"),  # Standard Red
+            hovertemplate="Unadjusted SMD: %{x:.3f}<extra></extra>",
         )
     )
 
@@ -265,22 +297,119 @@ def plot_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
             x=smd_post["SMD"],
             y=smd_post.get("Variable", smd_post.get("Covariate")),
             mode="markers",
-            name="Adjusted",
-            marker=dict(color="blue", size=10, symbol="circle"),
+            name="Adjusted (Matched)",
+            marker=dict(color="#2ca02c", size=10, symbol="circle"),  # Standard Green
+            hovertemplate="Adjusted SMD: %{x:.3f}<extra></extra>",
         )
     )
 
-    # Reference line at 0.1
+    # Reference lines
     fig.add_vline(
-        x=0.1, line_dash="dash", line_color="gray", annotation_text="Threshold (0.1)"
+        x=0.1,
+        line_dash="dash",
+        line_color="black",
+        opacity=0.5,
+        annotation_text="0.1 (Excellent)",
+    )
+    fig.add_vline(
+        x=0.2,
+        line_dash="dot",
+        line_color="black",
+        opacity=0.5,
+        annotation_text="0.2 (Limit)",
     )
 
     fig.update_layout(
-        title="Love Plot (Standardized Mean Differences)",
-        xaxis_title="Absolute Standardized Mean Difference",
-        yaxis_title="Covariates",
+        title="<b>Covariate Balance (Love Plot)</b><br><sup>Target: All dots within the green zone (<0.1)</sup>",
+        xaxis_title="Absolute Standardized Mean Difference (SMD)",
+        yaxis_title="",
         template="plotly_white",
-        height=max(400, 200 + (len(smd_pre) * 30)),
+        height=max(500, 300 + (len(smd_pre) * 35)),  # Dynamic height
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=150),  # Ensure long variable names are visible
+    )
+
+    return fig
+
+
+def plot_ps_distribution(
+    df_pre: pd.DataFrame,
+    df_post: pd.DataFrame,
+    treatment_col: str,
+    ps_col: str = "propensity_score",
+) -> go.Figure:
+    """
+    NEW: Plot Propensity Score Distribution (Common Support).
+    Compares Treated vs Control distributions before and after matching.
+    """
+    fig = go.Figure()
+
+    # Check if data exists
+    if df_pre is None or df_pre.empty:
+        return fig
+
+    # colors
+    c_treat = "rgba(255, 100, 100, 0.6)"
+    c_control = "rgba(100, 100, 255, 0.6)"
+
+    # 1. Before Matching - Control
+    fig.add_trace(
+        go.Histogram(
+            x=df_pre[df_pre[treatment_col] == 0][ps_col],
+            name="Control (Raw)",
+            marker_color=c_control,
+            opacity=0.5,
+            bingroup=1,
+            legendgroup="Raw",
+            legendgrouptitle_text="Before Matching",
+        )
+    )
+
+    # 2. Before Matching - Treated
+    fig.add_trace(
+        go.Histogram(
+            x=df_pre[df_pre[treatment_col] == 1][ps_col],
+            name="Treated (Raw)",
+            marker_color=c_treat,
+            opacity=0.5,
+            bingroup=1,
+            legendgroup="Raw",
+        )
+    )
+
+    # 3. After Matching - Control (Overlay as line or darker bar)
+    if df_post is not None and not df_post.empty:
+        fig.add_trace(
+            go.Histogram(
+                x=df_post[df_post[treatment_col] == 0][ps_col],
+                name="Control (Matched)",
+                marker=dict(color="blue", pattern=dict(shape="/")),
+                opacity=0.6,
+                bingroup=1,
+                visible="legendonly",  # Hidden by default to avoid clutter
+                legendgroup="Matched",
+                legendgrouptitle_text="After Matching",
+            )
+        )
+
+        fig.add_trace(
+            go.Histogram(
+                x=df_post[df_post[treatment_col] == 1][ps_col],
+                name="Treated (Matched)",
+                marker=dict(color="red", pattern=dict(shape="/")),
+                opacity=0.6,
+                bingroup=1,
+                visible="legendonly",
+                legendgroup="Matched",
+            )
+        )
+
+    fig.update_layout(
+        title="<b>Propensity Score Distribution (Common Support)</b>",
+        xaxis_title="Propensity Score",
+        yaxis_title="Count",
+        barmode="overlay",
+        template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
