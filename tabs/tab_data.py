@@ -1044,7 +1044,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                     ui.span(status_text, style=f"color: {color}; font-weight: bold;"),
                 ),
                 ui.div(
-                    ui.small(
+                    ui.tags.small(
                         f"Skewness: {res.get('skewness', 'N/A')} | Kurtosis: {res.get('kurtosis', 'N/A')}"
                     ),
                     class_="mt-1 text-muted",
