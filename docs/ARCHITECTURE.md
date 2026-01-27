@@ -77,7 +77,7 @@ The data flow is standardized to ensure consistent handling of missing values an
 - **Immediate Data Health Report**: Uses `check_data_quality()` to perform deep validation:
   - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`) that often appear in medical data but break standard numeric parsing.
   - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories (threshold < 5) which might lead to unstable statistical estimates.
-  - **Row-level Reporting**: Provides exact row indices and unique offending values for fast debugging.
+  - **Detailed Diagnostic Log**: Provides a comprehensive list of **up to 100 specific row indices** for every issue (missing data, non-standard values), acting as a detailed companion to the visual heatmap.
 - **Configuration**: Individual variable type casting and missing value strategy selection based on the health report.
 
 ### 2. **Configuration & Cleaning**
@@ -93,6 +93,7 @@ The data flow is standardized to ensure consistent handling of missing values an
 ### 4. Integrated Reporting (`utils/formatting.py`)
 
 - **Missing Data Statistics**: Automatically analyzed and included in the final report.
+  - **Smart Visualization Sync**: The report is architected to be the "detailed companion" to the visualization, covering "blind spots" if the heatmap is subsampled.
   - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation). **Logistic Regression** now includes deep diagnostics (**AUC/C-stat, Hosmer-Lemeshow, AIC/BIC**) with standardized interpretations.
   - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) and **STROBE/TRIPOD alignment text** provide immediate clinical and reporting context.
   - **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.

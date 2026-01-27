@@ -4,7 +4,7 @@ from plotly import subplots
 
 
 def plot_missing_pattern(
-    df: pd.DataFrame, max_cols: int = 50, max_rows: int = 1000
+    df: pd.DataFrame, max_cols: int = 50, max_rows: int = 400
 ) -> go.Figure:
     """
     Create a composite visualization of missing data:
@@ -133,7 +133,7 @@ def plot_missing_pattern(
     )
 
     # Bar chart axis
-    fig.update_yaxes(title_text="% Missing", range=[0, 100], row=1, col=1)
+    fig.update_yaxes(title_text="% Missing", autorange=True, row=1, col=1)
 
     # Heatmap axis
     fig.update_xaxes(title_text=y_axis_title, row=2, col=1)
