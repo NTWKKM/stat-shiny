@@ -74,167 +74,209 @@ def data_ui() -> ui.TagChild:
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
             # 1. Variable Settings & Advanced Tools
-            ui.div(
-                ui.navset_card_tab(
-                    # Tab 1: Configuration (Existing)
-                    ui.nav_panel(
-                        "🛠️ Variable Config",
-                        ui.accordion(
-                            ui.accordion_panel(
-                                ui.tags.span("📝 Metadata & Type", class_="fw-bold"),
-                                ui.layout_columns(
-                                    # LEFT COLUMN: Variable Selection
-                                    ui.div(
-                                        ui.input_select(
-                                            "sel_var_edit",
-                                            "Select Variable:",
-                                            choices=["Select..."],
-                                            width="100%",
-                                        ),
+            ui.accordion(
+                ui.accordion_panel(
+                    "🛠️ Data Management Tools",
+                    ui.navset_card_tab(
+                        # Tab 1: Configuration (Existing)
+                        ui.nav_panel(
+                            "🛠️ Variable Config",
+                            ui.accordion(
+                                ui.accordion_panel(
+                                    ui.tags.span(
+                                        "📝 Metadata & Type", class_="fw-bold"
+                                    ),
+                                    ui.layout_columns(
+                                        # LEFT COLUMN: Variable Selection
                                         ui.div(
-                                            ui.tags.strong("Categorical Mapping:"),
-                                            " Format as `0=Control`.",
-                                            class_="alert alert-info p-2 mb-0",
+                                            ui.input_select(
+                                                "sel_var_edit",
+                                                "Select Variable:",
+                                                choices=["Select..."],
+                                                width="100%",
+                                            ),
+                                            ui.div(
+                                                ui.tags.strong("Categorical Mapping:"),
+                                                " Format as `0=Control`.",
+                                                class_="alert alert-info p-2 mb-0",
+                                            ),
+                                            class_="p-2",
                                         ),
-                                        class_="p-2",
+                                        # MIDDLE COLUMN: Variable Settings
+                                        ui.div(
+                                            ui.output_ui("ui_var_settings"),
+                                            class_="p-2",
+                                        ),
+                                        # RIGHT COLUMN: Missing Data Configuration
+                                        ui.div(
+                                            ui.h6(
+                                                "🔍 Missing Data",
+                                                style=f"color: {COLORS['primary']};",
+                                            ),
+                                            ui.input_text(
+                                                "txt_missing_codes",
+                                                "Missing Values:",
+                                                placeholder="-99, 999",
+                                                value="",
+                                            ),
+                                            ui.output_ui("ui_missing_preview"),
+                                            ui.input_action_button(
+                                                "btn_save_missing",
+                                                "💾 Save Config",
+                                                class_="btn-secondary w-100 mt-2",
+                                            ),
+                                            class_="p-2 bg-light rounded",
+                                        ),
+                                        col_widths=(3, 6, 3),
                                     ),
-                                    # MIDDLE COLUMN: Variable Settings
-                                    ui.div(
-                                        ui.output_ui("ui_var_settings"), class_="p-2"
-                                    ),
-                                    # RIGHT COLUMN: Missing Data Configuration
-                                    ui.div(
-                                        ui.h6(
-                                            "🔍 Missing Data",
-                                            style=f"color: {COLORS['primary']};",
-                                        ),
-                                        ui.input_text(
-                                            "txt_missing_codes",
-                                            "Missing Values:",
-                                            placeholder="-99, 999",
-                                            value="",
-                                        ),
-                                        ui.output_ui("ui_missing_preview"),
-                                        ui.input_action_button(
-                                            "btn_save_missing",
-                                            "💾 Save Config",
-                                            class_="btn-secondary w-100 mt-2",
-                                        ),
-                                        class_="p-2 bg-light rounded",
-                                    ),
-                                    col_widths=(3, 6, 3),
+                                    value="var_config",
                                 ),
-                                value="var_config",
+                                open=True,
+                                id="acc_var_config",
+                                class_="border-0",
                             ),
-                            open=True,
-                            id="acc_var_config",
-                            class_="border-0",
                         ),
-                    ),
-                    # Tab 2: Cleaning & Imputation
-                    ui.nav_panel(
-                        "🧹 Cleaning & Imputation",
-                        ui.layout_columns(
-                            # Card 1: Missing Data Imputation
-                            ui.card(
-                                ui.card_header("🧩 Impute Missing Data"),
-                                ui.input_select(
-                                    "sel_impute_method",
-                                    "Method:",
-                                    choices=["mean", "median", "knn", "mice"],
-                                ),
-                                ui.input_select(
-                                    "sel_impute_cols",
-                                    "Columns:",
-                                    choices=[],
-                                    multiple=True,
-                                ),
-                                ui.input_action_button(
-                                    "btn_run_impute",
-                                    "Run Imputation",
-                                    class_="btn-warning",
-                                ),
-                            ),
-                            # Card 2: Outlier Handling
-                            ui.card(
-                                ui.card_header("📈 Outlier Handling"),
-                                ui.input_select(
-                                    "sel_outlier_cols",
-                                    "Columns:",
-                                    choices=[],
-                                    multiple=True,
-                                ),
-                                ui.layout_columns(
+                        # Tab 2: Cleaning & Imputation
+                        ui.nav_panel(
+                            "🧹 Cleaning & Imputation",
+                            ui.layout_columns(
+                                # Card 1: Missing Data Imputation
+                                ui.card(
+                                    ui.card_header("🧩 Impute Missing Data"),
                                     ui.input_select(
-                                        "sel_outlier_method",
+                                        "sel_impute_method",
                                         "Method:",
-                                        choices=["iqr", "zscore"],
+                                        choices=["mean", "median", "knn", "mice"],
                                     ),
-                                    ui.input_numeric(
-                                        "num_outlier_thresh",
-                                        "Threshold:",
-                                        value=1.5,
-                                        step=0.1,
+                                    ui.input_select(
+                                        "sel_impute_cols",
+                                        "Columns:",
+                                        choices=[],
+                                        multiple=True,
+                                    ),
+                                    ui.input_action_button(
+                                        "btn_run_impute",
+                                        "Run Imputation",
+                                        class_="btn-warning",
                                     ),
                                 ),
-                                ui.input_select(
-                                    "sel_outlier_action",
-                                    "Action:",
-                                    choices={
-                                        "flag": "Flag (set to NaN)",
-                                        "remove": "Set to NaN (same as Flag)",
-                                        "winsorize": "Winsorize",
-                                        "cap": "Cap",
-                                    },
+                                # Card 2: Outlier Handling
+                                ui.card(
+                                    ui.card_header("📈 Outlier Handling"),
+                                    ui.input_select(
+                                        "sel_outlier_cols",
+                                        "Columns:",
+                                        choices=[],
+                                        multiple=True,
+                                    ),
+                                    ui.layout_columns(
+                                        ui.input_select(
+                                            "sel_outlier_method",
+                                            "Method:",
+                                            choices=["iqr", "zscore"],
+                                        ),
+                                        ui.input_numeric(
+                                            "num_outlier_thresh",
+                                            "Threshold:",
+                                            value=1.5,
+                                            step=0.1,
+                                        ),
+                                    ),
+                                    ui.input_select(
+                                        "sel_outlier_action",
+                                        "Action:",
+                                        choices={
+                                            "flag": "Flag (set to NaN)",
+                                            "remove": "Set to NaN (same as Flag)",
+                                            "winsorize": "Winsorize",
+                                            "cap": "Cap",
+                                        },
+                                    ),
+                                    ui.input_action_button(
+                                        "btn_run_outlier",
+                                        "Handle Outliers",
+                                        class_="btn-danger",
+                                    ),
                                 ),
-                                ui.input_action_button(
-                                    "btn_run_outlier",
-                                    "Handle Outliers",
-                                    class_="btn-danger",
-                                ),
+                                col_widths=(6, 6),
                             ),
-                            col_widths=(6, 6),
+                            ui.br(),
+                            ui.card(
+                                ui.card_header("🗺️ Missing Data Pattern"),
+                                ui.output_ui("ui_missing_plot"),
+                                class_="mt-3 shadow-sm",
+                            ),
                         ),
-                        ui.br(),
-                        ui.card(
-                            ui.card_header("🗺️ Missing Data Pattern"),
-                            ui.output_ui("ui_missing_plot"),
-                            class_="mt-3 shadow-sm",
+                        # Tab 3: Transformation
+                        ui.nav_panel(
+                            "⚡ Transformation",
+                            ui.layout_columns(
+                                ui.div(
+                                    ui.input_select(
+                                        "sel_trans_var",
+                                        "Variable:",
+                                        choices=["Select..."],
+                                    ),
+                                    ui.input_select(
+                                        "sel_trans_method",
+                                        "Transformation:",
+                                        choices=["log", "sqrt", "zscore"],
+                                    ),
+                                    ui.input_action_button(
+                                        "btn_run_trans",
+                                        "Apply Transform",
+                                        class_="btn-primary w-100 mb-3",
+                                    ),
+                                    ui.h6("📊 Assumption Check"),
+                                    ui.output_ui("ui_assumption_result"),
+                                ),
+                                ui.div(
+                                    ui.h6("Transformation Preview"),
+                                    ui.output_text_verbatim(
+                                        "txt_trans_preview"
+                                    ),  # Basic placeholder
+                                    class_="p-3 border rounded bg-light",
+                                ),
+                                col_widths=(4, 8),
+                            ),
                         ),
-                    ),
-                    # Tab 3: Transformation
-                    ui.nav_panel(
-                        "⚡ Transformation",
-                        ui.layout_columns(
+                        ui.nav_panel(
+                            "ℹ️ Reference & Interpretation",
                             ui.div(
-                                ui.input_select(
-                                    "sel_trans_var", "Variable:", choices=["Select..."]
+                                ui.markdown(
+                                    """
+                                ### 🛠️ Variable Config
+                                - **Metadata**: Define variable types (Categorical vs Continuous).
+                                - **Missing Data**: standardized coding (e.g., `-99`, `NaN`) ensures accurate analysis.
+
+                                ### 🧹 Cleaning & Imputation
+                                - **Mean/Median**: Simple, fast, but reduces variance. Use for low missingness (<5%).
+                                - **KNN (K-Nearest Neighbors)**: Imputes based on similar rows. Preserves local structure better.
+                                - **MICE (Multivariate Imputation)**: Models each variable using others. Best for complex datasets with random missingness (MAR).
+
+                                ### 📈 Outlier Handling
+                                - **IQR (Interquartile Range)**: Robust method. Flags points < Q1-1.5*IQR or > Q3+1.5*IQR.
+                                - **Z-Score**: Parametric. Flags points > 3 SD from mean. Assumes normality.
+                                - **Actions**:
+                                    - **Winsorize**: Cap values at the thresholds (preserves sample size).
+                                    - **Remove**: Delete values (creates missingness).
+
+                                ### ⚡ Transformation
+                                - **Log**: Reduces right-skewness (e.g., income, CRP levels). Handles `x > 0`.
+                                - **Sqrt**: Moderate skew reduction. Handles `x >= 0`.
+                                - **Z-Score**: Standardizes to Mean=0, SD=1. Essential for algorithms sensitive to scale (e.g., KNN, Clustering).
+                                """
                                 ),
-                                ui.input_select(
-                                    "sel_trans_method",
-                                    "Transformation:",
-                                    choices=["log", "sqrt", "zscore"],
-                                ),
-                                ui.input_action_button(
-                                    "btn_run_trans",
-                                    "Apply Transform",
-                                    class_="btn-primary w-100 mb-3",
-                                ),
-                                ui.h6("📊 Assumption Check"),
-                                ui.output_ui("ui_assumption_result"),
+                                class_="p-3 bg-light border rounded",
+                                style="max-height: 500px; overflow-y: auto;",
                             ),
-                            ui.div(
-                                ui.h6("Transformation Preview"),
-                                ui.output_text_verbatim(
-                                    "txt_trans_preview"
-                                ),  # Basic placeholder
-                                class_="p-3 border rounded bg-light",
-                            ),
-                            col_widths=(4, 8),
                         ),
+                        id="tabs_data_tools",
                     ),
-                    id="tabs_data_tools",
+                    value="acc_data_tools",
                 ),
+                open="acc_data_tools",
+                id="acc_data_tools_wrapper",
                 class_="mb-3 shadow-sm",
             ),
             # 2. Data Preview Card
