@@ -10,12 +10,20 @@ from shiny.types import FileInfo
 
 from logger import get_logger
 from tabs._common import get_color_palette
+from utils.data_cleaning import (
+    check_assumptions,
+    handle_outliers,
+    impute_missing_data,
+    transform_variable,
+)
 from utils.data_quality import check_data_quality
 from utils.ui_helpers import (
     create_empty_state_ui,
 )
+from utils.visualizations import plot_missing_pattern
 
 logger = get_logger(__name__)
+
 COLORS = get_color_palette()  # เรียกใช้ Palette กลาง
 
 
@@ -65,58 +73,160 @@ def data_ui() -> ui.TagChild:
             ui.output_ui("ui_data_quality_warnings"),
             # New: Data Health Report Section (Visible only when issues exist)
             ui.output_ui("ui_data_report_card"),
-            # 1. Variable Settings Card (3-column layout with Missing Data Config)
-            ui.accordion(
-                ui.accordion_panel(
-                    # FIX: เพิ่ม value="var_config" เพราะ title เป็น UI Element (span)
-                    # ไม่ใช่ string
-                    ui.tags.span("🛠️ Variable Configuration", class_="fw-bold"),
+            # 1. Variable Settings & Advanced Tools
+            ui.navset_card_tab(
+                # Tab 1: Configuration (Existing)
+                ui.nav_panel(
+                    "🛠️ Variable Config",
+                    ui.accordion(
+                        ui.accordion_panel(
+                            ui.tags.span("📝 Metadata & Type", class_="fw-bold"),
+                            ui.layout_columns(
+                                # LEFT COLUMN: Variable Selection
+                                ui.div(
+                                    ui.input_select(
+                                        "sel_var_edit",
+                                        "Select Variable:",
+                                        choices=["Select..."],
+                                        width="100%",
+                                    ),
+                                    ui.div(
+                                        ui.tags.strong("Categorical Mapping:"),
+                                        " Format as `0=Control`.",
+                                        class_="alert alert-info p-2 mb-0",
+                                    ),
+                                    class_="p-2",
+                                ),
+                                # MIDDLE COLUMN: Variable Settings
+                                ui.div(ui.output_ui("ui_var_settings"), class_="p-2"),
+                                # RIGHT COLUMN: Missing Data Configuration
+                                ui.div(
+                                    ui.h6(
+                                        "🔍 Missing Data",
+                                        style="color: #0066cc;",
+                                    ),
+                                    ui.input_text(
+                                        "txt_missing_codes",
+                                        "Missing Values:",
+                                        placeholder="-99, 999",
+                                        value="",
+                                    ),
+                                    ui.output_ui("ui_missing_preview"),
+                                    ui.input_action_button(
+                                        "btn_save_missing",
+                                        "💾 Save Config",
+                                        class_="btn-secondary w-100 mt-2",
+                                    ),
+                                    class_="p-2 bg-light rounded",
+                                ),
+                                col_widths=(3, 6, 3),
+                            ),
+                            value="var_config",
+                        ),
+                        open=True,
+                        id="acc_var_config",
+                        class_="border-0",
+                    ),
+                ),
+                # Tab 2: Cleaning & Imputation
+                ui.nav_panel(
+                    "🧹 Cleaning & Imputation",
                     ui.layout_columns(
-                        # LEFT COLUMN: Variable Selection
+                        # Card 1: Missing Data Imputation
+                        ui.card(
+                            ui.card_header("🧩 Impute Missing Data"),
+                            ui.input_select(
+                                "sel_impute_method",
+                                "Method:",
+                                choices=["mean", "median", "knn", "mice"],
+                            ),
+                            ui.input_select(
+                                "sel_impute_cols", "Columns:", choices=[], multiple=True
+                            ),
+                            ui.input_action_button(
+                                "btn_run_impute", "Run Imputation", class_="btn-warning"
+                            ),
+                        ),
+                        # Card 2: Outlier Handling
+                        ui.card(
+                            ui.card_header("📈 Outlier Handling"),
+                            ui.input_select(
+                                "sel_outlier_cols",
+                                "Columns:",
+                                choices=[],
+                                multiple=True,
+                            ),
+                            ui.layout_columns(
+                                ui.input_select(
+                                    "sel_outlier_method",
+                                    "Method:",
+                                    choices=["iqr", "zscore"],
+                                ),
+                                ui.input_numeric(
+                                    "num_outlier_thresh",
+                                    "Threshold:",
+                                    value=1.5,
+                                    step=0.1,
+                                ),
+                            ),
+                            ui.input_select(
+                                "sel_outlier_action",
+                                "Action:",
+                                choices={
+                                    "flag": "Flag (set to NaN)",
+                                    "remove": "Set to NaN (same as Flag)",
+                                    "winsorize": "Winsorize",
+                                    "cap": "Cap",
+                                },
+                            ),
+                            ui.input_action_button(
+                                "btn_run_outlier",
+                                "Handle Outliers",
+                                class_="btn-danger",
+                            ),
+                        ),
+                        col_widths=(6, 6),
+                    ),
+                    ui.br(),
+                    ui.card(
+                        ui.card_header("🗺️ Missing Data Pattern"),
+                        ui.output_ui("ui_missing_plot"),
+                        class_="mt-3 shadow-sm",
+                    ),
+                ),
+                # Tab 3: Transformation
+                ui.nav_panel(
+                    "⚡ Transformation",
+                    ui.layout_columns(
                         ui.div(
                             ui.input_select(
-                                "sel_var_edit",
-                                "Select Variable to Edit:",
-                                choices=["Select..."],
-                                width="100%",
+                                "sel_trans_var", "Variable:", choices=["Select..."]
                             ),
-                            ui.div(
-                                ui.tags.strong("Categorical Mapping:"),
-                                " Format as `0=Control, 1=Treat`.",
-                                class_="alert alert-info p-2 mb-0",
+                            ui.input_select(
+                                "sel_trans_method",
+                                "Transformation:",
+                                choices=["log", "sqrt", "zscore"],
                             ),
-                            class_="p-2",
-                        ),
-                        # MIDDLE COLUMN: Variable Settings
-                        ui.div(ui.output_ui("ui_var_settings"), class_="p-2"),
-                        # RIGHT COLUMN: Missing Data Configuration
-                        ui.div(
-                            ui.h6(
-                                "🔍 Missing Data",
-                                style="margin-top: 0; color: #0066cc;",
-                            ),
-                            ui.input_text(
-                                "txt_missing_codes",
-                                "Missing Value Codes:",
-                                placeholder="e.g., -99, -999, 99",
-                                value="",
-                            ),
-                            ui.output_ui("ui_missing_preview"),
                             ui.input_action_button(
-                                "btn_save_missing",
-                                "💾 Save Missing Config",
-                                class_="btn-secondary w-100 mt-2",
+                                "btn_run_trans",
+                                "Apply Transform",
+                                class_="btn-primary w-100 mb-3",
                             ),
-                            class_="p-2",
-                            style="background-color: #f8f9fa; border-radius: 6px;",
+                            ui.h6("📊 Assumption Check"),
+                            ui.output_ui("ui_assumption_result"),
                         ),
-                        col_widths=(3, 6, 3),
+                        ui.div(
+                            ui.h6("Transformation Preview"),
+                            ui.output_text_verbatim(
+                                "txt_trans_preview"
+                            ),  # Basic placeholder
+                            class_="p-3 border rounded bg-light",
+                        ),
+                        col_widths=(4, 8),
                     ),
-                    value="var_config",  # <--- Added value parameter here
                 ),
-                open=True,
-                id="acc_var_config",
-                class_="mb-3 shadow-sm border-0",
+                id="tabs_data_tools",
+                class_="mb-3 shadow-sm",
             ),
             # 2. Data Preview Card
             ui.card(
@@ -775,6 +885,164 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         }
         var_meta.set(current_meta)
         ui.notification_show(f"✅ Saved settings for {var_name}", type="message")
+
+    @reactive.Effect
+    def _update_cleaning_choices():
+        """Update choices for imputation, outliers, and transformation when data changes"""
+        data = df.get()
+        if data is not None:
+            # Get numeric columns
+            numeric_cols = data.select_dtypes(include=np.number).columns.tolist()
+            ui.update_select("sel_impute_cols", choices=numeric_cols)
+            ui.update_select("sel_outlier_cols", choices=numeric_cols)
+            ui.update_select("sel_trans_var", choices=["Select...", *numeric_cols])
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_impute)
+    def _handle_imputation():
+        d = df.get()
+        cols = input.sel_impute_cols()
+        method = input.sel_impute_method()
+
+        if d is not None and cols:
+            try:
+                with ui.Progress(min=0, max=1) as p:
+                    p.set(
+                        message=f"Running {method} imputation...", detail="Please wait"
+                    )
+                    new_df = impute_missing_data(d, list(cols), method=method)
+                    df.set(new_df)
+                ui.notification_show(
+                    f"✅ Imputed {len(cols)} columns using {method}", type="message"
+                )
+            except Exception as e:
+                logger.error(f"Imputation error: {e}")
+                ui.notification_show(f"❌ Imputation failed: {e}", type="error")
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_outlier)
+    def _handle_outliers():
+        d = df.get()
+        cols = input.sel_outlier_cols()
+        method = input.sel_outlier_method()
+        action = input.sel_outlier_action()
+        thresh = input.num_outlier_thresh()
+
+        if d is not None and cols:
+            try:
+                new_df = d.copy()
+                count = 0
+                for col in cols:
+                    # handle_outliers returns a Series
+                    new_df[col] = handle_outliers(
+                        new_df[col], method=method, action=action, threshold=thresh
+                    )
+                    count += 1
+
+                df.set(new_df)
+                ui.notification_show(
+                    f"✅ Handled outliers in {count} columns ({action})", type="message"
+                )
+            except Exception as e:
+                logger.error(f"Outlier error: {e}")
+                ui.notification_show(f"❌ Outlier handling failed: {e}", type="error")
+
+    @render.ui
+    def ui_missing_plot():
+        d = df.get()
+        if d is None:
+            return None
+        # Using render_plotly requires shinywidgets
+        # Let's check imports.
+        # Actually, standard way in this app seems to be using ui.output_ui and returning HTML string for plotly?
+        # Let's check other tabs.
+        # tab_diag uses utils.plotly_html_renderer.create_responsive_plotly_html
+
+        fig = plot_missing_pattern(d)
+        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+
+    @render.ui
+    def ui_assumption_result():
+        var_name = input.sel_trans_var()
+        d = df.get()
+
+        if d is None or not var_name or var_name == "Select...":
+            return None
+
+        try:
+            res = check_assumptions(d[var_name])
+
+            if "error" in res:
+                return ui.div(f"Error: {res['error']}", class_="alert alert-danger")
+
+            color = (
+                "#198754" if res["is_normal"] else "#dc3545"
+            )  # bootstrap success/danger
+            status_text = (
+                "Normal Distribution" if res["is_normal"] else "NOT Normal Distribution"
+            )
+
+            return ui.div(
+                ui.h6(f"Test: {res['normality_test']}"),
+                ui.div(
+                    ui.span("P-Value: ", class_="text-muted"),
+                    ui.span(
+                        f"{res['p_value']}", style=f"color: {color}; font-weight: bold;"
+                    ),
+                ),
+                ui.div(
+                    ui.span("Result: ", class_="text-muted"),
+                    ui.span(status_text, style=f"color: {color}; font-weight: bold;"),
+                ),
+                ui.div(
+                    ui.small(
+                        f"Skewness: {res.get('skewness', 'N/A')} | Kurtosis: {res.get('kurtosis', 'N/A')}"
+                    ),
+                    class_="mt-1 text-muted",
+                ),
+                class_="alert alert-light border shadow-sm mt-2",
+            )
+        except Exception as e:
+            return ui.div(
+                f"Error checking assumptions: {e}", class_="alert alert-danger"
+            )
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_trans)
+    def _handle_transform():
+        d = df.get()
+        var_name = input.sel_trans_var()
+        method = input.sel_trans_method()
+
+        if d is not None and var_name and var_name != "Select...":
+            try:
+                col_data = d[var_name]
+                new_col = transform_variable(col_data, method=method)
+
+                # Create description for the new variable
+                new_var_name = f"{var_name}_{method}"
+
+                # Update DataFrame
+                new_df = d.copy()
+                new_df[new_var_name] = new_col
+                df.set(new_df)
+
+                # Update metadata
+                current_meta = var_meta.get() or {}
+                current_meta[new_var_name] = {
+                    "type": "Continuous",
+                    "map": {},
+                    "label": f"{var_name} ({method})",
+                }
+                var_meta.set(current_meta)
+
+                ui.notification_show(
+                    f"✅ Created new variable: {new_var_name}", type="message"
+                )
+
+            except Exception as e:
+                logger.error(f"Transformation error: {e}")
+                ui.notification_show(f"❌ Transformation failed: {e}", type="error")
 
     # --- Missing Data Configuration Handlers ---
     @render.ui
