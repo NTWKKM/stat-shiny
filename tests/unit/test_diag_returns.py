@@ -46,7 +46,9 @@ def test_diag_returns():
 
     # 4. Test calculate_kappa
     print("Checking calculate_kappa...")
-    res = diag_test.calculate_kappa(df, "rater1", "rater2")
+    from utils.agreement_lib import AgreementAnalysis
+
+    res = AgreementAnalysis.cohens_kappa(df, "rater1", "rater2")
     assert len(res) == 4, f"calculate_kappa should return 4 values, got {len(res)}"
     print("✅ calculate_kappa: OK")
 
@@ -61,7 +63,7 @@ def test_diag_returns():
 
     # 6. Test calculate_icc
     print("Checking calculate_icc...")
-    res = diag_test.calculate_icc(df, ["score", "truth"])
+    res = AgreementAnalysis.icc(df, ["score", "truth"])
     assert len(res) == 4, f"calculate_icc should return 4 values, got {len(res)}"
     print("✅ calculate_icc: OK")
 

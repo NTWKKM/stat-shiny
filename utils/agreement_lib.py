@@ -1,12 +1,13 @@
 from __future__ import annotations
-
 import numpy as np
 import pandas as pd
 import pingouin as pg
 import plotly.graph_objects as go
+from config import CONFIG
 from scipy import stats
 from sklearn.metrics import cohen_kappa_score, confusion_matrix
 from statsmodels.stats.inter_rater import aggregate_raters, fleiss_kappa
+from utils.data_cleaning import prepare_data_for_analysis
 
 
 class AgreementAnalysis:
@@ -28,19 +29,23 @@ class AgreementAnalysis:
         Returns: (Stats DataFrame, Error/None, Confusion Matrix, Missing Info)
         """
         try:
-            # Data Cleaning
-            clean_df = df[[rater1, rater2]].dropna()
-            missing_count = len(df) - len(clean_df)
-            missing_info = (
-                {f"Missing rows ({rater1}, {rater2})": missing_count}
-                if missing_count > 0
-                else {}
-            )
+            # Data Cleaning via central pipeline
+            missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+            strategy = missing_cfg.get("strategy", "complete-case")
+            missing_codes = missing_cfg.get("user_defined_values", [])
 
-            if len(clean_df) == 0:
+            clean_df, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=[rater1, rater2],
+                missing_codes=missing_codes,
+                handle_missing=strategy,
+            )
+            missing_info["strategy"] = strategy
+
+            if clean_df.empty:
                 return (
                     pd.DataFrame(),
-                    "No valid data pairs found.",
+                    "No valid data pairs found after cleaning.",
                     pd.DataFrame(),
                     missing_info,
                 )
@@ -115,17 +120,25 @@ class AgreementAnalysis:
         Calculate Fleiss' Kappa for multiple raters.
         """
         try:
-            # Data Cleaning
-            clean_df = df[raters].dropna()
-            missing_count = len(df) - len(clean_df)
-            missing_info = (
-                {"Missing rows (Multiple Raters)": missing_count}
-                if missing_count > 0
-                else {}
-            )
+            # Data Cleaning via central pipeline
+            missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+            strategy = missing_cfg.get("strategy", "complete-case")
+            missing_codes = missing_cfg.get("user_defined_values", [])
 
-            if len(clean_df) == 0:
-                return pd.DataFrame(), "No valid data found.", missing_info
+            clean_df, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=raters,
+                missing_codes=missing_codes,
+                handle_missing=strategy,
+            )
+            missing_info["strategy"] = strategy
+
+            if clean_df.empty:
+                return (
+                    pd.DataFrame(),
+                    "No valid data found after cleaning.",
+                    missing_info,
+                )
 
             # Convert to Subject x Category counts format
             # aggregate_raters expects (Subject, Rater) but we have columns as raters.
@@ -158,13 +171,25 @@ class AgreementAnalysis:
         Generate Bland-Altman statistics and Plotly figure with optional CI bands.
         """
         try:
-            # Data Cleaning
-            clean_df = df[[method1, method2]].dropna()
-            missing_count = len(df) - len(clean_df)
-            missing_info = {"Missing rows": missing_count} if missing_count > 0 else {}
+            # Data Cleaning via central pipeline
+            missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+            strategy = missing_cfg.get("strategy", "complete-case")
+            missing_codes = missing_cfg.get("user_defined_values", [])
+
+            clean_df, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=[method1, method2],
+                missing_codes=missing_codes,
+                handle_missing=strategy,
+            )
+            missing_info["strategy"] = strategy
 
             if len(clean_df) < 2:
-                return {"error": "Insufficient data (N < 2)"}, go.Figure(), missing_info
+                return (
+                    {"error": "Insufficient data (N < 2) after cleaning"},
+                    go.Figure(),
+                    missing_info,
+                )
 
             m1 = clean_df[method1].values
             m2 = clean_df[method2].values
@@ -311,14 +336,30 @@ class AgreementAnalysis:
         Calculate Intraclass Correlation Coefficient using Pingouin.
         Input DF: Wide format (Subjects as rows, Raters as columns).
         """
-        try:
-            # Data Cleaning
-            clean_df = df[cols].dropna()
-            missing_count = len(df) - len(clean_df)
-            missing_info = {"Missing rows": missing_count} if missing_count > 0 else {}
+        if len(cols) < 2:
+            return pd.DataFrame(), "Need at least 2 columns for ICC", {}, {}
 
-            if len(clean_df) == 0:
-                return pd.DataFrame(), "No valid data found.", {}, missing_info
+        try:
+            # Data Cleaning via central pipeline
+            missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+            strategy = missing_cfg.get("strategy", "complete-case")
+            missing_codes = missing_cfg.get("user_defined_values", [])
+
+            clean_df, missing_info = prepare_data_for_analysis(
+                df,
+                required_cols=cols,
+                missing_codes=missing_codes,
+                handle_missing=strategy,
+            )
+            missing_info["strategy"] = strategy
+
+            if clean_df.empty:
+                return (
+                    pd.DataFrame(),
+                    "No valid data found after cleaning.",
+                    {},
+                    missing_info,
+                )
 
             # Pingouin expects Long format: [Subject, Rater, Rating]
             # Add Subject ID

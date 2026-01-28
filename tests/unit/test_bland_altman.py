@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from utils import diag_test
-
 
 def test_calculate_bland_altman():
     # Create synthetic data with perfect agreement + constant bias
@@ -11,8 +9,10 @@ def test_calculate_bland_altman():
     # Method B: 11, 21, 31 (Bias = -1)
     df = pd.DataFrame({"A": [10, 20, 30, 40, 50], "B": [11, 21, 31, 41, 51]})
 
+    from utils.agreement_lib import AgreementAnalysis
+
     # FIX: Unpack tuple (stats, fig, metadata)
-    stats, fig, *_ = diag_test.calculate_bland_altman(df, "A", "B")
+    stats, fig, *_ = AgreementAnalysis.bland_altman_advanced(df, "A", "B")
 
     assert stats["n"] == 5
     # A - B = -1
@@ -26,7 +26,7 @@ def test_calculate_bland_altman():
 
     # Check graph generation
     assert fig is not None
-    assert fig.layout.title.text == "Bland-Altman Plot"
+    assert "Bland-Altman" in fig.layout.title.text
 
 
 def test_calculate_bland_altman_random():
@@ -38,7 +38,9 @@ def test_calculate_bland_altman_random():
 
     df = pd.DataFrame({"A": a, "B": b})
     # FIX: Unpack tuple
-    stats, fig, *_ = diag_test.calculate_bland_altman(df, "A", "B")
+    from utils.agreement_lib import AgreementAnalysis
+
+    stats, fig, *_ = AgreementAnalysis.bland_altman_advanced(df, "A", "B")
 
     assert stats["n"] == 100
     assert abs(stats["mean_diff"]) < 0.5  # Should be close to 0
