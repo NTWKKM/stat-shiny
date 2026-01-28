@@ -128,14 +128,12 @@ def diag_ui() -> ui.TagChild:
                         ui.column(
                             6,
                             ui.div(
+                                ui.input_action_button(
+                                    "btn_compare_roc",
+                                    "🚀 Run Comparison (DeLong Test)",
+                                    class_="btn-warning w-100",
+                                ),
                                 style="margin-top: 25px;",
-                                children=[
-                                    ui.input_action_button(
-                                        "btn_compare_roc",
-                                        "🚀 Run Comparison (DeLong Test)",
-                                        class_="btn-warning w-100",
-                                    )
-                                ],
                             ),
                         ),
                     ),
