@@ -931,10 +931,29 @@ def diag_server(
             from utils.diagnostic_advanced_lib import DiagnosticTest
 
             # Helper to get metrics row
-            def get_best_metrics(score_data, label):
+            # Helper to get metrics row AND coords
+            def get_best_metrics(score_data, label, color):
                 dt = DiagnosticTest(y_true, score_data, pos_label=pos_label)
-                thresh, _ = dt.find_optimal_threshold(method="youden")
+                thresh, idx = dt.find_optimal_threshold(method="youden")
                 m = dt.get_metrics_at_threshold(thresh)
+
+                # Add marker trace
+                fpr_val = dt.fpr[idx]
+                tpr_val = dt.tpr[idx]
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=[fpr_val],
+                        y=[tpr_val],
+                        mode="markers+text",
+                        name=f"Optimal {label}",
+                        text=["Optimal"],
+                        textposition="top right",
+                        marker=dict(size=12, symbol="star", color=color),
+                        hovertemplate=f"<b>{label} Optimal</b><br>Threshold: {thresh:.3f}<br>TPR: {tpr_val:.3f}<br>FPR: {fpr_val:.3f}<extra></extra>",
+                    )
+                )
+
                 return {
                     "Test": label,
                     "AUC": f"{dt.auc:.3f}",
@@ -947,7 +966,10 @@ def diag_server(
                 }
 
             metrics_df = pd.DataFrame(
-                [get_best_metrics(s1, test1_col), get_best_metrics(s2, test2_col)]
+                [
+                    get_best_metrics(s1, test1_col, COLORS["primary"]),
+                    get_best_metrics(s2, test2_col, COLORS["secondary"]),
+                ]
             )
 
             # Build Report
