@@ -252,6 +252,7 @@ The application uses a centralized styling system to ensure visual consistency a
 
 - `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
 - `utils/formatting.py`: Handles P-value styling, logic-driven badges, and statistical report HTML structure (syncing with `config.py`).
+- `utils/table_one_advanced.py`: **Advanced Table 1 Generator** (OOP) that handles intelligent variable classification (Normal vs Non-Normal) and automated statistical test selection.
 
 ### Dynamic UI Enhancements (Animations)
 
