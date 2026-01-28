@@ -906,36 +906,66 @@ def diag_server(
             )
 
             # Results Table
-            res_data = {
-                "Metric": [
-                    "AUC (Test 1)",
-                    "AUC (Test 2)",
-                    "AUC Difference",
-                    "Z-Score",
-                    "P-value",
-                    "95% CI of Diff",
-                ],
-                "Value": [
-                    f"{res['auc1']:.4f}",
-                    f"{res['auc2']:.4f}",
-                    f"{res['diff']:.4f}",
-                    f"{res['z_score']:.4f}",
-                    diag_test.format_p_value(res["p_value"]),
-                    f"[{res['ci_lower']:.4f}, {res['ci_upper']:.4f}]",
-                ],
-            }
+            delong_table = pd.DataFrame(
+                {
+                    "Metric": [
+                        "AUC (Test 1)",
+                        "AUC (Test 2)",
+                        "AUC Difference",
+                        "Z-Score",
+                        "P-value",
+                        "95% CI of Diff",
+                    ],
+                    "Value": [
+                        f"{res['auc1']:.4f}",
+                        f"{res['auc2']:.4f}",
+                        f"{res['diff']:.4f}",
+                        f"{res['z_score']:.4f}",
+                        diag_test.format_p_value(res["p_value"]),
+                        f"[{res['ci_lower']:.4f}, {res['ci_upper']:.4f}]",
+                    ],
+                }
+            )
+
+            # --- ADDED: Comparative Metrics Table ---
+            from utils.diagnostic_advanced_lib import DiagnosticTest
+
+            # Helper to get metrics row
+            def get_best_metrics(score_data, label):
+                dt = DiagnosticTest(y_true, score_data, pos_label=pos_label)
+                thresh, _ = dt.find_optimal_threshold(method="youden")
+                m = dt.get_metrics_at_threshold(thresh)
+                return {
+                    "Test": label,
+                    "AUC": f"{dt.auc:.3f}",
+                    "Best Threshold": f"{thresh:.3f}",
+                    "Sensitivity": f"{m['sensitivity']:.3f} [{m['sensitivity_ci_lower']:.3f}-{m['sensitivity_ci_upper']:.3f}]",
+                    "Specificity": f"{m['specificity']:.3f} [{m['specificity_ci_lower']:.3f}-{m['specificity_ci_upper']:.3f}]",
+                    "PPV": f"{m['ppv']:.3f}",
+                    "NPV": f"{m['npv']:.3f}",
+                    "Accuracy": f"{m['accuracy']:.3f}",
+                }
+
+            metrics_df = pd.DataFrame(
+                [get_best_metrics(s1, test1_col), get_best_metrics(s2, test2_col)]
+            )
 
             # Build Report
             rep = [
                 {
                     "type": "text",
-                    "data": f"📊 ROC Comparison: {test1_col} vs {test2_col}",
+                    "data": f"📊 Comparison: {test1_col} vs {test2_col}",
                 },
                 {"type": "plot", "data": fig},
                 {
                     "type": "table",
-                    "header": "DeLong Single-Tail Paired Test",
-                    "data": pd.DataFrame(res_data),
+                    "header": "DeLong Correlation Test (Paired)",
+                    "data": delong_table,
+                },
+                {
+                    "type": "table",
+                    "header": "Comparative Performance at Optimal Threshold (Youden)",
+                    "data": metrics_df,
                 },
             ]
 
