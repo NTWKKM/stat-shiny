@@ -224,9 +224,9 @@ stat-shiny/
 - ✅ CSV/Excel upload with type detection
 - ✅ Missing data reporting
 - ✅ Basic categorical validation
-- ❌ No imputation strategies exposed
-- ❌ Missing outlier detection/handling
-- ❌ Limited data transformation options
+- ✅ Imputation strategies exposed (KNN, IterativeImputer)
+- ✅ Outlier detection/handling (IQR, Z-score) with UI controls
+- ✅ Data transformation options exposed (Log, Sqrt, Z-Score)
 
 **Optimization Actions**:
 
@@ -314,45 +314,31 @@ class DataQualityReport:
 
 #### **Priority 1: `tab_baseline_matching.py` Standardization** ✅ **COMPLETE**
 
-**Current State**:
+**Implementation Status**:
 
 - ✅ Table 1 generation with p-values
-- ✅ Basic PSM implementation
-- ✅ SMD calculation
-- ✅ Love plot needs standardization (reference lines, colors)
-- ✅ Missing optimal matching diagnostics
-- ✅ No assessment of common support
+- ✅ PSM implementation containing:
+  - ✅ Caliper support
+  - ✅ Standardized Love Plots (Green/Yellow zones, reference lines)
+  - ✅ Common Support Visualization (Propensity Score Distribution)
+  - ✅ SMD Table and Group Comparison
+- ❌ Optimal caliper determination (Planned)
+- ❌ Density plots for continuous variables (Planned)
 
-**Optimization Actions**:
+**Implemented Improvements**:
 
-```python
-# 1. STANDARDIZE: Love Plot Output
-├── Reference line at SMD = 0.1 (publication standard)
-├── Color coding: Green (acceptable), Yellow (borderline), Red (problematic)
-├── Before/After matching comparison side-by-side
-├── Exportable as publication-ready figure
-└── Add legend explaining interpretation
+The following enhancements have been deployed:
 
-# 2. ADD: Propensity Score Diagnostics
-├── Distribution comparison (matched vs unmatched)
-├── Common support assessment with visualization
-├── Optimal caliper determination
-├── Matching quality metrics dashboard
-└── Sample size reduction reporting
+1. **Love Plot Standardization**: Added colored background zones (Green <0.1, Yellow 0.1-0.2) and reference lines for easy interpretation.
+2. **Common Support**: Added Propensity Score Distribution histogram to visualize overlap between matched/unmatched groups.
+3. **Assessment Metrics**: Added SMD Improvement calculation and Good/Total balance counts.
 
-# 3. ADD: Balance Diagnostics
-├── Covariate balance table with effect sizes
-├── Density plots for continuous variables
-├── Categorical distribution comparison
-└── Statistical tests for residual imbalance (t-tests, chi-square)
+**Planned Enhancements**:
 
-# 4. IMPROVE: Table 1 Output
-├── Auto-detection of continuous vs categorical
-├── Appropriate test selection (t-test, Mann-Whitney, chi-square)
-├── Missing data reporting in footnotes
-├── Standardized column headers (n, Mean ± SD, Median [IQR], p-value)
-└── Publication-ready formatting with superscript annotations
-```
+- Optimal caliper determination logic.
+- Density plots for continuous balance diagnostics.
+- Comprehensive matching quality metrics dashboard.
+- Statistical tests for residual imbalance.
 
 **Implementation Priority**: **HIGH**  
 **Refactor Scope**: Extract PSM logic to separate module (`psm_advanced_lib.py`)

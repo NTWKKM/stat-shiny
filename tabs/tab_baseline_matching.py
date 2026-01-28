@@ -723,8 +723,8 @@ def baseline_matching_server(
                 raise ValueError("No matches found within the specified caliper.")
 
             # SMD Calculations
-            smd_pre = psm_lib.compute_smd(df_ps, final_treat_col, final_cov_cols)
-            smd_post = psm_lib.compute_smd(df_m, final_treat_col, final_cov_cols)
+            smd_pre = psm_lib.calculate_smd(df_ps, final_treat_col, final_cov_cols)
+            smd_post = psm_lib.calculate_smd(df_m, final_treat_col, final_cov_cols)
 
             # --- Atomic State Update ---
             # เตรียมข้อมูลผลลัพธ์ให้พร้อมก่อนทำการ set ค่าให้กับ reactive values

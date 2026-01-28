@@ -348,6 +348,10 @@ def plot_ps_distribution(
     if df_pre is None or df_pre.empty:
         return fig
 
+    # Validate required columns exist
+    if treatment_col not in df_pre.columns or ps_col not in df_pre.columns:
+        return fig
+
     # colors
     c_treat = "rgba(255, 100, 100, 0.6)"
     c_control = "rgba(100, 100, 255, 0.6)"
