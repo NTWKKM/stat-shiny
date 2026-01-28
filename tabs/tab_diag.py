@@ -903,6 +903,15 @@ def diag_server(
                 template="plotly_white",
                 height=550,
                 width=550,
+                legend=dict(
+                    x=0.6,
+                    y=0.05,
+                    bgcolor="rgba(255, 255, 255, 0.8)",
+                    bordercolor="LightGrey",
+                    borderwidth=1,
+                ),
+                xaxis=dict(constrain="domain"),
+                yaxis=dict(scaleanchor="x", scaleratio=1),
             )
 
             # Results Table
@@ -950,7 +959,7 @@ def diag_server(
                         text=["Optimal"],
                         textposition="top right",
                         marker=dict(
-                            size=10,
+                            size=12,
                             symbol="circle",
                             color=color,
                             line=dict(width=2, color="white"),
