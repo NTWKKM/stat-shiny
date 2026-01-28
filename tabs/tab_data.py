@@ -16,7 +16,7 @@ from utils.data_cleaning import (
     impute_missing_data,
     transform_variable,
 )
-from utils.data_quality import check_data_quality
+from utils.data_quality import DataQualityReport, check_data_quality
 from utils.ui_helpers import (
     create_empty_state_ui,
 )
@@ -1311,61 +1311,19 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     @render.data_frame
     def out_df_preview():
         """
-        Render the current dataframe as a preview table with detected data quality issues visually highlighted.
+        Render the current dataframe as a preview table.
 
-        If the module has recorded data quality issues for specific cells, those cells are visually emphasized in the preview (e.g., colored background and border). If no dataframe is loaded, returns None.
+        Note: Cell highlighting for data quality issues is disabled to avoid Styler compatibility issues
+        with Shiny's DataTable renderer. Detailed issues are available in the Data Quality Scorecard.
 
         Returns:
-            render.DataTable or None: A DataTable rendering of the current dataframe with issue cells highlighted, or `None` when no data is available.
+            render.DataTable or None: A DataTable rendering of the current dataframe, or `None` when no data is available.
         """
         d = df.get()
         if d is None:
             return None
 
-        # Get current data quality issues
-        issues = data_issues.get()
-
-        # If no issues, return plain table
-        if not issues:
-            return render.DataTable(d, width="100%", filters=False)
-
-        # Build a lookup dict of (col, row_idx) -> True for error cells
-        error_cells = {}
-        for issue in issues:
-            col = issue["col"]
-            # Convert Excel row (1-based + header) to DataFrame index (0-based)
-            row_val = issue.get("row")
-            if not isinstance(row_val, int):
-                continue
-            row_idx = row_val - 2  # -2 because Excel is 1-based and has header
-            if 0 <= row_idx < len(d):
-                error_cells[(row_idx, col)] = True
-
-        # Apply styling using pandas Styler
-        def highlight_errors(row):
-            # Create style array for this row
-            """
-            Create a list of CSS style strings that highlight cells in a dataframe row flagged as errors.
-
-            Returns:
-                list[str]: A list of CSS style strings (one per column). Entries are an empty string for unmodified cells or a CSS rule that applies a red-tinted background, red border, red text color, and bold font for cells whose (row_index, column_name) tuple is present in the global `error_cells` set.
-            """
-            styles = [""] * len(row)
-            row_idx = row.name  # Get the row index
-            for col_idx, col_name in enumerate(d.columns):
-                if (row_idx, col_name) in error_cells:
-                    styles[col_idx] = (
-                        "background-color: #fee; "
-                        f"border: 1px solid {COLORS['danger']}; "
-                        f"color: {COLORS['danger']}; "
-                        "font-weight: 600;"
-                    )
-            return styles
-
-        # Apply the styling function
-        styled_df = d.style.apply(highlight_errors, axis=1)
-
-        return render.DataTable(styled_df, width="100%", filters=False)
+        return render.DataTable(d, width="100%", filters=False)
 
     @render.ui
     def ui_btn_clear_match():
@@ -1419,58 +1377,100 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
     @render.ui
     def ui_data_report_card():
-        issues = data_issues.get()
-        if not issues:
+        """
+        Renders the enhanced Data Quality Report with Value Boxes and Issue List.
+        """
+        data = df.get()
+        if data is None:
             return None
 
-        # Create a simple HTML table for issues
-        rows = ""
-        for item in issues:
-            col = _html.escape(str(item["col"]))
-            row = _html.escape(str(item["row"]))
-            value = _html.escape(str(item["value"]))
-            issue = _html.escape(str(item["issue"]))
-            rows += (
-                f"<tr><td>{col}</td><td>{row}</td><td>{value}</td>"
-                f"<td class='text-danger'>{issue}</td></tr>"
+        # Generate report
+        report = DataQualityReport(data).generate_report()
+        scores = report["dimension_scores"]
+        issues = report["issues"]
+        recommendations = report["recommendations"]
+
+        # 1. UI: Score Cards
+        score_cards = ui.layout_columns(
+            ui.value_box(
+                "Completeness",
+                f"{scores['completeness']:.1f}%",
+                "Non-missing values",
+                theme="teal" if scores["completeness"] > 90 else "danger",
+            ),
+            ui.value_box(
+                "Consistency",
+                f"{scores['consistency']:.1f}%",
+                "Type consistency",
+                theme="blue" if scores["consistency"] > 90 else "warning",
+            ),
+            ui.value_box(
+                "Uniqueness",
+                f"{scores['uniqueness']:.1f}%",
+                "Unique rows",
+                theme="indigo" if scores["uniqueness"] > 90 else "warning",
+            ),
+            ui.value_box(
+                "Validity",
+                f"{scores['validity']:.1f}%",
+                "Schema validation",
+                theme="green",  # Currently hardcoded to 100
+            ),
+            col_widths=(3, 3, 3, 3),
+        )
+
+        # 2. UI: Details
+        details_ui = None
+        if issues or recommendations:
+            recs_html = (
+                "<ul>" + "".join([f"<li>{r}</li>" for r in recommendations]) + "</ul>"
             )
 
-        table_html = f"""
-        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
-            <table class="table table-sm table-striped table-bordered">
-                <thead class="table-danger">
-                    <tr>
-                        <th>Column</th>
-                        <th>Row (Excel)</th>
-                        <th>Invalid Value</th>
-                        <th>Issue</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows}
-                </tbody>
-            </table>
-        </div>
-        """
+            # Previous issues from "data_issues" (legacy check)
+            legacy_issues = data_issues.get()
+            legacy_table = ""
+            if legacy_issues:
+                rows = ""
+                for item in legacy_issues:
+                    col = _html.escape(str(item["col"]))
+                    row = _html.escape(str(item["row"]))
+                    value = _html.escape(str(item["value"]))
+                    issue = _html.escape(str(item["issue"]))
+                    rows += (
+                        f"<tr><td>{col}</td><td>{row}</td><td>{value}</td>"
+                        f"<td class='text-danger'>{issue}</td></tr>"
+                    )
+                legacy_table = f"""
+                 <h6 class="mt-3">Detailed Anomalies</h6>
+                 <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                     <table class="table table-sm table-striped table-bordered">
+                         <thead class="table-danger">
+                             <tr><th>Column</th><th>Row</th><th>Value</th><th>Issue</th></tr>
+                         </thead>
+                         <tbody>{rows}</tbody>
+                     </table>
+                 </div>
+                 """
 
-        return ui.card(
-            ui.card_header(
-                ui.div(
-                    ui.tags.span("⚠️ Data Quality Report", class_="fw-bold text-danger"),
-                    ui.tags.span(
-                        f"Found {len(issues)} potential issues",
-                        class_="badge bg-danger ms-2",
+            details_ui = ui.accordion(
+                ui.accordion_panel(
+                    "📋 Detailed Quality Report",
+                    ui.div(
+                        ui.h6("Recommendations"),
+                        ui.HTML(recs_html),
+                        ui.HTML(legacy_table) if legacy_table else None,
                     ),
-                    class_="d-flex justify-content-between align-items-center",
-                )
-            ),
-            ui.HTML(table_html),
-            ui.markdown(
-                "> *Note: These values are non-numeric characters found in likely "
-                "continuous columns. Please clean your data source or use "
-                "Data Cleaning tools.*"
-            ),
-            class_="mb-3 border-danger shadow-sm",
+                    value="details",
+                ),
+                id="acc_dq_details",
+                open=False,  # Collapsed by default
+            )
+
+        return ui.div(
+            ui.h5("🛡️ Data Quality Scorecard", class_="mb-3"),
+            score_cards,
+            details_ui,
+            class_="p-3 border rounded shadow-sm bg-white mb-3",
         )
 
     @render.ui
