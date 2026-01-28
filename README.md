@@ -177,7 +177,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- visualizations.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 ## 🏥 Medical Statistical Tool (Shiny for Python)
@@ -192,6 +191,7 @@ This application is a complete statistical workbench organized into modular tabs
 
 - **Comprehensive Data Control**: Upload CSV/Excel or load example datasets.
 - **Data Health Report**: Automated deep checks via `utils/data_quality.py` for:
+  - **Quality Scorecard**: Instant rating of Completeness, Consistency, Uniqueness, and Validity.
   - **Missing Data**: Detailed reporting of missing values with row positions.
   - **Non-standard Numeric**: Smart detection of medical strings like `"<5"`, `">10"`, or currency.
   - **Categorical Integrity**: Identifies numeric values in categorical text and flags rare categories (< 5 occurrences).
@@ -205,7 +205,8 @@ This application is a complete statistical workbench organized into modular tabs
 
 - **Table 1 Generation**: Publication-ready baseline tables with p-values and standardized formatting.
 - **Propensity Score Matching (PSM)**: Advanced matching with customizable calipers and variable selection.
-- **Balance Diagnostics**: Love plots and Standardized Mean Differences (SMD) to verify matching quality.
+- **Balance Diagnostics**: Enhanced Love plots (Green/Yellow zones) and Standardized Mean Differences (SMD).
+- **Common Support**: Visual inspection of propensity score overlap distributions.
 - **Matched Data Export**: seamless integration of matched cohorts into other analyses.
 
 ### 🔢 Sample Size & Power
