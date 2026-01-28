@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pandas as pd
+import plotly.graph_objects as go
 from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
@@ -11,6 +12,7 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from utils import decision_curve_lib, diag_test
+from utils.diagnostic_advanced_lib import DiagnosticComparison
 from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
@@ -71,29 +73,70 @@ def diag_ui() -> ui.TagChild:
             ui.nav_panel(
                 "📈 ROC Curve & AUC",
                 ui.markdown("##### ROC Curve Analysis"),
-                ui.row(
-                    ui.column(3, ui.output_ui("ui_roc_truth")),
-                    ui.column(3, ui.output_ui("ui_roc_score")),
-                    ui.column(3, ui.output_ui("ui_roc_method")),
-                    ui.column(3, ui.output_ui("ui_roc_pos_label")),
+                # --- NEW: Analysis Mode Selection ---
+                ui.input_radio_buttons(
+                    "roc_mode",
+                    "Analysis Mode:",
+                    {
+                        "single": "Single Test Analysis",
+                        "compare": "Compare Two Tests (Paired)",
+                    },
+                    selected="single",
+                    inline=True,
                 ),
-                ui.row(
-                    ui.column(
-                        6,
-                        ui.input_action_button(
-                            "btn_analyze_roc",
-                            "🚀 Analyze ROC",
-                            class_="btn-primary w-100",
-                            width="100%",
+                ui.hr(),
+                # --- SINGLE MODE UI ---
+                ui.panel_conditional(
+                    "input.roc_mode == 'single'",
+                    ui.row(
+                        ui.column(3, ui.output_ui("ui_roc_truth")),
+                        ui.column(3, ui.output_ui("ui_roc_score")),
+                        ui.column(3, ui.output_ui("ui_roc_method")),
+                        ui.column(3, ui.output_ui("ui_roc_pos_label")),
+                    ),
+                    ui.row(
+                        ui.column(
+                            6,
+                            ui.input_action_button(
+                                "btn_analyze_roc",
+                                "🚀 Analyze ROC",
+                                class_="btn-primary w-100",
+                                width="100%",
+                            ),
+                        ),
+                        ui.column(
+                            6,
+                            ui.download_button(
+                                "btn_dl_roc_report",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                                width="100%",
+                            ),
                         ),
                     ),
-                    ui.column(
-                        6,
-                        ui.download_button(
-                            "btn_dl_roc_report",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
-                            width="100%",
+                ),
+                # --- COMPARISON MODE UI ---
+                ui.panel_conditional(
+                    "input.roc_mode == 'compare'",
+                    ui.row(
+                        ui.column(4, ui.output_ui("ui_roc_truth_comp")),
+                        ui.column(4, ui.output_ui("ui_roc_test1")),
+                        ui.column(4, ui.output_ui("ui_roc_test2")),
+                    ),
+                    ui.row(
+                        ui.column(6, ui.output_ui("ui_roc_pos_label_comp")),
+                        ui.column(
+                            6,
+                            ui.div(
+                                style="margin-top: 25px;",
+                                children=[
+                                    ui.input_action_button(
+                                        "btn_compare_roc",
+                                        "🚀 Run Comparison (DeLong Test)",
+                                        class_="btn-warning w-100",
+                                    )
+                                ],
+                            ),
                         ),
                     ),
                 ),
@@ -226,12 +269,18 @@ def diag_ui() -> ui.TagChild:
                     ### ⚖️ Interpretation Guidelines
 
                     #### ROC Curve & AUC
+                    - **Single Test**: Detailed analysis of one diagnostic test with threshold optimization.
+                    - **Compare Tests**: Uses **Paired DeLong's Test** to statistically compare two ROC curves properly.
                     - **AUC > 0.9:** Excellent discrimination
                     - **AUC 0.8-0.9:** Good discrimination
                     - **AUC 0.7-0.8:** Fair discrimination
                     - **AUC 0.5-0.7:** Poor discrimination
                     - **AUC = 0.5:** No discrimination (random chance)
                     - **Youden J Index:** Sensitivity + Specificity - 1 (higher is better, max = 1)
+                    
+                    #### Comparison Interpretation (DeLong)
+                    - **P-value < 0.05**: Significant difference between the two ROC curves.
+                    - **Z-score**: Strength of the difference.
 
                     #### Chi-Square Test
                     - **P < 0.05:** Statistically significant association
@@ -397,6 +446,70 @@ def diag_server(
             "Positive Label (1):",
             choices=[],
         )
+
+    # --- ROC Comparison Mode UI ---
+    @render.ui
+    def ui_roc_truth_comp():
+        cols = all_cols()
+        default = select_variable_by_keyword(
+            cols, ["gold", "truth"], default_to_first=True
+        )
+        return ui.input_select(
+            "sel_roc_truth_comp",
+            "Gold Standard (Binary):",
+            choices=cols,
+            selected=default,
+        )
+
+    @render.ui
+    def ui_roc_test1():
+        cols = all_cols()
+        default = select_variable_by_keyword(
+            cols, ["rapid", "standard", "test1", "score"], default_to_first=True
+        )
+        return ui.input_select(
+            "sel_roc_test1", "Test 1 (Reference):", choices=cols, selected=default
+        )
+
+    @render.ui
+    def ui_roc_test2():
+        cols = all_cols()
+        # prioritized keywords for the second test
+        default = select_variable_by_keyword(
+            cols, ["expensive", "new", "test2", "score"], default_to_first=False
+        )
+        # If default matches test1 (highly likely if both match "score"),
+        # try to find a different one if possible, but simplest is just keyword matching.
+        # select_variable_by_keyword returns the first match.
+
+        # Let's be specific for the example data
+        if "Test_Score_Expensive" in cols:
+            default = "Test_Score_Expensive"
+        elif not default and len(cols) > 1:
+            default = cols[1]
+
+        return ui.input_select(
+            "sel_roc_test2", "Test 2 (Comparator):", choices=cols, selected=default
+        )
+
+    @render.ui
+    def ui_roc_pos_label_comp():
+        return _render_pos_label_ui(
+            input.sel_roc_truth_comp(), "sel_roc_pos_label_comp"
+        )
+
+    def _render_pos_label_ui(truth_col_name, input_id):
+        d = current_df()
+        if d is not None and truth_col_name and truth_col_name in d.columns:
+            vals = sorted([str(x) for x in d[truth_col_name].dropna().unique()])
+            default = next(
+                (x for x in vals if x in ["1", "1.0", "Yes", "Positive"]),
+                vals[0] if vals else None,
+            )
+            return ui.input_select(
+                input_id, "Positive Label:", choices=vals, selected=default
+            )
+        return ui.input_select(input_id, "Positive Label:", choices=[])
 
     # --- Chi-Square Inputs UI ---
     @render.ui
@@ -627,6 +740,16 @@ def diag_server(
                             }
                         )
 
+                    # Add Sensitivity/Specificity Plot if available
+                    ss_plot = res.get("sens_spec_plot")
+                    if ss_plot is not None:
+                        rep.append(
+                            {
+                                "type": "plot",
+                                "data": ss_plot,
+                            }
+                        )
+
                 # Add performance coordinates table
                 if coords is not None:
                     rep.append(
@@ -672,6 +795,154 @@ def diag_server(
     @render.download(filename="roc_report.html")
     def btn_dl_roc_report():
         yield roc_html.get()
+
+    # --- ACTION: Compare ROC Analysis ---
+    @reactive.Effect
+    @reactive.event(input.btn_compare_roc)
+    def _run_roc_compare():
+        d = current_df()
+        req(
+            d is not None,
+            input.sel_roc_truth_comp(),
+            input.sel_roc_test1(),
+            input.sel_roc_test2(),
+        )
+        roc_processing.set(True)
+
+        try:
+            truth_col = input.sel_roc_truth_comp()
+            test1_col = input.sel_roc_test1()
+            test2_col = input.sel_roc_test2()
+            pos_label = input.sel_roc_pos_label_comp()
+
+            # Prepare data
+            data = d[[truth_col, test1_col, test2_col]].dropna()
+            if data.empty:
+                roc_html.set(
+                    "<div class='alert alert-info'>No valid data found (check missing values).</div>"
+                )
+                return
+
+            # Use New Library
+            y_true = data[truth_col]
+            s1 = pd.to_numeric(data[test1_col], errors="coerce")
+            s2 = pd.to_numeric(data[test2_col], errors="coerce")
+
+            # Filter out non-numeric
+            mask = s1.notna() & s2.notna()
+            y_true = y_true[mask]
+            s1 = s1[mask]
+            s2 = s2[mask]
+
+            if len(y_true) < 2:
+                roc_html.set(
+                    "<div class='alert alert-warning'>Not enough data points.</div>"
+                )
+                return
+
+            # Run DeLong Test
+            try:
+                res = DiagnosticComparison.delong_paired_test(
+                    y_true, s1, s2, pos_label=pos_label
+                )
+            except Exception as e:
+                roc_html.set(
+                    f"<div class='alert alert-danger'>Comparison failed: {e}</div>"
+                )
+                return
+
+            # Generate Comparison Plot
+            fig = go.Figure()
+
+            # Curve 1
+            fpr1, tpr1, _ = diag_test.roc_curve(
+                (y_true.astype(str) == str(pos_label)).astype(int), s1
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=fpr1,
+                    y=tpr1,
+                    mode="lines",
+                    name=f"{test1_col} (AUC={res['auc1']:.3f})",
+                    line=dict(color=COLORS["primary"]),
+                )
+            )
+
+            # Curve 2
+            fpr2, tpr2, _ = diag_test.roc_curve(
+                (y_true.astype(str) == str(pos_label)).astype(int), s2
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=fpr2,
+                    y=tpr2,
+                    mode="lines",
+                    name=f"{test2_col} (AUC={res['auc2']:.3f})",
+                    line=dict(color=COLORS["secondary"]),
+                )
+            )
+
+            # Diagonal
+            fig.add_trace(
+                go.Scatter(
+                    x=[0, 1],
+                    y=[0, 1],
+                    mode="lines",
+                    line=dict(dash="dash", color="gray"),
+                    showlegend=False,
+                )
+            )
+
+            fig.update_layout(
+                title=f"ROC Comparison: {test1_col} vs {test2_col}",
+                xaxis_title="False Positive Rate",
+                yaxis_title="True Positive Rate",
+                template="plotly_white",
+                height=550,
+                width=550,
+            )
+
+            # Results Table
+            res_data = {
+                "Metric": [
+                    "AUC (Test 1)",
+                    "AUC (Test 2)",
+                    "AUC Difference",
+                    "Z-Score",
+                    "P-value",
+                    "95% CI of Diff",
+                ],
+                "Value": [
+                    f"{res['auc1']:.4f}",
+                    f"{res['auc2']:.4f}",
+                    f"{res['diff']:.4f}",
+                    f"{res['z_score']:.4f}",
+                    diag_test.format_p_value(res["p_value"]),
+                    f"[{res['ci_lower']:.4f}, {res['ci_upper']:.4f}]",
+                ],
+            }
+
+            # Build Report
+            rep = [
+                {
+                    "type": "text",
+                    "data": f"📊 ROC Comparison: {test1_col} vs {test2_col}",
+                },
+                {"type": "plot", "data": fig},
+                {
+                    "type": "table",
+                    "header": "DeLong Single-Tail Paired Test",
+                    "data": pd.DataFrame(res_data),
+                },
+            ]
+
+            roc_html.set(diag_test.generate_report("ROC Comparison Report", rep))
+
+        except Exception as e:
+            logger.exception("ROC Comparison Error")
+            roc_html.set(f"<div class='alert alert-danger'>Error: {str(e)}</div>")
+        finally:
+            roc_processing.set(False)
 
     # --- Chi-Square Analysis Logic ---
     @reactive.Effect

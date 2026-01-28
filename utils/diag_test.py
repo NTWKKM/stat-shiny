@@ -26,7 +26,6 @@ import scipy.stats as stats
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
     cohen_kappa_score,
-    precision_recall_curve,
     roc_auc_score,
     roc_curve,
 )
@@ -37,6 +36,7 @@ from tabs._common import get_color_palette
 from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
+from utils.diagnostic_advanced_lib import DiagnosticTest
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -1239,30 +1239,32 @@ def analyze_roc(
         else:
             auc_ci_str = "-"
 
-        # Calculate Youden Index and best threshold
-        j_scores = tpr - fpr
-        best_idx = np.argmax(j_scores)
+        # --- REFACTOR: Use DiagnosticTest ---
+        diag_model = DiagnosticTest(y_true, y_score)
+        best_thresh, best_idx = diag_model.find_optimal_threshold(method="youden")
+        metrics = diag_model.get_metrics_at_threshold(best_thresh)
+
+        # Calculate Youden Index and best threshold (Legacy variables for plotting)
+        j_scores = diag_model.tpr - diag_model.fpr
+        # best_idx is already found
         youden_j = j_scores[best_idx]
 
-        # Approximate F1-score at best threshold
-        precisions, recalls, _ = precision_recall_curve(y_true, y_score)
-        f1_scores = (2 * precisions * recalls) / (precisions + recalls + 1e-10)
-        max_f1 = np.max(f1_scores)
+        # Use metrics from DiagnosticTest (with CIs)
+        sens = metrics["sensitivity"]
+        sens_ci = f"[{metrics['sensitivity_ci_lower']:.4f}-{metrics['sensitivity_ci_upper']:.4f}]"
+        spec = metrics["specificity"]
+        spec_ci = f"[{metrics['specificity_ci_lower']:.4f}-{metrics['specificity_ci_upper']:.4f}]"
 
+        # Calibration Curve (Reliability Diagram)
         if y_score is not None:
-            # Check if scores are probabilities (0-1)
-            # Use score_col name for better error message
             if np.any((y_score < 0) | (y_score > 1)):
                 logger.warning(
                     f"Scores in '{score_col}' are outside [0, 1]. Calibration curve requires probabilities. Clipping applied."
                 )
-
-            # Calibration Curve (Reliability Diagram)
-            # sklearn.calibration.calibration_curve expects probabilities
-            # Clip to [0, 1] to be safe if minor precision errors exist, but warn above if completely off
             prob_true, prob_pred = calibration_curve(
                 y_true, np.clip(y_score, 0, 1), n_bins=10
             )
+
         cal_fig = go.Figure()
         cal_fig.add_trace(
             go.Scatter(
@@ -1291,19 +1293,24 @@ def analyze_roc(
 
         stats_dict = {
             "AUC": f"{auc_val:.4f}",
-            "95% CI": auc_ci_str,
-            "P-value": format_p_value(p_val_auc),
+            "95% CI (AUC)": auc_ci_str,
+            "P-value (AUC)": format_p_value(p_val_auc),
             "Method": (
                 f"{m_name} (SE={se:.4f})"
                 if se is not None and np.isfinite(se) and se > 0
                 else m_name
             ),
             "Interpretation": f"{auc_badge}",
-            "Best Threshold": f"{thresholds[best_idx]:.4f}",
+            "Best Threshold": f"{best_thresh:.4f}",
             "Youden Index (J)": f"{youden_j:.4f}",
-            "Sensitivity at Best": f"{tpr[best_idx]:.4f}",
-            "Specificity at Best": f"{1 - fpr[best_idx]:.4f}",
-            "Max F1-Score": f"{max_f1:.4f}",
+            "Sensitivity": f"{sens:.4f} {sens_ci}",
+            "Specificity": f"{spec:.4f} {spec_ci}",
+            "PPV": f"{metrics['ppv']:.4f} [{metrics['ppv_ci_lower']:.4f}-{metrics['ppv_ci_upper']:.4f}]",
+            "NPV": f"{metrics['npv']:.4f} [{metrics['npv_ci_lower']:.4f}-{metrics['npv_ci_upper']:.4f}]",
+            "Accuracy": f"{metrics['accuracy']:.4f} [{metrics['accuracy_ci_lower']:.4f}-{metrics['accuracy_ci_upper']:.4f}]",
+            "F1-Score": f"{metrics['f1_score']:.4f}",
+            "LR+": f"{metrics['lr_plus']:.4f}",
+            "LR-": f"{metrics['lr_minus']:.4f}",
             "calibration_plot": cal_fig,
         }
 
@@ -1372,6 +1379,44 @@ def analyze_roc(
 
         if missing_data_info:
             stats_dict["missing_data_info"] = missing_data_info
+
+        # --- NEW: Sensitivity/Specificity vs Threshold Plot ---
+        ss_fig = go.Figure()
+        ss_fig.add_trace(
+            go.Scatter(
+                x=thresholds,
+                y=tpr,
+                mode="lines",
+                name="Sensitivity",
+                line=dict(color="#2ca02c"),
+            )
+        )
+        ss_fig.add_trace(
+            go.Scatter(
+                x=thresholds,
+                y=1 - fpr,
+                mode="lines",
+                name="Specificity",
+                line=dict(color="#d62728"),
+            )
+        )
+        ss_fig.add_vline(
+            x=thresholds[best_idx],
+            line_dash="dash",
+            line_color="gray",
+            annotation_text="Optimal",
+        )
+
+        ss_fig.update_layout(
+            title="Sensitivity & Specificity vs Threshold",
+            xaxis_title="Threshold",
+            yaxis_title="Metric Value",
+            template="simple_white",
+            hovermode="x unified",
+            xaxis=dict(range=[0, 1]),
+            yaxis=dict(range=[0, 1.05]),
+        )
+        stats_dict["sens_spec_plot"] = ss_fig
 
         return stats_dict, None, fig, coords_df
 
