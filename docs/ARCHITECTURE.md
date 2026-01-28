@@ -281,7 +281,6 @@ The data flow is standardized to ensure consistent handling of missing values an
 ### 1. Ingestion & Quality Check (`tab_data.py` & `utils/data_quality.py`)
 
 - Users upload files (CSV/Excel) or load example data.
-- Users upload files (CSV/Excel) or load example data.
 - **Immediate Data Health Report**: Uses `check_data_quality()` and the new `DataQualityReport` class to perform deep validation:
   - **Numeric Validation**: Detects non-standard values like `"<5"`, `"10%"`, or symbols (`<`, `>`, `,`, `%`, `$`, `€`, `£`)...
   - **Categorical Validation**: Identifies numbers accidentally placed in categorical columns and flags rare categories.
