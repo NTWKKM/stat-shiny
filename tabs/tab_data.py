@@ -1311,61 +1311,19 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     @render.data_frame
     def out_df_preview():
         """
-        Render the current dataframe as a preview table with detected data quality issues visually highlighted.
+        Render the current dataframe as a preview table.
 
-        If the module has recorded data quality issues for specific cells, those cells are visually emphasized in the preview (e.g., colored background and border). If no dataframe is loaded, returns None.
+        Note: Cell highlighting for data quality issues is disabled to avoid Styler compatibility issues
+        with Shiny's DataTable renderer. Detailed issues are available in the Data Quality Scorecard.
 
         Returns:
-            render.DataTable or None: A DataTable rendering of the current dataframe with issue cells highlighted, or `None` when no data is available.
+            render.DataTable or None: A DataTable rendering of the current dataframe, or `None` when no data is available.
         """
         d = df.get()
         if d is None:
             return None
 
-        # Get current data quality issues
-        issues = data_issues.get()
-
-        # If no issues, return plain table
-        if not issues:
-            return render.DataTable(d, width="100%", filters=False)
-
-        # Build a lookup dict of (col, row_idx) -> True for error cells
-        error_cells = {}
-        for issue in issues:
-            col = issue["col"]
-            # Convert Excel row (1-based + header) to DataFrame index (0-based)
-            row_val = issue.get("row")
-            if not isinstance(row_val, int):
-                continue
-            row_idx = row_val - 2  # -2 because Excel is 1-based and has header
-            if 0 <= row_idx < len(d):
-                error_cells[(row_idx, col)] = True
-
-        # Apply styling using pandas Styler
-        def highlight_errors(row):
-            # Create style array for this row
-            """
-            Create a list of CSS style strings that highlight cells in a dataframe row flagged as errors.
-
-            Returns:
-                list[str]: A list of CSS style strings (one per column). Entries are an empty string for unmodified cells or a CSS rule that applies a red-tinted background, red border, red text color, and bold font for cells whose (row_index, column_name) tuple is present in the global `error_cells` set.
-            """
-            styles = [""] * len(row)
-            row_idx = row.name  # Get the row index
-            for col_idx, col_name in enumerate(d.columns):
-                if (row_idx, col_name) in error_cells:
-                    styles[col_idx] = (
-                        "background-color: #fee; "
-                        f"border: 1px solid {COLORS['danger']}; "
-                        f"color: {COLORS['danger']}; "
-                        "font-weight: 600;"
-                    )
-            return styles
-
-        # Apply the styling function
-        styled_df = d.style.apply(highlight_errors, axis=1)
-
-        return render.DataTable(styled_df, width="100%", filters=False)
+        return render.DataTable(d, width="100%", filters=False)
 
     @render.ui
     def ui_btn_clear_match():
