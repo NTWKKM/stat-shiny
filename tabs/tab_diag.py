@@ -905,7 +905,7 @@ def diag_server(
                 width=550,
                 legend=dict(
                     x=0.6,
-                    y=0.05,
+                    y=0.1,
                     bgcolor="rgba(255, 255, 255, 0.8)",
                     bordercolor="LightGrey",
                     borderwidth=1,
@@ -954,10 +954,8 @@ def diag_server(
                     go.Scatter(
                         x=[fpr_val],
                         y=[tpr_val],
-                        mode="markers+text",
+                        mode="markers",
                         name=f"Optimal {label}",
-                        text=["Optimal"],
-                        textposition="top right",
                         marker=dict(
                             size=12,
                             symbol="circle",
@@ -981,8 +979,8 @@ def diag_server(
 
             metrics_df = pd.DataFrame(
                 [
-                    get_best_metrics(s1, test1_col, COLORS["primary"]),
-                    get_best_metrics(s2, test2_col, COLORS["secondary"]),
+                    get_best_metrics(s1, test1_col, "#d62728"),  # Red
+                    get_best_metrics(s2, test2_col, "#ff7f7f"),  # Light Red
                 ]
             )
 
