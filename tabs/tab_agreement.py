@@ -423,7 +423,14 @@ def agreement_server(
                         {
                             "type": "text",
                             "data": f"Cohen's Kappa Analysis: {v1} vs {v2}",
-                        }
+                        },
+                        {"type": "table", "header": "Kappa Statistics", "data": res},
+                        {
+                            "type": "table",
+                            "header": "Confusion Matrix",
+                            "data": conf,
+                            "safe_html": True,
+                        },
                     ]
                     if missing_info:
                         rep.append(
@@ -434,21 +441,6 @@ def agreement_server(
                                 ),
                             }
                         )
-                    rep.extend(
-                        [
-                            {
-                                "type": "table",
-                                "header": "Kappa Statistics",
-                                "data": res,
-                            },
-                            {
-                                "type": "table",
-                                "header": "Confusion Matrix",
-                                "data": conf,
-                                "safe_html": True,
-                            },
-                        ]
-                    )
                     kappa_html.set(
                         diag_test.generate_report(f"Kappa: {v1} vs {v2}", rep)
                     )
@@ -468,7 +460,8 @@ def agreement_server(
                         {
                             "type": "text",
                             "data": "Fleiss' Kappa Analysis (Multi-Rater)",
-                        }
+                        },
+                        {"type": "table", "header": "Kappa Statistics", "data": res},
                     ]
                     if missing_info:
                         rep.append(
@@ -479,9 +472,6 @@ def agreement_server(
                                 ),
                             }
                         )
-                    rep.append(
-                        {"type": "table", "header": "Kappa Statistics", "data": res}
-                    )
                     kappa_html.set(diag_test.generate_report("Fleiss Kappa", rep))
 
         except Exception as e:
@@ -542,7 +532,13 @@ def agreement_server(
                 ).T
 
                 rep = [
-                    {"type": "text", "data": f"Bland-Altman Comparison: {v1} vs {v2}"}
+                    {"type": "text", "data": f"Bland-Altman Comparison: {v1} vs {v2}"},
+                    {"type": "plot", "data": fig},
+                    {
+                        "type": "table",
+                        "header": "Agreement Statistics",
+                        "data": stats_df,
+                    },
                 ]
                 if missing_info:
                     rep.append(
@@ -553,16 +549,6 @@ def agreement_server(
                             ),
                         }
                     )
-                rep.extend(
-                    [
-                        {"type": "plot", "data": fig},
-                        {
-                            "type": "table",
-                            "header": "Agreement Statistics",
-                            "data": stats_df,
-                        },
-                    ]
-                )
                 ba_html.set(
                     diag_test.generate_report(f"Bland-Altman: {v1} vs {v2}", rep)
                 )
@@ -642,7 +628,9 @@ def agreement_server(
                     {
                         "type": "text",
                         "data": f"ICC Reliability Analysis: {', '.join(cols)}",
-                    }
+                    },
+                    {"type": "html", "data": interp_html},
+                    {"type": "table", "header": "ICC Results", "data": res_df},
                 ]
                 if missing_info:
                     rep.append(
@@ -653,12 +641,6 @@ def agreement_server(
                             ),
                         }
                     )
-                rep.extend(
-                    [
-                        {"type": "html", "data": interp_html},
-                        {"type": "table", "header": "ICC Results", "data": res_df},
-                    ]
-                )
                 icc_html.set(diag_test.generate_report("ICC Reliability Report", rep))
         except Exception as e:
             logger.exception("ICC failed")
