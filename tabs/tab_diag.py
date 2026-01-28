@@ -949,7 +949,12 @@ def diag_server(
                         name=f"Optimal {label}",
                         text=["Optimal"],
                         textposition="top right",
-                        marker=dict(size=12, symbol="star", color=color),
+                        marker=dict(
+                            size=10,
+                            symbol="circle",
+                            color=color,
+                            line=dict(width=2, color="white"),
+                        ),
                         hovertemplate=f"<b>{label} Optimal</b><br>Threshold: {thresh:.3f}<br>TPR: {tpr_val:.3f}<br>FPR: {fpr_val:.3f}<extra></extra>",
                     )
                 )
