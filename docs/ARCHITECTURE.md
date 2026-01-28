@@ -269,7 +269,7 @@ The application covers a wide range of medical statistical needs, organized into
 | :--- | :--- | :--- |
 | **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Kappa** (Weighted), **ICC** (pingouin integration), Bland-Altman (LoA CI). |
 | **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox), Forest Plots. |
-| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance (Love Plots with Green/Yellow/Red zones), Common Support Visualization. |
+| **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance (Love Plots: Green <0.1, Yellow 0.1–0.2, Red implied), Common Support Visualization. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, Time-Varying Cox, G-Computation, Power Analysis. |
 
 ---

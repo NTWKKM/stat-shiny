@@ -202,12 +202,12 @@ class DataQualityReport:
     def __init__(self, df: pd.DataFrame):
         self.df = df
         self.total_rows = len(df)
-        self.total_cells = df.size if df.size > 0 else 1
+        self.total_cells = df.size
 
     def completeness_score(self) -> float:
         """Score 0-100: Based on percentage of non-missing cells."""
         if self.total_cells == 0:
-            return 0.0
+            return 100.0  # Empty DataFrame has no missing values
         missing_cells = self.df.isna().sum().sum()
         return 100 * (1 - (missing_cells / self.total_cells))
 

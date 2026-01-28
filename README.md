@@ -205,7 +205,7 @@ This application is a complete statistical workbench organized into modular tabs
 
 - **Table 1 Generation**: Publication-ready baseline tables with p-values and standardized formatting.
 - **Propensity Score Matching (PSM)**: Advanced matching with customizable calipers and variable selection.
-- **Balance Diagnostics**: Enhanced Love plots (Green/Red zones) and Standardized Mean Differences (SMD).
+- **Balance Diagnostics**: Enhanced Love plots (Green/Yellow zones) and Standardized Mean Differences (SMD).
 - **Common Support**: Visual inspection of propensity score overlap distributions.
 - **Matched Data Export**: seamless integration of matched cohorts into other analyses.
 
