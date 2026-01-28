@@ -1256,40 +1256,45 @@ def analyze_roc(
         spec_ci = f"[{metrics['specificity_ci_lower']:.4f}-{metrics['specificity_ci_upper']:.4f}]"
 
         # Calibration Curve (Reliability Diagram)
-        if y_score is not None:
-            if np.any((y_score < 0) | (y_score > 1)):
-                logger.warning(
-                    f"Scores in '{score_col}' are outside [0, 1]. Calibration curve requires probabilities. Clipping applied."
+        # Calibration Curve (Reliability Diagram) - Only for probability scores
+        if y_score is not None and np.all((y_score >= 0) & (y_score <= 1)):
+            prob_true, prob_pred = calibration_curve(y_true, y_score, n_bins=10)
+        else:
+            # Skip calibration for non-probability scores (e.g. 0-100 scores)
+            prob_true, prob_pred = None, None
+            if y_score is not None:
+                logger.debug(
+                    f"Skipping calibration curve for '{score_col}': scores outside [0, 1]"
                 )
-            prob_true, prob_pred = calibration_curve(
-                y_true, np.clip(y_score, 0, 1), n_bins=10
-            )
 
-        cal_fig = go.Figure()
-        cal_fig.add_trace(
-            go.Scatter(
-                x=prob_pred,
-                y=prob_true,
-                mode="lines+markers",
-                name="Calibration",
-                line=dict(color=COLORS["primary"]),
+        if prob_true is not None:
+            cal_fig = go.Figure()
+            cal_fig.add_trace(
+                go.Scatter(
+                    x=prob_pred,
+                    y=prob_true,
+                    mode="lines+markers",
+                    name="Calibration",
+                    line=dict(color=COLORS["primary"]),
+                )
             )
-        )
-        cal_fig.add_trace(
-            go.Scatter(
-                x=[0, 1],
-                y=[0, 1],
-                mode="lines",
-                name="Perfect",
-                line=dict(color="gray", dash="dash"),
+            cal_fig.add_trace(
+                go.Scatter(
+                    x=[0, 1],
+                    y=[0, 1],
+                    mode="lines",
+                    name="Perfect",
+                    line=dict(color="gray", dash="dash"),
+                )
             )
-        )
-        cal_fig.update_layout(
-            title="Calibration Plot",
-            xaxis_title="Predicted Prob",
-            yaxis_title="Observed Fraction",
-            template="simple_white",
-        )
+            cal_fig.update_layout(
+                title="Calibration Plot",
+                xaxis_title="Predicted Prob",
+                yaxis_title="Observed Fraction",
+                template="simple_white",
+            )
+        else:
+            cal_fig = None
 
         stats_dict = {
             "AUC": f"{auc_val:.4f}",
