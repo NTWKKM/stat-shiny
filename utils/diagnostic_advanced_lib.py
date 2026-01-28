@@ -29,6 +29,36 @@ def calculate_ci_wilson_score(
     return max(0, (term1 - term2) / denom), min(1, (term1 + term2) / denom)
 
 
+def _get_binary_labels(y_true: np.ndarray, pos_label: int | str) -> np.ndarray:
+    """Helper to safely convert y_true to 0/1 binary based on pos_label with type alignment."""
+    y_true = np.array(y_true)
+
+    # 1. Direct comparison
+    binary = (y_true == pos_label).astype(int)
+    if np.sum(binary) > 0:
+        return binary
+
+    # 2. Type mismatch fallback
+    # If y_true is numeric but pos_label is string -> try converting pos_label
+    if np.issubdtype(y_true.dtype, np.number) and isinstance(pos_label, str):
+        try:
+            pos_num = float(pos_label)
+            binary = (y_true == pos_num).astype(int)
+            if np.sum(binary) > 0:
+                return binary
+        except ValueError:
+            pass
+
+    # If y_true is string/object but pos_label is numeric -> try converting y_true to numeric?
+    # Or convert pos_label to string matches?
+    # Usually easier to convert y_true to string for comparison if pos_label is string
+    if not np.issubdtype(y_true.dtype, np.number):
+        y_str = y_true.astype(str)
+        binary = (y_str == str(pos_label)).astype(int)
+
+    return binary
+
+
 class DiagnosticTest:
     """
     Class for analyzing a single diagnostic test with advanced metrics and threshold optimization.
@@ -45,8 +75,8 @@ class DiagnosticTest:
         self.y_score = np.array(y_score)
         self.pos_label = pos_label
 
-        # Ensure binary truth (0/1)
-        self.y_true_binary = (self.y_true == self.pos_label).astype(int)
+        # Ensure binary truth (0/1) using robust helper
+        self.y_true_binary = _get_binary_labels(self.y_true, self.pos_label)
 
         # Basic ROC calculation
         # Only compute if we have both classes
@@ -252,7 +282,7 @@ class DiagnosticComparison:
         """
         # Prepare data
         y_true = np.array(y_true)
-        y_true_binary = (y_true == pos_label).astype(int)
+        y_true_binary = _get_binary_labels(y_true, pos_label)
         s1 = np.array(score1)
         s2 = np.array(score2)
 
