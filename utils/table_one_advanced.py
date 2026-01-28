@@ -412,7 +412,9 @@ class TableOneGenerator:
                 for c in selected_vars
                 if pd.api.types.is_numeric_dtype(self.raw_df[c])
             ],
-            required_cols=list(selected_vars) + ([stratify_by] if stratify_by else []),
+            required_cols=list(
+                set(list(selected_vars) + ([stratify_by] if stratify_by else []))
+            ),
             var_meta=self.var_meta,
             handle_missing=missing_cfg.get("strategy", "complete-case"),
         )
