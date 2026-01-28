@@ -178,7 +178,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- visualizations.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 ## 🏥 Medical Statistical Tool (Shiny for Python)
@@ -205,7 +204,7 @@ This application is a complete statistical workbench organized into modular tabs
 
 ### 📋 Baseline & Matching
 
-- **Table 1 Generation**: Publication-ready baseline tables with p-values and standardized formatting.
+- **Table 1 Generation**: Publication-ready baseline tables with **Intelligent Variable Classification** (detects Normal/Skewed/Categorical) and automated statistical testing (T-test/MWU/Chi2/Fisher).
 - **Propensity Score Matching (PSM)**: Advanced matching with customizable calipers and variable selection.
 - **Balance Diagnostics**: Enhanced Love plots (Green/Yellow zones) and Standardized Mean Differences (SMD).
 - **Common Support**: Visual inspection of propensity score overlap distributions.
