@@ -122,6 +122,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_data_cleaning_advanced.py
 |       |-- test_data_cleaning_workflow.py
 |       |-- test_data_quality.py
+|       |-- test_data_quality_report.py
 |       |-- test_dca.py
 |       |-- test_diag_returns.py
 |       |-- test_firth_regression.py
@@ -176,6 +177,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- update_css.py
     `-- visualizations.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
