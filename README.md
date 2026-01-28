@@ -244,7 +244,7 @@ This application is a complete statistical workbench organized into modular tabs
 
 ### 🧪 Diagnostic Tests & Agreement
 
-- **Diagnostic Accuracy**: ROC Curves, AUC comparisons, and detailed metrics (Sens/Spec/PPV/NPV).
+- **Diagnostic Accuracy**: Advanced ROC Analysis with **DeLong's Test** for comparison, Optimal Thresholds (Youden/F1), and **Confidence Intervals** for all metrics.
 - **Decision Curve Analysis (DCA)**: Assess clinical net benefit.
 - **Agreement Statistics**: Cohen's Kappa, Bland-Altman plots, and concordance metrics.
 - **Contingency Analysis**: Chi-Square, Fisher's Exact Test, Risk Ratios, and Odds Ratios.

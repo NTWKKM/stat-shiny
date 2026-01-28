@@ -416,6 +416,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         )
         rapid_score = np.clip(rapid_score, 0, 100).round(1)
 
+        # Second continuous test for comparison (e.g., more expensive but slightly better)
+        expensive_score = np.where(
+            gold_std == 0,
+            np.random.normal(15, 8, n),
+            np.random.normal(55, 12, n),
+        )
+        expensive_score = np.clip(expensive_score, 0, 100).round(1)
+
         rater_a = np.where(
             gold_std == 1,
             np.random.binomial(1, 0.85, n),
@@ -468,6 +476,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             "Lab_Cholesterol_mgdL": chol,
             "Gold_Standard_Disease": gold_std,
             "Test_Score_Rapid": rapid_score,
+            "Test_Score_Expensive": expensive_score,
             "Diagnosis_Dr_A": rater_a,
             "Diagnosis_Dr_B": rater_b,
             "Lab_HbA1c": hba1c,
@@ -646,6 +655,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             "Test_Score_Rapid": {
                 "type": "Continuous",
                 "label": "Rapid Test Score (0-100)",
+                "map": {},
+            },
+            "Test_Score_Expensive": {
+                "type": "Continuous",
+                "label": "Expensive Test Score (0-100)",
                 "map": {},
             },
             "Lab_HbA1c": {"type": "Continuous", "label": "HbA1c (%)", "map": {}},
