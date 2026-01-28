@@ -718,7 +718,12 @@ def diag_server(
                     res_display = {
                         k: v
                         for k, v in res.items()
-                        if k not in ["missing_data_info", "calibration_plot"]
+                        if k
+                        not in [
+                            "missing_data_info",
+                            "calibration_plot",
+                            "sens_spec_plot",
+                        ]
                     }
                     rep.append(
                         {
