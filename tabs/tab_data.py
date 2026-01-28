@@ -434,6 +434,13 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         rater_b = np.where(
             np.random.binomial(1, agree_prob, n) == 1, rater_a, 1 - rater_a
         )
+        rater_c = np.where(
+            np.random.binomial(1, agree_prob - 0.05, n) == 1, rater_a, 1 - rater_a
+        )
+        rater_d = np.where(
+            np.random.binomial(1, agree_prob - 0.10, n) == 1, rater_a, 1 - rater_a
+        )
+        rater_e = np.random.choice([0, 1], n)  # Random rater for contrast
 
         hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
         glucose = ((hba1c * 15) + np.random.normal(0, 15, n)).round(0)
@@ -479,6 +486,9 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             "Test_Score_Expensive": expensive_score,
             "Diagnosis_Dr_A": rater_a,
             "Diagnosis_Dr_B": rater_b,
+            "Diagnosis_Dr_C": rater_c,
+            "Diagnosis_Dr_D": rater_d,
+            "Diagnosis_Dr_E": rater_e,
             "Lab_HbA1c": hba1c,
             "Lab_Glucose": glucose,
             "ICC_SysBP_Rater1": icc_rater1,
@@ -628,6 +638,21 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                 "type": "Categorical",
                 "map": {0: "Normal", 1: "Abnormal"},
                 "label": "Diagnosis (Dr. B)",
+            },
+            "Diagnosis_Dr_C": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. C)",
+            },
+            "Diagnosis_Dr_D": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. D)",
+            },
+            "Diagnosis_Dr_E": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. E)",
             },
             "Age_Years": {"type": "Continuous", "label": "Age (Years)", "map": {}},
             "BMI_kgm2": {"type": "Continuous", "label": "BMI (kg/m²)", "map": {}},
