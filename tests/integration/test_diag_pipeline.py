@@ -13,7 +13,7 @@ import pytest
 # Setup path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from utils.diag_test import analyze_roc, calculate_chi2, calculate_icc, calculate_kappa
+from utils.diag_test import calculate_chi2
 
 pytestmark = pytest.mark.integration
 
@@ -72,10 +72,16 @@ class TestDiagnosticPipeline:
 
     def test_roc_analysis_flow(self, diagnostic_data):
         """🔄 Test ROC Curve & AUC calculation"""
+        import importlib
+        import utils.diag_test
+
+        # Reload to ensure no pollution from unit test mocks
+        importlib.reload(utils.diag_test)
+
         df = diagnostic_data
 
         # Use string for pos_label as per UI input
-        stats, err, _fig, _coords = analyze_roc(
+        stats, err, _fig, _coords = utils.diag_test.analyze_roc(
             df, "disease_status", "test_score", pos_label_user="1"
         )
 
@@ -90,24 +96,28 @@ class TestDiagnosticPipeline:
     def test_agreement_flow(self, diagnostic_data):
         """🔄 Test Cohen's Kappa Agreement"""
         df = diagnostic_data
+        from utils.agreement_lib import AgreementAnalysis
 
-        stats_df, err, _conf_matrix, _ = calculate_kappa(df, "doctor_A", "doctor_B")
+        stats_df, err, _conf_matrix, _ = AgreementAnalysis.cohens_kappa(
+            df, "doctor_A", "doctor_B"
+        )
 
         assert err is None
         assert stats_df is not None
-        assert "Cohen's Kappa (Unweighted)" in stats_df["Statistic"].values
+        assert "Cohen's Kappa" in stats_df["Metric"].values
 
     def test_icc_flow(self, diagnostic_data):
         """🔄 Test Intraclass Correlation Coefficient (ICC)"""
         df = diagnostic_data
+        from utils.agreement_lib import AgreementAnalysis
 
         # Select continuous rating columns for ICC
         rater_cols = ["rater_1", "rater_2", "rater_3"]
 
-        stats_df, err, *_ = calculate_icc(df, rater_cols)
+        stats_df, err, *_ = AgreementAnalysis.icc(df, rater_cols)
 
         assert err is None
         assert stats_df is not None
         assert not stats_df.empty
         # Check that ICC statistic is present in results
-        assert any("ICC" in str(t) for t in stats_df["Type"].values)
+        assert "ICC" in stats_df.columns
