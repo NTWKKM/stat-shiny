@@ -76,7 +76,7 @@ class VariableClassifier:
         if (
             not is_numeric
             or pd.api.types.is_object_dtype(clean_series)
-            or pd.api.types.is_categorical_dtype(clean_series)
+            or isinstance(clean_series.dtype, pd.CategoricalDtype)
             or unique_count <= max_cat_unique
         ):
             return "categorical"

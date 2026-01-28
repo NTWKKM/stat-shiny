@@ -60,6 +60,42 @@ def compute_or_ci(a, b, c, d) -> str:
         return "-"
 
 
+# --- Legacy Function Wrappers (Delegating to new StatisticalEngine) ---
+
+
+def calculate_p_continuous(
+    groups: list[pd.Series], normal: bool = True
+) -> tuple[float | None, str]:
+    """Wrapper for StatisticalEngine.calculate_p_continuous"""
+    # Note: StatisticalEngine expects list of Series
+    from utils.table_one_advanced import StatisticalEngine
+
+    return StatisticalEngine.calculate_p_continuous(groups, normal)
+
+
+def calculate_p_categorical(
+    df: pd.DataFrame, col: str, group_col: str
+) -> tuple[float | None, str]:
+    """Wrapper for StatisticalEngine.calculate_p_categorical"""
+    from utils.table_one_advanced import StatisticalEngine
+
+    return StatisticalEngine.calculate_p_categorical(df, col, group_col)
+
+
+def calculate_smd(
+    df: pd.DataFrame,
+    col: str,
+    group_col: str,
+    g1_val: Any,
+    g2_val: Any,
+    is_cat: bool,
+) -> str:
+    """Wrapper for StatisticalEngine.calculate_smd"""
+    from utils.table_one_advanced import StatisticalEngine
+
+    return StatisticalEngine.calculate_smd(df, col, group_col, g1_val, g2_val, is_cat)
+
+
 # Re-expose other functions if critical...
 # For now, we assume most consumers only use generate_table
 
@@ -97,6 +133,10 @@ def generate_table(
         # Generate HTML
         # Note: The new generate method handles classification, stats, and HTML rendering internally.
         html_output = generator.generate(selected_vars, stratify_by=stratify)
+
+        # Helper to match legacy output expectations (Integration Tests)
+        if "Baseline Characteristics" not in html_output:
+            html_output = f"<h3>Baseline Characteristics</h3>\n{html_output}"
 
         return html_output
 
