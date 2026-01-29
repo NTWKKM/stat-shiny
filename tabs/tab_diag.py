@@ -574,11 +574,11 @@ def diag_server(
         Examines the current dataset's column named by `truth_col_name`, collects its non-missing unique values (as strings), and produces a select input labeled "Positive Label:". If one of the common defaults ("1", "1.0", "Yes", "Positive") is present it will be preselected; otherwise the first value is selected. If the column is missing or has no values, an empty-choice select is returned.
         
         Parameters:
-        	truth_col_name (str): Name of the column in the current dataset to derive label choices from.
-        	input_id (str): Input identifier for the generated select widget.
+            truth_col_name (str): Name of the column in the current dataset to derive label choices from.
+            input_id (str): Input identifier for the generated select widget.
         
         Returns:
-        	UI select input populated with the column's unique values and an appropriate default selection.
+            UI select input populated with the column's unique values and an appropriate default selection.
         """
         d = current_df()
         if d is not None and truth_col_name and truth_col_name in d.columns:
