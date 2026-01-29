@@ -1,0 +1,138 @@
+<h3>Baseline Characteristics</h3>
+
+
+<style>
+    .numeric-cell {
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+    }
+
+    .p-significant {
+        color: #E74856;
+        font-weight: 600;
+    }
+
+    .p-not-significant {
+        color: #22A765;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    th {
+        background-color: #0F2440;
+        color: white;
+        padding: 10px;
+        text-align: center;
+    }
+
+    td {
+        padding: 8px;
+        border: 1px solid #E5E7EB;
+    }
+
+    tr:nth-child(even) {
+        background-color: #E8EEF7;
+    }
+
+    .table-wrapper {
+        margin-bottom: 20px;
+    }
+
+    .missing-data-section {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+</style>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Characteristic</th>
+                <th class='numeric-cell'>Total (N=69)</th>
+                <th class='numeric-cell'>0 (n=36)</th>
+                <th class='numeric-cell'>1 (n=33)</th>
+                <th>SMD</th>
+                <th>OR (95% CI)</th>
+                <th>P-value</th>
+                <th>Test</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Age</strong><br><small>(Mean ± SD)</small></td>
+                <td class='numeric-cell'>61.2 ± 8.8</td>
+                <td class='numeric-cell'>60.2 ± 7.1</td>
+                <td class='numeric-cell'>62.2 ± 10.3</td>
+                <td class='numeric-cell'><b>0.229</b></td>
+                <td class='numeric-cell'>1.03 (0.97-1.09)</td>
+                <td class='numeric-cell'><span class='p-not-significant'>0.342</span></td>
+                <td class='numeric-cell'>t-test<br><small>(Univar. Logit)</small></td>
+            </tr>
+            <tr>
+                <td><strong>Sex</strong></td>
+                <td class='numeric-cell'>0.0: 34 (49.3%)<br>1.0: 35 (50.7%)</td>
+                <td class='numeric-cell'>0.0: 18 (50.0%)<br>1.0: 18 (50.0%)</td>
+                <td class='numeric-cell'>0.0: 16 (48.5%)<br>1.0: 17 (51.5%)</td>
+                <td class='numeric-cell'>0.030<br>0.030</td>
+                <td class='numeric-cell'>0.94 (0.37-2.42)<br>1.06 (0.41-2.73)</td>
+                <td class='numeric-cell'><span class='p-not-significant'>1.000</span></td>
+                <td class='numeric-cell'>Chi-square<br><small>(2x2 Est.)</small></td>
+            </tr>
+            <tr>
+                <td><strong>Diabetes</strong></td>
+                <td class='numeric-cell'>0: 45 (65.2%)<br>1: 24 (34.8%)</td>
+                <td class='numeric-cell'>0: 25 (69.4%)<br>1: 11 (30.6%)</td>
+                <td class='numeric-cell'>0: 20 (60.6%)<br>1: 13 (39.4%)</td>
+                <td class='numeric-cell'><b>0.186</b><br><b>0.186</b></td>
+                <td class='numeric-cell'>0.68 (0.25-1.83)<br>1.48 (0.55-4.00)</td>
+                <td class='numeric-cell'><span class='p-not-significant'>0.605</span></td>
+                <td class='numeric-cell'>Chi-square<br><small>(2x2 Est.)</small></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="missing-data-section">
+    <h4>📊 Missing Data Summary</h4>
+    <div style='margin-bottom: 15px; font-size: 0.95em; color: #495057;'>
+        <div style='display:flex; justify-content:space-between; margin-bottom: 8px;'> <span><strong>Strategy:</strong>
+                <span
+                    style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; display: inline-block; background-color: #e2e3e5; color: #383d41; border: 1px solid #d6d8db;">complete-case</span></span>
+            <span><strong>Total Rows:</strong> 100</span> </div>
+        <div>Included: <b>69</b> (69.0%) | Excluded: <span style='color: #dc3545;'><b>31</b> (31.0%)</span></div>
+    </div>
+    <h5>Variables with Missing Data:</h5>
+    <table class="missing-table">
+        <thead>
+            <tr>
+                <th>Variable</th>
+                <th>Type</th>
+                <th>N Valid</th>
+                <th>N Missing</th>
+                <th>% Missing</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class=''>
+                <td>Sex</td>
+                <td>float64</td>
+                <td>79</td>
+                <td>21</td>
+                <td>21.0%</td>
+            </tr>
+            <tr class=''>
+                <td>Age</td>
+                <td>float64</td>
+                <td>79</td>
+                <td>21</td>
+                <td>21.0%</td>
+            </tr>
+        </tbody>
+    </table>
+</div>

@@ -34,8 +34,6 @@ auc_ci_delong = None
 calculate_chi2 = None
 calculate_ci_wilson_score = None
 calculate_descriptive = None
-calculate_icc = None
-calculate_kappa = None
 format_p_value = None
 
 analyze_outcome = None
@@ -50,20 +48,28 @@ fit_cox_ph = None
 fit_km_landmark = None
 fit_km_logrank = None
 fit_nelson_aalen = None
+AgreementAnalysis = None
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_mocks():
     """
-    Setup mocks for all tests in this module.
-    Patches sys.modules to inject mocks for plotly, lifelines, etc.
+    Provide a pytest fixture that injects robust mocks for external libraries and exposes test-target callables.
+
+    Patches sys.modules with mocked versions of plotly, lifelines, sklearn, pingouin, and related submodules, reloads the modules under test so they use those mocks, and binds module-level globals (e.g., run_negative_binomial_regression, analyze_roc, AgreementAnalysis, fit_cox_ph, calculate_descriptive, validate_logit_data, etc.) for use by the test suite. Yields control to allow tests to run within the patched context.
     """
     global run_negative_binomial_regression, run_poisson_regression
     global analyze_roc, auc_ci_delong, calculate_chi2, calculate_ci_wilson_score
-    global calculate_descriptive, calculate_icc, calculate_kappa, format_p_value
+    global calculate_descriptive, format_p_value
     global analyze_outcome, clean_numeric_value, fmt_p_with_styling, get_label
     global run_binary_logit, validate_logit_data
-    global calculate_median_survival, fit_cox_ph, fit_km_landmark, fit_km_logrank, fit_nelson_aalen
+    global \
+        calculate_median_survival, \
+        fit_cox_ph, \
+        fit_km_landmark, \
+        fit_km_logrank, \
+        fit_nelson_aalen
+    global AgreementAnalysis
 
     # --- ROBUST MOCK SETUP ---
 
@@ -131,6 +137,12 @@ def setup_mocks():
     mock_sklearn = MagicMock()
     mock_metrics = MagicMock()
 
+    # Mock Pingouin for ICC
+    mock_pingouin = MagicMock()
+    mock_pingouin.intraclass_corr.return_value = pd.DataFrame(
+        {"Type": ["ICC2k"], "ICC": [0.85]}
+    )
+
     # Fix: roc_curve returns tuple of arrays
     mock_metrics.roc_curve.return_value = (
         np.array([0.0, 0.1, 1.0]),
@@ -157,8 +169,12 @@ def setup_mocks():
         "lifelines.statistics": mock_stats,
         "lifelines.utils": MagicMock(),
         "sklearn": mock_sklearn,
+        "sklearn.calibration": MagicMock(),
+        "sklearn.experimental": MagicMock(),
+        "sklearn.impute": MagicMock(),
         "sklearn.metrics": mock_metrics,
         "sklearn.linear_model": MagicMock(),
+        "pingouin": mock_pingouin,
     }
 
     # Apply the patches to sys.modules
@@ -189,9 +205,12 @@ def setup_mocks():
         calculate_chi2 = utils.diag_test.calculate_chi2
         calculate_ci_wilson_score = utils.diag_test.calculate_ci_wilson_score
         calculate_descriptive = utils.diag_test.calculate_descriptive
-        calculate_icc = utils.diag_test.calculate_icc
-        calculate_kappa = utils.diag_test.calculate_kappa
         format_p_value = utils.diag_test.format_p_value
+
+        import utils.agreement_lib
+
+        importlib.reload(utils.agreement_lib)
+        AgreementAnalysis = utils.agreement_lib.AgreementAnalysis
 
         import utils.logic
 
@@ -684,34 +703,51 @@ class TestKappaAnalysis:
 
     def test_calculate_kappa_basic(self):
         """✅ Test basic Kappa calculation."""
+
         df = pd.DataFrame({"rater1": [0, 1, 0, 1] * 5, "rater2": [0, 1, 0, 1] * 5})
 
-        res_df, error_msg, conf_matrix, _ = calculate_kappa(df, "rater1", "rater2")
+        res_df, error_msg, conf_matrix, _ = AgreementAnalysis.cohens_kappa(
+            df, "rater1", "rater2"
+        )
 
         assert res_df is not None
         assert error_msg is None
-        assert "Cohen's Kappa (Unweighted)" in res_df["Statistic"].values
+        # New structure check
+        assert "Cohen's Kappa" in res_df["Metric"].values
 
     def test_calculate_kappa_perfect_agreement(self):
         """✅ Test Kappa with perfect agreement."""
+
         df = pd.DataFrame({"rater1": [0, 1] * 10, "rater2": [0, 1] * 10})
 
-        res_df, error_msg, conf_matrix, _ = calculate_kappa(df, "rater1", "rater2")
+        res_df, error_msg, conf_matrix, _ = AgreementAnalysis.cohens_kappa(
+            df, "rater1", "rater2"
+        )
         assert res_df is not None
+        assert error_msg is None
 
     def test_calculate_kappa_no_agreement(self):
         """✅ Test Kappa with no agreement."""
+
         df = pd.DataFrame({"rater1": [0, 0, 0], "rater2": [1, 1, 1]})
 
-        res_df, error_msg, conf_matrix, _ = calculate_kappa(df, "rater1", "rater2")
+        res_df, error_msg, conf_matrix, _ = AgreementAnalysis.cohens_kappa(
+            df, "rater1", "rater2"
+        )
         assert res_df is not None
+        assert error_msg is None
 
 
 class TestICCAnalysis:
     """Tests for Intraclass Correlation Coefficient."""
 
     def test_calculate_icc_basic(self):
-        """✅ Test basic ICC calculation."""
+        """
+        Verify that AgreementAnalysis.icc returns a non-empty DataFrame containing an 'ICC' column for two raters with correlated scores.
+
+        Creates two correlated rater measurements from a shared true score and asserts the function returns a valid ICC DataFrame and no error message. Uses the test mock of pingouin for deterministic output.
+        """
+
         np.random.seed(42)
         n = 50
         true_score = np.random.normal(50, 10, n)
@@ -720,21 +756,24 @@ class TestICCAnalysis:
 
         df = pd.DataFrame({"rater1": rater1, "rater2": rater2})
 
-        # FIX: Handle potential extra returns (metadata) with *_
-        icc_df, error_msg, anova_df, *_ = calculate_icc(df, ["rater1", "rater2"])
+        icc_df, error_msg, _, _ = AgreementAnalysis.icc(df, ["rater1", "rater2"])
 
         assert icc_df is not None
         assert error_msg is None
+        # With the mock setup, we expect a valid DataFrame
+        assert not icc_df.empty, (
+            "ICC DataFrame should not be empty with mocked pingouin"
+        )
         assert "ICC" in icc_df.columns
 
     def test_calculate_icc_insufficient_columns(self):
         """✅ Test ICC with single column."""
+
         df = pd.DataFrame({"rater1": [1, 2, 3, 4, 5]})
 
-        # FIX: Handle potential extra returns
-        icc_df, error_msg, anova_df, *_ = calculate_icc(df, ["rater1"])
+        icc_df, error_msg, _, _ = AgreementAnalysis.icc(df, ["rater1"])
 
-        assert icc_df is None
+        assert icc_df.empty
         assert error_msg is not None
 
 
@@ -1129,10 +1168,8 @@ def test_module_imports():
     assert analyze_roc is not None
     assert fit_km_logrank is not None
     assert fit_cox_ph is not None
-    assert calculate_median_survival is not None
-    assert calculate_kappa is not None
-    assert calculate_icc is not None
-    assert clean_numeric_value is not None
+    assert calculate_descriptive is not None
+    assert format_p_value is not None
 
 
 # ============================================================================
@@ -1154,8 +1191,6 @@ def test_suite_completeness():
         "calculate_descriptive",
         "calculate_chi2",
         "analyze_roc",
-        "calculate_kappa",
-        "calculate_icc",
         "format_p_value",
         "calculate_ci_wilson_score",
         "auc_ci_delong",

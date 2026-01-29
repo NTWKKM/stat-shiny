@@ -178,7 +178,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- visualizations.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 ## 🏥 Medical Statistical Tool (Shiny for Python)
@@ -205,7 +204,7 @@ This application is a complete statistical workbench organized into modular tabs
 
 ### 📋 Baseline & Matching
 
-- **Table 1 Generation**: Publication-ready baseline tables with p-values and standardized formatting.
+- **Table 1 Generation**: Publication-ready baseline tables with **Intelligent Variable Classification**, automated statistical testing, and **Odds Ratios with 95% CI** (Configurable: "All Levels" vs Reference or "Simple" Target vs Ref).
 - **Propensity Score Matching (PSM)**: Advanced matching with customizable calipers and variable selection.
 - **Balance Diagnostics**: Enhanced Love plots (Green/Yellow zones) and Standardized Mean Differences (SMD).
 - **Common Support**: Visual inspection of propensity score overlap distributions.
@@ -245,9 +244,9 @@ This application is a complete statistical workbench organized into modular tabs
 
 ### 🧪 Diagnostic Tests & Agreement
 
-- **Diagnostic Accuracy**: ROC Curves, AUC comparisons, and detailed metrics (Sens/Spec/PPV/NPV).
+- **Diagnostic Accuracy**: Advanced ROC Analysis with **DeLong's Test** for comparison, Optimal Thresholds (Youden/F1), and **Confidence Intervals** for all metrics.
 - **Decision Curve Analysis (DCA)**: Assess clinical net benefit.
-- **Agreement Statistics**: Cohen's Kappa, Bland-Altman plots, and concordance metrics.
+- **Agreement Statistics**: **Cohen's Kappa** (with CI), **Fleiss' Kappa** (Multi-rater), **Bland-Altman** (with LoA CI bands), and enhanced **ICC** (pingouin integration) with interpretation badges.
 - **Contingency Analysis**: Chi-Square, Fisher's Exact Test, Risk Ratios, and Odds Ratios.
 
 ### 🧩 Advanced Inference

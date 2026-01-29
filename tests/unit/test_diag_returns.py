@@ -1,9 +1,23 @@
 import pandas as pd
 
 from utils import diag_test
+from utils.agreement_lib import AgreementAnalysis
 
 
 def test_diag_returns():
+    """
+    Verify return value shapes and specific error messages for diagnostic and agreement analysis functions using synthetic mock data.
+
+    This test constructs a small DataFrame and asserts that:
+    - diag_test.analyze_roc returns 4 values.
+    - diag_test.calculate_chi2 (Pearson) returns 5 values.
+    - diag_test.calculate_chi2 with method "Fisher's Exact Test" on a non-2x2 table returns 5 values and produces the error message "Error: Fisher's Exact Test requires a 2x2 table." as the third element.
+    - AgreementAnalysis.cohens_kappa returns 4 values.
+    - diag_test.calculate_descriptive returns a tuple whose first element is a pandas DataFrame.
+    - AgreementAnalysis.icc returns 4 values.
+
+    Raises AssertionError if any of the expected return shapes or messages do not match.
+    """
     print("Starting Diagnostic Tests Return Signature Verification...")
 
     # Mock data
@@ -46,9 +60,12 @@ def test_diag_returns():
 
     # 4. Test calculate_kappa
     print("Checking calculate_kappa...")
-    res = diag_test.calculate_kappa(df, "rater1", "rater2")
-    assert len(res) == 4, f"calculate_kappa should return 4 values, got {len(res)}"
-    print("✅ calculate_kappa: OK")
+
+    res = AgreementAnalysis.cohens_kappa(df, "rater1", "rater2")
+    assert len(res) == 4, (
+        f"AgreementAnalysis.cohens_kappa should return 4 values, got {len(res)}"
+    )
+    print("✅ AgreementAnalysis.cohens_kappa: OK")
 
     # 5. Test calculate_descriptive
     print("Checking calculate_descriptive...")
@@ -61,9 +78,11 @@ def test_diag_returns():
 
     # 6. Test calculate_icc
     print("Checking calculate_icc...")
-    res = diag_test.calculate_icc(df, ["score", "truth"])
-    assert len(res) == 4, f"calculate_icc should return 4 values, got {len(res)}"
-    print("✅ calculate_icc: OK")
+    res = AgreementAnalysis.icc(df, ["score", "truth"])
+    assert len(res) == 4, (
+        f"AgreementAnalysis.icc should return 4 values, got {len(res)}"
+    )
+    print("✅ AgreementAnalysis.icc: OK")
 
     print("\n🎉 All Diagnostic Test return signatures verified successfully!")
 
