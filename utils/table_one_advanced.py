@@ -31,6 +31,15 @@ from utils.logic import run_binary_logit
 logger = get_logger(__name__)
 
 
+def _numeric_sort_key(x: Any) -> tuple[int, float | str]:
+    """Sort key that orders numeric strings before non-numeric, handling decimals and negatives."""
+    s = str(x)
+    try:
+        return (0, float(s))
+    except ValueError:
+        return (1, s)
+
+
 # --- 1. Data Structures ---
 @dataclass
 class VariableAnalysis:
@@ -336,14 +345,20 @@ class StatisticalEngine:
                 # Continuous: Univariate Logistic Regression
                 # Fix: Ensure numeric
                 x = pd.to_numeric(clean_df[col], errors="coerce")
-                y = clean_df["_target"]
+                valid_mask = x.notna()
+                x_clean = x[valid_mask]
+                y = clean_df.loc[valid_mask, "_target"]
 
-                # Check variance
-                if x.std() == 0:
+                if len(x_clean) < 10:
                     return "-", "-"
 
-                # Logit via shared module
-                params, conf, _, status, _ = run_binary_logit(y, clean_df[[col]])
+                # Check variance
+                if x_clean.std() == 0:
+                    return "-", "-"
+
+                # Logit via shared module - use cleaned numeric data
+                x_df = x_clean.to_frame(name=col)
+                params, conf, _, status, _ = run_binary_logit(y, x_df)
 
                 if status == "OK" and params is not None and col in params:
                     or_val = np.exp(params[col])
@@ -369,13 +384,7 @@ class StatisticalEngine:
                 unique_cats = set(s1.dropna().unique()) | set(s0.dropna().unique())
 
                 # Sort logic (try numeric if possible)
-                def sort_key(x):
-                    s = str(x)
-                    if s.replace(".", "", 1).isdigit():
-                        return (0, float(s))
-                    return (1, s)
-
-                sorted_cats = sorted(list(unique_cats), key=sort_key)
+                sorted_cats = sorted(list(unique_cats), key=_numeric_sort_key)
 
                 if not sorted_cats:
                     return "-", "-"
@@ -543,13 +552,8 @@ class TableOneFormatter:
                 or_val = res.extra_stats.get("or", "-")
 
                 # Handle OR if it's a dict (categorical levels)
-                if isinstance(or_val, dict):
-                    # For overall line, show nothing or first? Usually nothing for overall line of categorical
-                    row += f"<td class='numeric-cell'>{smd}</td>"
-                    row += "<td class='numeric-cell'></td>"  # Empty for header row of categorical
-                else:
-                    row += f"<td class='numeric-cell'>{smd}</td>"
-                    row += f"<td class='numeric-cell'>{or_val}</td>"
+                row += f"<td class='numeric-cell'>{smd}</td>"
+                row += f"<td class='numeric-cell'>{or_val}</td>"
 
                 # Append OR method to test name if available
                 final_test_name = res.test_name
@@ -647,11 +651,10 @@ class TableOneGenerator:
         if stratify_by and stratify_by != "None" and stratify_by in df_clean.columns:
             uniques = df_clean[stratify_by].dropna().unique()
             # Sort naturally
+            # Sort naturally
             uniques = sorted(
                 uniques,
-                key=lambda x: (0, float(x))
-                if str(x).replace(".", "").isdigit()
-                else (1, str(x)),
+                key=_numeric_sort_key,
             )
             for u in uniques:
                 label = str(u)  # Could map here using var_meta
