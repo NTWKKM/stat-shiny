@@ -14,6 +14,7 @@ from utils.data_cleaning import (
     check_assumptions,
     handle_outliers,
     impute_missing_data,
+    load_data_robust,
     transform_variable,
 )
 from utils.data_quality import DataQualityReport, check_data_quality
@@ -834,10 +835,8 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
         try:
             # --- 1. Load File ---
-            if f["name"].lower().endswith(".csv"):
-                new_df = pd.read_csv(f["datapath"])
-            else:
-                new_df = pd.read_excel(f["datapath"])
+            # Use robust loader to handle encodings, separators, and formats automatically
+            new_df = load_data_robust(f["datapath"])
 
             # --- 2. Limit Data Size ---
             max_rows = 100000

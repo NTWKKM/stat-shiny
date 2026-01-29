@@ -245,17 +245,33 @@ def calculate_survival_at_times(
     #     enable_comparison: Whether to perform pairwise Z-test comparisons (default: True)
     #     mcc_method: Method for multiple comparison correction (default: "fdr_bh")
     #
-    # Returns:
     #     tuple[pd.DataFrame, pd.DataFrame | None]:
     #         - DataFrame with survival probabilities at each time point
     #         - DataFrame with pairwise comparison results (or None if not applicable)
     try:
-        data = df.dropna(subset=[duration_col, event_col])
+        # Use centralized cleaning
+        required_cols = [duration_col, event_col]
         if group_col:
-            if group_col not in data.columns:
-                logger.error(f"Missing group column: {group_col}")
-                return pd.DataFrame(), pd.DataFrame()
-            data = data.dropna(subset=[group_col])
+            required_cols.append(group_col)
+
+        # We strictly need duration to be numeric. Event will be handled by robust logic below,
+        # but prepare_data_for_analysis can also help ensures it's not a garbage string.
+        # However, for event, we have specific robust converter logic (lines 276+), so we might want to keep that
+        # OR rely on prepare_data_for_analysis.
+        # prepare_data_for_analysis converts to numeric if requested.
+
+        # Let's clean basic structure first.
+        data, _ = prepare_data_for_analysis(
+            df,
+            required_cols=required_cols,
+            numeric_cols=[duration_col],  # Force duration to be numeric
+            handle_missing="complete-case",
+        )
+
+        if data.empty:
+            return pd.DataFrame(), pd.DataFrame()
+
+        if group_col:
             groups = _sort_groups_vectorized(data[group_col].unique())
         else:
             groups = ["Overall"]
