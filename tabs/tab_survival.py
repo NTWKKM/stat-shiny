@@ -32,7 +32,11 @@ from tabs._tvc_components import (
     tvc_risk_interval_picker_ui,
 )
 from utils import survival_lib
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import (
+    PublicationFormatter,
+    create_missing_data_report_html,
+    format_p_value,
+)
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.tvc_lib import create_tvc_forest_plot, fit_tvc_cox, generate_tvc_report
 from utils.ui_helpers import (
@@ -1366,7 +1370,34 @@ def survival_server(
     def out_cox_table():
         """Render a data grid showing Cox regression results if available."""
         res = cox_result.get()
-        return render.DataGrid(res["results_df"]) if res else None
+        if not res or res["results_df"] is None:
+            return None
+
+        df = res["results_df"].copy()
+
+        # Format P-value
+        if "P-value" in df.columns:
+            df["P-value"] = df["P-value"].apply(
+                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+            )
+
+        # Combine HR and CI
+        if (
+            "HR" in df.columns
+            and "95% CI Lower" in df.columns
+            and "95% CI Upper" in df.columns
+        ):
+            df["HR (95% CI)"] = df.apply(
+                lambda row: f"{row['HR']:.2f} {PublicationFormatter.format_ci(row['95% CI Lower'], row['95% CI Upper'])}",
+                axis=1,
+            )
+            # Reorder columns
+            cols = ["HR (95% CI)", "P-value"]
+            if "Method" in df.columns:
+                cols.append("Method")
+            return render.DataGrid(df[cols])
+
+        return render.DataGrid(df)
 
     @render.ui
     def out_cox_forest():
@@ -1566,7 +1597,31 @@ def survival_server(
     def out_sg_table():
         """Render the subgroup interaction analysis table when subgroup results are available."""
         res = sg_result.get()
-        return render.DataGrid(res.get("interaction_table")) if res else None
+        if not res:
+            return None
+
+        df = pd.DataFrame(res.get("interaction_table")).copy()
+        if df.empty:
+            return None
+
+        # Format P-value
+        if "p_value" in df.columns:
+            df["P-value"] = df["p_value"].apply(
+                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+            )
+
+        # Combine HR and CI
+        if "hr" in df.columns and "ci_low" in df.columns and "ci_high" in df.columns:
+            df["HR (95% CI)"] = df.apply(
+                lambda row: f"{row['hr']:.2f} {PublicationFormatter.format_ci(row['ci_low'], row['ci_high'])}",
+                axis=1,
+            )
+            cols = ["group", "n", "events", "HR (95% CI)", "P-value"]
+            # Filter cols that exist
+            valid_cols = [c for c in cols if c in df.columns]
+            return render.DataGrid(df[valid_cols])
+
+        return render.DataGrid(df)
 
     @render.download(filename="subgroup_report.html")
     def btn_dl_sg():

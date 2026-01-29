@@ -50,7 +50,11 @@ from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
 from utils.forest_plot_lib import create_forest_plot
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import (
+    PublicationFormatter,
+    create_missing_data_report_html,
+    format_p_value,
+)
 
 # Suppress DeprecationWarning from lifelines (datetime.utcnow)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="lifelines")
@@ -427,7 +431,8 @@ def calculate_survival_at_times(
                     else:
                         surv_str = f"{surv_prob:.2f}"
                         if not pd.isna(lower) and not pd.isna(upper):
-                            display_val = f"{surv_str} ({lower:.2f}-{upper:.2f})"
+                            ci_str = PublicationFormatter.format_ci(lower, upper)
+                            display_val = f"{surv_str} {ci_str}"
                         else:
                             display_val = f"{surv_str}"
 
@@ -656,10 +661,15 @@ def calculate_median_survival(
                     return "NR"
                 return f"{v:.1f}"
 
-            med_str, low_str, up_str = fmt(median_val), fmt(lower), fmt(upper)
-            display_str = (
-                f"{med_str} ({low_str}-{up_str})" if med_str != "NR" else "Not Reached"
-            )
+            med_str = fmt(median_val)
+
+            if med_str != "NR" and not pd.isna(lower) and not pd.isna(upper):
+                ci_str = PublicationFormatter.format_ci(lower, upper)
+                display_str = f"{med_str} {ci_str}"
+            elif med_str != "NR":
+                display_str = med_str
+            else:
+                display_str = "Not Reached"
         else:
             display_str = "-"
 
@@ -783,7 +793,7 @@ def fit_km_logrank(
             stats_data = {
                 "Test": "Log-Rank (Pairwise)",
                 "Statistic (Chi2)": f"{res.test_statistic:.2f}",
-                "P-value": f"{res.p_value:.4f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": f"{g1} vs {g2}",
             }
         elif len(groups) > 2 and group_col:
@@ -793,7 +803,7 @@ def fit_km_logrank(
             stats_data = {
                 "Test": "Log-Rank (Multivariate)",
                 "Statistic (Chi2)": f"{res.test_statistic:.2f}",
-                "P-value": f"{res.p_value:.4f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": "All groups",
             }
         else:
@@ -1571,8 +1581,8 @@ def fit_km_landmark(
             )
             stats_data = {
                 "Test": "Log-Rank (Pairwise)",
-                "Statistic": res.test_statistic,
-                "P-value": res.p_value,
+                "Statistic": f"{res.test_statistic:.2f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": f"{g1} vs {g2}",
                 "Method": f"Landmark at {landmark_time}",
             }
@@ -1584,8 +1594,8 @@ def fit_km_landmark(
             )
             stats_data = {
                 "Test": "Log-Rank (Multivariate)",
-                "Statistic": res.test_statistic,
-                "P-value": res.p_value,
+                "Statistic": f"{res.test_statistic:.2f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": "All groups",
                 "Method": f"Landmark at {landmark_time}",
             }
@@ -1654,12 +1664,13 @@ def generate_report_survival(
                     p_vals = pd.to_numeric(d_styled["P-value"], errors="coerce")
                     new_p_val_col = []
                     for val, pv in zip(d_styled["P-value"], p_vals):
+                        formatted_val = format_p_value(pv) if pd.notna(pv) else str(val)
                         if not pd.isna(pv) and pv < 0.05:
                             new_p_val_col.append(
-                                '<span class="sig-p">' + str(val) + "</span>"
+                                '<span class="sig-p">' + formatted_val + "</span>"
                             )
                         else:
-                            new_p_val_col.append(str(val))
+                            new_p_val_col.append(formatted_val)
                     d_styled["P-value"] = new_p_val_col
                 html_doc += d_styled.to_html(
                     classes="table table-striped", border=0, escape=False
