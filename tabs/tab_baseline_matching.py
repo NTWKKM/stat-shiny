@@ -60,14 +60,6 @@ def baseline_matching_ui() -> ui.TagChild:
                             ),
                             choices=[],
                         ),
-                        # ui.input_radio_buttons(
-                        #     "radio_or_style",
-                        #     "OR Style:",
-                        #     choices={
-                        #         "all_levels": "All Levels (Every Level vs Ref)",
-                        #         "simple": "Simple (Single Line/Risk vs Ref)",
-                        #     },
-                        # ),
                         type="required",
                     ),
                     create_input_group(

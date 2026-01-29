@@ -14,6 +14,7 @@ from logger import get_logger
 
 # New Advanced Implementation
 from utils.table_one_advanced import (
+    StatisticalEngine,
     TableOneGenerator,
     VariableClassifier,
 )
@@ -68,8 +69,6 @@ def calculate_p_continuous(
 ) -> tuple[float | None, str]:
     """Wrapper for StatisticalEngine.calculate_p_continuous"""
     # Note: StatisticalEngine expects list of Series
-    from utils.table_one_advanced import StatisticalEngine
-
     return StatisticalEngine.calculate_p_continuous(groups, normal)
 
 
@@ -77,8 +76,6 @@ def calculate_p_categorical(
     df: pd.DataFrame, col: str, group_col: str
 ) -> tuple[float | None, str]:
     """Wrapper for StatisticalEngine.calculate_p_categorical"""
-    from utils.table_one_advanced import StatisticalEngine
-
     return StatisticalEngine.calculate_p_categorical(df, col, group_col)
 
 
@@ -91,8 +88,6 @@ def calculate_smd(
     is_cat: bool,
 ) -> str:
     """Wrapper for StatisticalEngine.calculate_smd"""
-    from utils.table_one_advanced import StatisticalEngine
-
     return StatisticalEngine.calculate_smd(df, col, group_col, g1_val, g2_val, is_cat)
 
 
@@ -142,4 +137,4 @@ def generate_table(
         logger.error(f"Error in Table One generation (Advanced Wrapper): {e}")
         # Fallback or re-raise?
         # Re-raise to match previous behavior so UI handles the error message
-        raise e
+        raise

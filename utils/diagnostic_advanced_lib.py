@@ -171,6 +171,10 @@ class DiagnosticTest:
         """
         Calculate detailed diagnostic metrics at a specific threshold.
         """
+        if len(np.unique(self.y_true_binary)) < 2:
+            raise ValueError(
+                "get_metrics_at_threshold requires both positive and negative samples."
+            )
         y_pred = (self.y_score >= threshold).astype(int)
 
         tn, fp, fn, tp = confusion_matrix(self.y_true_binary, y_pred).ravel()

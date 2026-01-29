@@ -11,7 +11,7 @@ from __future__ import annotations
 import html as _html
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -46,12 +46,12 @@ class VariableAnalysis:
         "unknown",
     ]
     stats_overall: str  # e.g., "50.2 ± 10.1" or "120 (45.3%)"
-    stats_groups: Dict[str, str] = field(default_factory=dict)  # GroupID -> Stat string
-    p_value: Optional[float] = None
-    test_name: Optional[str] = None
-    warning: Optional[str] = None
-    extra_stats: Dict[str, Any] = field(default_factory=dict)  # e.g., OR, SMD
-    categorical_counts: Optional[pd.Series] = None  # Store raw counts for OR/SMD calcs
+    stats_groups: dict[str, str] = field(default_factory=dict)  # GroupID -> Stat string
+    p_value: float | None = None
+    test_name: str | None = None
+    warning: str | None = None
+    extra_stats: dict[str, Any] = field(default_factory=dict)  # e.g., OR, SMD
+    categorical_counts: pd.Series | None = None  # Store raw counts for OR/SMD calcs
 
 
 # --- 2. Classifier Logic ---
@@ -141,8 +141,8 @@ class StatisticalEngine:
 
     @staticmethod
     def get_stats_categorical(
-        series: pd.Series, total_n: int = None
-    ) -> Tuple[str, pd.Series]:
+        series: pd.Series, total_n: int | None = None
+    ) -> tuple[str, pd.Series]:
         """n (%)"""
         clean_series = series.dropna()
         if len(clean_series) == 0:
@@ -163,8 +163,8 @@ class StatisticalEngine:
 
     @staticmethod
     def calculate_p_continuous(
-        groups: List[pd.Series], normal: bool = True
-    ) -> Tuple[Optional[float], str]:
+        groups: list[pd.Series], normal: bool = True
+    ) -> tuple[float | None, str]:
         """T-test/ANOVA or MWU/Kruskal"""
         clean_groups = [clean_numeric_vector(g).dropna() for g in groups]
         clean_groups = [g for g in clean_groups if len(g) > 0]
@@ -197,7 +197,7 @@ class StatisticalEngine:
     @staticmethod
     def calculate_p_categorical(
         df: pd.DataFrame, col: str, group_col: str
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[float | None, str]:
         """Chi-square or Fisher's Exact"""
         try:
             tab = pd.crosstab(df[col], df[group_col])
@@ -229,7 +229,7 @@ class StatisticalEngine:
         g2_val: Any,
         is_cat: bool,
     ) -> str:
-        """Calcluate Standardized Mean Difference"""
+        """Calculate Standardized Mean Difference"""
         try:
             # Reusing robust logic from original table_one for reliability
             mask1 = df[group_col].astype(str) == str(g1_val)
@@ -276,7 +276,10 @@ class StatisticalEngine:
     def calculate_or(
         df: pd.DataFrame, col: str, group_col: str, group_1_val: Any, is_cat: bool
     ) -> str:
-        """Wrapper for OR calculation"""
+        """Wrapper for OR calculation.
+
+        TODO: Implement full OR calculation logic. Currently returns placeholder.
+        """
         # Logic similar to original but integrated here
         # For brevity in this artifact, relying on statsmodels Logit for continuous
         # and 2x2 logic for binary.
@@ -293,7 +296,7 @@ class TableOneFormatter:
     COLORS = get_color_palette()
 
     @staticmethod
-    def format_p(p: Optional[float]) -> str:
+    def format_p(p: float | None) -> str:
         if p is None or np.isnan(p):
             return "-"
         if p < 0.001:
@@ -303,11 +306,11 @@ class TableOneFormatter:
     @classmethod
     def render_html(
         cls,
-        results: List[VariableAnalysis],
-        groups: List[Dict],
-        group_masks: Dict,
+        results: list[VariableAnalysis],
+        groups: list[dict],
+        group_masks: dict,
         total_n: int,
-        missing_info: Dict,
+        missing_info: dict,
     ) -> str:
         # Helper helpers
         def _p_cell(p, test):
@@ -396,13 +399,13 @@ class TableOneGenerator:
     Orchestrator class.
     """
 
-    def __init__(self, df: pd.DataFrame, var_meta: Dict = None):
+    def __init__(self, df: pd.DataFrame, var_meta: dict = None):
         self.raw_df = df
         self.var_meta = var_meta or {}
         self.classifier = VariableClassifier()
         self.stats_engine = StatisticalEngine()
 
-    def generate(self, selected_vars: List[str], stratify_by: str = None) -> str:
+    def generate(self, selected_vars: list[str], stratify_by: str = None) -> str:
         # 1. Clean Data (Reuse robust logic)
         missing_cfg = CONFIG.get("analysis.missing", {})
         df_clean, missing_info = prepare_data_for_analysis(
