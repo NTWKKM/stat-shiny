@@ -10,6 +10,7 @@ from shiny import module, reactive, render, ui
 
 from tabs._common import get_color_palette, select_variable_by_keyword
 from utils.collinearity_lib import calculate_vif
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.formatting import (
     create_missing_data_report_html,
     format_p_value,
@@ -549,39 +550,22 @@ def advanced_inference_server(
             x_col = input.diag_predictor()
             covars = list(input.diag_covariates()) if input.diag_covariates() else []
 
-            # Select required columns first, then drop missing
+            # Use centralized data preparation
             required_cols = [y_col, x_col] + covars
-            d = current_df()[required_cols].dropna()
+
+            # 1. Clean Data (Handle numeric conversion & missing values)
+            df_clean, missing_info = prepare_data_for_analysis(
+                current_df(),
+                required_cols=required_cols,
+                numeric_cols=required_cols,  # All variables in specific OLS diagnostics should be numeric
+                handle_missing="complete-case",
+                var_meta=var_meta.get() or {},
+            )
 
             # Fit OLS for diagnostics
-            X = d[[x_col] + covars]
-            original_cols = X.columns.tolist()
+            X = df_clean[[x_col] + covars]
             X = sm.add_constant(X)
-            Y = d[y_col]
-
-            # Ensure numeric
-            X = X.select_dtypes(include=[np.number])
-            dropped_cols = set(original_cols) - set(X.columns) - {"const"}
-            if dropped_cols:
-                ui.notification_show(
-                    f"Non-numeric columns excluded: {', '.join(dropped_cols)}",
-                    type="warning",
-                )
-            Y = pd.to_numeric(Y, errors="coerce")
-
-            # Drop rows where Y became NaN after coercion
-            valid_mask = ~Y.isna()
-            if valid_mask.sum() < len(Y):
-                n_dropped = len(Y) - valid_mask.sum()
-                ui.notification_show(
-                    f"{n_dropped} rows dropped due to non-numeric outcome values",
-                    type="warning",
-                )
-                X = X.loc[valid_mask]
-                Y = Y.loc[valid_mask]
-
-            if len(Y) < X.shape[1] + 1:
-                raise ValueError("Insufficient observations after cleaning")
+            Y = df_clean[y_col]
 
             model = sm.OLS(Y, X).fit()
 

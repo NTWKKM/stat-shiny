@@ -12,6 +12,7 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from utils import decision_curve_lib, diag_test
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
 from utils.formatting import create_missing_data_report_html
 from utils.ui_helpers import create_results_container
@@ -928,28 +929,37 @@ def diag_server(
             test2_col = input.sel_roc_test2()
             pos_label = input.sel_roc_pos_label_comp()
 
-            # Prepare data
-            data = d[[truth_col, test1_col, test2_col]].dropna()
-            if data.empty:
+            # --- Centralized Data Cleaning ---
+            # We strictly enforce numeric type on test scores, but "truth" is handled inside specific logic if needed.
+            # However, for DeLong, we need valid rows for all 3.
+            required_cols = [truth_col, test1_col, test2_col]
+
+            # Note: Truth column is binary, but might be string (Yes/No).
+            # We only force numeric on the test scores.
+            numeric_cols = [test1_col, test2_col]
+
+            data_clean, missing_info = prepare_data_for_analysis(
+                d,
+                required_cols=required_cols,
+                numeric_cols=numeric_cols,
+                handle_missing="complete-case",
+                var_meta=var_meta.get() or {},
+            )
+
+            if data_clean.empty:
                 roc_html.set(
-                    "<div class='alert alert-info'>No valid data found (check missing values).</div>"
+                    "<div class='alert alert-info'>No valid data found after cleaning.</div>"
                 )
                 return
 
-            # Use New Library
-            y_true = data[truth_col]
-            s1 = pd.to_numeric(data[test1_col], errors="coerce")
-            s2 = pd.to_numeric(data[test2_col], errors="coerce")
-
-            # Filter out non-numeric
-            mask = s1.notna() & s2.notna()
-            y_true = y_true[mask]
-            s1 = s1[mask]
-            s2 = s2[mask]
+            # Extract Cleaned Data
+            y_true = data_clean[truth_col]
+            s1 = data_clean[test1_col]
+            s2 = data_clean[test2_col]
 
             if len(y_true) < 2:
                 roc_html.set(
-                    "<div class='alert alert-warning'>Not enough data points.</div>"
+                    "<div class='alert alert-warning'>Not enough data points (need at least 2).</div>"
                 )
                 return
 
