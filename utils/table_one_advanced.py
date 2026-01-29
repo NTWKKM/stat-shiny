@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from scipy import stats
 
 from config import CONFIG
@@ -274,17 +275,127 @@ class StatisticalEngine:
 
     @staticmethod
     def calculate_or(
-        df: pd.DataFrame, col: str, group_col: str, group_1_val: Any, is_cat: bool
-    ) -> str:
-        """Wrapper for OR calculation.
-
-        TODO: Implement full OR calculation logic. Currently returns placeholder.
+        df: pd.DataFrame,
+        col: str,
+        group_col: str,
+        g1_val: Any,
+        g2_val: Any,
+        is_cat: bool,
+    ) -> str | dict[str, str]:
         """
-        # Logic similar to original but integrated here
-        # For brevity in this artifact, relying on statsmodels Logit for continuous
-        # and 2x2 logic for binary.
-        # (Full robust implementation would go here)
-        return "-"  # Placeholder for full implementation if not using original functions directly
+        Calculate Odds Ratio (OR) and 95% CI.
+        Group 1 (g1_val) is Reference. Group 2 (g2_val) is Comparison.
+        OR = Odds(G2) / Odds(G1).
+
+        Returns:
+            str: "OR (LB-UB)" for continuous or single-line categorical.
+            dict: {category: "OR (LB-UB)"} for multi-level categorical.
+        """
+        try:
+            # Filter to only the 2 groups
+            mask_g1 = df[group_col].astype(str) == str(g1_val)
+            mask_g2 = df[group_col].astype(str) == str(g2_val)
+
+            sub_df = df[mask_g1 | mask_g2].copy()
+            # Create binary target: 0 = g1 (Ref), 1 = g2 (Case/Comp)
+            # Note: We want OR of being in G2 given the variable.
+            # Logit P(Group=G2) ~ Variable.
+            sub_df["_target"] = np.where(
+                sub_df[group_col].astype(str) == str(g2_val), 1, 0
+            )
+
+            clean_df = sub_df[[col, "_target"]].dropna()
+
+            if len(clean_df) < 10:  # Min sample size heuristic
+                return "-"
+
+            if not is_cat:
+                # Continuous: Univariate Logistic Regression
+                # Fix: Ensure numeric
+                x = pd.to_numeric(clean_df[col], errors="coerce")
+                y = clean_df["_target"]
+
+                # Check variance
+                if x.std() == 0:
+                    return "-"
+
+                # Logit
+                x_design = sm.add_constant(x)
+                try:
+                    model = sm.Logit(y, x_design).fit(disp=0)
+                    params = model.params
+                    conf = model.conf_int()
+
+                    if col in params:
+                        or_val = np.exp(params[col])
+                        ci_lower = np.exp(conf.loc[col, 0])
+                        ci_upper = np.exp(conf.loc[col, 1])
+
+                        return f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})"
+                    else:
+                        return "-"
+                except Exception:
+                    return "-"
+
+            else:
+                # Categorical: 2x2 Tables for each level vs Reference (or handle as simple crosstab)
+                # To match "All Levels": For each category, calculate OR of (Cat vs Not-Cat) or (Cat vs Ref-Cat)?
+                # Usually standard Table 1 Categorical OR is:
+                # Reference Level: 1.0
+                # Level X: OR vs Ref Level.
+                # BUT, simpler approach (often used in "Simple" style) is treating each level as binary vs rest?
+                # User mentioned "All Levels (Every Level vs Ref)".
+                # This implies selecting a reference category for the variable (usually the first one).
+                # However, strictly speaking, this requires a multinomial or changing the reference base.
+                #
+                # ALTERNATIVE: The "compute_or_ci" legacy function does (a*d)/(b*c).
+                # This implies 2x2.
+                # For a specific category 'C':
+                #       G2    G1
+                #   C   a     b
+                # !C    c     d
+                # This is "Category C vs All Other Categories".
+                # This is a common way to display "All Levels" without setting a specific variable-reference level.
+                # Let's check if the standard version does "each level vs rest".
+                # Given `compute_or_ci` takes 4 numbers, it strongly suggests independent 2x2s per row.
+
+                s1 = sub_df.loc[sub_df["_target"] == 1, col]  # G2 (Cases)
+                s0 = sub_df.loc[sub_df["_target"] == 0, col]  # G1 (Ref)
+
+                cats = set(s1.dropna().unique()) | set(s0.dropna().unique())
+                results = {}
+
+                for cat in cats:
+                    a = (s1.astype(str) == str(cat)).sum()
+                    b = (s0.astype(str) == str(cat)).sum()
+                    c = len(s1) - a
+                    d = len(s0) - b
+
+                    # Haldane-Anscombe correction if zero cell
+                    if 0 in [a, b, c, d]:
+                        a += 0.5
+                        b += 0.5
+                        c += 0.5
+                        d += 0.5
+
+                    or_val = (a * d) / (b * c) if (b * c) > 0 else 0
+
+                    if or_val == 0 or np.isinf(or_val):
+                        res_str = "-"
+                    else:
+                        ln_or = np.log(or_val)
+                        se = np.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+                        ci_lower = np.exp(ln_or - 1.96 * se)
+                        ci_upper = np.exp(ln_or + 1.96 * se)
+                        res_str = f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})"
+
+                    results[str(cat)] = res_str
+
+                return results
+
+        except Exception as e:
+            logger.warning(f"Failed to calc OR for {col}: {e}")
+            return "-"
 
 
 # --- 4. Formatter ---
@@ -347,7 +458,9 @@ class TableOneFormatter:
             header_cols += f"<th class='numeric-cell'>{_html.escape(str(g['label']))} (n={n_g})</th>"
 
         if len(groups) == 2:
-            header_cols += "<th>SMD</th><th>P-value</th><th>Test</th>"
+            header_cols += (
+                "<th>SMD</th><th>OR (95% CI)</th><th>P-value</th><th>Test</th>"
+            )
         elif len(groups) > 0:
             header_cols += "<th>P-value</th><th>Test</th>"
 
@@ -371,7 +484,17 @@ class TableOneFormatter:
             # Stats (SMD/P)
             if len(groups) == 2:
                 smd = res.extra_stats.get("smd", "-")
-                row += f"<td class='numeric-cell'>{smd}</td>"
+                or_val = res.extra_stats.get("or", "-")
+
+                # Handle OR if it's a dict (categorical levels)
+                if isinstance(or_val, dict):
+                    # For overall line, show nothing or first? Usually nothing for overall line of categorical
+                    row += f"<td class='numeric-cell'>{smd}</td>"
+                    row += "<td class='numeric-cell'></td>"  # Empty for header row of categorical
+                else:
+                    row += f"<td class='numeric-cell'>{smd}</td>"
+                    row += f"<td class='numeric-cell'>{or_val}</td>"
+
                 row += _p_cell(res.p_value, res.test_name)
             elif len(groups) > 0:
                 row += _p_cell(res.p_value, res.test_name)
@@ -513,6 +636,42 @@ class TableOneGenerator:
                         is_cat,
                     )
                     res.extra_stats["smd"] = smd
+
+                    # Calculate OR
+                    or_calc = self.stats_engine.calculate_or(
+                        df_clean,
+                        var,
+                        stratify_by,
+                        groups[0]["val"],
+                        groups[1]["val"],
+                        is_cat,
+                    )
+                    res.extra_stats["or"] = or_calc
+
+                    # Inject into categorical sub-stats if needed
+                    # If or_calc is a dict, we need to map it to stats_groups maybe?
+                    # The TableOneFormatter needs to know how to render per-row categorical ORs.
+                    # Currently TableOneFormatter iterates `res` which is one ROW per variable.
+                    # Wait, the formatter logic currently outputs ONE row per variable?
+                    # Let's check 'stats_overall' for categorical.
+                    # Line 162: returns "<br>".join(res_parts)
+                    # So the categorical variable is ONE row in the HTML table with multiple lines inside the cell?
+                    # Yes. `get_stats_categorical` joins with <br>.
+                    # So we need to format the ORs similarly joined by <br>.
+
+                    if isinstance(or_calc, dict) and is_cat:
+                        # We need to reconstruct the string sequence to match the visual order of categories.
+                        # The categories are sorted in `get_stats_categorical` via value_counts().sort_index().
+                        _, counts_series = self.stats_engine.get_stats_categorical(
+                            df_clean[var]
+                        )
+                        cats_order = counts_series.index.tolist()
+
+                        or_strs = []
+                        for cat in cats_order:
+                            or_strs.append(or_calc.get(str(cat), "-"))
+
+                        res.extra_stats["or"] = "<br>".join(or_strs)
 
             results.append(res)
 
