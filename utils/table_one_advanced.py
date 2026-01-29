@@ -198,7 +198,9 @@ class StatisticalEngine:
         if len(clean_series) == 0:
             return "-", pd.Series([], dtype=object)
 
-        counts = clean_series.value_counts().sort_index()
+        counts = clean_series.value_counts()
+        sorted_cats = sorted(counts.index.tolist(), key=_numeric_sort_key)
+        counts = counts.reindex(sorted_cats)
         denominator = total_n if total_n is not None else len(clean_series)
 
         if denominator == 0:
