@@ -2231,7 +2231,7 @@ def survival_server(
                 )
             ),
             ui.card_header("📄 Model Coefficients (Spline Terms)"),
-            render.DataGrid(res["stats"]),
+            ui.output_data_frame("rcs_stats_table"),
             ui.br(),
             ui.card_header("⚠️ Missing Data Report"),
             ui.HTML(
@@ -2242,6 +2242,14 @@ def survival_server(
             class_="fade-in-entry",
             style="margin-top: 20px;",
         )
+
+    @render.data_frame
+    def rcs_stats_table():
+        res = rcs_result.get()
+        if not res or "stats" not in res:
+            return render.DataGrid(pd.DataFrame())
+
+        return render.DataGrid(res["stats"], selection_mode="none")
 
     @render.ui
     def out_rcs_status():
