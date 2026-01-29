@@ -447,7 +447,6 @@ def survival_ui() -> ui.TagChild:
                                     "HR = 1 at this value (Leave empty for Median).",
                                 ),
                                 value=None,
-                                placeholder="Median",
                             ),
                             ui.input_selectize(
                                 "rcs_adjust",
