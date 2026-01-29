@@ -55,7 +55,7 @@ AgreementAnalysis = None
 def setup_mocks():
     """
     Provide a pytest fixture that injects robust mocks for external libraries and exposes test-target callables.
-    
+
     Patches sys.modules with mocked versions of plotly, lifelines, sklearn, pingouin, and related submodules, reloads the modules under test so they use those mocks, and binds module-level globals (e.g., run_negative_binomial_regression, analyze_roc, AgreementAnalysis, fit_cox_ph, calculate_descriptive, validate_logit_data, etc.) for use by the test suite. Yields control to allow tests to run within the patched context.
     """
     global run_negative_binomial_regression, run_poisson_regression
@@ -744,7 +744,7 @@ class TestICCAnalysis:
     def test_calculate_icc_basic(self):
         """
         Verify that AgreementAnalysis.icc returns a non-empty DataFrame containing an 'ICC' column for two raters with correlated scores.
-        
+
         Creates two correlated rater measurements from a shared true score and asserts the function returns a valid ICC DataFrame and no error message. Uses the test mock of pingouin for deterministic output.
         """
 

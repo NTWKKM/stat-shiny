@@ -373,13 +373,13 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     def _simulate_clinical_data() -> tuple[pd.DataFrame, dict[str, Any]]:
         """
         Generate a synthetic clinical dataset and accompanying variable metadata.
-        
+
         Creates a simulated cohort (n=1600) containing patient identifiers, demographics, treatment assignment,
         comorbidities, survival follow-up (time and death status), clinical outcomes, laboratory results,
         multiple diagnostic rater assessments, an expensive comparator test, repeated-measures/time-varying
         covariate (TVC) fields, resource use and costs, and other derived measurements. Random missing values
         are injected into the produced DataFrame.
-        
+
         Returns:
             tuple[pd.DataFrame, dict[str, Any]]: A tuple where the first element is the simulated dataset
             (one row per patient, with TVC fields aligned by patient) and the second element is a metadata
@@ -598,7 +598,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     def _get_example_metadata() -> dict[str, Any]:
         """
         Provide example metadata for columns in the simulated clinical dataset.
-        
+
         Returns:
             metadata (dict[str, Any]): Mapping from column name to a metadata dictionary containing:
                 - "type": either "Categorical" or "Continuous".

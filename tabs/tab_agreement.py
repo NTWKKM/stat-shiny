@@ -49,13 +49,13 @@ def _auto_detect_icc_vars(cols: list[str]) -> list[str]:
 def agreement_ui() -> ui.TagChild:
     """
     Constructs the Agreement & Reliability analysis UI for selecting data and running Kappa, Bland–Altman, and ICC analyses.
-    
+
     The returned UI contains dataset selection and a tabbed interface with:
     - Kappa (Cohen's or Fleiss' Kappa) inputs, validation, actions, results, and report download.
     - Bland–Altman inputs (including CI options), validation, actions, results, and report download.
     - ICC inputs, validation, actions, results, and report download.
     - A reference/interpretation panel describing Kappa, Bland–Altman, and ICC.
-    
+
     Returns:
         ui.TagChild: A Shiny TagChild representing the complete agreement/reliability module UI.
     """
@@ -246,7 +246,7 @@ def agreement_server(
     # --- Reactive Results ---
     """
     Initialize server logic for the Agreement & Reliability Shiny module, wiring UI inputs to reactive analyses for Kappa (Cohen/Fleiss), Bland–Altman, and ICC and providing result rendering and download handlers.
-    
+
     Parameters:
         input (Any): Shiny input bindings (provides UI control values and events).
         output (Any): Shiny output bindings (used to expose UI renderables).
@@ -334,9 +334,9 @@ def agreement_server(
     def ui_kappa_v1():
         """
         Render a select input for choosing the first rater (row) used in Kappa analysis.
-        
+
         The input is populated with all columns from the current dataset and defaults to a column likely to represent a rater (searched in order: "diagnosis_dr_a", "rater1", "obs1", "method1"); if none match, the first column is selected.
-        
+
         Returns:
             The Shiny select input UI element with id "sel_kappa_v1" and label "Rater 1 (Row):".
         """
@@ -352,10 +352,10 @@ def agreement_server(
     def ui_kappa_v2():
         """
         Create a select input for choosing the second rater/column for Kappa analysis.
-        
+
         The control lists all dataset columns except the column currently selected for Rater 1.
         The default selection is inferred from common rater/second-column keywords or falls back to the first available choice.
-        
+
         Returns:
             A UI input select control (id "sel_kappa_v2") labeled "Rater 2 (Col):" populated with the remaining columns.
         """
@@ -375,9 +375,9 @@ def agreement_server(
     def ui_fleiss_vars():
         """
         Create a selectize input for choosing three or more rater columns.
-        
+
         The input is populated with the current dataset's column names and pre-selects columns that resemble rater/observer/method variables.
-        
+
         Returns:
             ui.input_selectize: A Shiny selectize input (id "sel_fleiss_vars") configured for multiple selection of rater columns.
         """
@@ -420,9 +420,9 @@ def agreement_server(
     def ui_icc_vars():
         """
         Create a selectize input for choosing two or more numeric variables to use as raters/methods in ICC calculations.
-        
+
         The control is populated with numeric columns from the current dataset and preselects likely ICC candidates detected by `_auto_detect_icc_vars`.
-        
+
         Returns:
             A Shiny selectize input component (id "icc_vars") configured for multiple selection and initialized with detected defaults.
         """
@@ -441,10 +441,10 @@ def agreement_server(
     def ui_kappa_weights():
         """
         Create a select input for choosing Kappa weighting for ordinal categorical agreement.
-        
+
         The control has id "sel_kappa_weights" and label "Weights (Ordinal):" with three options:
         Unweighted (empty string), Linear ("linear"), and Quadratic ("quadratic").
-        
+
         Returns:
             The Shiny select input component configured for Kappa weight selection.
         """
@@ -465,11 +465,11 @@ def agreement_server(
     def _run_kappa():
         """
         Run the configured Kappa agreement analysis (Cohen or Fleiss) and update the module's report state.
-        
+
         Validates required inputs, sets the processing flag while running, executes the selected analysis:
         - For "cohen": requires two selected rater variables and computes Cohen's Kappa (with optional weights).
         - For "fleiss": requires three or more selected rater variables and computes Fleiss' Kappa.
-        
+
         On success, stores a generated HTML report (statistics, matrices/plots, and an optional missing-data section) in kappa_html; on failure, stores an error alert HTML in kappa_html. Always clears the processing flag when finished.
         """
         d = current_df()
@@ -559,7 +559,7 @@ def agreement_server(
     def out_kappa_results():
         """
         Render the UI block for Kappa agreement results based on current processing state.
-        
+
         Returns:
             A Shiny UI element showing one of:
             - a loading indicator while the Kappa analysis is running,
@@ -578,7 +578,7 @@ def agreement_server(
     def btn_dl_kappa_report():
         """
         Provide the generated Kappa agreement HTML report for download.
-        
+
         Returns:
             str: The HTML content of the latest Kappa agreement report.
         """
@@ -591,7 +591,7 @@ def agreement_server(
     def _run_ba():
         """
         Run a Bland–Altman analysis for the currently selected pair of variables and store the generated HTML report.
-        
+
         Retrieves the selected dataset and variables, executes the Bland–Altman analysis with the configured confidence interval and CI-band option, and builds an HTML report containing the plot and agreement statistics (including a missing-data section when applicable). Sets the `ba_processing` flag while running, updates `ba_html` with either the rendered report or an error alert on failure, and clears the processing flag when finished.
         """
         d = current_df()
@@ -676,7 +676,7 @@ def agreement_server(
     def _run_icc():
         """
         Run ICC reliability analysis for the currently selected variables and store an HTML report in the module state.
-        
+
         Reads the current dataset and user-selected ICC variables (requires at least two), sets the processing flag while computation runs, and invokes AgreementAnalysis.icc to compute ICC results. On success builds an interpretation block, assembles a report (including a missing-data section when present), and writes the generated HTML to the module's icc_html state. On failure writes an error alert HTML to icc_html. Does not return a value.
         """
         d = current_df()
@@ -770,9 +770,9 @@ def agreement_server(
     def out_kappa_validation():
         """
         Validate Kappa input selections and return a contextual error alert when the current inputs are invalid.
-        
+
         Checks the selected kappa mode: for Cohen's Kappa ensures two different variables are selected; for Fleiss' Kappa ensures at least three raters are selected. When a validation rule fails, returns an error alert element describing the issue.
-        
+
         Returns:
             An alert UI element with an explanatory error message if inputs are invalid, or `None` if inputs pass validation.
         """

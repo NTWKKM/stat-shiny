@@ -7,7 +7,7 @@ from utils.agreement_lib import AgreementAnalysis
 def test_diag_returns():
     """
     Verify return value shapes and specific error messages for diagnostic and agreement analysis functions using synthetic mock data.
-    
+
     This test constructs a small DataFrame and asserts that:
     - diag_test.analyze_roc returns 4 values.
     - diag_test.calculate_chi2 (Pearson) returns 5 values.
@@ -15,7 +15,7 @@ def test_diag_returns():
     - AgreementAnalysis.cohens_kappa returns 4 values.
     - diag_test.calculate_descriptive returns a tuple whose first element is a pandas DataFrame.
     - AgreementAnalysis.icc returns 4 values.
-    
+
     Raises AssertionError if any of the expected return shapes or messages do not match.
     """
     print("Starting Diagnostic Tests Return Signature Verification...")

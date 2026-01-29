@@ -28,14 +28,14 @@ class AgreementAnalysis:
     ) -> tuple[pd.DataFrame, str | None, pd.DataFrame, dict]:
         """
         Compute Cohen's Kappa for two categorical raters, provide an approximate confidence interval, and return a labeled confusion matrix and missing-data info.
-        
+
         Parameters:
             df (pd.DataFrame): Input dataframe containing rater columns.
             rater1 (str): Column name for the first rater.
             rater2 (str): Column name for the second rater.
             weights (str | None): Weighting scheme for kappa (e.g., "linear", "quadratic") or None for unweighted.
             ci (float): Confidence level for the interval (e.g., 0.95 for a 95% CI).
-        
+
         Returns:
             tuple:
                 stats_df (pd.DataFrame): Summary metrics including Cohen's Kappa, sample size (N), standard error, and CI bounds.
@@ -184,14 +184,14 @@ class AgreementAnalysis:
     ) -> tuple[dict, go.Figure, dict]:
         """
         Generate Bland–Altman summary statistics and a Plotly Bland–Altman figure comparing two measurement methods.
-        
+
         Parameters:
             df (pd.DataFrame): Input data containing the two measurement columns.
             method1 (str): Column name for the first measurement method (will be subtracted by method2).
             method2 (str): Column name for the second measurement method.
             ci (float): Confidence level for confidence intervals (e.g., 0.95 for 95% CI).
             show_ci_bands (bool): If True, include shaded confidence-interval bands for the mean difference and limits of agreement in the figure.
-        
+
         Returns:
             tuple:
                 stats_res (dict): Summary statistics including:
@@ -216,6 +216,7 @@ class AgreementAnalysis:
             clean_df, missing_info = prepare_data_for_analysis(
                 df,
                 required_cols=[method1, method2],
+                numeric_cols=[method1, method2],
                 missing_codes=missing_codes,
                 handle_missing=strategy,
             )
@@ -371,12 +372,12 @@ class AgreementAnalysis:
     ) -> tuple[pd.DataFrame, str | None, dict, dict]:
         """
         Compute the Intraclass Correlation Coefficient (ICC) for ratings provided in wide format.
-        
+
         Parameters:
             df (pd.DataFrame): Input data with subjects as rows and raters as columns.
             cols (list[str]): Column names to use as rater measurements; must contain at least two columns.
             icc_type (str): ICC definition to select from Pingouin's output (e.g., "ICC2k").
-        
+
         Returns:
             tuple:
                 - icc_res (pd.DataFrame): ICC results filtered to the requested `icc_type` and augmented with a `Strength` column categorizing the ICC value as "Poor", "Fair", "Good", or "Excellent".
@@ -396,6 +397,7 @@ class AgreementAnalysis:
             clean_df, missing_info = prepare_data_for_analysis(
                 df,
                 required_cols=cols,
+                numeric_cols=cols,
                 missing_codes=missing_codes,
                 handle_missing=strategy,
             )
@@ -448,10 +450,10 @@ class AgreementAnalysis:
             def interpret_icc(v):
                 """
                 Map an intraclass correlation coefficient (ICC) value to a qualitative strength category.
-                
+
                 Parameters:
                     v (float): ICC value (can be any real number; typical range is 0 to 1).
-                
+
                 Returns:
                     str: One of "Poor" (v < 0.40), "Fair" (0.40 <= v < 0.60), "Good" (0.60 <= v < 0.75), or "Excellent" (v >= 0.75).
                 """

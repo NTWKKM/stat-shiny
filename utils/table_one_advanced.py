@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
 from utils.data_cleaning import (
@@ -794,20 +793,17 @@ class TableOneGenerator:
         if stratify_by == "None":
             stratify_by = None
         # 1. Clean Data (Reuse robust logic)
-        missing_cfg = CONFIG.get("analysis.missing", {})
+        valid_vars = [c for c in selected_vars if c in self.raw_df.columns]
         df_clean, missing_info = prepare_data_for_analysis(
             self.raw_df,
             numeric_cols=[
-                c
-                for c in selected_vars
-                if c in self.raw_df.columns
-                and pd.api.types.is_numeric_dtype(self.raw_df[c])
+                c for c in valid_vars if pd.api.types.is_numeric_dtype(self.raw_df[c])
             ],
             required_cols=list(
-                set(list(selected_vars) + ([stratify_by] if stratify_by else []))
+                set(list(valid_vars) + ([stratify_by] if stratify_by else []))
             ),
             var_meta=self.var_meta,
-            handle_missing=missing_cfg.get("strategy", "complete-case"),
+            handle_missing="complete-case",
         )
 
         # 2. Setup Groups
@@ -827,7 +823,7 @@ class TableOneGenerator:
 
         # 3. Analyze Variables
         results = []
-        for var in selected_vars:
+        for var in valid_vars:
             if var == stratify_by:
                 continue
 

@@ -22,15 +22,15 @@ def calculate_ci_wilson_score(
 ) -> tuple[float, float]:
     """
     Compute the Wilson score confidence interval for a binomial proportion.
-    
+
     If n <= 0, returns (NaN, NaN). If `alpha` is provided it overrides `ci` (alpha = 1 - ci).
-    
+
     Parameters:
         k (float): Number of successes.
         n (float): Number of trials.
         ci (float): Desired confidence level between 0 and 1 (default 0.95).
         alpha (float | None): Optional significance level; when provided it overrides `ci`.
-    
+
     Returns:
         tuple[float, float]: (lower_bound, upper_bound) bounded to [0, 1]; may be (NaN, NaN) when n <= 0.
     """
@@ -100,13 +100,13 @@ class DiagnosticTest:
         # Convert inputs to numpy arrays
         """
         Initialize a DiagnosticTest for a single predictive score and its ground truth.
-        
+
         Parameters:
             y_true (np.ndarray | pd.Series): Ground-truth labels for each sample.
             y_score (np.ndarray | pd.Series): Continuous scores or probabilities produced by the diagnostic test.
             pos_label (int | str): Value in `y_true` treated as the positive class.
-        
-        
+
+
         Description:
             Stores inputs as numpy arrays, converts ground-truth labels to binary 0/1 using `pos_label`, and computes ROC curve (FPR, TPR, thresholds) and AUC when both classes are present. If only a single class exists in `y_true`, `fpr`, `tpr`, and `thresholds` are set to empty arrays and `auc` is set to `NaN`.
         """
@@ -135,10 +135,10 @@ class DiagnosticTest:
     def find_optimal_threshold(self, method: str = "youden") -> tuple[float, int]:
         """
         Selects an optimal decision threshold from the instance's ROC thresholds according to a specified criterion.
-        
+
         Parameters:
             method (str): Selection method — "youden" (maximizes TPR - FPR), "distance" (minimizes Euclidean distance to point (0,1) on ROC), or "f1" (maximizes F1 score computed at each ROC threshold). Defaults to "youden".
-        
+
         Returns:
             tuple:
                 threshold (float): The chosen threshold value (NaN and -1 index if no thresholds are available).
@@ -186,13 +186,13 @@ class DiagnosticTest:
     def get_metrics_at_threshold(self, threshold: float) -> dict[str, float]:
         """
         Compute diagnostic performance metrics and Wilson confidence intervals at a given score threshold.
-        
+
         Parameters:
             threshold (float): Score cutoff used to binarize predictions (samples with score >= threshold are positive).
-        
+
         Raises:
             ValueError: If the ground truth contains fewer than two classes (both positive and negative samples required).
-        
+
         Returns:
             dict[str, float]: A dictionary containing:
                 - "threshold": the provided threshold.
@@ -287,23 +287,25 @@ class DiagnosticComparison:
     ) -> float:
         """
         Compute the DeLong covariance component between two AUC estimates for paired ROC curves.
-        
+
         Parameters:
             y_true (np.ndarray): Binary ground-truth labels (0 for negative, 1 for positive).
             score1 (np.ndarray): Continuous scores or prediction probabilities for the first classifier, aligned with y_true.
             score2 (np.ndarray): Continuous scores or prediction probabilities for the second classifier, aligned with y_true.
-        
+
         Returns:
             float: Covariance between the two AUC estimates as computed by DeLong's method.
-        
+
         Raises:
             ValueError: If y_true does not contain both positive and negative samples.
         """
         n_pos = np.sum(y_true == 1)
         n_neg = len(y_true) - n_pos
 
-        if n_pos == 0 or n_neg == 0:
-            raise ValueError("Data must contain both positive and negative samples.")
+        if n_pos < 2 or n_neg < 2:
+            raise ValueError(
+                "DeLong covariance requires at least 2 positives and 2 negatives."
+            )
 
         # Indices
         pos_indices = np.where(y_true == 1)[0]
@@ -315,10 +317,10 @@ class DiagnosticComparison:
             # Matrix broadcasting: (n_pos, 1) > (1, n_neg) -> (n_pos, n_neg)
             """
             Compute per-positive placement values against all negatives for a score vector.
-            
+
             Parameters:
                 score (array-like): Scores for all samples; comparisons use `pos_indices` and `neg_indices` from the enclosing scope.
-            
+
             Returns:
                 numpy.ndarray: 1-D array of length equal to the number of positive samples where each element is the average over negatives of: `1.0` if positive score > negative score, `0.5` if equal, and `0.0` if less (values in [0.0, 1.0]).
             """
@@ -336,11 +338,11 @@ class DiagnosticComparison:
         def compute_v01(score):
             """
             Compute average placement values for each negative sample by comparing positive scores to that negative.
-            
+
             Parameters:
                 score (array-like): Array of scores for all samples; indices referenced by the outer-scope
                     variables `pos_indices` and `neg_indices`.
-            
+
             Returns:
                 numpy.ndarray: Array of placement values with shape (n_neg,), where each element is the mean
                 across positive samples of: 1.0 if positive score > negative score, 0.5 if equal, and 0.0 otherwise.
@@ -378,14 +380,14 @@ class DiagnosticComparison:
     ) -> dict:
         """
         Compare two correlated ROC AUCs using DeLong's paired test.
-        
+
         Parameters:
             y_true (np.ndarray | pd.Series): True labels.
             score1 (np.ndarray | pd.Series): Scores/probabilities from the first classifier.
             score2 (np.ndarray | pd.Series): Scores/probabilities from the second classifier.
             pos_label (int | str): Value in `y_true` treated as the positive class.
             ci (float): Confidence level for the returned confidence interval (e.g., 0.95).
-        
+
         Returns:
             result (dict): Dictionary with the following keys:
                 auc1 (float): AUC of `score1` computed on `y_true`.
