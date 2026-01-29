@@ -57,6 +57,8 @@ class TestDiagnosticComparison:
         y_true = np.concatenate([np.zeros(n // 2), np.ones(n // 2)])
 
         # Good predictor: correlated with truth
+        # Note: The assertions below (auc1 > 0.8, auc2 < 0.7, p_value < 0.05) are tied to this fixed seed (42).
+        # Include this seed to reproduce specific test values; relaxing thresholds may be needed if seed changes.
         rng = np.random.default_rng(42)
         noise = rng.normal(0, 0.2, n)
         score1 = y_true + noise

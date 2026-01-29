@@ -251,11 +251,20 @@ class StatisticalEngine:
                     p1 = (s1.astype(str) == str(cat)).mean()
                     p2 = (s2.astype(str) == str(cat)).mean()
                     pooled_sd = np.sqrt((p1 * (1 - p1) + p2 * (1 - p2)) / 2)
-                    smd = abs(p1 - p2) / pooled_sd if pooled_sd > 0 else 0.0
 
-                    val_str = f"{smd:.3f}"
-                    if smd >= 0.1:
-                        val_str = f"<b>{val_str}</b>"
+                    if pooled_sd <= 1e-8:
+                        if abs(p1 - p2) < 1e-8:
+                            val_str = "0.000"
+                        else:
+                            val_str = "<b>—</b>"
+                            logger.warning(
+                                f"SMD undefined (pooled_sd~0) for {col}={cat} with p1={p1:.3f}, p2={p2:.3f}"
+                            )
+                    else:
+                        smd = abs(p1 - p2) / pooled_sd
+                        val_str = f"{smd:.3f}"
+                        if smd >= 0.1:
+                            val_str = f"<b>{val_str}</b>"
                     smd_vals.append(val_str)
                 return "<br>".join(smd_vals)
             else:
@@ -345,70 +354,92 @@ class StatisticalEngine:
                     return "-", "Univar. Logit"
 
             else:
-                # Categorical: 2x2 Tables for each level vs Reference (or handle as simple crosstab)
-                # To match "All Levels": For each category, calculate OR of (Cat vs Not-Cat) or (Cat vs Ref-Cat)?
-                # Usually standard Table 1 Categorical OR is:
-                # Reference Level: 1.0
-                # Level X: OR vs Ref Level.
-                # BUT, simpler approach (often used in "Simple" style) is treating each level as binary vs rest?
-                # User mentioned "All Levels (Every Level vs Ref)".
-                # This implies selecting a reference category for the variable (usually the first one).
-                # However, strictly speaking, this requires a multinomial or changing the reference base.
-                #
-                # ALTERNATIVE: The "compute_or_ci" legacy function does (a*d)/(b*c).
-                # This implies 2x2.
-                # For a specific category 'C':
-                #       G2    G1
-                #   C   a     b
-                # !C    c     d
-                # This is "Category C vs All Other Categories".
-                # This is a common way to display "All Levels" without setting a specific variable-reference level.
-                # Let's check if the standard version does "each level vs rest".
-                # Given `compute_or_ci` takes 4 numbers, it strongly suggests independent 2x2s per row.
+                # Categorical: 2x2 Tables for each level vs Reference
+                # Logic: Compare specific level (Target) vs Reference level (Ref).
+                # Ref = First Category (cats[0]).
 
                 s1 = sub_df.loc[sub_df["_target"] == 1, col]  # G2 (Cases)
                 s0 = sub_df.loc[sub_df["_target"] == 0, col]  # G1 (Ref)
 
-                cats = set(s1.dropna().unique()) | set(s0.dropna().unique())
-                results = {}
+                # Get all categories and sort naturally to identify Ref/Target
+                unique_cats = set(s1.dropna().unique()) | set(s0.dropna().unique())
 
-                for cat in cats:
-                    a = (s1.astype(str) == str(cat)).sum()
-                    b = (s0.astype(str) == str(cat)).sum()
-                    c = len(s1) - a
-                    d = len(s0) - b
+                # Sort logic (try numeric if possible)
+                def sort_key(x):
+                    s = str(x)
+                    if s.replace(".", "", 1).isdigit():
+                        return (0, float(s))
+                    return (1, s)
 
-                    # Haldane-Anscombe correction if zero cell
-                    if 0 in [a, b, c, d]:
+                sorted_cats = sorted(list(unique_cats), key=sort_key)
+
+                if not sorted_cats:
+                    return "-", "-"
+
+                # 1. Identify Reference (First Category)
+                ref_cat = sorted_cats[0]
+
+                # Pre-calculate Reference Counts (c, d in standard 2x2)
+                # c = Cases with Ref
+                # d = Controls with Ref
+                c_base = (s1.astype(str) == str(ref_cat)).sum()
+                d_base = (s0.astype(str) == str(ref_cat)).sum()
+
+                # Helper 2x2 Calc
+                def calc_2x2_or(cat_val, c_ref, d_ref):
+                    if str(cat_val) == str(ref_cat):
+                        return "Ref."
+
+                    # a = Cases with Target
+                    # b = Controls with Target
+                    a = (s1.astype(str) == str(cat_val)).sum()
+                    b = (s0.astype(str) == str(cat_val)).sum()
+
+                    # Cells for 2x2:
+                    #        Case   Control
+                    # Target   a      b
+                    # Ref      c      d
+                    c_h = c_ref
+                    d_h = d_ref
+
+                    # Haldane-Anscombe correction if any cell is 0
+                    if 0 in [a, b, c_h, d_h]:
                         a += 0.5
                         b += 0.5
-                        c += 0.5
-                        d += 0.5
+                        c_h += 0.5
+                        d_h += 0.5
 
-                    or_val = (a * d) / (b * c) if (b * c) > 0 else 0
+                    if (b * c_h) == 0:
+                        return "-"
 
-                    if or_val == 0 or np.isinf(or_val):
-                        res_str = "-"
-                    else:
-                        ln_or = np.log(or_val)
-                        se = np.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
-                        ci_lower = np.exp(ln_or - 1.96 * se)
-                        ci_upper = np.exp(ln_or + 1.96 * se)
-                        res_str = f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})"
+                    or_val = (a * d_h) / (b * c_h)
 
-                    results[str(cat)] = res_str
+                    if np.isinf(or_val):
+                        return "-"
 
-                # Check if "Simple" style is requested and valid (Binary variable)
-                if or_style == "simple" and len(results) == 2:
-                    # Sort keys to determine "Event" (2nd category)
-                    sorted_cats = sorted(results.keys())
-                    event_cat = sorted_cats[1]  # Take 2nd
-                    return results[event_cat], f"2x2 ({event_cat} vs {sorted_cats[0]})"
+                    ln_or = np.log(or_val)
+                    se = np.sqrt(1 / a + 1 / b + 1 / c_h + 1 / d_h)
+                    ci_lower = np.exp(ln_or - 1.96 * se)
+                    ci_upper = np.exp(ln_or + 1.96 * se)
 
-                return (
-                    results,
-                    "2x2 Fisher" if "Fisher" in "placeholder_check" else "2x2 Est.",
-                )
+                    return f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})"
+
+                if or_style == "simple":
+                    # Simple: Last vs First (Ref)
+                    target_cat = sorted_cats[-1]
+                    res_str = calc_2x2_or(target_cat, c_base, d_base)
+
+                    # Method Name
+                    method = f"2x2 ({target_cat} vs {ref_cat})"
+                    return res_str, method
+
+                else:
+                    # All Levels: Each vs Ref
+                    results = {}
+                    for cat in sorted_cats:
+                        results[str(cat)] = calc_2x2_or(cat, c_base, d_base)
+
+                    return results, "2x2 (vs Ref)"
 
         except Exception as e:
             logger.warning(f"Failed to calc OR for {col}: {e}")
@@ -553,6 +584,35 @@ class TableOneGenerator:
         self.classifier = VariableClassifier()
         self.stats_engine = StatisticalEngine()
 
+    def _format_categorical_or(
+        self, var: str, or_calc: str | dict, df_clean: pd.DataFrame
+    ) -> str:
+        """
+        Helper to format categorical ORs into a <br> joined string to match the rows.
+        """
+        # Reconstruct the string sequence to match the visual order of categories.
+        _, counts_series = self.stats_engine.get_stats_categorical(df_clean[var])
+        cats_order = counts_series.index.tolist()
+
+        or_strs = []
+
+        if isinstance(or_calc, dict):
+            for cat in cats_order:
+                or_strs.append(or_calc.get(str(cat), "-"))
+
+        else:
+            # Case: "Simple" style for categorical (returns str) - usually Binary
+            if len(cats_order) == 2:
+                or_strs.append("-")  # Ref (First level)
+                or_strs.append(or_calc)  # Event (Second level)
+            else:
+                # Fallback for >2 levels if simple passed
+                or_strs.append(or_calc)
+                for _ in range(len(cats_order) - 1):
+                    or_strs.append("")
+
+        return "<br>".join(or_strs)
+
     def generate(
         self,
         selected_vars: list[str],
@@ -691,51 +751,10 @@ class TableOneGenerator:
                     # Yes. `get_stats_categorical` joins with <br>.
                     # So we need to format the ORs similarly joined by <br>.
 
-                    if isinstance(or_calc, dict) and is_cat:
-                        # We need to reconstruct the string sequence to match the visual order of categories.
-                        # The categories are sorted in `get_stats_categorical` via value_counts().sort_index().
-                        _, counts_series = self.stats_engine.get_stats_categorical(
-                            df_clean[var]
+                    if is_cat:
+                        res.extra_stats["or"] = self._format_categorical_or(
+                            var, or_calc, df_clean
                         )
-                        cats_order = counts_series.index.tolist()
-
-                        or_strs = []
-                        for cat in cats_order:
-                            or_strs.append(or_calc.get(str(cat), "-"))
-
-                        res.extra_stats["or"] = "<br>".join(or_strs)
-
-                    elif is_cat and not isinstance(or_calc, dict):
-                        # Case: "Simple" style for categorical (returns str)
-                        # We need to align this single string with the category rows.
-                        # Logic: If simple, user sees ONE line? OR all lines but only one has OR?
-                        # Usually "Simple" means risk of Event.
-                        # If table shows ALL levels n(%), but OR is single line... how to align?
-                        # Option A: Put OR on the line of the Event category.
-                        # Option B: Put OR in the middle or top.
-                        # Given `get_stats_categorical` returns <br> joined string...
-                        # We need to return a <br> joined string for OR column too.
-
-                        # Re-get categories order
-                        _, counts_series = self.stats_engine.get_stats_categorical(
-                            df_clean[var]
-                        )
-                        cats_order = counts_series.index.tolist()
-
-                        or_strs = []
-                        # Extract the target category from or_method string "2x2 (Event vs Ref)"
-                        # or just put it on the 2nd line.
-                        # Simple heuristic: Put on 2nd line if 2 lines.
-                        if len(cats_order) == 2:
-                            or_strs.append("-")  # Ref
-                            or_strs.append(or_calc)  # Event
-                        else:
-                            # Fallback for >2 levels if simple passed (logic defaults to all_levels but just in case)
-                            or_strs.append(or_calc)
-                            for _ in range(len(cats_order) - 1):
-                                or_strs.append("")
-
-                        res.extra_stats["or"] = "<br>".join(or_strs)
 
             results.append(res)
 
