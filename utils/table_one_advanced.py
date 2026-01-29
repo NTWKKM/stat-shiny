@@ -761,5 +761,5 @@ class TableOneGenerator:
 
         # 4. Render
         return TableOneFormatter.render_html(
-            results, groups, group_masks, len(df_clean), missing_info
+            results, groups, group_masks, len(df_clean), missing_info, self.var_meta
         )
