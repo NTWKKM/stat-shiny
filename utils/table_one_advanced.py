@@ -145,7 +145,11 @@ class StatisticalEngine:
             return "-"
 
         if normal:
-            return f"{clean.mean():.1f} ± {clean.std():.1f}"
+            mean = clean.mean()
+            sd = clean.std()
+            if not np.isfinite(sd):
+                return f"{mean:.1f} ± 0.0"
+            return f"{mean:.1f} ± {sd:.1f}"
         else:
             q1 = clean.quantile(0.25)
             q3 = clean.quantile(0.75)
@@ -212,6 +216,8 @@ class StatisticalEngine:
     ) -> tuple[float | None, str]:
         """Chi-square or Fisher's Exact"""
         try:
+            if df[group_col].dropna().nunique() < 2 or df[col].dropna().nunique() < 2:
+                return None, "-"
             tab = pd.crosstab(df[col], df[group_col])
             if tab.size == 0:
                 return None, "-"
@@ -257,7 +263,7 @@ class StatisticalEngine:
                     return "-"
 
                 smd_vals = []
-                for cat in sorted(list(cats)):
+                for cat in sorted(list(cats), key=_numeric_sort_key):
                     p1 = (s1.astype(str) == str(cat)).mean()
                     p2 = (s2.astype(str) == str(cat)).mean()
                     pooled_sd = np.sqrt((p1 * (1 - p1) + p2 * (1 - p2)) / 2)
