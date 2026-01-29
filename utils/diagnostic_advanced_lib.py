@@ -102,12 +102,13 @@ class DiagnosticTest:
         Initialize a DiagnosticTest for a single predictive score and its ground truth.
         
         Parameters:
-        	y_true (np.ndarray | pd.Series): Ground-truth labels for each sample.
-        	y_score (np.ndarray | pd.Series): Continuous scores or probabilities produced by the diagnostic test.
-        	pos_label (int | str): Value in `y_true` treated as the positive class.
+            y_true (np.ndarray | pd.Series): Ground-truth labels for each sample.
+            y_score (np.ndarray | pd.Series): Continuous scores or probabilities produced by the diagnostic test.
+            pos_label (int | str): Value in `y_true` treated as the positive class.
+        
         
         Description:
-        	Stores inputs as numpy arrays, converts ground-truth labels to binary 0/1 using `pos_label`, and computes ROC curve (FPR, TPR, thresholds) and AUC when both classes are present. If only a single class exists in `y_true`, `fpr`, `tpr`, and `thresholds` are set to empty arrays and `auc` is set to `NaN`.
+            Stores inputs as numpy arrays, converts ground-truth labels to binary 0/1 using `pos_label`, and computes ROC curve (FPR, TPR, thresholds) and AUC when both classes are present. If only a single class exists in `y_true`, `fpr`, `tpr`, and `thresholds` are set to empty arrays and `auc` is set to `NaN`.
         """
         self.y_true = np.array(y_true)
         self.y_score = np.array(y_score)
