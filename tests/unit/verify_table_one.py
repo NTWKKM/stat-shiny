@@ -77,8 +77,13 @@ def test_missing_data():
             var_meta=var_meta,
         )
         print("✅ Test Case 2 PASSED - Handles missing data")
-        with open("test_output_2.html", "w") as f:
+        output_path = os.path.join(
+            os.path.dirname(__file__), "output/test_output_2.html"
+        )
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w") as f:
             f.write(html)
+        print(f"✅ Test Case 2 PASSED - Logic verified and saved to {output_path}")
     except Exception as e:
         print(f"❌ Test Case 2 FAILED: {e}")
 

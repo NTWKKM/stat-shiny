@@ -752,18 +752,6 @@ class TestICCAnalysis:
 
         icc_df, error_msg, _, _ = AgreementAnalysis.icc(df, ["rater1", "rater2"])
 
-        # Mocking pingouin to return a DataFrame usually happen in setup_mocks
-        # But we haven't mocked pingouin explicitely for AgreementAnalysis in this file yet.
-        # However, setup_mocks patches sys.modules, so when AgreementAnalysis imports pingouin,
-        # it gets the mock?
-        # Wait, inside setup_mocks we didn't mock pingouin!
-        # AgreementAnalysis uses pingouin.
-        # We need to ensure pingouin is mocked or available.
-
-        # In setup_mocks we did NOT patch pingouin.
-        # This implies AgreementAnalysis will try to use the real pingouin if installed.
-        # Since this is a "Unit" test file that mocks libraries, we should PROBABLY mock pingouin.
-
         assert icc_df is not None
         assert error_msg is None
         # AgreementAnalysis returns the dataframe directly as first arg
