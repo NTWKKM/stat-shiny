@@ -252,6 +252,11 @@ The application uses a centralized styling system to ensure visual consistency a
 
 - `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
 - `utils/formatting.py`: Handles P-value styling, logic-driven badges, and statistical report HTML structure (syncing with `config.py`).
+- `utils/table_one_advanced.py`: **Advanced Table 1 Generator** (OOP). Handles intelligent variable classification and **Odds Ratio (OR) calculation**.
+  - **Categorical OR**: Uses **2x2 Contingency Tables** comparing each level (or Target) against the **First Level (Reference)**. Applies **Haldane-Anscombe correction** (+0.5) for zero cells. Supports "All Levels" and "Simple" (Binary Target vs Ref) styles.
+  - **Continuous OR**: Uses **Univariate Logistic Regression**.
+- `utils/diagnostic_advanced_lib.py`: **Advanced Diagnostic Engine** (OOP) providing robust ROC analysis, **DeLong's Test**, and Wilson Score confidence intervals.
+- `utils/agreement_lib.py`: **Agreement Analysis Engine** providing Cohen's/Fleiss' Kappa, advanced Bland-Altman (CI bands), and ICC.
 
 ### Dynamic UI Enhancements (Animations)
 
@@ -267,7 +272,7 @@ The application covers a wide range of medical statistical needs, organized into
 
 | Category | Modules | Key Features |
 | :--- | :--- | :--- |
-| **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Kappa** (Weighted), **ICC** (pingouin integration), Bland-Altman (LoA CI). |
+| **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Paired DeLong Test**, **Sens/Spec vs Threshold**, **Agreement** (Cohen's/Fleiss' Kappa, Bland-Altman with CI bands, ICC with interpretation). |
 | **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox), Forest Plots. |
 | **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance (Love Plots: Green <0.1, Yellow 0.1–0.2 (Red: >0.2, not rendered)), Common Support Visualization. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, Time-Varying Cox, G-Computation, Power Analysis. |

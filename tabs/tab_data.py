@@ -416,6 +416,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         )
         rapid_score = np.clip(rapid_score, 0, 100).round(1)
 
+        # Second continuous test for comparison (e.g., more expensive but slightly better)
+        expensive_score = np.where(
+            gold_std == 0,
+            np.random.normal(15, 8, n),
+            np.random.normal(55, 12, n),
+        )
+        expensive_score = np.clip(expensive_score, 0, 100).round(1)
+
         rater_a = np.where(
             gold_std == 1,
             np.random.binomial(1, 0.85, n),
@@ -426,6 +434,13 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         rater_b = np.where(
             np.random.binomial(1, agree_prob, n) == 1, rater_a, 1 - rater_a
         )
+        rater_c = np.where(
+            np.random.binomial(1, agree_prob - 0.05, n) == 1, rater_a, 1 - rater_a
+        )
+        rater_d = np.where(
+            np.random.binomial(1, agree_prob - 0.10, n) == 1, rater_a, 1 - rater_a
+        )
+        rater_e = np.random.choice([0, 1], n)  # Random rater for contrast
 
         hba1c = np.random.normal(6.5, 1.5, n).clip(4, 14).round(1)
         glucose = ((hba1c * 15) + np.random.normal(0, 15, n)).round(0)
@@ -468,8 +483,12 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             "Lab_Cholesterol_mgdL": chol,
             "Gold_Standard_Disease": gold_std,
             "Test_Score_Rapid": rapid_score,
+            "Test_Score_Expensive": expensive_score,
             "Diagnosis_Dr_A": rater_a,
             "Diagnosis_Dr_B": rater_b,
+            "Diagnosis_Dr_C": rater_c,
+            "Diagnosis_Dr_D": rater_d,
+            "Diagnosis_Dr_E": rater_e,
             "Lab_HbA1c": hba1c,
             "Lab_Glucose": glucose,
             "ICC_SysBP_Rater1": icc_rater1,
@@ -620,6 +639,21 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                 "map": {0: "Normal", 1: "Abnormal"},
                 "label": "Diagnosis (Dr. B)",
             },
+            "Diagnosis_Dr_C": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. C)",
+            },
+            "Diagnosis_Dr_D": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. D)",
+            },
+            "Diagnosis_Dr_E": {
+                "type": "Categorical",
+                "map": {0: "Normal", 1: "Abnormal"},
+                "label": "Diagnosis (Dr. E)",
+            },
             "Age_Years": {"type": "Continuous", "label": "Age (Years)", "map": {}},
             "BMI_kgm2": {"type": "Continuous", "label": "BMI (kg/m²)", "map": {}},
             "Time_Months": {"type": "Continuous", "label": "Time (Months)", "map": {}},
@@ -646,6 +680,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             "Test_Score_Rapid": {
                 "type": "Continuous",
                 "label": "Rapid Test Score (0-100)",
+                "map": {},
+            },
+            "Test_Score_Expensive": {
+                "type": "Continuous",
+                "label": "Expensive Test Score (0-100)",
                 "map": {},
             },
             "Lab_HbA1c": {"type": "Continuous", "label": "HbA1c (%)", "map": {}},

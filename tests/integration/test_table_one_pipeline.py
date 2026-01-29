@@ -59,9 +59,7 @@ class TestTableOnePipeline:
         selected_vars = ["age", "bmi", "gender", "smoking"]
 
         # Generate HTML
-        html_output = generate_table(
-            df, selected_vars, group_col="group", var_meta={}, or_style="all_levels"
-        )
+        html_output = generate_table(df, selected_vars, group_col="group", var_meta={})
 
         assert isinstance(html_output, str)
         assert len(html_output) > 0

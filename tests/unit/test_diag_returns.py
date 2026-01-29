@@ -1,6 +1,7 @@
 import pandas as pd
 
 from utils import diag_test
+from utils.agreement_lib import AgreementAnalysis
 
 
 def test_diag_returns():
@@ -46,9 +47,12 @@ def test_diag_returns():
 
     # 4. Test calculate_kappa
     print("Checking calculate_kappa...")
-    res = diag_test.calculate_kappa(df, "rater1", "rater2")
-    assert len(res) == 4, f"calculate_kappa should return 4 values, got {len(res)}"
-    print("✅ calculate_kappa: OK")
+
+    res = AgreementAnalysis.cohens_kappa(df, "rater1", "rater2")
+    assert len(res) == 4, (
+        f"AgreementAnalysis.cohens_kappa should return 4 values, got {len(res)}"
+    )
+    print("✅ AgreementAnalysis.cohens_kappa: OK")
 
     # 5. Test calculate_descriptive
     print("Checking calculate_descriptive...")
@@ -61,9 +65,11 @@ def test_diag_returns():
 
     # 6. Test calculate_icc
     print("Checking calculate_icc...")
-    res = diag_test.calculate_icc(df, ["score", "truth"])
-    assert len(res) == 4, f"calculate_icc should return 4 values, got {len(res)}"
-    print("✅ calculate_icc: OK")
+    res = AgreementAnalysis.icc(df, ["score", "truth"])
+    assert len(res) == 4, (
+        f"AgreementAnalysis.icc should return 4 values, got {len(res)}"
+    )
+    print("✅ AgreementAnalysis.icc: OK")
 
     print("\n🎉 All Diagnostic Test return signatures verified successfully!")
 
