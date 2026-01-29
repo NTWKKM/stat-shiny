@@ -41,8 +41,8 @@ from utils.data_cleaning import (
 )
 from utils.formatting import (
     create_missing_data_report_html,
-    format_ci_html,
     format_p_value,
+    PublicationFormatter,
 )
 
 # Internal imports
@@ -655,11 +655,8 @@ def format_ols_results(
             "t-value": coef_df["T-value"],
             "p-value": coef_df["P-value"].apply(format_p_value),
             "95% CI": coef_df.apply(
-                lambda r: format_ci_html(
-                    f"{r['CI_Lower']:.2f} to {r['CI_Upper']:.2f}",
-                    r["CI_Lower"],
-                    r["CI_Upper"],
-                    null_val=0.0,
+                lambda r: PublicationFormatter.format_ci(
+                    r["CI_Lower"], r["CI_Upper"], include_brackets=False
                 ),
                 axis=1,
             ),
@@ -983,7 +980,7 @@ def format_bootstrap_results(
             "Estimate": df_res["Estimate"],
             "Boot SE": df_res["Boot SE"],
             "95% CI": [
-                format_ci_html(f"{cl:.2f} to {cu:.2f}", cl, cu)
+                PublicationFormatter.format_ci(cl, cu, include_brackets=False)
                 for cl, cu in zip(ci_lower, ci_upper)
             ],
         }

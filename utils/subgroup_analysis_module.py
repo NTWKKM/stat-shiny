@@ -23,6 +23,7 @@ from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
 from utils.forest_plot_lib import create_forest_plot
+from utils.formatting import format_p_value
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -406,7 +407,7 @@ class SubgroupAnalysisLogit:
         het_text = "Heterogeneous" if is_het else "Homogeneous"
 
         if pd.notna(p_int):
-            title_final = f"{title}<br><span style='font-size: 12px; color: #666;'>P = {p_int:.4f} ({het_text})</span>"
+            title_final = f"{title}<br><span style='font-size: 12px; color: #666;'>P = {format_p_value(p_int)} ({het_text})</span>"
         else:
             title_final = title
 

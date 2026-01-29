@@ -38,75 +38,11 @@ from utils.diagnostic_advanced_lib import (
     DiagnosticTest,
     calculate_ci_wilson_score,
 )
+from utils.formatting import format_ci_html, format_p_value, get_badge_html
 from utils.plotly_html_renderer import plotly_figure_to_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
-
-type BadgeLevel = Literal[
-    "success", "warning", "danger", "info", "neutral", "light", "secondary"
-]
-
-
-def get_badge_html(text: str, level: BadgeLevel = "info") -> str:
-    """Generate HTML string for a styled badge."""
-    safe_text = _html.escape(str(text))
-    colors = {
-        "success": {"bg": "#d4edda", "color": "#155724", "border": "#c3e6cb"},
-        "warning": {"bg": "#fff3cd", "color": "#856404", "border": "#ffeeba"},
-        "danger": {"bg": "#f8d7da", "color": "#721c24", "border": "#f5c6cb"},
-        "info": {"bg": "#d1ecf1", "color": "#0c5460", "border": "#bee5eb"},
-        "neutral": {"bg": "#e2e3e5", "color": "#383d41", "border": "#d6d8db"},
-    }
-    c = colors.get(level, colors["neutral"])
-    style = f"padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; display: inline-block; background-color: {c['bg']}; color: {c['color']}; border: 1px solid {c['border']};"
-    return f'<span style="{style}">{safe_text}</span>'
-
-
-def format_p_value(p: float) -> str:
-    """Format P-value with significance highlighting."""
-    if not np.isfinite(p):
-        return "NA"
-
-    # Define style for significant p-value
-    sig_style = "font-weight: bold; color: #d63384;"  # Pink/Purpleish for distinction
-
-    if p < 0.001:
-        return f'<span style="{sig_style}">&lt;0.001</span>'
-
-    p_str = f"{p:.4f}"
-    if p < 0.05:
-        return f'<span style="{sig_style}">{p_str}</span>'
-    return p_str
-
-
-def format_ci_html(
-    ci_str: str,
-    lower: float,
-    upper: float,
-    null_val: float = 1.0,
-    direction: Literal["exclude", "greater"] = "exclude",
-) -> str:
-    """
-    Format CI string with highlighting if significant.
-    direction='exclude': Significant if null_val is NOT in [lower, upper]
-    direction='greater': Significant if lower > null_val
-    """
-    if not np.isfinite(lower) or not np.isfinite(upper):
-        return ci_str
-
-    is_sig = False
-    if direction == "exclude":
-        if (lower > null_val) or (upper < null_val):
-            is_sig = True
-    elif direction == "greater":
-        if lower > null_val:
-            is_sig = True
-
-    if is_sig:
-        # Green text for significant confidence intervals
-        return f'<span style="font-weight: bold; color: #198754;">{ci_str}</span>'
-    return ci_str
 
 
 def calculate_descriptive(

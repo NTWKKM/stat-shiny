@@ -262,7 +262,9 @@ This application is a complete statistical workbench organized into modular tabs
 
 ### ⚙️ Settings & Performance
 
-- **Customization**: NEJM-style p-value formatting, theme switching (Light/Dark), and plot sizing.
+- **Publication Ready**: Configurable **Reporting Style** templates for major journals (**NEJM, JAMA, Lancet, BMJ**).
+- **Auto-Methods**: Automated generation of "Methods" and "Missing Data" statements.
+- **Customization**: Theme switching (Light/Dark), plot sizing, and decimal precision control.
 - **Logging**: Configurable logging levels and file output.
 - **Performance**: Caching and multi-threading options for large datasets.
 

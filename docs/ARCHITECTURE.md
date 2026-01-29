@@ -252,6 +252,8 @@ The application uses a centralized styling system to ensure visual consistency a
 
 - `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
 - `utils/formatting.py`: Handles P-value styling, logic-driven badges, and statistical report HTML structure (syncing with `config.py`).
+  - **PublicationFormatter**: Provides per-journal templates (**NEJM, JAMA, Lancet, BMJ**) and automated "Methods" text generation.
+  - **MissingDataStatement**: Generates standardized reporting on missingness handling.
 - `utils/table_one_advanced.py`: **Advanced Table 1 Generator** (OOP). Handles intelligent variable classification and **Odds Ratio (OR) calculation**.
   - **Categorical OR**: Uses **2x2 Contingency Tables** comparing each level (or Target) against the **First Level (Reference)**. Applies **Haldane-Anscombe correction** (+0.5) for zero cells. Supports "All Levels" and "Simple" (Binary Target vs Ref) styles.
   - **Continuous OR**: Uses **Univariate Logistic Regression**.

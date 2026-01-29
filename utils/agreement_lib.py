@@ -9,7 +9,10 @@ from sklearn.metrics import cohen_kappa_score, confusion_matrix
 from statsmodels.stats.inter_rater import aggregate_raters, fleiss_kappa
 
 from config import CONFIG
+from tabs._common import get_color_palette
 from utils.data_cleaning import prepare_data_for_analysis
+
+COLORS = get_color_palette()
 
 
 class AgreementAnalysis:
@@ -283,7 +286,7 @@ class AgreementAnalysis:
             fig.add_hline(
                 y=mean_diff,
                 line_dash="solid",
-                line_color="blue",
+                line_color=COLORS["primary"],
                 annotation_text=f"Mean Diff: {mean_diff:.2f}",
                 annotation_position="top right",
             )
@@ -292,14 +295,14 @@ class AgreementAnalysis:
             fig.add_hline(
                 y=upper_loa,
                 line_dash="dash",
-                line_color="red",
+                line_color=COLORS["danger"],
                 annotation_text=f"+1.96 SD: {upper_loa:.2f}",
                 annotation_position="top right",
             )
             fig.add_hline(
                 y=lower_loa,
                 line_dash="dash",
-                line_color="red",
+                line_color=COLORS["danger"],
                 annotation_text=f"-1.96 SD: {lower_loa:.2f}",
                 annotation_position="bottom right",
             )
@@ -311,7 +314,7 @@ class AgreementAnalysis:
                     y0=ci_md_low,
                     y1=ci_md_high,
                     line_width=0,
-                    fillcolor="blue",
+                    fillcolor=COLORS["primary"],
                     opacity=0.15,
                     annotation_text="CI Mean",
                     annotation_position="left",
@@ -322,7 +325,7 @@ class AgreementAnalysis:
                     y0=ci_upper_loa_low,
                     y1=ci_upper_loa_high,
                     line_width=0,
-                    fillcolor="red",
+                    fillcolor=COLORS["danger"],
                     opacity=0.1,
                     annotation_text="CI Upper LoA",
                     annotation_position="left",
@@ -333,7 +336,7 @@ class AgreementAnalysis:
                     y0=ci_lower_loa_low,
                     y1=ci_lower_loa_high,
                     line_width=0,
-                    fillcolor="red",
+                    fillcolor=COLORS["danger"],
                     opacity=0.1,
                     annotation_text="CI Lower LoA",
                     annotation_position="left",

@@ -10,7 +10,10 @@ from shiny import module, reactive, render, ui
 
 from tabs._common import get_color_palette, select_variable_by_keyword
 from utils.collinearity_lib import calculate_vif
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import (
+    create_missing_data_report_html,
+    format_p_value,
+)
 from utils.heterogeneity_lib import calculate_heterogeneity
 from utils.mediation_lib import analyze_mediation
 from utils.model_diagnostics_lib import (
@@ -639,7 +642,12 @@ def advanced_inference_server(
     def tbl_diagnostics():
         res = diag_results.get()
         if res and not (isinstance(res, dict) and "error" in res):
-            return pd.DataFrame(res)
+            df = pd.DataFrame(res)
+            # Format P-Values if present
+            for col in df.columns:
+                if "p-value" in col.lower():
+                    df[col] = df[col].apply(format_p_value)
+            return df
         return None
 
     @render.plot
@@ -770,7 +778,11 @@ def advanced_inference_server(
         res = het_results.get()
         if res and "error" not in res:
             # Format single row DF
-            return pd.DataFrame([res])
+            df = pd.DataFrame([res])
+            for col in df.columns:
+                if "p-value" in col.lower():
+                    df[col] = df[col].apply(format_p_value)
+            return df
         return None
 
     # ==================== VALIDATION LOGIC ====================
