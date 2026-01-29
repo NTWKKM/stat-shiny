@@ -47,29 +47,23 @@ def verify_or_styles():
     # Neg: Ref. (or -)
     # Pos: 2.00
 
-    if "2.00" in html_all:
-        print("[PASS] 2.00 found in all_levels")
-    else:
-        print(f"[FAIL] 2.00 missing in all_levels. Found: {html_all}")
+    assert "2.00" in html_all, f"2.00 missing in all_levels. Found: {html_all}"
+    print("[PASS] 2.00 found in all_levels")
 
-    if "Ref." in html_all:
-        print("[PASS] Ref. found in all_levels")
-    else:
-        print("[FAIL] Ref. missing in all_levels")
+    assert "Ref." in html_all, "Ref. missing in all_levels"
+    print("[PASS] Ref. found in all_levels")
 
     # 3. Test "Simple"
     print("\n[TEST] Simple Style")
     html_simple = generator.generate(["BinVar"], stratify_by="Group", or_style="simple")
 
-    if html_simple.count("2.00") == 1:
-        print("[PASS] Only one 2.00 found")
-    else:
-        print(f"[FAIL] Unexpected count of 2.00: {html_simple.count('2.00')}")
+    assert html_simple.count("2.00") == 1, (
+        f"Unexpected count of 2.00: {html_simple.count('2.00')}"
+    )
+    print("[PASS] Only one 2.00 found")
 
-    if "2x2 (Pos vs Neg)" in html_simple:
-        print("[PASS] Method name correct: 2x2 (Pos vs Neg)")
-    else:
-        print(f"[FAIL] Method name incorrect: {html_simple}")
+    assert "2x2 (Pos vs Neg)" in html_simple, f"Method name incorrect: {html_simple}"
+    print("[PASS] Method name correct: 2x2 (Pos vs Neg)")
 
 
 if __name__ == "__main__":
