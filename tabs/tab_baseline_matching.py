@@ -60,6 +60,15 @@ def baseline_matching_ui() -> ui.TagChild:
                             ),
                             choices=[],
                         ),
+                        ui.input_radio_buttons(
+                            "radio_or_style",
+                            "OR Style:",
+                            {
+                                "all_levels": "All Levels (Every Level vs Ref)",
+                                "simple": "Simple (Single Line/Risk vs Ref)",
+                            },
+                            selected="all_levels",
+                        ),
                         type="required",
                     ),
                     create_input_group(
@@ -504,6 +513,8 @@ def baseline_matching_server(
         if group_col == "None":
             group_col = None
 
+        or_style = input.radio_or_style()
+
         selected_vars = input.sel_t1_vars()
         if not selected_vars:
             ui.notification_show("Please select at least one variable", type="warning")
@@ -516,6 +527,7 @@ def baseline_matching_server(
                 selected_vars,
                 group_col,
                 var_meta.get(),
+                or_style=or_style,
             )
             html_content.set(html)
             ui.notification_remove("gen_t1_notif")

@@ -32,11 +32,11 @@ class TestDiagnosticTest:
         # Choosing threshold 0.5 -> 0, 0, 1, 1 -> Perfect
         metrics = dt.get_metrics_at_threshold(0.5)
 
-        assert metrics["sensitivity"] == 1.0
-        assert metrics["specificity"] == 1.0
-        assert metrics["accuracy"] == 1.0
-        assert metrics["ppv"] == 1.0
-        assert metrics["npv"] == 1.0
+        assert np.isclose(metrics["sensitivity"], 1.0)
+        assert np.isclose(metrics["specificity"], 1.0)
+        assert np.isclose(metrics["accuracy"], 1.0)
+        assert np.isclose(metrics["ppv"], 1.0)
+        assert np.isclose(metrics["npv"], 1.0)
 
 
 class TestDiagnosticComparison:

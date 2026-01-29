@@ -50,6 +50,7 @@ class VariableAnalysis:
     stats_groups: dict[str, str] = field(default_factory=dict)  # GroupID -> Stat string
     p_value: float | None = None
     test_name: str | None = None
+    or_test_name: str | None = None
     warning: str | None = None
     extra_stats: dict[str, Any] = field(default_factory=dict)  # e.g., OR, SMD
     categorical_counts: pd.Series | None = None  # Store raw counts for OR/SMD calcs
@@ -281,15 +282,18 @@ class StatisticalEngine:
         g1_val: Any,
         g2_val: Any,
         is_cat: bool,
-    ) -> str | dict[str, str]:
+        or_style: str = "all_levels",
+    ) -> tuple[str | dict[str, str], str]:
         """
         Calculate Odds Ratio (OR) and 95% CI.
         Group 1 (g1_val) is Reference. Group 2 (g2_val) is Comparison.
-        OR = Odds(G2) / Odds(G1).
+
+        Args:
+            or_style: "all_levels" (default) or "simple" (single line for binary).
 
         Returns:
-            str: "OR (LB-UB)" for continuous or single-line categorical.
-            dict: {category: "OR (LB-UB)"} for multi-level categorical.
+            (Result, MethodName)
+            Result can be str "OR (LB-UB)" or dict {category: "OR (LB-UB)"}.
         """
         try:
             # Filter to only the 2 groups
@@ -307,7 +311,7 @@ class StatisticalEngine:
             clean_df = sub_df[[col, "_target"]].dropna()
 
             if len(clean_df) < 10:  # Min sample size heuristic
-                return "-"
+                return "-", "-"
 
             if not is_cat:
                 # Continuous: Univariate Logistic Regression
@@ -317,7 +321,7 @@ class StatisticalEngine:
 
                 # Check variance
                 if x.std() == 0:
-                    return "-"
+                    return "-", "-"
 
                 # Logit
                 x_design = sm.add_constant(x)
@@ -331,11 +335,14 @@ class StatisticalEngine:
                         ci_lower = np.exp(conf.loc[col, 0])
                         ci_upper = np.exp(conf.loc[col, 1])
 
-                        return f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})"
+                        return (
+                            f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})",
+                            "Univar. Logit",
+                        )
                     else:
-                        return "-"
+                        return "-", "Univar. Logit"
                 except Exception:
-                    return "-"
+                    return "-", "Univar. Logit"
 
             else:
                 # Categorical: 2x2 Tables for each level vs Reference (or handle as simple crosstab)
@@ -391,11 +398,21 @@ class StatisticalEngine:
 
                     results[str(cat)] = res_str
 
-                return results
+                # Check if "Simple" style is requested and valid (Binary variable)
+                if or_style == "simple" and len(results) == 2:
+                    # Sort keys to determine "Event" (2nd category)
+                    sorted_cats = sorted(results.keys())
+                    event_cat = sorted_cats[1]  # Take 2nd
+                    return results[event_cat], f"2x2 ({event_cat} vs {sorted_cats[0]})"
+
+                return (
+                    results,
+                    "2x2 Fisher" if "Fisher" in "placeholder_check" else "2x2 Est.",
+                )
 
         except Exception as e:
             logger.warning(f"Failed to calc OR for {col}: {e}")
-            return "-"
+            return "-", "Error"
 
 
 # --- 4. Formatter ---
@@ -431,9 +448,12 @@ class TableOneFormatter:
             is_sig = p is not None and p < 0.05
             p_cls = "p-significant" if is_sig else "p-not-significant"
             star = "*" if is_sig else ""
+
+            # Combine P and Test Name, if OR method exists, append it
+            test_html = f"{test}"
             return (
                 f"<td class='numeric-cell'><span class='{p_cls}'>{p_str}{star}</span></td>"
-                f"<td class='numeric-cell'>{test}</td>"
+                f"<td class='numeric-cell'>{test_html}</td>"
             )
 
         # Basic CSS (same as original to ensure UI consistency)
@@ -495,7 +515,12 @@ class TableOneFormatter:
                     row += f"<td class='numeric-cell'>{smd}</td>"
                     row += f"<td class='numeric-cell'>{or_val}</td>"
 
-                row += _p_cell(res.p_value, res.test_name)
+                # Append OR method to test name if available
+                final_test_name = res.test_name
+                if res.or_test_name and res.or_test_name != "-":
+                    final_test_name += f"<br><small>({res.or_test_name})</small>"
+
+                row += _p_cell(res.p_value, final_test_name)
             elif len(groups) > 0:
                 row += _p_cell(res.p_value, res.test_name)
 
@@ -528,7 +553,12 @@ class TableOneGenerator:
         self.classifier = VariableClassifier()
         self.stats_engine = StatisticalEngine()
 
-    def generate(self, selected_vars: list[str], stratify_by: str = None) -> str:
+    def generate(
+        self,
+        selected_vars: list[str],
+        stratify_by: str = None,
+        or_style: str = "all_levels",
+    ) -> str:
         # 1. Clean Data (Reuse robust logic)
         missing_cfg = CONFIG.get("analysis.missing", {})
         df_clean, missing_info = prepare_data_for_analysis(
@@ -638,15 +668,17 @@ class TableOneGenerator:
                     res.extra_stats["smd"] = smd
 
                     # Calculate OR
-                    or_calc = self.stats_engine.calculate_or(
+                    or_calc, or_method = self.stats_engine.calculate_or(
                         df_clean,
                         var,
                         stratify_by,
                         groups[0]["val"],
                         groups[1]["val"],
                         is_cat,
+                        or_style=or_style,
                     )
                     res.extra_stats["or"] = or_calc
+                    res.or_test_name = or_method
 
                     # Inject into categorical sub-stats if needed
                     # If or_calc is a dict, we need to map it to stats_groups maybe?
@@ -670,6 +702,38 @@ class TableOneGenerator:
                         or_strs = []
                         for cat in cats_order:
                             or_strs.append(or_calc.get(str(cat), "-"))
+
+                        res.extra_stats["or"] = "<br>".join(or_strs)
+
+                    elif is_cat and not isinstance(or_calc, dict):
+                        # Case: "Simple" style for categorical (returns str)
+                        # We need to align this single string with the category rows.
+                        # Logic: If simple, user sees ONE line? OR all lines but only one has OR?
+                        # Usually "Simple" means risk of Event.
+                        # If table shows ALL levels n(%), but OR is single line... how to align?
+                        # Option A: Put OR on the line of the Event category.
+                        # Option B: Put OR in the middle or top.
+                        # Given `get_stats_categorical` returns <br> joined string...
+                        # We need to return a <br> joined string for OR column too.
+
+                        # Re-get categories order
+                        _, counts_series = self.stats_engine.get_stats_categorical(
+                            df_clean[var]
+                        )
+                        cats_order = counts_series.index.tolist()
+
+                        or_strs = []
+                        # Extract the target category from or_method string "2x2 (Event vs Ref)"
+                        # or just put it on the 2nd line.
+                        # Simple heuristic: Put on 2nd line if 2 lines.
+                        if len(cats_order) == 2:
+                            or_strs.append("-")  # Ref
+                            or_strs.append(or_calc)  # Event
+                        else:
+                            # Fallback for >2 levels if simple passed (logic defaults to all_levels but just in case)
+                            or_strs.append(or_calc)
+                            for _ in range(len(cats_order) - 1):
+                                or_strs.append("")
 
                         res.extra_stats["or"] = "<br>".join(or_strs)
 

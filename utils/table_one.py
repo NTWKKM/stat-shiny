@@ -103,6 +103,7 @@ def generate_table(
     selected_vars: list[str],
     group_col: str | None,
     var_meta: dict[str, Any] | None,
+    or_style: str = "all_levels",
 ) -> str:
     """
     Generate baseline characteristics table using the new Advanced TableOneGenerator.
@@ -112,6 +113,7 @@ def generate_table(
         selected_vars: List of variables to include
         group_col: Column to stratify by (optional)
         var_meta: Metadata dictionary (labels, etc.)
+        or_style: "all_levels" or "simple" for Odds Ratio display.
 
     Returns:
         HTML string of the table.
@@ -125,7 +127,9 @@ def generate_table(
 
         # Generate HTML
         # Note: The new generate method handles classification, stats, and HTML rendering internally.
-        html_output = generator.generate(selected_vars, stratify_by=stratify)
+        html_output = generator.generate(
+            selected_vars, stratify_by=stratify, or_style=or_style
+        )
 
         # Helper to match legacy output expectations (Integration Tests)
         if "Baseline Characteristics" not in html_output:
