@@ -41,16 +41,8 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- docker-compose.yml
 |-- docs /
 |   |-- ARCHITECTURE.md
-|   |-- DEEP-OPTIMIZATION-PLAN.md
-|   |-- IMPLEMENTATION_ROADMAP.md
-|   |-- OPTIMIZATION_REPORT.md
-|   |-- assets /
-|   |   `-- navigation_sequence.png
-|   |-- deep-ai-bot-optimization.md
-|   |-- firthmodels.md
-|   |-- rabbitai-report.md
-|   |-- statiomed-detailed-roadmap.md
-|   `-- updated-R-benchmark-script.md
+|   `-- assets /
+|       `-- navigation_sequence.png
 |-- logger.py
 |-- pyproject.toml
 |-- pytest.ini
@@ -111,6 +103,8 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |   |-- test_survival_pipeline.py
 |   |   `-- test_table_one_pipeline.py
 |   `-- unit /
+|       |-- output /
+|       |   `-- test_output_2.html
 |       |-- test_advanced_stats.py
 |       |-- test_bland_altman.py
 |       |-- test_causal.py
@@ -125,6 +119,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_data_quality_report.py
 |       |-- test_dca.py
 |       |-- test_diag_returns.py
+|       |-- test_diagnostic_advanced.py
 |       |-- test_firth_regression.py
 |       |-- test_formatting.py
 |       |-- test_glm.py
@@ -148,12 +143,14 @@ This content reflects the repository structure (updated by GitHub Actions):
 `-- utils /
     |-- __init__.py
     |-- advanced_stats_lib.py
+    |-- agreement_lib.py
     |-- collinearity_lib.py
     |-- correlation.py
     |-- data_cleaning.py
     |-- data_quality.py
     |-- decision_curve_lib.py
     |-- diag_test.py
+    |-- diagnostic_advanced_lib.py
     |-- forest_plot_lib.py
     |-- formatting.py
     |-- heterogeneity_lib.py
@@ -172,11 +169,13 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- subgroup_analysis_module.py
     |-- survival_lib.py
     |-- table_one.py
+    |-- table_one_advanced.py
     |-- tvc_lib.py
     |-- ui_helpers.py
     |-- update_css.py
     `-- visualizations.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
