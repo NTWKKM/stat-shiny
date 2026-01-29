@@ -15,7 +15,6 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-
 from scipy import stats
 
 from config import CONFIG
@@ -34,7 +33,7 @@ logger = get_logger(__name__)
 def _numeric_sort_key(x: Any) -> tuple[int, float | str]:
     """
     Create a sort key that places numeric-like values before non-numeric values and preserves numeric order.
-    
+
     Returns:
         tuple: A two-element tuple where the first element is 0 for inputs parseable as a float and 1 otherwise; the second element is the parsed float for numeric inputs or the original string representation for non-numeric inputs.
     """
@@ -81,11 +80,11 @@ class VariableClassifier:
     def classify(series: pd.Series, max_cat_unique: int = 10) -> str:
         """
         Infer the reporting type of a variable for Table 1.
-        
+
         Parameters:
             series (pd.Series): Input column to classify; missing values are ignored.
             max_cat_unique (int): Maximum number of unique values to treat a numeric-like series as categorical.
-        
+
         Returns:
             var_type (str): One of "categorical", "continuous_normal", "continuous_non_normal", or "unknown".
         """
@@ -112,9 +111,9 @@ class VariableClassifier:
     def _check_normality_advanced(series: pd.Series) -> str:
         """
         Determine whether a numeric series should be treated as normally distributed for Table 1 reporting.
-        
+
         Uses Shapiro-Wilk for samples smaller than 5000 and Jarque-Bera for larger samples; also considers descriptive criteria (absolute skewness < 1.0 and absolute kurtosis < 2.0) when sample size exceeds 50. Series with fewer than 3 observations are classified as non-normal. If an internal error occurs, the function logs a warning and returns non-normal.
-        
+
         Returns:
             'continuous_normal' if the series is assessed as normal, 'continuous_non_normal' otherwise.
         """
@@ -158,11 +157,11 @@ class StatisticalEngine:
     def get_stats_continuous(series: pd.Series, normal: bool = True) -> str:
         """
         Return a concise summary string for a continuous variable using mean±SD for normally distributed data or median [Q1, Q3] for non-normal data.
-        
+
         Parameters:
             series (pd.Series): Numeric values; non-numeric entries will be coerced/cleaned and NA values dropped.
             normal (bool): If True, format as mean ± SD; if False, format as median [Q1, Q3].
-        
+
         Returns:
             str: Formatted summary string (e.g., "50.2 ± 10.1" or "120.0 [100.0, 140.0]"), or "-" if no non-missing numeric values are present.
         """
@@ -187,11 +186,11 @@ class StatisticalEngine:
     ) -> tuple[str, pd.Series]:
         """
         Produce an HTML-ready categorical summary showing counts and percentages per category.
-        
+
         Parameters:
             series (pd.Series): Values for the categorical variable; missing values are ignored.
             total_n (int | None): Optional denominator used to compute percentages. If None, percentages use the number of non-missing values in `series`.
-        
+
         Returns:
             summary_html (str): A string with category lines like "Category: count (x.x%)" joined by `<br>`. Returns "-" when there are no non-missing values. Category labels are HTML-escaped.
             counts (pd.Series): Value counts for each category sorted by category index.
@@ -219,11 +218,11 @@ class StatisticalEngine:
     ) -> tuple[float | None, str]:
         """
         Choose and run an appropriate hypothesis test for comparing a numeric variable across groups.
-        
+
         Parameters:
             groups (list[pd.Series]): List of group vectors to compare; each series may contain non-numeric or missing values which will be dropped.
             normal (bool): If True, use parametric tests (t-test for two groups, ANOVA for >2); if False, use nonparametric alternatives.
-        
+
         Returns:
             tuple:
                 p_value (float | None): The p-value from the selected test, or `None` if the test was not performed.
@@ -263,12 +262,12 @@ class StatisticalEngine:
     ) -> tuple[float | None, str]:
         """
         Compute a p-value for association between a categorical variable and a grouping variable using chi-square or Fisher's exact test.
-        
+
         Parameters:
             df (pd.DataFrame): Data frame containing the data.
             col (str): Column name of the categorical variable to test.
             group_col (str): Column name of the grouping variable.
-        
+
         Returns:
             tuple[float | None, str]: A tuple (p_value, test_name).
                 - p_value: The test p-value, or `None` if the test could not be performed (e.g., fewer than two categories or groups, empty contingency table, or an error).
@@ -308,9 +307,9 @@ class StatisticalEngine:
     ) -> str:
         """
         Compute the standardized mean difference (SMD) between two groups for a specified column.
-        
+
         For numeric columns this returns a single SMD value formatted to three decimals. For categorical columns this returns per-category SMDs joined with HTML <br> separators in the order of category sorting. Values with magnitude >= 0.1 are wrapped in <b>...</b> to highlight imbalance. The string "<b>—</b>" denotes an undefined SMD due to effectively zero pooled standard deviation for that comparison. A single hyphen "-" indicates insufficient data or an internal error.
-        
+
         Parameters:
             df (pd.DataFrame): DataFrame containing the data.
             col (str): Column name to compare.
@@ -318,7 +317,7 @@ class StatisticalEngine:
             g1_val (Any): Value in group_col identifying the first group.
             g2_val (Any): Value in group_col identifying the second group.
             is_cat (bool): If True, treat `col` as categorical and compute per-category SMDs; otherwise treat as numeric.
-        
+
         Returns:
             str: Formatted SMD result as described above.
         """
@@ -394,9 +393,9 @@ class StatisticalEngine:
     ) -> tuple[str | dict[str, str], str]:
         """
         Compute odds ratios (ORs) comparing two groups for a given variable and return the OR(s) with the method name.
-        
+
         Computes an OR and 95% confidence interval for a numeric variable using univariate logistic regression or for categorical variables using 2x2 tables (each level versus a reference). Group g1_val is treated as the reference and g2_val as the comparison. For categorical variables, `or_style` controls whether to return a single comparison ("simple") or ORs for all levels versus the reference ("all_levels").
-        
+
         Parameters:
             df (pd.DataFrame): Source table containing the variable and group column.
             col (str): Column name of the predictor variable for which ORs are calculated.
@@ -406,7 +405,7 @@ class StatisticalEngine:
             is_cat (bool): True if `col` is categorical, False if numeric (continuous).
             or_style (str): "all_levels" to return ORs for every category versus reference,
                 or "simple" to return only the last category versus the reference for categorical variables.
-        
+
         Returns:
             tuple[result, method_name]:
                 result: For numeric predictors, a formatted string "OR (LB-UB)" or "-" on failure.
@@ -493,12 +492,12 @@ class StatisticalEngine:
                 def calc_2x2_or(cat_val, c_ref, d_ref):
                     """
                     Compute the odds ratio and 95% confidence interval for a 2x2 comparison of a categorical level versus a reference level.
-                    
+
                     Parameters:
                         cat_val: value of the category level to compare against the reference.
                         c_ref (float | int): count of reference-level events in the case group (cell c).
                         d_ref (float | int): count of reference-level events in the control group (cell d).
-                    
+
                     Returns:
                         str: Formatted result as "OR (lower-upper)" where OR and bounds are shown with two decimals;
                              returns "Ref." if `cat_val` equals the reference category, "-" when the OR is undefined
@@ -575,10 +574,10 @@ class TableOneFormatter:
     def format_p(p: float | None) -> str:
         """
         Format a p-value for display in Table 1.
-        
+
         Parameters:
             p (float | None): The p-value to format; may be None or NaN.
-        
+
         Returns:
             str: "-" if `p` is None or NaN, "<0.001" if `p` < 0.001, otherwise the p-value rounded to three decimal places (e.g., "0.123").
         """
@@ -601,7 +600,7 @@ class TableOneFormatter:
         # Helper helpers
         """
         Render an HTML Table 1 from precomputed variable analyses and grouping information.
-        
+
         Parameters:
             results (list[VariableAnalysis]): Ordered list of per-variable analysis results (labels, stats, p-values, extra stats).
             groups (list[dict]): List of group descriptors, each with keys "val" (group value) and "label" (display label).
@@ -609,10 +608,11 @@ class TableOneFormatter:
             total_n (int): Total sample size used for the "Total (N=...)" column.
             missing_info (dict): Information about missing data used to generate a supplemental missing-data report appended to the HTML.
             var_meta (dict | None): Optional variable metadata used when rendering the missing-data report (may be None).
-        
+
         Returns:
             str: HTML string containing the formatted Table 1 (table markup and inline CSS) followed by the missing-data report.
         """
+
         def _p_cell(p, test):
             if p is None:
                 return "<td>-</td><td>-</td>"
@@ -717,11 +717,11 @@ class TableOneGenerator:
     def __init__(self, df: pd.DataFrame, var_meta: dict | None = None):
         """
         Initialize the TableOneGenerator with source data and optional variable metadata.
-        
+
         Parameters:
             df (pd.DataFrame): Source dataframe used for all analyses.
             var_meta (dict | None): Optional mapping of variable names to metadata (labels, display options); defaults to empty dict.
-        
+
         Attributes:
             raw_df (pd.DataFrame): Reference to the provided source dataframe.
             var_meta (dict): Stored variable metadata.
@@ -738,12 +738,12 @@ class TableOneGenerator:
     ) -> str:
         """
         Format odds-ratio results for a categorical variable into a '<br>'-separated string aligned with the variable's displayed category order.
-        
+
         Parameters:
             var (str): Column name of the categorical variable.
             or_calc (str | dict): OR results either as a dictionary mapping category -> formatted OR string, or a single formatted OR string (simple/binary style).
             df_clean (pd.DataFrame): DataFrame used to derive the category order for `var`.
-        
+
         Returns:
             str: A '<br>'-joined string containing one entry per category in display order. When `or_calc` is a dict, each category's mapped value is used (missing entries become '-'). When `or_calc` is a single string and there are two categories, the first category is rendered as the reference ('-') and the second as the provided string; for more than two categories the single string is placed first and remaining entries are empty strings.
         """
@@ -778,16 +778,16 @@ class TableOneGenerator:
     ) -> str:
         """
         Generate an HTML Table 1 for the given variables, optionally stratified by a grouping variable and with configurable odds-ratio formatting.
-        
+
         This method computes per-variable overall summaries and, when a stratification variable is provided, per-group summaries, hypothesis tests (p-values and test names), standardized mean differences (for two-group comparisons), and odds ratios. Results are rendered into an HTML table along with missing-data reporting.
-        
+
         Parameters:
             selected_vars (list[str]): List of column names to include as rows in the table.
             stratify_by (str | None): Column name to stratify (create group columns) by; use None for no stratification.
             or_style (str): Style for categorical odds-ratio output when two groups are present. Supported values:
                 - "all_levels": produce ORs for each category versus the reference.
                 - "simple": produce a single OR comparing the last category to the reference.
-        
+
         Returns:
             str: Rendered HTML string containing the Table 1 and missing-data report.
         """
