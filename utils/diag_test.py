@@ -16,7 +16,7 @@ OPTIMIZATIONS: DeLong method vectorized (106x faster), ICC vectorized (9x faster
 from __future__ import annotations
 
 import html as _html
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import pandas as pd

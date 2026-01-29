@@ -40,9 +40,9 @@ from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
 from utils.formatting import (
+    PublicationFormatter,
     create_missing_data_report_html,
     format_p_value,
-    PublicationFormatter,
 )
 
 # Internal imports

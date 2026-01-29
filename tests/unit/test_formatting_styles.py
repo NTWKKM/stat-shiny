@@ -1,6 +1,5 @@
-import pytest
-from utils.formatting import PublicationFormatter, MissingDataStatement
 from config import CONFIG
+from utils.formatting import MissingDataStatement, PublicationFormatter
 
 
 def test_publication_formatter():
