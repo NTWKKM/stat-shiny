@@ -44,14 +44,14 @@ def test_categorical():
     assert "<table" in html
 
 
-def test_missing_data(tmp_path):
+def test_missing_data(tmp_path=None):
     """
     Run a test that verifies generate_table correctly handles missing data.
 
     Creates a synthetic DataFrame with randomized Treatment_Group, Sex, Diabetes, and Age,
     injects missing values into Age and Sex, and calls generate_table with selected
-    variables. On success, writes the resulting HTML to output/test_output_2.html relative
-    to this file and prints a pass message; on failure, prints a failure message with the exception.
+    variables. On success, writes the resulting HTML to a temporary path and prints a pass
+    message; on failure, prints a failure message with the exception.
     """
     print("\n--- Test Case 2: Missing Data ---")
     np.random.seed(42)
@@ -84,7 +84,13 @@ def test_missing_data(tmp_path):
             group_col="Treatment_Group",
             var_meta=var_meta,
         )
-        print("✅ Test Case 2 PASSED - Handles missing data")
+
+        if tmp_path is None:
+            import tempfile
+            from pathlib import Path
+
+            tmp_path = Path(tempfile.gettempdir())
+
         output_path = tmp_path / "test_output_2.html"
         output_path.write_text(html)
         print(f"✅ Test Case 2 PASSED - Logic verified and saved to {output_path}")
