@@ -39,7 +39,7 @@ def format_p(p: float | str) -> str:
 
 
 # Note: These legacy calculation functions are kept just in case external scripts import them.
-# Internally, generate_table will uses the new Engine.
+# Internally, generate_table will use the new Engine.
 
 
 def compute_or_ci(a, b, c, d) -> str:
