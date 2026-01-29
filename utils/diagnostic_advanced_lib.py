@@ -193,7 +193,9 @@ class DiagnosticTest:
 
         # Diagnostic Odds Ratio
         dor = (
-            (lr_plus / lr_minus) if (lr_minus is not None and lr_minus > 0) else np.nan
+            (lr_plus / lr_minus)
+            if (not np.isnan(lr_minus) and lr_minus > 0)
+            else np.nan
         )
 
         # Calculate CIs
@@ -300,6 +302,7 @@ class DiagnosticComparison:
         score1: np.ndarray | pd.Series,
         score2: np.ndarray | pd.Series,
         pos_label: int | str = 1,
+        ci: float = 0.95,
     ) -> dict:
         """
         Perform Paired DeLong Test to compare AUCs of two correlated ROC curves.
@@ -340,9 +343,10 @@ class DiagnosticComparison:
             z_score = auc_diff / se_diff
             p_value = 2 * (1 - stats.norm.cdf(abs(z_score)))  # Two-tailed
 
+        z_crit = stats.norm.ppf(1 - (1 - ci) / 2)
         # 95% CI of the difference
-        ci_lower = auc_diff - 1.96 * se_diff
-        ci_upper = auc_diff + 1.96 * se_diff
+        ci_lower = auc_diff - z_crit * se_diff
+        ci_upper = auc_diff + z_crit * se_diff
 
         return {
             "auc1": auc1,
