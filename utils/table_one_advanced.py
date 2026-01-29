@@ -750,17 +750,6 @@ class TableOneGenerator:
                     res.extra_stats["or"] = or_calc
                     res.or_test_name = or_method
 
-                    # Inject into categorical sub-stats if needed
-                    # If or_calc is a dict, we need to map it to stats_groups maybe?
-                    # The TableOneFormatter needs to know how to render per-row categorical ORs.
-                    # Currently TableOneFormatter iterates `res` which is one ROW per variable.
-                    # Wait, the formatter logic currently outputs ONE row per variable?
-                    # Let's check 'stats_overall' for categorical.
-                    # Line 162: returns "<br>".join(res_parts)
-                    # So the categorical variable is ONE row in the HTML table with multiple lines inside the cell?
-                    # Yes. `get_stats_categorical` joins with <br>.
-                    # So we need to format the ORs similarly joined by <br>.
-
                     if is_cat:
                         res.extra_stats["or"] = self._format_categorical_or(
                             var, or_calc, df_clean
