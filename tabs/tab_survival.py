@@ -459,8 +459,18 @@ def survival_ui() -> ui.TagChild:
                         ),
                         col_widths=[6, 6],
                     ),
-                    ui.input_action_button(
-                        "btn_run_rcs", "🚀 Run RCS Analysis", class_="btn-primary w-100"
+                    ui.layout_columns(
+                        ui.input_action_button(
+                            "btn_run_rcs",
+                            "🚀 Run RCS Analysis",
+                            class_="btn-primary w-100",
+                        ),
+                        ui.download_button(
+                            "btn_dl_rcs",
+                            "📥 Download Report",
+                            class_="btn-secondary w-100",
+                        ),
+                        col_widths=[6, 6],
                     ),
                     ui.hr(),
                     ui.output_ui("out_rcs_status"),
@@ -2249,7 +2259,35 @@ def survival_server(
         if not res or "stats" not in res:
             return render.DataGrid(pd.DataFrame())
 
-        return render.DataGrid(res["stats"], selection_mode="none")
+        df = res["stats"].copy()
+        if "P-value" in df.columns:
+            df["P-value"] = df["P-value"].apply(
+                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+            )
+
+        return render.DataGrid(df, selection_mode="none")
+
+    @render.download(filename="rcs_report.html")
+    def btn_dl_rcs():
+        """Download RCS analysis report."""
+        res = rcs_result.get()
+        if not res:
+            yield "No results. Please run analysis first."
+            return
+
+        elements = [
+            {"type": "header", "data": "Restricted Cubic Spline (RCS) Analysis"},
+            {"type": "plot", "data": res["fig"]},
+            {"type": "header", "data": "Model Summary"},
+            {"type": "table", "data": res["stats"]},
+        ]
+
+        yield survival_lib.generate_report_survival(
+            "RCS Analysis Report",
+            elements,
+            missing_data_info=res.get("missing_data_info"),
+            var_meta=var_meta.get(),
+        )
 
     @render.ui
     def out_rcs_status():

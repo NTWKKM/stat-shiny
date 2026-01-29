@@ -247,6 +247,7 @@ def fit_cox_rcs(
         # Stats table (AIC, p-value for non-linearity is complex to extract easily without nested models,
         # so we return model summary)
         stats_df = cph.summary[["coef", "exp(coef)", "p", "z"]].reset_index()
+        stats_df.rename(columns={"p": "P-value", "exp(coef)": "HR"}, inplace=True)
         stats_df["Method"] = f"RCS (knots={knots})"
 
         return fig, stats_df, missing_info
