@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
+
 from scipy import stats
 
 from config import CONFIG
@@ -26,6 +26,7 @@ from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
 from utils.formatting import create_missing_data_report_html
+from utils.logic import run_binary_logit
 
 logger = get_logger(__name__)
 
@@ -341,25 +342,19 @@ class StatisticalEngine:
                 if x.std() == 0:
                     return "-", "-"
 
-                # Logit
-                x_design = sm.add_constant(x)
-                try:
-                    model = sm.Logit(y, x_design).fit(disp=0)
-                    params = model.params
-                    conf = model.conf_int()
+                # Logit via shared module
+                params, conf, _, status, _ = run_binary_logit(y, clean_df[[col]])
 
-                    if col in params:
-                        or_val = np.exp(params[col])
-                        ci_lower = np.exp(conf.loc[col, 0])
-                        ci_upper = np.exp(conf.loc[col, 1])
+                if status == "OK" and params is not None and col in params:
+                    or_val = np.exp(params[col])
+                    ci_lower = np.exp(conf.loc[col, 0])
+                    ci_upper = np.exp(conf.loc[col, 1])
 
-                        return (
-                            f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})",
-                            "Univar. Logit",
-                        )
-                    else:
-                        return "-", "Univar. Logit"
-                except Exception:
+                    return (
+                        f"{or_val:.2f} ({ci_lower:.2f}-{ci_upper:.2f})",
+                        "Univar. Logit",
+                    )
+                else:
                     return "-", "Univar. Logit"
 
             else:
