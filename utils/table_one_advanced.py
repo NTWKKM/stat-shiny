@@ -330,6 +330,8 @@ class StatisticalEngine:
             if is_cat:
                 s1 = df.loc[mask1, col].dropna()
                 s2 = df.loc[mask2, col].dropna()
+                if len(s1) == 0 or len(s2) == 0:
+                    return "-"
 
                 # Get union of categories
                 cats = set(s1.unique()) | set(s2.unique())
@@ -342,7 +344,7 @@ class StatisticalEngine:
                     p2 = (s2.astype(str) == str(cat)).mean()
                     pooled_sd = np.sqrt((p1 * (1 - p1) + p2 * (1 - p2)) / 2)
 
-                    if pooled_sd <= 1e-8:
+                    if not np.isfinite(pooled_sd) or pooled_sd <= 1e-8:
                         if abs(p1 - p2) < 1e-8:
                             val_str = "0.000"
                         else:
@@ -614,6 +616,9 @@ class TableOneFormatter:
             str: HTML string containing the formatted Table 1 (table markup and inline CSS) followed by the missing-data report.
         """
 
+        def _safe_text(val):
+            return _html.escape(str(val)) if val is not None else "-"
+
         def _p_cell(p, test):
             if p is None:
                 return "<td>-</td><td>-</td>"
@@ -684,13 +689,15 @@ class TableOneFormatter:
                 row += f"<td class='numeric-cell'>{or_val}</td>"
 
                 # Append OR method to test name if available
-                final_test_name = res.test_name
+                final_test_name = _safe_text(res.test_name)
                 if res.or_test_name and res.or_test_name != "-":
-                    final_test_name += f"<br><small>({res.or_test_name})</small>"
+                    final_test_name += (
+                        f"<br><small>({_safe_text(res.or_test_name)})</small>"
+                    )
 
                 row += _p_cell(res.p_value, final_test_name)
             elif len(groups) > 0:
-                row += _p_cell(res.p_value, res.test_name)
+                row += _p_cell(res.p_value, _safe_text(res.test_name))
 
             row += "</tr>"
             rows_html += row
