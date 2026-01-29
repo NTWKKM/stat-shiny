@@ -470,6 +470,7 @@ class TableOneFormatter:
         group_masks: dict,
         total_n: int,
         missing_info: dict,
+        var_meta: dict | None = None,
     ) -> str:
         # Helper helpers
         def _p_cell(p, test):
@@ -568,7 +569,7 @@ class TableOneFormatter:
         </div>
         """
         # Append missing data info
-        html += create_missing_data_report_html(missing_info, {})
+        html += create_missing_data_report_html(missing_info, var_meta or {})
         return html
 
 
@@ -581,8 +582,6 @@ class TableOneGenerator:
     def __init__(self, df: pd.DataFrame, var_meta: dict = None):
         self.raw_df = df
         self.var_meta = var_meta or {}
-        self.classifier = VariableClassifier()
-        self.stats_engine = StatisticalEngine()
 
     def _format_categorical_or(
         self, var: str, or_calc: str | dict, df_clean: pd.DataFrame
