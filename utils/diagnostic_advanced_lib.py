@@ -21,16 +21,18 @@ def calculate_ci_wilson_score(
     k: float, n: float, ci: float = 0.95, alpha: float | None = None
 ) -> tuple[float, float]:
     """
-    Wilson Score Interval for binomial proportion.
-
-    Args:
-        k: Number of successes
-        n: Total number of trials
-        ci: Confidence interval (default 0.95)
-        alpha: Significance level (optional override, default computed from ci)
-
+    Compute the Wilson score confidence interval for a binomial proportion.
+    
+    If n <= 0, returns (NaN, NaN). If `alpha` is provided it overrides `ci` (alpha = 1 - ci).
+    
+    Parameters:
+        k (float): Number of successes.
+        n (float): Number of trials.
+        ci (float): Desired confidence level between 0 and 1 (default 0.95).
+        alpha (float | None): Optional significance level; when provided it overrides `ci`.
+    
     Returns:
-        tuple[float, float]: (lower_bound, upper_bound)
+        tuple[float, float]: (lower_bound, upper_bound) bounded to [0, 1]; may be (NaN, NaN) when n <= 0.
     """
     if n <= 0:
         return np.nan, np.nan
@@ -96,6 +98,17 @@ class DiagnosticTest:
         pos_label: int | str = 1,
     ):
         # Convert inputs to numpy arrays
+        """
+        Initialize a DiagnosticTest for a single predictive score and its ground truth.
+        
+        Parameters:
+        	y_true (np.ndarray | pd.Series): Ground-truth labels for each sample.
+        	y_score (np.ndarray | pd.Series): Continuous scores or probabilities produced by the diagnostic test.
+        	pos_label (int | str): Value in `y_true` treated as the positive class.
+        
+        Description:
+        	Stores inputs as numpy arrays, converts ground-truth labels to binary 0/1 using `pos_label`, and computes ROC curve (FPR, TPR, thresholds) and AUC when both classes are present. If only a single class exists in `y_true`, `fpr`, `tpr`, and `thresholds` are set to empty arrays and `auc` is set to `NaN`.
+        """
         self.y_true = np.array(y_true)
         self.y_score = np.array(y_score)
         self.pos_label = pos_label
@@ -120,13 +133,15 @@ class DiagnosticTest:
 
     def find_optimal_threshold(self, method: str = "youden") -> tuple[float, int]:
         """
-        Find optimal threshold based on specified criteria.
-
-        Args:
-            method: Optimization method ('youden', 'distance', 'f1')
-
+        Selects an optimal decision threshold from the instance's ROC thresholds according to a specified criterion.
+        
+        Parameters:
+            method (str): Selection method — "youden" (maximizes TPR - FPR), "distance" (minimizes Euclidean distance to point (0,1) on ROC), or "f1" (maximizes F1 score computed at each ROC threshold). Defaults to "youden".
+        
         Returns:
-            (optimal_threshold, index_in_arrays)
+            tuple:
+                threshold (float): The chosen threshold value (NaN and -1 index if no thresholds are available).
+                index (int): Index of the chosen threshold in the stored threshold array (or -1 if no thresholds).
         """
         if len(self.thresholds) == 0:
             return np.nan, -1
@@ -169,7 +184,33 @@ class DiagnosticTest:
 
     def get_metrics_at_threshold(self, threshold: float) -> dict[str, float]:
         """
-        Calculate detailed diagnostic metrics at a specific threshold.
+        Compute diagnostic performance metrics and Wilson confidence intervals at a given score threshold.
+        
+        Parameters:
+            threshold (float): Score cutoff used to binarize predictions (samples with score >= threshold are positive).
+        
+        Raises:
+            ValueError: If the ground truth contains fewer than two classes (both positive and negative samples required).
+        
+        Returns:
+            dict[str, float]: A dictionary containing:
+                - "threshold": the provided threshold.
+                - "auc": AUC of the test (NaN if not available).
+                - "sensitivity": true positive rate.
+                - "sensitivity_ci_lower", "sensitivity_ci_upper": Wilson CI bounds for sensitivity.
+                - "specificity": true negative rate.
+                - "specificity_ci_lower", "specificity_ci_upper": Wilson CI bounds for specificity.
+                - "ppv": positive predictive value (precision).
+                - "ppv_ci_lower", "ppv_ci_upper": Wilson CI bounds for PPV.
+                - "npv": negative predictive value.
+                - "npv_ci_lower", "npv_ci_upper": Wilson CI bounds for NPV.
+                - "accuracy": overall accuracy.
+                - "accuracy_ci_lower", "accuracy_ci_upper": Wilson CI bounds for accuracy.
+                - "f1_score": F1 score at the threshold.
+                - "lr_plus": positive likelihood ratio (LR+), NaN if undefined.
+                - "lr_minus": negative likelihood ratio (LR-), NaN if undefined.
+                - "dor": diagnostic odds ratio, NaN if undefined.
+                - "tp", "tn", "fp", "fn": confusion matrix counts.
         """
         if len(np.unique(self.y_true_binary)) < 2:
             raise ValueError(
@@ -244,8 +285,18 @@ class DiagnosticComparison:
         y_true: np.ndarray, score1: np.ndarray, score2: np.ndarray
     ) -> float:
         """
-        Compute DeLong covariance between two AUCs.
-        Optimized vectorized implementation.
+        Compute the DeLong covariance component between two AUC estimates for paired ROC curves.
+        
+        Parameters:
+            y_true (np.ndarray): Binary ground-truth labels (0 for negative, 1 for positive).
+            score1 (np.ndarray): Continuous scores or prediction probabilities for the first classifier, aligned with y_true.
+            score2 (np.ndarray): Continuous scores or prediction probabilities for the second classifier, aligned with y_true.
+        
+        Returns:
+            float: Covariance between the two AUC estimates as computed by DeLong's method.
+        
+        Raises:
+            ValueError: If y_true does not contain both positive and negative samples.
         """
         n_pos = np.sum(y_true == 1)
         n_neg = len(y_true) - n_pos
@@ -261,6 +312,15 @@ class DiagnosticComparison:
         def compute_v10(score):
             # Compare every positive score against every negative score
             # Matrix broadcasting: (n_pos, 1) > (1, n_neg) -> (n_pos, n_neg)
+            """
+            Compute per-positive placement values against all negatives for a score vector.
+            
+            Parameters:
+                score (array-like): Scores for all samples; comparisons use `pos_indices` and `neg_indices` from the enclosing scope.
+            
+            Returns:
+                numpy.ndarray: 1-D array of length equal to the number of positive samples where each element is the average over negatives of: `1.0` if positive score > negative score, `0.5` if equal, and `0.0` if less (values in [0.0, 1.0]).
+            """
             pos_scores = score[pos_indices]
             neg_scores = score[neg_indices]
 
@@ -273,6 +333,17 @@ class DiagnosticComparison:
 
         # V01 calculation (Placement values for negatives)
         def compute_v01(score):
+            """
+            Compute average placement values for each negative sample by comparing positive scores to that negative.
+            
+            Parameters:
+                score (array-like): Array of scores for all samples; indices referenced by the outer-scope
+                    variables `pos_indices` and `neg_indices`.
+            
+            Returns:
+                numpy.ndarray: Array of placement values with shape (n_neg,), where each element is the mean
+                across positive samples of: 1.0 if positive score > negative score, 0.5 if equal, and 0.0 otherwise.
+            """
             pos_scores = score[pos_indices]
             neg_scores = score[neg_indices]
 
@@ -305,9 +376,25 @@ class DiagnosticComparison:
         ci: float = 0.95,
     ) -> dict:
         """
-        Perform Paired DeLong Test to compare AUCs of two correlated ROC curves.
-
-        Returns dictionary with z_score, p_value, diff, ci_lower, ci_upper.
+        Compare two correlated ROC AUCs using DeLong's paired test.
+        
+        Parameters:
+            y_true (np.ndarray | pd.Series): True labels.
+            score1 (np.ndarray | pd.Series): Scores/probabilities from the first classifier.
+            score2 (np.ndarray | pd.Series): Scores/probabilities from the second classifier.
+            pos_label (int | str): Value in `y_true` treated as the positive class.
+            ci (float): Confidence level for the returned confidence interval (e.g., 0.95).
+        
+        Returns:
+            result (dict): Dictionary with the following keys:
+                auc1 (float): AUC of `score1` computed on `y_true`.
+                auc2 (float): AUC of `score2` computed on `y_true`.
+                diff (float): Difference `auc1 - auc2`.
+                z_score (float): Z statistic for the paired DeLong test.
+                p_value (float): Two-tailed p-value for the Z statistic.
+                ci_lower (float): Lower bound of the `ci` confidence interval for the AUC difference.
+                ci_upper (float): Upper bound of the `ci` confidence interval for the AUC difference.
+                se_diff (float): Standard error of the AUC difference.
         """
         # Prepare data
         y_true = np.array(y_true)

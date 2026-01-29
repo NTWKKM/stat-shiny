@@ -95,7 +95,11 @@ class TestDiagnosticPipeline:
         assert 0.5 < auc <= 1.0
 
     def test_agreement_flow(self, diagnostic_data):
-        """🔄 Test Cohen's Kappa Agreement"""
+        """
+        Verify Cohen's Kappa agreement analysis yields a metrics table containing "Cohen's Kappa" and no error.
+        
+        This test runs AgreementAnalysis.cohens_kappa on the provided fixture and asserts that the returned error is None and the resulting metrics DataFrame includes a "Cohen's Kappa" entry.
+        """
         df = diagnostic_data
         from utils.agreement_lib import AgreementAnalysis
 
