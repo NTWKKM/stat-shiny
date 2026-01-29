@@ -47,7 +47,7 @@ def test_categorical():
 def test_missing_data():
     """
     Run a test that verifies generate_table correctly handles missing data.
-    
+
     Creates a synthetic DataFrame with randomized Treatment_Group, Sex, Diabetes, and Age,
     injects missing values into Age and Sex, and calls generate_table with selected
     variables. On success, writes the resulting HTML to output/test_output_2.html relative
@@ -99,12 +99,12 @@ def test_missing_data():
 def test_edge_cases():
     """
     Run a set of edge-case tests for generate_table.
-    
+
     Performs three subtests using a synthetic DataFrame with columns Treatment_Group, Sex, Diabetes, and Age:
     1) Single group: sets all rows to the same Treatment_Group value and verifies generate_table handles a single group.
     2) Non-existent column: includes a selected variable that does not exist and verifies generate_table skips or handles it without crashing.
     3) All-missing column: makes the Age column entirely missing and verifies generate_table either handles the all-missing column or raises an error containing "No valid data remaining".
-    
+
     Prints pass/fail messages for each subtest.
     """
     print("\n--- Test Case 3: Edge Cases ---")

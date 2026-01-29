@@ -97,7 +97,7 @@ class TestDiagnosticPipeline:
     def test_agreement_flow(self, diagnostic_data):
         """
         Verify Cohen's Kappa agreement analysis yields a metrics table containing "Cohen's Kappa" and no error.
-        
+
         This test runs AgreementAnalysis.cohens_kappa on the provided fixture and asserts that the returned error is None and the resulting metrics DataFrame includes a "Cohen's Kappa" entry.
         """
         df = diagnostic_data
