@@ -274,7 +274,16 @@ class StatisticalEngine:
                     return "-"
 
                 pooled_sd = np.sqrt((v1.std() ** 2 + v2.std() ** 2) / 2)
-                smd = abs(v1.mean() - v2.mean()) / pooled_sd if pooled_sd > 0 else 0.0
+                if pooled_sd <= 1e-8:
+                    if abs(v1.mean() - v2.mean()) < 1e-8:
+                        val_str = "0.000"
+                    else:
+                        val_str = "<b>—</b>"
+                        logger.warning(
+                            f"SMD undefined (pooled_sd~0) for {col} with means {v1.mean():.3f}, {v2.mean():.3f}"
+                        )
+                    return val_str
+                smd = abs(v1.mean() - v2.mean()) / pooled_sd
 
                 val_str = f"{smd:.3f}"
                 if smd >= 0.1:
@@ -579,7 +588,7 @@ class TableOneGenerator:
     Orchestrator class.
     """
 
-    def __init__(self, df: pd.DataFrame, var_meta: dict = None):
+    def __init__(self, df: pd.DataFrame, var_meta: dict | None = None):
         self.raw_df = df
         self.var_meta = var_meta or {}
         self.classifier = VariableClassifier()
@@ -617,7 +626,7 @@ class TableOneGenerator:
     def generate(
         self,
         selected_vars: list[str],
-        stratify_by: str = None,
+        stratify_by: str | None = None,
         or_style: str = "all_levels",
     ) -> str:
         # 1. Clean Data (Reuse robust logic)
