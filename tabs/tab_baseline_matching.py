@@ -63,10 +63,11 @@ def baseline_matching_ui() -> ui.TagChild:
                         ui.input_radio_buttons(
                             "radio_or_style",
                             "OR Style:",
-                            choices={
+                            {
                                 "all_levels": "All Levels (Every Level vs Ref)",
                                 "simple": "Simple (Single Line/Risk vs Ref)",
                             },
+                            selected="all_levels",
                         ),
                         type="required",
                     ),
@@ -504,6 +505,11 @@ def baseline_matching_server(
     @reactive.Effect
     @reactive.event(input.btn_gen_table1)
     def _generate_table1():
+        """
+        Generate the Table 1 HTML from the currently selected dataset, variables, and options, and store the result in the shared html_content.
+
+        Validates that at least one variable is selected and shows a warning if not. On success, updates html_content with the generated HTML and removes the running notification. On failure, removes the running notification, shows an error notification containing the exception message, and logs the exception.
+        """
         data, label = current_t1_data()
         if data is None:
             return
@@ -511,6 +517,8 @@ def baseline_matching_server(
         group_col = input.sel_group_col()
         if group_col == "None":
             group_col = None
+
+        or_style = input.radio_or_style()
 
         selected_vars = input.sel_t1_vars()
         if not selected_vars:
@@ -524,7 +532,7 @@ def baseline_matching_server(
                 selected_vars,
                 group_col,
                 var_meta.get(),
-                or_style=input.radio_or_style(),
+                or_style=or_style,
             )
             html_content.set(html)
             ui.notification_remove("gen_t1_notif")

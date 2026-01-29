@@ -12,3 +12,8 @@ __pycache__/
 # Test Logs
 pytest_output.txt
 test_output.txt
+
+# Docs
+docs/*
+!docs/ARCHITECTURE.md
+!docs/assets/

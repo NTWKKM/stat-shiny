@@ -20,13 +20,10 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-import pingouin as pg
 import plotly.graph_objects as go
 import scipy.stats as stats
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
-    cohen_kappa_score,
-    precision_recall_curve,
     roc_auc_score,
     roc_curve,
 )
@@ -37,6 +34,11 @@ from tabs._common import get_color_palette
 from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
+from utils.diagnostic_advanced_lib import (
+    DiagnosticTest,
+    calculate_ci_wilson_score,
+)
+from utils.plotly_html_renderer import plotly_figure_to_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -188,28 +190,6 @@ def calculate_descriptive(
         ).sort_values("Count", ascending=False)
 
     return stats_df, missing_data_info
-
-
-def calculate_ci_wilson_score(
-    successes: float, n: float, ci: float = 0.95
-) -> tuple[float, float]:
-    """
-    Wilson Score Interval for binomial proportion.
-    More accurate than Wald interval for extreme proportions.
-    """
-    if n <= 0:
-        return np.nan, np.nan
-
-    z = stats.norm.ppf(1 - (1 - ci) / 2)
-    p_hat = successes / n if n > 0 else 0
-    denominator = 1 + (z**2 / n)
-    centre_adjusted_probability = (p_hat + (z**2 / (2 * n))) / denominator
-    adjusted_standard_error = (
-        np.sqrt((p_hat * (1 - p_hat) + (z**2 / (4 * n))) / n) / denominator
-    )
-    lower = max(0, centre_adjusted_probability - z * adjusted_standard_error)
-    upper = min(1, centre_adjusted_probability + z * adjusted_standard_error)
-    return lower, upper
 
 
 def calculate_ci_log_odds(
@@ -872,161 +852,6 @@ def calculate_chi2(
         return display_tab, None, str(e), None, missing_data_info
 
 
-def calculate_kappa(
-    df: pd.DataFrame,
-    col1: str,
-    col2: str,
-    weights: str | None = None,
-    var_meta: dict[str, Any] | None = None,
-) -> tuple[
-    pd.DataFrame | None,
-    str | None,
-    pd.DataFrame | None,
-    dict[str, Any] | None,
-]:
-    """
-    Calculate Cohen's Kappa between 2 raters.
-
-    Returns:
-        tuple: (result_df, error_msg, conf_matrix)
-    """
-    if col1 not in df.columns or col2 not in df.columns:
-        logger.error(f"Columns not found: {col1}, {col2}")
-        return None, "Columns not found", None, {}
-
-    # --- DATA PREPARATION ---
-    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
-    strategy = missing_cfg.get("strategy", "complete-case")
-    missing_codes = missing_cfg.get("user_defined_values", [])
-
-    try:
-        data, missing_data_info = prepare_data_for_analysis(
-            df,
-            required_cols=[col1, col2],
-            numeric_cols=[],  # Kappa usually for categorical, but can be numeric if raters use scores
-            var_meta=var_meta,
-            missing_codes=missing_codes,
-            handle_missing=strategy,
-        )
-        missing_data_info["strategy"] = strategy
-    except Exception as e:
-        return None, f"Data preparation failed: {e}", None, {}
-
-    if data.empty:
-        logger.warning("No data after dropping NAs")
-        return None, "No data after dropping NAs", None, missing_data_info
-
-    y1 = data[col1]
-    y2 = data[col2]
-
-    try:
-        # Convert to numeric if possible for weighted kappa
-        try:
-            y1_num = pd.to_numeric(y1, errors="coerce")
-            y2_num = pd.to_numeric(y2, errors="coerce")
-            if y1_num.notna().all() and y2_num.notna().all():
-                kappa = cohen_kappa_score(y1_num, y2_num, weights=weights)
-            else:
-                if weights:
-                    logger.warning(
-                        f"Weighted kappa requested but data is non-numeric; "
-                        f"weights='{weights}' may not be meaningful for categorical labels."
-                    )
-                kappa = cohen_kappa_score(
-                    y1.astype(str), y2.astype(str), weights=weights
-                )
-        except Exception:
-            if weights:
-                logger.warning(
-                    f"Weighted kappa requested but data is non-numeric; "
-                    f"weights='{weights}' may not be meaningful for categorical labels."
-                )
-            kappa = cohen_kappa_score(y1.astype(str), y2.astype(str), weights=weights)
-
-        # Landis & Koch (1977) Scale for Interpretation
-        if kappa < 0:
-            interp = "Poor agreement"
-            badge = get_badge_html("Poor", "danger")
-        elif kappa <= 0.20:
-            interp = "Slight agreement"
-            badge = get_badge_html("Slight", "warning")
-        elif kappa <= 0.40:
-            interp = "Fair agreement"
-            badge = get_badge_html("Fair", "warning")
-        elif kappa <= 0.60:
-            interp = "Moderate agreement"
-            badge = get_badge_html("Moderate", "info")
-        elif kappa <= 0.80:
-            interp = "Substantial agreement"
-            badge = get_badge_html("Substantial", "success")
-        else:
-            interp = "Almost perfect agreement"
-            badge = get_badge_html("Almost Perfect", "success")
-
-        weight_label = (
-            f" ({weights.capitalize()} Weighted)" if weights else " (Unweighted)"
-        )
-        res_df = pd.DataFrame(
-            {
-                "Statistic": [
-                    f"Cohen's Kappa{weight_label}",
-                    "N (Pairs)",
-                    "Interpretation (Landis & Koch)",
-                ],
-                "Value": [f"{kappa:.4f}", f"{len(data)}", f"{badge} {interp}"],
-            }
-        )
-
-        # Match Chi2 style: totals and percentages
-        tab_raw = pd.crosstab(y1, y2, margins=True, margins_name="Total")
-        tab_row_pct = (
-            pd.crosstab(y1, y2, normalize="index", margins=True, margins_name="Total")
-            * 100
-        )
-
-        # Sort labels (excluding 'Total')
-        labels = sorted(list(set(y1.unique()) | set(y2.unique())))
-        order = labels + ["Total"]
-
-        tab_raw = tab_raw.reindex(index=order, columns=order, fill_value=0)
-        tab_row_pct = tab_row_pct.reindex(index=order, columns=order, fill_value=0)
-
-        display_data = []
-        for row in order:
-            row_vals = []
-            for col in order:
-                count = tab_raw.loc[row, col]
-                if col == "Total":
-                    pct = 100.0
-                else:
-                    pct = tab_row_pct.loc[row, col]
-                # HTML formatted cell for Contingency Table style
-                row_vals.append(
-                    f"{int(count)}<br><small style='color:#666'>({pct:.1f}%)</small>"
-                )
-            display_data.append(row_vals)
-
-        # --- CONSTRUCT MULTI-INDEX FOR KAPPA TABLE ---
-        col_tuples = []
-        for c in order:
-            if c == "Total":
-                col_tuples.append(("Total", ""))
-            else:
-                col_tuples.append((col2, str(c)))
-
-        multi_cols = pd.MultiIndex.from_tuples(col_tuples)
-
-        conf_matrix = pd.DataFrame(display_data, index=order, columns=multi_cols)
-        conf_matrix.index.name = col1
-
-        logger.debug(f"Cohen's Kappa: {kappa:.4f} ({interp})")
-        return res_df, None, conf_matrix, missing_data_info
-
-    except Exception as e:
-        logger.error(f"Kappa calculation error: {e}")
-        return None, str(e), None, {}
-
-
 def auc_ci_hanley_mcneil(auc: float, n1: int, n2: int) -> tuple[float, float, float]:
     """Calculate 95% CI for AUC using Hanley & McNeil method."""
     q1 = auc / (2 - auc)
@@ -1239,71 +1064,83 @@ def analyze_roc(
         else:
             auc_ci_str = "-"
 
-        # Calculate Youden Index and best threshold
-        j_scores = tpr - fpr
-        best_idx = np.argmax(j_scores)
+        # --- REFACTOR: Use DiagnosticTest ---
+        diag_model = DiagnosticTest(y_true, y_score)
+        best_thresh, best_idx = diag_model.find_optimal_threshold(method="youden")
+        metrics = diag_model.get_metrics_at_threshold(best_thresh)
+
+        # Calculate Youden Index and best threshold (Legacy variables for plotting)
+        j_scores = diag_model.tpr - diag_model.fpr
+        # best_idx is already found
         youden_j = j_scores[best_idx]
 
-        # Approximate F1-score at best threshold
-        precisions, recalls, _ = precision_recall_curve(y_true, y_score)
-        f1_scores = (2 * precisions * recalls) / (precisions + recalls + 1e-10)
-        max_f1 = np.max(f1_scores)
+        # Use metrics from DiagnosticTest (with CIs)
+        sens = metrics["sensitivity"]
+        sens_ci = f"[{metrics['sensitivity_ci_lower']:.4f}-{metrics['sensitivity_ci_upper']:.4f}]"
+        spec = metrics["specificity"]
+        spec_ci = f"[{metrics['specificity_ci_lower']:.4f}-{metrics['specificity_ci_upper']:.4f}]"
 
-        if y_score is not None:
-            # Check if scores are probabilities (0-1)
-            # Use score_col name for better error message
-            if np.any((y_score < 0) | (y_score > 1)):
-                logger.warning(
-                    f"Scores in '{score_col}' are outside [0, 1]. Calibration curve requires probabilities. Clipping applied."
+        # Calibration Curve (Reliability Diagram)
+        # Calibration Curve (Reliability Diagram) - Only for probability scores
+        if y_score is not None and np.all((y_score >= 0) & (y_score <= 1)):
+            prob_true, prob_pred = calibration_curve(y_true, y_score, n_bins=10)
+        else:
+            # Skip calibration for non-probability scores (e.g. 0-100 scores)
+            prob_true, prob_pred = None, None
+            if y_score is not None:
+                logger.debug(
+                    f"Skipping calibration curve for '{score_col}': scores outside [0, 1]"
                 )
 
-            # Calibration Curve (Reliability Diagram)
-            # sklearn.calibration.calibration_curve expects probabilities
-            # Clip to [0, 1] to be safe if minor precision errors exist, but warn above if completely off
-            prob_true, prob_pred = calibration_curve(
-                y_true, np.clip(y_score, 0, 1), n_bins=10
+        if prob_true is not None:
+            cal_fig = go.Figure()
+            cal_fig.add_trace(
+                go.Scatter(
+                    x=prob_pred,
+                    y=prob_true,
+                    mode="lines+markers",
+                    name="Calibration",
+                    line=dict(color=COLORS["primary"]),
+                )
             )
-        cal_fig = go.Figure()
-        cal_fig.add_trace(
-            go.Scatter(
-                x=prob_pred,
-                y=prob_true,
-                mode="lines+markers",
-                name="Calibration",
-                line=dict(color=COLORS["primary"]),
+            cal_fig.add_trace(
+                go.Scatter(
+                    x=[0, 1],
+                    y=[0, 1],
+                    mode="lines",
+                    name="Perfect",
+                    line=dict(color="gray", dash="dash"),
+                )
             )
-        )
-        cal_fig.add_trace(
-            go.Scatter(
-                x=[0, 1],
-                y=[0, 1],
-                mode="lines",
-                name="Perfect",
-                line=dict(color="gray", dash="dash"),
+            cal_fig.update_layout(
+                title="Calibration Plot",
+                xaxis_title="Predicted Prob",
+                yaxis_title="Observed Fraction",
+                template="simple_white",
             )
-        )
-        cal_fig.update_layout(
-            title="Calibration Plot",
-            xaxis_title="Predicted Prob",
-            yaxis_title="Observed Fraction",
-            template="simple_white",
-        )
+        else:
+            cal_fig = None
 
         stats_dict = {
             "AUC": f"{auc_val:.4f}",
-            "95% CI": auc_ci_str,
-            "P-value": format_p_value(p_val_auc),
+            "95% CI (AUC)": auc_ci_str,
+            "P-value (AUC)": format_p_value(p_val_auc),
             "Method": (
                 f"{m_name} (SE={se:.4f})"
                 if se is not None and np.isfinite(se) and se > 0
                 else m_name
             ),
             "Interpretation": f"{auc_badge}",
-            "Best Threshold": f"{thresholds[best_idx]:.4f}",
+            "Best Threshold": f"{best_thresh:.4f}",
             "Youden Index (J)": f"{youden_j:.4f}",
-            "Sensitivity at Best": f"{tpr[best_idx]:.4f}",
-            "Specificity at Best": f"{1 - fpr[best_idx]:.4f}",
-            "Max F1-Score": f"{max_f1:.4f}",
+            "Sensitivity": f"{sens:.4f} {sens_ci}",
+            "Specificity": f"{spec:.4f} {spec_ci}",
+            "PPV": f"{metrics['ppv']:.4f} [{metrics['ppv_ci_lower']:.4f}-{metrics['ppv_ci_upper']:.4f}]",
+            "NPV": f"{metrics['npv']:.4f} [{metrics['npv_ci_lower']:.4f}-{metrics['npv_ci_upper']:.4f}]",
+            "Accuracy": f"{metrics['accuracy']:.4f} [{metrics['accuracy_ci_lower']:.4f}-{metrics['accuracy_ci_upper']:.4f}]",
+            "F1-Score": f"{metrics['f1_score']:.4f}",
+            "LR+": f"{metrics['lr_plus']:.4f}",
+            "LR-": f"{metrics['lr_minus']:.4f}",
             "calibration_plot": cal_fig,
         }
 
@@ -1373,91 +1210,49 @@ def analyze_roc(
         if missing_data_info:
             stats_dict["missing_data_info"] = missing_data_info
 
+        # --- NEW: Sensitivity/Specificity vs Threshold Plot ---
+        ss_fig = go.Figure()
+        ss_fig.add_trace(
+            go.Scatter(
+                x=thresholds,
+                y=tpr,
+                mode="lines",
+                name="Sensitivity",
+                line=dict(color="#2ca02c"),
+            )
+        )
+        ss_fig.add_trace(
+            go.Scatter(
+                x=thresholds,
+                y=1 - fpr,
+                mode="lines",
+                name="Specificity",
+                line=dict(color="#d62728"),
+            )
+        )
+        ss_fig.add_vline(
+            x=thresholds[best_idx],
+            line_dash="dash",
+            line_color="gray",
+            annotation_text="Optimal",
+        )
+
+        ss_fig.update_layout(
+            title="Sensitivity & Specificity vs Threshold",
+            xaxis_title="Threshold",
+            yaxis_title="Metric Value",
+            template="simple_white",
+            hovermode="x unified",
+            xaxis=dict(range=[0, 1]),
+            yaxis=dict(range=[0, 1.05]),
+        )
+        stats_dict["sens_spec_plot"] = ss_fig
+
         return stats_dict, None, fig, coords_df
 
     except Exception as e:
         logger.error(f"ROC analysis unexpected error: {e}")
         return None, f"Analysis Error: {str(e)}", None, None
-
-
-def calculate_icc(
-    df: pd.DataFrame,
-    cols: list[str],
-) -> tuple[pd.DataFrame | None, str | None, pd.DataFrame | None, dict[str, Any] | None]:
-    """
-    Calculate Intraclass Correlation Coefficient (ICC) using pingouin.
-    """
-    if len(cols) < 2:
-        return None, "Need at least 2 columns for ICC", None, {}
-
-    # --- DATA PREPARATION ---
-    missing_cfg = CONFIG.get("analysis.missing", {}) or {}
-    strategy = missing_cfg.get("strategy", "complete-case")
-    missing_codes = missing_cfg.get("user_defined_values", [])
-
-    try:
-        data, missing_info = prepare_data_for_analysis(
-            df,
-            required_cols=cols,
-            numeric_cols=cols,
-            var_meta=None,
-            missing_codes=missing_codes,
-            handle_missing=strategy,
-        )
-        missing_info["strategy"] = strategy
-    except Exception as e:
-        return None, f"Data preparation failed: {e}", None, {}
-
-    if data.empty:
-        return None, "No data available after cleaning", None, missing_info
-
-    try:
-        # Reshape to long format for pingouin
-        n = len(data)
-        data = data.copy()
-        data["Subject"] = range(n)
-        long_df = data.melt(
-            id_vars="Subject", value_vars=cols, var_name="Rater", value_name="Score"
-        )
-
-        # Calculate ICC with pingouin
-        icc_results = pg.intraclass_corr(
-            data=long_df, targets="Subject", raters="Rater", ratings="Score"
-        )
-
-        # Simplify output for user
-        # We usually show all types but can highlight based on common needs
-        res_display = icc_results[
-            ["Type", "Description", "ICC", "F", "df1", "df2", "pval", "CI95%"]
-        ].copy()
-
-        # Add interpretation based on Cicchetti (1994)
-        def interpret_icc(val):
-            if val < 0.40:
-                return "Poor"
-            if val < 0.60:
-                return "Fair"
-            if val < 0.75:
-                return "Good"
-            return "Excellent"
-
-        res_display["Strength"] = res_display["ICC"].apply(interpret_icc)
-
-        # Format CI column for readability
-        res_display["95% CI"] = res_display["CI95%"].apply(
-            lambda x: f"[{x[0]:.3f}, {x[1]:.3f}]"
-        )
-        res_display = res_display.drop(columns=["CI95%"])
-
-        # Create ANOVA-like table for reference (extracting from pingouin if needed or providing simplified version)
-        # Pingouin doesn't return the full ANOVA table in one go easily, so we can just return the ICC results
-        # which include F-stats and degrees of freedom.
-
-        return res_display, None, None, missing_info
-
-    except Exception as e:
-        logger.error(f"ICC calculation failed: {e}")
-        return None, str(e), None, {}
 
 
 def render_contingency_table_html(
@@ -1721,8 +1516,8 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
                 html += str(data)
 
         elif element_type == "plot":
-            if hasattr(data, "to_html"):
-                html += data.to_html(full_html=False, include_plotlyjs="cdn")
+            if hasattr(data, "to_html") or hasattr(data, "update_layout"):
+                html += plotly_figure_to_html(data)
 
     html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
     html += "</body>\n</html>"
@@ -1732,135 +1527,3 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
 # ==============================================================================
 # Bland-Altman
 # ==============================================================================
-def calculate_bland_altman(
-    df: pd.DataFrame, col1: str, col2: str
-) -> tuple[dict[str, Any], go.Figure, dict[str, Any]]:
-    """
-    Calculate Bland-Altman statistics and generate plot.
-
-    Returns:
-        tuple containing:
-        - dict: statistics {mean_diff, sd_diff, lower_loa, upper_loa, n}
-        - Figure: Plotly figure object
-    """
-
-    try:
-        # --- DATA PREPARATION ---
-        missing_cfg = CONFIG.get("analysis.missing", {}) or {}
-        strategy = missing_cfg.get("strategy", "complete-case")
-        missing_codes = missing_cfg.get("user_defined_values", [])
-
-        try:
-            d_clean, missing_info = prepare_data_for_analysis(
-                df,
-                required_cols=[col1, col2],
-                numeric_cols=[col1, col2],
-                var_meta=None,
-                missing_codes=missing_codes,
-                handle_missing=strategy,
-            )
-            missing_info["strategy"] = strategy
-        except Exception as e:
-            return {"error": f"Data preparation failed: {e}"}, go.Figure(), {}
-
-        if len(d_clean) < 2:
-            return {"error": "Not enough data (n < 2)"}, go.Figure(), {}
-
-        v1 = d_clean[col1]
-        v2 = d_clean[col2]
-
-        # 2. Calculations
-        diffs = v1 - v2
-        means = (v1 + v2) / 2
-
-        mean_diff = np.mean(diffs)
-        sd_diff = np.std(diffs, ddof=1)
-        n = len(diffs)
-
-        # Limits of Agreement (1.96 SD)
-        loa_upper = mean_diff + 1.96 * sd_diff
-        loa_lower = mean_diff - 1.96 * sd_diff
-
-        # CIs for Mean Diff, LoaUpper, LoaLower (approximate large sample SEs)
-        se_mean_diff = sd_diff / np.sqrt(n)
-        se_loa = np.sqrt(3 * sd_diff**2 / n)
-
-        t_val = stats.t.ppf(0.975, n - 1)
-
-        ci_mean_diff = (
-            mean_diff - t_val * se_mean_diff,
-            mean_diff + t_val * se_mean_diff,
-        )
-        ci_loa_upper = (loa_upper - t_val * se_loa, loa_upper + t_val * se_loa)
-        ci_loa_lower = (loa_lower - t_val * se_loa, loa_lower + t_val * se_loa)
-
-        # 3. Plot
-        fig = go.Figure()
-
-        # Scatter points
-        fig.add_trace(
-            go.Scatter(
-                x=means,
-                y=diffs,
-                mode="markers",
-                name="Data Points",
-                marker=dict(color=COLORS["primary"], opacity=0.6),
-            )
-        )
-
-        # Mean Diff Line
-        fig.add_trace(
-            go.Scatter(
-                x=[min(means), max(means)],
-                y=[mean_diff, mean_diff],
-                mode="lines",
-                name="Mean Difference (Bias)",
-                line=dict(color="black", width=2),
-            )
-        )
-
-        # LoA Lines
-        fig.add_trace(
-            go.Scatter(
-                x=[min(means), max(means)],
-                y=[loa_upper, loa_upper],
-                mode="lines",
-                name="+1.96 SD",
-                line=dict(color="red", width=2, dash="dash"),
-            )
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=[min(means), max(means)],
-                y=[loa_lower, loa_lower],
-                mode="lines",
-                name="-1.96 SD",
-                line=dict(color="red", width=2, dash="dash"),
-            )
-        )
-        # Add equality line (Y=0)
-        fig.add_hline(y=0, line_dash="solid", line_color="gray", line_width=1)
-
-        fig.update_layout(
-            title="Bland-Altman Plot",
-            xaxis_title=f"Mean of {col1} and {col2}",
-            yaxis_title=f"Difference ({col1} - {col2})",
-            template="simple_white",
-        )
-
-        stats_dict = {
-            "n": n,
-            "mean_diff": mean_diff,
-            "sd_diff": sd_diff,
-            "lower_loa": loa_lower,
-            "upper_loa": loa_upper,
-            "ci_mean_diff": ci_mean_diff,
-            "ci_loa_upper": ci_loa_upper,
-            "ci_loa_lower": ci_loa_lower,
-        }
-
-        return stats_dict, fig, missing_info
-
-    except Exception as e:
-        logger.error(f"Bland-Altman calculation error: {e}")
-        return {"error": str(e)}, go.Figure(), {}
