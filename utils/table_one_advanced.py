@@ -359,7 +359,7 @@ class StatisticalEngine:
                     return "-", "-"
 
                 # Check variance
-                if x_clean.std() == 0:
+                if x_clean.std() <= 1e-8:
                     return "-", "-"
 
                 # Logit via shared module - use cleaned numeric data
@@ -658,7 +658,6 @@ class TableOneGenerator:
         group_masks = {}
         if stratify_by and stratify_by != "None" and stratify_by in df_clean.columns:
             uniques = df_clean[stratify_by].dropna().unique()
-            # Sort naturally
             # Sort naturally
             uniques = sorted(
                 uniques,
