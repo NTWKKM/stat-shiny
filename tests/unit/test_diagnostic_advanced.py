@@ -47,9 +47,9 @@ class TestDiagnosticComparison:
         score1 = rng.random(len(y_true))
 
         res = DiagnosticComparison.delong_paired_test(y_true, score1, score1)
-        assert res["p_value"] == 1.0
-        assert res["z_score"] == 0
-        assert res["diff"] == 0
+        assert np.isclose(res["p_value"], 1.0)
+        assert np.isclose(res["z_score"], 0.0)
+        assert np.isclose(res["diff"], 0.0)
 
     def test_delong_paired_different(self):
         """Test comparing a good predictor vs random"""

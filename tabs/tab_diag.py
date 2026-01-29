@@ -12,7 +12,7 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from utils import decision_curve_lib, diag_test
-from utils.diagnostic_advanced_lib import DiagnosticComparison
+from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
 from utils.formatting import create_missing_data_report_html
 
 logger = get_logger(__name__)
@@ -483,7 +483,13 @@ def diag_server(
         # Let's be specific for the example data
         if "Test_Score_Expensive" in cols:
             default = "Test_Score_Expensive"
-        elif not default and len(cols) > 1:
+        elif not default:
+            # Try smart keyword matching
+            default = select_variable_by_keyword(
+                cols, ["score", "prob", "test", "expens"], default_to_first=False
+            )
+
+        if not default and len(cols) > 1:
             default = cols[1]
 
         return ui.input_select(
@@ -936,37 +942,31 @@ def diag_server(
                 }
             )
 
-            # --- ADDED: Comparative Metrics Table ---
-            from utils.diagnostic_advanced_lib import DiagnosticTest
-
-            # Helper to get metrics row
             # Helper to get metrics row AND coords
             def get_best_metrics(score_data, label, color):
                 dt = DiagnosticTest(y_true, score_data, pos_label=pos_label)
                 thresh, idx = dt.find_optimal_threshold(method="youden")
                 m = dt.get_metrics_at_threshold(thresh)
 
-                # Add marker trace
+                # Create marker trace
                 fpr_val = dt.fpr[idx]
                 tpr_val = dt.tpr[idx]
 
-                fig.add_trace(
-                    go.Scatter(
-                        x=[fpr_val],
-                        y=[tpr_val],
-                        mode="markers",
-                        name=f"Optimal {label}",
-                        marker=dict(
-                            size=12,
-                            symbol="circle",
-                            color=color,
-                            line=dict(width=2, color="white"),
-                        ),
-                        hovertemplate=f"<b>{label} Optimal</b><br>Threshold: {thresh:.3f}<br>TPR: {tpr_val:.3f}<br>FPR: {fpr_val:.3f}<extra></extra>",
-                    )
+                trace = go.Scatter(
+                    x=[fpr_val],
+                    y=[tpr_val],
+                    mode="markers",
+                    name=f"Optimal {label}",
+                    marker=dict(
+                        size=12,
+                        symbol="circle",
+                        color=color,
+                        line=dict(width=2, color="white"),
+                    ),
+                    hovertemplate=f"<b>{label} Optimal</b><br>Threshold: {thresh:.3f}<br>TPR: {tpr_val:.3f}<br>FPR: {fpr_val:.3f}<extra></extra>",
                 )
 
-                return {
+                metrics_row = {
                     "Test": label,
                     "AUC": f"{dt.auc:.3f}",
                     "Best Threshold": f"{thresh:.3f}",
@@ -976,13 +976,15 @@ def diag_server(
                     "NPV": f"{m['npv']:.3f}",
                     "Accuracy": f"{m['accuracy']:.3f}",
                 }
+                return metrics_row, trace
 
-            metrics_df = pd.DataFrame(
-                [
-                    get_best_metrics(s1, test1_col, "#d62728"),  # Red
-                    get_best_metrics(s2, test2_col, "#ff7f7f"),  # Light Red
-                ]
-            )
+            m1, t1 = get_best_metrics(s1, test1_col, "#d62728")
+            m2, t2 = get_best_metrics(s2, test2_col, "#ff7f7f")
+
+            fig.add_trace(t1)
+            fig.add_trace(t2)
+
+            metrics_df = pd.DataFrame([m1, m2])
 
             # Build Report
             rep = [

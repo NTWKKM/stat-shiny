@@ -34,7 +34,11 @@ from tabs._common import get_color_palette
 from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
-from utils.diagnostic_advanced_lib import DiagnosticTest
+from utils.diagnostic_advanced_lib import (
+    DiagnosticTest,
+    calculate_ci_wilson_score,
+)
+from utils.plotly_html_renderer import plotly_figure_to_html
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -186,28 +190,6 @@ def calculate_descriptive(
         ).sort_values("Count", ascending=False)
 
     return stats_df, missing_data_info
-
-
-def calculate_ci_wilson_score(
-    successes: float, n: float, ci: float = 0.95
-) -> tuple[float, float]:
-    """
-    Wilson Score Interval for binomial proportion.
-    More accurate than Wald interval for extreme proportions.
-    """
-    if n <= 0:
-        return np.nan, np.nan
-
-    z = stats.norm.ppf(1 - (1 - ci) / 2)
-    p_hat = successes / n if n > 0 else 0
-    denominator = 1 + (z**2 / n)
-    centre_adjusted_probability = (p_hat + (z**2 / (2 * n))) / denominator
-    adjusted_standard_error = (
-        np.sqrt((p_hat * (1 - p_hat) + (z**2 / (4 * n))) / n) / denominator
-    )
-    lower = max(0, centre_adjusted_probability - z * adjusted_standard_error)
-    upper = min(1, centre_adjusted_probability + z * adjusted_standard_error)
-    return lower, upper
 
 
 def calculate_ci_log_odds(
@@ -1534,8 +1516,8 @@ def generate_report(title: str, elements: list[dict[str, Any]]) -> str:
                 html += str(data)
 
         elif element_type == "plot":
-            if hasattr(data, "to_html"):
-                html += data.to_html(full_html=False, include_plotlyjs="cdn")
+            if hasattr(data, "to_html") or hasattr(data, "update_layout"):
+                html += plotly_figure_to_html(data)
 
     html += "<div class='report-footer'>© 2025 Statistical Analysis Report</div>"
     html += "</body>\n</html>"

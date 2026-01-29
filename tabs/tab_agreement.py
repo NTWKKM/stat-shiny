@@ -113,9 +113,7 @@ def agreement_ui() -> ui.TagChild:
                     ui.column(4, ui.output_ui("ui_ba_v2")),
                     ui.column(
                         4,
-                        ui.input_checkbox(
-                            "ba_show_ci", "Show 95% CI Bands", value=True
-                        ),
+                        ui.input_checkbox("ba_show_ci", "Show CI Bands", value=True),
                         ui.input_numeric(
                             "ba_conf_level",
                             "Confidence Level:",

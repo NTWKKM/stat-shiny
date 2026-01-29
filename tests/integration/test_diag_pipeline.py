@@ -73,6 +73,7 @@ class TestDiagnosticPipeline:
     def test_roc_analysis_flow(self, diagnostic_data):
         """🔄 Test ROC Curve & AUC calculation"""
         import importlib
+
         import utils.diag_test
 
         # Reload to ensure no pollution from unit test mocks

@@ -16,11 +16,26 @@ from sklearn.metrics import (
 
 
 def calculate_ci_wilson_score(
-    k: float, n: float, alpha: float = 0.05
+    k: float, n: float, ci: float = 0.95, alpha: float | None = None
 ) -> tuple[float, float]:
-    """Wilson Score Interval for binomial proportion."""
-    if n == 0:
-        return 0.0, 0.0
+    """
+    Wilson Score Interval for binomial proportion.
+
+    Args:
+        k: Number of successes
+        n: Total number of trials
+        ci: Confidence interval (default 0.95)
+        alpha: Significance level (optional override, default computed from ci)
+
+    Returns:
+        tuple[float, float]: (lower_bound, upper_bound)
+    """
+    if n <= 0:
+        return np.nan, np.nan
+
+    if alpha is None:
+        alpha = 1 - ci
+
     z = stats.norm.ppf(1 - alpha / 2)
     p = k / n
     denom = 1 + z**2 / n
@@ -55,6 +70,16 @@ def _get_binary_labels(y_true: np.ndarray, pos_label: int | str) -> np.ndarray:
     if not np.issubdtype(y_true.dtype, np.number):
         y_str = y_true.astype(str)
         binary = (y_str == str(pos_label)).astype(int)
+        if np.sum(binary) > 0:
+            return binary
+
+    # Warn if no positives found
+    if np.sum(binary) == 0:
+        import warnings
+
+        warnings.warn(
+            f"No samples matched pos_label={pos_label!r}. Returning all-zeros."
+        )
 
     return binary
 
@@ -93,15 +118,12 @@ class DiagnosticTest:
             )
             self.auc = np.nan
 
-    def find_optimal_threshold(
-        self, method: str = "youden", cost_ratio: float = 1.0
-    ) -> tuple[float, int]:
+    def find_optimal_threshold(self, method: str = "youden") -> tuple[float, int]:
         """
         Find optimal threshold based on specified criteria.
 
         Args:
-            method: Optimization method ('youden', 'distance', 'f1', 'cost')
-            cost_ratio: Cost(FP) / Cost(FN) (used for 'cost' method)
+            method: Optimization method ('youden', 'distance', 'f1')
 
         Returns:
             (optimal_threshold, index_in_arrays)
