@@ -32,7 +32,7 @@ def check_normality(series: pd.Series) -> bool:
         series (pd.Series): The data series to classify.
     
     Returns:
-        true if the series is classified as continuous normal, false otherwise.
+        bool: True if the series is classified as continuous normal, False otherwise.
     """
     return VariableClassifier.classify(series) == "continuous_normal"
 
