@@ -284,7 +284,7 @@ class StatisticalEngine:
                     return "-"
 
                 pooled_sd = np.sqrt((v1.std() ** 2 + v2.std() ** 2) / 2)
-                if pooled_sd <= 1e-8:
+                if not np.isfinite(pooled_sd) or pooled_sd <= 1e-8:
                     if abs(v1.mean() - v2.mean()) < 1e-8:
                         val_str = "0.000"
                     else:
@@ -628,6 +628,8 @@ class TableOneGenerator:
         stratify_by: str | None = None,
         or_style: str = "all_levels",
     ) -> str:
+        if stratify_by == "None":
+            stratify_by = None
         # 1. Clean Data (Reuse robust logic)
         missing_cfg = CONFIG.get("analysis.missing", {})
         df_clean, missing_info = prepare_data_for_analysis(
@@ -691,7 +693,7 @@ class TableOneGenerator:
                 )
 
             # Group Stats
-            if stratify_by:
+            if groups:
                 group_series_list = []
                 for g in groups:
                     sub_s = df_clean.loc[group_masks[g["val"]], var]
