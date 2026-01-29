@@ -53,10 +53,10 @@ COLORS = get_color_palette()
 @module.ui
 def diag_ui() -> ui.TagChild:
     """
-    Create the Diagnostics page UI containing controls and result areas for ROC, Chi-Square, Descriptive, Decision Curve Analysis, and a reference/interpretation guide.
-
+    Construct the Diagnostics page UI with controls and result areas for ROC, Chi-Square, Descriptive, Decision Curve Analysis, and a reference/interpretation guide.
+    
     Returns:
-        ui.TagChild: A top-level UI container with title and dataset selector followed by a tabset of five panels (ROC Curve & AUC, Chi-Square & Risk, Descriptive statistics, Decision Curve Analysis, and Reference & Interpretation) including inputs, action/download buttons, status displays, and result output regions.
+        ui.TagChild: A UI container that includes the page title and dataset selector followed by a tabset of five panels (ROC Curve & AUC, Chi-Square & Risk, Descriptive statistics, Decision Curve Analysis, and Reference & Interpretation) with their corresponding input controls, action/download buttons, status displays, and result output regions.
     """
     return ui.div(
         # Title + Data Summary inline
@@ -318,6 +318,33 @@ def diag_server(
     is_matched: reactive.Value[bool],
 ) -> None:
     # --- Reactive Results Storage ---
+    """
+    Register server-side UI renderers, reactive handlers, and analysis workflows for the Diagnostics module (ROC, ROC comparison, Chi-Square, Descriptive, and Decision Curve Analysis). Sets up reactive storage for generated HTML reports and processing flags and wires input-driven analysis effects and download handlers.
+    
+    Parameters:
+        input: Shiny-like input accessor used to read UI control values and events.
+        output: Shiny-like output registry used to attach UI render targets.
+        session: Shiny-like session object for the current user connection.
+        df (reactive.Value[pd.DataFrame | None]): Primary reactive dataset.
+        var_meta (reactive.Value[dict[str, Any]]): Reactive variable metadata used for reports and missing-data summaries.
+        df_matched (reactive.Value[pd.DataFrame | None]): Optional reactive matched dataset (e.g., from propensity score matching).
+        is_matched (reactive.Value[bool]): Reactive flag indicating whether a matched dataset is available/selected.
+    
+    Behavior:
+        - Exposes UI renderers for inputs, status indicators, and result containers used by the Diagnostics tab.
+        - Maintains reactive storage for generated HTML reports (ROC, ROC comparison, Chi-Square, Descriptive, DCA) and processing flags.
+        - Implements analysis event handlers that run when corresponding action buttons are triggered:
+            * Single-test ROC analysis (ROC plot, statistics, calibration/sens-spec plots, performance table).
+            * Paired ROC comparison using a DeLong paired test (comparison plot, DeLong table, optimal-threshold metrics).
+            * Chi-Square / 2x2 analysis (contingency table, statistics, risk/effect measures).
+            * Descriptive statistics for a selected variable.
+            * Decision Curve Analysis (net benefit calculations, DCA plot, selected-threshold net benefits).
+        - Each analysis appends missing-data summaries to reports when applicable and exposes download handlers that yield the generated HTML report content.
+        - All processing flags are managed to allow UI status spinners while computations run.
+    
+    Note:
+        This function configures server-side behavior and does not return a value.
+    """
     roc_html: reactive.Value[str | None] = reactive.Value(None)
     chi_html: reactive.Value[str | None] = reactive.Value(None)
     desc_html: reactive.Value[str | None] = reactive.Value(None)
@@ -422,6 +449,14 @@ def diag_server(
 
     @render.ui
     def ui_roc_pos_label():
+        """
+        Render a dropdown to select the positive label for the currently selected ROC truth column.
+        
+        Builds the choice list from the non-missing unique values of the selected truth column in the current data. If the values include "1" or "1.0", that value is selected by default; otherwise the first unique value is selected. If the truth column is missing or no data is available, returns a select input with no choices.
+        
+        Returns:
+            A Shiny select input component for choosing the positive label.
+        """
         truth_col = input.sel_roc_truth()
         d = current_df()
         if d is not None and truth_col and truth_col in d.columns:
@@ -448,6 +483,14 @@ def diag_server(
     # --- ROC Comparison Mode UI ---
     @render.ui
     def ui_roc_truth_comp():
+        """
+        Render a dropdown for selecting the Gold Standard (binary) column from the current dataset.
+        
+        The control pre-selects a column whose name matches keywords like "gold" or "truth" when available.
+        
+        Returns:
+            A UI select input element allowing selection of the gold-standard column (choices populated from available columns).
+        """
         cols = all_cols()
         default = select_variable_by_keyword(
             cols, ["gold", "truth"], default_to_first=True
@@ -461,6 +504,12 @@ def diag_server(
 
     @render.ui
     def ui_roc_test1():
+        """
+        Render a select input for choosing the reference test (Test 1) from the available dataset columns.
+        
+        Returns:
+            A UI select input element (id "sel_roc_test1") labeled "Test 1 (Reference):" whose choices are the current dataset columns and whose default selection is the first column matching the keywords ["rapid", "standard", "test1", "score"], falling back to the first column if no keyword match is found.
+        """
         cols = all_cols()
         default = select_variable_by_keyword(
             cols, ["rapid", "standard", "test1", "score"], default_to_first=True
@@ -471,6 +520,14 @@ def diag_server(
 
     @render.ui
     def ui_roc_test2():
+        """
+        Render a dropdown for selecting the second test (comparator) used in ROC comparison.
+        
+        The control lists all available dataframe columns and chooses a sensible default using prioritized keyword heuristics (preferring names like "expensive", "new", "test2", "score" and then fallback keywords), with a final fallback to the second column when no keyword match is found.
+        
+        Returns:
+            ui.input_select: A select input element with id "sel_roc_test2", label "Test 2 (Comparator):", choices set to the available columns, and a heuristically chosen selected value.
+        """
         cols = all_cols()
         # prioritized keywords for the second test
         default = select_variable_by_keyword(
@@ -498,11 +555,31 @@ def diag_server(
 
     @render.ui
     def ui_roc_pos_label_comp():
+        """
+        Render the positive-class selector for ROC comparison using the chosen gold-standard column.
+        
+        Constructs a UI control populated with candidate positive labels derived from the currently selected truth (gold-standard) column for the paired ROC comparison workflow.
+        
+        Returns:
+            ui_element: A UI control allowing the user to choose the positive label for the ROC comparison.
+        """
         return _render_pos_label_ui(
             input.sel_roc_truth_comp(), "sel_roc_pos_label_comp"
         )
 
     def _render_pos_label_ui(truth_col_name, input_id):
+        """
+        Render a dropdown UI for selecting the positive class label based on values in a dataset column.
+        
+        Examines the current dataset's column named by `truth_col_name`, collects its non-missing unique values (as strings), and produces a select input labeled "Positive Label:". If one of the common defaults ("1", "1.0", "Yes", "Positive") is present it will be preselected; otherwise the first value is selected. If the column is missing or has no values, an empty-choice select is returned.
+        
+        Parameters:
+            truth_col_name (str): Name of the column in the current dataset to derive label choices from.
+            input_id (str): Input identifier for the generated select widget.
+        
+        Returns:
+            UI select input populated with the column's unique values and an appropriate default selection.
+        """
         d = current_df()
         if d is not None and truth_col_name and truth_col_name in d.columns:
             vals = sorted([str(x) for x in d[truth_col_name].dropna().unique()])
@@ -518,6 +595,14 @@ def diag_server(
     # --- Chi-Square Inputs UI ---
     @render.ui
     def ui_chi_v1():
+        """
+        Render a dropdown for selecting Variable 1 (the exposure / row) for the chi-square analysis.
+        
+        The dropdown lists all available columns from the current dataset and defaults to "Treatment_Group" when that column exists; otherwise it selects the first column. 
+        
+        Returns:
+            The UI input select element for Variable 1 selection.
+        """
         cols = all_cols()
         v1_idx = next((i for i, c in enumerate(cols) if c == "Treatment_Group"), 0)
         return ui.input_select(
@@ -676,6 +761,11 @@ def diag_server(
     @reactive.Effect
     @reactive.event(input.btn_analyze_roc)
     def _run_roc():
+        """
+        Run ROC analysis for the currently selected truth and score columns and produce an HTML report.
+        
+        Performs the analysis using the configured CI method and positive label, builds a report containing plots, statistics tables, performance-at-thresholds, and missing-data details when available, and stores the generated HTML in the module state (roc_html). While running, the processing flag (roc_processing) is set to True; on error an error alert HTML is stored in roc_html and the processing flag is cleared.
+        """
         d = current_df()
         req(d is not None, input.sel_roc_truth(), input.sel_roc_score())
 
@@ -803,12 +893,23 @@ def diag_server(
 
     @render.download(filename="roc_report.html")
     def btn_dl_roc_report():
+        """
+        Provide the generated ROC HTML report for download.
+        
+        Returns:
+            str: The ROC report HTML content.
+        """
         yield roc_html.get()
 
     # --- ACTION: Compare ROC Analysis ---
     @reactive.Effect
     @reactive.event(input.btn_compare_roc)
     def _run_roc_compare():
+        """
+        Run a paired ROC comparison using the DeLong test and store an HTML report.
+        
+        Validates selected gold-standard and two test score columns from the current dataset, filters out missing and non-numeric scores, and performs a paired DeLong test via DiagnosticComparison.delong_paired_test. Builds a Plotly ROC comparison figure (two ROC curves, diagonal reference, and optimal-threshold markers), constructs result tables (DeLong statistics and comparative metrics at the Youden optimal threshold), generates a combined HTML report via diag_test.generate_report, and stores the result in the module's `roc_html` reactive. Updates the `roc_processing` flag while work is in progress. If no valid data or insufficient points are found, or if the comparison fails, sets `roc_html` to an appropriate alert message.
+        """
         d = current_df()
         req(
             d is not None,
@@ -944,6 +1045,22 @@ def diag_server(
 
             # Helper to get metrics row AND coords
             def get_best_metrics(score_data, label, color):
+                """
+                Constructs a metrics summary and a Plotly marker for the optimal Youden threshold of a diagnostic score.
+                
+                Parameters:
+                    score_data (Sequence[float]): Numeric prediction scores for one test.
+                    label (str): Display name for the test used in table and marker legend.
+                    color (str): Color used for the marker on the ROC plot.
+                
+                Returns:
+                    tuple: A pair (metrics_row, trace) where
+                        - metrics_row (dict): A dictionary with keys "Test", "AUC", "Best Threshold", "Sensitivity",
+                          "Specificity", "PPV", "NPV", and "Accuracy". Sensitivity and Specificity values include
+                          their 95% confidence interval in the format "value [lower-upper]".
+                        - trace (plotly.graph_objs._scatter.Scatter): A Plotly Scatter trace marking the optimal
+                          point (FPR, TPR) on the ROC curve with hover text showing threshold, TPR, and FPR.
+                """
                 dt = DiagnosticTest(y_true, score_data, pos_label=pos_label)
                 thresh, idx = dt.find_optimal_threshold(method="youden")
                 m = dt.get_metrics_at_threshold(thresh)
