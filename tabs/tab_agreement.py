@@ -10,8 +10,8 @@ from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
 from tabs._common import (
-    select_variable_by_keyword,
     get_color_palette,
+    select_variable_by_keyword,
 )
 from utils import diag_test
 from utils.agreement_lib import AgreementAnalysis

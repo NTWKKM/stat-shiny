@@ -38,7 +38,6 @@ from utils.formatting import (
     format_p_value,
 )
 
-
 logger = get_logger(__name__)
 
 # Fetch palette and extend for local needs

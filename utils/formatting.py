@@ -5,9 +5,9 @@ Driven by central configuration from config.py
 """
 
 from __future__ import annotations
-from typing import Any
 
 import html as _html
+from typing import Any
 
 import numpy as np
 import pandas as pd
