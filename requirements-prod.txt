@@ -22,6 +22,7 @@ lifelines>=0.27.0,<1.0.0
 scikit-learn>=1.6.0,<2.0.0
 pingouin>=0.5.5,<1.0.0
 firthmodels>=0.6.0,<1.0.0
+patsy>=1.0.0,<2.0.0
 
 # Data Visualization
 plotly>=5.14.0,<6.0.0

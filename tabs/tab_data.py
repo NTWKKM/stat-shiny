@@ -410,7 +410,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         # --- Survival Data ---
         lambda_base = 0.002
         linear_predictor = (
-            0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
+            0.03 * age
+            + 0.4 * diabetes
+            + 0.3 * hypertension
+            - 0.6 * group
+            + 0.005 * (bmi - 25) ** 2  # Non-linear BMI effect (U-shape)
         )
         hazard = lambda_base * np.exp(linear_predictor)
         surv_time = np.random.exponential(1 / hazard, n)

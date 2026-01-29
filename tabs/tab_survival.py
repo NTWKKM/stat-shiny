@@ -31,7 +31,7 @@ from tabs._tvc_components import (
     tvc_model_config_ui,
     tvc_risk_interval_picker_ui,
 )
-from utils import survival_lib
+from utils import rcs_lib, survival_lib
 from utils.formatting import (
     PublicationFormatter,
     create_missing_data_report_html,
@@ -396,6 +396,80 @@ def survival_ui() -> ui.TagChild:
                     "Subgroup Analysis Results", ui.output_ui("out_sg_result")
                 ),
             ),
+            # TAB: RCS Analysis (New)
+            ui.nav_panel(
+                "📈 RCS (Non-linear)",
+                ui.card(
+                    ui.card_header("Restricted Cubic Spline (RCS) Analysis"),
+                    ui.div(
+                        ui.markdown("""
+                        **ℹ️ Purpose:** Visualize non-linear relationships between a continuous variable and the hazard ratio (HR).
+                        Useful when the risk does not increase linearly (e.g., U-shaped or J-shaped curves).
+                        """),
+                        class_="alert alert-light",
+                    ),
+                    ui.layout_columns(
+                        create_input_group(
+                            "Variables",
+                            ui.input_select(
+                                "rcs_var",
+                                create_tooltip_label(
+                                    "Continuous Variable",
+                                    "The variable to model non-linearly.",
+                                ),
+                                choices=["Select..."],
+                            ),
+                            ui.input_select(
+                                "rcs_time", "Time Variable:", choices=["Select..."]
+                            ),
+                            ui.input_select(
+                                "rcs_event", "Event Variable:", choices=["Select..."]
+                            ),
+                            type="required",
+                        ),
+                        create_input_group(
+                            "Settings",
+                            ui.input_slider(
+                                "rcs_knots",
+                                create_tooltip_label(
+                                    "Number of Knots",
+                                    "Determines curve flexibility (usually 3-5).",
+                                ),
+                                min=3,
+                                max=7,
+                                value=4,
+                                step=1,
+                            ),
+                            ui.input_numeric(
+                                "rcs_ref_val",
+                                create_tooltip_label(
+                                    "Reference Value",
+                                    "HR = 1 at this value (Leave empty for Median).",
+                                ),
+                                value=None,
+                                placeholder="Median",
+                            ),
+                            ui.input_selectize(
+                                "rcs_adjust",
+                                "Adjustment Covariates:",
+                                choices=[],
+                                multiple=True,
+                                options={"placeholder": "Select adjustments..."},
+                            ),
+                            type="required",
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                    ui.input_action_button(
+                        "btn_run_rcs", "🚀 Run RCS Analysis", class_="btn-primary w-100"
+                    ),
+                    ui.hr(),
+                    ui.output_ui("out_rcs_status"),
+                    create_results_container(
+                        "RCS Results", ui.output_ui("out_rcs_result")
+                    ),
+                ),
+            ),
             # TAB 5: Time-Varying Cox (NEW) - SUBTAB LAYOUT
             ui.nav_panel(
                 "⏱️ Time-Varying Cox",
@@ -568,6 +642,7 @@ def survival_server(
     sg_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     tvc_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
     tvc_long_data: reactive.Value[pd.DataFrame | None] = reactive.Value(None)
+    rcs_result: reactive.Value[dict[str, Any] | None] = reactive.Value(None)
 
     # Running States
     curves_is_running = reactive.Value(False)
@@ -575,6 +650,7 @@ def survival_server(
     cox_is_running = reactive.Value(False)
     sg_is_running = reactive.Value(False)
     tvc_is_running = reactive.Value(False)
+    rcs_is_running = reactive.Value(False)
 
     # ==================== DATASET SELECTION LOGIC ====================
     @reactive.Calc
@@ -790,6 +866,79 @@ def survival_server(
             "sg_subgroup", choices=choices_with_labels, selected=default_subgr
         )
         ui.update_selectize("sg_adjust", choices=choices_with_labels)
+
+        # RCS Updates
+        # Prioritize variables likely to have non-linear effects
+        # Case-insensitive matching order: Anthropometrics > Demographics > Scores > Labs/Vitals
+        rcs_candidates = [
+            # Anthropometrics
+            "bmi",
+            "body",
+            "weight",
+            # Demographics
+            "age",
+            "year",
+            # Scores
+            "score",
+            "scale",
+            # Labs/Vitals
+            "lab",
+            "gluc",
+            "creat",
+            "chol",
+            "press",
+            "sys",
+            "dia",
+            "wbc",
+            "hgb",
+        ]
+
+        default_rcs = None
+        for cand in rcs_candidates:
+            for c in numeric_cols:
+                # Case-insensitive check
+                if cand.lower() in c.lower():
+                    default_rcs = c
+                    break
+            if default_rcs:
+                break
+
+        if not default_rcs and default_cox_covs:
+            # Fallback to first numeric in cox defaults
+            for c in default_cox_covs:
+                if c in numeric_cols:
+                    default_rcs = c
+                    break
+
+        if not default_rcs and default_cox_covs:
+            # Fallback to first numeric in cox defaults
+            for c in default_cox_covs:
+                if c in numeric_cols:
+                    default_rcs = c
+                    break
+
+        ui.update_select(
+            "rcs_var",
+            choices=num_choices_with_labels,
+            selected=default_rcs,
+        )
+        ui.update_select(
+            "rcs_time", choices=num_choices_with_labels, selected=default_time
+        )
+        ui.update_select(
+            "rcs_event", choices=choices_with_labels, selected=default_event
+        )
+
+        # Auto-select adjustments (reuse Cox defaults but exclude the RCS variable itself)
+        default_rcs_adjust = []
+        if default_rcs:
+            for c in default_cox_covs:
+                if c != default_rcs and c not in [default_time, default_event, "ID"]:
+                    default_rcs_adjust.append(c)
+
+        ui.update_selectize(
+            "rcs_adjust", choices=choices_with_labels, selected=default_rcs_adjust
+        )
 
         # TVC: Column configuration (use specialized detection for long-format TVC data)
         if len(cols) > 0:
@@ -2004,6 +2153,101 @@ def survival_server(
             logger.exception("TVC Execution Error")
         finally:
             tvc_is_running.set(False)
+
+    # ==================== RCS LOGIC ====================
+    @reactive.Effect
+    @reactive.event(input.btn_run_rcs)
+    def _run_rcs():
+        data = current_df()
+        rcs_var = input.rcs_var()
+        time = input.rcs_time()
+        event = input.rcs_event()
+        adjust = list(input.rcs_adjust())
+        knots = input.rcs_knots()
+        ref = input.rcs_ref_val()  # Might be None
+
+        if any(x == "Select..." for x in [rcs_var, time, event]):
+            ui.notification_show("Please select all required variables", type="warning")
+            return
+
+        try:
+            rcs_is_running.set(True)
+            rcs_result.set(None)
+            ui.notification_show("Fitting RCS Model...", duration=None, id="run_rcs")
+
+            # Check if patsy is available (redundant if installed, but good for safety)
+            try:
+                import patsy  # noqa: F401
+            except ImportError:
+                ui.notification_remove("run_rcs")
+                ui.notification_show("patsy library is missing.", type="error")
+                return
+
+            fig, stats, missing = rcs_lib.fit_cox_rcs(
+                data,
+                time,
+                event,
+                rcs_var,
+                adjust,
+                knots=knots,
+                ref_value=ref,
+                var_meta=var_meta.get(),
+            )
+
+            if "error" in missing:
+                # Handle critical error
+                ui.notification_remove("run_rcs")
+                ui.notification_show(f"Error: {missing['error']}", type="error")
+            else:
+                rcs_result.set(
+                    {"fig": fig, "stats": stats, "missing_data_info": missing}
+                )
+                ui.notification_remove("run_rcs")
+
+        except Exception as e:
+            ui.notification_remove("run_rcs")
+            logger.exception("RCS Error")
+            ui.notification_show(f"Error: {e}", type="error")
+        finally:
+            rcs_is_running.set(False)
+
+    @render.ui
+    def out_rcs_result():
+        if rcs_is_running.get():
+            return create_loading_state("Calculating Splines...")
+
+        res = rcs_result.get()
+        if not res:
+            return None
+
+        # Check for error in result
+        if "error" in res.get("missing_data_info", {}):
+            return create_error_alert(res["missing_data_info"]["error"])
+
+        return ui.div(
+            ui.card_header("📈 RCS Plot (HR vs Variable)"),
+            ui.HTML(
+                plotly_figure_to_html(
+                    res["fig"], div_id="rcs_plot", include_plotlyjs="cdn"
+                )
+            ),
+            ui.card_header("📄 Model Coefficients (Spline Terms)"),
+            render.DataGrid(res["stats"]),
+            ui.br(),
+            ui.card_header("⚠️ Missing Data Report"),
+            ui.HTML(
+                create_missing_data_report_html(
+                    res["missing_data_info"], var_meta.get() or {}
+                )
+            ),
+            class_="fade-in-entry",
+            style="margin-top: 20px;",
+        )
+
+    @render.ui
+    def out_rcs_status():
+        """Placeholder for any status messages or errors"""
+        return None
 
     @render.ui
     def out_tvc_result():
