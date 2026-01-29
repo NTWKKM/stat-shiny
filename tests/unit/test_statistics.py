@@ -754,10 +754,11 @@ class TestICCAnalysis:
 
         assert icc_df is not None
         assert error_msg is None
-        # AgreementAnalysis returns the dataframe directly as first arg
-        # We only check if it is not None/Empty if mocked correctly.
-        if not icc_df.empty:
-            assert "ICC" in icc_df.columns
+        # With the mock setup, we expect a valid DataFrame
+        assert not icc_df.empty, (
+            "ICC DataFrame should not be empty with mocked pingouin"
+        )
+        assert "ICC" in icc_df.columns
 
     def test_calculate_icc_insufficient_columns(self):
         """✅ Test ICC with single column."""

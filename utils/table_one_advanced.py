@@ -426,7 +426,7 @@ class TableOneGenerator:
         # 2. Setup Groups
         groups = []
         group_masks = {}
-        if stratify_by and stratify_by != "None":
+        if stratify_by and stratify_by != "None" and stratify_by in df_clean.columns:
             uniques = df_clean[stratify_by].dropna().unique()
             # Sort naturally
             uniques = sorted(
