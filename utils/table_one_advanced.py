@@ -582,6 +582,8 @@ class TableOneGenerator:
     def __init__(self, df: pd.DataFrame, var_meta: dict = None):
         self.raw_df = df
         self.var_meta = var_meta or {}
+        self.classifier = VariableClassifier()
+        self.stats_engine = StatisticalEngine()
 
     def _format_categorical_or(
         self, var: str, or_calc: str | dict, df_clean: pd.DataFrame
