@@ -1,12 +1,14 @@
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pingouin as pg
 import plotly.graph_objects as go
-from config import CONFIG
 from scipy import stats
 from sklearn.metrics import cohen_kappa_score, confusion_matrix
 from statsmodels.stats.inter_rater import aggregate_raters, fleiss_kappa
+
+from config import CONFIG
 from utils.data_cleaning import prepare_data_for_analysis
 
 
@@ -378,6 +380,23 @@ class AgreementAnalysis:
             icc_res = pg.intraclass_corr(
                 data=df_long, targets="Subject_ID", raters="Rater", ratings="Rating"
             )
+
+            if "Type" in icc_res.columns:
+                icc_res = icc_res[icc_res["Type"] == icc_type].copy()
+                if icc_res.empty:
+                    return (
+                        pd.DataFrame(),
+                        f"ICC type '{icc_type}' not found.",
+                        {},
+                        missing_info,
+                    )
+            else:
+                return (
+                    pd.DataFrame(),
+                    "ICC output missing 'Type' column.",
+                    {},
+                    missing_info,
+                )
 
             # Add interpretation helper
             def interpret_icc(v):

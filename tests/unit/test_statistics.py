@@ -129,6 +129,12 @@ def setup_mocks():
     mock_sklearn = MagicMock()
     mock_metrics = MagicMock()
 
+    # Mock Pingouin for ICC
+    mock_pingouin = MagicMock()
+    mock_pingouin.intraclass_corr.return_value = pd.DataFrame(
+        {"Type": ["ICC2k"], "ICC": [0.85]}
+    )
+
     # Fix: roc_curve returns tuple of arrays
     mock_metrics.roc_curve.return_value = (
         np.array([0.0, 0.1, 1.0]),
@@ -160,6 +166,7 @@ def setup_mocks():
         "sklearn.impute": MagicMock(),
         "sklearn.metrics": mock_metrics,
         "sklearn.linear_model": MagicMock(),
+        "pingouin": mock_pingouin,
     }
 
     # Apply the patches to sys.modules

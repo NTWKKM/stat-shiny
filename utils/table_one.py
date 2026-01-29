@@ -108,7 +108,6 @@ def generate_table(
     selected_vars: list[str],
     group_col: str | None,
     var_meta: dict[str, Any] | None,
-    or_style: str = "all_levels",
 ) -> str:
     """
     Generate baseline characteristics table using the new Advanced TableOneGenerator.
@@ -118,7 +117,6 @@ def generate_table(
         selected_vars: List of variables to include
         group_col: Column to stratify by (optional)
         var_meta: Metadata dictionary (labels, etc.)
-        or_style: 'all_levels' or 'simple' (Passed to generator if implemented, currently only standard supported)
 
     Returns:
         HTML string of the table.

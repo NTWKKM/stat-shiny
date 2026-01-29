@@ -60,14 +60,14 @@ def baseline_matching_ui() -> ui.TagChild:
                             ),
                             choices=[],
                         ),
-                        ui.input_radio_buttons(
-                            "radio_or_style",
-                            "OR Style:",
-                            choices={
-                                "all_levels": "All Levels (Every Level vs Ref)",
-                                "simple": "Simple (Single Line/Risk vs Ref)",
-                            },
-                        ),
+                        # ui.input_radio_buttons(
+                        #     "radio_or_style",
+                        #     "OR Style:",
+                        #     choices={
+                        #         "all_levels": "All Levels (Every Level vs Ref)",
+                        #         "simple": "Simple (Single Line/Risk vs Ref)",
+                        #     },
+                        # ),
                         type="required",
                     ),
                     create_input_group(
@@ -524,7 +524,6 @@ def baseline_matching_server(
                 selected_vars,
                 group_col,
                 var_meta.get(),
-                or_style=input.radio_or_style(),
             )
             html_content.set(html)
             ui.notification_remove("gen_t1_notif")

@@ -410,7 +410,8 @@ class TableOneGenerator:
             numeric_cols=[
                 c
                 for c in selected_vars
-                if pd.api.types.is_numeric_dtype(self.raw_df[c])
+                if c in self.raw_df.columns
+                and pd.api.types.is_numeric_dtype(self.raw_df[c])
             ],
             required_cols=list(
                 set(list(selected_vars) + ([stratify_by] if stratify_by else []))
