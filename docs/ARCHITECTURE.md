@@ -252,7 +252,7 @@ The application uses a centralized styling system to ensure visual consistency a
 
 - `utils/plotly_html_renderer.py`: Standardizes Plotly figure rendering (Inter font, theme-sync).
 - `utils/formatting.py`: Handles P-value styling, logic-driven badges, and statistical report HTML structure (syncing with `config.py`).
-- `utils/table_one_advanced.py`: **Advanced Table 1 Generator** (OOP) that handles intelligent variable classification (Normal vs Non-Normal) and automated statistical test selection.
+- `utils/table_one_advanced.py`: **Advanced Table 1 Generator** (OOP) that handles intelligent variable classification (Normal vs Non-Normal), automated statistical test selection, and **Odds Ratio (OR) calculation with 95% CI** for both categorical and continuous variables.
 - `utils/diagnostic_advanced_lib.py`: **Advanced Diagnostic Engine** (OOP) providing robust ROC analysis, **DeLong's Test**, and Wilson Score confidence intervals.
 - `utils/agreement_lib.py`: **Agreement Analysis Engine** providing Cohen's/Fleiss' Kappa, advanced Bland-Altman (CI bands), and ICC.
 

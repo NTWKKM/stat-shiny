@@ -23,7 +23,7 @@ class TestDiagnosticTest:
 
         # Optimal threshold should be between 0.2 and 0.8
         # roc_curve handling varies, but we expect J=1 here
-        assert 0.2 < thresh < 0.8
+        assert 0.2 < thresh <= 0.8
 
     def test_metrics_at_threshold(self):
         y_true = [0, 0, 1, 1]

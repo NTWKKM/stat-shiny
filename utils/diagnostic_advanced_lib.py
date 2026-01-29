@@ -5,6 +5,8 @@ Advanced Diagnostic Test Analysis & Comparison Library (Shiny Compatible)
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
@@ -75,8 +77,6 @@ def _get_binary_labels(y_true: np.ndarray, pos_label: int | str) -> np.ndarray:
 
     # Warn if no positives found
     if np.sum(binary) == 0:
-        import warnings
-
         warnings.warn(
             f"No samples matched pos_label={pos_label!r}. Returning all-zeros."
         )

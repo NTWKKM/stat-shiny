@@ -48,6 +48,7 @@ fit_cox_ph = None
 fit_km_landmark = None
 fit_km_logrank = None
 fit_nelson_aalen = None
+AgreementAnalysis = None
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -61,7 +62,13 @@ def setup_mocks():
     global calculate_descriptive, format_p_value
     global analyze_outcome, clean_numeric_value, fmt_p_with_styling, get_label
     global run_binary_logit, validate_logit_data
-    global calculate_median_survival, fit_cox_ph, fit_km_landmark, fit_km_logrank, fit_nelson_aalen
+    global \
+        calculate_median_survival, \
+        fit_cox_ph, \
+        fit_km_landmark, \
+        fit_km_logrank, \
+        fit_nelson_aalen
+    global AgreementAnalysis
 
     # --- ROBUST MOCK SETUP ---
 
@@ -202,9 +209,7 @@ def setup_mocks():
         import utils.agreement_lib
 
         importlib.reload(utils.agreement_lib)
-        # We don't need to assign to globals if we use the class directly,
-        # but let's make the class available globally or import it in the tests.
-        # Actually, let's just make AgreementAnalysis available via the module.
+        AgreementAnalysis = utils.agreement_lib.AgreementAnalysis
 
         import utils.logic
 
@@ -697,7 +702,6 @@ class TestKappaAnalysis:
 
     def test_calculate_kappa_basic(self):
         """✅ Test basic Kappa calculation."""
-        from utils.agreement_lib import AgreementAnalysis
 
         df = pd.DataFrame({"rater1": [0, 1, 0, 1] * 5, "rater2": [0, 1, 0, 1] * 5})
 
@@ -712,7 +716,6 @@ class TestKappaAnalysis:
 
     def test_calculate_kappa_perfect_agreement(self):
         """✅ Test Kappa with perfect agreement."""
-        from utils.agreement_lib import AgreementAnalysis
 
         df = pd.DataFrame({"rater1": [0, 1] * 10, "rater2": [0, 1] * 10})
 
@@ -724,7 +727,6 @@ class TestKappaAnalysis:
 
     def test_calculate_kappa_no_agreement(self):
         """✅ Test Kappa with no agreement."""
-        from utils.agreement_lib import AgreementAnalysis
 
         df = pd.DataFrame({"rater1": [0, 0, 0], "rater2": [1, 1, 1]})
 
@@ -740,7 +742,6 @@ class TestICCAnalysis:
 
     def test_calculate_icc_basic(self):
         """✅ Test basic ICC calculation."""
-        from utils.agreement_lib import AgreementAnalysis
 
         np.random.seed(42)
         n = 50
@@ -762,7 +763,6 @@ class TestICCAnalysis:
 
     def test_calculate_icc_insufficient_columns(self):
         """✅ Test ICC with single column."""
-        from utils.agreement_lib import AgreementAnalysis
 
         df = pd.DataFrame({"rater1": [1, 2, 3, 4, 5]})
 

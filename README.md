@@ -204,7 +204,7 @@ This application is a complete statistical workbench organized into modular tabs
 
 ### 📋 Baseline & Matching
 
-- **Table 1 Generation**: Publication-ready baseline tables with **Intelligent Variable Classification** (detects Normal/Skewed/Categorical) and automated statistical testing (T-test/MWU/Chi2/Fisher).
+- **Table 1 Generation**: Publication-ready baseline tables with **Intelligent Variable Classification** (detects Normal/Skewed/Categorical), automated statistical testing (T-test/MWU/Chi2/Fisher), and **Odds Ratios with 95% CI** for group comparisons.
 - **Propensity Score Matching (PSM)**: Advanced matching with customizable calipers and variable selection.
 - **Balance Diagnostics**: Enhanced Love plots (Green/Yellow zones) and Standardized Mean Differences (SMD).
 - **Common Support**: Visual inspection of propensity score overlap distributions.
