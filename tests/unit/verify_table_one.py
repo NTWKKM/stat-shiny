@@ -44,7 +44,7 @@ def test_categorical():
     assert "<table" in html
 
 
-def test_missing_data():
+def test_missing_data(tmp_path):
     """
     Run a test that verifies generate_table correctly handles missing data.
 
@@ -85,12 +85,8 @@ def test_missing_data():
             var_meta=var_meta,
         )
         print("✅ Test Case 2 PASSED - Handles missing data")
-        output_path = os.path.join(
-            os.path.dirname(__file__), "output/test_output_2.html"
-        )
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, "w") as f:
-            f.write(html)
+        output_path = tmp_path / "test_output_2.html"
+        output_path.write_text(html)
         print(f"✅ Test Case 2 PASSED - Logic verified and saved to {output_path}")
     except Exception as e:
         print(f"❌ Test Case 2 FAILED: {e}")
