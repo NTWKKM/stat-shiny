@@ -440,18 +440,24 @@ def causal_inference_server(
             try:
                 X_wls = sm.add_constant(T)
                 model_wls = sm.WLS(d_clean[outcome], X_wls, weights=weights).fit()
-                ate = model_wls.params[1]
+
+                # FIX: Use .iloc for positional access to avoid KeyError(1) if index is not integer
+                ate = model_wls.params.iloc[1]
                 ci = model_wls.conf_int()
-                # Handle different statsmodels versions
+
+                # Handle different statsmodels versions and return types
                 if isinstance(ci, pd.DataFrame):
-                    ci_l, ci_u = ci.iloc[1, 0], ci.iloc[1, 1]
+                    ci_l = ci.iloc[1, 0]
+                    ci_u = ci.iloc[1, 1]
                 else:
-                    ci_l, ci_u = ci[1, 0], ci[1, 1]
+                    # Assume array-like
+                    ci_l = ci[1, 0]
+                    ci_u = ci[1, 1]
 
                 ipw_results = {
                     "ATE": float(ate),
-                    "SE": float(model_wls.bse[1]),
-                    "p_value": float(model_wls.pvalues[1]),
+                    "SE": float(model_wls.bse.iloc[1]),
+                    "p_value": float(model_wls.pvalues.iloc[1]),
                     "CI_Lower": float(ci_l),
                     "CI_Upper": float(ci_u),
                     "missing_data_info": missing_info,

@@ -182,7 +182,18 @@ class SubgroupAnalysisLogit:
                 return {}
 
             or_overall = float(np.exp(model_overall.params[param_key]))
-            ci_overall = np.exp(model_overall.conf_int().loc[param_key])
+            ci_data = np.exp(model_overall.conf_int().loc[param_key])
+            # Robust access to CI values
+            ci_low = (
+                float(ci_data.iloc[0])
+                if hasattr(ci_data, "iloc")
+                else float(ci_data[0])
+            )
+            ci_high = (
+                float(ci_data.iloc[1])
+                if hasattr(ci_data, "iloc")
+                else float(ci_data[1])
+            )
             p_overall = float(model_overall.pvalues[param_key])
 
             results_list.append(
@@ -191,8 +202,8 @@ class SubgroupAnalysisLogit:
                     "n": len(df_clean),
                     "events": int(df_clean[outcome_col].sum()),
                     "or": or_overall,
-                    "ci_low": float(ci_overall[0]),
-                    "ci_high": float(ci_overall[1]),
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
                     "p_value": p_overall,
                     "type": "overall",
                     "subgroup": None,
@@ -238,7 +249,18 @@ class SubgroupAnalysisLogit:
                         continue
 
                     or_sub = float(np.exp(model_sub.params[sub_param_key]))
-                    ci_sub = np.exp(model_sub.conf_int().loc[sub_param_key])
+                    ci_sub_data = np.exp(model_sub.conf_int().loc[sub_param_key])
+                    # Robust access
+                    ci_low = (
+                        float(ci_sub_data.iloc[0])
+                        if hasattr(ci_sub_data, "iloc")
+                        else float(ci_sub_data[0])
+                    )
+                    ci_high = (
+                        float(ci_sub_data.iloc[1])
+                        if hasattr(ci_sub_data, "iloc")
+                        else float(ci_sub_data[1])
+                    )
                     p_sub = float(model_sub.pvalues[sub_param_key])
 
                     results_list.append(
@@ -248,8 +270,8 @@ class SubgroupAnalysisLogit:
                             "n": len(df_sub),
                             "events": int(df_sub[outcome_col].sum()),
                             "or": or_sub,
-                            "ci_low": float(ci_sub[0]),
-                            "ci_high": float(ci_sub[1]),
+                            "ci_low": ci_low,
+                            "ci_high": ci_high,
                             "p_value": p_sub,
                             "type": "subgroup",
                         }
@@ -563,9 +585,12 @@ class SubgroupAnalysisCox:
                 )
 
                 hr_overall = float(np.exp(cph_overall.params_[treatment_col]))
-                ci_overall = np.exp(
-                    cph_overall.confidence_intervals_.loc[treatment_col]
-                )
+                # conf_int_ is a DataFrame with cols like 'lower 0.95', 'upper 0.95'
+                ci_row = np.exp(cph_overall.confidence_intervals_.loc[treatment_col])
+                # FIX: Use positional indexing (.iloc) to avoid KeyError 0
+                ci_low = float(ci_row.iloc[0])
+                ci_high = float(ci_row.iloc[1])
+
                 p_overall = float(cph_overall.summary.loc[treatment_col, "p"])
 
                 results_list.append(
@@ -574,8 +599,8 @@ class SubgroupAnalysisCox:
                         "n": len(df_clean),
                         "events": int(df_clean[event_col].sum()),
                         "hr": hr_overall,
-                        "ci_low": float(ci_overall[0]),
-                        "ci_high": float(ci_overall[1]),
+                        "ci_low": ci_low,
+                        "ci_high": ci_high,
                         "p_value": p_overall,
                         "type": "overall",
                     }
@@ -614,7 +639,13 @@ class SubgroupAnalysisCox:
                     )
 
                     hr_sub = float(np.exp(cph_sub.params_[treatment_col]))
-                    ci_sub = np.exp(cph_sub.confidence_intervals_.loc[treatment_col])
+                    ci_sub_row = np.exp(
+                        cph_sub.confidence_intervals_.loc[treatment_col]
+                    )
+                    # FIX: Use positional indexing (.iloc) to avoid KeyError 0
+                    ci_low = float(ci_sub_row.iloc[0])
+                    ci_high = float(ci_sub_row.iloc[1])
+
                     p_sub = float(cph_sub.summary.loc[treatment_col, "p"])
 
                     results_list.append(
@@ -624,8 +655,8 @@ class SubgroupAnalysisCox:
                             "n": len(df_sub),
                             "events": int(df_sub[event_col].sum()),
                             "hr": hr_sub,
-                            "ci_low": float(ci_sub[0]),
-                            "ci_high": float(ci_sub[1]),
+                            "ci_low": ci_low,
+                            "ci_high": ci_high,
                             "p_value": p_sub,
                             "type": "subgroup",
                         }
