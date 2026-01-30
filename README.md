@@ -122,6 +122,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_diagnostic_advanced.py
 |       |-- test_firth_regression.py
 |       |-- test_formatting.py
+|       |-- test_formatting_styles.py
 |       |-- test_glm.py
 |       |-- test_heterogeneity.py
 |       |-- test_linear_lib.py
@@ -136,6 +137,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_sample_size.py
 |       |-- test_sensitivity.py
 |       |-- test_statistics.py
+|       |-- test_survival_lib_patch.py
 |       |-- test_tab_diag_html_logic.py
 |       |-- test_tvc_lib.py
 |       |-- test_ui_ux_styles.py
@@ -162,6 +164,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- plotly_html_renderer.py
     |-- poisson_lib.py
     |-- psm_lib.py
+    |-- rcs_lib.py
     |-- repeated_measures_lib.py
     |-- sample_size_lib.py
     |-- sensitivity_lib.py
@@ -175,6 +178,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- update_css.py
     `-- visualizations.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
