@@ -1328,7 +1328,7 @@ def survival_server(
                 style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};",
             ),
             ui.output_ui("out_landmark_plot"),
-            ui.output_data_frame("out_landmark_table"),
+            ui.output_ui("out_landmark_table"),
         ]
 
         if "missing_data_info" in res:
