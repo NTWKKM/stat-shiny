@@ -10,6 +10,7 @@ from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
 from tabs._common import (
+    get_color_palette,
     select_variable_by_keyword,
 )
 from utils import diag_test
@@ -19,9 +20,11 @@ from utils.ui_helpers import (
     create_error_alert,
     create_loading_state,
     create_placeholder_state,
+    create_results_container,
 )
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()
 
 
 def _safe_filename_part(s: str) -> str:
@@ -569,7 +572,11 @@ def agreement_server(
         if kappa_processing.get():
             return create_loading_state("Calculating Agreement Statistics...")
         if kappa_html.get():
-            return ui.div(ui.HTML(kappa_html.get()), class_="fade-in-entry")
+            return create_results_container(
+                "Kappa Analysis Results",
+                ui.HTML(kappa_html.get()),
+                class_="fade-in-entry",
+            )
         return create_placeholder_state(
             "Select variables and click 'Calculate Kappa'.", icon="🤝"
         )
@@ -658,7 +665,11 @@ def agreement_server(
         if ba_processing.get():
             return create_loading_state("Generating Bland-Altman Analysis...")
         if ba_html.get():
-            return ui.div(ui.HTML(ba_html.get()), class_="fade-in-entry")
+            return create_results_container(
+                "Bland-Altman Results",
+                ui.HTML(ba_html.get()),
+                class_="fade-in-entry",
+            )
         return create_placeholder_state(
             "Select variables and click 'Analyze Agreement'.", icon="📉"
         )
@@ -753,7 +764,9 @@ def agreement_server(
         if icc_processing.get():
             return create_loading_state("Calculating ICC Reliability...")
         if icc_html.get():
-            return ui.div(ui.HTML(icc_html.get()), class_="fade-in-entry")
+            return create_results_container(
+                "ICC Results", ui.HTML(icc_html.get()), class_="fade-in-entry"
+            )
         return create_placeholder_state(
             "Select 2+ variables and click 'Calculate ICC'.", icon="🔍"
         )

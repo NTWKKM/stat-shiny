@@ -149,6 +149,23 @@ def settings_ui(id: str) -> ui.TagChild:
                         ),
                         type="advanced",
                     ),
+                    # Reporting Style Section
+                    create_input_group(
+                        "Reporting Style",
+                        ui.input_select(
+                            f"{id}_publication_style",
+                            "Publication Style",
+                            choices={
+                                "nejm": "NEJM",
+                                "jama": "JAMA",
+                                "lancet": "The Lancet",
+                                "bmj": "BMJ",
+                            },
+                            selected=CONFIG.get("analysis.publication_style"),
+                            width="100%",
+                        ),
+                        type="optional",
+                    ),
                     # P-value Formatting Section
                     create_input_group(
                         "P-value Bounds (NEJM)",
@@ -677,6 +694,9 @@ def settings_server(id: str, config: Any) -> None:
             config.update(
                 "analysis.var_detect_decimal_pct",
                 float(input[f"{id}_var_detect_decimal_pct"]()),
+            )
+            config.update(
+                "analysis.publication_style", input[f"{id}_publication_style"]()
             )
             config.update(
                 "analysis.pvalue_bounds_lower",

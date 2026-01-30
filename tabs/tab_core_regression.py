@@ -19,7 +19,11 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from utils.forest_plot_lib import create_forest_plot
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import (
+    PublicationFormatter,
+    create_missing_data_report_html,
+    format_p_value,
+)
 from utils.linear_lib import (
     analyze_linear_outcome,
     bootstrap_ols,
@@ -2845,7 +2849,7 @@ def core_regression_server(
     def val_overall_p():
         res = subgroup_res.get()
         if res:
-            return f"{res['overall']['p_value']:.4f}"
+            return format_p_value(res["overall"]["p_value"], use_style=False)
         return "-"
 
     @render.text
@@ -2853,7 +2857,9 @@ def core_regression_server(
         res = subgroup_res.get()
         if res:
             p_int = res["interaction"]["p_value"]
-            return f"{p_int:.4f}" if p_int is not None else "N/A"
+            return (
+                format_p_value(p_int, use_style=False) if p_int is not None else "N/A"
+            )
         return "-"
 
     @render.ui
@@ -3019,7 +3025,7 @@ def core_regression_server(
         # Format P-values
         if "p_value" in summary_df.columns:
             summary_df["p_value"] = summary_df["p_value"].apply(
-                lambda x: f"{x:.4f}" if isinstance(x, float) else x
+                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
             )
 
         table_html = summary_df.to_html(
@@ -3045,7 +3051,7 @@ def core_regression_server(
                 ui.card_header("Interaction Test"),
                 ui.div(
                     ui.p(
-                        f"P-interaction: {res['interaction']['p_value']:.4f}"
+                        f"P-interaction: {format_p_value(res['interaction']['p_value'])}"
                         if res["interaction"]["p_value"] is not None
                         else "N/A"
                     ),
@@ -3438,14 +3444,14 @@ def core_regression_server(
                 ci_h = row["ci_high"]
                 p = row["p_value"]
 
-                p_fmt = f"{p:.4f}" if p >= 0.001 else "<0.001"
+                p_fmt = format_p_value(p)
                 p_style = "color:red; font-weight:bold;" if p < 0.05 else ""
 
                 # CI Display based on link
                 if is_ratio:
-                    ci_disp = f"{np.exp(ci_l):.3f} - {np.exp(ci_h):.3f}"
+                    ci_disp = PublicationFormatter.format_ci(np.exp(ci_l), np.exp(ci_h))
                 else:
-                    ci_disp = f"{ci_l:.3f} - {ci_h:.3f}"
+                    ci_disp = PublicationFormatter.format_ci(ci_l, ci_h)
 
                 html_parts.append(
                     f"<tr>"

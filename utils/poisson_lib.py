@@ -27,7 +27,11 @@ from tabs._common import get_color_palette
 from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import (
+    PublicationFormatter,
+    create_missing_data_report_html,
+    format_p_value,
+)
 
 # Suppress statsmodels FutureWarning for BIC calculation
 statsmodels.genmod.generalized_linear_model.SET_USE_BIC_LLF(True)
@@ -416,7 +420,8 @@ def interpret_irr(
 
     except Exception as e:
         logger.debug(f"Failed to interpret IRR: {e}")
-        return f"IRR = {irr:.2f} (95% CI: {ci_low:.2f}-{ci_high:.2f})"
+        ci_str = PublicationFormatter.format_ci(ci_low, ci_high)
+        return f"IRR = {irr:.2f} {ci_str}"
 
 
 def analyze_poisson_outcome(
@@ -453,7 +458,6 @@ def analyze_poisson_outcome(
         from utils.logic import (
             _robust_sort_key,
             clean_numeric_value,
-            fmt_p_with_styling,
             get_label,
         )
 
@@ -692,10 +696,10 @@ def analyze_poisson_outcome(
                                     pv = pvals[d_name]
 
                                     coef_lines.append(f"{coef:.3f}")
-                                    irr_lines.append(
-                                        f"{irr:.2f} ({ci_l:.2f}-{ci_h:.2f})"
-                                    )
-                                    p_lines.append(fmt_p_with_styling(pv))
+
+                                    ci_str = PublicationFormatter.format_ci(ci_l, ci_h)
+                                    irr_lines.append(f"{irr:.2f} {ci_str}")
+                                    p_lines.append(format_p_value(pv))
                                     interpretation = interpret_irr(
                                         irr,
                                         ci_l,
@@ -766,7 +770,8 @@ def analyze_poisson_outcome(
                         pv = pvals["x"]
 
                         res["coef"] = f"{coef:.3f}"
-                        res["irr"] = f"{irr:.2f} ({ci_l:.2f}-{ci_h:.2f})"
+                        ci_str = PublicationFormatter.format_ci(ci_l, ci_h)
+                        res["irr"] = f"{irr:.2f} {ci_str}"
                         res["p_irr"] = pv
                         interpretation = interpret_irr(
                             irr, ci_l, ci_h, col, mode="linear"
@@ -1158,7 +1163,7 @@ def analyze_poisson_outcome(
             if mode == "categorical":
                 p_col_display = res.get("p_irr", "-")
             else:
-                p_col_display = fmt_p_with_styling(res.get("p_irr", np.nan))
+                p_col_display = format_p_value(res.get("p_irr", np.nan))
 
             # Multivariate results
             airr_s, acoef_s, ap_s = "-", "-", "-"
@@ -1168,11 +1173,10 @@ def analyze_poisson_outcome(
                 if isinstance(multi_res, list):
                     airr_lines, acoef_lines, ap_lines = ["Ref."], ["-"], ["-"]
                     for item in multi_res:
-                        p_txt = fmt_p_with_styling(item["p"])
+                        p_txt = format_p_value(item["p"])
                         acoef_lines.append(f"{item['coef']:.3f}")
-                        airr_lines.append(
-                            f"{item['airr']:.2f} ({item['l']:.2f}-{item['h']:.2f})"
-                        )
+                        ci_str = PublicationFormatter.format_ci(item["l"], item["h"])
+                        airr_lines.append(f"{item['airr']:.2f} {ci_str}")
                         ap_lines.append(p_txt)
                     airr_s, acoef_s, ap_s = (
                         "<br>".join(airr_lines),
@@ -1184,8 +1188,11 @@ def analyze_poisson_outcome(
                         acoef_s = f"{multi_res['coef']:.3f}"
                     else:
                         acoef_s = "-"
-                    airr_s = f"{multi_res['airr']:.2f} ({multi_res['l']:.2f}-{multi_res['h']:.2f})"
-                    ap_s = fmt_p_with_styling(multi_res["p"])
+                    ci_str = PublicationFormatter.format_ci(
+                        multi_res["l"], multi_res["h"]
+                    )
+                    airr_s = f"{multi_res['airr']:.2f} {ci_str}"
+                    ap_s = format_p_value(multi_res["p"])
 
             html_rows.append(f"""<tr>
                 <td>{lbl}</td>
@@ -1208,10 +1215,13 @@ def analyze_poisson_outcome(
                 )
                 irr_val = res.get("irr")
                 if irr_val is not None and pd.notna(irr_val):
-                    int_irr = f"{irr_val:.2f} ({res.get('ci_low', 0):.2f}-{res.get('ci_high', 0):.2f})"
+                    ci_str = PublicationFormatter.format_ci(
+                        res.get("ci_low", 0), res.get("ci_high", 0)
+                    )
+                    int_irr = f"{irr_val:.2f} {ci_str}"
                 else:
                     int_irr = "-"
-                int_p = fmt_p_with_styling(res.get("p_value", 1))
+                int_p = format_p_value(res.get("p_value", 1))
 
                 html_rows.append(f"""<tr style='background-color: #fff9f0;'>
                     <td><b>🔗 {int_label}</b><br><small style='color: {COLORS["text_secondary"]};'>(Interaction)</small></td>

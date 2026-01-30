@@ -35,10 +35,10 @@ calculate_chi2 = None
 calculate_ci_wilson_score = None
 calculate_descriptive = None
 format_p_value = None
+format_p_value_logic = None
 
 analyze_outcome = None
 clean_numeric_value = None
-fmt_p_with_styling = None
 get_label = None
 run_binary_logit = None
 validate_logit_data = None
@@ -60,8 +60,8 @@ def setup_mocks():
     """
     global run_negative_binomial_regression, run_poisson_regression
     global analyze_roc, auc_ci_delong, calculate_chi2, calculate_ci_wilson_score
-    global calculate_descriptive, format_p_value
-    global analyze_outcome, clean_numeric_value, fmt_p_with_styling, get_label
+    global calculate_descriptive, format_p_value, format_p_value_logic
+    global analyze_outcome, clean_numeric_value, get_label
     global run_binary_logit, validate_logit_data
     global \
         calculate_median_survival, \
@@ -217,7 +217,7 @@ def setup_mocks():
         importlib.reload(utils.logic)
         analyze_outcome = utils.logic.analyze_outcome
         clean_numeric_value = utils.logic.clean_numeric_value
-        fmt_p_with_styling = utils.logic.fmt_p_with_styling
+        format_p_value_logic = utils.logic.format_p_value
         get_label = utils.logic.get_label
         run_binary_logit = utils.logic.run_binary_logit
         validate_logit_data = utils.logic.validate_logit_data
@@ -431,27 +431,26 @@ class TestLogisticRegression:
 class TestFormattingHelpers:
     """Tests for formatting and display helper functions."""
 
-    def test_fmt_p_with_styling_significant(self):
+    def test_format_p_value_significant(self):
         """✅ Test p-value formatting with styling."""
-        result = fmt_p_with_styling(0.001)
+        result = format_p_value_logic(0.001)
         # Check logic: formatting usually applies styling
         assert "&lt;0.001" in result or "<0.001" in result or "0.001" in result
-        assert "sig-p" in result  # Should have significance class
+        assert "sig-p" in result or "color:" in result or "font-weight:" in result
 
-    def test_fmt_p_with_styling_not_significant(self):
+    def test_format_p_value_not_significant(self):
         """✅ Test non-significant p-value formatting."""
-        result = fmt_p_with_styling(0.234)
+        result = format_p_value_logic(0.234)
         assert "0.234" in result
-        assert "sig-p" not in result  # Should NOT have significance class
+        assert "sig-p" not in result and "color:" not in result
 
-    def test_fmt_p_with_styling_edge_cases(self):
+    def test_format_p_value_edge_cases(self):
         """✅ Test edge case p-values."""
-        assert "-" in fmt_p_with_styling(None)
-        assert "-" in fmt_p_with_styling(np.nan)
-        assert ">0.999" in fmt_p_with_styling(0.9999)
-        assert "&lt;0.001" in fmt_p_with_styling(
-            0.0001
-        ) or "<0.001" in fmt_p_with_styling(0.0001)
+        f = format_p_value_logic
+        assert "-" in f(None) or "NA" in f(None)
+        assert "-" in f(np.nan) or "NA" in f(np.nan)
+        assert "&gt;0.999" in f(0.9999) or ">0.999" in f(0.9999)
+        assert "&lt;0.001" in f(0.0001) or "<0.001" in f(0.0001)
 
     def test_get_label_basic(self):
         """✅ Test label generation without metadata."""
@@ -1170,6 +1169,7 @@ def test_module_imports():
     assert fit_cox_ph is not None
     assert calculate_descriptive is not None
     assert format_p_value is not None
+    assert format_p_value_logic is not None
 
 
 # ============================================================================
@@ -1185,7 +1185,6 @@ def test_suite_completeness():
         "validate_logit_data",
         "run_binary_logit",
         "analyze_outcome",
-        "fmt_p_with_styling",
         "get_label",
         # diag_test.py
         "calculate_descriptive",

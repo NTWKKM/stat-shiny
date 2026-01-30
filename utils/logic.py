@@ -10,7 +10,7 @@ import html
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypeAlias, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,11 @@ from utils.advanced_stats_lib import apply_mcc, calculate_vif, get_ci_configurat
 from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import (
+    PublicationFormatter,
+    create_missing_data_report_html,
+    format_p_value,
+)
 
 logger = get_logger(__name__)
 
@@ -82,9 +86,9 @@ except (ImportError, AttributeError):
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
 
-# ✅ NEW: Type Definitions (Compatible with Python 3.9+)
-type FitStatus = Literal["OK"] | str
-type MethodType = Literal["default", "bfgs", "firth", "auto"]
+# ✅ NEW: Type Definitions (Compatible with Python 3.10+)
+FitStatus: TypeAlias = Literal["OK"] | str
+MethodType: TypeAlias = Literal["default", "bfgs", "firth", "auto"]
 
 
 class StatsMetrics(TypedDict):
@@ -591,50 +595,19 @@ def get_label(col_name: str, var_meta: dict[str, Any] | None) -> str:
         return f"<b>{safe_name}</b>"
 
 
-def fmt_p(val: float | str | None) -> str:
-    """Format p-value as string."""
-    if pd.isna(val):
-        return "-"
-    try:
-        val_f = float(val)
-        val_f = max(0.0, min(1.0, val_f))
-        if val_f < 0.001:
-            return "<0.001"
-        if val_f > 0.999:
-            return ">0.999"
-        return f"{val_f:.3f}"
-    except (ValueError, TypeError):
-        return "-"
-
-
-def fmt_p_with_styling(val: float | str | None) -> str:
-    """Format p-value with red highlighting if significant (p < 0.05)."""
-    p_str = fmt_p(val)
-    if p_str == "-":
-        return "-"
-
-    try:
-        val_f = float(val)
-        if val_f < 0.05:
-            return f"<span class='sig-p'>{p_str}</span>"
-    except (ValueError, TypeError):
-        if "<" in p_str:
-            return f"<span class='sig-p'>{p_str}</span>"
-
-    return p_str
-
-
 def fmt_or_with_styling(or_val: float | None, ci_low: float, ci_high: float) -> str:
     """Format OR (95% CI) with bolding if significant."""
     if or_val is None or pd.isna(or_val) or pd.isna(ci_low) or pd.isna(ci_high):
         return "-"
 
-    ci_str = f"{or_val:.2f} ({ci_low:.2f}-{ci_high:.2f})"
+    # Use PublicationFormatter for CI style
+    ci_str = PublicationFormatter.format_ci(ci_low, ci_high, include_brackets=True)
+    res_str = f"{or_val:.2f} {ci_str}"
 
     if (ci_low > 1.0) or (ci_high < 1.0):
-        return f"<b>{ci_str}</b>"
+        return f"<b>{res_str}</b>"
 
-    return ci_str
+    return res_str
 
 
 def analyze_outcome(
@@ -902,8 +875,12 @@ def analyze_outcome(
                                 pv = pvals[d_name]
 
                                 coef_lines.append(f"{coef:.3f}")
-                                or_lines.append(f"{odd:.2f} ({ci_l:.2f}-{ci_h:.2f})")
-                                p_lines.append(fmt_p_with_styling(pv))
+
+                                # Use new formatter
+                                ci_str = PublicationFormatter.format_ci(ci_l, ci_h)
+                                or_lines.append(f"{odd:.2f} {ci_str}")
+
+                                p_lines.append(format_p_value(pv))
                                 or_results[f"{col}: {lvl}"] = {
                                     "or": odd,
                                     "ci_low": ci_l,
@@ -1418,7 +1395,7 @@ def analyze_outcome(
         if mode == "categorical":
             p_col_display = res.get("p_or", "-")
         else:
-            p_col_display = fmt_p_with_styling(res.get("p_comp", np.nan))
+            p_col_display = format_p_value(res.get("p_comp", np.nan))
 
         aor_s, acoef_s, ap_s = "-", "-", "-"
         multi_res = res.get("multi_res")
@@ -1427,7 +1404,7 @@ def analyze_outcome(
             if isinstance(multi_res, list):
                 aor_lines, acoef_lines, ap_lines = ["Ref."], ["-"], ["-"]
                 for item in multi_res:
-                    p_txt = fmt_p_with_styling(item["p"])
+                    p_txt = format_p_value(item["p"])
                     acoef_lines.append(f"{item['coef']:.3f}")
                     aor_lines.append(
                         fmt_or_with_styling(
@@ -1448,11 +1425,11 @@ def analyze_outcome(
                 aor_s = fmt_or_with_styling(
                     multi_res["aor"], multi_res["ci_low"], multi_res["ci_high"]
                 )
-                ap_s = fmt_p_with_styling(multi_res["p"])
+                ap_s = format_p_value(multi_res["p"])
 
         p_adj_uni_s = "-"
         if mcc_enable and "p_adj" in res:
-            p_adj_uni_s = fmt_p_with_styling(res["p_adj"])
+            p_adj_uni_s = format_p_value(res["p_adj"])
 
         ap_adj_s = "-"
         if mcc_enable:
@@ -1462,11 +1439,11 @@ def analyze_outcome(
                     for item in multi_res:
                         key = f"{col}: {item['lvl']}"
                         val = aor_results.get(key, {}).get("p_adj")
-                        ap_adj_lines.append(fmt_p_with_styling(val))
+                        ap_adj_lines.append(format_p_value(val))
                     ap_adj_s = "<br>".join(ap_adj_lines)
                 else:
                     val = aor_results.get(col, {}).get("p_adj")
-                    ap_adj_s = fmt_p_with_styling(val)
+                    ap_adj_s = format_p_value(val)
 
         html_rows.append(f"""<tr>
             <td>{lbl}</td>
@@ -1490,15 +1467,18 @@ def analyze_outcome(
             int_coef = f"{res.get('coef', 0):.3f}" if pd.notna(res.get("coef")) else "-"
             or_val = res.get("or")
             if or_val is not None and pd.notna(or_val):
-                int_or = f"{or_val:.2f} ({res.get('ci_low', 0):.2f}-{res.get('ci_high', 0):.2f})"
+                ci_str = PublicationFormatter.format_ci(
+                    res.get("ci_low", 0), res.get("ci_high", 0)
+                )
+                int_or = f"{or_val:.2f} {ci_str}"
             else:
                 int_or = "-"
-            int_p = fmt_p_with_styling(res.get("p_value", 1))
+            int_p = format_p_value(res.get("p_value", np.nan))
 
             int_p_adj = "-"
             if mcc_enable:
                 val = aor_results.get(int_name, {}).get("p_adj")
-                int_p_adj = fmt_p_with_styling(val)
+                int_p_adj = format_p_value(val)
 
             html_rows.append(
                 f"""<tr style='background-color: {COLORS["primary_light"]};'>

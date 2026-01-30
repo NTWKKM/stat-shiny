@@ -15,7 +15,8 @@ import statsmodels.api as sm
 from scipy.stats import chi2
 
 from logger import get_logger
-from utils.logic import clean_numeric_value, fmt_p_with_styling
+from utils.formatting import PublicationFormatter, format_p_value
+from utils.logic import clean_numeric_value
 
 logger = get_logger(__name__)
 
@@ -260,9 +261,12 @@ def interpret_interaction(results: dict[str, Any], model_type: str = "logit") ->
         else:
             direction = "neutral"
 
+        ci_str = PublicationFormatter.format_ci(res["ci_low"], res["ci_high"])
+        p_str = format_p_value(res["p_value"])
+
         interp_lines.append(
             f"<li><b>{res['label']}</b>: {effect_name} = {effect_val:.2f} "
-            f"(95% CI: {res['ci_low']:.2f}-{res['ci_high']:.2f}, p={res['p_value']:.4f}) "
+            f"{ci_str}, {p_str} "
             f"→ {direction}</li>"
         )
 
@@ -291,12 +295,15 @@ def generate_interaction_html_table(
         effect_val = res.get("or" if model_type == "logit" else "irr")
         sig_marker = "✓" if res["significant"] else ""
 
+        ci_str = PublicationFormatter.format_ci(res["ci_low"], res["ci_high"])
+        p_str = format_p_value(res["p_value"])
+
         rows.append(f"""<tr>
             <td>{res["label"]}</td>
             <td>{res["type"]}</td>
             <td>{res["coef"]:.4f}</td>
-            <td>{effect_val:.3f} ({res["ci_low"]:.3f}-{res["ci_high"]:.3f})</td>
-            <td>{fmt_p_with_styling(res["p_value"])}</td>
+            <td>{effect_val:.3f} {ci_str}</td>
+            <td>{p_str}</td>
             <td>{sig_marker}</td>
         </tr>""")
 

@@ -16,6 +16,7 @@ Driven by central configuration from config.py
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -77,6 +78,167 @@ def validate_input_data(data: Any) -> pd.DataFrame:
         raise DataValidationError(f"Input validation failed: {e}") from e
 
 
+def load_data_robust(file_path: str | Path) -> pd.DataFrame:
+    """
+    Robustly load data from CSV or Excel files with extensive error handling and format detection.
+
+    Capabilities:
+    - CSV:
+        - Auto-detects separators (,, ;, tab, |)
+        - Handles various encodings (utf-8, utf-8-sig, cp1252, latin1, cp874/tis-620 for Thai)
+        - Handles bad lines and mixed types
+    - Excel:
+        - Support for .xlsx and .xlsm
+        - Auto-trims headers
+    - General:
+        - Sanitizes column names (strip whitespace)
+        - Basic empty row/column cleanup
+
+    Parameters:
+        file_path: Path to the file (str or Path object)
+
+    Returns:
+        pd.DataFrame: Loaded and sanitized DataFrame
+
+    Raises:
+        DataValidationError: If file format is invalid or file cannot be read
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise DataValidationError(f"File not found: {file_path}")
+
+    suffix = path.suffix.lower()
+    df = None
+    error_log = []
+
+    # --- CSV Handling ---
+    if suffix == ".csv":
+        encodings = ["utf-8", "utf-8-sig", "cp1252", "latin1", "cp874", "tis-620"]
+        separators = [None, ",", ";", "\t", "|"]
+
+        # Try various encoding/separator combinations
+        for encoding in encodings:
+            for sep in separators:
+                try:
+                    # Use python engine for more stable separator detection if sep is None
+                    engine = "python" if sep is None else "c"
+
+                    df = pd.read_csv(
+                        path,
+                        encoding=encoding,
+                        sep=sep,
+                        engine=engine,
+                        # Removed on_bad_lines="skip" to ensure full data integrity.
+                        # We want to catch errors rather than silently dropping rows.
+                    )
+
+                    # Basic validation: If it read into 1 column but we expect more, maybe wrong separator
+                    if df.shape[1] == 1 and sep is None:
+                        # User didn't specify separator, and engine='python' likely failed to sniff it correctly.
+                        # Try explicit common separators to see if we get more columns.
+                        for trial_sep in [",", ";", "\t", "|"]:
+                            try:
+                                # Use C engine for speed on re-try, or python if needed
+                                df_trial = pd.read_csv(
+                                    path, sep=trial_sep, encoding=encoding, nrows=5
+                                )
+                                if df_trial.shape[1] > 1:
+                                    # Found a better separator, re-read full file
+                                    logger.info(
+                                        "Auto-detected better separator: '%s'",
+                                        trial_sep,
+                                    )
+                                    df = pd.read_csv(
+                                        path, sep=trial_sep, encoding=encoding
+                                    )
+                                    break
+                            except Exception:
+                                continue
+
+                    logger.info(
+                        "Successfully read CSV with encoding=%s, sep=%s", encoding, sep
+                    )
+                    break
+                except Exception as e:
+                    error_log.append(f"CSV fail (enc={encoding}, sep={sep}): {e}")
+            if df is not None:
+                break
+
+        if df is None:
+            logger.error("Failed to read CSV with all attempts. Errors: %s", error_log)
+            raise DataValidationError(
+                f"Could not read CSV file. Tried encodings: {encodings}"
+            )
+
+    # --- Excel Handling ---
+    elif suffix in [".xlsx", ".xlsm"]:
+        try:
+            # Default to first sheet
+            df = pd.read_excel(path)
+            logger.info("Successfully read Excel file")
+        except Exception as e:
+            logger.exception("Failed to read Excel file")
+            raise DataValidationError(f"Failed to read Excel file: {e}")
+
+    else:
+        raise DataValidationError(f"Unsupported file format: {suffix}")
+
+    if df is None:
+        raise DataValidationError("Unknown error: DataFrame is None after loading")
+
+    # --- Post-Load Sanitization ---
+
+    # 0. Header Heuristic: Check for metadata rows above header
+    # If >50% of columns are "Unnamed", scan first 10 rows for a better candidate
+    if sum(1 for c in df.columns if "Unnamed:" in str(c)) > len(df.columns) * 0.5:
+        logger.info(
+            "Potential malformed header detected (many 'Unnamed' columns). Scanning rows..."
+        )
+        for i in range(min(10, len(df))):
+            row = df.iloc[i]
+            # Criterion: Row must have >50% non-null values
+            if row.count() >= len(df.columns) * 0.5:
+                # Promote row to header
+                new_cols = row.fillna(f"Col_{i}").astype(str).str.strip()
+                # Ensure unique columns to prevent pandas errors
+                if new_cols.duplicated().any():
+                    # Deduplicate: Col, Col.1, Col.2
+                    new_cols = pd.Index(new_cols)
+                    counts = new_cols.value_counts()
+                    if counts.max() > 1:
+                        # Simple deduplication strategy
+                        seen = {}
+                        deduped = []
+                        for c in new_cols:
+                            if c not in seen:
+                                seen[c] = 0
+                                deduped.append(c)
+                            else:
+                                seen[c] += 1
+                                deduped.append(f"{c}_{seen[c]}")
+                        new_cols = deduped
+
+                df = df.iloc[i + 1 :].copy()
+                df.columns = new_cols
+                df = df.reset_index(drop=True)
+                logger.info("Promoted row %d to header", i)
+                break
+
+    # 1. Clean Column Names
+    df.columns = df.columns.astype(str).str.strip()
+
+    # Removed: df.dropna(how="all")
+    # reason: User strictly requested NO automatic data deletion/modification.
+    # We intentionally keep empty rows/cols so they show up in quality reports if needed,
+    # or the user can remove them explicitly.
+
+    # 3. Reset index
+    df = df.reset_index(drop=True)
+
+    logger.info("Loaded data shape: %s", df.shape)
+    return df
+
+
 def clean_numeric(
     val: Any, handle_special_chars: bool = True, remove_whitespace: bool = True
 ) -> float:
@@ -135,11 +297,11 @@ def clean_numeric(
         # Try to convert to float
         result = float(s)
 
-        logger.debug(f"Cleaned numeric: {val} -> {result}")
+        logger.debug("Cleaned numeric: %s -> %s", val, result)
         return result
 
     except (TypeError, ValueError, AttributeError) as e:
-        logger.debug(f"Failed to clean numeric value '{val}': {e}")
+        logger.debug("Failed to clean numeric value '%s': %s", val, e)
         return np.nan
 
 
@@ -195,10 +357,13 @@ def clean_numeric_vector(series: pd.Series | np.ndarray | list[Any]) -> pd.Serie
         total_count = len(result)
         if na_count > 0:
             logger.debug(
-                f"Converted {total_count - na_count}/{total_count} values successfully ({na_count} NA)"
+                "Converted %d/%d values successfully (%d NA)",
+                total_count - na_count,
+                total_count,
+                na_count,
             )
         else:
-            logger.debug(f"Successfully cleaned all {total_count} values")
+            logger.debug("Successfully cleaned all %d values", total_count)
 
         return result
 
@@ -291,7 +456,10 @@ def detect_outliers(
                 raise ValueError(f"Unknown outlier detection method: {method}")
 
         logger.info(
-            f"Detected {stats['outlier_count']} outliers ({stats['outlier_pct']:.2f}%) using {method} method"
+            "Detected %d outliers (%.2f%%) using %s method",
+            stats["outlier_count"],
+            stats["outlier_pct"],
+            method,
         )
         return outlier_mask, stats
 
@@ -335,7 +503,9 @@ def handle_outliers(
                 result = cleaned.copy()
                 result[outlier_mask] = np.nan
                 logger.info(
-                    f"Handled {stats['outlier_count']} outliers via '{action}' (set to NaN)"
+                    "Handled %d outliers via '%s' (set to NaN)",
+                    stats["outlier_count"],
+                    action,
                 )
 
             case "winsorize":
@@ -347,7 +517,10 @@ def handle_outliers(
                     upper_bound = stats["upper_bound"]
                     result = result.clip(lower=lower_bound, upper=upper_bound)
                     logger.info(
-                        f"Winsorized {stats['outlier_count']} outliers to [{lower_bound:.2f}, {upper_bound:.2f}]"
+                        "Winsorized %d outliers to [%.2f, %.2f]",
+                        stats["outlier_count"],
+                        lower_bound,
+                        upper_bound,
                     )
                 else:
                     raise ValueError(
@@ -363,7 +536,7 @@ def handle_outliers(
                     upper_bound = stats["upper_bound"]
                     result[result < lower_bound] = lower_bound
                     result[result > upper_bound] = upper_bound
-                    logger.info(f"Capped {stats['outlier_count']} outliers at bounds")
+                    logger.info("Capped %d outliers at bounds", stats["outlier_count"])
                 else:
                     raise ValueError(
                         f"Capping requires 'iqr' method, got '{stats['method']}'"
@@ -504,7 +677,7 @@ def validate_data_quality(df: pd.DataFrame) -> dict[str, Any]:
         }
 
         logger.info(
-            f"Data quality validation complete: {overall_missing_pct:.2f}% missing data"
+            "Data quality validation complete: %.2f%% missing data", overall_missing_pct
         )
         return results
 
@@ -548,7 +721,7 @@ def clean_dataframe(
 
         # Create a copy for cleaning
         df_cleaned = df_validated.copy()
-        logger.info(f"Created copy for cleaning: {df_cleaned.shape}")
+        logger.info("Created copy for cleaning: %s", df_cleaned.shape)
 
         # Use lower threshold to be more aggressive in finding numeric columns
         # Default lowered to 30% to support granular cleaning of dirty data
@@ -627,7 +800,7 @@ def clean_dataframe(
 
         cleaning_report["cleaning_steps"].append("Cleaning complete")
 
-        logger.info(f"Data cleaning complete: {df.shape} -> {df_cleaned.shape}")
+        logger.info("Data cleaning complete: %s -> %s", df.shape, df_cleaned.shape)
         return df_cleaned, cleaning_report
 
     except Exception as e:

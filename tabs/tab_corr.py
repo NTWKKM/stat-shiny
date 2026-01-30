@@ -28,7 +28,7 @@ from tabs._common import (
 from utils import (
     correlation,  # Import from utils
 )
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import create_missing_data_report_html, format_p_value
 from utils.plotly_html_renderer import plotly_figure_to_html
 
 
@@ -478,7 +478,7 @@ def corr_server(
                 f"{stats.get('95% CI Lower', float('nan')):.4f}",
                 f"{stats.get('95% CI Upper', float('nan')):.4f}",
                 f"{stats.get('R-squared (R²)', float('nan')):.4f}",
-                f"{stats.get('P-value', float('nan')):.4f}",
+                format_p_value(stats.get("P-value", float("nan")), use_style=False),
                 str(stats.get("N", "N/A")),
                 stats.get("Interpretation", "N/A"),
             ],
@@ -551,8 +551,16 @@ def corr_server(
             "N",
         ]:
             val = stats.get(key, "N/A")
+            if key == "P-value" and isinstance(val, (int, float, np.number)):
+                # Use standard P-value formatter with styling for the report
+                elements.append(
+                    {
+                        "type": "html",
+                        "data": f"<strong>P-value:</strong> {format_p_value(val, use_style=True)}",
+                    }
+                )
             # Format numeric if possible
-            if isinstance(val, (int, float)):
+            elif isinstance(val, (int, float, np.number)):
                 elements.append(
                     {
                         "type": "text",

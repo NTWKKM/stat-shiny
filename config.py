@@ -105,6 +105,8 @@ class ConfigManager:
                 # Variable Detection
                 "var_detect_threshold": 10,  # Unique values threshold for categorical/continuous
                 "var_detect_decimal_pct": 0.30,  # Decimal % for continuous classification
+                # Reporting Style
+                "publication_style": "nejm",  # 'nejm', 'jama', 'lancet', 'bmj'
                 # P-value Handling (NEJM-oriented defaults)
                 "pvalue_bounds_lower": 0.001,  # NEJM: show P<0.001 for smaller values
                 "pvalue_bounds_upper": 0.999,  # NEJM: often cap display at >0.99
@@ -329,6 +331,10 @@ class ConfigManager:
         valid_methods = ["auto", "firth", "bfgs", "default"]
         if self.get("analysis.logit_method") not in valid_methods:
             errors.append(f"analysis.logit_method must be one of {valid_methods}")
+
+        valid_styles = ["nejm", "jama", "lancet", "bmj"]
+        if self.get("analysis.publication_style") not in valid_styles:
+            errors.append(f"analysis.publication_style must be one of {valid_styles}")
 
         return len(errors) == 0, errors
 
