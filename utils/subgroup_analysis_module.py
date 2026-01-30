@@ -118,6 +118,8 @@ class SubgroupAnalysisLogit:
                 adjustment_cols = []
 
             cols_to_use = [outcome_col, treatment_col, subgroup_col] + adjustment_cols
+            # Deduplicate to prevent dimensionality errors
+            cols_to_use = list(dict.fromkeys(cols_to_use))
 
             # --- MISSING DATA HANDLING ---
             missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -513,6 +515,8 @@ class SubgroupAnalysisCox:
                 treatment_col,
                 subgroup_col,
             ] + adjustment_cols
+            # Deduplicate to prevent dimensionality errors
+            cols_to_use = list(dict.fromkeys(cols_to_use))
 
             # --- MISSING DATA HANDLING ---
             missing_data_info = {}

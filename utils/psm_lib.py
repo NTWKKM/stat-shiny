@@ -29,9 +29,14 @@ def calculate_ps(
         strategy = missing_cfg.get("strategy", "complete-case")
         missing_codes = missing_cfg.get("user_defined_values", [])
 
+        missing_codes = missing_cfg.get("user_defined_values", [])
+
+        # Deduplicate required columns
+        req_cols = list(dict.fromkeys([treatment] + covariates))
+
         df_subset, missing_info = prepare_data_for_analysis(
             data,
-            required_cols=[treatment] + covariates,
+            required_cols=req_cols,
             var_meta=var_meta,
             missing_codes=missing_codes,
             handle_missing=strategy,
