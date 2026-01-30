@@ -176,7 +176,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- visualizations.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 ## 🏥 Medical Statistical Tool (Shiny for Python)
@@ -228,7 +227,7 @@ This application is a complete statistical workbench organized into modular tabs
 ### ⏳ Survival Analysis
 
 - **Visualizations**: Kaplan-Meier curves and Nelson-Aalen cumulative hazard plots.
-- **Cox Modeling**: Cox Proportional Hazards regression with forest plots.
+- **Cox Modeling**: Cox Proportional Hazards regression with forest plots and **Firth's Penalized Cox** for rare events/small samples.
 - **Advanced Techniques**:
   - **Time-Varying Cox**: Handle covariates that change over time.
   - **Landmark Analysis**: Address immortal time bias.

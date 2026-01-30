@@ -84,18 +84,24 @@ def progress_end(id: str = "progress_notif") -> None:
 
 
 # Try to import Firth Cox regression for small samples / rare events
+# Try to import Firth Cox regression for small samples / rare events
 try:
     from firthmodels import FirthCoxPH
 
+    # CHECK: scikit-learn >= 1.6 compatibility patch
+    # firthmodels 0.6.0 uses the deprecated/removed `_validate_data` method.
+    # We must monkeypatch it to use the new public validation API.
     if not hasattr(FirthCoxPH, "_validate_data"):
         from sklearn.utils.validation import check_array, check_X_y
 
-        logger.info("Applying sklearn compatibility patch to FirthCoxPH")
+        logger.info("Applying sklearn 1.6+ compatibility patch to FirthCoxPH")
 
         def _validate_data_patch(
             self, X, y=None, reset=True, validate_separately=False, **check_params
         ):
             # Compatibility shim for sklearn >= 1.6.
+            # 'reset' and 'validate_separately' are arguments in the old API that we consume/ignore
+            # to prevent passing them to check_array which doesn't expect them in the same way.
             if y is None:
                 return check_array(X, **check_params)
             else:
@@ -105,10 +111,10 @@ try:
         logger.info("FirthCoxPH patch applied successfully")
 
     HAS_FIRTH_COX = True
-except (ImportError, AttributeError):
+except (ImportError, AttributeError) as e:
     HAS_FIRTH_COX = False
     logger.warning(
-        "firthmodels.FirthCoxPH not available - Firth Cox PH will be disabled"
+        f"firthmodels.FirthCoxPH not available or patch failed: {e} - Firth Cox PH will be disabled"
     )
 
 
@@ -1239,17 +1245,28 @@ def fit_cox_ph(
             # FirthCoxPH: compute C-index via score method if possible
             try:
                 X = data[covariate_cols].values
+                # y needs to be structured array for score() or tuple for some versions
+                # firthmodels .score() typically returns C-index
                 event_arr = data[event_col].astype(bool).values
                 time_arr = data[duration_col].values
-                y_struct = np.array(
-                    list(zip(event_arr, time_arr)),
-                    dtype=[("event", bool), ("time", float)],
-                )
-                c_index = cph.score(X, y_struct)
-            except Exception:
+
+                # Check firthmodels version behavior for y input in score
+                # Usually it expects the same format as fit: (event, time)
+                c_index = cph.score(X, (event_arr, time_arr))
+            except Exception as e:
+                logger.debug(f"Could not compute Firth C-index: {e}")
                 c_index = None
-            aic_val = None
+
+            # Get Log-Likelihood if available (firthmodels usually has .loglik_)
             ll_val = getattr(cph, "loglik_", None)
+
+            # Calculate AIC manually: 2k - 2ln(L)
+            if ll_val is not None:
+                k = len(covariate_cols)
+                aic_val = 2 * k - 2 * ll_val
+            else:
+                aic_val = None
+
             n_events = int(data[event_col].sum())
 
         def fmt(x: Any, p: int) -> str:
@@ -1290,26 +1307,33 @@ def _fit_firth_cox(
     # Returns:
     #     Tuple of (fitted_model, results_df, method_name)
 
-    # Prepare data for FirthCoxPH
-    X = data[covariate_cols].values.astype(float)
-    event = data[event_col].astype(bool).values
-    time = data[duration_col].astype(float).values
+    # 1. Prepare data explicitly for FirthCoxPH
+    # Scikit-learn style requires X as float array, y as specific structure
+    X = data[covariate_cols].astype(float).values
 
-    # Fit model (FirthCoxPH accepts y as tuple (event, time) or structured array)
+    # Ensure event is boolean or 0/1 integer, and time is float
+    event = data[event_col].values.astype(bool)
+    time = data[duration_col].values.astype(float)
+
+    # 2. Fit model (FirthCoxPH accepts y as tuple (event, time))
+    # Note: firthmodels 0.6.0 expects (event, time) for survival
     model = FirthCoxPH()
     model.fit(X, (event, time))
 
-    # Extract results
+    # 3. Extract results
+    # firthmodels stores coefficients in .coef_ and standard errors in .bse_
     coefs = model.coef_
     se = model.bse_
     pvals = model.pvalues_
 
-    # Compute Hazard Ratios and 95% CI
+    # 4. Compute Hazard Ratios and 95% Wald CI
+    # HR = exp(coef)
     hrs = np.exp(coefs)
+    # Wald CI: exp(coef +/- 1.96 * SE)
     ci_low = np.exp(coefs - 1.96 * se)
     ci_high = np.exp(coefs + 1.96 * se)
 
-    # Build results DataFrame
+    # 5. Build results DataFrame
     res_df = pd.DataFrame(
         {
             "HR": hrs,
