@@ -1181,11 +1181,19 @@ def survival_server(
         )
         return ui.HTML(html_str)
 
-    @render.table
+    @render.ui
     def out_curves_table():
         """Render the curves statistics Table when curve results are available."""
         res = curves_result.get()
-        return res["stats"] if res else None
+        if not res or res.get("stats") is None:
+            return None
+
+        # Convert to HTML with escape=False to render p-value/color spans correctly
+        return ui.HTML(
+            res["stats"].to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.data_frame
     def out_medians_table():
@@ -1352,11 +1360,19 @@ def survival_server(
         )
         return ui.HTML(html_str)
 
-    @render.data_frame
+    @render.ui
     def out_landmark_table():
         """Render a data grid containing landmark analysis statistics if results are available."""
         res = landmark_result.get()
-        return render.DataGrid(res["stats"]) if res else None
+        if not res or res.get("stats") is None:
+            return None
+
+        # Convert to HTML with escape=False to render p-value/color spans correctly
+        return ui.HTML(
+            res["stats"].to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.download(filename="landmark_report.html")
     def btn_dl_landmark():
@@ -1527,18 +1543,36 @@ def survival_server(
         df = res["results_df"].copy()
 
         # FIX: Ensure 'Variable' column exists (it might be in index)
+        # FIX: Ensure 'Variable' column exists (it might be in index)
         if "Variable" not in df.columns:
             df = df.reset_index()
-            # Rename if index was unnamed or named 'index'/'covariate'
+            # Robust renaming: check likely index names or just rename the first column
             if "index" in df.columns:
                 df = df.rename(columns={"index": "Variable"})
             elif "covariate" in df.columns:
                 df = df.rename(columns={"covariate": "Variable"})
             else:
-                # If index name matched a column name or was something else,
-                # check just in case we have a column named like the index
-                # But usually reset_index gives 'index' if name is None
-                pass
+                # If reset_index created a column that didn't match above,
+                # or if the index was named something else, we need to find it.
+                # Usually reset_index puts the index at position 0.
+                cols = df.columns.tolist()
+                if len(cols) > 0 and cols[0] not in [
+                    "HR",
+                    "coef",
+                    "exp(coef)",
+                    "se(coef)",
+                    "z",
+                    "p",
+                    "-log2(p)",
+                    "lower 0.95",
+                    "upper 0.95",
+                    "P-value",
+                ]:
+                    # Assume first column is the variable if it's not a stat column
+                    df.rename(columns={cols[0]: "Variable"}, inplace=True)
+                else:
+                    # Fallback: create a generic numbered variable column if all else fails
+                    df.insert(0, "Variable", [f"Var {i}" for i in range(len(df))])
 
         # Format P-value
         if "P-value" in df.columns:
