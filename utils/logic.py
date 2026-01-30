@@ -10,7 +10,7 @@ import html
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypeAlias, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -86,9 +86,9 @@ except (ImportError, AttributeError):
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
 warnings.filterwarnings("ignore", message=".*convergence.*")
 
-# ✅ NEW: Type Definitions (Compatible with Python 3.9+)
-type FitStatus = Literal["OK"] | str
-type MethodType = Literal["default", "bfgs", "firth", "auto"]
+# ✅ NEW: Type Definitions (Compatible with Python 3.10+)
+FitStatus: TypeAlias = Literal["OK"] | str
+MethodType: TypeAlias = Literal["default", "bfgs", "firth", "auto"]
 
 
 class StatsMetrics(TypedDict):
@@ -1473,7 +1473,7 @@ def analyze_outcome(
                 int_or = f"{or_val:.2f} {ci_str}"
             else:
                 int_or = "-"
-            int_p = format_p_value(res.get("p_value", 1))
+            int_p = format_p_value(res.get("p_value", np.nan))
 
             int_p_adj = "-"
             if mcc_enable:

@@ -208,6 +208,7 @@ def advanced_inference_server(
     diag_results = reactive.Value(None)
     diag_plot_data = reactive.Value(None)
     cooks_results = reactive.Value(None)
+    diag_clean_data = reactive.Value(None)
     het_results = reactive.Value(None)
 
     # Running States
@@ -558,7 +559,7 @@ def advanced_inference_server(
                 current_df(),
                 required_cols=required_cols,
                 numeric_cols=required_cols,  # All variables in specific OLS diagnostics should be numeric
-                handle_missing="complete-case",
+                handle_missing="complete_case",
                 var_meta=var_meta.get() or {},
             )
 
@@ -578,6 +579,7 @@ def advanced_inference_server(
             diag_results.set([res_reset, res_bp])
             diag_plot_data.set(res_plots)
             cooks_results.set(res_cooks)
+            diag_clean_data.set(df_clean)
 
             ui.notification_remove("run_diag")
             ui.notification_show("Diagnostics Complete", type="message")
@@ -673,15 +675,10 @@ def advanced_inference_server(
         # Sort by Cook's D descending and take top 10
         sorted_order = np.argsort(cooks_values)[::-1][:10].tolist()
         top_indices = [influential_indices[i] for i in sorted_order]
-        # Reconstruct the cleaned subset to ensure index alignment
-        y_col = input.diag_outcome()
-        x_col = input.diag_predictor()
-        covars = list(input.diag_covariates()) if input.diag_covariates() else []
-        required_cols = [y_col, x_col] + covars
-        d = current_df()[required_cols].dropna()
-        y_num = pd.to_numeric(d[y_col], errors="coerce")
-        valid_mask = ~y_num.isna()
-        d_clean = d.loc[valid_mask]
+        # Use the exactly aligned cleaned data frame from the diagnostics run
+        d_clean = diag_clean_data.get()
+        if d_clean is None:
+            return None
         return d_clean.iloc[top_indices]
 
     @render.text

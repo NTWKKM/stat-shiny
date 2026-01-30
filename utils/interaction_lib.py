@@ -266,7 +266,7 @@ def interpret_interaction(results: dict[str, Any], model_type: str = "logit") ->
 
         interp_lines.append(
             f"<li><b>{res['label']}</b>: {effect_name} = {effect_val:.2f} "
-            f"{ci_str}, {p_str})"
+            f"{ci_str}, {p_str} "
             f"→ {direction}</li>"
         )
 

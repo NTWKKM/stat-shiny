@@ -5,35 +5,38 @@ from utils.formatting import MissingDataStatement, PublicationFormatter
 def test_publication_formatter():
     # Test Data
     coef = 3.14159
-    se = 0.1
     ci_lower = 2.812
     ci_upper = 3.471
     p_val = 0.0031
 
     # NEJM
-    nejm = PublicationFormatter.format_nejm(coef, se, ci_lower, ci_upper, p_val)
+    nejm = PublicationFormatter.format_nejm(coef, ci_lower, ci_upper, p_val)
     print(f"NEJM: {nejm}")
     assert "3.14 (95% CI, 2.81 to 3.47); P=0.0031" in nejm or "P=0.003" in nejm
 
     # JAMA
-    jama = PublicationFormatter.format_jama(coef, se, ci_lower, ci_upper, p_val)
+    jama = PublicationFormatter.format_jama(coef, ci_lower, ci_upper, p_val)
     print(f"JAMA: {jama}")
     assert "3.14 (95% CI, 2.81-3.47); P=0.003" in jama or "P=.003" in jama
 
     # Lancet
-    lancet = PublicationFormatter.format_lancet(coef, se, ci_lower, ci_upper, p_val)
+    lancet = PublicationFormatter.format_lancet(coef, ci_lower, ci_upper, p_val)
     print(f"Lancet: {lancet}")
     assert "3.14 (95% CI 2.81–3.47), p=0.003" in lancet
 
     # BMJ
-    bmj = PublicationFormatter.format_bmj(coef, se, ci_lower, ci_upper, p_val)
+    bmj = PublicationFormatter.format_bmj(coef, ci_lower, ci_upper, p_val)
     print(f"BMJ: {bmj}")
     assert "3.14 (95% confidence interval 2.81 to 3.47); P=0.003" in bmj
 
     # Generic Dispatch
-    CONFIG.update("analysis.publication_style", "lancet")
-    generic = PublicationFormatter.format(coef, se, ci_lower, ci_upper, p_val)
-    assert generic == lancet
+    original_style = CONFIG.get("analysis.publication_style")
+    try:
+        CONFIG.update("analysis.publication_style", "lancet")
+        generic = PublicationFormatter.format(coef, ci_lower, ci_upper, p_val)
+        assert generic == lancet
+    finally:
+        CONFIG.update("analysis.publication_style", original_style)
 
 
 def test_missing_data_statement():

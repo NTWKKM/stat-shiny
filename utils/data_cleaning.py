@@ -134,10 +134,25 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
 
                     # Basic validation: If it read into 1 column but we expect more, maybe wrong separator
                     if df.shape[1] == 1 and sep is None:
-                        # Try to detect separator using csv.Sniffer for 1-col result suspicion
-                        # But often 'None' (python engine default sniffer) is good.
-                        # Let's trust pandas if it didn't crash, but check if row count is decent.
-                        pass
+                        # User didn't specify separator, and engine='python' likely failed to sniff it correctly.
+                        # Try explicit common separators to see if we get more columns.
+                        for trial_sep in [",", ";", "\t"]:
+                            try:
+                                # Use C engine for speed on re-try, or python if needed
+                                df_trial = pd.read_csv(
+                                    path, sep=trial_sep, encoding=encoding, nrows=5
+                                )
+                                if df_trial.shape[1] > 1:
+                                    # Found a better separator, re-read full file
+                                    logger.info(
+                                        f"Auto-detected better separator: '{trial_sep}'"
+                                    )
+                                    df = pd.read_csv(
+                                        path, sep=trial_sep, encoding=encoding
+                                    )
+                                    break
+                            except Exception:
+                                continue
 
                     logger.info(
                         f"Successfully read CSV with encoding={encoding}, sep={sep}"

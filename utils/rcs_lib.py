@@ -138,13 +138,16 @@ def fit_cox_rcs(
         # Log HR = contrast * beta
         # Check dimensions
         if contrast.shape[1] != len(cph.params_):
-            # This should happen if something went wrong with dropping columns
             logger.error(
                 f"Shape mismatch: Contrast {contrast.shape[1]} vs Params {len(cph.params_)}"
             )
-            # Verify adjustment cols match
-            # Usually this matches if we dropped consistently
-            pass
+            return (
+                go.Figure(),
+                pd.DataFrame(),
+                {
+                    "error": f"Shape mismatch: contrast columns ({contrast.shape[1]}) != model params ({len(cph.params_)})"
+                },
+            )
 
         beta = cph.params_.values
         log_hr = contrast.dot(beta)
@@ -210,7 +213,9 @@ def fit_cox_rcs(
 
         # Density / Rug plot at the bottom (Optional but nice)
         # Use simple rug plot logic
-        rug_data = data[rcs_var].sample(min(500, len(data)))  # Sample if too large
+        rug_data = data[rcs_var].sample(
+            min(500, len(data)), random_state=42
+        )  # Sample if too large
         fig.add_trace(
             go.Scatter(
                 x=rug_data,
