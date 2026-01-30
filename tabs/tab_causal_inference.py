@@ -1,14 +1,17 @@
 import numpy as np
 import pandas as pd
-import plotly.express as px
 from shiny import module, reactive, render, ui
 
+from logger import get_logger
 from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
 from utils.plotly_html_renderer import plotly_figure_to_html
-from utils.psm_lib import calculate_ipw, calculate_ps, check_balance
+from utils.psm_lib import (
+    PropensityScoreDiagnostics,
+    calculate_ps,
+)
 from utils.sensitivity_lib import calculate_e_value
 from utils.stratified_lib import breslow_day, mantel_haenszel
 from utils.ui_helpers import (
@@ -19,6 +22,7 @@ from utils.ui_helpers import (
     create_results_container,
 )
 
+logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
@@ -67,6 +71,11 @@ def causal_inference_ui():
                                 options={"plugins": ["remove_button"]},
                             ),
                             type="required",
+                        ),
+                        ui.input_checkbox(
+                            "psm_trim",
+                            "Truncate Extreme Weights (1%/99%)",
+                            value=False,
                         ),
                         ui.output_ui("out_psm_validation"),
                         ui.br(),
@@ -159,6 +168,15 @@ def causal_inference_ui():
                 create_results_container(
                     "Love Plot (Covariate Balance)",
                     ui.output_ui("plot_love"),
+                ),
+                ui.br(),
+                create_results_container(
+                    "Common Support (Overlap)",
+                    ui.layout_columns(
+                        ui.output_ui("plot_overlap"),
+                        ui.output_ui("out_overlap_info"),
+                        col_widths=(8, 4),
+                    ),
                 ),
             ),
             ui.nav_panel(
@@ -321,6 +339,8 @@ def causal_inference_server(
     # --- PSM & IPW Logic ---
     psm_res = reactive.Value(None)
     balance_res = reactive.Value(None)
+    balance_pre_res = reactive.Value(None)
+    common_support_res = reactive.Value(None)
 
     # Running States
     psm_is_running = reactive.Value(False)
@@ -337,6 +357,9 @@ def causal_inference_server(
         try:
             psm_is_running.set(True)
             psm_res.set(None)
+            balance_res.set(None)
+            balance_pre_res.set(None)
+            common_support_res.set(None)
             ui.notification_show("Running PSM/IPW...", duration=None, id="run_psm")
 
             treatment = input.psm_treatment()
@@ -357,28 +380,79 @@ def causal_inference_server(
                 raise ValueError(missing_info["error"])
 
             # Attach PS for further steps (we need d_clean for balance check)
+            # Match PS to original data for stats
             d_clean = d.copy()
             d_clean["ps"] = ps
             d_clean = d_clean.dropna(subset=["ps"])  # Keep only those with scores
 
-            # IPW
-            ipw_res = calculate_ipw(d_clean, treatment, outcome, "ps")
-            ipw_res["missing_data_info"] = missing_info
-            psm_res.set(ipw_res)
+            # 1. Assess Common Support
+            cs_support = PropensityScoreDiagnostics.assess_common_support(
+                d_clean["ps"], d_clean[treatment]
+            )
+            common_support_res.set(cs_support)
 
-            # Balance
-            # Calculate weights for balance check
+            # 2. Check Unadjusted Balance (Pre-weighting)
+            bal_pre = PropensityScoreDiagnostics.calculate_smd(
+                d_clean, treatment, covs, weights=None
+            )
+            balance_pre_res.set(bal_pre)
+
+            # 3. Calculate Weights
             T = d_clean[treatment]
             ps_vals = d_clean["ps"]
             weights = np.where(T == 1, 1 / ps_vals, 1 / (1 - ps_vals))
 
-            bal = check_balance(
+            # Optional: Truncate Weights
+            if input.psm_trim():
+                weights = PropensityScoreDiagnostics.truncate_weights(weights)
+
+            # 4. IPW Analysis (re-run logic with truncated weights if needed)
+            # Existing specific function calculate_ipw does internal calculation.
+            # To respect truncation, we manually run weighted regression here or just use the weights?
+            # calculate_ipw internally calculates weights. To support truncation we'd need to modify it or do it manually.
+            # For now, let's recalculate IPW if weights are modified, or trust the weights we just built.
+
+            # Since calculate_ipw creates its own weights, we'll use a manual WLS here if trimmed,
+            # OR better: update calculate_ipw to accept weights? No, it takes data/cols.
+            # For simplicity/robustness, we perform the WLS here if we want to meaningful output from trimmed weights.
+            # BUT: calculate_ipw returns neat dict.
+            # Let's rely on our manual WLS for the ATE if trimmed, otherwise standard.
+
+            import statsmodels.api as sm
+
+            # Recalculate ATE with (possibly trimmed) weights
+            try:
+                X_wls = sm.add_constant(T)
+                model_wls = sm.WLS(d_clean[outcome], X_wls, weights=weights).fit()
+                ate = model_wls.params[1]
+                ci = model_wls.conf_int()
+                # Handle different statsmodels versions
+                if isinstance(ci, pd.DataFrame):
+                    ci_l, ci_u = ci.iloc[1, 0], ci.iloc[1, 1]
+                else:
+                    ci_l, ci_u = ci[1, 0], ci[1, 1]
+
+                ipw_results = {
+                    "ATE": float(ate),
+                    "SE": float(model_wls.bse[1]),
+                    "p_value": float(model_wls.pvalues[1]),
+                    "CI_Lower": float(ci_l),
+                    "CI_Upper": float(ci_u),
+                    "missing_data_info": missing_info,
+                }
+                psm_res.set(ipw_results)
+            except Exception as e_ipw:
+                logger.error(f"Weighted regression failed: {e_ipw}")
+                psm_res.set({"error": f"Regression failed: {str(e_ipw)}"})
+
+            # 5. Check Adjusted Balance (Post-weighting)
+            bal_post = PropensityScoreDiagnostics.calculate_smd(
                 d_clean,
                 treatment,
                 covs,
                 weights=pd.Series(weights, index=d_clean.index),
             )
-            balance_res.set(bal)
+            balance_res.set(bal_post)
 
             ui.notification_remove("run_psm")
             ui.notification_show("PSM/IPW Analysis Complete", type="message")
@@ -436,21 +510,86 @@ def causal_inference_server(
 
     @render.ui
     def plot_love():
-        bal = balance_res.get()
-        if bal is None:
+        bal_post = balance_res.get()
+        bal_pre = balance_pre_res.get()
+
+        if bal_post is None or bal_pre is None:
             return ui.div("Run PSM analysis to see balance diagnostics.")
 
-        fig = px.scatter(
-            bal,
-            x="SMD",
-            y="Covariate",
-            title="Standardized Mean Differences (Weighted)",
-            range_x=[0, max(0.5, bal["SMD"].max() * 1.1)],
-        )
-        fig.add_vline(
-            x=0.1, line_dash="dash", line_color="red", annotation_text="Threshold 0.1"
-        )
+        fig = PropensityScoreDiagnostics.create_love_plot(bal_pre, bal_post)
         return ui.HTML(plotly_figure_to_html(fig))
+
+    @render.ui
+    def plot_overlap():
+        d = current_df()
+        if d is None or common_support_res.get() is None:
+            return None
+
+        # We need the dataframe with PS. We re-calculate or store it?
+        # Ideally we'd store the processed DF. Re-calculating for plot is safer than large reactive state.
+        # But we don't want to re-run logit.
+        # Let's assume re-running pure visualization is fast enough,
+        # OR better: The "Common Support" is about PS distribution.
+        # We can implement a simple reactive that holds the d_clean + ps if needed.
+        # For now, let's just use the fact if analysis is run, we can grab it?
+        # No, simpler: check common_support_res for data?
+        # No, assess_common_support returns dict.
+
+        # To avoid complexity, let's just make the plot use the reactive result IF we stored the PS there.
+        # Alternative: We re-calculate PS quickly.
+
+        treatment = input.psm_treatment()
+        covs = list(input.psm_covariates())
+        if not treatment or not covs:
+            return None
+
+        # Re-calc PS (fast)
+        ps, _ = calculate_ps(d, treatment, covs, var_meta=var_meta.get() or {})
+        d_plot = d.copy()
+        d_plot["ps"] = ps
+        # remove missing
+        d_plot = d_plot.dropna(subset=["ps", treatment])
+
+        fig = PropensityScoreDiagnostics.plot_ps_overlap(d_plot, treatment, "ps")
+        return ui.HTML(plotly_figure_to_html(fig))
+
+    @render.ui
+    def out_overlap_info():
+        res = common_support_res.get()
+        if not res or "error" in res:
+            return None
+
+        rec_color = (
+            "text-success" if res["recommendation"] == "Adequate" else "text-warning"
+        )
+        if "exclusion" in res["recommendation"].lower():
+            rec_color = "text-danger"
+
+        return ui.div(
+            ui.h5("Common Support Assessment"),
+            ui.p(
+                ui.strong("Overlap Area: "), f"{res['overlap_percent']:.1f}% of units"
+            ),
+            ui.p(
+                ui.strong("Recommendation: "),
+                ui.span(res["recommendation"], class_=rec_color),
+            ),
+            ui.p(f"Units outside support: {res['excluded_count']}"),
+            ui.hr(),
+            ui.h6("Propensity Score Ranges:"),
+            ui.tags.ul(
+                ui.tags.li(
+                    f"Treated: [{res['treated_range'][0]:.3f}, {res['treated_range'][1]:.3f}]"
+                ),
+                ui.tags.li(
+                    f"Control: [{res['control_range'][0]:.3f}, {res['control_range'][1]:.3f}]"
+                ),
+                ui.tags.li(
+                    f"Overlap: [{res['overlap_range'][0]:.3f}, {res['overlap_range'][1]:.3f}]"
+                ),
+            ),
+            style="background-color: var(--bs-light); padding: 15px; border-radius: 8px;",
+        )
 
     # --- Stratified Logic ---
     strat_res = reactive.Value(None)

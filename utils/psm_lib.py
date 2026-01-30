@@ -418,3 +418,119 @@ def plot_ps_distribution(
     )
 
     return fig
+
+
+class PropensityScoreDiagnostics:
+    """
+    Diagnostic tools for Propensity Score methods.
+    Includes Common Support assessment, Weight Truncation, and Balance Checks.
+    """
+
+    @staticmethod
+    def assess_common_support(
+        ps: pd.Series | np.ndarray,
+        treatment: pd.Series | np.ndarray,
+        min_support: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Assess whether treated and control have overlapping PS distributions.
+
+        Returns:
+            Dictionary containing overlap ranges, statistics, and recommendations.
+        """
+        try:
+            ps = np.array(ps)
+            treat = np.array(treatment)
+
+            treated_ps = ps[treat == 1]
+            control_ps = ps[treat == 0]
+
+            if len(treated_ps) == 0 or len(control_ps) == 0:
+                return {"error": "Insufficient data"}
+
+            min_treated, max_treated = np.min(treated_ps), np.max(treated_ps)
+            min_control, max_control = np.min(control_ps), np.max(control_ps)
+
+            # Common support region
+            overlap_min = max(min_treated, min_control)
+            overlap_max = min(max_treated, max_control)
+
+            in_support = (ps >= overlap_min) & (ps <= overlap_max)
+            overlap_percent = np.mean(in_support) * 100
+
+            units_to_exclude = np.where(~in_support)[0]
+
+            recommendation = "Adequate"
+            if overlap_percent < 80:
+                recommendation = (
+                    "Recommend exclusion or alternative method (limited overlap)"
+                )
+            elif overlap_percent < 95:
+                recommendation = "Consider trimming (some non-overlap)"
+
+            return {
+                "overlap_range": (float(overlap_min), float(overlap_max)),
+                "treated_range": (float(min_treated), float(max_treated)),
+                "control_range": (float(min_control), float(max_control)),
+                "overlap_percent": float(overlap_percent),
+                "units_to_exclude": units_to_exclude.tolist(),
+                "excluded_count": len(units_to_exclude),
+                "recommendation": recommendation,
+            }
+        except Exception as e:
+            logger.error(f"Common support assessment failed: {e}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def truncate_weights(
+        weights: pd.Series | np.ndarray,
+        lower_percentile: float = 0.01,
+        upper_percentile: float = 0.99,
+    ) -> pd.Series:
+        """
+        Truncate (trim) extreme weights to reduce variance.
+        Values below lower_percentile are set to lower_percentile value.
+        Values above upper_percentile are set to upper_percentile value.
+        """
+        try:
+            w = pd.Series(weights).copy()
+            lower = w.quantile(lower_percentile)
+            upper = w.quantile(upper_percentile)
+            return w.clip(lower=lower, upper=upper)
+        except Exception as e:
+            logger.error(f"Weight truncation failed: {e}")
+            return pd.Series(weights)
+
+    @staticmethod
+    def calculate_smd(
+        df: pd.DataFrame,
+        treatment_col: str,
+        covariates: list[str],
+        weights: pd.Series | None = None,
+    ) -> pd.DataFrame:
+        """
+        Calculate Standardized Mean Difference (SMD).
+        Wrapper designed to be class-method compatible with user request.
+        """
+        return check_balance(df, treatment_col, covariates, weights)
+
+    @staticmethod
+    def create_love_plot(smd_pre: pd.DataFrame, smd_post: pd.DataFrame) -> go.Figure:
+        """
+        Generate a 'Love Plot' showing SMD comparison.
+        Wrapper for plot_love_plot.
+        """
+        return plot_love_plot(smd_pre, smd_post)
+
+    @staticmethod
+    def plot_ps_overlap(
+        df_pre: pd.DataFrame,
+        treatment_col: str,
+        ps_col: str,
+        df_post: pd.DataFrame | None = None,
+    ) -> go.Figure:
+        """
+        Visualize PS Overlap.
+        Wrapper for plot_ps_distribution.
+        """
+        return plot_ps_distribution(df_pre, df_post, treatment_col, ps_col)
