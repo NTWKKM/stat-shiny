@@ -1413,6 +1413,11 @@ def prepare_data_for_analysis(
     """
     try:
         # 1. Column Validation
+        # Deduplicate columns to prevent "Data must be 1-dimensional" errors when a col is repeated
+        required_cols = list(dict.fromkeys(required_cols))
+        if numeric_cols:
+            numeric_cols = list(dict.fromkeys(numeric_cols))
+
         missing_cols = set(required_cols) - set(df.columns)
         if missing_cols:
             raise DataValidationError(f"Missing required columns: {missing_cols}")
