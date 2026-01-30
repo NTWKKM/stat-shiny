@@ -208,6 +208,7 @@ def fit_cox_rcs(
         # We only need diagonals (variance of each point)
         cov_mat = cph.variance_matrix_.values
         var_log_hr = np.sum(contrast.dot(cov_mat) * contrast, axis=1)
+        var_log_hr = np.maximum(var_log_hr, 0)
         se_log_hr = np.sqrt(var_log_hr)
 
         # Convert to HR and CI
