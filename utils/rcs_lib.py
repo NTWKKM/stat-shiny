@@ -227,12 +227,15 @@ def fit_cox_rcs(
             )
         )
 
+        x_min_padded = x_min - padding
+        x_max_padded = x_max + padding
+
         # Reference Line
         fig.add_shape(
             type="line",
-            x0=x_min,
+            x0=x_min_padded,
             y0=1,
-            x1=x_max,
+            x1=x_max_padded,
             y1=1,
             line=dict(color="gray", dash="dash", width=1),
         )
