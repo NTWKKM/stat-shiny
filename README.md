@@ -179,7 +179,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- visualizations.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 ## 🏥 Medical Statistical Tool (Shiny for Python)
@@ -236,6 +235,9 @@ This application is a complete statistical workbench organized into modular tabs
   - **Time-Varying Cox**: Handle covariates that change over time.
   - **Landmark Analysis**: Address immortal time bias.
   - **Subgroup Analysis**: Explore treatment effect heterogeneity.
+- **Model Diagnostics**:
+  - **Assumption Checks**: Automated Schoenfeld residuals with remedies.
+  - **Extended Plots**: Martingale (linearity) and Deviance (outliers) residuals.
 
 ### 🎯 Causal Inference
 

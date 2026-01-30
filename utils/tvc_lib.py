@@ -583,11 +583,15 @@ def fit_tvc_cox(
                     "p-value": row["p"],
                     "Significant": (
                         "***"
-                        if row["p"] < 0.001
+                        if pd.to_numeric(row["p"], errors="coerce") < 0.001
                         else (
                             "**"
-                            if row["p"] < 0.01
-                            else ("*" if row["p"] < 0.05 else "")
+                            if pd.to_numeric(row["p"], errors="coerce") < 0.01
+                            else (
+                                "*"
+                                if pd.to_numeric(row["p"], errors="coerce") < 0.05
+                                else ""
+                            )
                         )
                     ),
                 }

@@ -1141,7 +1141,7 @@ def survival_server(
             ui.card_header("📈 Plot"),
             ui.output_ui("out_curves_plot"),
             ui.card_header("📄 Log-Rank Test / Summary Statistics"),
-            ui.output_data_frame("out_curves_table"),
+            ui.output_table("out_curves_table"),
         ]
 
         if res.get("medians") is not None:
@@ -1181,11 +1181,11 @@ def survival_server(
         )
         return ui.HTML(html_str)
 
-    @render.data_frame
+    @render.table
     def out_curves_table():
-        """Render the curves statistics DataGrid when curve results are available."""
+        """Render the curves statistics Table when curve results are available."""
         res = curves_result.get()
-        return render.DataGrid(res["stats"]) if res else None
+        return res["stats"] if res else None
 
     @render.data_frame
     def out_medians_table():
@@ -1525,6 +1525,20 @@ def survival_server(
             return None
 
         df = res["results_df"].copy()
+
+        # FIX: Ensure 'Variable' column exists (it might be in index)
+        if "Variable" not in df.columns:
+            df = df.reset_index()
+            # Rename if index was unnamed or named 'index'/'covariate'
+            if "index" in df.columns:
+                df = df.rename(columns={"index": "Variable"})
+            elif "covariate" in df.columns:
+                df = df.rename(columns={"covariate": "Variable"})
+            else:
+                # If index name matched a column name or was something else,
+                # check just in case we have a column named like the index
+                # But usually reset_index gives 'index' if name is None
+                pass
 
         # Format P-value
         if "P-value" in df.columns:
