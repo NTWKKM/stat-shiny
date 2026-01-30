@@ -24,16 +24,17 @@ def fit_cox_rcs(
     Perform Restricted Cubic Spline (RCS) analysis for Cox Proportional Hazards.
     Uses patsy's 'cr' (natural cubic spline) basis.
     """
-    # 1. Prepare Data
-    req_cols = [duration_col, event_col, rcs_var] + adjust_cols
-    # Ensure numeric
-    numeric_cols = [duration_col, event_col, rcs_var]
     # Guard against overlaps/duplicates in adjust_cols
     adjust_cols = [
         c
         for c in dict.fromkeys(adjust_cols)
         if c not in {rcs_var, duration_col, event_col}
     ]
+
+    # 1. Prepare Data
+    req_cols = [duration_col, event_col, rcs_var] + adjust_cols
+    # Ensure numeric
+    numeric_cols = [duration_col, event_col, rcs_var]
 
     try:
         data, missing_info = prepare_data_for_analysis(
@@ -77,7 +78,7 @@ def fit_cox_rcs(
         if spline_cols:
             col_to_drop = spline_cols[0]
             logger.info(
-                f"Dropping spline column '{col_to_drop}' to avoid multicollinearity."
+                "Dropping spline column '%s' to avoid multicollinearity.", col_to_drop
             )
             # IMPORTANT: Capture design_info BEFORE dropping columns
             design_info = X.design_info
@@ -150,7 +151,9 @@ def fit_cox_rcs(
         # Check dimensions
         if contrast.shape[1] != len(cph.params_):
             logger.error(
-                f"Shape mismatch: Contrast {contrast.shape[1]} vs Params {len(cph.params_)}"
+                "Shape mismatch: Contrast %d vs Params %d",
+                contrast.shape[1],
+                len(cph.params_),
             )
             return (
                 go.Figure(),
@@ -269,5 +272,5 @@ def fit_cox_rcs(
         return fig, stats_df, missing_info
 
     except Exception as e:
-        logger.error(f"RCS Fit Error: {e}")
+        logger.error("RCS Fit Error: %s", e)
         return go.Figure(), pd.DataFrame(), {"error": str(e)}
