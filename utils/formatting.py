@@ -7,6 +7,7 @@ Driven by central configuration from config.py
 from __future__ import annotations
 
 import html as _html
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -219,3 +220,209 @@ def _get_pct(pct_str: str) -> float:
         return float(pct_str.rstrip("%"))
     except (ValueError, AttributeError):
         return 0.0
+
+
+class PublicationFormatter:
+    """
+    Format statistical results according to specific journal guidelines.
+    Configured via 'analysis.publication_style'.
+    """
+
+    @staticmethod
+    def format_nejm(
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
+    ) -> str:
+        """
+        NEJM style: 3.14 (95% CI, 2.81 to 3.47); P=0.003
+        """
+        # NEJM uses "to" for CI (sometimes en-dash), and specific P-value formatting
+        p_str = format_p_value(p_value, use_style=False)
+        # NEJM usually adds P= or P<
+        if "<" in p_str or ">" in p_str:
+            p_display = f"P{p_str}"
+        else:
+            p_display = f"P={p_str}"
+
+        return f"{coef:.2f} (95% CI, {ci_lower:.2f} to {ci_upper:.2f}); {p_display}"
+
+    @staticmethod
+    def format_jama(
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
+    ) -> str:
+        """
+        JAMA style: 3.14 (95% CI, 2.81-3.47); P = .003
+        """
+        # JAMA often removes leading zero for P-values (not strictly enforced here for simplicity, reusing format_p_value)
+        # JAMA usually uses hyphens for range
+        p_str = format_p_value(p_value, use_style=False)
+        if "<" in p_str or ">" in p_str:
+            p_display = f"P{p_str}"
+        else:
+            p_display = f"P={p_str}"
+
+        return f"{coef:.2f} (95% CI, {ci_lower:.2f}-{ci_upper:.2f}); {p_display}"
+
+    @staticmethod
+    def format_lancet(
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
+    ) -> str:
+        """
+        Lancet style: 3.14 (95% CI 2.81–3.47), p=0.003
+        """
+        # Lancet uses en-dash and lowercase p
+        p_str = format_p_value(p_value, use_style=False)
+        if "<" in p_str or ">" in p_str:
+            p_display = f"p{p_str}"
+        else:
+            p_display = f"p={p_str}"
+
+        return f"{coef:.2f} (95% CI {ci_lower:.2f}–{ci_upper:.2f}), {p_display}"
+
+    @staticmethod
+    def format_bmj(
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
+    ) -> str:
+        """
+        BMJ style: 3.14 (95% confidence interval 2.81 to 3.47); P=0.003
+        """
+        # BMJ prefers "confidence interval" spelled out sometimes, or "CI"
+        # We'll stick to slightly verbose defaults if mostly requested
+        p_str = format_p_value(p_value, use_style=False)
+        if "<" in p_str or ">" in p_str:
+            p_display = f"P{p_str}"
+        else:
+            p_display = f"P={p_str}"
+
+        return f"{coef:.2f} (95% confidence interval {ci_lower:.2f} to {ci_upper:.2f}); {p_display}"
+
+    @staticmethod
+    def format(
+        coef: float,
+        ci_lower: float,
+        ci_upper: float,
+        p_value: float,
+        style: str | None = None,
+    ) -> str:
+        """
+        Dispatch formatting to the configured or requested style.
+        """
+        if style is None:
+            style = CONFIG.get("analysis.publication_style", "nejm")
+
+        style = style.lower()
+        if style == "jama":
+            return PublicationFormatter.format_jama(coef, ci_lower, ci_upper, p_value)
+        elif style == "lancet":
+            return PublicationFormatter.format_lancet(coef, ci_lower, ci_upper, p_value)
+        elif style == "bmj":
+            return PublicationFormatter.format_bmj(coef, ci_lower, ci_upper, p_value)
+        else:
+            # Default to NEJM
+            return PublicationFormatter.format_nejm(coef, ci_lower, ci_upper, p_value)
+
+    @staticmethod
+    def format_ci(
+        lower: float,
+        upper: float,
+        style: str | None = None,
+        include_brackets: bool = True,
+    ) -> str:
+        """
+        Format Confidence Interval (CI) according to style.
+        """
+        if style is None:
+            style = CONFIG.get("analysis.publication_style", "nejm")
+        style = style.lower()
+
+        # Determine separator
+        if style in ["nejm", "bmj"]:
+            sep = " to "
+        else:  # jama, lancet, default
+            sep = "-"
+
+        # Format numbers (using consistent precision)
+        # We could use config precision here if needed
+        l_str = f"{lower:.2f}"
+        u_str = f"{upper:.2f}"
+
+        # For 'lancet', use en-dash if possible, but standard hyphen is safer for HTML/ASCII
+        if style == "lancet":
+            sep = "–"  # en-dash
+
+        res = f"{l_str}{sep}{u_str}"
+
+        if include_brackets:
+            return f"({res})"
+        return res
+
+    @staticmethod
+    def format_methods_text(
+        analysis_type: str,
+        variables: list[str],
+        adjustments: list[str] | None = None,
+        assumptions_checked: str = "",
+    ) -> str:
+        """Auto-generate Methods section text."""
+        vars_text = ", ".join(variables)
+        adj_text = (
+            f" while adjusting for {', '.join(adjustments)}" if adjustments else ""
+        )
+
+        # Pull p-value threshold for referencing
+        alpha = CONFIG.get("analysis.significance_level", 0.05)
+
+        text = (
+            f"We used {analysis_type} to assess the association between {vars_text}{adj_text}. "
+            f"{assumptions_checked} "
+            f"Statistical significance was set at P < {alpha}."
+        )
+        return text.strip()
+
+
+class MissingDataStatement:
+    """Auto-generate missing data reporting text."""
+
+    @staticmethod
+    def generate(missing_info: dict[str, Any], analysis_type: str = "analysis") -> str:
+        """
+        Generate a textual description of missing data handling.
+        """
+        strategy = missing_info.get("strategy", "unknown")
+        rows_excluded = missing_info.get("rows_excluded", 0)
+        rows_analyzed = missing_info.get("rows_analyzed", 0)
+        total = rows_excluded + rows_analyzed
+
+        if total == 0:
+            return "No data available for missingness reporting."
+
+        pct_excluded = rows_excluded / total * 100
+
+        # Generate detailed breakout
+        summary = missing_info.get("summary_before", [])
+        miss_details = []
+        for item in summary:
+            if item.get("N_Missing", 0) > 0:
+                var = item.get("Variable")
+                n_miss = item.get("N_Missing")
+                pct_miss = item.get("Pct_Missing")
+                miss_details.append(f"{var} (n={n_miss}, {pct_miss})")
+
+        detail_text = ", ".join(miss_details)
+        if detail_text:
+            detail_text = f" Data were missing for: {detail_text}."
+        else:
+            detail_text = ""
+
+        # Strategy description
+        if strategy == "complete-case":
+            method_text = "Analysis was conducted using complete-case analysis"
+        elif strategy == "drop":
+            method_text = "Rows with missing values were excluded"
+        else:
+            method_text = f"Missing data were handled using {strategy}"
+
+        return (
+            f"Of {total} observations, {rows_excluded} ({pct_excluded:.1f}%) "
+            f"were excluded due to missing data.{detail_text} "
+            f"{method_text}."
+        )

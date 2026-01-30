@@ -14,6 +14,7 @@ from utils.data_cleaning import (
     check_assumptions,
     handle_outliers,
     impute_missing_data,
+    load_data_robust,
     transform_variable,
 )
 from utils.data_quality import DataQualityReport, check_data_quality
@@ -409,7 +410,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         # --- Survival Data ---
         lambda_base = 0.002
         linear_predictor = (
-            0.03 * age + 0.4 * diabetes + 0.3 * hypertension - 0.6 * group
+            0.03 * age
+            + 0.4 * diabetes
+            + 0.3 * hypertension
+            - 0.6 * group
+            + 0.005 * (bmi - 25) ** 2  # Non-linear BMI effect (U-shape)
         )
         hazard = lambda_base * np.exp(linear_predictor)
         surv_time = np.random.exponential(1 / hazard, n)
@@ -834,10 +839,8 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
         try:
             # --- 1. Load File ---
-            if f["name"].lower().endswith(".csv"):
-                new_df = pd.read_csv(f["datapath"])
-            else:
-                new_df = pd.read_excel(f["datapath"])
+            # Use robust loader to handle encodings, separators, and formats automatically
+            new_df = load_data_robust(f["datapath"])
 
             # --- 2. Limit Data Size ---
             max_rows = 100000

@@ -10,7 +10,11 @@ from shiny import module, reactive, render, ui
 
 from tabs._common import get_color_palette, select_variable_by_keyword
 from utils.collinearity_lib import calculate_vif
-from utils.formatting import create_missing_data_report_html
+from utils.data_cleaning import prepare_data_for_analysis
+from utils.formatting import (
+    create_missing_data_report_html,
+    format_p_value,
+)
 from utils.heterogeneity_lib import calculate_heterogeneity
 from utils.mediation_lib import analyze_mediation
 from utils.model_diagnostics_lib import (
@@ -204,6 +208,7 @@ def advanced_inference_server(
     diag_results = reactive.Value(None)
     diag_plot_data = reactive.Value(None)
     cooks_results = reactive.Value(None)
+    diag_clean_data = reactive.Value(None)
     het_results = reactive.Value(None)
 
     # Running States
@@ -546,39 +551,22 @@ def advanced_inference_server(
             x_col = input.diag_predictor()
             covars = list(input.diag_covariates()) if input.diag_covariates() else []
 
-            # Select required columns first, then drop missing
+            # Use centralized data preparation
             required_cols = [y_col, x_col] + covars
-            d = current_df()[required_cols].dropna()
+
+            # 1. Clean Data (Handle numeric conversion & missing values)
+            df_clean, missing_info = prepare_data_for_analysis(
+                current_df(),
+                required_cols=required_cols,
+                numeric_cols=required_cols,  # All variables in specific OLS diagnostics should be numeric
+                handle_missing="complete_case",
+                var_meta=var_meta.get() or {},
+            )
 
             # Fit OLS for diagnostics
-            X = d[[x_col] + covars]
-            original_cols = X.columns.tolist()
+            X = df_clean[[x_col] + covars]
             X = sm.add_constant(X)
-            Y = d[y_col]
-
-            # Ensure numeric
-            X = X.select_dtypes(include=[np.number])
-            dropped_cols = set(original_cols) - set(X.columns) - {"const"}
-            if dropped_cols:
-                ui.notification_show(
-                    f"Non-numeric columns excluded: {', '.join(dropped_cols)}",
-                    type="warning",
-                )
-            Y = pd.to_numeric(Y, errors="coerce")
-
-            # Drop rows where Y became NaN after coercion
-            valid_mask = ~Y.isna()
-            if valid_mask.sum() < len(Y):
-                n_dropped = len(Y) - valid_mask.sum()
-                ui.notification_show(
-                    f"{n_dropped} rows dropped due to non-numeric outcome values",
-                    type="warning",
-                )
-                X = X.loc[valid_mask]
-                Y = Y.loc[valid_mask]
-
-            if len(Y) < X.shape[1] + 1:
-                raise ValueError("Insufficient observations after cleaning")
+            Y = df_clean[y_col]
 
             model = sm.OLS(Y, X).fit()
 
@@ -591,6 +579,7 @@ def advanced_inference_server(
             diag_results.set([res_reset, res_bp])
             diag_plot_data.set(res_plots)
             cooks_results.set(res_cooks)
+            diag_clean_data.set(df_clean)
 
             ui.notification_remove("run_diag")
             ui.notification_show("Diagnostics Complete", type="message")
@@ -639,7 +628,12 @@ def advanced_inference_server(
     def tbl_diagnostics():
         res = diag_results.get()
         if res and not (isinstance(res, dict) and "error" in res):
-            return pd.DataFrame(res)
+            df = pd.DataFrame(res)
+            # Format P-Values if present
+            for col in df.columns:
+                if "p-value" in col.lower():
+                    df[col] = df[col].apply(format_p_value)
+            return df
         return None
 
     @render.plot
@@ -681,15 +675,10 @@ def advanced_inference_server(
         # Sort by Cook's D descending and take top 10
         sorted_order = np.argsort(cooks_values)[::-1][:10].tolist()
         top_indices = [influential_indices[i] for i in sorted_order]
-        # Reconstruct the cleaned subset to ensure index alignment
-        y_col = input.diag_outcome()
-        x_col = input.diag_predictor()
-        covars = list(input.diag_covariates()) if input.diag_covariates() else []
-        required_cols = [y_col, x_col] + covars
-        d = current_df()[required_cols].dropna()
-        y_num = pd.to_numeric(d[y_col], errors="coerce")
-        valid_mask = ~y_num.isna()
-        d_clean = d.loc[valid_mask]
+        # Use the exactly aligned cleaned data frame from the diagnostics run
+        d_clean = diag_clean_data.get()
+        if d_clean is None:
+            return None
         return d_clean.iloc[top_indices]
 
     @render.text
@@ -770,7 +759,11 @@ def advanced_inference_server(
         res = het_results.get()
         if res and "error" not in res:
             # Format single row DF
-            return pd.DataFrame([res])
+            df = pd.DataFrame([res])
+            for col in df.columns:
+                if "p-value" in col.lower():
+                    df[col] = df[col].apply(format_p_value)
+            return df
         return None
 
     # ==================== VALIDATION LOGIC ====================

@@ -50,7 +50,11 @@ from utils.data_cleaning import (
     prepare_data_for_analysis,
 )
 from utils.forest_plot_lib import create_forest_plot
-from utils.formatting import create_missing_data_report_html
+from utils.formatting import (
+    PublicationFormatter,
+    create_missing_data_report_html,
+    format_p_value,
+)
 
 # Suppress DeprecationWarning from lifelines (datetime.utcnow)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="lifelines")
@@ -80,18 +84,24 @@ def progress_end(id: str = "progress_notif") -> None:
 
 
 # Try to import Firth Cox regression for small samples / rare events
+# Try to import Firth Cox regression for small samples / rare events
 try:
     from firthmodels import FirthCoxPH
 
+    # CHECK: scikit-learn >= 1.6 compatibility patch
+    # firthmodels 0.6.0 uses the deprecated/removed `_validate_data` method.
+    # We must monkeypatch it to use the new public validation API.
     if not hasattr(FirthCoxPH, "_validate_data"):
         from sklearn.utils.validation import check_array, check_X_y
 
-        logger.info("Applying sklearn compatibility patch to FirthCoxPH")
+        logger.info("Applying sklearn 1.6+ compatibility patch to FirthCoxPH")
 
         def _validate_data_patch(
             self, X, y=None, reset=True, validate_separately=False, **check_params
         ):
             # Compatibility shim for sklearn >= 1.6.
+            # 'reset' and 'validate_separately' are arguments in the old API that we consume/ignore
+            # to prevent passing them to check_array which doesn't expect them in the same way.
             if y is None:
                 return check_array(X, **check_params)
             else:
@@ -101,10 +111,10 @@ try:
         logger.info("FirthCoxPH patch applied successfully")
 
     HAS_FIRTH_COX = True
-except (ImportError, AttributeError):
+except (ImportError, AttributeError) as e:
     HAS_FIRTH_COX = False
     logger.warning(
-        "firthmodels.FirthCoxPH not available - Firth Cox PH will be disabled"
+        f"firthmodels.FirthCoxPH not available or patch failed: {e} - Firth Cox PH will be disabled"
     )
 
 
@@ -241,17 +251,33 @@ def calculate_survival_at_times(
     #     enable_comparison: Whether to perform pairwise Z-test comparisons (default: True)
     #     mcc_method: Method for multiple comparison correction (default: "fdr_bh")
     #
-    # Returns:
     #     tuple[pd.DataFrame, pd.DataFrame | None]:
     #         - DataFrame with survival probabilities at each time point
     #         - DataFrame with pairwise comparison results (or None if not applicable)
     try:
-        data = df.dropna(subset=[duration_col, event_col])
+        # Use centralized cleaning
+        required_cols = [duration_col, event_col]
         if group_col:
-            if group_col not in data.columns:
-                logger.error(f"Missing group column: {group_col}")
-                return pd.DataFrame(), pd.DataFrame()
-            data = data.dropna(subset=[group_col])
+            required_cols.append(group_col)
+
+        # We strictly need duration to be numeric. Event will be handled by robust logic below,
+        # but prepare_data_for_analysis can also help ensures it's not a garbage string.
+        # However, for event, we have specific robust converter logic (lines 276+), so we might want to keep that
+        # OR rely on prepare_data_for_analysis.
+        # prepare_data_for_analysis converts to numeric if requested.
+
+        # Let's clean basic structure first.
+        data, _ = prepare_data_for_analysis(
+            df,
+            required_cols=required_cols,
+            numeric_cols=[duration_col],  # Force duration to be numeric
+            handle_missing="complete-case",
+        )
+
+        if data.empty:
+            return pd.DataFrame(), pd.DataFrame()
+
+        if group_col:
             groups = _sort_groups_vectorized(data[group_col].unique())
         else:
             groups = ["Overall"]
@@ -427,7 +453,8 @@ def calculate_survival_at_times(
                     else:
                         surv_str = f"{surv_prob:.2f}"
                         if not pd.isna(lower) and not pd.isna(upper):
-                            display_val = f"{surv_str} ({lower:.2f}-{upper:.2f})"
+                            ci_str = PublicationFormatter.format_ci(lower, upper)
+                            display_val = f"{surv_str} {ci_str}"
                         else:
                             display_val = f"{surv_str}"
 
@@ -656,10 +683,15 @@ def calculate_median_survival(
                     return "NR"
                 return f"{v:.1f}"
 
-            med_str, low_str, up_str = fmt(median_val), fmt(lower), fmt(upper)
-            display_str = (
-                f"{med_str} ({low_str}-{up_str})" if med_str != "NR" else "Not Reached"
-            )
+            med_str = fmt(median_val)
+
+            if med_str != "NR" and not pd.isna(lower) and not pd.isna(upper):
+                ci_str = PublicationFormatter.format_ci(lower, upper)
+                display_str = f"{med_str} {ci_str}"
+            elif med_str != "NR":
+                display_str = med_str
+            else:
+                display_str = "Not Reached"
         else:
             display_str = "-"
 
@@ -783,7 +815,7 @@ def fit_km_logrank(
             stats_data = {
                 "Test": "Log-Rank (Pairwise)",
                 "Statistic (Chi2)": f"{res.test_statistic:.2f}",
-                "P-value": f"{res.p_value:.4f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": f"{g1} vs {g2}",
             }
         elif len(groups) > 2 and group_col:
@@ -793,7 +825,7 @@ def fit_km_logrank(
             stats_data = {
                 "Test": "Log-Rank (Multivariate)",
                 "Statistic (Chi2)": f"{res.test_statistic:.2f}",
-                "P-value": f"{res.p_value:.4f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": "All groups",
             }
         else:
@@ -1213,17 +1245,28 @@ def fit_cox_ph(
             # FirthCoxPH: compute C-index via score method if possible
             try:
                 X = data[covariate_cols].values
+                # y needs to be structured array for score() or tuple for some versions
+                # firthmodels .score() typically returns C-index
                 event_arr = data[event_col].astype(bool).values
                 time_arr = data[duration_col].values
-                y_struct = np.array(
-                    list(zip(event_arr, time_arr)),
-                    dtype=[("event", bool), ("time", float)],
-                )
-                c_index = cph.score(X, y_struct)
-            except Exception:
+
+                # Check firthmodels version behavior for y input in score
+                # Usually it expects the same format as fit: (event, time)
+                c_index = cph.score(X, (event_arr, time_arr))
+            except Exception as e:
+                logger.debug(f"Could not compute Firth C-index: {e}")
                 c_index = None
-            aic_val = None
+
+            # Get Log-Likelihood if available (firthmodels usually has .loglik_)
             ll_val = getattr(cph, "loglik_", None)
+
+            # Calculate AIC manually: 2k - 2ln(L)
+            if ll_val is not None:
+                k = len(covariate_cols)
+                aic_val = 2 * k - 2 * ll_val
+            else:
+                aic_val = None
+
             n_events = int(data[event_col].sum())
 
         def fmt(x: Any, p: int) -> str:
@@ -1264,26 +1307,33 @@ def _fit_firth_cox(
     # Returns:
     #     Tuple of (fitted_model, results_df, method_name)
 
-    # Prepare data for FirthCoxPH
-    X = data[covariate_cols].values.astype(float)
-    event = data[event_col].astype(bool).values
-    time = data[duration_col].astype(float).values
+    # 1. Prepare data explicitly for FirthCoxPH
+    # Scikit-learn style requires X as float array, y as specific structure
+    X = data[covariate_cols].astype(float).values
 
-    # Fit model (FirthCoxPH accepts y as tuple (event, time) or structured array)
+    # Ensure event is boolean or 0/1 integer, and time is float
+    event = data[event_col].values.astype(bool)
+    time = data[duration_col].values.astype(float)
+
+    # 2. Fit model (FirthCoxPH accepts y as tuple (event, time))
+    # Note: firthmodels 0.6.0 expects (event, time) for survival
     model = FirthCoxPH()
     model.fit(X, (event, time))
 
-    # Extract results
+    # 3. Extract results
+    # firthmodels stores coefficients in .coef_ and standard errors in .bse_
     coefs = model.coef_
     se = model.bse_
     pvals = model.pvalues_
 
-    # Compute Hazard Ratios and 95% CI
+    # 4. Compute Hazard Ratios and 95% Wald CI
+    # HR = exp(coef)
     hrs = np.exp(coefs)
+    # Wald CI: exp(coef +/- 1.96 * SE)
     ci_low = np.exp(coefs - 1.96 * se)
     ci_high = np.exp(coefs + 1.96 * se)
 
-    # Build results DataFrame
+    # 5. Build results DataFrame
     res_df = pd.DataFrame(
         {
             "HR": hrs,
@@ -1571,8 +1621,8 @@ def fit_km_landmark(
             )
             stats_data = {
                 "Test": "Log-Rank (Pairwise)",
-                "Statistic": res.test_statistic,
-                "P-value": res.p_value,
+                "Statistic": f"{res.test_statistic:.2f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": f"{g1} vs {g2}",
                 "Method": f"Landmark at {landmark_time}",
             }
@@ -1584,8 +1634,8 @@ def fit_km_landmark(
             )
             stats_data = {
                 "Test": "Log-Rank (Multivariate)",
-                "Statistic": res.test_statistic,
-                "P-value": res.p_value,
+                "Statistic": f"{res.test_statistic:.2f}",
+                "P-value": format_p_value(res.p_value),
                 "Comparison": "All groups",
                 "Method": f"Landmark at {landmark_time}",
             }
@@ -1654,12 +1704,13 @@ def generate_report_survival(
                     p_vals = pd.to_numeric(d_styled["P-value"], errors="coerce")
                     new_p_val_col = []
                     for val, pv in zip(d_styled["P-value"], p_vals):
+                        formatted_val = format_p_value(pv) if pd.notna(pv) else str(val)
                         if not pd.isna(pv) and pv < 0.05:
                             new_p_val_col.append(
-                                '<span class="sig-p">' + str(val) + "</span>"
+                                '<span class="sig-p">' + formatted_val + "</span>"
                             )
                         else:
-                            new_p_val_col.append(str(val))
+                            new_p_val_col.append(formatted_val)
                     d_styled["P-value"] = new_p_val_col
                 html_doc += d_styled.to_html(
                     classes="table table-striped", border=0, escape=False

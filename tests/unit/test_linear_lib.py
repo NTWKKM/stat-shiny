@@ -71,20 +71,20 @@ def mock_dependencies():
         "info": "#17a2b8",
     }
 
-    # Mock format_ci_html to accept 3 arguments (ci_str, lower, upper)
-    def safe_format_ci(ci_str, lower, upper, **kwargs):
+    # Mock PublicationFormatter.format_ci to accept (lower, upper, ...)
+    def safe_format_ci(lower, upper, **kwargs):
         if not isinstance(lower, (int, float, np.number)) or not isinstance(
             upper, (int, float, np.number)
         ):
             return "N/A"
-        return ci_str
+        return f"{lower:.2f} to {upper:.2f}"
 
     mock_format_ci = MagicMock(side_effect=safe_format_ci)
 
     # Patch them where they are used (in utils.linear_lib namespace)
     with (
         patch("utils.linear_lib.COLORS", mock_colors),
-        patch("utils.linear_lib.format_ci_html", mock_format_ci),
+        patch("utils.linear_lib.PublicationFormatter.format_ci", mock_format_ci),
     ):
         yield
 
