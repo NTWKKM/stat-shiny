@@ -130,14 +130,20 @@ sequenceDiagram
         Analysis->>Analysis: Fit logistic regression
         Analysis->>Analysis: Extract OR, CI, p-value
     end
-    Analysis->>Analysis: Perform interaction test
+    end
+    Analysis->>Analysis: Perform interaction test (Likelihood Ratio Test)
     Analysis-->>Server: Return subgroup results + interaction p
+
     
     Server->>Forest: Generate forest plot
     Forest->>Forest: Create Matplotlib figure with ORs + CIs
     Forest-->>Server: Return base64-encoded plot
     
+    Server->>Forest: Generate forest plot
+    Forest-->>Server: Return base64-encoded plot (annotated with P-interaction)
+
     Server-->>UI: Display forest plot + results table
+
     
     User->>UI: Click "Download Report"
     UI->>Server: Generate HTML report
@@ -259,6 +265,9 @@ The application uses a centralized styling system to ensure visual consistency a
   - **Continuous OR**: Uses **Univariate Logistic Regression**.
 - `utils/diagnostic_advanced_lib.py`: **Advanced Diagnostic Engine** (OOP) providing robust ROC analysis, **DeLong's Test**, and Wilson Score confidence intervals.
 - `utils/agreement_lib.py`: **Agreement Analysis Engine** providing Cohen's/Fleiss' Kappa, advanced Bland-Altman (CI bands), and ICC.
+- `utils/psm_lib.py`: **Propensity Score Engine**.
+  - `PropensityScoreDiagnostics`: Handles **Common Support** assessment (distribution overlap stats) and **Love Plot** generation.
+  - Implements **Inverse Probability Weighting (IPW)** with optional **Weight Truncation** (1st/99th percentiles).
 
 ### Dynamic UI Enhancements (Animations)
 
@@ -312,7 +321,7 @@ The data flow is standardized to ensure consistent handling of missing values an
   - **Smart Visualization Sync**: The report is architected to be the "detailed companion" to the visualization, covering "blind spots" if the heatmap is subsampled.
   - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation).
   - **Logistic Regression**: Deep diagnostics (AUC/C-stat, Hosmer-Lemeshow, AIC/BIC)
-  - **Subgroup Analysis**: Interaction Tests and Forest Plots
+  - **Subgroup Analysis**: Formal Interaction Tests (Likelihood Ratio Test) and Forest Plots annotated with P-values.
   - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) and **STROBE/TRIPOD alignment text** provide immediate clinical and reporting context.
   - **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
 

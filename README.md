@@ -207,8 +207,9 @@ This application is a complete statistical workbench organized into modular tabs
 
 - **Table 1 Generation**: Publication-ready baseline tables with **Intelligent Variable Classification**, automated statistical testing, and **Odds Ratios with 95% CI** (Configurable: "All Levels" vs Reference or "Simple" Target vs Ref).
 - **Propensity Score Matching (PSM)**: Advanced matching with customizable calipers and variable selection.
-- **Balance Diagnostics**: Enhanced Love plots (Green/Yellow zones) and Standardized Mean Differences (SMD).
-- **Common Support**: Visual inspection of propensity score overlap distributions.
+- **Balance Diagnostics**: Enhanced **Love Plots** with Green/Yellow zones (<0.1/<0.2 SMD) for assessing covariate balance.
+- **Common Support**: Propensity Score overlap assessment with **automated distribution plots** and exclusion recommendations.
+- **Weight Truncation**: Option to handling extreme weights (1%/99% trimming) for stable IPW estimates.
 - **Matched Data Export**: seamless integration of matched cohorts into other analyses.
 
 ### 🔢 Sample Size & Power
@@ -222,7 +223,7 @@ This application is a complete statistical workbench organized into modular tabs
 ### 📈 Core Regression Models
 
 - **GLM Framework**:
-  - **Logistic Regression**: Standard, Auto, **Firth's Regression** (rare events), and **Subgroup Analysis** (Forest Plots).
+  - **Logistic Regression**: Standard, Auto, **Firth's Regression** (rare events), and **Subgroup Analysis** (Forest Plots with **Interaction P-value** annotation).
   - **Count Models**: Poisson and Negative Binomial regression.
   - **Linear Regression**: OLS with options for robust standard errors.
 - **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).
@@ -234,7 +235,7 @@ This application is a complete statistical workbench organized into modular tabs
 - **Advanced Techniques**:
   - **Time-Varying Cox**: Handle covariates that change over time.
   - **Landmark Analysis**: Address immortal time bias.
-  - **Subgroup Analysis**: Explore treatment effect heterogeneity.
+  - **Subgroup Analysis**: Explore treatment effect heterogeneity with **Formal Interaction Tests (LRT)** and annotated Forest Plots.
 - **Model Diagnostics**:
   - **Assumption Checks**: Automated Schoenfeld residuals with remedies.
   - **Extended Plots**: Martingale (linearity) and Deviance (outliers) residuals.
@@ -244,7 +245,7 @@ This application is a complete statistical workbench organized into modular tabs
 - **Propensity Methods**: IPW (Inverse Probability Weighting) and PSM integration.
 - **Stratified Analysis**: Mantel-Haenszel odds ratios and Breslow-Day homogeneity tests.
 - **Sensitivity Analysis**: **E-Value** calculation for unmeasured confounding.
-- **Diagnostics**: Detailed covariate balance assessment.
+- **Diagnostics**: Comprehensive **Propensity Score Diagnostics** including overlapping density plots and summary statistics.
 
 ### 🧪 Diagnostic Tests & Agreement
 
