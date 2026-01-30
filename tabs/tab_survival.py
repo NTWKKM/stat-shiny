@@ -1501,7 +1501,7 @@ def survival_server(
             ui.output_data_frame("out_cox_table"),
             ui.card_header("🌳 Forest Plot"),
             ui.output_ui("out_cox_forest"),
-            ui.card_header("🔍 PH Assumption (Schoenfeld Residuals)"),
+            ui.card_header("🔍 Model Diagnostics & Assumptions"),
             ui.output_ui("out_cox_assumptions_ui"),
         ]
 
@@ -1582,12 +1582,24 @@ def survival_server(
         ]
 
         if res["assumptions_plots"]:
-            html_plots = ""
+            # Use Tabs for multiple diagnostic plots to save space
+            tabs_items = []
             for i, fig in enumerate(res["assumptions_plots"]):
-                include_js = "cdn" if i == 0 else False
-                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
+                # Infer title from layout title or index
+                title = (
+                    fig.layout.title.text if fig.layout.title.text else f"Plot {i + 1}"
+                )
+                # Clean title for tab label
+                tab_label = title.split(":")[0] if ":" in title else title
+                if "Schoenfeld" in title:
+                    tab_label = f"Schoenfeld ({tab_label.split(':')[-1].strip()})"
 
-            elements.append(ui.HTML(html_plots))
+                html_plot = fig.to_html(
+                    full_html=False, include_plotlyjs="cdn" if i == 0 else False
+                )
+                tabs_items.append(ui.nav_panel(tab_label, ui.HTML(html_plot)))
+
+            elements.append(ui.navset_card_underline(*tabs_items))
 
         return ui.div(*elements, class_="fade-in-entry")
 
