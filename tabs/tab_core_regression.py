@@ -2849,7 +2849,7 @@ def core_regression_server(
     def val_overall_p():
         res = subgroup_res.get()
         if res:
-            return format_p_value(res["overall"]["p_value"])
+            return format_p_value(res["overall"]["p_value"], use_style=False)
         return "-"
 
     @render.text
@@ -2857,7 +2857,9 @@ def core_regression_server(
         res = subgroup_res.get()
         if res:
             p_int = res["interaction"]["p_value"]
-            return format_p_value(p_int) if p_int is not None else "N/A"
+            return (
+                format_p_value(p_int, use_style=False) if p_int is not None else "N/A"
+            )
         return "-"
 
     @render.ui

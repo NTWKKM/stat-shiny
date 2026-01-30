@@ -332,6 +332,10 @@ class ConfigManager:
         if self.get("analysis.logit_method") not in valid_methods:
             errors.append(f"analysis.logit_method must be one of {valid_methods}")
 
+        valid_styles = ["nejm", "jama", "lancet", "bmj"]
+        if self.get("analysis.publication_style") not in valid_styles:
+            errors.append(f"analysis.publication_style must be one of {valid_styles}")
+
         return len(errors) == 0, errors
 
     def __repr__(self) -> str:

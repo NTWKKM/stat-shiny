@@ -919,13 +919,6 @@ def survival_server(
                     default_rcs = c
                     break
 
-        if not default_rcs and default_cox_covs:
-            # Fallback to first numeric in cox defaults
-            for c in default_cox_covs:
-                if c in numeric_cols:
-                    default_rcs = c
-                    break
-
         ui.update_select(
             "rcs_var",
             choices=num_choices_with_labels,
@@ -1550,7 +1543,7 @@ def survival_server(
                 axis=1,
             )
             # Reorder columns
-            cols = ["HR (95% CI)", "P-value"]
+            cols = ["Variable", "HR (95% CI)", "P-value"]
             if "Method" in df.columns:
                 cols.append("Method")
             return render.DataGrid(df[cols])

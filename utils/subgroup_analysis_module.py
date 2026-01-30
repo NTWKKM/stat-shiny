@@ -407,7 +407,9 @@ class SubgroupAnalysisLogit:
         het_text = "Heterogeneous" if is_het else "Homogeneous"
 
         if pd.notna(p_int):
-            title_final = f"{title}<br><span style='font-size: 12px; color: #666;'>P = {format_p_value(p_int)} ({het_text})</span>"
+            # Fix: Plotly titles strip nested HTML styles, so we use plain text format
+            p_text = format_p_value(p_int, use_style=False)
+            title_final = f"{title}<br><span style='font-size: 12px; color: #666;'>P = {p_text} ({het_text})</span>"
         else:
             title_final = title
 

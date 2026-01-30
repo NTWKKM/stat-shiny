@@ -942,7 +942,7 @@ def diag_server(
                 d,
                 required_cols=required_cols,
                 numeric_cols=numeric_cols,
-                handle_missing="complete-case",
+                handle_missing="complete_case",
                 var_meta=var_meta.get() or {},
             )
 
@@ -1134,6 +1134,17 @@ def diag_server(
                     "data": metrics_df,
                 },
             ]
+
+            # Missing Data Report
+            if missing_info:
+                rep.append(
+                    {
+                        "type": "html",
+                        "data": create_missing_data_report_html(
+                            missing_info, var_meta.get() or {}
+                        ),
+                    }
+                )
 
             roc_html.set(diag_test.generate_report("ROC Comparison Report", rep))
 

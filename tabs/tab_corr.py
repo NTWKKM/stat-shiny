@@ -551,7 +551,7 @@ def corr_server(
             "N",
         ]:
             val = stats.get(key, "N/A")
-            if key == "P-value" and isinstance(val, (int, float)):
+            if key == "P-value" and isinstance(val, (int, float, np.number)):
                 # Use standard P-value formatter with styling for the report
                 elements.append(
                     {
@@ -560,7 +560,7 @@ def corr_server(
                     }
                 )
             # Format numeric if possible
-            elif isinstance(val, (int, float)):
+            elif isinstance(val, (int, float, np.number)):
                 elements.append(
                     {
                         "type": "text",

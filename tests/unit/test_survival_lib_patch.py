@@ -17,7 +17,10 @@ def mock_firth_module():
     mock_class = MagicMock()
 
     # Simulate missing _validate_data to trigger the patch
-    del mock_class._validate_data
+    try:
+        del mock_class._validate_data
+    except AttributeError:
+        pass
 
     mock_fm.FirthCoxPH = mock_class
 
@@ -25,19 +28,28 @@ def mock_firth_module():
         yield mock_fm
 
 
-def test_sklearn_1_6_patch_application():
+def test_sklearn_1_6_patch_application(mock_firth_module):
     """Test that _validate_data is patched onto FirthCoxPH if missing."""
-    # We need to reload utils.survival_lib to trigger the module-level try/except block
+    import importlib
 
-    # Check if HAS_FIRTH_COX logic ran
-    # If firthmodels is actually installed, this test verifies it works.
-    # If not, we might need to rely on mocking for the "logic" test.
+    import utils.survival_lib
 
-    # For this specific test, we want to ensure the function _validate_data_patch exists
-    # inside utils.survival_lib and gets assigned if needed.
-    # Since checking side-effects on a potentially installed library is hard,
-    # we'll trust the integration test structure or manually check the attribute here if possible.
-    pass
+    # The mock_firth_module fixture puts a mock firthmodels in sys.modules.
+    # It specifically deletes _validate_data from FirthCoxPH.
+    # We reload utils.survival_lib to trigger the top-level try/except block.
+
+    # Reload to run the patch logic
+    importlib.reload(utils.survival_lib)
+
+    # Now verify that the mock class has the patched method
+    from firthmodels import FirthCoxPH
+
+    assert hasattr(FirthCoxPH, "_validate_data"), (
+        "Patch failed: _validate_data not added to FirthCoxPH"
+    )
+    assert callable(FirthCoxPH._validate_data), (
+        "_validate_data should be a callable method"
+    )
 
 
 def test_fit_firth_cox_logic():

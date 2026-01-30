@@ -230,7 +230,7 @@ class PublicationFormatter:
 
     @staticmethod
     def format_nejm(
-        coef: float, se: float | None, ci_lower: float, ci_upper: float, p_value: float
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
     ) -> str:
         """
         NEJM style: 3.14 (95% CI, 2.81 to 3.47); P=0.003
@@ -247,7 +247,7 @@ class PublicationFormatter:
 
     @staticmethod
     def format_jama(
-        coef: float, se: float | None, ci_lower: float, ci_upper: float, p_value: float
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
     ) -> str:
         """
         JAMA style: 3.14 (95% CI, 2.81-3.47); P = .003
@@ -264,7 +264,7 @@ class PublicationFormatter:
 
     @staticmethod
     def format_lancet(
-        coef: float, se: float | None, ci_lower: float, ci_upper: float, p_value: float
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
     ) -> str:
         """
         Lancet style: 3.14 (95% CI 2.81–3.47), p=0.003
@@ -280,7 +280,7 @@ class PublicationFormatter:
 
     @staticmethod
     def format_bmj(
-        coef: float, se: float | None, ci_lower: float, ci_upper: float, p_value: float
+        coef: float, ci_lower: float, ci_upper: float, p_value: float
     ) -> str:
         """
         BMJ style: 3.14 (95% confidence interval 2.81 to 3.47); P=0.003
@@ -298,7 +298,6 @@ class PublicationFormatter:
     @staticmethod
     def format(
         coef: float,
-        se: float | None,
         ci_lower: float,
         ci_upper: float,
         p_value: float,
@@ -312,22 +311,14 @@ class PublicationFormatter:
 
         style = style.lower()
         if style == "jama":
-            return PublicationFormatter.format_jama(
-                coef, se, ci_lower, ci_upper, p_value
-            )
+            return PublicationFormatter.format_jama(coef, ci_lower, ci_upper, p_value)
         elif style == "lancet":
-            return PublicationFormatter.format_lancet(
-                coef, se, ci_lower, ci_upper, p_value
-            )
+            return PublicationFormatter.format_lancet(coef, ci_lower, ci_upper, p_value)
         elif style == "bmj":
-            return PublicationFormatter.format_bmj(
-                coef, se, ci_lower, ci_upper, p_value
-            )
+            return PublicationFormatter.format_bmj(coef, ci_lower, ci_upper, p_value)
         else:
             # Default to NEJM
-            return PublicationFormatter.format_nejm(
-                coef, se, ci_lower, ci_upper, p_value
-            )
+            return PublicationFormatter.format_nejm(coef, ci_lower, ci_upper, p_value)
 
     @staticmethod
     def format_ci(

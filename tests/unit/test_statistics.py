@@ -60,7 +60,7 @@ def setup_mocks():
     global run_negative_binomial_regression, run_poisson_regression
     global analyze_roc, auc_ci_delong, calculate_chi2, calculate_ci_wilson_score
     global calculate_descriptive, format_p_value
-    global analyze_outcome, clean_numeric_value, format_p_value, get_label
+    global analyze_outcome, clean_numeric_value, get_label
     global run_binary_logit, validate_logit_data
     global \
         calculate_median_survival, \
