@@ -409,7 +409,7 @@ class SubgroupAnalysisLogit:
         if pd.notna(p_int):
             # Fix: Plotly titles strip nested HTML styles, so we use plain text format
             p_text = format_p_value(p_int, use_style=False)
-            title_final = f"{title}<br><span style='font-size: 12px; color: #666;'>P = {p_text} ({het_text})</span>"
+            title_final = f"{title}<br>P = {p_text} ({het_text})"
         else:
             title_final = title
 

@@ -28,6 +28,12 @@ def fit_cox_rcs(
     req_cols = [duration_col, event_col, rcs_var] + adjust_cols
     # Ensure numeric
     numeric_cols = [duration_col, event_col, rcs_var]
+    # Guard against overlaps/duplicates in adjust_cols
+    adjust_cols = [
+        c
+        for c in dict.fromkeys(adjust_cols)
+        if c not in {rcs_var, duration_col, event_col}
+    ]
 
     try:
         data, missing_info = prepare_data_for_analysis(
