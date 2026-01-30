@@ -25,11 +25,14 @@ def fit_cox_rcs(
     Uses patsy's 'cr' (natural cubic spline) basis.
     Requires knots >= 3.
     """
-    if not isinstance(knots, int):
-        try:
-            knots = int(knots)
-        except (ValueError, TypeError):
+    if isinstance(knots, bool):
+        return go.Figure(), pd.DataFrame(), {"error": "knots must be an integer"}
+    if isinstance(knots, float):
+        if not knots.is_integer():
             return go.Figure(), pd.DataFrame(), {"error": "knots must be an integer"}
+        knots = int(knots)
+    elif not isinstance(knots, int):
+        return go.Figure(), pd.DataFrame(), {"error": "knots must be an integer"}
 
     if knots < 3:
         return go.Figure(), pd.DataFrame(), {"error": "knots must be >= 3 for RCS"}
@@ -72,7 +75,7 @@ def fit_cox_rcs(
 
     # 2. Build Formula
     # cr() in patsy stands for Natural Cubic Spline (similar to rcs in R)
-    # We use -1 to remove intercept because CoxPHFitter adds its own baseline hazard handling
+    # We drop the intercept after building X because CoxPHFitter handles baseline hazard
 
     formula_rhs = f"cr({quote_col(rcs_var)}, df={knots})"
     if adjust_cols:
@@ -307,5 +310,5 @@ def fit_cox_rcs(
         return fig, stats_df, missing_info
 
     except Exception as e:
-        logger.error("RCS Fit Error: %s", e)
+        logger.error("RCS Fit Error: %s", e, exc_info=True)
         return go.Figure(), pd.DataFrame(), {"error": str(e)}
