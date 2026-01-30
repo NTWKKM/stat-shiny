@@ -19,7 +19,7 @@ def fit_cox_rcs(
     knots: int = 4,
     ref_value: float | None = None,
     var_meta: dict[str, dict] | None = None,
-) -> tuple[go.Figure, pd.DataFrame, dict[str, dict] | None]:
+) -> tuple[go.Figure, pd.DataFrame, dict[str, object] | None]:
     """
     Perform Restricted Cubic Spline (RCS) analysis for Cox Proportional Hazards.
     Uses patsy's 'cr' (natural cubic spline) basis.
@@ -111,12 +111,17 @@ def fit_cox_rcs(
 
         # Set adjustment vars to their means/modes
         for col in adjust_cols:
-            if pd.api.types.is_numeric_dtype(data[col]):
+            is_num = pd.api.types.is_numeric_dtype(data[col])
+            is_bool = pd.api.types.is_bool_dtype(data[col])
+            is_cat = pd.api.types.is_categorical_dtype(data[col])
+            if is_num and not is_bool and not is_cat:
                 pred_df[col] = data[col].mean()
             else:
-                # For categorical, use mode (most frequent)
-                mode_val = data[col].mode()[0]
-                pred_df[col] = mode_val
+                # For categorical/boolean, use mode (most frequent) and preserve dtype
+                mode_val = data[col].mode(dropna=True)[0]
+                pred_df[col] = pd.Series(
+                    [mode_val] * len(pred_df), dtype=data[col].dtype
+                )
 
         # Transform pred_df using the SAME design info as the training data
         # This ensures the spline basis is identical
