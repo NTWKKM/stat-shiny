@@ -88,7 +88,7 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
         - Handles various encodings (utf-8, utf-8-sig, cp1252, latin1, cp874/tis-620 for Thai)
         - Handles bad lines and mixed types
     - Excel:
-        - Support for .xlsx and .xls
+        - Support for .xlsx and .xlsm
         - Auto-trims headers
     - General:
         - Sanitizes column names (strip whitespace)
@@ -145,7 +145,8 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
                                 if df_trial.shape[1] > 1:
                                     # Found a better separator, re-read full file
                                     logger.info(
-                                        f"Auto-detected better separator: '{trial_sep}'"
+                                        "Auto-detected better separator: '%s'",
+                                        trial_sep,
                                     )
                                     df = pd.read_csv(
                                         path, sep=trial_sep, encoding=encoding
@@ -155,7 +156,7 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
                                 continue
 
                     logger.info(
-                        f"Successfully read CSV with encoding={encoding}, sep={sep}"
+                        "Successfully read CSV with encoding=%s, sep=%s", encoding, sep
                     )
                     break
                 except Exception as e:
@@ -170,7 +171,7 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
             )
 
     # --- Excel Handling ---
-    elif suffix in [".xlsx", ".xls", ".xlsm"]:
+    elif suffix in [".xlsx", ".xlsm"]:
         try:
             # Default to first sheet
             df = pd.read_excel(path)
@@ -189,7 +190,7 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
 
     # 0. Header Heuristic: Check for metadata rows above header
     # If >50% of columns are "Unnamed", scan first 10 rows for a better candidate
-    if len([c for c in df.columns if "Unnamed:" in str(c)]) > len(df.columns) * 0.5:
+    if sum(1 for c in df.columns if "Unnamed:" in str(c)) > len(df.columns) * 0.5:
         logger.info(
             "Potential malformed header detected (many 'Unnamed' columns). Scanning rows..."
         )
@@ -220,7 +221,7 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
                 df = df.iloc[i + 1 :].copy()
                 df.columns = new_cols
                 df = df.reset_index(drop=True)
-                logger.info(f"Promoted row {i} to header")
+                logger.info("Promoted row %d to header", i)
                 break
 
     # 1. Clean Column Names
@@ -234,7 +235,7 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
     # 3. Reset index
     df = df.reset_index(drop=True)
 
-    logger.info(f"Loaded data shape: {df.shape}")
+    logger.info("Loaded data shape: %s", df.shape)
     return df
 
 
@@ -296,11 +297,11 @@ def clean_numeric(
         # Try to convert to float
         result = float(s)
 
-        logger.debug(f"Cleaned numeric: {val} -> {result}")
+        logger.debug("Cleaned numeric: %s -> %s", val, result)
         return result
 
     except (TypeError, ValueError, AttributeError) as e:
-        logger.debug(f"Failed to clean numeric value '{val}': {e}")
+        logger.debug("Failed to clean numeric value '%s': %s", val, e)
         return np.nan
 
 
@@ -356,10 +357,13 @@ def clean_numeric_vector(series: pd.Series | np.ndarray | list[Any]) -> pd.Serie
         total_count = len(result)
         if na_count > 0:
             logger.debug(
-                f"Converted {total_count - na_count}/{total_count} values successfully ({na_count} NA)"
+                "Converted %d/%d values successfully (%d NA)",
+                total_count - na_count,
+                total_count,
+                na_count,
             )
         else:
-            logger.debug(f"Successfully cleaned all {total_count} values")
+            logger.debug("Successfully cleaned all %d values", total_count)
 
         return result
 
@@ -452,7 +456,10 @@ def detect_outliers(
                 raise ValueError(f"Unknown outlier detection method: {method}")
 
         logger.info(
-            f"Detected {stats['outlier_count']} outliers ({stats['outlier_pct']:.2f}%) using {method} method"
+            "Detected %d outliers (%.2f%%) using %s method",
+            stats["outlier_count"],
+            stats["outlier_pct"],
+            method,
         )
         return outlier_mask, stats
 
@@ -496,7 +503,9 @@ def handle_outliers(
                 result = cleaned.copy()
                 result[outlier_mask] = np.nan
                 logger.info(
-                    f"Handled {stats['outlier_count']} outliers via '{action}' (set to NaN)"
+                    "Handled %d outliers via '%s' (set to NaN)",
+                    stats["outlier_count"],
+                    action,
                 )
 
             case "winsorize":
@@ -508,7 +517,10 @@ def handle_outliers(
                     upper_bound = stats["upper_bound"]
                     result = result.clip(lower=lower_bound, upper=upper_bound)
                     logger.info(
-                        f"Winsorized {stats['outlier_count']} outliers to [{lower_bound:.2f}, {upper_bound:.2f}]"
+                        "Winsorized %d outliers to [%.2f, %.2f]",
+                        stats["outlier_count"],
+                        lower_bound,
+                        upper_bound,
                     )
                 else:
                     raise ValueError(
@@ -524,7 +536,7 @@ def handle_outliers(
                     upper_bound = stats["upper_bound"]
                     result[result < lower_bound] = lower_bound
                     result[result > upper_bound] = upper_bound
-                    logger.info(f"Capped {stats['outlier_count']} outliers at bounds")
+                    logger.info("Capped %d outliers at bounds", stats["outlier_count"])
                 else:
                     raise ValueError(
                         f"Capping requires 'iqr' method, got '{stats['method']}'"
@@ -665,7 +677,7 @@ def validate_data_quality(df: pd.DataFrame) -> dict[str, Any]:
         }
 
         logger.info(
-            f"Data quality validation complete: {overall_missing_pct:.2f}% missing data"
+            "Data quality validation complete: %.2f%% missing data", overall_missing_pct
         )
         return results
 
@@ -709,7 +721,7 @@ def clean_dataframe(
 
         # Create a copy for cleaning
         df_cleaned = df_validated.copy()
-        logger.info(f"Created copy for cleaning: {df_cleaned.shape}")
+        logger.info("Created copy for cleaning: %s", df_cleaned.shape)
 
         # Use lower threshold to be more aggressive in finding numeric columns
         # Default lowered to 30% to support granular cleaning of dirty data
@@ -788,7 +800,7 @@ def clean_dataframe(
 
         cleaning_report["cleaning_steps"].append("Cleaning complete")
 
-        logger.info(f"Data cleaning complete: {df.shape} -> {df_cleaned.shape}")
+        logger.info("Data cleaning complete: %s -> %s", df.shape, df_cleaned.shape)
         return df_cleaned, cleaning_report
 
     except Exception as e:
