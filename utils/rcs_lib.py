@@ -23,7 +23,16 @@ def fit_cox_rcs(
     """
     Perform Restricted Cubic Spline (RCS) analysis for Cox Proportional Hazards.
     Uses patsy's 'cr' (natural cubic spline) basis.
+    Requires knots >= 3.
     """
+    if not isinstance(knots, int):
+        try:
+            knots = int(knots)
+        except (ValueError, TypeError):
+            return go.Figure(), pd.DataFrame(), {"error": "knots must be an integer"}
+
+    if knots < 3:
+        return go.Figure(), pd.DataFrame(), {"error": "knots must be >= 3 for RCS"}
 
     def quote_col(name: str) -> str:
         """
