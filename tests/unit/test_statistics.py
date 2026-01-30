@@ -35,6 +35,7 @@ calculate_chi2 = None
 calculate_ci_wilson_score = None
 calculate_descriptive = None
 format_p_value = None
+format_p_value_logic = None
 
 analyze_outcome = None
 clean_numeric_value = None
@@ -59,7 +60,7 @@ def setup_mocks():
     """
     global run_negative_binomial_regression, run_poisson_regression
     global analyze_roc, auc_ci_delong, calculate_chi2, calculate_ci_wilson_score
-    global calculate_descriptive, format_p_value
+    global calculate_descriptive, format_p_value, format_p_value_logic
     global analyze_outcome, clean_numeric_value, get_label
     global run_binary_logit, validate_logit_data
     global \
@@ -216,7 +217,7 @@ def setup_mocks():
         importlib.reload(utils.logic)
         analyze_outcome = utils.logic.analyze_outcome
         clean_numeric_value = utils.logic.clean_numeric_value
-        format_p_value = utils.logic.format_p_value
+        format_p_value_logic = utils.logic.format_p_value
         get_label = utils.logic.get_label
         run_binary_logit = utils.logic.run_binary_logit
         validate_logit_data = utils.logic.validate_logit_data
@@ -432,20 +433,20 @@ class TestFormattingHelpers:
 
     def test_format_p_value_significant(self):
         """✅ Test p-value formatting with styling."""
-        result = format_p_value(0.001)
+        result = format_p_value_logic(0.001)
         # Check logic: formatting usually applies styling
         assert "&lt;0.001" in result or "<0.001" in result or "0.001" in result
         assert "sig-p" in result or "color:" in result or "font-weight:" in result
 
     def test_format_p_value_not_significant(self):
         """✅ Test non-significant p-value formatting."""
-        result = format_p_value(0.234)
+        result = format_p_value_logic(0.234)
         assert "0.234" in result
         assert "sig-p" not in result and "color:" not in result
 
     def test_format_p_value_edge_cases(self):
         """✅ Test edge case p-values."""
-        f = format_p_value
+        f = format_p_value_logic
         assert "-" in f(None) or "NA" in f(None)
         assert "-" in f(np.nan) or "NA" in f(np.nan)
         assert "&gt;0.999" in f(0.9999) or ">0.999" in f(0.9999)
@@ -1168,6 +1169,7 @@ def test_module_imports():
     assert fit_cox_ph is not None
     assert calculate_descriptive is not None
     assert format_p_value is not None
+    assert format_p_value_logic is not None
 
 
 # ============================================================================
