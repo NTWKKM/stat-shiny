@@ -47,7 +47,7 @@ def fit_cox_rcs(
         Otherwise wrap in Q("...").
         """
         if not name.isidentifier() or keyword.iskeyword(name):
-            return f'Q("{name}")'
+            return f"Q({name!r})"
         return name
 
     # Guard against overlaps/duplicates in adjust_cols
