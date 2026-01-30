@@ -72,7 +72,7 @@ def fit_cox_rcs(
     try:
         # Build design matrix
         y, X = patsy.dmatrices(
-            f"{duration_col} + {event_col} ~ {formula_rhs}",
+            f"{quote_col(duration_col)} + {quote_col(event_col)} ~ {formula_rhs}",
             data,
             return_type="dataframe",
         )
