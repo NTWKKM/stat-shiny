@@ -398,8 +398,24 @@ def causal_inference_server(
             balance_pre_res.set(bal_pre)
 
             # 3. Calculate Weights
+            # FIX: Ensure Treatment is numeric (0/1) for weights and regression
+            d_clean[treatment] = pd.to_numeric(d_clean[treatment], errors="coerce")
+            d_clean[outcome] = pd.to_numeric(d_clean[outcome], errors="coerce")
+
+            # Drop any rows that became NaN during conversion
+            d_clean = d_clean.dropna(subset=[treatment, outcome, "ps"])
+
+            if d_clean.empty:
+                raise ValueError(
+                    "No valid numeric data for Treatment/Outcome after cleaning."
+                )
+
             T = d_clean[treatment]
             ps_vals = d_clean["ps"]
+
+            # FIX: Clip PS to prevent infinite weights
+            ps_vals = np.clip(ps_vals, 1e-6, 1 - 1e-6)
+
             weights = np.where(T == 1, 1 / ps_vals, 1 / (1 - ps_vals))
 
             # Optional: Truncate Weights
@@ -442,7 +458,7 @@ def causal_inference_server(
                 }
                 psm_res.set(ipw_results)
             except Exception as e_ipw:
-                logger.error(f"Weighted regression failed: {e_ipw}")
+                logger.error(f"Weighted regression failed: {repr(e_ipw)}")
                 psm_res.set({"error": f"Regression failed: {str(e_ipw)}"})
 
             # 5. Check Adjusted Balance (Post-weighting)

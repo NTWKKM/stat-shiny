@@ -590,7 +590,7 @@ def fit_tvc_cox(
                             else (
                                 "*"
                                 if pd.to_numeric(row["p"], errors="coerce") < 0.05
-                                else ""
+                                else "ns"
                             )
                         )
                     ),
