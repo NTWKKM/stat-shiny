@@ -425,6 +425,19 @@ class SubgroupAnalysisLogit:
             ref_line=1.0,
             color=color,
         )
+        # Add annotation for P-interaction
+        if pd.notna(p_int):
+            self.figure.add_annotation(
+                text=f"<b>P<sub>interaction</sub> = {format_p_value(p_int, use_style=False)}</b>",
+                xref="paper",
+                yref="paper",
+                x=1.0,
+                y=1.05,  # Top right, slightly above plot
+                showarrow=False,
+                font=dict(size=12, color="black"),
+                align="right",
+            )
+
         return self.figure
 
 
@@ -623,26 +636,70 @@ class SubgroupAnalysisCox:
             # Interaction test (using treatment*subgroup term)
             logger.info("Computing interaction test...")
             try:
-                df_int = df_clean.copy()
-                # Create interaction term
-                df_int["interaction"] = (
-                    df_int[treatment_col]
-                    * df_int[subgroup_col].astype("category").cat.codes
-                )
+                # Use formula if possible, or manually construct interaction
+                # To be robust across lifelines versions, we might need manual dummy creation if formula isn't supported.
+                # However, assuming standard environment with formula support.
 
-                cph_reduced = CoxPHFitter()
-                cph_reduced.fit(
-                    df_int[[duration_col, event_col, treatment_col, subgroup_col]],
-                    duration_col=duration_col,
-                    event_col=event_col,
-                    show_progress=False,
-                )
+                # Check for formula support (try-except)
+                try:
+                    cph_reduced = CoxPHFitter()
+                    cph_full = CoxPHFitter()
 
-                self.interaction_result = {
-                    "p_value": np.nan,
-                    "significant": False,
-                    "note": "Interaction term via stratified analysis",
-                }
+                    # Construct formulas
+                    # We need to handle adjustments
+                    adj_str = (
+                        " + " + " + ".join(adjustment_cols) if adjustment_cols else ""
+                    )
+
+                    f_reduced = f"{treatment_col} + {subgroup_col}{adj_str}"
+                    f_full = f"{treatment_col} * {subgroup_col}{adj_str}"
+
+                    # Run models
+                    cph_reduced.fit(
+                        df_clean,
+                        duration_col=duration_col,
+                        event_col=event_col,
+                        formula=f_reduced,
+                    )
+                    cph_full.fit(
+                        df_clean,
+                        duration_col=duration_col,
+                        event_col=event_col,
+                        formula=f_full,
+                    )
+
+                    # LRT
+                    ll_reduced = cph_reduced.log_likelihood_
+                    ll_full = cph_full.log_likelihood_
+
+                    lr_stat = 2 * (ll_full - ll_reduced)
+                    # Degrees of freedom difference
+                    # full params count - reduced params count
+                    df_diff = len(cph_full.params_) - len(cph_reduced.params_)
+
+                    from scipy import stats
+
+                    if df_diff > 0:
+                        p_interaction = float(stats.chi2.sf(lr_stat, df_diff))
+                        is_sig = p_interaction < 0.05
+                    else:
+                        p_interaction = np.nan
+                        is_sig = False
+
+                    self.interaction_result = {
+                        "p_value": p_interaction,
+                        "significant": is_sig,
+                        "method": "Likelihood Ratio Test (Cox)",
+                    }
+                    logger.info(f"Cox Interaction P={p_interaction:.4f}")
+
+                except TypeError:
+                    # Fallback if formula not supported (older lifelines)
+                    logger.warning(
+                        "lifelines formula not supported, skipping interaction test"
+                    )
+                    self.interaction_result = {"p_value": np.nan, "significant": False}
+
             except Exception as e:
                 logger.warning(f"Interaction test failed: {e}")
                 self.interaction_result = {"p_value": np.nan, "significant": False}
@@ -735,4 +792,25 @@ class SubgroupAnalysisCox:
             ref_line=1.0,
             color=color,
         )
+        # Add annotation for P-interaction
+        p_int = (
+            self.interaction_result.get("p_value", np.nan)
+            if self.interaction_result
+            else np.nan
+        )
+
+        if pd.notna(p_int):
+            from utils.formatting import format_p_value
+
+            self.figure.add_annotation(
+                text=f"<b>P<sub>interaction</sub> = {format_p_value(p_int, use_style=False)}</b>",
+                xref="paper",
+                yref="paper",
+                x=1.0,
+                y=1.05,
+                showarrow=False,
+                font=dict(size=12, color="black"),
+                align="right",
+            )
+
         return self.figure
