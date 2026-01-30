@@ -136,7 +136,7 @@ def load_data_robust(file_path: str | Path) -> pd.DataFrame:
                     if df.shape[1] == 1 and sep is None:
                         # User didn't specify separator, and engine='python' likely failed to sniff it correctly.
                         # Try explicit common separators to see if we get more columns.
-                        for trial_sep in [",", ";", "\t"]:
+                        for trial_sep in [",", ";", "\t", "|"]:
                             try:
                                 # Use C engine for speed on re-try, or python if needed
                                 df_trial = pd.read_csv(
