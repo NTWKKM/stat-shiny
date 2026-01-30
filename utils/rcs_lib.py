@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import patsy
 import plotly.graph_objects as go
+import keyword
 from lifelines import CoxPHFitter
 
 from logger import get_logger
@@ -27,11 +28,13 @@ def fit_cox_rcs(
     """
     if isinstance(knots, bool):
         return go.Figure(), pd.DataFrame(), {"error": "knots must be an integer"}
-    if isinstance(knots, float):
-        if not knots.is_integer():
+    if isinstance(knots, (int, np.integer)):
+        knots = int(knots)
+    elif isinstance(knots, (float, np.floating)):
+        if not float(knots).is_integer():
             return go.Figure(), pd.DataFrame(), {"error": "knots must be an integer"}
         knots = int(knots)
-    elif not isinstance(knots, int):
+    else:
         return go.Figure(), pd.DataFrame(), {"error": "knots must be an integer"}
 
     if knots < 3:
@@ -43,7 +46,7 @@ def fit_cox_rcs(
         If it's already a valid identifier, return as is.
         Otherwise wrap in Q("...").
         """
-        if not name.isidentifier():
+        if not name.isidentifier() or keyword.iskeyword(name):
             return f'Q("{name}")'
         return name
 
