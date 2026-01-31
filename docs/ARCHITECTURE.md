@@ -130,20 +130,13 @@ sequenceDiagram
         Analysis->>Analysis: Fit logistic regression
         Analysis->>Analysis: Extract OR, CI, p-value
     end
-    end
     Analysis->>Analysis: Perform interaction test (Likelihood Ratio Test)
     Analysis-->>Server: Return subgroup results + interaction p
-
-    
-    Server->>Forest: Generate forest plot
-    Forest->>Forest: Create Matplotlib figure with ORs + CIs
-    Forest-->>Server: Return base64-encoded plot
     
     Server->>Forest: Generate forest plot
     Forest-->>Server: Return base64-encoded plot (annotated with P-interaction)
 
     Server-->>UI: Display forest plot + results table
-
     
     User->>UI: Click "Download Report"
     UI->>Server: Generate HTML report
