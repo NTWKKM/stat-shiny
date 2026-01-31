@@ -1,8 +1,9 @@
+import keyword
+
 import numpy as np
 import pandas as pd
 import patsy
 import plotly.graph_objects as go
-import keyword
 from lifelines import CoxPHFitter
 
 from logger import get_logger
