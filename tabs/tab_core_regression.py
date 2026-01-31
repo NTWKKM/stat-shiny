@@ -3,6 +3,7 @@ from __future__ import annotations
 import gc
 import html
 import json
+import numbers
 from itertools import combinations, islice
 
 # Use built-in list/dict/tuple for Python 3.9+ and typing for complex types
@@ -2605,7 +2606,15 @@ def core_regression_server(
 
         # Format history
         history_df = format_stepwise_history(step_result.get("history", []))
-        history_html = history_df.to_html(
+
+        # Sanitize all columns (stepwise doesn't have styled p-values in this tab's helper)
+        # Wait, format_stepwise_history might have p-values.
+        # Let's check headers.
+        df_safe = history_df.copy()
+        for col in df_safe.columns:
+            df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
+        history_html = df_safe.to_html(
             index=False, escape=False, classes="table table-sm", border=0
         )
 
@@ -2714,7 +2723,13 @@ def core_regression_server(
 
         # Format results
         formatted = format_bootstrap_results(boot_result, ci_method=ci_method)
-        result_html = formatted.to_html(
+
+        # Sanitize all columns (bootstrap doesn't have styled p-values usually, but let's be safe)
+        df_safe = formatted.copy()
+        for col in df_safe.columns:
+            df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
+        result_html = df_safe.to_html(
             index=False, escape=False, classes="table table-striped", border=0
         )
 
@@ -3025,11 +3040,17 @@ def core_regression_server(
         # Format P-values
         if "p_value" in summary_df.columns:
             summary_df["p_value"] = summary_df["p_value"].apply(
-                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+                lambda x: format_p_value(x) if isinstance(x, numbers.Real) else x
             )
 
-        table_html = summary_df.to_html(
-            classes="table table-striped table-hover", index=False
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = summary_df.copy()
+        for col in df_safe.columns:
+            if col != "p_value":
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
+        table_html = df_safe.to_html(
+            classes="table table-striped table-hover", index=False, escape=False
         )
 
         # Plot

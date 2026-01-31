@@ -410,6 +410,13 @@ def causal_inference_server(
             # Drop any rows that became NaN during conversion
             d_clean = d_clean.dropna(subset=[treatment, outcome, "ps"])
 
+            # Ensure treatment is coded as 0/1 before weighting
+            unique_vals = set(d_clean[treatment].dropna().unique())
+            if unique_vals != {0, 1}:
+                raise ValueError(
+                    f"Treatment '{treatment}' must be coded as 0/1 before weighting (found: {sorted(unique_vals)})"
+                )
+
             if d_clean.empty:
                 raise ValueError(
                     "No valid numeric data for Treatment/Outcome after cleaning."

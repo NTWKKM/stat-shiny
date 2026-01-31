@@ -684,8 +684,8 @@ class SubgroupAnalysisCox:
                         " + " + " + ".join(adjustment_cols) if adjustment_cols else ""
                     )
 
-                    f_reduced = f"{treatment_col} + {subgroup_col}{adj_str}"
-                    f_full = f"{treatment_col} * {subgroup_col}{adj_str}"
+                    f_reduced = f"{treatment_col} + C({subgroup_col}){adj_str}"
+                    f_full = f"{treatment_col} * C({subgroup_col}){adj_str}"
 
                     # Run models
                     cph_reduced.fit(

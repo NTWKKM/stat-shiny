@@ -14,6 +14,8 @@ Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 
 from __future__ import annotations
 
+import html
+import numbers
 from typing import Any
 
 import numpy as np
@@ -1189,8 +1191,14 @@ def survival_server(
             return None
 
         # Convert to HTML with escape=False to render p-value/color spans correctly
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = res["stats"].copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
         return ui.HTML(
-            res["stats"].to_html(
+            df_safe.to_html(
                 classes="table table-hover table-striped", index=False, escape=False
             )
         )
@@ -1368,8 +1376,14 @@ def survival_server(
             return None
 
         # Convert to HTML with escape=False to render p-value/color spans correctly
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = res["stats"].copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
         return ui.HTML(
-            res["stats"].to_html(
+            df_safe.to_html(
                 classes="table table-hover table-striped", index=False, escape=False
             )
         )
@@ -1576,7 +1590,7 @@ def survival_server(
         # Format P-value
         if "P-value" in df.columns:
             df["P-value"] = df["P-value"].apply(
-                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+                lambda x: format_p_value(x) if isinstance(x, numbers.Real) else x
             )
 
         # Combine HR and CI
@@ -1595,8 +1609,15 @@ def survival_server(
                 cols.append("Method")
             df = df[cols]
 
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = df.copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                # Variable might contain HTML from user data
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
         return ui.HTML(
-            df.to_html(
+            df_safe.to_html(
                 classes="table table-hover table-striped", index=False, escape=False
             )
         )
@@ -1846,7 +1867,7 @@ def survival_server(
         # Format P-value
         if "p_value" in df.columns:
             df["P-value"] = df["p_value"].apply(
-                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+                lambda x: format_p_value(x) if isinstance(x, numbers.Real) else x
             )
 
         # Combine HR and CI
@@ -1860,8 +1881,14 @@ def survival_server(
             valid_cols = [c for c in cols if c in df.columns]
             df = df[valid_cols]
 
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = df.copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
         return ui.HTML(
-            df.to_html(
+            df_safe.to_html(
                 classes="table table-hover table-striped", index=False, escape=False
             )
         )
@@ -2366,7 +2393,7 @@ def survival_server(
         df = res["stats"].copy()
         if "P-value" in df.columns:
             df["P-value"] = df["P-value"].apply(
-                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+                lambda x: format_p_value(x) if isinstance(x, numbers.Real) else x
             )
 
         return render.DataGrid(df, selection_mode="none")

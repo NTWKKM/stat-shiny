@@ -75,7 +75,4 @@ def test_check_cph_assumptions_structure():
 
 def test_check_cph_assumptions_violation_text():
     """Simulate a violation case (mocking the test result if needed, or just checking logic flow)."""
-    # Since it's hard to force a violation with small random data, we can mock the p-value check logic
-    # or just trust the previous test covers the structural integrity.
-    # Let's rely on the previous test for now as 'try test' implies smoke testing the integration.
-    pass
+    pytest.skip("TODO: add a deterministic violation case")
