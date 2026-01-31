@@ -2521,11 +2521,19 @@ def survival_server(
         ]
 
         if res["assumptions_plots"]:
-            html_plots = ""
+            tabs_items = []
             for i, fig in enumerate(res["assumptions_plots"]):
-                include_js = "cdn" if i == 0 else False
-                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
-            elements.append(ui.HTML(html_plots))
+                title = (
+                    fig.layout.title.text if fig.layout.title.text else f"Plot {i + 1}"
+                )
+                html_plot = plotly_figure_to_html(
+                    fig,
+                    div_id=f"tvc_assumption_{i}",
+                    include_plotlyjs="cdn" if i == 0 else False,
+                    responsive=True,
+                )
+                tabs_items.append(ui.nav_panel(title, ui.HTML(html_plot)))
+            elements.append(ui.navset_card_underline(*tabs_items))
 
         return ui.div(*elements, class_="fade-in-entry")
 
