@@ -1,8 +1,22 @@
-import pandas as pd
+import importlib
 import numpy as np
+import pandas as pd
 import pytest
 from lifelines import CoxPHFitter
+import utils.survival_lib
 from utils.survival_lib import check_cph_assumptions
+
+
+@pytest.fixture(autouse=True)
+def clean_survival_lib():
+    """Ensure survival_lib is reloaded with real dependencies."""
+    # Reload utils.survival_lib to ensure it uses the real lifelines module
+    # and not any mocks that might have been injected by other tests (e.g., test_statistics.py)
+    importlib.reload(utils.survival_lib)
+
+    yield
+
+    # Ideally we shouldn't need to clean up as reload overwrites, but good practice if needed
 
 
 def test_check_cph_assumptions_structure():
