@@ -1514,10 +1514,7 @@ def survival_server(
         elements = [
             ui.card_header("📄 Cox Results"),
             stats_ui,
-            ui.card_header("📄 Cox Results"),
-            stats_ui,
             ui.output_ui("out_cox_table"),
-            ui.card_header("🌳 Forest Plot"),
             ui.card_header("🌳 Forest Plot"),
             ui.output_ui("out_cox_forest"),
             ui.card_header("🔍 Model Diagnostics & Assumptions"),
@@ -1773,8 +1770,6 @@ def survival_server(
             elements.append(ui.card_header("🌳 Subgroup Forest Plot"))
             elements.append(ui.output_ui("out_sg_forest"))
 
-        if "interaction_table" in res:
-            elements.append(ui.card_header("📄 Interaction Analysis"))
         if "interaction_table" in res:
             elements.append(ui.card_header("📄 Interaction Analysis"))
             elements.append(ui.output_ui("out_sg_table"))
