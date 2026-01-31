@@ -1657,14 +1657,14 @@ def survival_server(
             # Use Tabs for multiple diagnostic plots to save space
             tabs_items = []
             for i, fig in enumerate(res["assumptions_plots"]):
-                # Infer title from layout title or index
                 title = (
                     fig.layout.title.text if fig.layout.title.text else f"Plot {i + 1}"
                 )
-                # Clean title for tab label
-                tab_label = title.split(":")[0] if ":" in title else title
-                if "Schoenfeld" in title:
-                    tab_label = f"Schoenfeld ({tab_label.split(':')[-1].strip()})"
+                if "Schoenfeld" in title and ":" in title:
+                    var = title.split(":", 1)[1].strip()
+                    tab_label = f"Schoenfeld ({var})"
+                else:
+                    tab_label = title.split(":", 1)[0] if ":" in title else title
 
                 html_plot = plotly_figure_to_html(
                     fig,
