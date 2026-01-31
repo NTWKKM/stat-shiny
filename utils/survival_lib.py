@@ -1368,10 +1368,6 @@ def check_cph_assumptions(
 
         # Identify violating variables
         failed_vars = []
-        if hasattr(results, "p_value"):
-            # lifelines < 0.26 might act differently, but generally:
-            for var in results.summary.index:  # Check structure
-                pass
 
         # Use the summary dataframe directly
         ph_summary = results.summary

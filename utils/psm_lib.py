@@ -29,8 +29,6 @@ def calculate_ps(
         strategy = missing_cfg.get("strategy", "complete-case")
         missing_codes = missing_cfg.get("user_defined_values", [])
 
-        missing_codes = missing_cfg.get("user_defined_values", [])
-
         # Deduplicate required columns
         req_cols = list(dict.fromkeys([treatment] + covariates))
 
@@ -554,4 +552,9 @@ class PropensityScoreDiagnostics:
         Visualize PS Overlap.
         Wrapper for plot_ps_distribution.
         """
-        return plot_ps_distribution(df_pre, df_post, treatment_col, ps_col)
+        return plot_ps_distribution(
+            df_pre=df_pre,
+            df_post=df_post,
+            treatment_col=treatment_col,
+            ps_col=ps_col,
+        )

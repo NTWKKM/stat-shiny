@@ -341,6 +341,7 @@ def causal_inference_server(
     balance_res = reactive.Value(None)
     balance_pre_res = reactive.Value(None)
     common_support_res = reactive.Value(None)
+    ps_cache = reactive.Value(None)
 
     # Running States
     psm_is_running = reactive.Value(False)
@@ -360,6 +361,7 @@ def causal_inference_server(
             balance_res.set(None)
             balance_pre_res.set(None)
             common_support_res.set(None)
+            ps_cache.set(None)
             ui.notification_show("Running PSM/IPW...", duration=None, id="run_psm")
 
             treatment = input.psm_treatment()
@@ -384,6 +386,9 @@ def causal_inference_server(
             d_clean = d.copy()
             d_clean["ps"] = ps
             d_clean = d_clean.dropna(subset=["ps"])  # Keep only those with scores
+
+            # Cache the cleaned dataframe with PS for plotting
+            ps_cache.set(d_clean)
 
             # 1. Assess Common Support
             cs_support = PropensityScoreDiagnostics.assess_common_support(
@@ -484,8 +489,8 @@ def causal_inference_server(
                     ci_l = ci[1, 0]
                     ci_u = ci[1, 1]
                 else:
-                    # Fallback
-                    ci_l, ci_u = 0, 0
+                    # Fallback - indicate CI extraction failed
+                    ci_l, ci_u = np.nan, np.nan
 
                 ipw_results = {
                     "ATE": float(ate),
@@ -505,7 +510,7 @@ def causal_inference_server(
                 d_clean,
                 treatment,
                 covs,
-                weights=pd.Series(weights, index=d_clean.index),
+                weights=pd.Series(weights_array, index=d_clean.index),
             )
             balance_res.set(bal_post)
 
@@ -598,12 +603,17 @@ def causal_inference_server(
         if not treatment or not covs:
             return None
 
-        # Re-calc PS (fast)
-        ps, _ = calculate_ps(d, treatment, covs, var_meta=var_meta.get() or {})
-        d_plot = d.copy()
-        d_plot["ps"] = ps
-        # remove missing
-        d_plot = d_plot.dropna(subset=["ps", treatment])
+        # Use cached PS if available
+        d_cached = ps_cache.get()
+        if d_cached is not None:
+            d_plot = d_cached.copy()
+        else:
+            # Fallback re-calc
+            ps, _ = calculate_ps(d, treatment, covs, var_meta=var_meta.get() or {})
+            d_plot = d.copy()
+            d_plot["ps"] = ps
+            # remove missing
+            d_plot = d_plot.dropna(subset=["ps", treatment])
 
         fig = PropensityScoreDiagnostics.plot_ps_overlap(d_plot, treatment, "ps")
         return ui.HTML(plotly_figure_to_html(fig))

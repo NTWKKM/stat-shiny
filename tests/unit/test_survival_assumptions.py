@@ -6,7 +6,6 @@ import pytest
 from lifelines import CoxPHFitter
 
 import utils.survival_lib
-from utils.survival_lib import check_cph_assumptions
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +24,7 @@ def test_check_cph_assumptions_structure():
     """Test that check_cph_assumptions returns the correct structure and plots."""
 
     # Create synthetic data
+    np.random.seed(0)
     df = pd.DataFrame(
         {
             "T": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
@@ -38,7 +38,7 @@ def test_check_cph_assumptions_structure():
     cph.fit(df, duration_col="T", event_col="E")
 
     # Run the function
-    text_report, figs = check_cph_assumptions(cph, df)
+    text_report, figs = utils.survival_lib.check_cph_assumptions(cph, df)
 
     # Check return types
     assert isinstance(text_report, str)
