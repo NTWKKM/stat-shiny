@@ -16,12 +16,7 @@ import plotly.graph_objects as go
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
-from utils.data_cleaning import (
-    apply_missing_values_to_df,
-    get_missing_summary_df,
-    handle_missing_for_analysis,
-    prepare_data_for_analysis,
-)
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import format_p_value
 
@@ -540,33 +535,34 @@ class SubgroupAnalysisCox:
             # Deduplicate to prevent dimensionality errors
             cols_to_use = list(dict.fromkeys(cols_to_use))
 
-            # --- MISSING DATA HANDLING ---
-            missing_data_info = {}
-            if var_meta:
-                df_subset = self.df[cols_to_use].copy()
-                missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
-                missing_summary = get_missing_summary_df(
-                    df_subset, var_meta, missing_codes
-                )
-                df_processed = apply_missing_values_to_df(
-                    df_subset, var_meta, missing_codes
-                )
+            # --- MISSING DATA HANDLING (Centralized) ---
+            missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+            strategy = missing_cfg.get("strategy", "complete-case")
+            missing_codes = missing_cfg.get("user_defined_values", [])
 
-                df_clean, impact = handle_missing_for_analysis(
-                    df_processed,
-                    var_meta,
-                    missing_codes,
-                    strategy="complete-case",
-                    return_counts=True,
+            # Identify numeric columns for cleaning
+            # For Cox models, duration and event MUST be numeric.
+            # Adjustment cols might be numeric or categorical.
+            numeric_cols = [duration_col, event_col]
+            if adjustment_cols:
+                for c in adjustment_cols:
+                    if pd.api.types.is_numeric_dtype(self.df[c]):
+                        numeric_cols.append(c)
+
+            try:
+                # Use centralized preparation
+                df_clean, missing_data_info = prepare_data_for_analysis(
+                    self.df,
+                    required_cols=cols_to_use,
+                    numeric_cols=numeric_cols,
+                    handle_missing=strategy,
+                    var_meta=var_meta,
+                    missing_codes=missing_codes,
+                    return_info=True,
                 )
-                missing_data_info = {
-                    "strategy": "complete-case",
-                    "rows_analyzed": impact["final_rows"],
-                    "rows_excluded": impact["rows_removed"],
-                    "summary_before": missing_summary.to_dict("records"),
-                }
-            else:
-                df_clean = self.df[cols_to_use].dropna().copy()
+            except Exception as e:
+                logger.error(f"Data preparation failed: {e}")
+                return None, None, f"Data preparation failed: {e}"
 
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
@@ -577,10 +573,18 @@ class SubgroupAnalysisCox:
             logger.info("Computing overall Cox model...")
             try:
                 cph_overall = CoxPHFitter()
+
+                # Build formula
+                adj_str = ""
+                if adjustment_cols:
+                    adj_str = " + " + " + ".join(adjustment_cols)
+                formula_base = f"{treatment_col}{adj_str}"
+
                 cph_overall.fit(
                     df_clean,
                     duration_col=duration_col,
                     event_col=event_col,
+                    formula=formula_base,
                     show_progress=False,
                 )
 
@@ -603,6 +607,7 @@ class SubgroupAnalysisCox:
                         "ci_high": ci_high,
                         "p_value": p_overall,
                         "type": "overall",
+                        "subgroup": None,
                     }
                 )
                 logger.info(f"Overall: HR={hr_overall:.3f}, P={p_overall:.4f}")
@@ -635,6 +640,7 @@ class SubgroupAnalysisCox:
                         df_sub,
                         duration_col=duration_col,
                         event_col=event_col,
+                        formula=formula_base,
                         show_progress=False,
                     )
 
