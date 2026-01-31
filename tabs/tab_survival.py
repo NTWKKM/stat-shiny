@@ -1772,6 +1772,31 @@ def survival_server(
 
         if "interaction_table" in res:
             elements.append(ui.card_header("📄 Interaction Analysis"))
+
+            # Display Interaction P-value explicitly
+            if "interaction" in res:
+                inter = res["interaction"]
+                p_int = inter.get("p_value")
+                is_sig = inter.get("significant", False)
+
+                if p_int is not None and not pd.isna(p_int):
+                    p_text = format_p_value(p_int)
+                    sig_text = (
+                        "(Significant Heterogeneity)"
+                        if is_sig
+                        else "(Homogeneous treatment effect)"
+                    )
+                    color = COLORS["danger"] if is_sig else COLORS["success"]
+
+                    elements.append(
+                        ui.div(
+                            ui.markdown(
+                                f"**Test for Interaction:** P-value = {p_text} {sig_text}"
+                            ),
+                            style=f"padding: 10px; margin-bottom: 15px; border-radius: 5px; background-color: {color}15; border-left: 4px solid {color};",
+                        )
+                    )
+
             elements.append(ui.output_ui("out_sg_table"))
 
         # Missing Data Report
@@ -1830,7 +1855,7 @@ def survival_server(
                 lambda row: f"{row['hr']:.2f} {PublicationFormatter.format_ci(row['ci_low'], row['ci_high'])}",
                 axis=1,
             )
-            cols = ["group", "n", "events", "HR (95% CI)", "P-value"]
+            cols = ["group", "subgroup", "n", "events", "HR (95% CI)", "P-value"]
             # Filter cols that exist
             valid_cols = [c for c in cols if c in df.columns]
             df = df[valid_cols]
@@ -1851,10 +1876,29 @@ def survival_server(
 
         elements = [
             {"type": "header", "data": "Cox Subgroup Analysis"},
-            {"type": "plot", "data": res.get("forest_plot")},
-            {"type": "header", "data": "Results"},
-            {"type": "table", "data": res.get("interaction_table")},
         ]
+
+        if "interaction" in res:
+            inter = res["interaction"]
+            p_int = inter.get("p_value")
+            if p_int is not None and not pd.isna(p_int):
+                sig_text = (
+                    "Significant" if inter.get("significant") else "Not Significant"
+                )
+                elements.append(
+                    {
+                        "type": "text",
+                        "data": f"Interaction Test: P-value = {p_int:.4f} ({sig_text})",
+                    }
+                )
+
+        elements.extend(
+            [
+                {"type": "plot", "data": res.get("forest_plot")},
+                {"type": "header", "data": "Results"},
+                {"type": "table", "data": res.get("interaction_table")},
+            ]
+        )
         elements = [e for e in elements if e.get("data") is not None]
         yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
 
