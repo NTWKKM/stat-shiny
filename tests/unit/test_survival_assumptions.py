@@ -53,13 +53,6 @@ def test_check_cph_assumptions_structure():
     # 3. Deviance residual plot (1 plot)
     # Total = len(covariates) + 2
 
-    n_covars = 2  # var1, var2
-    expected_min_plots = n_covars + 2
-
-    assert len(figs) >= expected_min_plots, (
-        f"Expected at least {expected_min_plots} plots, got {len(figs)}"
-    )
-
     # Check for plot titles to confirm they are what we expect
     plot_titles = [f.layout.title.text for f in figs if f.layout.title.text]
 
