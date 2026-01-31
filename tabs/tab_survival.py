@@ -1514,7 +1514,10 @@ def survival_server(
         elements = [
             ui.card_header("📄 Cox Results"),
             stats_ui,
-            ui.output_data_frame("out_cox_table"),
+            ui.card_header("📄 Cox Results"),
+            stats_ui,
+            ui.output_ui("out_cox_table"),
+            ui.card_header("🌳 Forest Plot"),
             ui.card_header("🌳 Forest Plot"),
             ui.output_ui("out_cox_forest"),
             ui.card_header("🔍 Model Diagnostics & Assumptions"),
@@ -1533,7 +1536,7 @@ def survival_server(
 
         return ui.div(*elements, class_="fade-in-entry")
 
-    @render.data_frame
+    @render.ui
     def out_cox_table():
         """Render a data grid showing Cox regression results if available."""
         res = cox_result.get()
@@ -1542,7 +1545,6 @@ def survival_server(
 
         df = res["results_df"].copy()
 
-        # FIX: Ensure 'Variable' column exists (it might be in index)
         # FIX: Ensure 'Variable' column exists (it might be in index)
         if "Variable" not in df.columns:
             df = df.reset_index()
@@ -1594,9 +1596,13 @@ def survival_server(
             cols = ["Variable", "HR (95% CI)", "P-value"]
             if "Method" in df.columns:
                 cols.append("Method")
-            return render.DataGrid(df[cols])
+            df = df[cols]
 
-        return render.DataGrid(df)
+        return ui.HTML(
+            df.to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.ui
     def out_cox_forest():
@@ -1769,7 +1775,9 @@ def survival_server(
 
         if "interaction_table" in res:
             elements.append(ui.card_header("📄 Interaction Analysis"))
-            elements.append(ui.output_data_frame("out_sg_table"))
+        if "interaction_table" in res:
+            elements.append(ui.card_header("📄 Interaction Analysis"))
+            elements.append(ui.output_ui("out_sg_table"))
 
         # Missing Data Report
         if "missing_data_info" in res:
@@ -1804,7 +1812,7 @@ def survival_server(
         )
         return ui.HTML(html_str)
 
-    @render.data_frame
+    @render.ui
     def out_sg_table():
         """Render the subgroup interaction analysis table when subgroup results are available."""
         res = sg_result.get()
@@ -1830,9 +1838,13 @@ def survival_server(
             cols = ["group", "n", "events", "HR (95% CI)", "P-value"]
             # Filter cols that exist
             valid_cols = [c for c in cols if c in df.columns]
-            return render.DataGrid(df[valid_cols])
+            df = df[valid_cols]
 
-        return render.DataGrid(df)
+        return ui.HTML(
+            df.to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.download(filename="subgroup_report.html")
     def btn_dl_sg():
