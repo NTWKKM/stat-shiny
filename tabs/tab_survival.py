@@ -1666,8 +1666,11 @@ def survival_server(
                 if "Schoenfeld" in title:
                     tab_label = f"Schoenfeld ({tab_label.split(':')[-1].strip()})"
 
-                html_plot = fig.to_html(
-                    full_html=False, include_plotlyjs="cdn" if i == 0 else False
+                html_plot = plotly_figure_to_html(
+                    fig,
+                    div_id=f"cox_assumption_{i}",
+                    include_plotlyjs="cdn" if i == 0 else False,
+                    responsive=True,
                 )
                 tabs_items.append(ui.nav_panel(tab_label, ui.HTML(html_plot)))
 

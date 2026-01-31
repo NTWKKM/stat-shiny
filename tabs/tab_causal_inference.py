@@ -616,7 +616,11 @@ def causal_inference_server(
             d_plot = d_cached.copy()
         else:
             # Fallback re-calc
-            ps, _ = calculate_ps(d, treatment, covs, var_meta=var_meta.get() or {})
+            ps, missing = calculate_ps(
+                d, treatment, covs, var_meta=var_meta.get() or {}
+            )
+            if "error" in missing or ps.empty:
+                return ui.div("Unable to compute propensity scores for overlap plot.")
             d_plot = d.copy()
             d_plot["ps"] = ps
             # remove missing
