@@ -160,11 +160,13 @@ def calculate_ipw(
         # ATE is coefficient of T in weighted regression
         X = sm.add_constant(T)
         model = sm.WLS(Y, X, weights=weights).fit()
-        
+
         # --- FIX: Use iloc/positional access safely ---
         # Check if model has enough parameters (Constant + Treatment)
         if len(model.params) < 2:
-             return {"error": "Model could not estimate treatment effect (treatment may be constant or collinear)."}
+            return {
+                "error": "Model could not estimate treatment effect (treatment may be constant or collinear)."
+            }
 
         # Use positional indexing based on return type
         if isinstance(model.params, pd.Series):
@@ -192,11 +194,6 @@ def calculate_ipw(
             "SE": float(se),
             "p_value": float(p_val),
             "CI_Lower": float(ci_lower),
-            "CI_Upper": float(ci_upper),
-        }
-    except Exception as e:
-        logger.error(f"IPW calculation failed: {str(e)}")
-        return {"error": str(e)}
             "CI_Upper": float(ci_upper),
         }
     except Exception as e:
