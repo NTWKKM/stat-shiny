@@ -796,6 +796,7 @@ class SubgroupAnalysisCox:
                 "records"
             ),
             "interaction": self.interaction_result,
+            "interaction_table": self.results.to_dict("records"),
             "summary": self.stats,
             "results_df": self.results,
         }
