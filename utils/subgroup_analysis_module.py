@@ -179,16 +179,8 @@ class SubgroupAnalysisLogit:
             or_overall = float(np.exp(model_overall.params[param_key]))
             ci_data = np.exp(model_overall.conf_int().loc[param_key])
             # Robust access to CI values
-            ci_low = (
-                float(ci_data.iloc[0])
-                if hasattr(ci_data, "iloc")
-                else float(ci_data[0])
-            )
-            ci_high = (
-                float(ci_data.iloc[1])
-                if hasattr(ci_data, "iloc")
-                else float(ci_data[1])
-            )
+            ci_low = float(ci_data.iloc[0])
+            ci_high = float(ci_data.iloc[1])
             p_overall = float(model_overall.pvalues[param_key])
 
             results_list.append(
@@ -842,8 +834,6 @@ class SubgroupAnalysisCox:
         )
 
         if pd.notna(p_int):
-            from utils.formatting import format_p_value
-
             self.figure.add_annotation(
                 text=f"<b>P<sub>interaction</sub> = {format_p_value(p_int, use_style=False)}</b>",
                 xref="paper",

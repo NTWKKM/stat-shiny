@@ -1141,7 +1141,7 @@ def survival_server(
             ui.card_header("📈 Plot"),
             ui.output_ui("out_curves_plot"),
             ui.card_header("📄 Log-Rank Test / Summary Statistics"),
-            ui.output_table("out_curves_table"),
+            ui.output_ui("out_curves_table"),
         ]
 
         if res.get("medians") is not None:
