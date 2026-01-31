@@ -130,13 +130,12 @@ sequenceDiagram
         Analysis->>Analysis: Fit logistic regression
         Analysis->>Analysis: Extract OR, CI, p-value
     end
-    Analysis->>Analysis: Perform interaction test
+    Analysis->>Analysis: Perform interaction test (Likelihood Ratio Test)
     Analysis-->>Server: Return subgroup results + interaction p
     
     Server->>Forest: Generate forest plot
-    Forest->>Forest: Create Matplotlib figure with ORs + CIs
-    Forest-->>Server: Return base64-encoded plot
-    
+    Forest-->>Server: Return base64-encoded plot (annotated with P-interaction)
+
     Server-->>UI: Display forest plot + results table
     
     User->>UI: Click "Download Report"
@@ -259,6 +258,9 @@ The application uses a centralized styling system to ensure visual consistency a
   - **Continuous OR**: Uses **Univariate Logistic Regression**.
 - `utils/diagnostic_advanced_lib.py`: **Advanced Diagnostic Engine** (OOP) providing robust ROC analysis, **DeLong's Test**, and Wilson Score confidence intervals.
 - `utils/agreement_lib.py`: **Agreement Analysis Engine** providing Cohen's/Fleiss' Kappa, advanced Bland-Altman (CI bands), and ICC.
+- `utils/psm_lib.py`: **Propensity Score Engine**.
+  - `PropensityScoreDiagnostics`: Handles **Common Support** assessment (distribution overlap stats) and **Love Plot** generation.
+  - Implements **Inverse Probability Weighting (IPW)** with optional **Weight Truncation** (1st/99th percentiles).
 
 ### Dynamic UI Enhancements (Animations)
 
@@ -277,7 +279,7 @@ The application covers a wide range of medical statistical needs, organized into
 | **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Paired DeLong Test**, **Sens/Spec vs Threshold**, **Agreement** (Cohen's/Fleiss' Kappa, Bland-Altman with CI bands, ICC with interpretation). |
 | **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox), Forest Plots. |
 | **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance (Love Plots: Green <0.1, Yellow 0.1–0.2 (Red: >0.2, not rendered)), Common Support Visualization. |
-| **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, **Cox PH** (with **Firth Penalization** for small samples/rare events), Time-Varying Cox, G-Computation, Power Analysis. |
+| **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, **Extended Diagnostics** (Schoenfeld/Martingale/Deviance), Time-Varying Cox (with Interaction Check), G-Computation, Power Analysis. |
 
 ---
 
@@ -312,7 +314,7 @@ The data flow is standardized to ensure consistent handling of missing values an
   - **Smart Visualization Sync**: The report is architected to be the "detailed companion" to the visualization, covering "blind spots" if the heatmap is subsampled.
   - **Diagnostic Metrics**: Multi-metric reports follow a "Table 2" publication-grade layout (Metric, Value, 95% CI, Interpretation).
   - **Logistic Regression**: Deep diagnostics (AUC/C-stat, Hosmer-Lemeshow, AIC/BIC)
-  - **Subgroup Analysis**: Interaction Tests and Forest Plots
+  - **Subgroup Analysis**: Formal Interaction Tests (Likelihood Ratio Test) and Forest Plots annotated with P-values.
   - **Evidence-Based Badges**: Logic-driven badges (Landis-Koch, Cicchetti, EBM standards for LR) and **STROBE/TRIPOD alignment text** provide immediate clinical and reporting context.
   - **Outcome**: A standardized "Missing Data Summary" and localized interpretation guides are automatically included.
 

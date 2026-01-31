@@ -16,12 +16,7 @@ import plotly.graph_objects as go
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
-from utils.data_cleaning import (
-    apply_missing_values_to_df,
-    get_missing_summary_df,
-    handle_missing_for_analysis,
-    prepare_data_for_analysis,
-)
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import format_p_value
 
@@ -118,6 +113,8 @@ class SubgroupAnalysisLogit:
                 adjustment_cols = []
 
             cols_to_use = [outcome_col, treatment_col, subgroup_col] + adjustment_cols
+            # Deduplicate to prevent dimensionality errors
+            cols_to_use = list(dict.fromkeys(cols_to_use))
 
             # --- MISSING DATA HANDLING ---
             missing_cfg = CONFIG.get("analysis.missing", {}) or {}
@@ -180,7 +177,10 @@ class SubgroupAnalysisLogit:
                 return {}
 
             or_overall = float(np.exp(model_overall.params[param_key]))
-            ci_overall = np.exp(model_overall.conf_int().loc[param_key])
+            ci_data = np.exp(model_overall.conf_int().loc[param_key])
+            # Robust access to CI values
+            ci_low = float(ci_data.iloc[0])
+            ci_high = float(ci_data.iloc[1])
             p_overall = float(model_overall.pvalues[param_key])
 
             results_list.append(
@@ -189,8 +189,8 @@ class SubgroupAnalysisLogit:
                     "n": len(df_clean),
                     "events": int(df_clean[outcome_col].sum()),
                     "or": or_overall,
-                    "ci_low": float(ci_overall[0]),
-                    "ci_high": float(ci_overall[1]),
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
                     "p_value": p_overall,
                     "type": "overall",
                     "subgroup": None,
@@ -236,7 +236,18 @@ class SubgroupAnalysisLogit:
                         continue
 
                     or_sub = float(np.exp(model_sub.params[sub_param_key]))
-                    ci_sub = np.exp(model_sub.conf_int().loc[sub_param_key])
+                    ci_sub_data = np.exp(model_sub.conf_int().loc[sub_param_key])
+                    # Robust access
+                    ci_low = (
+                        float(ci_sub_data.iloc[0])
+                        if hasattr(ci_sub_data, "iloc")
+                        else float(ci_sub_data[0])
+                    )
+                    ci_high = (
+                        float(ci_sub_data.iloc[1])
+                        if hasattr(ci_sub_data, "iloc")
+                        else float(ci_sub_data[1])
+                    )
                     p_sub = float(model_sub.pvalues[sub_param_key])
 
                     results_list.append(
@@ -246,8 +257,8 @@ class SubgroupAnalysisLogit:
                             "n": len(df_sub),
                             "events": int(df_sub[outcome_col].sum()),
                             "or": or_sub,
-                            "ci_low": float(ci_sub[0]),
-                            "ci_high": float(ci_sub[1]),
+                            "ci_low": ci_low,
+                            "ci_high": ci_high,
                             "p_value": p_sub,
                             "type": "subgroup",
                         }
@@ -425,6 +436,19 @@ class SubgroupAnalysisLogit:
             ref_line=1.0,
             color=color,
         )
+        # Add annotation for P-interaction
+        if pd.notna(p_int):
+            self.figure.add_annotation(
+                text=f"<b>P<sub>interaction</sub> = {format_p_value(p_int, use_style=False)}</b>",
+                xref="paper",
+                yref="paper",
+                x=1.0,
+                y=1.05,  # Top right, slightly above plot
+                showarrow=False,
+                font=dict(size=12, color="black"),
+                align="right",
+            )
+
         return self.figure
 
 
@@ -500,34 +524,37 @@ class SubgroupAnalysisCox:
                 treatment_col,
                 subgroup_col,
             ] + adjustment_cols
+            # Deduplicate to prevent dimensionality errors
+            cols_to_use = list(dict.fromkeys(cols_to_use))
 
-            # --- MISSING DATA HANDLING ---
-            missing_data_info = {}
-            if var_meta:
-                df_subset = self.df[cols_to_use].copy()
-                missing_codes = CONFIG.get("analysis.missing.user_defined_values", [])
-                missing_summary = get_missing_summary_df(
-                    df_subset, var_meta, missing_codes
-                )
-                df_processed = apply_missing_values_to_df(
-                    df_subset, var_meta, missing_codes
-                )
+            # --- MISSING DATA HANDLING (Centralized) ---
+            missing_cfg = CONFIG.get("analysis.missing", {}) or {}
+            strategy = missing_cfg.get("strategy", "complete-case")
+            missing_codes = missing_cfg.get("user_defined_values", [])
 
-                df_clean, impact = handle_missing_for_analysis(
-                    df_processed,
-                    var_meta,
-                    missing_codes,
-                    strategy="complete-case",
-                    return_counts=True,
+            # Identify numeric columns for cleaning
+            # For Cox models, duration and event MUST be numeric.
+            # Adjustment cols might be numeric or categorical.
+            numeric_cols = [duration_col, event_col]
+            if adjustment_cols:
+                for c in adjustment_cols:
+                    if pd.api.types.is_numeric_dtype(self.df[c]):
+                        numeric_cols.append(c)
+
+            try:
+                # Use centralized preparation
+                df_clean, missing_data_info = prepare_data_for_analysis(
+                    self.df,
+                    required_cols=cols_to_use,
+                    numeric_cols=numeric_cols,
+                    handle_missing=strategy,
+                    var_meta=var_meta,
+                    missing_codes=missing_codes,
+                    return_info=True,
                 )
-                missing_data_info = {
-                    "strategy": "complete-case",
-                    "rows_analyzed": impact["final_rows"],
-                    "rows_excluded": impact["rows_removed"],
-                    "summary_before": missing_summary.to_dict("records"),
-                }
-            else:
-                df_clean = self.df[cols_to_use].dropna().copy()
+            except Exception as e:
+                logger.error(f"Data preparation failed: {e}")
+                return None, None, f"Data preparation failed: {e}"
 
             if len(df_clean) < 10:
                 raise ValueError(f"Insufficient data: {len(df_clean)} rows")
@@ -538,17 +565,28 @@ class SubgroupAnalysisCox:
             logger.info("Computing overall Cox model...")
             try:
                 cph_overall = CoxPHFitter()
+
+                # Build formula
+                adj_str = ""
+                if adjustment_cols:
+                    adj_str = " + " + " + ".join(adjustment_cols)
+                formula_base = f"{treatment_col}{adj_str}"
+
                 cph_overall.fit(
                     df_clean,
                     duration_col=duration_col,
                     event_col=event_col,
+                    formula=formula_base,
                     show_progress=False,
                 )
 
                 hr_overall = float(np.exp(cph_overall.params_[treatment_col]))
-                ci_overall = np.exp(
-                    cph_overall.confidence_intervals_.loc[treatment_col]
-                )
+                # conf_int_ is a DataFrame with cols like 'lower 0.95', 'upper 0.95'
+                ci_row = np.exp(cph_overall.confidence_intervals_.loc[treatment_col])
+                # FIX: Use positional indexing (.iloc) to avoid KeyError 0
+                ci_low = float(ci_row.iloc[0])
+                ci_high = float(ci_row.iloc[1])
+
                 p_overall = float(cph_overall.summary.loc[treatment_col, "p"])
 
                 results_list.append(
@@ -557,10 +595,11 @@ class SubgroupAnalysisCox:
                         "n": len(df_clean),
                         "events": int(df_clean[event_col].sum()),
                         "hr": hr_overall,
-                        "ci_low": float(ci_overall[0]),
-                        "ci_high": float(ci_overall[1]),
+                        "ci_low": ci_low,
+                        "ci_high": ci_high,
                         "p_value": p_overall,
                         "type": "overall",
+                        "subgroup": None,
                     }
                 )
                 logger.info(f"Overall: HR={hr_overall:.3f}, P={p_overall:.4f}")
@@ -593,11 +632,18 @@ class SubgroupAnalysisCox:
                         df_sub,
                         duration_col=duration_col,
                         event_col=event_col,
+                        formula=formula_base,
                         show_progress=False,
                     )
 
                     hr_sub = float(np.exp(cph_sub.params_[treatment_col]))
-                    ci_sub = np.exp(cph_sub.confidence_intervals_.loc[treatment_col])
+                    ci_sub_row = np.exp(
+                        cph_sub.confidence_intervals_.loc[treatment_col]
+                    )
+                    # FIX: Use positional indexing (.iloc) to avoid KeyError 0
+                    ci_low = float(ci_sub_row.iloc[0])
+                    ci_high = float(ci_sub_row.iloc[1])
+
                     p_sub = float(cph_sub.summary.loc[treatment_col, "p"])
 
                     results_list.append(
@@ -607,8 +653,8 @@ class SubgroupAnalysisCox:
                             "n": len(df_sub),
                             "events": int(df_sub[event_col].sum()),
                             "hr": hr_sub,
-                            "ci_low": float(ci_sub[0]),
-                            "ci_high": float(ci_sub[1]),
+                            "ci_low": ci_low,
+                            "ci_high": ci_high,
                             "p_value": p_sub,
                             "type": "subgroup",
                         }
@@ -623,26 +669,70 @@ class SubgroupAnalysisCox:
             # Interaction test (using treatment*subgroup term)
             logger.info("Computing interaction test...")
             try:
-                df_int = df_clean.copy()
-                # Create interaction term
-                df_int["interaction"] = (
-                    df_int[treatment_col]
-                    * df_int[subgroup_col].astype("category").cat.codes
-                )
+                # Use formula if possible, or manually construct interaction
+                # To be robust across lifelines versions, we might need manual dummy creation if formula isn't supported.
+                # However, assuming standard environment with formula support.
 
-                cph_reduced = CoxPHFitter()
-                cph_reduced.fit(
-                    df_int[[duration_col, event_col, treatment_col, subgroup_col]],
-                    duration_col=duration_col,
-                    event_col=event_col,
-                    show_progress=False,
-                )
+                # Check for formula support (try-except)
+                try:
+                    cph_reduced = CoxPHFitter()
+                    cph_full = CoxPHFitter()
 
-                self.interaction_result = {
-                    "p_value": np.nan,
-                    "significant": False,
-                    "note": "Interaction term via stratified analysis",
-                }
+                    # Construct formulas
+                    # We need to handle adjustments
+                    adj_str = (
+                        " + " + " + ".join(adjustment_cols) if adjustment_cols else ""
+                    )
+
+                    f_reduced = f"{treatment_col} + C({subgroup_col}){adj_str}"
+                    f_full = f"{treatment_col} * C({subgroup_col}){adj_str}"
+
+                    # Run models
+                    cph_reduced.fit(
+                        df_clean,
+                        duration_col=duration_col,
+                        event_col=event_col,
+                        formula=f_reduced,
+                    )
+                    cph_full.fit(
+                        df_clean,
+                        duration_col=duration_col,
+                        event_col=event_col,
+                        formula=f_full,
+                    )
+
+                    # LRT
+                    ll_reduced = cph_reduced.log_likelihood_
+                    ll_full = cph_full.log_likelihood_
+
+                    lr_stat = 2 * (ll_full - ll_reduced)
+                    # Degrees of freedom difference
+                    # full params count - reduced params count
+                    df_diff = len(cph_full.params_) - len(cph_reduced.params_)
+
+                    from scipy import stats
+
+                    if df_diff > 0:
+                        p_interaction = float(stats.chi2.sf(lr_stat, df_diff))
+                        is_sig = p_interaction < 0.05
+                    else:
+                        p_interaction = np.nan
+                        is_sig = False
+
+                    self.interaction_result = {
+                        "p_value": p_interaction,
+                        "significant": is_sig,
+                        "method": "Likelihood Ratio Test (Cox)",
+                    }
+                    logger.info(f"Cox Interaction P={p_interaction:.4f}")
+
+                except TypeError:
+                    # Fallback if formula not supported (older lifelines)
+                    logger.warning(
+                        "lifelines formula not supported, skipping interaction test"
+                    )
+                    self.interaction_result = {"p_value": np.nan, "significant": False}
+
             except Exception as e:
                 logger.warning(f"Interaction test failed: {e}")
                 self.interaction_result = {"p_value": np.nan, "significant": False}
@@ -704,6 +794,7 @@ class SubgroupAnalysisCox:
                 "records"
             ),
             "interaction": self.interaction_result,
+            "interaction_table": self.results.to_dict("records"),
             "summary": self.stats,
             "results_df": self.results,
         }
@@ -735,4 +826,23 @@ class SubgroupAnalysisCox:
             ref_line=1.0,
             color=color,
         )
+        # Add annotation for P-interaction
+        p_int = (
+            self.interaction_result.get("p_value", np.nan)
+            if self.interaction_result
+            else np.nan
+        )
+
+        if pd.notna(p_int):
+            self.figure.add_annotation(
+                text=f"<b>P<sub>interaction</sub> = {format_p_value(p_int, use_style=False)}</b>",
+                xref="paper",
+                yref="paper",
+                x=1.0,
+                y=1.05,
+                showarrow=False,
+                font=dict(size=12, color="black"),
+                align="right",
+            )
+
         return self.figure

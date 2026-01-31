@@ -103,6 +103,29 @@ class TestOutlierDetection:
 class TestDataFrameCleaning:
     """Tests for DataFrame cleaning and reporting."""
 
+    def test_prepare_data_duplicate_cols(self):
+        """Test that prepare_data_for_analysis handles duplicate required columns gracefully."""
+        from utils.data_cleaning import prepare_data_for_analysis
+
+        df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
+
+        # Pass 'A' twice in required_cols
+        required_cols = ["A", "A", "B"]
+        numeric_cols = ["A", "B"]
+
+        df_clean, info = prepare_data_for_analysis(
+            df,
+            required_cols=required_cols,
+            numeric_cols=numeric_cols,
+            handle_missing="complete-case",
+        )
+
+        # Should not raise ValueError
+        assert not df_clean.empty
+        # Columns should be unique in output
+        assert len(df_clean.columns) == 2
+        assert list(df_clean.columns) == ["A", "B"]
+
     def test_clean_dataframe_granular(self):
         """Test clean_dataframe with mixed dirty data."""
         test_df = pd.DataFrame(

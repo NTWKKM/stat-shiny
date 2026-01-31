@@ -14,6 +14,8 @@ Uses Modern Shiny Module Pattern (@module.ui, @module.server decorators)
 
 from __future__ import annotations
 
+import html
+import numbers
 from typing import Any
 
 import numpy as np
@@ -1141,7 +1143,7 @@ def survival_server(
             ui.card_header("📈 Plot"),
             ui.output_ui("out_curves_plot"),
             ui.card_header("📄 Log-Rank Test / Summary Statistics"),
-            ui.output_data_frame("out_curves_table"),
+            ui.output_ui("out_curves_table"),
         ]
 
         if res.get("medians") is not None:
@@ -1181,11 +1183,25 @@ def survival_server(
         )
         return ui.HTML(html_str)
 
-    @render.data_frame
+    @render.ui
     def out_curves_table():
-        """Render the curves statistics DataGrid when curve results are available."""
+        """Render the curves statistics Table when curve results are available."""
         res = curves_result.get()
-        return render.DataGrid(res["stats"]) if res else None
+        if not res or res.get("stats") is None:
+            return None
+
+        # Convert to HTML with escape=False to render p-value/color spans correctly
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = res["stats"].copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
+        return ui.HTML(
+            df_safe.to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.data_frame
     def out_medians_table():
@@ -1320,7 +1336,7 @@ def survival_server(
                 style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};",
             ),
             ui.output_ui("out_landmark_plot"),
-            ui.output_data_frame("out_landmark_table"),
+            ui.output_ui("out_landmark_table"),
         ]
 
         if "missing_data_info" in res:
@@ -1352,11 +1368,25 @@ def survival_server(
         )
         return ui.HTML(html_str)
 
-    @render.data_frame
+    @render.ui
     def out_landmark_table():
         """Render a data grid containing landmark analysis statistics if results are available."""
         res = landmark_result.get()
-        return render.DataGrid(res["stats"]) if res else None
+        if not res or res.get("stats") is None:
+            return None
+
+        # Convert to HTML with escape=False to render p-value/color spans correctly
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = res["stats"].copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
+        return ui.HTML(
+            df_safe.to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.download(filename="landmark_report.html")
     def btn_dl_landmark():
@@ -1498,10 +1528,10 @@ def survival_server(
         elements = [
             ui.card_header("📄 Cox Results"),
             stats_ui,
-            ui.output_data_frame("out_cox_table"),
+            ui.output_ui("out_cox_table"),
             ui.card_header("🌳 Forest Plot"),
             ui.output_ui("out_cox_forest"),
-            ui.card_header("🔍 PH Assumption (Schoenfeld Residuals)"),
+            ui.card_header("🔍 Model Diagnostics & Assumptions"),
             ui.output_ui("out_cox_assumptions_ui"),
         ]
 
@@ -1517,7 +1547,7 @@ def survival_server(
 
         return ui.div(*elements, class_="fade-in-entry")
 
-    @render.data_frame
+    @render.ui
     def out_cox_table():
         """Render a data grid showing Cox regression results if available."""
         res = cox_result.get()
@@ -1526,10 +1556,41 @@ def survival_server(
 
         df = res["results_df"].copy()
 
+        # FIX: Ensure 'Variable' column exists (it might be in index)
+        if "Variable" not in df.columns:
+            df = df.reset_index()
+            # Robust renaming: check likely index names or just rename the first column
+            if "index" in df.columns:
+                df = df.rename(columns={"index": "Variable"})
+            elif "covariate" in df.columns:
+                df = df.rename(columns={"covariate": "Variable"})
+            else:
+                # If reset_index created a column that didn't match above,
+                # or if the index was named something else, we need to find it.
+                # Usually reset_index puts the index at position 0.
+                cols = df.columns.tolist()
+                if len(cols) > 0 and cols[0] not in [
+                    "HR",
+                    "coef",
+                    "exp(coef)",
+                    "se(coef)",
+                    "z",
+                    "p",
+                    "-log2(p)",
+                    "lower 0.95",
+                    "upper 0.95",
+                    "P-value",
+                ]:
+                    # Assume first column is the variable if it's not a stat column
+                    df.rename(columns={cols[0]: "Variable"}, inplace=True)
+                else:
+                    # Fallback: create a generic numbered variable column if all else fails
+                    df.insert(0, "Variable", [f"Var {i}" for i in range(len(df))])
+
         # Format P-value
         if "P-value" in df.columns:
             df["P-value"] = df["P-value"].apply(
-                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+                lambda x: format_p_value(x) if isinstance(x, numbers.Real) else x
             )
 
         # Combine HR and CI
@@ -1546,9 +1607,20 @@ def survival_server(
             cols = ["Variable", "HR (95% CI)", "P-value"]
             if "Method" in df.columns:
                 cols.append("Method")
-            return render.DataGrid(df[cols])
+            df = df[cols]
 
-        return render.DataGrid(df)
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = df.copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                # Variable might contain HTML from user data
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
+        return ui.HTML(
+            df_safe.to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.ui
     def out_cox_forest():
@@ -1582,12 +1654,27 @@ def survival_server(
         ]
 
         if res["assumptions_plots"]:
-            html_plots = ""
+            # Use Tabs for multiple diagnostic plots to save space
+            tabs_items = []
             for i, fig in enumerate(res["assumptions_plots"]):
-                include_js = "cdn" if i == 0 else False
-                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
+                title = (
+                    fig.layout.title.text if fig.layout.title.text else f"Plot {i + 1}"
+                )
+                if "Schoenfeld" in title and ":" in title:
+                    var = title.split(":", 1)[1].strip()
+                    tab_label = f"Schoenfeld ({var})"
+                else:
+                    tab_label = title.split(":", 1)[0] if ":" in title else title
 
-            elements.append(ui.HTML(html_plots))
+                html_plot = plotly_figure_to_html(
+                    fig,
+                    div_id=f"cox_assumption_{i}",
+                    include_plotlyjs="cdn" if i == 0 else False,
+                    responsive=True,
+                )
+                tabs_items.append(ui.nav_panel(tab_label, ui.HTML(html_plot)))
+
+            elements.append(ui.navset_card_underline(*tabs_items))
 
         return ui.div(*elements, class_="fade-in-entry")
 
@@ -1709,7 +1796,32 @@ def survival_server(
 
         if "interaction_table" in res:
             elements.append(ui.card_header("📄 Interaction Analysis"))
-            elements.append(ui.output_data_frame("out_sg_table"))
+
+            # Display Interaction P-value explicitly
+            if "interaction" in res:
+                inter = res["interaction"]
+                p_int = inter.get("p_value")
+                is_sig = inter.get("significant", False)
+
+                if p_int is not None and not pd.isna(p_int):
+                    p_text = format_p_value(p_int)
+                    sig_text = (
+                        "(Significant Heterogeneity)"
+                        if is_sig
+                        else "(Homogeneous treatment effect)"
+                    )
+                    color = COLORS["danger"] if is_sig else COLORS["success"]
+
+                    elements.append(
+                        ui.div(
+                            ui.markdown(
+                                f"**Test for Interaction:** P-value = {p_text} {sig_text}"
+                            ),
+                            style=f"padding: 10px; margin-bottom: 15px; border-radius: 5px; background-color: {color}15; border-left: 4px solid {color};",
+                        )
+                    )
+
+            elements.append(ui.output_ui("out_sg_table"))
 
         # Missing Data Report
         if "missing_data_info" in res:
@@ -1744,7 +1856,7 @@ def survival_server(
         )
         return ui.HTML(html_str)
 
-    @render.data_frame
+    @render.ui
     def out_sg_table():
         """Render the subgroup interaction analysis table when subgroup results are available."""
         res = sg_result.get()
@@ -1758,7 +1870,7 @@ def survival_server(
         # Format P-value
         if "p_value" in df.columns:
             df["P-value"] = df["p_value"].apply(
-                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+                lambda x: format_p_value(x) if isinstance(x, numbers.Real) else x
             )
 
         # Combine HR and CI
@@ -1767,12 +1879,22 @@ def survival_server(
                 lambda row: f"{row['hr']:.2f} {PublicationFormatter.format_ci(row['ci_low'], row['ci_high'])}",
                 axis=1,
             )
-            cols = ["group", "n", "events", "HR (95% CI)", "P-value"]
+            cols = ["group", "subgroup", "n", "events", "HR (95% CI)", "P-value"]
             # Filter cols that exist
             valid_cols = [c for c in cols if c in df.columns]
-            return render.DataGrid(df[valid_cols])
+            df = df[valid_cols]
 
-        return render.DataGrid(df)
+        # Sanitize all non-p-value columns to prevent XSS
+        df_safe = df.copy()
+        for col in df_safe.columns:
+            if col != "P-value":
+                df_safe[col] = df_safe[col].astype(str).map(html.escape)
+
+        return ui.HTML(
+            df_safe.to_html(
+                classes="table table-hover table-striped", index=False, escape=False
+            )
+        )
 
     @render.download(filename="subgroup_report.html")
     def btn_dl_sg():
@@ -1784,10 +1906,29 @@ def survival_server(
 
         elements = [
             {"type": "header", "data": "Cox Subgroup Analysis"},
-            {"type": "plot", "data": res.get("forest_plot")},
-            {"type": "header", "data": "Results"},
-            {"type": "table", "data": res.get("interaction_table")},
         ]
+
+        if "interaction" in res:
+            inter = res["interaction"]
+            p_int = inter.get("p_value")
+            if p_int is not None and not pd.isna(p_int):
+                sig_text = (
+                    "Significant" if inter.get("significant") else "Not Significant"
+                )
+                elements.append(
+                    {
+                        "type": "text",
+                        "data": f"Interaction Test: P-value = {p_int:.4f} ({sig_text})",
+                    }
+                )
+
+        elements.extend(
+            [
+                {"type": "plot", "data": res.get("forest_plot")},
+                {"type": "header", "data": "Results"},
+                {"type": "table", "data": res.get("interaction_table")},
+            ]
+        )
         elements = [e for e in elements if e.get("data") is not None]
         yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
 
@@ -2255,7 +2396,7 @@ def survival_server(
         df = res["stats"].copy()
         if "P-value" in df.columns:
             df["P-value"] = df["P-value"].apply(
-                lambda x: format_p_value(x) if isinstance(x, (float, int)) else x
+                lambda x: format_p_value(x) if isinstance(x, numbers.Real) else x
             )
 
         return render.DataGrid(df, selection_mode="none")
@@ -2380,11 +2521,19 @@ def survival_server(
         ]
 
         if res["assumptions_plots"]:
-            html_plots = ""
+            tabs_items = []
             for i, fig in enumerate(res["assumptions_plots"]):
-                include_js = "cdn" if i == 0 else False
-                html_plots += fig.to_html(full_html=False, include_plotlyjs=include_js)
-            elements.append(ui.HTML(html_plots))
+                title = (
+                    fig.layout.title.text if fig.layout.title.text else f"Plot {i + 1}"
+                )
+                html_plot = plotly_figure_to_html(
+                    fig,
+                    div_id=f"tvc_assumption_{i}",
+                    include_plotlyjs="cdn" if i == 0 else False,
+                    responsive=True,
+                )
+                tabs_items.append(ui.nav_panel(title, ui.HTML(html_plot)))
+            elements.append(ui.navset_card_underline(*tabs_items))
 
         return ui.div(*elements, class_="fade-in-entry")
 
