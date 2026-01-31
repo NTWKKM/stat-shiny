@@ -414,13 +414,20 @@ def causal_inference_server(
             ps_vals = d_clean["ps"]
 
             # FIX: Clip PS to prevent infinite weights
+            # Clip PS
             ps_vals = np.clip(ps_vals, 1e-6, 1 - 1e-6)
 
+            # Calculate raw weights
             weights = np.where(T == 1, 1 / ps_vals, 1 / (1 - ps_vals))
 
             # Optional: Truncate Weights
             if input.psm_trim():
-                weights = PropensityScoreDiagnostics.truncate_weights(weights)
+                weights_series = PropensityScoreDiagnostics.truncate_weights(weights)
+                weights_array = (
+                    weights_series.values
+                )  # Convert back to array for regression safety
+            else:
+                weights_array = weights
 
             # 4. IPW Analysis (re-run logic with truncated weights if needed)
             # Existing specific function calculate_ipw does internal calculation.
@@ -436,28 +443,54 @@ def causal_inference_server(
 
             import statsmodels.api as sm
 
-            # Recalculate ATE with (possibly trimmed) weights
+            # Recalculate ATE with weights
             try:
-                X_wls = sm.add_constant(T)
-                model_wls = sm.WLS(d_clean[outcome], X_wls, weights=weights).fit()
+                # Use T as simple numeric array to avoid index alignment issues in add_constant
+                X_vals = T.values
+                X_wls = sm.add_constant(X_vals)
 
-                # FIX: Use .iloc for positional access to avoid KeyError(1) if index is not integer
-                ate = model_wls.params.iloc[1]
+                # Use weights as array
+                model_wls = sm.WLS(
+                    d_clean[outcome].values, X_wls, weights=weights_array
+                ).fit()
+
+                # Robust parameter access
+                params = model_wls.params
+
+                # Check if we have at least 2 params (const, treatment)
+                if len(params) < 2:
+                    raise ValueError(
+                        "Model failed to estimate treatment effect (treatment variable may be constant)."
+                    )
+
+                # Access by position (numpy array or series safe)
+                if isinstance(params, (pd.Series, pd.DataFrame)):
+                    ate = params.iloc[1]
+                    se = model_wls.bse.iloc[1]
+                    p_val = model_wls.pvalues.iloc[1]
+                else:
+                    # Numpy array
+                    ate = params[1]
+                    se = model_wls.bse[1]
+                    p_val = model_wls.pvalues[1]
+
                 ci = model_wls.conf_int()
 
-                # Handle different statsmodels versions and return types
+                # Handle CI structure
                 if isinstance(ci, pd.DataFrame):
                     ci_l = ci.iloc[1, 0]
                     ci_u = ci.iloc[1, 1]
-                else:
-                    # Assume array-like
+                elif isinstance(ci, np.ndarray):
                     ci_l = ci[1, 0]
                     ci_u = ci[1, 1]
+                else:
+                    # Fallback
+                    ci_l, ci_u = 0, 0
 
                 ipw_results = {
                     "ATE": float(ate),
-                    "SE": float(model_wls.bse.iloc[1]),
-                    "p_value": float(model_wls.pvalues.iloc[1]),
+                    "SE": float(se),
+                    "p_value": float(p_val),
                     "CI_Lower": float(ci_l),
                     "CI_Upper": float(ci_u),
                     "missing_data_info": missing_info,
