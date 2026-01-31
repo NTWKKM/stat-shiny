@@ -3,7 +3,23 @@
 
 Provides comprehensive utilities for Cox regression with time-varying covariates using lifelines.CoxTimeVaryingFitter.
 
-Key Features:
+THEORY & USAGE GUIDE:
+---------------------
+1. Standard Cox assumes constant effects (PH Assumption). When an effect changes over time (e.g., surgery benefit decreases after 1 year), standard Cox is invalid.
+2. TVC Analysis allows coefficients (HR) to change or allows covariates themselves to change value over follow-up.
+
+DATA STRUCTURE:
+---------------
+- Requires transformation from 'Wide' (1 row/patient) to 'Long' (multiple rows/patient).
+- Each row represents a time interval (Start, Stop].
+- Events are recorded only in the interval they occur.
+
+STATISTICAL NOTES:
+------------------
+- Use `transform_wide_to_long` to prepare data.
+- Interpretation: HR represents the instantaneous risk relative to the baseline at that specific time.
+- Interaction with Time: To test if an effect changes linearly with time, add `var * log(time)` interaction.
+
 - Data format transformation (Wide ↔ Long)
 - CoxTimeVaryingFitter model fitting with auto-detection
 - Proportional hazards assumption testing (time-varying)
@@ -567,11 +583,15 @@ def fit_tvc_cox(
                     "p-value": row["p"],
                     "Significant": (
                         "***"
-                        if row["p"] < 0.001
+                        if pd.to_numeric(row["p"], errors="coerce") < 0.001
                         else (
                             "**"
-                            if row["p"] < 0.01
-                            else ("*" if row["p"] < 0.05 else "")
+                            if pd.to_numeric(row["p"], errors="coerce") < 0.01
+                            else (
+                                "*"
+                                if pd.to_numeric(row["p"], errors="coerce") < 0.05
+                                else "ns"
+                            )
                         )
                     ),
                 }
@@ -582,6 +602,13 @@ def fit_tvc_cox(
         # Model statistics
         # Note: CoxTimeVaryingFitter might not have concordance_index_ computed by default depending on version
         c_index = getattr(cph, "concordance_index_", np.nan)
+
+        # Check for interaction with time (heuristic check of column names)
+        interaction_terms = [
+            c for c in clean_data.columns if "_x_logt" in c or "_x_time" in c
+        ]
+        if interaction_terms:
+            logger.info(f"Interaction terms detected: {interaction_terms}")
         aic = getattr(cph, "AIC_partial_", getattr(cph, "AIC_", np.nan))
         log_lik = getattr(cph, "log_likelihood_", np.nan)
 
