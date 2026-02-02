@@ -1,6 +1,37 @@
+"""
+📊 Model Diagnostics Library
+
+Comprehensive regression diagnostics for publication-ready analysis.
+
+Functions:
+    - run_reset_test: Ramsey RESET test for misspecification
+    - run_heteroscedasticity_test: Breusch-Pagan test
+    - calculate_cooks_distance: Cook's Distance for influential points
+    - calculate_dfbetas: DFBETAS for coefficient influence
+    - calculate_dffits: DFFITS for fitted value influence
+    - calculate_leverage: Hat values and leverage diagnostics
+    - get_diagnostic_plot_data: Data for diagnostic plots
+    - create_diagnostic_plots: Publication-ready Plotly figures
+
+References:
+    Belsley, Kuh & Welsch (1980). Regression Diagnostics.
+    Cook, R.D. (1977). Detection of Influential Observations.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from scipy import stats
 from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import reset_ramsey
+
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def run_reset_test(model_results) -> dict:
@@ -34,7 +65,7 @@ def run_reset_test(model_results) -> dict:
             ),
         }
     except Exception as e:
-        return {"error": f"RESET Test failed: {str(e)}"}
+        return {"error": f"RESET Test failed: {e!s}"}
 
 
 def run_heteroscedasticity_test(model_results) -> dict:
@@ -68,12 +99,15 @@ def run_heteroscedasticity_test(model_results) -> dict:
             ),
         }
     except Exception as e:
-        return {"error": f"Heteroscedasticity test failed: {str(e)}"}
+        return {"error": f"Heteroscedasticity test failed: {e!s}"}
 
 
 def calculate_cooks_distance(model_results) -> dict:
     """
     Calculate Cook's Distance for identifying influential points.
+
+    Cook's D measures the effect of deleting a single observation.
+    Values > 4/n are typically considered influential.
 
     Args:
         model_results: A fitted statsmodels result object
@@ -104,9 +138,178 @@ def calculate_cooks_distance(model_results) -> dict:
             "threshold": threshold,
             "influential_points": influential_indices,
             "n_influential": len(influential_indices),
+            "interpretation": (
+                f"{len(influential_indices)} observations exceed 4/n threshold"
+                if influential_indices
+                else "No highly influential observations detected"
+            ),
         }
     except Exception as e:
-        return {"error": f"Cooks distance calculation failed: {str(e)}"}
+        return {"error": f"Cooks distance calculation failed: {e!s}"}
+
+
+def calculate_dfbetas(model_results) -> dict[str, Any]:
+    """
+    Calculate DFBETAS for each coefficient.
+
+    DFBETAS measures how much each coefficient changes when observation i
+    is deleted. Observations with |DFBETAS| > 2/√n are influential.
+
+    Args:
+        model_results: A fitted statsmodels result object
+
+    Returns:
+        Dictionary with:
+            - dfbetas: 2D array (n_obs x n_params)
+            - var_names: Parameter names
+            - threshold: Cutoff for influential observations
+            - influential_per_var: Dict of influential indices per variable
+    """
+    try:
+        if model_results is None:
+            return {"error": "Invalid model object provided."}
+
+        influence = model_results.get_influence()
+        dfbetas = influence.dfbetas
+
+        if dfbetas is None:
+            return {"error": "Could not calculate DFBETAS."}
+
+        n = model_results.nobs
+        threshold = 2 / np.sqrt(n)
+
+        # Get parameter names
+        var_names = model_results.model.exog_names
+
+        # Find influential observations for each variable
+        influential_per_var = {}
+        for i, var in enumerate(var_names):
+            influential_idx = np.where(np.abs(dfbetas[:, i]) > threshold)[0].tolist()
+            influential_per_var[var] = {
+                "indices": influential_idx,
+                "count": len(influential_idx),
+                "max_dfbetas": float(np.max(np.abs(dfbetas[:, i]))),
+            }
+
+        return {
+            "dfbetas": dfbetas.tolist(),
+            "var_names": var_names,
+            "threshold": round(threshold, 4),
+            "influential_per_var": influential_per_var,
+            "total_influential": sum(
+                1 for row in dfbetas if np.any(np.abs(row) > threshold)
+            ),
+            "interpretation": (
+                f"Threshold for influence: |DFBETAS| > {threshold:.3f} (2/√n)"
+            ),
+        }
+
+    except Exception as e:
+        logger.exception("DFBETAS calculation failed")
+        return {"error": f"DFBETAS calculation failed: {e!s}"}
+
+
+def calculate_dffits(model_results) -> dict[str, Any]:
+    """
+    Calculate DFFITS for each observation.
+
+    DFFITS measures the change in the predicted value for observation i
+    when it is deleted from the model. Observations with
+    |DFFITS| > 2√(p/n) are considered influential.
+
+    Args:
+        model_results: A fitted statsmodels result object
+
+    Returns:
+        Dictionary with dffits values and influential observations
+    """
+    try:
+        if model_results is None:
+            return {"error": "Invalid model object provided."}
+
+        influence = model_results.get_influence()
+        dffits_vals = influence.dffits[0]  # dffits returns (dffits, dffits_internal)
+
+        if dffits_vals is None:
+            return {"error": "Could not calculate DFFITS."}
+
+        n = model_results.nobs
+        p = len(model_results.params)  # Number of parameters
+        threshold = 2 * np.sqrt(p / n)
+
+        influential_indices = np.where(np.abs(dffits_vals) > threshold)[0].tolist()
+
+        return {
+            "dffits": dffits_vals.tolist(),
+            "threshold": round(threshold, 4),
+            "influential_points": influential_indices,
+            "n_influential": len(influential_indices),
+            "max_dffits": float(np.max(np.abs(dffits_vals))),
+            "interpretation": (
+                f"Threshold: |DFFITS| > {threshold:.3f} (2√(p/n)). "
+                f"{len(influential_indices)} influential observations detected."
+            ),
+        }
+
+    except Exception as e:
+        logger.exception("DFFITS calculation failed")
+        return {"error": f"DFFITS calculation failed: {e!s}"}
+
+
+def calculate_leverage(model_results) -> dict[str, Any]:
+    """
+    Calculate leverage (hat values) for each observation.
+
+    Leverage measures how far an observation's predictor values are
+    from the mean of all predictors. High leverage points have
+    more influence on the regression line.
+
+    Threshold: leverage > 2p/n (or 3p/n for stricter)
+
+    Args:
+        model_results: A fitted statsmodels result object
+
+    Returns:
+        Dictionary with leverage values and high-leverage observations
+    """
+    try:
+        if model_results is None:
+            return {"error": "Invalid model object provided."}
+
+        influence = model_results.get_influence()
+        hat_diag = influence.hat_matrix_diag
+
+        if hat_diag is None:
+            return {"error": "Could not calculate leverage."}
+
+        n = model_results.nobs
+        p = len(model_results.params)
+
+        # Thresholds
+        threshold_moderate = 2 * p / n
+        threshold_high = 3 * p / n
+
+        moderate_leverage = np.where(
+            (hat_diag > threshold_moderate) & (hat_diag <= threshold_high)
+        )[0].tolist()
+        high_leverage = np.where(hat_diag > threshold_high)[0].tolist()
+
+        return {
+            "leverage": hat_diag.tolist(),
+            "mean_leverage": round(float(np.mean(hat_diag)), 4),
+            "threshold_moderate": round(threshold_moderate, 4),
+            "threshold_high": round(threshold_high, 4),
+            "moderate_leverage_points": moderate_leverage,
+            "high_leverage_points": high_leverage,
+            "interpretation": (
+                f"Average leverage: {np.mean(hat_diag):.4f}. "
+                f"{len(high_leverage)} high-leverage observations (>3p/n)."
+            ),
+        }
+
+    except Exception as e:
+        logger.exception("Leverage calculation failed")
+        return {"error": f"Leverage calculation failed: {e!s}"}
 
 
 def get_diagnostic_plot_data(model_results) -> dict:
@@ -129,4 +332,199 @@ def get_diagnostic_plot_data(model_results) -> dict:
             "std_residuals": model_results.get_influence().resid_studentized_internal.tolist(),
         }
     except Exception as e:
-        return {"error": f"Diagnostic plot data extraction failed: {str(e)}"}
+        return {"error": f"Diagnostic plot data extraction failed: {e!s}"}
+
+
+def create_diagnostic_plots(
+    model_results,
+    title_prefix: str = "",
+) -> dict[str, go.Figure]:
+    """
+    Create publication-ready diagnostic plots using Plotly.
+
+    Generates four standard diagnostic plots:
+    1. Residuals vs Fitted
+    2. Q-Q Plot
+    3. Scale-Location
+    4. Residuals vs Leverage
+
+    Args:
+        model_results: A fitted statsmodels result object
+        title_prefix: Optional prefix for plot titles
+
+    Returns:
+        Dictionary of Plotly figures:
+            - combined: 2x2 subplot of all diagnostics
+            - residuals_fitted: Residuals vs Fitted
+            - qq_plot: Normal Q-Q plot
+            - scale_location: Scale-Location plot
+            - residuals_leverage: Residuals vs Leverage
+    """
+    try:
+        if model_results is None:
+            return {"error": "Invalid model object provided."}
+
+        influence = model_results.get_influence()
+        fitted = model_results.fittedvalues
+        residuals = model_results.resid
+        std_resid = influence.resid_studentized_internal
+        leverage = influence.hat_matrix_diag
+        cooks_d = influence.cooks_distance[0]
+
+        n = len(residuals)
+
+        # Create combined subplot
+        fig = make_subplots(
+            rows=2,
+            cols=2,
+            subplot_titles=[
+                "Residuals vs Fitted",
+                "Normal Q-Q",
+                "Scale-Location",
+                "Residuals vs Leverage",
+            ],
+            horizontal_spacing=0.12,
+            vertical_spacing=0.15,
+        )
+
+        # 1. Residuals vs Fitted
+        fig.add_trace(
+            go.Scatter(
+                x=fitted,
+                y=residuals,
+                mode="markers",
+                marker=dict(color="#3B82F6", size=6, opacity=0.7),
+                name="Residuals",
+                hovertemplate="Fitted: %{x:.3f}<br>Residual: %{y:.3f}<extra></extra>",
+            ),
+            row=1,
+            col=1,
+        )
+        # Add horizontal line at 0
+        fig.add_hline(y=0, line_dash="dash", line_color="red", row=1, col=1)
+
+        # 2. Q-Q Plot
+        theoretical_q = stats.norm.ppf(np.linspace(0.01, 0.99, n))
+        sorted_std_resid = np.sort(std_resid)
+
+        fig.add_trace(
+            go.Scatter(
+                x=theoretical_q,
+                y=sorted_std_resid,
+                mode="markers",
+                marker=dict(color="#10B981", size=6, opacity=0.7),
+                name="Q-Q",
+            ),
+            row=1,
+            col=2,
+        )
+        # Add diagonal reference line
+        min_val = min(theoretical_q.min(), sorted_std_resid.min())
+        max_val = max(theoretical_q.max(), sorted_std_resid.max())
+        fig.add_trace(
+            go.Scatter(
+                x=[min_val, max_val],
+                y=[min_val, max_val],
+                mode="lines",
+                line=dict(color="red", dash="dash"),
+                showlegend=False,
+            ),
+            row=1,
+            col=2,
+        )
+
+        # 3. Scale-Location
+        sqrt_abs_resid = np.sqrt(np.abs(std_resid))
+        fig.add_trace(
+            go.Scatter(
+                x=fitted,
+                y=sqrt_abs_resid,
+                mode="markers",
+                marker=dict(color="#F59E0B", size=6, opacity=0.7),
+                name="√|Std Resid|",
+            ),
+            row=2,
+            col=1,
+        )
+
+        # 4. Residuals vs Leverage
+        # Size points by Cook's D
+        cooks_sizes = 5 + 50 * (cooks_d / cooks_d.max()) if cooks_d.max() > 0 else 6
+
+        fig.add_trace(
+            go.Scatter(
+                x=leverage,
+                y=std_resid,
+                mode="markers",
+                marker=dict(
+                    color=cooks_d,
+                    colorscale="Reds",
+                    size=cooks_sizes,
+                    opacity=0.7,
+                    colorbar=dict(title="Cook's D", x=1.02),
+                ),
+                name="Leverage",
+                hovertemplate=(
+                    "Leverage: %{x:.4f}<br>"
+                    "Std Resid: %{y:.3f}<br>"
+                    "Cook's D: %{marker.color:.4f}<extra></extra>"
+                ),
+            ),
+            row=2,
+            col=2,
+        )
+        fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=2)
+
+        # Update layout
+        fig.update_layout(
+            title=f"{title_prefix}Regression Diagnostics"
+            if title_prefix
+            else "Regression Diagnostics",
+            height=700,
+            width=900,
+            showlegend=False,
+            font=dict(family="Inter, Arial, sans-serif", size=11),
+            template="plotly_white",
+        )
+
+        # Update axes labels
+        fig.update_xaxes(title_text="Fitted Values", row=1, col=1)
+        fig.update_yaxes(title_text="Residuals", row=1, col=1)
+        fig.update_xaxes(title_text="Theoretical Quantiles", row=1, col=2)
+        fig.update_yaxes(title_text="Standardized Residuals", row=1, col=2)
+        fig.update_xaxes(title_text="Fitted Values", row=2, col=1)
+        fig.update_yaxes(title_text="√|Std Residuals|", row=2, col=1)
+        fig.update_xaxes(title_text="Leverage", row=2, col=2)
+        fig.update_yaxes(title_text="Standardized Residuals", row=2, col=2)
+
+        return {"combined": fig}
+
+    except Exception as e:
+        logger.exception("Diagnostic plot creation failed")
+        return {"error": f"Plot creation failed: {e!s}"}
+
+
+def get_comprehensive_diagnostics(model_results) -> dict[str, Any]:
+    """
+    Run all diagnostic tests and return comprehensive results.
+
+    Combines Cook's D, DFBETAS, DFFITS, leverage, and specification tests.
+
+    Args:
+        model_results: A fitted statsmodels result object
+
+    Returns:
+        Comprehensive diagnostics dictionary
+    """
+    if model_results is None:
+        return {"error": "Invalid model object provided."}
+
+    return {
+        "cooks_distance": calculate_cooks_distance(model_results),
+        "dfbetas": calculate_dfbetas(model_results),
+        "dffits": calculate_dffits(model_results),
+        "leverage": calculate_leverage(model_results),
+        "reset_test": run_reset_test(model_results),
+        "heteroscedasticity": run_heteroscedasticity_test(model_results),
+        "plot_data": get_diagnostic_plot_data(model_results),
+    }

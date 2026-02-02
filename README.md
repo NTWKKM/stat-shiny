@@ -131,6 +131,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_missing_data.py
 |       |-- test_model_diagnostics.py
 |       |-- test_model_diagnostics_plots.py
+|       |-- test_multiple_imputation.py
 |       |-- test_plotly_html_rendering.py
 |       |-- test_poisson_lib.py
 |       |-- test_regression_publication.py
@@ -163,6 +164,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- logic.py
     |-- mediation_lib.py
     |-- model_diagnostics_lib.py
+    |-- multiple_imputation.py
     |-- plotly_html_renderer.py
     |-- poisson_lib.py
     |-- psm_lib.py
@@ -180,7 +182,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- update_css.py
     `-- visualizations.py
 ```
-
 
 [--- REPOSITORY-TREE-END ---]
 
@@ -203,6 +204,7 @@ This application is a complete statistical workbench organized into modular tabs
 - **Variable Configuration**: Interactive type casting and missing value handling.
 - **Advanced Cleaning**:
   - **Imputation**: Support for Mean, Median, KNN, and MICE strategies.
+  - **Multiple Imputation (NEW)**: Full MICE workflow with **Auto-Pooled Regression** (Rubin's Rules, FMI reporting).
   - **Transformation**: Log, Sqrt, and Z-Score standardization with normality assumption checks (Shapiro-Wilk/K-S).
   - **Outlier Handling**: Detection (IQR/Z-Score) and treatment (Winsorize, Cap, Remove).
 
@@ -230,6 +232,8 @@ This application is a complete statistical workbench organized into modular tabs
   - **Count Models**: Poisson and Negative Binomial regression.
   - **Linear Regression**: OLS with options for robust standard errors.
 - **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).
+- **Effect Sizes (NEW)**: Cohen's d, Hedges' g, **η² (Eta-squared)**, **ω² (Omega-squared)** with interpretation badges.
+- **MI Auto-Pooling (NEW)**: When Multiple Imputation is active, regression automatically pools results using **Rubin's Rules** with **FMI (Fraction Missing Information)** reporting.
 
 ### ⏳ Survival Analysis
 
@@ -263,6 +267,7 @@ This application is a complete statistical workbench organized into modular tabs
 - **Model Diagnostics**: Residual plots, Q-Q plots, Cook's distance for influence, and heteroscedasticity tests.
 - **Multicollinearity**: Variance Inflation Factor (VIF) analysis.
 - **Heterogeneity**: Statistics for meta-analysis contexts.
+- **Sensitivity Analysis (NEW)**: **Bootstrap CI**, **Jackknife**, and **LOO-CV** for model robustness validation.
 
 ### 🔗 Correlation & Reliability
 
@@ -272,6 +277,8 @@ This application is a complete statistical workbench organized into modular tabs
 ### ⚙️ Settings & Performance
 
 - **Publication Ready**: Configurable **Reporting Style** templates for major journals (**NEJM, JAMA, Lancet, BMJ**).
+- **Reporting Checklists (NEW)**: **CONSORT** (RCTs) and **STROBE** (Observational) checklist generators.
+- **Figure Legends (NEW)**: Auto-generated publication-ready figure legends for plots.
 - **Auto-Methods**: Automated generation of "Methods" and "Missing Data" statements.
 - **Customization**: Theme switching (Light/Dark), plot sizing, and decimal precision control.
 - **Logging**: Configurable logging levels and file output.

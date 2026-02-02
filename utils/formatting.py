@@ -426,3 +426,308 @@ class MissingDataStatement:
             f"were excluded due to missing data.{detail_text} "
             f"{method_text}."
         )
+
+
+class FigureLegendGenerator:
+    """
+    Generate publication-ready figure legends for common statistical plots.
+
+    Follows journal guidelines for figure captions and legends.
+    Supports multiple output formats (text, HTML, markdown).
+    """
+
+    @staticmethod
+    def kaplan_meier(
+        outcome_var: str,
+        time_var: str,
+        group_var: str | None = None,
+        n_subjects: int | None = None,
+        n_events: int | None = None,
+        median_survival: dict[str, float] | None = None,
+        log_rank_p: float | None = None,
+        censoring_note: str = "Tick marks indicate censored observations.",
+        style: str = "NEJM",
+    ) -> str:
+        """
+        Generate legend for Kaplan-Meier survival curve.
+
+        Args:
+            outcome_var: Name of the outcome variable
+            time_var: Name of the time variable (e.g., "months", "years")
+            group_var: Stratification variable (if applicable)
+            n_subjects: Total number of subjects
+            n_events: Number of events observed
+            median_survival: Dict of group -> median survival time
+            log_rank_p: P-value from log-rank test
+            censoring_note: Note about censoring symbols
+            style: Journal style (NEJM, JAMA, Lancet)
+
+        Returns:
+            Formatted figure legend string
+        """
+        parts = []
+
+        # Title
+        if group_var:
+            parts.append(
+                f"Kaplan-Meier estimates of {outcome_var}-free survival "
+                f"stratified by {group_var}."
+            )
+        else:
+            parts.append(f"Kaplan-Meier estimate of {outcome_var}-free survival.")
+
+        # Sample size
+        if n_subjects is not None:
+            event_text = f" with {n_events} events" if n_events is not None else ""
+            parts.append(f"N = {n_subjects}{event_text}.")
+
+        # Median survival
+        if median_survival:
+            medians = [
+                f"{grp}: {val:.1f} {time_var}" for grp, val in median_survival.items()
+            ]
+            parts.append(f"Median survival: {'; '.join(medians)}.")
+
+        # Statistical test
+        if log_rank_p is not None:
+            from utils.formatting import format_p_value
+
+            p_str = format_p_value(log_rank_p, use_style=False)
+            if style == "NEJM":
+                parts.append(f"Log-rank P = {p_str}.")
+            elif style == "Lancet":
+                parts.append(f"Log-rank test p = {p_str}.")
+            else:
+                parts.append(f"Log-rank test: P = {p_str}.")
+
+        # Censoring note
+        parts.append(censoring_note)
+
+        return " ".join(parts)
+
+    @staticmethod
+    def forest_plot(
+        analysis_type: str = "meta-analysis",
+        effect_measure: str = "odds ratio",
+        n_studies: int | None = None,
+        n_participants: int | None = None,
+        heterogeneity_i2: float | None = None,
+        heterogeneity_p: float | None = None,
+        model: str = "random-effects",
+        ci_level: int = 95,
+    ) -> str:
+        """
+        Generate legend for Forest plot.
+
+        Args:
+            analysis_type: Type of analysis (meta-analysis, subgroup, etc.)
+            effect_measure: OR, RR, HR, SMD, etc.
+            n_studies: Number of studies included
+            n_participants: Total participants
+            heterogeneity_i2: I² statistic for heterogeneity
+            heterogeneity_p: P-value for heterogeneity test
+            model: random-effects or fixed-effects
+            ci_level: Confidence interval level (default 95)
+
+        Returns:
+            Formatted figure legend
+        """
+        parts = []
+
+        # Title
+        parts.append(
+            f"Forest plot showing {effect_measure} estimates from {analysis_type}."
+        )
+
+        # Sample info
+        if n_studies is not None:
+            study_text = f"{n_studies} studies"
+            if n_participants is not None:
+                study_text += f" (N = {n_participants:,} participants)"
+            parts.append(study_text + ".")
+
+        # Model
+        parts.append(
+            f"Analysis performed using a {model} model with {ci_level}% confidence intervals."
+        )
+
+        # Heterogeneity
+        if heterogeneity_i2 is not None:
+            het_text = f"Heterogeneity: I² = {heterogeneity_i2:.1f}%"
+            if heterogeneity_p is not None:
+                from utils.formatting import format_p_value
+
+                p_str = format_p_value(heterogeneity_p, use_style=False)
+                het_text += f", P = {p_str}"
+            parts.append(het_text + ".")
+
+        # Legend explanation
+        parts.append(
+            "Squares represent point estimates (size proportional to weight); "
+            "horizontal lines represent confidence intervals; "
+            "diamond represents the pooled estimate."
+        )
+
+        return " ".join(parts)
+
+    @staticmethod
+    def roc_curve(
+        test_name: str,
+        outcome_name: str,
+        n_cases: int | None = None,
+        n_controls: int | None = None,
+        auc: float | None = None,
+        auc_ci: tuple[float, float] | None = None,
+        optimal_cutoff: float | None = None,
+        sensitivity_at_cutoff: float | None = None,
+        specificity_at_cutoff: float | None = None,
+    ) -> str:
+        """
+        Generate legend for ROC curve.
+
+        Args:
+            test_name: Name of the diagnostic test
+            outcome_name: Name of the outcome/condition
+            n_cases: Number of positive cases
+            n_controls: Number of negative controls
+            auc: Area under the curve
+            auc_ci: 95% CI for AUC (lower, upper)
+            optimal_cutoff: Optimal threshold value
+            sensitivity_at_cutoff: Sensitivity at optimal cutoff
+            specificity_at_cutoff: Specificity at optimal cutoff
+
+        Returns:
+            Formatted figure legend
+        """
+        parts = []
+
+        # Title
+        parts.append(
+            f"Receiver operating characteristic (ROC) curve for {test_name} "
+            f"in predicting {outcome_name}."
+        )
+
+        # Sample
+        if n_cases is not None and n_controls is not None:
+            parts.append(f"Cases: n = {n_cases}; Controls: n = {n_controls}.")
+
+        # AUC
+        if auc is not None:
+            auc_text = f"Area under the curve (AUC) = {auc:.3f}"
+            if auc_ci is not None:
+                auc_text += f" (95% CI: {auc_ci[0]:.3f}–{auc_ci[1]:.3f})"
+            parts.append(auc_text + ".")
+
+        # Optimal cutoff
+        if optimal_cutoff is not None:
+            cutoff_text = f"Optimal cutoff: {optimal_cutoff:.2f}"
+            if sensitivity_at_cutoff is not None and specificity_at_cutoff is not None:
+                cutoff_text += (
+                    f" (sensitivity: {sensitivity_at_cutoff:.1%}, "
+                    f"specificity: {specificity_at_cutoff:.1%})"
+                )
+            parts.append(cutoff_text + ".")
+
+        # Reference line
+        parts.append(
+            "Diagonal dashed line represents random classification (AUC = 0.5)."
+        )
+
+        return " ".join(parts)
+
+    @staticmethod
+    def correlation_matrix(
+        n_variables: int,
+        n_observations: int,
+        method: str = "Pearson",
+        significant_threshold: float = 0.05,
+        correction_method: str | None = None,
+    ) -> str:
+        """
+        Generate legend for correlation matrix heatmap.
+
+        Args:
+            n_variables: Number of variables in the matrix
+            n_observations: Sample size
+            method: Correlation method (Pearson, Spearman, Kendall)
+            significant_threshold: P-value threshold for significance
+            correction_method: Multiple testing correction (Bonferroni, FDR, etc.)
+
+        Returns:
+            Formatted figure legend
+        """
+        parts = []
+
+        # Title
+        parts.append(
+            f"Correlation matrix showing {method} correlation coefficients "
+            f"among {n_variables} variables (N = {n_observations})."
+        )
+
+        # Color coding
+        parts.append(
+            "Color intensity represents the strength of correlation "
+            "(red: positive; blue: negative)."
+        )
+
+        # Significance
+        sig_text = f"Significance threshold: P < {significant_threshold}."
+        if correction_method:
+            sig_text = f"{sig_text[:-1]} ({correction_method} correction applied)."
+        parts.append(sig_text)
+
+        # Non-significant note
+        parts.append(
+            "Non-significant correlations are shown with crossed-out cells or reduced opacity."
+        )
+
+        return " ".join(parts)
+
+    @staticmethod
+    def custom(
+        plot_type: str,
+        description: str,
+        variables: list[str] | None = None,
+        sample_size: int | None = None,
+        statistical_test: str | None = None,
+        p_value: float | None = None,
+        additional_notes: list[str] | None = None,
+    ) -> str:
+        """
+        Generate a custom figure legend.
+
+        Args:
+            plot_type: Type of plot (e.g., "Scatter plot", "Box plot")
+            description: Main description of what the figure shows
+            variables: List of variables displayed
+            sample_size: Total sample size
+            statistical_test: Statistical test used
+            p_value: P-value from the test
+            additional_notes: Additional explanatory notes
+
+        Returns:
+            Formatted figure legend
+        """
+        parts = [f"{plot_type}. {description}"]
+
+        if variables:
+            parts.append(f"Variables: {', '.join(variables)}.")
+
+        if sample_size is not None:
+            parts.append(f"N = {sample_size}.")
+
+        if statistical_test and p_value is not None:
+            from utils.formatting import format_p_value
+
+            p_str = format_p_value(p_value, use_style=False)
+            parts.append(f"{statistical_test}: P = {p_str}.")
+
+        if additional_notes:
+            parts.extend(
+                [
+                    note + "." if not note.endswith(".") else note
+                    for note in additional_notes
+                ]
+            )
+
+        return " ".join(parts)
