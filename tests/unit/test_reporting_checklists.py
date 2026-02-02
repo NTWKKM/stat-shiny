@@ -4,7 +4,6 @@ Unit tests for utils/reporting_checklists.py
 Tests CONSORT and STROBE checklist creation and validation.
 """
 
-
 from utils.reporting_checklists import (
     ChecklistItem,
     ChecklistStatus,

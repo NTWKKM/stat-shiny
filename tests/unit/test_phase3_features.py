@@ -4,7 +4,6 @@ Unit tests for OR to RR conversion and FigureLegendGenerator.
 Tests for Phase 3 enhancements in diag_test.py and formatting.py.
 """
 
-
 from utils.diag_test import convert_or_to_rr
 from utils.formatting import FigureLegendGenerator
 
