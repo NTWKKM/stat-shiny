@@ -199,7 +199,14 @@ def advanced_inference_ui():
 
 @module.server
 def advanced_inference_server(
-    input, output, session, df, var_meta, df_matched, is_matched
+    input,
+    output,
+    session,
+    df,
+    var_meta,
+    df_matched,
+    is_matched,
+    mi_imputed_datasets=None,  # NEW: MI state (future support)
 ):
     """Server logic for Advanced Inference."""
 

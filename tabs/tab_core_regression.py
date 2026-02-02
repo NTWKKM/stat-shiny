@@ -33,6 +33,7 @@ from utils.linear_lib import (
     stepwise_selection,
 )
 from utils.logic import analyze_outcome, run_glm
+from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.poisson_lib import analyze_poisson_outcome
 from utils.repeated_measures_lib import (
@@ -58,6 +59,28 @@ from utils.ui_helpers import (
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
+
+
+def _has_mi_datasets(
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
+) -> bool:
+    """Check if MI datasets are available for pooled analysis."""
+    if mi_imputed_datasets is None:
+        return False
+    datasets = mi_imputed_datasets.get()
+    return isinstance(datasets, list) and len(datasets) > 0
+
+
+def _get_mi_datasets(
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
+) -> list[pd.DataFrame]:
+    """Safely get MI datasets."""
+    if mi_imputed_datasets is None:
+        return []
+    datasets = mi_imputed_datasets.get()
+    if isinstance(datasets, list):
+        return datasets
+    return []
 
 
 # ==============================================================================
@@ -914,6 +937,7 @@ def core_regression_server(
     var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None = None,  # NEW: MI
 ) -> None:
     # --- State Management ---
     # Store main logit results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
@@ -991,13 +1015,33 @@ def core_regression_server(
             return df_matched.get()
         return df.get()
 
+    @reactive.Calc
+    def has_mi() -> bool:
+        """Check if MI datasets are available for auto-pooling."""
+        return _has_mi_datasets(mi_imputed_datasets)
+
+    @reactive.Calc
+    def mi_datasets_list() -> list[pd.DataFrame]:
+        """Get MI datasets for pooled analysis."""
+        return _get_mi_datasets(mi_imputed_datasets)
+
     @render.ui
     def ui_title_with_summary():
-        """Display title with dataset summary."""
+        """Display title with dataset summary and MI status."""
         d = current_df()
+        mi_active = has_mi()
+        mi_count = len(mi_datasets_list()) if mi_active else 0
+
         if d is not None:
+            mi_badge = ""
+            if mi_active:
+                mi_badge = ui.span(
+                    f"🔄 MI Active (m={mi_count})",
+                    class_="badge bg-success ms-2",
+                    style="font-size: 0.7em; vertical-align: middle;",
+                )
             return ui.div(
-                ui.h3("📈 Regression Models"),
+                ui.h3("📈 Regression Models", mi_badge),
                 ui.p(
                     f"{len(d):,} rows | {len(d.columns)} columns",
                     class_="text-secondary mb-3",
@@ -1495,16 +1539,145 @@ def core_regression_server(
             p.set(message="Running Logistic Regression...", detail="Calculating...")
 
             try:
-                # Run Logic from logic.py
-                # Note: updated logic.py returns 4 values and html_rep typically includes the plot + css
-                html_rep, or_res, aor_res, interaction_res = analyze_outcome(
-                    target,
-                    final_df,
-                    var_meta=var_meta.get(),
-                    method=method,
-                    interaction_pairs=interaction_pairs,
-                    adv_stats=CONFIG,
-                )
+                # Check if MI datasets are available for pooled analysis
+                mi_active = has_mi()
+                mi_dfs = mi_datasets_list() if mi_active else []
+
+                if mi_active and len(mi_dfs) > 0:
+                    # ====== MI POOLED ANALYSIS ======
+                    p.set(
+                        message="Running MI Pooled Logistic Regression...",
+                        detail=f"Analyzing {len(mi_dfs)} imputed datasets...",
+                    )
+                    logger.info(
+                        f"Logit: Running pooled analysis on {len(mi_dfs)} MI datasets"
+                    )
+
+                    # Run analysis on each imputed dataset
+                    all_results = []
+                    for i, mi_df in enumerate(mi_dfs):
+                        # Apply exclusions to MI dataset
+                        mi_df_clean = mi_df.drop(columns=exclude, errors="ignore")
+
+                        _, or_res_i, aor_res_i, _ = analyze_outcome(
+                            target,
+                            mi_df_clean,
+                            var_meta=var_meta.get(),
+                            method=method,
+                            interaction_pairs=interaction_pairs,
+                            adv_stats=CONFIG,
+                        )
+                        all_results.append(
+                            {
+                                "or_res": or_res_i,
+                                "aor_res": aor_res_i,
+                            }
+                        )
+
+                    # Pool results using Rubin's rules
+                    pooled_or = {}
+                    pooled_aor = {}
+
+                    # Pool crude ORs
+                    if all_results[0].get("or_res"):
+                        for var_key in all_results[0]["or_res"].keys():
+                            estimates = []
+                            variances = []
+                            for res in all_results:
+                                if res.get("or_res") and var_key in res["or_res"]:
+                                    v = res["or_res"][var_key]
+                                    # Extract estimate on log scale
+                                    or_val = v.get("or", 1.0)
+                                    se = v.get("se", 0.1)
+                                    if or_val > 0 and se > 0:
+                                        estimates.append(np.log(or_val))
+                                        variances.append(se**2)
+
+                            if len(estimates) == len(mi_dfs):
+                                pooled = pool_estimates(
+                                    estimates, variances, n_obs=len(final_df)
+                                )
+                                pooled_or[var_key] = {
+                                    "or": np.exp(pooled.estimate),
+                                    "ci_low": np.exp(pooled.ci_lower),
+                                    "ci_high": np.exp(pooled.ci_upper),
+                                    "p_value": pooled.p_value,
+                                    "fmi": pooled.fmi,
+                                    "label": all_results[0]["or_res"][var_key].get(
+                                        "label", var_key
+                                    ),
+                                }
+
+                    # Pool adjusted ORs
+                    if all_results[0].get("aor_res"):
+                        for var_key in all_results[0]["aor_res"].keys():
+                            estimates = []
+                            variances = []
+                            for res in all_results:
+                                if res.get("aor_res") and var_key in res["aor_res"]:
+                                    v = res["aor_res"][var_key]
+                                    aor_val = v.get("aor", 1.0)
+                                    se = v.get("se", 0.1)
+                                    if aor_val > 0 and se > 0:
+                                        estimates.append(np.log(aor_val))
+                                        variances.append(se**2)
+
+                            if len(estimates) == len(mi_dfs):
+                                pooled = pool_estimates(
+                                    estimates, variances, n_obs=len(final_df)
+                                )
+                                pooled_aor[var_key] = {
+                                    "aor": np.exp(pooled.estimate),
+                                    "ci_low": np.exp(pooled.ci_lower),
+                                    "ci_high": np.exp(pooled.ci_upper),
+                                    "p_value": pooled.p_value,
+                                    "fmi": pooled.fmi,
+                                    "label": all_results[0]["aor_res"][var_key].get(
+                                        "label", var_key
+                                    ),
+                                }
+
+                    # Build HTML report with pooled results
+                    html_rep = f"""
+                    <div class="alert alert-success mb-3">
+                        <strong>🔄 Multiple Imputation Analysis</strong><br>
+                        Results pooled from {len(mi_dfs)} imputed datasets using Rubin's Rules.
+                    </div>
+                    """
+
+                    # Generate pooled results table
+                    if pooled_aor:
+                        html_rep += "<h4>Pooled Adjusted Odds Ratios</h4>"
+                        html_rep += "<table class='table table-striped'><thead><tr>"
+                        html_rep += "<th>Variable</th><th>AOR</th><th>95% CI</th><th>P-value</th><th>FMI</th></tr></thead><tbody>"
+                        for k, v in pooled_aor.items():
+                            p_fmt = format_p_value(v["p_value"])
+                            fmi_pct = (
+                                f"{v['fmi'] * 100:.1f}%" if v.get("fmi") else "N/A"
+                            )
+                            html_rep += f"<tr><td>{html.escape(v.get('label', k))}</td>"
+                            html_rep += f"<td>{v['aor']:.2f}</td>"
+                            html_rep += (
+                                f"<td>{v['ci_low']:.2f} - {v['ci_high']:.2f}</td>"
+                            )
+                            html_rep += f"<td>{p_fmt}</td><td>{fmi_pct}</td></tr>"
+                        html_rep += "</tbody></table>"
+
+                    or_res = pooled_or
+                    aor_res = pooled_aor
+                    interaction_res = None
+
+                else:
+                    # ====== STANDARD ANALYSIS ======
+                    # Run Logic from logic.py
+                    html_rep, or_res, aor_res, interaction_res = analyze_outcome(
+                        target,
+                        final_df,
+                        var_meta=var_meta.get(),
+                        method=method,
+                        interaction_pairs=interaction_pairs,
+                        adv_stats=CONFIG,
+                    )
             except Exception as e:
                 err_msg = f"Error running logistic regression: {e!s}"
                 logit_res.set({"error": err_msg})

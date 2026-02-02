@@ -641,6 +641,7 @@ def survival_server(
     var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None = None,  # NEW: MI
 ) -> None:
     """
     Initialize server-side logic for the Survival Analysis Shiny module, wiring reactive state, dataset selection, input-choice auto-detection, and handlers for curves, landmark, Cox, subgroup, and time-varying Cox analyses.

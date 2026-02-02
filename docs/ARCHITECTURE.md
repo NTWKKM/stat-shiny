@@ -100,6 +100,62 @@ sequenceDiagram
     Server-->>UI: Show outlier handling results
 ```
 
+## 2.5. Multiple Imputation Workflow (NEW)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as MI Tab UI
+    participant Server as Data Server
+    participant MICE as MICEImputer
+    participant Rubin as pool_estimates()
+    participant Analysis as Regression Server
+    
+    User->>UI: Navigate to Multiple Imputation tab
+    UI->>Server: Load columns with missing data
+    Server-->>UI: Display missing summary
+    
+    User->>UI: Select columns & set m (imputations)
+    User->>UI: Click "Run Multiple Imputation"
+    UI->>Server: Trigger MI
+    Server->>MICE: fit_transform(df, columns)
+    MICE->>MICE: Run m iterations of chained equations
+    MICE-->>Server: Return MICEResult (m datasets)
+    Server-->>UI: Show success + diagnostics
+    
+    Note over User,Analysis: Later: Analysis Tab
+    
+    User->>Analysis: Run regression analysis
+    Analysis->>Analysis: Check for MI datasets
+    alt MI datasets available
+        loop For each imputed dataset
+            Analysis->>Analysis: Fit model
+        end
+        Analysis->>Rubin: Pool coefficients (Rubin's Rules)
+        Rubin->>Rubin: Calculate pooled SE, FMI
+        Rubin-->>Analysis: Return PooledResult
+        Analysis-->>User: Display pooled estimates + FMI
+    else No MI
+        Analysis->>Analysis: Fit model on original data
+        Analysis-->>User: Display standard results
+    end
+```
+
+## 2.6. Shared MI State Architecture
+
+```mermaid
+flowchart TD
+    A[app.py: mi_imputed_datasets] -->|shared| B[tab_data.py]
+    A -->|shared| C[tab_core_regression.py]
+    A -->|shared| D[tab_survival.py]
+    A -->|shared| E[tab_advanced_inference.py]
+    
+    B -->|sets| A
+    C -->|reads & pools| A
+    D -->|reads| A
+    E -->|reads| A
+```
+
 ## 3. Logistic Regression Subgroup Analysis Workflow
 
 ```mermaid
@@ -261,6 +317,14 @@ The application uses a centralized styling system to ensure visual consistency a
 - `utils/psm_lib.py`: **Propensity Score Engine**.
   - `PropensityScoreDiagnostics`: Handles **Common Support** assessment (distribution overlap stats) and **Love Plot** generation.
   - Implements **Inverse Probability Weighting (IPW)** with optional **Weight Truncation** (1st/99th percentiles).
+- `utils/multiple_imputation.py`: **Multiple Imputation Engine** (MICE with Rubin's Rules).
+  - `MICEImputer`: Generates m imputed datasets using `IterativeImputer` with `sample_posterior=True`.
+  - `pool_estimates()`: Implements **Rubin's Rules** for pooling point estimates and standard errors.
+  - **Auto-Pooling**: `tab_core_regression.py` automatically detects MI datasets and pools logistic regression results, reporting **Fraction of Missing Information (FMI)**.
+  - Diagnostic plots: Density comparisons and imputation traces.
+- `utils/effect_sizes.py`: **Effect Size Engine**. Calculates **Cohen's d, Hedges' g, η², ω²** with interpretation badges.
+- `utils/sensitivity_lib.py`: **Sensitivity Analysis**. Implements **Bootstrap CI**, **Jackknife**, and **LOO-CV**.
+- `utils/statistical_assumptions.py`: **Assumption Testing**. Centralized normality and homogeneity variance tests.
 
 ### Dynamic UI Enhancements (Animations)
 
@@ -303,12 +367,21 @@ The data flow is standardized to ensure consistent handling of missing values an
 - **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
 - **UI Standardization**: Recent updates have unified the "Variable Selection" UI across modules (e.g., Table 1, Survival Analysis, Regression), utilizing full-width Selectize inputs with "remove button" plugins for better usability. Action buttons are also standardized to full-width (`w-100`) for consistent click targets.
 
-### 3. Central Preparation (`utils/data_cleaning.py`)
+### 3. Multiple Imputation (`utils/multiple_imputation.py`) [NEW]
+
+- **Purpose**: Handles missing data properly using **Multiple Imputation by Chained Equations (MICE)** with **Rubin's Rules** for pooling.
+- **Auto-Integration**: When MI is enabled in the Data Management tab, imputed datasets are automatically used in regression analyses.
+- **Key Components**:
+  - **MICEImputer**: Generates m imputed datasets (default m=5).
+  - **Rubin's Rules**: Combines within-imputation and between-imputation variance for valid inference.
+  - **Fraction of Missing Information (FMI)**: Reported to indicate missingness impact on each estimate.
+
+### 4. Central Preparation (`utils/data_cleaning.py`)
 
 - **Before Analysis**: Data is passed through `prepare_data_for_analysis()` which handles exclusion logic and logging.
 - **Outlier Logic**: `handle_outliers()` supports 'iqr' and 'zscore' detection with 'remove', 'winsorize', or 'cap' actions.
 
-### 4. Integrated Reporting (`utils/formatting.py`)
+### 5. Integrated Reporting (`utils/formatting.py`)
 
 - **Missing Data Statistics**: Automatically analyzed and included in the final report.
   - **Smart Visualization Sync**: The report is architected to be the "detailed companion" to the visualization, covering "blind spots" if the heatmap is subsampled.
