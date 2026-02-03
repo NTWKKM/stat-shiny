@@ -2331,9 +2331,7 @@ def core_regression_server(
                 "predictors": list(aor_res.keys()) if aor_res else [],
                 "has_missing_report": True,  # We always include missing report
                 "has_ci": True,
-                "method": input.logit_method()
-                if hasattr(input, "logit_method")
-                else "logistic",
+                "method": "logistic",  # Default method
                 "has_sensitivity": bool(aor_res),  # E-values are calculated
                 "has_subgroup": False,  # Could check if subgroup was run
             }
@@ -2400,9 +2398,7 @@ def core_regression_server(
                 "predictors": list(aor_res.keys()) if aor_res else [],
                 "has_missing_report": True,
                 "has_ci": True,
-                "method": input.logit_method()
-                if hasattr(input, "logit_method")
-                else "logistic",
+                "method": "logistic",  # Default method
                 "has_sensitivity": bool(aor_res),
                 "has_subgroup": False,
             }
