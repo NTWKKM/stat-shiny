@@ -1780,6 +1780,19 @@ def core_regression_server(
                 plot_html = plotly_figure_to_html(fig_crude, include_plotlyjs="cdn")
                 logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
+            # Append Assumptions Checklist
+            logit_fragment_html += """
+            <div class='assumptions-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'>
+                <h3>✅ Model Assumptions Checklist</h3>
+                <ol>
+                    <li><strong>Multicollinearity:</strong> Check standard errors. Large SEs indicate high correlation (VIF > 5-10).</li>
+                    <li><strong>Linearity:</strong> Log-odds should be linear with continuous predictors (Box-Tidwell).</li>
+                    <li><strong>Independence:</strong> Observations should be independent.</li>
+                    <li><strong>Separation:</strong> Huge SEs (>1000) imply perfect separation. Consider Firth's method.</li>
+                </ol>
+            </div>
+            """
+
             # 2. Create Full HTML for Download (Wrapped)
             full_logit_html = f"""
             <!DOCTYPE html>
