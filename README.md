@@ -233,7 +233,7 @@ This application is a complete statistical workbench organized into modular tabs
   - **Linear Regression**: OLS with options for robust standard errors.
 - **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).
 - **Effect Sizes (NEW)**: Cohen's d, Hedges' g, **η² (Eta-squared)**, **ω² (Omega-squared)** with interpretation badges.
-- **MI Auto-Pooling (NEW)**: When Multiple Imputation is active, regression automatically pools results using **Rubin's Rules** with **FMI (Fraction Missing Information)** reporting.
+- **MI Auto-Pooling (NEW)**: When Multiple Imputation is active, regression automatically pools results using **Rubin's Rules** with **FMI (Fraction Missing Information)** reporting. Supported analyses: **Logistic**, **Linear**, **Cox PH**, and **Mediation**.
 
 ### ⏳ Survival Analysis
 

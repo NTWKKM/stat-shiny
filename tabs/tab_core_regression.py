@@ -2452,7 +2452,7 @@ def core_regression_server(
     @reactive.Effect
     @reactive.event(input.btn_run_linear)
     def _run_linear():
-        """Run linear regression analysis for continuous outcome."""
+        """Run linear regression analysis for continuous outcome with optional MI pooling."""
         d = current_df()
         target = input.linear_outcome()
         predictors = (
@@ -2475,64 +2475,183 @@ def core_regression_server(
         linear_is_running.set(True)
         linear_res.set(None)
 
-        with ui.Progress(min=0, max=1) as p:
-            p.set(message="Running Linear Regression...", detail="Preparing data...")
+        # Check for MI datasets
+        mi_active = has_mi()
+        mi_dfs = mi_datasets_list() if mi_active else []
 
+        with ui.Progress(min=0, max=1) as p:
             try:
-                # Run analysis from linear_lib
-                html_report, results, plots, missing_info = analyze_linear_outcome(
-                    outcome_name=target,
-                    df=d,
-                    predictor_cols=predictors,
-                    var_meta=var_meta.get(),
-                    exclude_cols=exclude,
-                    regression_type=method,
-                    robust_se=robust_se,
-                )
+                if mi_active and len(mi_dfs) > 0:
+                    # ====== MI POOLED LINEAR ANALYSIS ======
+                    p.set(
+                        message="Running MI Pooled Linear Regression...",
+                        detail=f"Analyzing {len(mi_dfs)} imputed datasets...",
+                    )
+
+                    all_results = []
+                    all_plots = None
+                    for mi_df in mi_dfs:
+                        _, res_i, plots_i, _ = analyze_linear_outcome(
+                            outcome_name=target,
+                            df=mi_df,
+                            predictor_cols=predictors,
+                            var_meta=var_meta.get(),
+                            exclude_cols=exclude,
+                            regression_type=method,
+                            robust_se=robust_se,
+                        )
+                        all_results.append(res_i)
+                        if all_plots is None:
+                            all_plots = plots_i
+
+                    if not all_results:
+                        linear_res.set({"error": "All MI models failed"})
+                        linear_is_running.set(False)
+                        return
+
+                    # Pool β coefficients using Rubin's rules
+                    pooled_rows = []
+                    first_coef = all_results[0]["coef_table"]
+                    for _, row in first_coef.iterrows():
+                        var_name = row["Variable"]
+                        estimates = []
+                        variances = []
+                        for res in all_results:
+                            coef_tbl = res.get("coef_table")
+                            if coef_tbl is not None:
+                                match = coef_tbl[coef_tbl["Variable"] == var_name]
+                                if len(match) > 0:
+                                    beta = match.iloc[0]["Coefficient"]
+                                    se = match.iloc[0]["Std. Error"]
+                                    if np.isfinite(beta) and se > 0:
+                                        estimates.append(beta)
+                                        variances.append(se**2)
+
+                        if len(estimates) == len(mi_dfs):
+                            pooled = pool_estimates(estimates, variances, n_obs=len(d))
+                            pooled_rows.append(
+                                {
+                                    "Variable": var_name,
+                                    "β": pooled.estimate,
+                                    "Std. Error": pooled.se,
+                                    "95% CI": f"{pooled.ci_lower:.3f}, {pooled.ci_upper:.3f}",
+                                    "p-value": format_p_value(pooled.p_value),
+                                    "FMI": f"{pooled.fmi * 100:.1f}%",
+                                }
+                            )
+
+                    pooled_coef_df = pd.DataFrame(pooled_rows)
+
+                    # Build pooled HTML report
+                    html_report = f"""
+                    <div class="alert alert-info mb-3">
+                        <strong>🔄 Multiple Imputation Analysis</strong><br>
+                        Results pooled from {len(mi_dfs)} imputed datasets using Rubin's Rules.
+                    </div>
+                    <h2>Pooled Coefficients</h2>
+                    {pooled_coef_df.to_html(index=False, escape=False, classes="table table-striped")}
+                    """
+
+                    target_escaped = html.escape(target)
+                    full_html = f"""
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="utf-8">
+                        <title>MI Pooled Linear Regression: {target_escaped}</title>
+                        <style>
+                            body {{ font-family: sans-serif; margin: 20px; }}
+                            .table {{ width: 100%; border-collapse: collapse; }}
+                            .table th, .table td {{ padding: 8px; border: 1px solid #ddd; }}
+                        </style>
+                    </head>
+                    <body>{html_report}</body>
+                    </html>
+                    """
+
+                    linear_res.set(
+                        {
+                            "html_fragment": html_report,
+                            "html_full": full_html,
+                            "plots": all_plots or {},
+                            "results": {
+                                "mi_pooled": True,
+                                "m": len(mi_dfs),
+                                "n_obs": len(d),
+                                "r_squared": float("nan"),
+                                "coef_table": pooled_coef_df,
+                            },
+                            "missing_info": {
+                                "mi_pooled": True,
+                                "rows_analyzed": len(d),
+                            },
+                        }
+                    )
+
+                    ui.notification_show(
+                        "✅ MI Pooled Linear Regression Complete!", type="message"
+                    )
+
+                else:
+                    # ====== STANDARD LINEAR ANALYSIS ======
+                    p.set(
+                        message="Running Linear Regression...",
+                        detail="Preparing data...",
+                    )
+
+                    html_report, results, plots, missing_info = analyze_linear_outcome(
+                        outcome_name=target,
+                        df=d,
+                        predictor_cols=predictors,
+                        var_meta=var_meta.get(),
+                        exclude_cols=exclude,
+                        regression_type=method,
+                        robust_se=robust_se,
+                    )
+
+                    target_escaped = html.escape(target)
+                    full_linear_html = f"""
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Linear Regression Report: {target_escaped}</title>
+                        <style>
+                            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }}
+                            .table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
+                            .table th, .table td {{ padding: 8px; border: 1px solid #ddd; text-align: left; }}
+                            .table th {{ background: #f5f5f5; }}
+                            .table-striped tbody tr:nth-child(odd) {{ background: #fafafa; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="report-container">
+                            {html_report}
+                        </div>
+                    </body>
+                    </html>
+                    """
+
+                    linear_res.set(
+                        {
+                            "html_fragment": html_report,
+                            "html_full": full_linear_html,
+                            "plots": plots,
+                            "results": results,
+                            "missing_info": missing_info,
+                        }
+                    )
+
+                    ui.notification_show(
+                        "✅ Linear Regression Complete!", type="message"
+                    )
+
             except Exception as e:
                 err_msg = f"Error running Linear Regression: {e!s}"
                 linear_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Linear regression error")
-                return
-
-            # Create full HTML for download
-            target_escaped = html.escape(target)
-            full_linear_html = f"""
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Linear Regression Report: {target_escaped}</title>
-                <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }}
-                    .table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
-                    .table th, .table td {{ padding: 8px; border: 1px solid #ddd; text-align: left; }}
-                    .table th {{ background: #f5f5f5; }}
-                    .table-striped tbody tr:nth-child(odd) {{ background: #fafafa; }}
-                </style>
-            </head>
-            <body>
-                <div class="report-container">
-                    {html_report}
-                </div>
-            </body>
-            </html>
-            """
-
-            # Store Results
-            linear_res.set(
-                {
-                    "html_fragment": html_report,
-                    "html_full": full_linear_html,
-                    "plots": plots,
-                    "results": results,
-                    "missing_info": missing_info,
-                }
-            )
-
-            ui.notification_show("✅ Linear Regression Complete!", type="message")
 
         # End Loading State
         linear_is_running.set(False)
