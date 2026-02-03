@@ -152,8 +152,8 @@ flowchart TD
     
     B -->|sets| A
     C -->|reads & pools| A
-    D -->|reads| A
-    E -->|reads| A
+    D -->|reads & pools| A
+    E -->|reads & pools| A
 ```
 
 ## 3. Logistic Regression Subgroup Analysis Workflow
