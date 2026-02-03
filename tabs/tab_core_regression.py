@@ -19,6 +19,12 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from utils.calibration_lib import (
+    create_calibration_plot,
+    create_decision_curve,
+    format_calibration_html,
+    get_calibration_report,
+)
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import (
     PublicationFormatter,
@@ -32,7 +38,13 @@ from utils.linear_lib import (
     format_stepwise_history,
     stepwise_selection,
 )
-from utils.logic import analyze_outcome, run_glm
+from utils.logic import (
+    analyze_outcome,
+    calculate_absolute_risk,
+    calculate_nnt,
+    format_absolute_risk_html,
+    run_glm,
+)
 from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.poisson_lib import analyze_poisson_outcome
@@ -42,6 +54,12 @@ from utils.repeated_measures_lib import (
     run_gee,
     run_lmm,
 )
+from utils.reporting_checklists import (
+    auto_populate_strobe,
+    format_strobe_html_compact,
+    generate_checklist_markdown,
+)
+from utils.sensitivity_lib import calculate_e_value
 from utils.subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from utils.ui_helpers import (
     create_empty_state_ui,
@@ -1468,6 +1486,22 @@ def core_regression_server(
                     ui.nav_panel("🌳 Forest Plots", ui.output_ui("ui_forest_tabs")),
                     ui.nav_panel("📋 Detailed Report", ui.HTML(res["html_fragment"])),
                     ui.nav_panel(
+                        "📊 Model Diagnostics",
+                        ui.output_ui("out_logit_calibration"),
+                    ),
+                    ui.nav_panel(
+                        "📉 Absolute Measures",
+                        ui.output_ui("out_logit_absolute_risk"),
+                    ),
+                    ui.nav_panel(
+                        "🔬 Sensitivity",
+                        ui.output_ui("out_logit_sensitivity"),
+                    ),
+                    ui.nav_panel(
+                        "📋 STROBE",
+                        ui.output_ui("out_logit_strobe"),
+                    ),
+                    ui.nav_panel(
                         "✅ Assumptions",
                         ui.markdown("""
                             ### 🧐 Model Assumptions Checklist
@@ -1763,6 +1797,63 @@ def core_regression_server(
             </html>
             """
 
+            # --- Calculate Predictions for Calibration ---
+            # Note: For MI pooled analysis, we skip calibration (no single model)
+            y_true_arr = None
+            y_pred_arr = None
+
+            if not mi_active and aor_res:
+                try:
+                    import statsmodels.api as sm
+
+                    # Prepare data for prediction
+                    y_raw = final_df[target].dropna()
+                    unique_vals = set(y_raw.unique())
+
+                    if len(unique_vals) == 2:
+                        # Map to 0/1 if needed
+                        if not unique_vals.issubset({0, 1}):
+                            sorted_vals = sorted(unique_vals, key=str)
+                            y_binary = y_raw.map({sorted_vals[0]: 0, sorted_vals[1]: 1})
+                        else:
+                            y_binary = y_raw.astype(int)
+
+                        # Get predictor columns from aor_res keys
+                        pred_cols = []
+                        for k in aor_res.keys():
+                            # Handle categorical dummy columns
+                            if "::" in k:
+                                base_col = k.split("::")[0].split(": ")[0]
+                                if (
+                                    base_col in final_df.columns
+                                    and base_col not in pred_cols
+                                ):
+                                    pred_cols.append(base_col)
+                            elif k in final_df.columns:
+                                pred_cols.append(k)
+
+                        if pred_cols:
+                            # Prepare design matrix
+                            X = pd.get_dummies(final_df[pred_cols], drop_first=True)
+                            common_idx = y_binary.index.intersection(X.index)
+                            X_clean = X.loc[common_idx].dropna()
+                            y_clean = y_binary.loc[X_clean.index]
+
+                            if len(y_clean) > 20:
+                                X_const = sm.add_constant(X_clean, has_constant="add")
+                                model = sm.Logit(y_clean, X_const)
+                                result = model.fit(disp=0, maxiter=50)
+                                y_pred_arr = result.predict(X_const).values
+                                y_true_arr = y_clean.values
+                                logger.info(
+                                    "Calibration: Generated %d predictions",
+                                    len(y_pred_arr),
+                                )
+                except Exception as e:
+                    logger.warning(
+                        "Could not generate predictions for calibration: %s", e
+                    )
+
             # Store Results
             logit_res.set(
                 {
@@ -1770,6 +1861,9 @@ def core_regression_server(
                     "html_full": full_logit_html,  # For Download
                     "fig_adj": fig_adj,
                     "fig_crude": fig_crude,
+                    "y_true": y_true_arr,  # For calibration
+                    "y_pred": y_pred_arr,  # For calibration
+                    "aor_res": aor_res,  # For E-value sensitivity
                 }
             )
 
@@ -1864,6 +1958,459 @@ def core_regression_server(
             responsive=True,
         )
         return ui.HTML(html_str)
+
+    @render.ui
+    def out_logit_calibration():
+        """
+        Render calibration plots and metrics for the logistic regression model.
+
+        Returns calibration plot, decision curve, and key metrics table.
+        """
+        res = logit_res.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see model diagnostics...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        # Check if we have prediction data
+        y_true = res.get("y_true")
+        y_pred = res.get("y_pred")
+
+        if y_true is None or y_pred is None:
+            # Fall back to metrics-only display if no predictions stored
+            return ui.card(
+                ui.card_header("📊 Model Diagnostics"),
+                ui.div(
+                    ui.markdown("""
+                        **Note:** Calibration plots require predicted probabilities.
+                        
+                        The model diagnostics table is included in the **Detailed Report** tab.
+                        
+                        To enable full calibration analysis, ensure the multivariate model was successfully fitted.
+                    """),
+                    style="padding: 20px; color: #666;",
+                ),
+            )
+
+        try:
+            # Generate calibration report
+            calib_report = get_calibration_report(y_true, y_pred)
+            metrics_html = format_calibration_html(calib_report)
+
+            # Create calibration plot
+            fig_calib = create_calibration_plot(
+                y_true, y_pred, title="Calibration Plot (Observed vs Predicted)"
+            )
+            calib_plot_html = plotly_figure_to_html(
+                fig_calib,
+                div_id="plot_logit_calibration",
+                include_plotlyjs="cdn",
+                responsive=True,
+            )
+
+            # Create decision curve
+            fig_dca = create_decision_curve(
+                y_true, y_pred, title="Decision Curve Analysis"
+            )
+            dca_plot_html = plotly_figure_to_html(
+                fig_dca,
+                div_id="plot_logit_dca",
+                include_plotlyjs="cdn",
+                responsive=True,
+            )
+
+            return ui.div(
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "📈 Calibration Metrics",
+                        ui.HTML(metrics_html),
+                        ui.markdown("""
+                            ---
+                            **Interpretation Guide:**
+                            - **C-statistic (AUC)**: Measures discrimination (ability to distinguish outcomes). >0.8 is excellent.
+                            - **Brier Score**: Measures calibration accuracy. <0.25 is acceptable.
+                            - **Calibration Slope**: Should be close to 1. <0.8 or >1.2 suggests recalibration needed.
+                            - **Hosmer-Lemeshow**: p > 0.05 indicates adequate fit.
+                        """),
+                    ),
+                    ui.nav_panel("📊 Calibration Plot", ui.HTML(calib_plot_html)),
+                    ui.nav_panel("🎯 Decision Curve", ui.HTML(dca_plot_html)),
+                ),
+            )
+
+        except Exception as e:
+            logger.exception("Calibration plot generation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not generate calibration plots: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.ui
+    def out_logit_absolute_risk():
+        """
+        Render absolute risk measures (ARD/NNT) for logistic regression.
+
+        Requires a binary treatment/exposure variable to be selected.
+        """
+        res = logit_res.get()
+        d = current_df()
+        target = input.sel_outcome()
+
+        if res is None or d is None or not target:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see absolute risk measures...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        # Get binary predictors from the data
+        binary_cols = []
+        for col in d.columns:
+            if col != target:
+                unique_vals = d[col].dropna().unique()
+                if len(unique_vals) == 2:
+                    binary_cols.append(col)
+
+        if not binary_cols:
+            return ui.card(
+                ui.card_header("📉 Absolute Risk Measures"),
+                ui.div(
+                    ui.markdown("""
+                        **Note:** Absolute risk measures require a binary treatment/exposure variable.
+                        
+                        No binary predictors were found in the dataset.
+                        
+                        **What you need:**
+                        - A treatment or exposure variable with exactly 2 groups (e.g., Drug vs Placebo, Exposed vs Unexposed)
+                        
+                        The relative measures (OR) are still available in the Detailed Report.
+                    """),
+                    style="padding: 20px; color: #666;",
+                ),
+            )
+
+        try:
+            # Calculate absolute risk for the first binary predictor (primary exposure)
+            exposure_col = binary_cols[0]
+            exposure_vals = sorted(d[exposure_col].dropna().unique())
+            treatment_val = exposure_vals[1] if len(exposure_vals) > 1 else 1
+            control_val = exposure_vals[0] if len(exposure_vals) > 0 else 0
+
+            risk_data = calculate_absolute_risk(
+                d,
+                target,
+                exposure_col,
+                treatment_value=treatment_val,
+                control_value=control_val,
+            )
+
+            if "error" in risk_data:
+                return ui.card(
+                    ui.card_header("📉 Absolute Risk Measures"),
+                    ui.div(
+                        f"Could not calculate: {risk_data['error']}",
+                        style="padding: 20px; color: #666;",
+                    ),
+                )
+
+            nnt_data = calculate_nnt(
+                risk_data["ard"],
+                risk_data.get("ard_ci_lower"),
+                risk_data.get("ard_ci_upper"),
+            )
+
+            html_report = format_absolute_risk_html(risk_data, nnt_data)
+
+            return ui.card(
+                ui.card_header(f"📉 Absolute Risk: {exposure_col}"),
+                ui.HTML(html_report),
+                ui.hr(),
+                ui.div(
+                    ui.markdown(f"""
+                        **Exposure Variable:** `{exposure_col}`
+                        - Treatment group: `{treatment_val}` (n={risk_data["n_treatment"]})
+                        - Control group: `{control_val}` (n={risk_data["n_control"]})
+                        
+                        ---
+                        
+                        **Why This Matters (NEJM/Lancet Standard):**
+                        
+                        Relative measures (OR, RR) can overstate clinical significance. Absolute measures show real-world impact:
+                        - **ARD**: The actual difference in event rates
+                        - **NNT**: How many patients need treatment to affect 1 outcome
+                    """),
+                    style="font-size: 0.9em; color: #666;",
+                ),
+            )
+
+        except Exception as e:
+            logger.exception("Absolute risk calculation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not calculate absolute risk: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.ui
+    def out_logit_sensitivity():
+        """
+        Render E-value sensitivity analysis for unmeasured confounding.
+
+        E-value quantifies the minimum strength of association an unmeasured
+        confounder would need with both treatment and outcome to explain away
+        the observed effect.
+        """
+        res = logit_res.get()
+
+        if res is None or "error" in res:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see sensitivity analysis...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        # Get adjusted OR results
+        aor_res = res.get("aor_res", {})
+
+        if not aor_res:
+            return ui.card(
+                ui.card_header("🔬 E-value Sensitivity Analysis"),
+                ui.div(
+                    ui.markdown("""
+                        **Note:** E-value calculation requires adjusted odds ratios (aOR).
+                        
+                        No multivariate results available. Run analysis with predictors to calculate E-values.
+                    """),
+                    style="padding: 20px; color: #666;",
+                ),
+            )
+
+        try:
+            # Calculate E-values for significant effects
+            e_value_rows = []
+            significant_count = 0
+
+            for var_name, var_data in aor_res.items():
+                aor = var_data.get("aor")
+                ci_low = var_data.get("ci_low")
+                ci_high = var_data.get("ci_high")
+                p_val = var_data.get("p_value")
+
+                if aor is None or np.isnan(aor):
+                    continue
+
+                # Calculate E-value
+                e_result = calculate_e_value(
+                    estimate=aor, lower=ci_low, upper=ci_high, type="OR"
+                )
+
+                if "error" in e_result:
+                    continue
+
+                e_val = e_result.get("e_value_estimate", np.nan)
+                e_ci = e_result.get("e_value_ci_limit", np.nan)
+
+                # Interpret strength
+                if e_val >= 3:
+                    strength = "🟢 Strong"
+                    note = "Robust to moderate confounding"
+                elif e_val >= 2:
+                    strength = "🟡 Moderate"
+                    note = "Sensitive to moderate confounding"
+                else:
+                    strength = "🔴 Weak"
+                    note = "Easily explained by confounding"
+
+                is_sig = p_val is not None and p_val < 0.05
+                if is_sig:
+                    significant_count += 1
+
+                sig_badge = "✓" if is_sig else ""
+
+                e_value_rows.append(f"""
+                    <tr>
+                        <td>{html.escape(str(var_name))} {sig_badge}</td>
+                        <td>{aor:.2f}</td>
+                        <td><strong>{e_val:.2f}</strong></td>
+                        <td>{e_ci:.2f}</td>
+                        <td>{strength}</td>
+                        <td style='font-size: 0.85em; color: #666;'>{note}</td>
+                    </tr>
+                """)
+
+            if not e_value_rows:
+                return ui.card(
+                    ui.card_header("🔬 E-value Sensitivity Analysis"),
+                    ui.div(
+                        "No valid estimates for E-value calculation.",
+                        style="padding: 20px;",
+                    ),
+                )
+
+            e_table = f"""
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>Variable</th>
+                        <th>aOR</th>
+                        <th>E-value (Point)</th>
+                        <th>E-value (CI)</th>
+                        <th>Robustness</th>
+                        <th>Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {"".join(e_value_rows)}
+                </tbody>
+            </table>
+            """
+
+            return ui.card(
+                ui.card_header("🔬 E-value Sensitivity Analysis"),
+                ui.HTML(e_table),
+                ui.hr(),
+                ui.markdown("""
+                    **How to Interpret E-values (VanderWeele & Ding, 2017):**
+                    
+                    The **E-value** is the minimum strength of association (on the risk ratio scale) that an unmeasured confounder would need to have with **both** the treatment and the outcome to fully explain away the observed effect.
+                    
+                    | E-value | Interpretation |
+                    |---------|----------------|
+                    | ≥ 3.0 | **Strong robustness** - Would require a very strong confounder |
+                    | 2.0 - 3.0 | **Moderate robustness** - Moderately robust to confounding |
+                    | 1.5 - 2.0 | **Weak robustness** - Could be explained by a moderately strong confounder |
+                    | < 1.5 | **Very weak** - Easily explained by mild confounding |
+                    
+                    > **Citation:** VanderWeele TJ, Ding P. Sensitivity Analysis in Observational Research: Introducing the E-Value. *Ann Intern Med.* 2017;167(4):268-274.
+                """),
+            )
+
+        except Exception as e:
+            logger.exception("E-value calculation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not calculate E-values: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.ui
+    def out_logit_strobe():
+        """
+        Render STROBE checklist with auto-populated items.
+
+        Auto-marks items based on what was performed in the analysis.
+        """
+        res = logit_res.get()
+        d = current_df()
+        target = input.sel_outcome()
+
+        if res is None or "error" in res:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see STROBE checklist...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        try:
+            # Build analysis metadata for auto-population
+            aor_res = res.get("aor_res", {})
+            n_total = len(d) if d is not None else 0
+            n_analyzed = (
+                len(res.get("y_true", [])) if res.get("y_true") is not None else n_total
+            )
+
+            metadata = {
+                "n_total": n_total,
+                "n_analyzed": n_analyzed,
+                "outcome_name": target or "Unknown",
+                "predictors": list(aor_res.keys()) if aor_res else [],
+                "has_missing_report": True,  # We always include missing report
+                "has_ci": True,
+                "method": input.logit_method()
+                if hasattr(input, "logit_method")
+                else "logistic",
+                "has_sensitivity": bool(aor_res),  # E-values are calculated
+                "has_subgroup": False,  # Could check if subgroup was run
+            }
+
+            # Create auto-populated checklist
+            checklist = auto_populate_strobe(metadata)
+
+            # Generate HTML
+            html_content = format_strobe_html_compact(checklist)
+
+            return ui.card(
+                ui.card_header("📋 STROBE Checklist (Auto-filled)"),
+                ui.HTML(html_content),
+                ui.hr(),
+                ui.row(
+                    ui.column(
+                        6,
+                        ui.download_button(
+                            "dl_strobe_md",
+                            "📥 Download STROBE (Markdown)",
+                            class_="btn-outline-secondary btn-sm",
+                        ),
+                    ),
+                    ui.column(
+                        6,
+                        ui.markdown("""
+                            **Legend:** ✅ Complete | 🔶 Partial | ❌ Not addressed
+                        """),
+                    ),
+                ),
+            )
+
+        except Exception as e:
+            logger.exception("STROBE checklist generation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not generate STROBE checklist: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.download(filename="strobe_checklist.md")
+    def dl_strobe_md():
+        """Download STROBE checklist as markdown."""
+        res = logit_res.get()
+        d = current_df()
+        target = input.sel_outcome()
+
+        if res is None:
+            yield "# STROBE Checklist\n\nNo analysis results available."
+            return
+
+        try:
+            aor_res = res.get("aor_res", {})
+            n_total = len(d) if d is not None else 0
+
+            metadata = {
+                "n_total": n_total,
+                "n_analyzed": len(res.get("y_true", []))
+                if res.get("y_true") is not None
+                else n_total,
+                "outcome_name": target or "Unknown",
+                "predictors": list(aor_res.keys()) if aor_res else [],
+                "has_missing_report": True,
+                "has_ci": True,
+                "method": input.logit_method()
+                if hasattr(input, "logit_method")
+                else "logistic",
+                "has_sensitivity": bool(aor_res),
+                "has_subgroup": False,
+            }
+
+            checklist = auto_populate_strobe(metadata)
+            yield generate_checklist_markdown(checklist)
+        except Exception as e:
+            yield f"# Error\n\nCould not generate checklist: {e}"
 
     @render.download(filename="logit_report.html")
     def btn_dl_report():

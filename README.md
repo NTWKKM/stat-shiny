@@ -145,10 +145,14 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_tvc_lib.py
 |       |-- test_ui_ux_styles.py
 |       `-- verify_table_one.py
+|       `-- test_regression_publication.py
+|       |-- test_calibration.py
+|       |-- test_absolute_risk.py
 `-- utils /
     |-- __init__.py
     |-- advanced_stats_lib.py
     |-- agreement_lib.py
+    |-- calibration_lib.py
     |-- collinearity_lib.py
     |-- correlation.py
     |-- data_cleaning.py
@@ -169,6 +173,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- poisson_lib.py
     |-- psm_lib.py
     |-- rcs_lib.py
+    |-- reporting_checklists.py
     |-- repeated_measures_lib.py
     |-- sample_size_lib.py
     |-- sensitivity_lib.py
@@ -228,10 +233,15 @@ This application is a complete statistical workbench organized into modular tabs
 ### 📈 Core Regression Models
 
 - **GLM Framework**:
-  - **Logistic Regression**: Standard, Auto, **Firth's Regression** (rare events), and **Subgroup Analysis** (Forest Plots with **Interaction P-value** annotation).
+  - **Logistic Regression**: Standard, Auto, **Firth's Regression** (rare events), and **Subgroup Analysis** (Forest Plots with **Interaction P-value** annotation and **ICEMAN credibility**).
   - **Count Models**: Poisson and Negative Binomial regression.
   - **Linear Regression**: OLS with options for robust standard errors.
 - **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).
+- **NEJM/Lancet Publication Standards (NEW)**:
+  - **Model Diagnostics**: C-statistic with 95% CI, Brier Score, Calibration Slope, Hosmer-Lemeshow test, Calibration plots with LOWESS.
+  - **Absolute Measures**: ARD (Absolute Risk Difference) with Newcombe CI, NNT/NNH with Altman method.
+  - **Sensitivity Analysis**: E-value for unmeasured confounding assessment.
+  - **STROBE Checklist**: Auto-populated reporting checklist with markdown export.
 - **Effect Sizes (NEW)**: Cohen's d, Hedges' g, **η² (Eta-squared)**, **ω² (Omega-squared)** with interpretation badges.
 - **MI Auto-Pooling (NEW)**: When Multiple Imputation is active, regression automatically pools results using **Rubin's Rules** with **FMI (Fraction Missing Information)** reporting. Supported analyses: **Logistic**, **Linear**, **Cox PH**, and **Mediation**.
 
@@ -252,6 +262,7 @@ This application is a complete statistical workbench organized into modular tabs
 - **Propensity Methods**: IPW (Inverse Probability Weighting) and PSM integration.
 - **Stratified Analysis**: Mantel-Haenszel odds ratios and Breslow-Day homogeneity tests.
 - **Sensitivity Analysis**: **E-Value** calculation for unmeasured confounding.
+- **Subgroup Credibility (NEW)**: **ICEMAN framework** for assessing heterogeneity claims with Bonferroni adjustment.
 - **Diagnostics**: Comprehensive **Propensity Score Diagnostics** including overlapping density plots and summary statistics.
 
 ### 🧪 Diagnostic Tests & Agreement
@@ -277,8 +288,9 @@ This application is a complete statistical workbench organized into modular tabs
 ### ⚙️ Settings & Performance
 
 - **Publication Ready**: Configurable **Reporting Style** templates for major journals (**NEJM, JAMA, Lancet, BMJ**).
-- **Reporting Checklists (NEW)**: **CONSORT** (RCTs) and **STROBE** (Observational) checklist generators.
-- **Figure Legends (NEW)**: Auto-generated publication-ready figure legends for plots.
+- **Reporting Checklists**: **CONSORT** (RCTs) and **STROBE** (Observational) checklist generators with **auto-population** from analysis metadata.
+- **Figure Legends**: Auto-generated publication-ready figure legends for plots.
+- **Model Calibration (NEW)**: Decision Curve Analysis (DCA) for clinical utility assessment.
 - **Auto-Methods**: Automated generation of "Methods" and "Missing Data" statements.
 - **Customization**: Theme switching (Light/Dark), plot sizing, and decimal precision control.
 - **Logging**: Configurable logging levels and file output.

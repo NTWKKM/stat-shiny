@@ -673,3 +673,198 @@ def generate_checklist_markdown(checklist: ReportingChecklist) -> str:
         md += "\n"
 
     return md
+
+
+def auto_populate_strobe(
+    analysis_metadata: dict[str, Any],
+    study_type: str = "cohort",
+) -> ReportingChecklist:
+    """
+    Auto-populate STROBE checklist based on analysis metadata.
+
+    Automatically marks items as complete/partial based on what was
+    performed in the statistical analysis.
+
+    Args:
+        analysis_metadata: Dictionary containing analysis details:
+            - n_total: Total sample size
+            - n_analyzed: Number in final analysis
+            - outcome_name: Name of outcome variable
+            - predictors: List of predictor variables
+            - has_missing_report: Whether missing data was reported
+            - has_ci: Whether confidence intervals were reported
+            - method: Statistical method used
+            - has_sensitivity: Whether sensitivity analysis was done
+            - has_subgroup: Whether subgroup analysis was done
+        study_type: "cohort", "case_control", or "cross_sectional"
+
+    Returns:
+        Pre-populated ReportingChecklist
+    """
+    checklist = create_strobe_checklist(study_type)
+
+    # Extract metadata with defaults
+    n_total = analysis_metadata.get("n_total", 0)
+    n_analyzed = analysis_metadata.get("n_analyzed", 0)
+    outcome = analysis_metadata.get("outcome_name", "")
+    predictors = analysis_metadata.get("predictors", [])
+    has_missing = analysis_metadata.get("has_missing_report", False)
+    has_ci = analysis_metadata.get("has_ci", True)
+    method = analysis_metadata.get("method", "logistic")
+    has_sensitivity = analysis_metadata.get("has_sensitivity", False)
+    has_subgroup = analysis_metadata.get("has_subgroup", False)
+
+    # Auto-mark items based on metadata
+    auto_marks: dict[str, tuple[ChecklistStatus, str]] = {}
+
+    # 5. Setting: Study setting - partial if we have data
+    if n_total > 0:
+        auto_marks["5"] = (
+            ChecklistStatus.PARTIAL,
+            f"Data available: n={n_total}",
+        )
+
+    # 7. Variables: Outcomes and exposures
+    if outcome and predictors:
+        auto_marks["7"] = (
+            ChecklistStatus.COMPLETE,
+            f"Outcome: {outcome}; Predictors: {len(predictors)} variables",
+        )
+
+    # 10. Study size
+    if n_analyzed > 0:
+        auto_marks["10"] = (
+            ChecklistStatus.PARTIAL,
+            f"Analyzed n={n_analyzed}. Explain how sample size was determined.",
+        )
+
+    # 12a. Statistical methods
+    method_desc = {
+        "logistic": "Logistic regression",
+        "firth": "Firth's penalized logistic regression",
+        "auto": "Logistic regression (auto-selected)",
+    }.get(method, method)
+    auto_marks["12a"] = (
+        ChecklistStatus.COMPLETE,
+        f"{method_desc} with 95% CI",
+    )
+
+    # 12b. Subgroups and interactions
+    if has_subgroup:
+        auto_marks["12b"] = (
+            ChecklistStatus.COMPLETE,
+            "Subgroup analysis performed",
+        )
+
+    # 12c. Missing data
+    if has_missing:
+        auto_marks["12c"] = (
+            ChecklistStatus.COMPLETE,
+            "Missing data handling documented",
+        )
+    else:
+        auto_marks["12c"] = (
+            ChecklistStatus.NOT_DONE,
+            "Add missing data summary",
+        )
+
+    # 12d. Follow-up (for cohort)
+    # 12e. Sensitivity analyses
+    if has_sensitivity:
+        auto_marks["12e"] = (
+            ChecklistStatus.COMPLETE,
+            "E-value sensitivity analysis included",
+        )
+
+    # 13. Participants
+    if n_total > 0 and n_analyzed > 0:
+        excluded = n_total - n_analyzed
+        auto_marks["13a"] = (
+            ChecklistStatus.PARTIAL,
+            f"Total: {n_total}, Analyzed: {n_analyzed}, Excluded: {excluded}",
+        )
+
+    # 16. Main results
+    if has_ci:
+        auto_marks["16a"] = (
+            ChecklistStatus.COMPLETE,
+            "OR/aOR with 95% CI reported",
+        )
+
+    # Apply auto-marks
+    for number, (status, notes) in auto_marks.items():
+        checklist.update_item(number, status, notes=notes)
+
+    logger.info(
+        "Auto-populated STROBE: %d items marked",
+        len(auto_marks),
+    )
+
+    return checklist
+
+
+def format_strobe_html_compact(checklist: ReportingChecklist) -> str:
+    """
+    Generate compact HTML for STROBE checklist display in UI.
+
+    Args:
+        checklist: The populated STROBE checklist
+
+    Returns:
+        HTML string for display
+    """
+    summary = checklist.get_completion_summary()
+
+    status_icons = {
+        ChecklistStatus.COMPLETE: "✅",
+        ChecklistStatus.PARTIAL: "🔶",
+        ChecklistStatus.NOT_DONE: "❌",
+        ChecklistStatus.NOT_APPLICABLE: "➖",
+    }
+
+    rows = []
+    for item in checklist.items:
+        icon = status_icons.get(item.status, "❓")
+        status_class = {
+            ChecklistStatus.COMPLETE: "text-success",
+            ChecklistStatus.PARTIAL: "text-warning",
+            ChecklistStatus.NOT_DONE: "text-danger",
+            ChecklistStatus.NOT_APPLICABLE: "text-muted",
+        }.get(item.status, "")
+
+        rows.append(f"""
+            <tr class="{status_class}">
+                <td>{icon}</td>
+                <td><strong>{item.number}</strong></td>
+                <td>{item.item}</td>
+                <td style="font-size: 0.85em;">{item.notes or "—"}</td>
+            </tr>
+        """)
+
+    html = f"""
+    <div class="strobe-checklist">
+        <div class="alert alert-info mb-3">
+            <strong>STROBE Completion:</strong>
+            {summary["complete"]}/{summary["total_applicable"]} items complete
+            ({summary["completion_rate"]}%)
+        </div>
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th style="width: 30px;">Status</th>
+                    <th style="width: 60px;">#</th>
+                    <th>Item</th>
+                    <th>Auto-filled Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(rows)}
+            </tbody>
+        </table>
+        <div class="text-muted" style="font-size: 0.85em; margin-top: 10px;">
+            <strong>Reference:</strong> von Elm E, et al. (2007). STROBE Statement.
+            <em>PLoS Medicine</em> 4(10): e296.
+        </div>
+    </div>
+    """
+    return html

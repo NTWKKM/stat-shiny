@@ -846,3 +846,251 @@ class SubgroupAnalysisCox:
             )
 
         return self.figure
+
+
+# =============================================================================
+# ICEMAN CREDIBILITY ASSESSMENT
+# =============================================================================
+
+
+def assess_iceman_credibility(
+    subgroup_results: dict[str, Any],
+    is_prespecified: bool = False,
+    n_subgroups_tested: int = 1,
+) -> dict[str, Any]:
+    """
+    Assess credibility of subgroup heterogeneity using ICEMAN criteria.
+
+    ICEMAN (Instrument to assess the Credibility of Effect Modification Analyses)
+    evaluates whether observed subgroup differences are likely to be real.
+
+    Args:
+        subgroup_results: Output from SubgroupAnalysisLogit.analyze() or SubgroupAnalysisCox.analyze()
+        is_prespecified: Whether the subgroup analysis was pre-specified
+        n_subgroups_tested: Total number of subgroup analyses performed
+
+    Returns:
+        Dictionary with credibility score and interpretation
+    """
+    criteria = []
+
+    # Extract key values
+    interaction = subgroup_results.get("interaction", {})
+    p_interaction = interaction.get("p_value") if interaction else None
+    subgroups = subgroup_results.get("subgroups", [])
+
+    # 1. Was the subgroup analysis pre-specified?
+    if is_prespecified:
+        criteria.append(
+            {
+                "criterion": "Pre-specified",
+                "score": 2,
+                "status": "✅",
+                "note": "Subgroup was pre-specified before data collection",
+            }
+        )
+    else:
+        criteria.append(
+            {
+                "criterion": "Pre-specified",
+                "score": 0,
+                "status": "❌",
+                "note": "Exploratory (post-hoc) analysis",
+            }
+        )
+
+    # 2. Is the interaction statistically significant?
+    if p_interaction is not None and not np.isnan(p_interaction):
+        if p_interaction < 0.05:
+            criteria.append(
+                {
+                    "criterion": "Significant interaction",
+                    "score": 2,
+                    "status": "✅",
+                    "note": f"P-interaction = {p_interaction:.4f}",
+                }
+            )
+        elif p_interaction < 0.10:
+            criteria.append(
+                {
+                    "criterion": "Significant interaction",
+                    "score": 1,
+                    "status": "🔶",
+                    "note": f"P-interaction = {p_interaction:.4f} (trend)",
+                }
+            )
+        else:
+            criteria.append(
+                {
+                    "criterion": "Significant interaction",
+                    "score": 0,
+                    "status": "❌",
+                    "note": f"P-interaction = {p_interaction:.4f} (not significant)",
+                }
+            )
+    else:
+        criteria.append(
+            {
+                "criterion": "Significant interaction",
+                "score": 0,
+                "status": "❓",
+                "note": "Interaction test not performed",
+            }
+        )
+
+    # 3. Direction consistency with a priori hypothesis?
+    # This is typically a qualitative assessment, we give partial credit
+    criteria.append(
+        {
+            "criterion": "A priori direction",
+            "score": 1,
+            "status": "🔶",
+            "note": "Requires clinical review of effect direction",
+        }
+    )
+
+    # 4. Effect within subgroups clinically meaningful?
+    # Check if any subgroup shows strong effects
+    has_strong_effect = False
+    for sub in subgroups:
+        or_hr = sub.get("or") or sub.get("hr", 1.0)
+        if or_hr and (or_hr < 0.5 or or_hr > 2.0):
+            has_strong_effect = True
+            break
+
+    if has_strong_effect:
+        criteria.append(
+            {
+                "criterion": "Clinically meaningful effect",
+                "score": 2,
+                "status": "✅",
+                "note": "At least one subgroup shows large effect size",
+            }
+        )
+    else:
+        criteria.append(
+            {
+                "criterion": "Clinically meaningful effect",
+                "score": 1,
+                "status": "🔶",
+                "note": "Effects are modest in magnitude",
+            }
+        )
+
+    # 5. Limited number of subgroup analyses?
+    if n_subgroups_tested <= 3:
+        criteria.append(
+            {
+                "criterion": "Limited testing",
+                "score": 2,
+                "status": "✅",
+                "note": f"Only {n_subgroups_tested} subgroup(s) tested",
+            }
+        )
+    elif n_subgroups_tested <= 6:
+        criteria.append(
+            {
+                "criterion": "Limited testing",
+                "score": 1,
+                "status": "🔶",
+                "note": f"{n_subgroups_tested} subgroups tested - consider multiple testing",
+            }
+        )
+    else:
+        criteria.append(
+            {
+                "criterion": "Limited testing",
+                "score": 0,
+                "status": "❌",
+                "note": f"{n_subgroups_tested} subgroups tested - high risk of false positive",
+            }
+        )
+
+    # Calculate total score and credibility level
+    total_score = sum(c["score"] for c in criteria)
+    max_score = 10  # 5 criteria × 2 max points each
+
+    if total_score >= 8:
+        credibility = "High"
+        interpretation = "Strong evidence for true subgroup effect"
+        badge_class = "text-success"
+    elif total_score >= 5:
+        credibility = "Moderate"
+        interpretation = "Some evidence, interpret with caution"
+        badge_class = "text-warning"
+    else:
+        credibility = "Low"
+        interpretation = "Likely spurious finding, not reliable"
+        badge_class = "text-danger"
+
+    # Bonferroni-adjusted alpha for multiple testing
+    adjusted_alpha = 0.05 / max(n_subgroups_tested, 1)
+
+    return {
+        "criteria": criteria,
+        "total_score": total_score,
+        "max_score": max_score,
+        "credibility": credibility,
+        "interpretation": interpretation,
+        "badge_class": badge_class,
+        "adjusted_alpha": adjusted_alpha,
+        "note": "Based on ICEMAN framework (Schandelmaier et al., 2020)",
+    }
+
+
+def format_iceman_html(iceman_result: dict[str, Any]) -> str:
+    """
+    Generate HTML display for ICEMAN credibility assessment.
+
+    Args:
+        iceman_result: Output from assess_iceman_credibility()
+
+    Returns:
+        HTML string for display
+    """
+    criteria_rows = []
+    for c in iceman_result["criteria"]:
+        criteria_rows.append(f"""
+            <tr>
+                <td>{c["status"]}</td>
+                <td>{c["criterion"]}</td>
+                <td style="text-align: center;">{c["score"]}/2</td>
+                <td style="font-size: 0.85em; color: #666;">{c["note"]}</td>
+            </tr>
+        """)
+
+    html = f"""
+    <div class="iceman-assessment">
+        <div class="alert alert-{"success" if iceman_result["credibility"] == "High" else "warning" if iceman_result["credibility"] == "Moderate" else "danger"} mb-3">
+            <strong>ICEMAN Credibility: {iceman_result["credibility"]}</strong>
+            ({iceman_result["total_score"]}/{iceman_result["max_score"]} points)<br>
+            <em>{iceman_result["interpretation"]}</em>
+        </div>
+
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th style="width: 40px;"></th>
+                    <th>Criterion</th>
+                    <th style="width: 60px;">Score</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(criteria_rows)}
+            </tbody>
+        </table>
+
+        <div class="alert alert-info" style="font-size: 0.85em;">
+            <strong>Multiple Testing:</strong>
+            Bonferroni-adjusted α = {iceman_result["adjusted_alpha"]:.4f}<br>
+            <em>Use this threshold for significance when multiple subgroups are tested.</em>
+        </div>
+
+        <div class="text-muted" style="font-size: 0.8em;">
+            <strong>Reference:</strong> Schandelmaier S, et al. (2020).
+            Development of the ICEMAN tool. <em>BMJ</em> 370:m2508.
+        </div>
+    </div>
+    """
+    return html

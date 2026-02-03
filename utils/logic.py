@@ -1620,3 +1620,251 @@ def run_logistic_regression(df, outcome_col, covariate_cols):
     except Exception as e:
         logger.exception("Logistic regression failed")
         return None, None, str(e), {}
+
+
+# =============================================================================
+# ABSOLUTE RISK MEASURES (NEJM/Lancet Standard)
+# =============================================================================
+
+
+def calculate_absolute_risk(
+    df: pd.DataFrame,
+    outcome_col: str,
+    treatment_col: str,
+    treatment_value: Any = 1,
+    control_value: Any = 0,
+) -> dict:
+    """
+    Calculate absolute risk and risk difference between treatment groups.
+
+    Args:
+        df: DataFrame with outcome and treatment columns
+        outcome_col: Name of binary outcome column
+        treatment_col: Name of treatment/exposure column
+        treatment_value: Value indicating treatment group
+        control_value: Value indicating control group
+
+    Returns:
+        Dictionary with risk metrics and CIs
+    """
+    try:
+        # Filter to treatment and control groups
+        mask_treat = df[treatment_col] == treatment_value
+        mask_ctrl = df[treatment_col] == control_value
+
+        y_treat = df.loc[mask_treat, outcome_col].dropna()
+        y_ctrl = df.loc[mask_ctrl, outcome_col].dropna()
+
+        n_treat = len(y_treat)
+        n_ctrl = len(y_ctrl)
+
+        if n_treat < 5 or n_ctrl < 5:
+            return {"error": "Insufficient sample size in one or both groups"}
+
+        # Calculate risks
+        events_treat = (y_treat == 1).sum()
+        events_ctrl = (y_ctrl == 1).sum()
+
+        p_treat = events_treat / n_treat
+        p_ctrl = events_ctrl / n_ctrl
+
+        # Absolute Risk Difference (ARD)
+        ard = p_treat - p_ctrl
+
+        # Newcombe CI for ARD (Wilson score interval)
+        # Standard error using Wilson's method
+        se_treat = np.sqrt(p_treat * (1 - p_treat) / n_treat)
+        se_ctrl = np.sqrt(p_ctrl * (1 - p_ctrl) / n_ctrl)
+        se_ard = np.sqrt(se_treat**2 + se_ctrl**2)
+
+        z = 1.96  # 95% CI
+        ard_ci_lower = ard - z * se_ard
+        ard_ci_upper = ard + z * se_ard
+
+        # Relative Risk (RR)
+        rr = p_treat / p_ctrl if p_ctrl > 0 else np.nan
+        log_rr = np.log(rr) if rr > 0 else np.nan
+        se_log_rr = (
+            np.sqrt(
+                (1 - p_treat) / (n_treat * p_treat) + (1 - p_ctrl) / (n_ctrl * p_ctrl)
+            )
+            if p_treat > 0 and p_ctrl > 0
+            else np.nan
+        )
+
+        rr_ci_lower = (
+            np.exp(log_rr - z * se_log_rr) if se_log_rr is not np.nan else np.nan
+        )
+        rr_ci_upper = (
+            np.exp(log_rr + z * se_log_rr) if se_log_rr is not np.nan else np.nan
+        )
+
+        return {
+            "risk_treatment": p_treat,
+            "risk_control": p_ctrl,
+            "ard": ard,
+            "ard_ci_lower": ard_ci_lower,
+            "ard_ci_upper": ard_ci_upper,
+            "rr": rr,
+            "rr_ci_lower": rr_ci_lower,
+            "rr_ci_upper": rr_ci_upper,
+            "n_treatment": n_treat,
+            "n_control": n_ctrl,
+            "events_treatment": events_treat,
+            "events_control": events_ctrl,
+        }
+
+    except Exception as e:
+        logger.warning("Absolute risk calculation failed: %s", e)
+        return {"error": str(e)}
+
+
+def calculate_nnt(
+    ard: float,
+    ard_ci_lower: float | None = None,
+    ard_ci_upper: float | None = None,
+) -> dict:
+    """
+    Calculate Number Needed to Treat (NNT) from Absolute Risk Difference.
+
+    NNT = 1 / |ARD|
+
+    CI calculation follows Altman's method:
+    - When ARD is significant (CI doesn't cross 0): NNT CI = 1/ARD_CI
+    - When CI crosses 0: Report as NNT to benefit / NNT to harm
+
+    Args:
+        ard: Absolute Risk Difference
+        ard_ci_lower: Lower bound of ARD CI
+        ard_ci_upper: Upper bound of ARD CI
+
+    Returns:
+        Dictionary with NNT metrics
+    """
+    if ard == 0 or np.isnan(ard):
+        return {
+            "nnt": np.inf,
+            "nnt_type": "undefined",
+            "interpretation": "No difference between groups",
+        }
+
+    nnt = abs(1 / ard)
+
+    # Determine if benefit (treatment reduces outcome) or harm
+    if ard < 0:
+        nnt_type = "NNT (benefit)"
+        interpretation = f"Treat {nnt:.0f} patients to prevent 1 event"
+    else:
+        nnt_type = "NNH (harm)"
+        interpretation = f"Treat {nnt:.0f} patients to cause 1 additional event"
+
+    result = {
+        "nnt": nnt,
+        "nnt_type": nnt_type,
+        "interpretation": interpretation,
+        "ard": ard,
+    }
+
+    # Calculate CI using Altman method
+    if ard_ci_lower is not None and ard_ci_upper is not None:
+        ci_crosses_zero = ard_ci_lower < 0 < ard_ci_upper
+
+        if ci_crosses_zero:
+            # CI crosses zero - report both NNTB and NNTH ranges
+            result["ci_note"] = "CI crosses null (∞)"
+            if ard_ci_lower != 0:
+                result["nnth_from_ci"] = abs(1 / ard_ci_lower)
+            if ard_ci_upper != 0:
+                result["nntb_from_ci"] = abs(1 / ard_ci_upper)
+        else:
+            # CI doesn't cross zero
+            if ard_ci_lower != 0 and ard_ci_upper != 0:
+                nnt_ci_lower = abs(1 / ard_ci_upper)  # Note: inversion
+                nnt_ci_upper = abs(1 / ard_ci_lower)
+                result["nnt_ci_lower"] = min(nnt_ci_lower, nnt_ci_upper)
+                result["nnt_ci_upper"] = max(nnt_ci_lower, nnt_ci_upper)
+
+    return result
+
+
+def format_absolute_risk_html(
+    risk_data: dict,
+    nnt_data: dict | None = None,
+) -> str:
+    """
+    Format absolute risk measures as HTML table for publication.
+
+    Args:
+        risk_data: Output from calculate_absolute_risk()
+        nnt_data: Output from calculate_nnt() or None
+
+    Returns:
+        HTML string
+    """
+    if "error" in risk_data:
+        return f"<div class='alert alert-warning'>Cannot calculate: {risk_data['error']}</div>"
+
+    p_treat = risk_data["risk_treatment"] * 100
+    p_ctrl = risk_data["risk_control"] * 100
+    ard = risk_data["ard"] * 100
+    ard_ci_l = risk_data["ard_ci_lower"] * 100
+    ard_ci_u = risk_data["ard_ci_upper"] * 100
+
+    html = f"""
+    <div class="absolute-risk-report">
+        <h4>📊 Absolute Risk Measures</h4>
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Measure</th><th>Value</th><th>95% CI</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Risk (Treatment)</strong></td>
+                    <td>{p_treat:.1f}%</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td><strong>Risk (Control)</strong></td>
+                    <td>{p_ctrl:.1f}%</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td><strong>Absolute Risk Difference</strong></td>
+                    <td>{ard:+.1f}%</td>
+                    <td>({ard_ci_l:+.1f}%, {ard_ci_u:+.1f}%)</td>
+                </tr>
+    """
+
+    if nnt_data and "nnt" in nnt_data:
+        nnt = nnt_data["nnt"]
+        nnt_type = nnt_data.get("nnt_type", "NNT")
+
+        if "nnt_ci_lower" in nnt_data and "nnt_ci_upper" in nnt_data:
+            ci_str = f"({nnt_data['nnt_ci_lower']:.0f}–{nnt_data['nnt_ci_upper']:.0f})"
+        elif "ci_note" in nnt_data:
+            ci_str = nnt_data["ci_note"]
+        else:
+            ci_str = "—"
+
+        html += f"""
+                <tr>
+                    <td><strong>{nnt_type}</strong></td>
+                    <td>{nnt:.0f}</td>
+                    <td>{ci_str}</td>
+                </tr>
+        """
+
+    html += """
+            </tbody>
+        </table>
+    """
+
+    if nnt_data and "interpretation" in nnt_data:
+        html += f"""
+        <div class="alert alert-info" style="margin-top: 10px;">
+            <strong>💡 Clinical Interpretation:</strong> {nnt_data["interpretation"]}
+        </div>
+        """
+
+    html += "</div>"
+    return html

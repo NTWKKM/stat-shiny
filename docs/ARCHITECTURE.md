@@ -322,8 +322,20 @@ The application uses a centralized styling system to ensure visual consistency a
   - `pool_estimates()`: Implements **Rubin's Rules** for pooling point estimates and standard errors.
   - **Auto-Pooling**: `tab_core_regression.py` automatically detects MI datasets and pools logistic regression results, reporting **Fraction of Missing Information (FMI)**.
   - Diagnostic plots: Density comparisons and imputation traces.
+- `utils/calibration_lib.py`: **Model Calibration Engine** (NEJM/Lancet standards).
+  - C-statistic with 95% CI, Brier Score, Calibration Slope.
+  - Hosmer-Lemeshow goodness-of-fit with decile grouping.
+  - Calibration plots with LOWESS smoothing and spike histogram.
+  - Decision Curve Analysis for clinical utility assessment.
+- `utils/reporting_checklists.py`: **Publication Checklist Engine**.
+  - `auto_populate_strobe()`: Auto-marks STROBE items based on analysis metadata.
+  - `format_strobe_html_compact()`: Compact HTML display with progress badges.
 - `utils/effect_sizes.py`: **Effect Size Engine**. Calculates **Cohen's d, Hedges' g, η², ω²** with interpretation badges.
-- `utils/sensitivity_lib.py`: **Sensitivity Analysis**. Implements **Bootstrap CI**, **Jackknife**, and **LOO-CV**.
+- `utils/sensitivity_lib.py`: **Sensitivity Analysis**. Implements **Bootstrap CI**, **Jackknife**, **LOO-CV**, and **E-value** for unmeasured confounding.
+- `utils/subgroup_analysis_module.py`: **Subgroup Analysis** with **ICEMAN Credibility Assessment**.
+  - `assess_iceman_credibility()`: Evaluates credibility of subgroup heterogeneity claims.
+  - `format_iceman_html()`: HTML display for credibility scoring.
+  - Bonferroni-adjusted α for multiple testing.
 - `utils/statistical_assumptions.py`: **Assumption Testing**. Centralized normality and homogeneity variance tests.
 
 ### Dynamic UI Enhancements (Animations)
@@ -341,7 +353,7 @@ The application covers a wide range of medical statistical needs, organized into
 | Category | Modules | Key Features |
 | :--- | :--- | :--- |
 | **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Paired DeLong Test**, **Sens/Spec vs Threshold**, **Agreement** (Cohen's/Fleiss' Kappa, Bland-Altman with CI bands, ICC with interpretation). |
-| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox), Forest Plots. |
+| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox with ICEMAN credibility), Forest Plots, **Model Diagnostics** (Calibration, C-statistic, Brier), **Absolute Measures** (ARD, NNT), **E-value**, **STROBE auto-fill**. |
 | **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance (Love Plots: Green <0.1, Yellow 0.1–0.2 (Red: >0.2, not rendered)), Common Support Visualization. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, **Extended Diagnostics** (Schoenfeld/Martingale/Deviance), Time-Varying Cox (with Interaction Check), G-Computation, Power Analysis. |
 
