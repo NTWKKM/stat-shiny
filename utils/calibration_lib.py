@@ -121,8 +121,16 @@ def calculate_calibration_slope(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
 
         intercept = result.params[0]
         slope = result.params[1]
-        ci_slope = result.conf_int().iloc[1].tolist()
-        ci_intercept = result.conf_int().iloc[0].tolist()
+
+        # Handle both DataFrame and numpy array from conf_int()
+        ci = result.conf_int()
+        if hasattr(ci, "iloc"):
+            ci_slope = ci.iloc[1].tolist()
+            ci_intercept = ci.iloc[0].tolist()
+        else:
+            # numpy array case
+            ci_slope = [float(ci[1, 0]), float(ci[1, 1])]
+            ci_intercept = [float(ci[0, 0]), float(ci[0, 1])]
 
         # Interpretation
         slope_status = (
