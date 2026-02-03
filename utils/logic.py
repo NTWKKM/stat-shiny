@@ -1564,7 +1564,7 @@ def analyze_outcome(
         if CONFIG.get("analysis.missing.report_missing", True)
         else ""
     }
-    </div><br>"""
+    </div></div><br>"""
 
     if preferred_method == "firth":
         banner = (
