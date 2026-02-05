@@ -446,10 +446,16 @@ def assess_assumptions_for_ttest(
         results["variance"] = var_result
 
         # Generate recommendation
+        # Recommendations based on assessment text
+        # "Data appear normally distributed" or "Approximate normality" are acceptable for parametric
+        def is_normality_acceptable(assessment_text: str) -> bool:
+            text = assessment_text.lower()
+            return "appear normally" in text or "approximate" in text
+
         normality_ok = (
             clt_applies
-            or "normal" in norm1.get("overall_assessment", "").lower()
-            or "normal" in norm2.get("overall_assessment", "").lower()
+            or is_normality_acceptable(norm1.get("overall_assessment", ""))
+            or is_normality_acceptable(norm2.get("overall_assessment", ""))
         )
         variance_ok = var_result.get("assumption_met", False)
 

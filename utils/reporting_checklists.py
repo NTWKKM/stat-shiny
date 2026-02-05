@@ -15,9 +15,9 @@ References:
 
 from __future__ import annotations
 
+import html
 from dataclasses import dataclass, field
 from enum import Enum
-import html
 from typing import Any
 
 from logger import get_logger

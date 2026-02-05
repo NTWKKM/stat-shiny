@@ -261,13 +261,17 @@ def pool_estimates(
         est = estimates[0]
         var = variances[0]
         se = np.sqrt(var)
+        # Use t-distribution with df=inf (effectively normal) for consistency
+        df_single = np.inf
+        t_crit = stats.t.ppf(0.975, df_single)
+
         return PooledEstimate(
             estimate=est,
             se=se,
-            ci_lower=est - 1.96 * se,
-            ci_upper=est + 1.96 * se,
-            df=np.inf,
-            p_value=2 * (1 - stats.norm.cdf(abs(est / se))) if se > 0 else 1.0,
+            ci_lower=est - t_crit * se,
+            ci_upper=est + t_crit * se,
+            df=df_single,
+            p_value=2 * stats.t.sf(abs(est / se), df_single) if se > 0 else 1.0,
             n_imputations=1,
             within_variance=var,
             between_variance=0.0,

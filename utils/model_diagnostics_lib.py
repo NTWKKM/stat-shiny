@@ -389,7 +389,9 @@ def create_diagnostic_plots(
                 hovertemplate="Fitted: %{x:.3f}<br>Residual: %{y:.3f}<extra></extra>",
             )
         )
-        fig_resid.add_hline(y=0, line_dash="dash", line_color="red")
+        fig_resid.add_hline(
+            y=0, line_dash="dash", line_color=COLORS.get("danger", "red")
+        )
         fig_resid.update_layout(
             title=f"{title_prefix}Residuals vs Fitted",
             xaxis_title="Fitted Values",
@@ -422,7 +424,7 @@ def create_diagnostic_plots(
                 x=[min_val, max_val],
                 y=[min_val, max_val],
                 mode="lines",
-                line=dict(color="red", dash="dash"),
+                line=dict(color=COLORS.get("danger", "red"), dash="dash"),
                 showlegend=False,
             )
         )
@@ -507,7 +509,9 @@ def create_diagnostic_plots(
 
         # trace 1
         fig.add_trace(fig_resid.data[0], row=1, col=1)
-        fig.add_hline(y=0, line_dash="dash", line_color="red", row=1, col=1)
+        fig.add_hline(
+            y=0, line_dash="dash", line_color=COLORS.get("danger", "red"), row=1, col=1
+        )
 
         # trace 2
         fig.add_trace(fig_qq.data[0], row=1, col=2)
