@@ -12,6 +12,8 @@ from utils.statistical_assumptions import (
     assess_assumptions_for_ttest,
     check_homogeneity_of_variance,
     check_normality_comprehensive,
+)
+from utils.statistical_assumptions import (
     test_sphericity as check_sphericity,
 )
 

@@ -346,6 +346,24 @@ class ConfigManager:
 CONFIG = ConfigManager()
 
 
+# =============================================================================
+# CONSTANTS & THRESHOLDS
+# =============================================================================
+
+COHEN_D_THRESHOLDS = {
+    "negligible": 0.2,
+    "small": 0.5,
+    "medium": 0.8,
+    "large": float("inf"),
+}
+
+ETA_SQUARED_THRESHOLDS = {
+    "small": 0.01,
+    "medium": 0.06,
+    "large": 0.14,
+}
+
+
 if __name__ == "__main__":
     """
     Example usage and testing

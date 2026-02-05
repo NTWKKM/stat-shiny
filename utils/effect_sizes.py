@@ -25,6 +25,7 @@ from typing import Any, Literal
 import numpy as np
 from scipy import stats
 
+from config import COHEN_D_THRESHOLDS, ETA_SQUARED_THRESHOLDS
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,19 +34,6 @@ logger = get_logger(__name__)
 # =============================================================================
 # EFFECT SIZE INTERPRETATION (Cohen's Conventions)
 # =============================================================================
-
-COHEN_D_THRESHOLDS = {
-    "negligible": 0.2,
-    "small": 0.5,
-    "medium": 0.8,
-    "large": float("inf"),
-}
-
-ETA_SQUARED_THRESHOLDS = {
-    "small": 0.01,
-    "medium": 0.06,
-    "large": 0.14,
-}
 
 
 def interpret_effect_size(
@@ -161,6 +149,7 @@ def cohens_d(
             sd_pooled = np.sqrt(var2)
 
         if np.isclose(sd_pooled, 0):
+            logger.warning("Cohen's d: Pooled SD is zero")
             return {"error": "Standard deviation is zero - cannot compute effect size"}
 
         # Cohen's d
@@ -189,6 +178,9 @@ def cohens_d(
             "n2": n2,
             "mean_diff": round(mean1 - mean2, 4),
             "pooled_sd": round(sd_pooled, 4),
+            # Return raw values for internal use (e.g. hedges_g)
+            "_d_raw": d,
+            "_se_raw": se,
         }
 
     except Exception as e:
@@ -248,7 +240,8 @@ def hedges_g(
         if "error" in d_result:
             return d_result
 
-        d = d_result["d"]
+        # Use raw values if available to avoid compounding rounding errors
+        d = d_result.get("_d_raw", d_result["d"])
 
         # Hedges' correction factor J
         # Exact formula: J = gamma((n1+n2-2)/2) / (sqrt((n1+n2-2)/2) * gamma((n1+n2-3)/2))
@@ -260,7 +253,7 @@ def hedges_g(
         g = d * j
 
         # Corrected variance
-        se_d = d_result["se"]
+        se_d = d_result.get("_se_raw", d_result["se"])
         se_g = se_d * j
         variance = se_g**2
 

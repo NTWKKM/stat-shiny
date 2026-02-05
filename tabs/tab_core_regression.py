@@ -26,6 +26,7 @@ from utils.calibration_lib import (
     format_calibration_html,
     get_calibration_report,
 )
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import (
     PublicationFormatter,
@@ -222,13 +223,15 @@ def core_regression_ui() -> ui.TagChild:
                                 },
                             ),
                             ui.hr(),
-                            ui.input_select(
+                            ui.input_selectize(
                                 "sel_exposure",
                                 create_tooltip_label(
                                     "Exposure for AR/NNT",
                                     "Select the primary exposure variable for Absolute Risk calculation.",
                                 ),
                                 choices=[],
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="optional",
                         )
@@ -1148,7 +1151,7 @@ def core_regression_server(
             islice((f"{a} × {b}" for a, b in combinations(cols, 2)), 50)
         )
         ui.update_selectize("sel_interactions", choices=interaction_choices)
-        ui.update_select("sel_exposure", choices=binary_cols)
+        ui.update_selectize("sel_exposure", choices=binary_cols)
 
         # Update Tab 2 (Poisson) Inputs
         # Identify count columns (non-negative integers)
@@ -3096,14 +3099,34 @@ def core_regression_server(
 
                     all_results = []
                     all_plots = None
+                    n_obs_list = []
                     for i, mi_df in enumerate(mi_dfs):
                         p.set(
                             value=(i + 1) / len(mi_dfs),
                             detail=f"Processing linear MI dataset {i + 1}/{len(mi_dfs)}...",
                         )
+
+                        # Centralized cleaning for each imputed dataset
+                        # This ensures consistent exclusion and logic (e.g. inf checks)
+                        # We pass predictors + target (exclude cols are handled by prepare_data via exclude_columns arg if needed?
+                        # Actually prepare_data handles required_columns. We need to define them.
+                        req_cols = [target]
+                        if predictors:
+                            req_cols.extend(predictors)
+
+                        # prepare_data_for_analysis takes [df, required_columns, exclude_columns, var_meta]
+                        cleaned_mi_df, _ = prepare_data_for_analysis(
+                            mi_df,
+                            required_columns=req_cols,
+                            exclude_columns=exclude,
+                            var_meta=var_meta.get(),
+                        )
+
+                        n_obs_list.append(len(cleaned_mi_df))
+
                         _, res_i, plots_i, _ = analyze_linear_outcome(
                             outcome_name=target,
-                            df=mi_df,
+                            df=cleaned_mi_df,
                             predictor_cols=predictors,
                             var_meta=var_meta.get(),
                             exclude_cols=exclude,
@@ -3138,7 +3161,13 @@ def core_regression_server(
                                         variances.append(se**2)
 
                         if len(estimates) == len(mi_dfs):
-                            pooled = pool_estimates(estimates, variances, n_obs=len(d))
+                            # Use average n_obs from cleaned datasets for pooling
+                            avg_n_obs = (
+                                int(np.mean(n_obs_list)) if n_obs_list else len(d)
+                            )
+                            pooled = pool_estimates(
+                                estimates, variances, n_obs=avg_n_obs
+                            )
                             pooled_rows.append(
                                 {
                                     "Variable": var_name,
@@ -4057,8 +4086,13 @@ def core_regression_server(
         covariates = list(input.rep_covariates()) if input.rep_covariates() else []
 
         # Exclude rows with missing data in selected columns
+        # Exclude rows with missing data in selected columns
         cols_needed = [outcome, treatment, time_var, subject] + covariates
-        d = d.dropna(subset=cols_needed)
+
+        # Use centralized cleaning
+        d, missing_info = prepare_data_for_analysis(
+            d, required_columns=cols_needed, var_meta=var_meta.get()
+        )
 
         # Start Loading State
         repeated_is_running.set(True)
