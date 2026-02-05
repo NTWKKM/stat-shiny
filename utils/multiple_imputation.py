@@ -193,13 +193,9 @@ class MICEImputer:
             df_imputed[numeric_cols] = imputed_values
             imputed_datasets.append(df_imputed)
 
-            # Track convergence (mean of imputed values per iteration)
-            for i, col in enumerate(cols_with_missing):
-                col_means = []
-                for iter_data in getattr(imputer, "imputation_sequence_", []):
-                    if hasattr(iter_data, "mean"):
-                        col_means.append(float(iter_data.mean()))
-                convergence_data[col].append(col_means)
+            # Convergence tracking not supported with current sklearn IterativeImputer implementation
+            # (Requires manual loop implementation which degrades performance)
+            pass
 
             logger.debug("Completed imputation %d/%d", m + 1, self.n_imputations)
 

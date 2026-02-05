@@ -291,7 +291,8 @@ class SubgroupAnalysisLogit:
                 else:
                     p_interaction = np.nan
 
-                is_sig = pd.notna(p_interaction) and p_interaction < 0.05
+                alpha = CONFIG.get("analysis", {}).get("alpha", 0.05)
+                is_sig = pd.notna(p_interaction) and p_interaction < alpha
 
                 self.interaction_result = {
                     "p_value": p_interaction,
@@ -714,7 +715,8 @@ class SubgroupAnalysisCox:
 
                     if df_diff > 0:
                         p_interaction = float(stats.chi2.sf(lr_stat, df_diff))
-                        is_sig = p_interaction < 0.05
+                        alpha = CONFIG.get("analysis", {}).get("alpha", 0.05)
+                        is_sig = p_interaction < alpha
                     else:
                         p_interaction = np.nan
                         is_sig = False

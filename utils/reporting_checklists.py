@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import html
 from typing import Any
 
 from logger import get_logger
@@ -86,7 +87,7 @@ class ReportingChecklist:
         """Generate HTML table of checklist."""
         summary = self.get_completion_summary()
 
-        html = f"""
+        html_content = f"""
         <div class="checklist-container">
             <h3>{self.name} Checklist</h3>
             <p class="completion-badge">
@@ -110,7 +111,7 @@ class ReportingChecklist:
         for item in self.items:
             if item.section != current_section:
                 current_section = item.section
-                html += f'<tr class="section-header"><td colspan="5"><strong>{current_section}</strong></td></tr>'
+                html_content += f'<tr class="section-header"><td colspan="5"><strong>{current_section}</strong></td></tr>'
 
             status_class = {
                 ChecklistStatus.COMPLETE: "status-complete",
@@ -119,22 +120,22 @@ class ReportingChecklist:
                 ChecklistStatus.NOT_APPLICABLE: "status-na",
             }.get(item.status, "")
 
-            html += f"""
+            html_content += f"""
                 <tr>
                     <td>{item.number}</td>
-                    <td>{item.item}</td>
-                    <td class="{status_class}">{item.status.value}</td>
-                    <td>{item.page_number}</td>
-                    <td>{item.notes}</td>
+                    <td>{html.escape(item.item)}</td>
+                    <td class="{status_class}">{html.escape(item.status.value)}</td>
+                    <td>{html.escape(item.page_number)}</td>
+                    <td>{html.escape(item.notes)}</td>
                 </tr>
             """
 
-        html += """
+        html_content += """
                 </tbody>
             </table>
         </div>
         """
-        return html
+        return html_content
 
 
 def create_consort_checklist() -> ReportingChecklist:
@@ -768,10 +769,9 @@ def auto_populate_strobe(
             "Add missing data summary",
         )
 
-    # 12d. Follow-up (for cohort)
-    # 12e. Sensitivity analyses
+    # 12d. Sensitivity analyses
     if has_sensitivity:
-        auto_marks["12e"] = (
+        auto_marks["12d"] = (
             ChecklistStatus.COMPLETE,
             "E-value sensitivity analysis included",
         )

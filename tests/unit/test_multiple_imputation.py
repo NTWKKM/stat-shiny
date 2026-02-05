@@ -93,7 +93,7 @@ class TestMICEImputer:
 
     def test_mice_basic(self, df_with_missing):
         """Test basic MICE imputation."""
-        imputer = MICEImputer(n_imputations=3, max_iter=5)
+        imputer = MICEImputer(n_imputations=3, max_iter=5, random_state=42)
         result = imputer.fit_transform(df_with_missing)
 
         assert isinstance(result, MICEResult)
@@ -113,7 +113,7 @@ class TestMICEImputer:
             }
         )
 
-        imputer = MICEImputer(n_imputations=3)
+        imputer = MICEImputer(n_imputations=3, random_state=42)
         result = imputer.fit_transform(df)
 
         assert len(result.columns_imputed) == 0
@@ -121,7 +121,7 @@ class TestMICEImputer:
 
     def test_mice_selected_columns(self, df_with_missing):
         """Test MICE on selected columns only."""
-        imputer = MICEImputer(n_imputations=2)
+        imputer = MICEImputer(n_imputations=2, random_state=42)
         result = imputer.fit_transform(df_with_missing, columns=["x1", "x2"])
 
         # Should only impute specified columns
@@ -216,7 +216,7 @@ class TestDiagnostics:
         df = pd.DataFrame({"x": np.random.randn(50)})
         df.loc[10:15, "x"] = np.nan
 
-        imputer = MICEImputer(n_imputations=2, max_iter=3)
+        imputer = MICEImputer(n_imputations=2, max_iter=3, random_state=42)
         mice_result = imputer.fit_transform(df)
 
         figures = create_imputation_diagnostics(mice_result, df)

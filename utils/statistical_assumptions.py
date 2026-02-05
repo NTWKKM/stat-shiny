@@ -82,12 +82,34 @@ def check_homogeneity_of_variance(
     try:
         # Convert and clean data
         cleaned_groups = []
+        n_missing_list = []
+        zero_variance_count = 0
+
         for i, g in enumerate(groups):
             arr = np.asarray(g, dtype=float)
+            n_original = len(arr)
             arr = arr[~np.isnan(arr)]
+            n_missing = n_original - len(arr)
+            n_missing_list.append(n_missing)
+
             if len(arr) < 2:
                 return {"error": f"Group {i + 1} must have at least 2 observations"}
+
+            if np.var(arr) == 0:
+                zero_variance_count += 1
+
             cleaned_groups.append(arr)
+
+        if zero_variance_count == len(cleaned_groups):
+            # All groups have zero variance - variances are equal (all zero)
+            return {
+                "test_name": "Zero Variance Check",
+                "statistic": 0.0,
+                "p_value": 1.0,
+                "assumption_met": True,
+                "interpretation": "All groups have zero variance (identical values). Assumption met.",
+                "missing_data": n_missing_list,
+            }
 
         if len(cleaned_groups) < 2:
             return {"error": "At least 2 groups are required"}
@@ -382,13 +404,17 @@ def assess_assumptions_for_ttest(
     try:
         g1 = np.asarray(group1, dtype=float)
         g2 = np.asarray(group2, dtype=float)
+        # Calculate missing data
+        n1_orig, n2_orig = len(g1), len(g2)
         g1 = g1[~np.isnan(g1)]
         g2 = g2[~np.isnan(g2)]
 
         n1, n2 = len(g1), len(g2)
+        missing1, missing2 = n1_orig - n1, n2_orig - n2
 
         results = {
             "sample_sizes": {"group1": n1, "group2": n2},
+            "missing_data": {"group1": missing1, "group2": missing2},
             "normality": {},
             "variance": None,
             "recommendation": "",
@@ -467,10 +493,14 @@ def assess_assumptions_for_anova(
     """
     try:
         cleaned_groups = []
+        missing_counts = []
+
         for g in groups:
             arr = np.asarray(g, dtype=float)
+            n_orig = len(arr)
             arr = arr[~np.isnan(arr)]
             cleaned_groups.append(arr)
+            missing_counts.append(n_orig - len(arr))
 
         k = len(cleaned_groups)  # Number of groups
 
@@ -480,6 +510,7 @@ def assess_assumptions_for_anova(
         results = {
             "n_groups": k,
             "sample_sizes": [len(g) for g in cleaned_groups],
+            "missing_data": missing_counts,
             "normality": [],
             "variance": None,
             "recommendation": "",

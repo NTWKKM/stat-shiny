@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from shiny import App, Inputs, Outputs, Session, reactive, ui
 
 # Import Config/Logger
@@ -222,8 +223,8 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     matched_treatment_col: reactive.Value[str | None] = reactive.Value(None)
     matched_covariates: reactive.Value[list[str]] = reactive.Value([])
 
-    # Multiple Imputation state (Shared across tabs for auto-pooling)
-    mi_imputed_datasets: reactive.Value[list[Any]] = reactive.Value([])
+    # MI datasets (list of dataframes)
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] = reactive.Value([])
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:

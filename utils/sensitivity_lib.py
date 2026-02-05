@@ -81,6 +81,9 @@ def bootstrap_confidence_interval(
     """
     try:
         arr = np.asarray(data, dtype=float)
+        if arr.ndim == 0:
+            arr = np.atleast_1d(arr)
+
         arr = arr[~np.isnan(arr)]
         n = len(arr)
 
@@ -202,6 +205,9 @@ def jackknife_estimate(
     """
     try:
         arr = np.asarray(data, dtype=float)
+        if arr.ndim == 0:
+            arr = np.atleast_1d(arr)
+
         arr = arr[~np.isnan(arr)]
         n = len(arr)
 

@@ -141,8 +141,8 @@ class TestGlassDelta:
         assert abs(result["delta"]) > 0
 
 
-class TestEtaSquared:
-    """Tests for ANOVA effect sizes."""
+class TestAnovaEffectSizes:
+    """Tests for ANOVA effect sizes (eta squared and omega squared)."""
 
     def test_eta_squared_basic(self):
         """Test basic eta squared calculation."""
@@ -162,8 +162,28 @@ class TestEtaSquared:
         result_large = eta_squared(ss_effect=100, ss_total=500)
         assert result_large["interpretation"] == "Large"
 
+    def test_eta_squared_invalid_input(self):
+        """Test eta squared with invalid input."""
+        result = eta_squared(ss_effect=100, ss_total=0)
+        assert "error" in result
+
+    def test_omega_squared_basic(self):
+        """Test basic omega squared calculation."""
+        # Medium effect scenario
+        ss_effect = 100
+        ss_error = 400
+        ms_error = 10
+        df_effect = 2
+        n_total = 50
+
+        result = omega_squared(ss_effect, ss_error, ms_error, df_effect, n_total)
+
+        assert "error" not in result
+        assert "omega_squared" in result
+        assert result["omega_squared"] >= 0
+
     def test_omega_squared_less_biased(self):
-        """Test that omega squared is less biased than eta squared."""
+        """Test that omega squared is less biased (smaller) than eta squared."""
         ss_effect = 100
         ss_error = 400
         ms_error = 10
@@ -175,6 +195,24 @@ class TestEtaSquared:
 
         # Omega squared should be smaller (less biased upward)
         assert result_omega["omega_squared"] <= result_eta["eta_squared"]
+
+    def test_omega_squared_negative_correction(self):
+        """Test that omega squared is floored at 0 for negligible effects."""
+        # Case where numerator would be negative
+        ss_effect = 1
+        ss_error = 500
+        ms_error = 10
+        df_effect = 2
+        n_total = 50
+
+        result = omega_squared(ss_effect, ss_error, ms_error, df_effect, n_total)
+
+        assert result["omega_squared"] == 0.0
+
+    def test_omega_squared_invalid_input(self):
+        """Test omega squared with invalid input."""
+        result = omega_squared(100, 400, -10, 2, 50)  # Negative MS error
+        assert "error" in result
 
 
 class TestInterpretEffect:

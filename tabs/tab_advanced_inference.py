@@ -8,6 +8,7 @@ import seaborn as sns
 import statsmodels.api as sm
 from shiny import module, reactive, render, ui
 
+from logger import get_logger
 from tabs._common import get_color_palette, select_variable_by_keyword
 from utils.collinearity_lib import calculate_vif
 from utils.data_cleaning import prepare_data_for_analysis
@@ -34,6 +35,7 @@ from utils.ui_helpers import (
 )
 
 COLORS = get_color_palette()
+logger = get_logger(__name__)
 
 
 @module.ui
@@ -439,17 +441,32 @@ def advanced_inference_server(
                                 variances.append(se**2)
 
                     if len(estimates) == len(mi_dfs):
-                        p = pool_estimates(
-                            estimates, variances, n_obs=len(current_df())
-                        )
-                        pooled[key] = {
-                            "estimate": p.estimate,
-                            "se": p.se,
-                            "ci_lower": p.ci_lower,
-                            "ci_upper": p.ci_upper,
-                            "p_value": p.p_value,
-                            "fmi": p.fmi,
-                        }
+                        try:
+                            p = pool_estimates(
+                                estimates, variances, n_obs=len(current_df())
+                            )
+                            # Map to keys expected by table
+                            if key == "acme":
+                                pooled["indirect_effect"] = p.estimate
+                            elif key == "ade":
+                                pooled["direct_effect"] = p.estimate
+                            elif key == "total_effect":
+                                pooled["total_effect"] = p.estimate
+                            elif key == "proportion_mediated":
+                                pooled["proportion_mediated"] = p.estimate
+
+                            # Store full stats
+                            pooled[f"{key}_stats"] = {
+                                "estimate": p.estimate,
+                                "se": p.se,
+                                "ci_lower": p.ci_lower,
+                                "ci_upper": p.ci_upper,
+                                "p_value": p.p_value,
+                                "fmi": p.fmi,
+                            }
+                        except Exception:
+                            logger.exception(f"MI pooling failed for {key}")
+                            pass
 
                 mediation_results.set(pooled)
                 ui.notification_remove("run_med")

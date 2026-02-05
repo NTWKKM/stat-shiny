@@ -30,8 +30,10 @@ from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import reset_ramsey
 
 from logger import get_logger
+from tabs._common import get_color_palette
 
 logger = get_logger(__name__)
+COLORS = get_color_palette()
 
 
 def run_reset_test(model_results) -> dict:
@@ -393,7 +395,7 @@ def create_diagnostic_plots(
                 x=fitted,
                 y=residuals,
                 mode="markers",
-                marker=dict(color="#3B82F6", size=6, opacity=0.7),
+                marker=dict(color=COLORS.get("info", "#3B82F6"), size=6, opacity=0.7),
                 name="Residuals",
                 hovertemplate="Fitted: %{x:.3f}<br>Residual: %{y:.3f}<extra></extra>",
             ),
@@ -412,7 +414,9 @@ def create_diagnostic_plots(
                 x=theoretical_q,
                 y=sorted_std_resid,
                 mode="markers",
-                marker=dict(color="#10B981", size=6, opacity=0.7),
+                marker=dict(
+                    color=COLORS.get("success", "#10B981"), size=6, opacity=0.7
+                ),
                 name="Q-Q",
             ),
             row=1,
@@ -440,7 +444,9 @@ def create_diagnostic_plots(
                 x=fitted,
                 y=sqrt_abs_resid,
                 mode="markers",
-                marker=dict(color="#F59E0B", size=6, opacity=0.7),
+                marker=dict(
+                    color=COLORS.get("warning", "#F59E0B"), size=6, opacity=0.7
+                ),
                 name="√|Std Resid|",
             ),
             row=2,

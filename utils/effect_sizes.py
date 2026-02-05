@@ -160,7 +160,7 @@ def cohens_d(
             # Use group2 (control) SD only (Glass's approach)
             sd_pooled = np.sqrt(var2)
 
-        if sd_pooled == 0:
+        if np.isclose(sd_pooled, 0):
             return {"error": "Standard deviation is zero - cannot compute effect size"}
 
         # Cohen's d
@@ -338,7 +338,7 @@ def glass_delta(
         mean_t, mean_c = np.mean(t), np.mean(c)
         sd_control = np.std(c, ddof=1)
 
-        if sd_control == 0:
+        if np.isclose(sd_control, 0):
             return {"error": "Control group SD is zero"}
 
         delta = (mean_t - mean_c) / sd_control
@@ -395,7 +395,7 @@ def eta_squared(
         >>> print(f"η² = {result['eta_squared']:.3f}")  # 0.240
     """
     try:
-        if ss_total <= 0:
+        if ss_total <= 0 or np.isclose(ss_total, 0):
             return {"error": "Total SS must be positive"}
 
         eta_sq = ss_effect / ss_total
@@ -445,7 +445,7 @@ def omega_squared(
     try:
         ss_total = ss_effect + ss_error
 
-        if ss_total <= 0 or ms_error < 0:
+        if ss_total <= 0 or np.isclose(ss_total, 0) or ms_error < 0:
             return {"error": "Invalid SS or MS values"}
 
         # ω² formula
@@ -488,7 +488,7 @@ def partial_eta_squared(
     try:
         denominator = ss_effect + ss_error
 
-        if denominator <= 0:
+        if denominator <= 0 or np.isclose(denominator, 0):
             return {"error": "SS values must be positive"}
 
         partial_eta_sq = ss_effect / denominator
