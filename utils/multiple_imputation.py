@@ -149,7 +149,21 @@ class MICEImputer:
         if columns is None:
             numeric_cols = df_work.select_dtypes(include=[np.number]).columns.tolist()
         else:
-            numeric_cols = [c for c in columns if c in df_work.columns]
+            # Validate user-requested columns
+            numeric_cols = []
+            invalid_cols = []
+            for c in columns:
+                if c not in df_work.columns:
+                    invalid_cols.append(f"{c} (not in dataframe)")
+                elif not pd.api.types.is_numeric_dtype(df_work[c]):
+                    invalid_cols.append(f"{c} (not numeric)")
+                else:
+                    numeric_cols.append(c)
+
+            if invalid_cols:
+                raise ValueError(
+                    f"Invalid columns for MICE imputation: {', '.join(invalid_cols)}"
+                )
 
         # Store original missing mask
         missing_mask = df_work[numeric_cols].isna()

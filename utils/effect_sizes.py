@@ -344,7 +344,8 @@ def glass_delta(
         delta = (mean_t - mean_c) / sd_control
 
         # Variance approximation
-        se = np.sqrt(n_t / (n_t * n_c) + (delta**2) / (2 * n_c))
+        # Hedges & Olkin approximation for Glass's delta SE
+        se = np.sqrt(1 / n_t + 1 / n_c + (delta**2) / (2 * n_c))
 
         z_crit = stats.norm.ppf(1 - alpha / 2)
         ci_lower = delta - z_crit * se

@@ -25,9 +25,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from config import CONFIG
 from logger import get_logger
 
 logger = get_logger(__name__)
+
+DEFAULT_ALPHA = CONFIG.get("analysis.significance_level", 0.05)
 
 
 # =============================================================================
@@ -39,7 +42,7 @@ def check_homogeneity_of_variance(
     *groups: np.ndarray | list,
     method: Literal["levene", "bartlett", "fligner", "all"] = "levene",
     center: Literal["mean", "median", "trimmed"] = "median",
-    alpha: float = 0.05,
+    alpha: float = DEFAULT_ALPHA,
 ) -> dict[str, Any]:
     """
     Test for equal variance across groups.
@@ -270,7 +273,7 @@ def test_sphericity(
 
 def check_normality_comprehensive(
     data: np.ndarray | list,
-    alpha: float = 0.05,
+    alpha: float = DEFAULT_ALPHA,
 ) -> dict[str, Any]:
     """
     Comprehensive normality assessment using multiple tests.
@@ -385,7 +388,7 @@ def check_normality_comprehensive(
 def assess_assumptions_for_ttest(
     group1: np.ndarray | list,
     group2: np.ndarray | list,
-    alpha: float = 0.05,
+    alpha: float = DEFAULT_ALPHA,
 ) -> dict[str, Any]:
     """
     Check all assumptions for independent samples t-test.
@@ -474,7 +477,7 @@ def assess_assumptions_for_ttest(
 
 def assess_assumptions_for_anova(
     *groups: np.ndarray | list,
-    alpha: float = 0.05,
+    alpha: float = DEFAULT_ALPHA,
 ) -> dict[str, Any]:
     """
     Check all assumptions for one-way ANOVA.
