@@ -145,9 +145,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_tvc_lib.py
 |       |-- test_ui_ux_styles.py
 |       `-- verify_table_one.py
-|       `-- test_regression_publication.py
-|       |-- test_calibration.py
-|       |-- test_absolute_risk.py
 `-- utils /
     |-- __init__.py
     |-- advanced_stats_lib.py

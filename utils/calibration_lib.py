@@ -175,6 +175,9 @@ def calculate_c_statistic_with_ci(
         y_true = y_true[mask]
         y_pred = y_pred[mask]
 
+        if len(np.unique(y_true)) < 2:
+            return {"c_statistic": np.nan, "error": "Only one class present in outcome"}
+
         auc = roc_auc_score(y_true, y_pred)
         n = len(y_true)
 
@@ -286,7 +289,6 @@ def create_calibration_plot(
         fig.add_trace(
             go.Histogram(
                 x=y_pred,
-                y=np.zeros_like(y_pred) - 0.05,
                 nbinsx=20,
                 marker=dict(
                     color=COLORS.get("secondary", "#64748B"),
@@ -305,17 +307,18 @@ def create_calibration_plot(
                 title="Mean Predicted Probability",
                 range=[0, 1],
                 tickformat=".1f",
+                domain=[0, 1],
             ),
             yaxis=dict(
                 title="Observed Proportion",
                 range=[0, 1],
                 tickformat=".1f",
+                domain=[0.2, 1],  # Top 80% for calibration plot
             ),
             yaxis2=dict(
-                overlaying="y",
-                side="right",
+                domain=[0, 0.15],  # Bottom 15% for histogram
                 showticklabels=False,
-                range=[0, 1],
+                showgrid=False,
             ),
             template="plotly_white",
             font=dict(family="Inter, sans-serif", size=12),
@@ -366,6 +369,12 @@ def calculate_net_benefit(
 
     y_true = np.asarray(y_true).flatten()
     y_pred = np.asarray(y_pred).flatten()
+
+    # Remove NaN values
+    mask = ~(np.isnan(y_true) | np.isnan(y_pred))
+    y_true = y_true[mask]
+    y_pred = y_pred[mask]
+
     n = len(y_true)
 
     results = []

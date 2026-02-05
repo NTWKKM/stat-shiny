@@ -5,12 +5,14 @@ Tests for homogeneity of variance, normality, and combined assumption checks.
 """
 
 import numpy as np
+import pandas as pd
 
 from utils.statistical_assumptions import (
     assess_assumptions_for_anova,
     assess_assumptions_for_ttest,
     check_homogeneity_of_variance,
     check_normality_comprehensive,
+    test_sphericity as check_sphericity,
 )
 
 
@@ -177,5 +179,30 @@ class TestANOVAAssumptions:
     def test_anova_insufficient_groups(self):
         """Test error handling for insufficient groups."""
         result = assess_assumptions_for_anova([1, 2, 3])
+
+        assert "error" in result
+
+
+class TestSphericity:
+    """Tests for sphericity assumption check."""
+
+    def test_sphericity_placeholder(self):
+        """Test that the function returns placeholder information."""
+        df = pd.DataFrame(
+            {"id": [1, 2, 3], "t1": [1, 2, 3], "t2": [2, 3, 4], "t3": [3, 4, 5]}
+        )
+
+        result = check_sphericity(df, "id", ["t1", "t2", "t3"])
+
+        assert "error" not in result
+        assert "note" in result
+        assert "pingouin" in result["note"]
+        assert "recommendation" in result
+
+    def test_sphericity_insufficient_cols(self):
+        """Test error handling for insufficient within-subject columns."""
+        df = pd.DataFrame({"id": [1, 2], "t1": [1, 2]})
+
+        result = check_sphericity(df, "id", ["t1"])
 
         assert "error" in result

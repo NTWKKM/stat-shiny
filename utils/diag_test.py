@@ -277,9 +277,15 @@ def convert_or_to_rr(
             result["rr_ci_upper"] = np.nan
 
     # Calculate approximation error (how much OR overestimates RR)
-    if odds_ratio != 1:
-        overestimation = ((odds_ratio - 1) / (rr - 1) - 1) * 100 if rr != 1 else 0
-        result["or_overestimation_pct"] = round(overestimation, 1)
+    # Calculate approximation error (how much OR overestimates RR)
+    if not np.isclose(rr, 1.0) and not np.isclose(odds_ratio, 1.0):
+        # Formula: % overestimation = ((OR - 1) / (RR - 1) - 1) * 100
+        # This compares the excess risk ratio
+        try:
+            overestimation = ((odds_ratio - 1) / (rr - 1) - 1) * 100
+            result["or_overestimation_pct"] = round(overestimation, 1)
+        except ZeroDivisionError:
+            result["or_overestimation_pct"] = 0
     else:
         result["or_overestimation_pct"] = 0
 

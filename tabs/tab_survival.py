@@ -34,6 +34,7 @@ from tabs._tvc_components import (
     tvc_risk_interval_picker_ui,
 )
 from utils import rcs_lib, survival_lib
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.formatting import (
     PublicationFormatter,
     create_missing_data_report_html,
@@ -666,14 +667,14 @@ def survival_server(
     rcs_is_running = reactive.Value(False)
 
     # ==================== MI HELPER FUNCTIONS ====================
-    def _has_mi_datasets() -> bool:
+    def has_mi_datasets() -> bool:
         """Check if Multiple Imputation datasets are available."""
         if mi_imputed_datasets is None:
             return False
         datasets = mi_imputed_datasets.get()
         return isinstance(datasets, list) and len(datasets) > 0
 
-    def _get_mi_datasets() -> list[pd.DataFrame]:
+    def get_mi_datasets() -> list[pd.DataFrame]:
         """Retrieve list of MI imputed datasets."""
         if mi_imputed_datasets is None:
             return []
@@ -692,8 +693,8 @@ def survival_server(
         """Display title with dataset summary and MI status."""
         d = current_df()
         mi_badge = ""
-        if _has_mi_datasets():
-            mi_count = len(_get_mi_datasets())
+        if has_mi_datasets():
+            mi_count = len(get_mi_datasets())
             mi_badge = (
                 f' <span class="badge bg-info">🔄 MI Active (m={mi_count})</span>'
             )
@@ -1457,8 +1458,8 @@ def survival_server(
             cox_method = input.cox_method()
 
             # Check for MI datasets
-            mi_active = _has_mi_datasets()
-            mi_dfs = _get_mi_datasets() if mi_active else []
+            mi_active = has_mi_datasets()
+            mi_dfs = get_mi_datasets() if mi_active else []
 
             if mi_active and len(mi_dfs) > 0:
                 # ====== MI POOLED COX ANALYSIS ======
@@ -1470,9 +1471,20 @@ def survival_server(
 
                 all_results = []
                 clean_data = None
+                all_results = []
+                clean_data = None
                 for mi_df in mi_dfs:
-                    _, res_df_i, clean_i, err_i, _, _ = survival_lib.fit_cox_ph(
+                    # Clean data first
+                    d_clean, _, _, _, _ = prepare_data_for_analysis(
                         mi_df,
+                        target_col=time_col,
+                        predictor_cols=[event_col] + list(covars),
+                        var_meta=var_meta.get(),
+                        dropna=True,
+                    )
+
+                    _, res_df_i, clean_i, err_i, _, _ = survival_lib.fit_cox_ph(
+                        d_clean,
                         time_col,
                         event_col,
                         list(covars),
@@ -1517,7 +1529,7 @@ def survival_server(
                                 estimates.append(np.log(hr_val))
                                 variances.append(se_val**2)
 
-                    if len(estimates) == len(mi_dfs):
+                    if len(estimates) == len(all_results) and len(estimates) > 0:
                         pooled = pool_estimates(estimates, variances, n_obs=len(data))
                         pooled_rows.append(
                             {
@@ -1531,6 +1543,12 @@ def survival_server(
                         )
 
                 res_df = pd.DataFrame(pooled_rows)
+
+                if res_df.empty:
+                    ui.notification_show(
+                        "No pooled results could be generated.", type="warning"
+                    )
+                    return
 
                 # Create forest plot from pooled results
                 forest_fig = survival_lib.create_forest_plot_cox(res_df)

@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from shiny import module, reactive, render, req, ui
 
 from config import CONFIG
@@ -79,7 +80,7 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
-def _has_mi_datasets(
+def has_mi_datasets(
     mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
 ) -> bool:
     """Check if MI datasets are available for pooled analysis."""
@@ -89,7 +90,7 @@ def _has_mi_datasets(
     return isinstance(datasets, list) and len(datasets) > 0
 
 
-def _get_mi_datasets(
+def get_mi_datasets(
     mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
 ) -> list[pd.DataFrame]:
     """Safely get MI datasets."""
@@ -219,6 +220,15 @@ def core_regression_ui() -> ui.TagChild:
                                     "placeholder": "Select variable pairs to test interactions...",
                                     "plugins": ["remove_button"],
                                 },
+                            ),
+                            ui.hr(),
+                            ui.input_select(
+                                "sel_exposure",
+                                create_tooltip_label(
+                                    "Exposure for AR/NNT",
+                                    "Select the primary exposure variable for Absolute Risk calculation.",
+                                ),
+                                choices=[],
                             ),
                             type="optional",
                         )
@@ -1036,12 +1046,12 @@ def core_regression_server(
     @reactive.Calc
     def has_mi() -> bool:
         """Check if MI datasets are available for auto-pooling."""
-        return _has_mi_datasets(mi_imputed_datasets)
+        return has_mi_datasets(mi_imputed_datasets)
 
     @reactive.Calc
     def mi_datasets_list() -> list[pd.DataFrame]:
         """Get MI datasets for pooled analysis."""
-        return _get_mi_datasets(mi_imputed_datasets)
+        return get_mi_datasets(mi_imputed_datasets)
 
     @render.ui
     def ui_title_with_summary():
@@ -1138,6 +1148,7 @@ def core_regression_server(
             islice((f"{a} × {b}" for a, b in combinations(cols, 2)), 50)
         )
         ui.update_selectize("sel_interactions", choices=interaction_choices)
+        ui.update_select("sel_exposure", choices=binary_cols)
 
         # Update Tab 2 (Poisson) Inputs
         # Identify count columns (non-negative integers)
@@ -1590,6 +1601,10 @@ def core_regression_server(
                     # Run analysis on each imputed dataset
                     all_results = []
                     for i, mi_df in enumerate(mi_dfs):
+                        p.set(
+                            value=(i + 1) / len(mi_dfs),
+                            detail=f"Processing imputed dataset {i + 1}/{len(mi_dfs)}...",
+                        )
                         # Apply exclusions to MI dataset
                         mi_df_clean = mi_df.drop(columns=exclude, errors="ignore")
 
@@ -1621,9 +1636,14 @@ def core_regression_server(
                                 if res.get("or_res") and var_key in res["or_res"]:
                                     v = res["or_res"][var_key]
                                     # Extract estimate on log scale
-                                    or_val = v.get("or", 1.0)
-                                    se = v.get("se", 0.1)
-                                    if or_val > 0 and se > 0:
+                                    or_val = v.get("or")
+                                    se = v.get("se")
+                                    if (
+                                        or_val is not None
+                                        and se is not None
+                                        and or_val > 0
+                                        and se > 0
+                                    ):
                                         estimates.append(np.log(or_val))
                                         variances.append(se**2)
 
@@ -1650,9 +1670,14 @@ def core_regression_server(
                             for res in all_results:
                                 if res.get("aor_res") and var_key in res["aor_res"]:
                                     v = res["aor_res"][var_key]
-                                    aor_val = v.get("aor", 1.0)
-                                    se = v.get("se", 0.1)
-                                    if aor_val > 0 and se > 0:
+                                    aor_val = v.get("aor")
+                                    se = v.get("se")
+                                    if (
+                                        aor_val is not None
+                                        and se is not None
+                                        and aor_val > 0
+                                        and se > 0
+                                    ):
                                         estimates.append(np.log(aor_val))
                                         variances.append(se**2)
 
@@ -1687,7 +1712,9 @@ def core_regression_server(
                         for k, v in pooled_aor.items():
                             p_fmt = format_p_value(v["p_value"])
                             fmi_pct = (
-                                f"{v['fmi'] * 100:.1f}%" if v.get("fmi") else "N/A"
+                                f"{v['fmi'] * 100:.1f}%"
+                                if v.get("fmi") is not None
+                                else "N/A"
                             )
                             html_rep += f"<tr><td>{html.escape(v.get('label', k))}</td>"
                             html_rep += f"<td>{v['aor']:.2f}</td>"
@@ -1817,8 +1844,6 @@ def core_regression_server(
 
             if not mi_active and aor_res:
                 try:
-                    import statsmodels.api as sm
-
                     # Prepare data for prediction
                     y_raw = final_df[target].dropna()
                     unique_vals = set(y_raw.unique())
@@ -1856,12 +1881,19 @@ def core_regression_server(
                                 X_const = sm.add_constant(X_clean, has_constant="add")
                                 model = sm.Logit(y_clean, X_const)
                                 result = model.fit(disp=0, maxiter=50)
-                                y_pred_arr = result.predict(X_const).values
-                                y_true_arr = y_clean.values
-                                logger.info(
-                                    "Calibration: Generated %d predictions",
-                                    len(y_pred_arr),
-                                )
+
+                                if not result.mle_retvals.get("converged", False):
+                                    logger.warning(
+                                        "Logistic calibration model failed to converge"
+                                    )
+                                    # Skip results assignment
+                                else:
+                                    y_pred_arr = result.predict(X_const).values
+                                    y_true_arr = y_clean.values
+                                    logger.info(
+                                        "Calibration: Generated %d predictions",
+                                        len(y_pred_arr),
+                                    )
                 except Exception as e:
                     logger.warning(
                         "Could not generate predictions for calibration: %s", e
@@ -2107,7 +2139,16 @@ def core_regression_server(
 
         try:
             # Calculate absolute risk for the first binary predictor (primary exposure)
-            exposure_col = binary_cols[0]
+            # Use selected exposure or fallback to first binary column
+            exposure_col = input.sel_exposure()
+            if not exposure_col or exposure_col not in d.columns:
+                if binary_cols:
+                    exposure_col = binary_cols[0]
+
+            if not exposure_col or exposure_col not in d.columns:
+                # If still no valid exposure, skip AR/NNT
+                return None
+
             exposure_vals = sorted(d[exposure_col].dropna().unique())
             treatment_val = exposure_vals[1] if len(exposure_vals) > 1 else 1
             control_val = exposure_vals[0] if len(exposure_vals) > 0 else 0
@@ -2137,15 +2178,20 @@ def core_regression_server(
 
             html_report = format_absolute_risk_html(risk_data, nnt_data)
 
+            # Escape user-provided strings before inserting into HTML
+            esc_exposure = html.escape(str(exposure_col))
+            esc_treatment = html.escape(str(treatment_val))
+            esc_control = html.escape(str(control_val))
+
             return ui.card(
-                ui.card_header(f"📉 Absolute Risk: {exposure_col}"),
+                ui.card_header(f"📉 Absolute Risk: {esc_exposure}"),
                 ui.HTML(html_report),
                 ui.hr(),
                 ui.div(
                     ui.markdown(f"""
-                        **Exposure Variable:** `{exposure_col}`
-                        - Treatment group: `{treatment_val}` (n={risk_data["n_treatment"]})
-                        - Control group: `{control_val}` (n={risk_data["n_control"]})
+                        **Exposure Variable:** `{esc_exposure}`
+                        - Treatment group: `{esc_treatment}` (n={risk_data["n_treatment"]})
+                        - Control group: `{esc_control}` (n={risk_data["n_control"]})
                         
                         ---
                         
@@ -3046,7 +3092,11 @@ def core_regression_server(
 
                     all_results = []
                     all_plots = None
-                    for mi_df in mi_dfs:
+                    for i, mi_df in enumerate(mi_dfs):
+                        p.set(
+                            value=(i + 1) / len(mi_dfs),
+                            detail=f"Processing linear MI dataset {i + 1}/{len(mi_dfs)}...",
+                        )
                         _, res_i, plots_i, _ = analyze_linear_outcome(
                             outcome_name=target,
                             df=mi_df,
@@ -3139,7 +3189,9 @@ def core_regression_server(
                             },
                             "missing_info": {
                                 "mi_pooled": True,
+                                "imputation_count": len(mi_dfs),
                                 "rows_analyzed": len(d),
+                                "total_missing": "N/A (Imputed)",
                             },
                         }
                     )
@@ -3995,7 +4047,7 @@ def core_regression_server(
 
         # Exclude rows with missing data in selected columns
         cols_needed = [outcome, treatment, time_var, subject] + covariates
-        d.dropna(subset=cols_needed)
+        d = d.dropna(subset=cols_needed)
 
         # Start Loading State
         repeated_is_running.set(True)
