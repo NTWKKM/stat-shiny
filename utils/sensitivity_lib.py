@@ -387,4 +387,5 @@ def calculate_e_value(
             "e_value_ci_limit": round(limit_e_val, 3),
         }
     except Exception as e:
-        return {"error": f"E-value calculation failed: {str(e)}"}
+        logger.exception("E-value calculation failed")
+        return {"error": f"E-value calculation failed: {e!s}"}

@@ -375,7 +375,123 @@ def create_diagnostic_plots(
 
         n = len(residuals)
 
-        # Create combined subplot
+        # Create individual figures
+
+        # 1. Residuals vs Fitted
+        fig_resid = go.Figure()
+        fig_resid.add_trace(
+            go.Scatter(
+                x=fitted,
+                y=residuals,
+                mode="markers",
+                marker=dict(color=COLORS.get("info", "#3B82F6"), size=6, opacity=0.7),
+                name="Residuals",
+                hovertemplate="Fitted: %{x:.3f}<br>Residual: %{y:.3f}<extra></extra>",
+            )
+        )
+        fig_resid.add_hline(y=0, line_dash="dash", line_color="red")
+        fig_resid.update_layout(
+            title=f"{title_prefix}Residuals vs Fitted",
+            xaxis_title="Fitted Values",
+            yaxis_title="Residuals",
+            template="plotly_white",
+            font=dict(family="Inter, Arial, sans-serif", size=11),
+        )
+
+        # 2. Q-Q Plot
+        theoretical_q = stats.norm.ppf(np.linspace(0.01, 0.99, n))
+        sorted_std_resid = np.sort(std_resid)
+
+        fig_qq = go.Figure()
+        fig_qq.add_trace(
+            go.Scatter(
+                x=theoretical_q,
+                y=sorted_std_resid,
+                mode="markers",
+                marker=dict(
+                    color=COLORS.get("success", "#10B981"), size=6, opacity=0.7
+                ),
+                name="Q-Q",
+            )
+        )
+        # Add diagonal reference line
+        min_val = min(theoretical_q.min(), sorted_std_resid.min())
+        max_val = max(theoretical_q.max(), sorted_std_resid.max())
+        fig_qq.add_trace(
+            go.Scatter(
+                x=[min_val, max_val],
+                y=[min_val, max_val],
+                mode="lines",
+                line=dict(color="red", dash="dash"),
+                showlegend=False,
+            )
+        )
+        fig_qq.update_layout(
+            title=f"{title_prefix}Normal Q-Q",
+            xaxis_title="Theoretical Quantiles",
+            yaxis_title="Standardized Residuals",
+            template="plotly_white",
+            font=dict(family="Inter, Arial, sans-serif", size=11),
+        )
+
+        # 3. Scale-Location
+        sqrt_abs_resid = np.sqrt(np.abs(std_resid))
+        fig_scale = go.Figure()
+        fig_scale.add_trace(
+            go.Scatter(
+                x=fitted,
+                y=sqrt_abs_resid,
+                mode="markers",
+                marker=dict(
+                    color=COLORS.get("warning", "#F59E0B"), size=6, opacity=0.7
+                ),
+                name="√|Std Resid|",
+            )
+        )
+        fig_scale.update_layout(
+            title=f"{title_prefix}Scale-Location",
+            xaxis_title="Fitted Values",
+            yaxis_title="√|Std Residuals|",
+            template="plotly_white",
+            font=dict(family="Inter, Arial, sans-serif", size=11),
+        )
+
+        # 4. Residuals vs Leverage
+        # Size points by Cook's D
+        cooks_sizes = 5 + 50 * (cooks_d / cooks_d.max()) if cooks_d.max() > 0 else 6
+
+        fig_lev = go.Figure()
+        fig_lev.add_trace(
+            go.Scatter(
+                x=leverage,
+                y=std_resid,
+                mode="markers",
+                marker=dict(
+                    color=cooks_d,
+                    colorscale="Reds",
+                    size=cooks_sizes,
+                    opacity=0.7,
+                    colorbar=dict(title="Cook's D"),
+                ),
+                name="Leverage",
+                hovertemplate=(
+                    "Leverage: %{x:.4f}<br>"
+                    "Std Resid: %{y:.3f}<br>"
+                    "Cook's D: %{marker.color:.4f}<extra></extra>"
+                ),
+            )
+        )
+        fig_lev.add_hline(y=0, line_dash="dash", line_color="gray")
+        fig_lev.update_layout(
+            title=f"{title_prefix}Residuals vs Leverage",
+            xaxis_title="Leverage",
+            yaxis_title="Standardized Residuals",
+            template="plotly_white",
+            font=dict(family="Inter, Arial, sans-serif", size=11),
+        )
+
+        # Create combined subplot by adding traces from individual plots
+        # (Re-creating traces to avoid object reference issues/mutations)
         fig = make_subplots(
             rows=2,
             cols=2,
@@ -389,99 +505,22 @@ def create_diagnostic_plots(
             vertical_spacing=0.15,
         )
 
-        # 1. Residuals vs Fitted
-        fig.add_trace(
-            go.Scatter(
-                x=fitted,
-                y=residuals,
-                mode="markers",
-                marker=dict(color=COLORS.get("info", "#3B82F6"), size=6, opacity=0.7),
-                name="Residuals",
-                hovertemplate="Fitted: %{x:.3f}<br>Residual: %{y:.3f}<extra></extra>",
-            ),
-            row=1,
-            col=1,
-        )
-        # Add horizontal line at 0
+        # trace 1
+        fig.add_trace(fig_resid.data[0], row=1, col=1)
         fig.add_hline(y=0, line_dash="dash", line_color="red", row=1, col=1)
 
-        # 2. Q-Q Plot
-        theoretical_q = stats.norm.ppf(np.linspace(0.01, 0.99, n))
-        sorted_std_resid = np.sort(std_resid)
+        # trace 2
+        fig.add_trace(fig_qq.data[0], row=1, col=2)
+        fig.add_trace(fig_qq.data[1], row=1, col=2)  # diagonal line
 
-        fig.add_trace(
-            go.Scatter(
-                x=theoretical_q,
-                y=sorted_std_resid,
-                mode="markers",
-                marker=dict(
-                    color=COLORS.get("success", "#10B981"), size=6, opacity=0.7
-                ),
-                name="Q-Q",
-            ),
-            row=1,
-            col=2,
-        )
-        # Add diagonal reference line
-        min_val = min(theoretical_q.min(), sorted_std_resid.min())
-        max_val = max(theoretical_q.max(), sorted_std_resid.max())
-        fig.add_trace(
-            go.Scatter(
-                x=[min_val, max_val],
-                y=[min_val, max_val],
-                mode="lines",
-                line=dict(color="red", dash="dash"),
-                showlegend=False,
-            ),
-            row=1,
-            col=2,
-        )
+        # trace 3
+        fig.add_trace(fig_scale.data[0], row=2, col=1)
 
-        # 3. Scale-Location
-        sqrt_abs_resid = np.sqrt(np.abs(std_resid))
-        fig.add_trace(
-            go.Scatter(
-                x=fitted,
-                y=sqrt_abs_resid,
-                mode="markers",
-                marker=dict(
-                    color=COLORS.get("warning", "#F59E0B"), size=6, opacity=0.7
-                ),
-                name="√|Std Resid|",
-            ),
-            row=2,
-            col=1,
-        )
-
-        # 4. Residuals vs Leverage
-        # Size points by Cook's D
-        cooks_sizes = 5 + 50 * (cooks_d / cooks_d.max()) if cooks_d.max() > 0 else 6
-
-        fig.add_trace(
-            go.Scatter(
-                x=leverage,
-                y=std_resid,
-                mode="markers",
-                marker=dict(
-                    color=cooks_d,
-                    colorscale="Reds",
-                    size=cooks_sizes,
-                    opacity=0.7,
-                    colorbar=dict(title="Cook's D", x=1.02),
-                ),
-                name="Leverage",
-                hovertemplate=(
-                    "Leverage: %{x:.4f}<br>"
-                    "Std Resid: %{y:.3f}<br>"
-                    "Cook's D: %{marker.color:.4f}<extra></extra>"
-                ),
-            ),
-            row=2,
-            col=2,
-        )
+        # trace 4
+        fig.add_trace(fig_lev.data[0], row=2, col=2)
         fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=2)
 
-        # Update layout
+        # Update layout for combined
         fig.update_layout(
             title=f"{title_prefix}Regression Diagnostics"
             if title_prefix
@@ -493,7 +532,7 @@ def create_diagnostic_plots(
             template="plotly_white",
         )
 
-        # Update axes labels
+        # Update axes labels for combined
         fig.update_xaxes(title_text="Fitted Values", row=1, col=1)
         fig.update_yaxes(title_text="Residuals", row=1, col=1)
         fig.update_xaxes(title_text="Theoretical Quantiles", row=1, col=2)
@@ -503,7 +542,13 @@ def create_diagnostic_plots(
         fig.update_xaxes(title_text="Leverage", row=2, col=2)
         fig.update_yaxes(title_text="Standardized Residuals", row=2, col=2)
 
-        return {"combined": fig}
+        return {
+            "combined": fig,
+            "residuals_fitted": fig_resid,
+            "qq_plot": fig_qq,
+            "scale_location": fig_scale,
+            "residuals_leverage": fig_lev,
+        }
 
     except Exception as e:
         logger.exception("Diagnostic plot creation failed")

@@ -1648,8 +1648,10 @@ def core_regression_server(
                                         variances.append(se**2)
 
                             if len(estimates) == len(mi_dfs):
+                                # Calculate n_obs from MI datasets
+                                n_obs_mi = int(np.mean([len(d) for d in mi_dfs]))
                                 pooled = pool_estimates(
-                                    estimates, variances, n_obs=len(final_df)
+                                    estimates, variances, n_obs=n_obs_mi
                                 )
                                 pooled_or[var_key] = {
                                     "or": np.exp(pooled.estimate),
@@ -1682,8 +1684,10 @@ def core_regression_server(
                                         variances.append(se**2)
 
                             if len(estimates) == len(mi_dfs):
+                                # Calculate n_obs from MI datasets
+                                n_obs_mi = int(np.mean([len(d) for d in mi_dfs]))
                                 pooled = pool_estimates(
-                                    estimates, variances, n_obs=len(final_df)
+                                    estimates, variances, n_obs=n_obs_mi
                                 )
                                 pooled_aor[var_key] = {
                                     "aor": np.exp(pooled.estimate),
@@ -3155,8 +3159,15 @@ def core_regression_server(
                         Results pooled from {len(mi_dfs)} imputed datasets using Rubin's Rules.
                     </div>
                     <h2>Pooled Coefficients</h2>
-                    {pooled_coef_df.to_html(index=False, escape=False, classes="table table-striped")}
                     """
+                    # Manually escape columns before rendering to HTML
+                    pooled_coef_df_safe = pooled_coef_df.copy()
+                    pooled_coef_df_safe.columns = [
+                        html.escape(c) for c in pooled_coef_df_safe.columns
+                    ]
+                    html_report += pooled_coef_df_safe.to_html(
+                        index=False, escape=False, classes="table table-striped"
+                    )
 
                     target_escaped = html.escape(target)
                     full_html = f"""

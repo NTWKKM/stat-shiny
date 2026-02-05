@@ -955,7 +955,10 @@ def assess_iceman_credibility(
     # Check if any subgroup shows strong effects
     has_strong_effect = False
     for sub in subgroups:
-        or_hr = sub.get("or") or sub.get("hr", 1.0)
+        # Fix: handle 0.0 correctly (don't use 'or' operator which treats 0.0 as False)
+        val_or = sub.get("or")
+        val_hr = sub.get("hr", 1.0)
+        or_hr = val_or if val_or is not None else val_hr
         if or_hr and (or_hr < 0.5 or or_hr > 2.0):
             has_strong_effect = True
             break
