@@ -52,7 +52,7 @@ def run_reset_test(model_results) -> dict:
             return {"error": "Invalid model object provided."}
 
         # Run RESET test (power=2,3 by default generally)
-        reset = reset_ramsey(model_results, degree=5)
+        reset = reset_ramsey(model_results, degree=3)
 
         p_val = reset.pvalue
 
@@ -403,7 +403,7 @@ def create_diagnostic_plots(
         )
 
         # 2. Q-Q Plot
-        (theoretical_q, sorted_std_resid), _ = stats.probplot(
+        (theoretical_q, sorted_std_resid), (slope, intercept, _r) = stats.probplot(
             std_resid, dist="norm", plot=None
         )
 
@@ -420,12 +420,13 @@ def create_diagnostic_plots(
             )
         )
         # Add diagonal reference line
-        min_val = min(theoretical_q.min(), sorted_std_resid.min())
-        max_val = max(theoretical_q.max(), sorted_std_resid.max())
+        qq_x = np.array([theoretical_q.min(), theoretical_q.max()])
+        qq_y = slope * qq_x + intercept
+
         fig_qq.add_trace(
             go.Scatter(
-                x=[min_val, max_val],
-                y=[min_val, max_val],
+                x=qq_x,
+                y=qq_y,
                 mode="lines",
                 line=dict(color=COLORS.get("danger", "red"), dash="dash"),
                 showlegend=False,
@@ -500,7 +501,7 @@ def create_diagnostic_plots(
         )
 
         # Create combined subplot by adding traces from individual plots
-        # (Re-creating traces to avoid object reference issues/mutations)
+        # (Plotly copies traces internally so this is safe)
         fig = make_subplots(
             rows=2,
             cols=2,

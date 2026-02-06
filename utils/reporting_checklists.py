@@ -793,7 +793,7 @@ def auto_populate_strobe(
 
     # 13. Participants
     if n_total > 0 and n_analyzed > 0:
-        excluded = n_total - n_analyzed
+        excluded = max(0, n_total - n_analyzed)
         auto_marks["13a"] = (
             ChecklistStatus.PARTIAL,
             f"Total: {n_total}, Analyzed: {n_analyzed}, Excluded: {excluded}",
