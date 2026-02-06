@@ -333,7 +333,10 @@ def leave_one_out_cv(
 
 
 def calculate_e_value(
-    estimate: float, lower: float = None, upper: float = None, estimate_type: str = "RR"
+    estimate: float,
+    lower: float | None = None,
+    upper: float | None = None,
+    estimate_type: str = "RR",
 ) -> dict:
     """
     Calculate E-value for a risk ratio (RR) or odds ratio (OR).
