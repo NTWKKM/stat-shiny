@@ -365,6 +365,12 @@ def calculate_e_value(
             # CI flips
             # If upper is provided, it becomes the lower bound in the flipped scale
             l_prime = 1 / upper if (upper and upper > 0) else None
+
+            if l_prime is None and lower is not None:
+                logger.warning(
+                    "Protective effect (RR<1): upper CI bound needed for E-value of CI limit, "
+                    "but only lower bound was provided"
+                )
         else:
             est_prime = estimate
             l_prime = lower

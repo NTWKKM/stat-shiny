@@ -106,6 +106,31 @@ def get_mi_datasets(
 # ==============================================================================
 # Helper Functions (Pure Logic)
 # ==============================================================================
+def _build_strobe_metadata(
+    res: dict[str, Any],
+    d: pd.DataFrame | None,
+    outcome_name: str | None,
+) -> dict[str, Any]:
+    """Helper to build STROBE metadata for logistic regression."""
+    aor_res = res.get("aor_res", {})
+    n_total = len(d) if d is not None else 0
+    n_analyzed = (
+        len(res.get("y_true", [])) if res.get("y_true") is not None else n_total
+    )
+
+    return {
+        "n_total": n_total,
+        "n_analyzed": n_analyzed,
+        "outcome_name": outcome_name or "Unknown",
+        "predictors": list(aor_res.keys()) if aor_res else [],
+        "has_missing_report": True,  # We always include missing report
+        "has_ci": True,
+        "method": "logistic",  # Default method
+        "has_sensitivity": bool(aor_res),  # E-values are calculated
+        "has_subgroup": False,  # Could check if subgroup was run
+    }
+
+
 def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
     """Identify columns causing perfect separation."""
     risky_vars: list[str] = []
@@ -1652,7 +1677,9 @@ def core_regression_server(
 
                             if len(estimates) == len(mi_dfs):
                                 # Calculate n_obs from MI datasets
-                                n_obs_mi = int(np.mean([len(d) for d in mi_dfs]))
+                                n_obs_mi = int(
+                                    np.mean([len(mi_df) for mi_df in mi_dfs])
+                                )
                                 pooled = pool_estimates(
                                     estimates, variances, n_obs=n_obs_mi
                                 )
@@ -1907,6 +1934,19 @@ def core_regression_server(
                     )
 
             # Store Results
+            # Calculate missing info for MI pooled
+            mi_missing_info = None
+            if has_mi_datasets(mi_imputed_datasets):
+                # Use mean length of imputed datasets
+                mi_dfs = get_mi_datasets(mi_imputed_datasets)
+                mi_n_obs = int(np.mean([len(mi_df) for mi_df in mi_dfs]))
+                mi_missing_info = {
+                    "mi_pooled": True,
+                    "imputation_count": len(mi_dfs),
+                    "rows_analyzed": mi_n_obs,
+                    "total_missing": "N/A (Imputed)",
+                }
+
             logit_res.set(
                 {
                     "html_fragment": logit_fragment_html,  # For UI
@@ -1916,6 +1956,7 @@ def core_regression_server(
                     "y_true": y_true_arr,  # For calibration
                     "y_pred": y_pred_arr,  # For calibration
                     "aor_res": aor_res,  # For E-value sensitivity
+                    "missing_info": mi_missing_info,
                 }
             )
 
@@ -2297,12 +2338,16 @@ def core_regression_server(
 
                 sig_badge = "✓" if is_sig else ""
 
+                e_ci_str = (
+                    f"{e_ci:.2f}" if (e_ci is not None and not np.isnan(e_ci)) else "—"
+                )
+
                 e_value_rows.append(f"""
                     <tr>
                         <td>{html.escape(str(var_name))} {sig_badge}</td>
                         <td>{aor:.2f}</td>
                         <td><strong>{e_val:.2f}</strong></td>
-                        <td>{e_ci:.2f}</td>
+                        <td>{e_ci_str}</td>
                         <td>{strength}</td>
                         <td style='font-size: 0.85em; color: #666;'>{note}</td>
                     </tr>
@@ -2384,23 +2429,7 @@ def core_regression_server(
 
         try:
             # Build analysis metadata for auto-population
-            aor_res = res.get("aor_res", {})
-            n_total = len(d) if d is not None else 0
-            n_analyzed = (
-                len(res.get("y_true", [])) if res.get("y_true") is not None else n_total
-            )
-
-            metadata = {
-                "n_total": n_total,
-                "n_analyzed": n_analyzed,
-                "outcome_name": target or "Unknown",
-                "predictors": list(aor_res.keys()) if aor_res else [],
-                "has_missing_report": True,  # We always include missing report
-                "has_ci": True,
-                "method": "logistic",  # Default method
-                "has_sensitivity": bool(aor_res),  # E-values are calculated
-                "has_subgroup": False,  # Could check if subgroup was run
-            }
+            metadata = _build_strobe_metadata(res, d, target)
 
             # Create auto-populated checklist
             checklist = auto_populate_strobe(metadata)
@@ -2445,29 +2474,13 @@ def core_regression_server(
         """Download STROBE checklist as markdown."""
         res = logit_res.get()
         d = current_df()
-        target = input.sel_outcome()
 
         if res is None:
             yield "# STROBE Checklist\n\nNo analysis results available."
             return
 
         try:
-            aor_res = res.get("aor_res", {})
-            n_total = len(d) if d is not None else 0
-
-            metadata = {
-                "n_total": n_total,
-                "n_analyzed": len(res.get("y_true", []))
-                if res.get("y_true") is not None
-                else n_total,
-                "outcome_name": target or "Unknown",
-                "predictors": list(aor_res.keys()) if aor_res else [],
-                "has_missing_report": True,
-                "has_ci": True,
-                "method": "logistic",  # Default method
-                "has_sensitivity": bool(aor_res),
-                "has_subgroup": False,
-            }
+            metadata = _build_strobe_metadata(res, d, input.sel_outcome())
 
             checklist = auto_populate_strobe(metadata)
             yield generate_checklist_markdown(checklist)
@@ -3221,6 +3234,9 @@ def core_regression_server(
                     </html>
                     """
 
+                    # Calculate n_obs from MI datasets
+                    n_obs_mi = int(np.mean([len(df) for df in mi_dfs]))
+
                     linear_res.set(
                         {
                             "html_fragment": html_report,
@@ -3229,14 +3245,14 @@ def core_regression_server(
                             "results": {
                                 "mi_pooled": True,
                                 "m": len(mi_dfs),
-                                "n_obs": len(d),
+                                "n_obs": n_obs_mi,
                                 "r_squared": float("nan"),
                                 "coef_table": pooled_coef_df,
                             },
                             "missing_info": {
                                 "mi_pooled": True,
                                 "imputation_count": len(mi_dfs),
-                                "rows_analyzed": len(d),
+                                "rows_analyzed": n_obs_mi,
                                 "total_missing": "N/A (Imputed)",
                             },
                         }
@@ -4110,7 +4126,7 @@ def core_regression_server(
             try:
                 if model_type == "gee":
                     results, missing_info = run_gee(
-                        d,  # Pass original d, cleaning handled inside lib
+                        d,  # Cleaned via prepare_data_for_analysis above
                         outcome_col=outcome,
                         treatment_col=treatment,
                         time_col=time_var,

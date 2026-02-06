@@ -67,6 +67,7 @@ def run_reset_test(model_results) -> dict:
             ),
         }
     except Exception as e:
+        logger.exception("RESET Test failed")
         return {"error": f"RESET Test failed: {e!s}"}
 
 
@@ -101,6 +102,7 @@ def run_heteroscedasticity_test(model_results) -> dict:
             ),
         }
     except Exception as e:
+        logger.exception("Heteroscedasticity test failed")
         return {"error": f"Heteroscedasticity test failed: {e!s}"}
 
 
@@ -147,6 +149,7 @@ def calculate_cooks_distance(model_results) -> dict:
             ),
         }
     except Exception as e:
+        logger.exception("Cooks distance calculation failed")
         return {"error": f"Cooks distance calculation failed: {e!s}"}
 
 
@@ -334,13 +337,14 @@ def get_diagnostic_plot_data(model_results) -> dict:
             "std_residuals": model_results.get_influence().resid_studentized_internal.tolist(),
         }
     except Exception as e:
+        logger.exception("Diagnostic plot data extraction failed")
         return {"error": f"Diagnostic plot data extraction failed: {e!s}"}
 
 
 def create_diagnostic_plots(
     model_results,
     title_prefix: str = "",
-) -> dict[str, go.Figure]:
+) -> dict[str, Any]:
     """
     Create publication-ready diagnostic plots using Plotly.
 
@@ -373,8 +377,6 @@ def create_diagnostic_plots(
         leverage = influence.hat_matrix_diag
         cooks_d = influence.cooks_distance[0]
 
-        n = len(residuals)
-
         # Create individual figures
 
         # 1. Residuals vs Fitted
@@ -401,8 +403,9 @@ def create_diagnostic_plots(
         )
 
         # 2. Q-Q Plot
-        theoretical_q = stats.norm.ppf(np.linspace(0.01, 0.99, n))
-        sorted_std_resid = np.sort(std_resid)
+        (theoretical_q, sorted_std_resid), _ = stats.probplot(
+            std_resid, dist="norm", plot=None
+        )
 
         fig_qq = go.Figure()
         fig_qq.add_trace(
