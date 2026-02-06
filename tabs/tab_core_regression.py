@@ -1598,8 +1598,8 @@ def core_regression_server(
                 if len(parts) == 2:
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
             logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
-
-            logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
+        else:
+            exclude = []
 
         # Start Loading State
         logit_is_running.set(True)
@@ -1972,10 +1972,12 @@ def core_regression_server(
         if res:
             return ui.div(
                 ui.h5("✅ Regression Complete"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']};",
             )
         return None
 
+    @render.ui
+    def logit_detailed_report():
         res = logit_res.get()
         if res:
             return ui.card(
@@ -3142,7 +3144,7 @@ def core_regression_server(
                             df=cleaned_mi_df,
                             predictor_cols=predictors,
                             var_meta=var_meta.get(),
-                            exclude_cols=exclude,
+                            exclude_cols=[],  # Already excluded by prepare_data_for_analysis
                             regression_type=method,
                             robust_se=robust_se,
                         )
@@ -4417,7 +4419,7 @@ def core_regression_server(
 
             # Generate HTML Report
             html_parts = [
-                f"<h4>GLM Results: {outcome}</h4>",
+                f"<h4>GLM Results: {html.escape(outcome)}</h4>",
                 f"<p><b>Family:</b> {input.glm_family()} | <b>Link:</b> {input.glm_link()}</p>",
                 f"<p><b>AIC:</b> {metrics.get('aic', 'N/A'):.2f} | <b>Deviance:</b> {metrics.get('deviance', 'N/A'):.2f}</p>",
                 "<table class='table table-striped table-sm'>",
@@ -4443,7 +4445,7 @@ def core_regression_server(
 
                 html_parts.append(
                     f"<tr>"
-                    f"<td>{row['var']}</td>"
+                    f"<td>{html.escape(str(row['var']))}</td>"
                     f"<td>{coef:.3f}</td>"
                     f"<td>{exp_coef:.3f}</td>"
                     f"<td>{ci_disp}</td>"

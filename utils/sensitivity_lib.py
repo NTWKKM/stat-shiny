@@ -167,7 +167,7 @@ def bootstrap_confidence_interval(
             "ci_lower": round(float(ci_lower), 4),
             "ci_upper": round(float(ci_upper), 4),
             "se_bootstrap": round(float(se_bootstrap), 4),
-            "bootstrap_distribution": bootstrap_estimates,
+            "bootstrap_distribution": bootstrap_estimates.tolist(),
             "method": method,
             "n_iterations": len(bootstrap_estimates),
             "confidence_level": 1 - alpha,
@@ -283,10 +283,15 @@ def leave_one_out_cv(
     try:
         X = np.asarray(X)
         y = np.asarray(y).flatten()
+
+        # Remove rows with NaN in X or y
+        mask = ~np.isnan(X).any(axis=1) & ~np.isnan(y)
+        X = X[mask]
+        y = y[mask]
         n = len(y)
 
         if n < 3:
-            return {"error": "Need at least 3 observations for LOOCV"}
+            return {"error": "Need at least 3 non-NaN observations for LOOCV"}
 
         predictions = np.empty(n)
         errors = np.empty(n)
@@ -358,6 +363,17 @@ def calculate_e_value(
 
         if estimate <= 0:
             return {"error": "Estimate (RR/OR) must be positive."}
+
+        # Convert OR to approximate RR if needed (conservative sqrt heuristic)
+        if estimate_type == "OR":
+            estimate = np.sqrt(estimate)
+            if lower is not None and lower > 0:
+                lower = np.sqrt(lower)
+            if upper is not None and upper > 0:
+                upper = np.sqrt(upper)
+            logger.info(
+                "Converted OR to approximate RR using sqrt heuristic for E-value calculation"
+            )
 
         # Handle protective effects (RR < 1) by taking inverse
         if estimate < 1:
