@@ -56,12 +56,21 @@ class ReportingChecklist:
 
     def get_completion_summary(self) -> dict[str, Any]:
         """Get summary of checklist completion."""
-        total = len(
-            [i for i in self.items if i.status != ChecklistStatus.NOT_APPLICABLE]
-        )
-        complete = len([i for i in self.items if i.status == ChecklistStatus.COMPLETE])
-        partial = len([i for i in self.items if i.status == ChecklistStatus.PARTIAL])
-        not_done = len([i for i in self.items if i.status == ChecklistStatus.NOT_DONE])
+        total = 0
+        complete = 0
+        partial = 0
+        not_done = 0
+
+        for item in self.items:
+            if item.status == ChecklistStatus.NOT_APPLICABLE:
+                continue
+            total += 1
+            if item.status == ChecklistStatus.COMPLETE:
+                complete += 1
+            elif item.status == ChecklistStatus.PARTIAL:
+                partial += 1
+            elif item.status == ChecklistStatus.NOT_DONE:
+                not_done += 1
 
         return {
             "total_applicable": total,
@@ -750,9 +759,10 @@ def auto_populate_strobe(
         "firth": "Firth's penalized logistic regression",
         "auto": "Logistic regression (auto-selected)",
     }.get(method, method)
+    ci_suffix = " with 95% CI" if has_ci else ""
     auto_marks["12a"] = (
         ChecklistStatus.COMPLETE,
-        f"{method_desc} with 95% CI",
+        f"{method_desc}{ci_suffix}",
     )
 
     # 12b. Subgroups and interactions
