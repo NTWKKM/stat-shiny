@@ -460,7 +460,11 @@ def create_diagnostic_plots(
 
         # 4. Residuals vs Leverage
         # Size points by Cook's D
-        cooks_sizes = 5 + 50 * (cooks_d / cooks_d.max()) if cooks_d.max() > 0 else 6
+        cooks_sizes = (
+            5 + 50 * (cooks_d / cooks_d.max())
+            if cooks_d.max() > 0
+            else np.full_like(cooks_d, 6)
+        )
 
         fig_lev = go.Figure()
         fig_lev.add_trace(

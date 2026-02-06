@@ -459,7 +459,7 @@ def create_strobe_checklist(study_type: str = "cohort") -> ReportingChecklist:
                 "Methods",
             )
         )
-    else:  # cross_sectional
+    elif study_type == "cross_sectional":
         items.append(
             ChecklistItem(
                 "6b",
@@ -467,6 +467,11 @@ def create_strobe_checklist(study_type: str = "cohort") -> ReportingChecklist:
                 "Give the sampling strategy and participant selection",
                 "Methods",
             )
+        )
+    else:
+        raise ValueError(
+            f"Invalid study_type: '{study_type}'. "
+            "Must be 'cohort', 'case_control', or 'cross_sectional'."
         )
 
     items.extend(
@@ -710,7 +715,7 @@ def auto_populate_strobe(
     outcome = analysis_metadata.get("outcome_name", "")
     predictors = analysis_metadata.get("predictors", [])
     has_missing = analysis_metadata.get("has_missing_report", False)
-    has_ci = analysis_metadata.get("has_ci", True)
+    has_ci = analysis_metadata.get("has_ci", False)
     method = analysis_metadata.get("method", "logistic")
     has_sensitivity = analysis_metadata.get("has_sensitivity", False)
     has_subgroup = analysis_metadata.get("has_subgroup", False)

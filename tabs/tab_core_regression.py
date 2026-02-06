@@ -3191,8 +3191,14 @@ def core_regression_server(
                     """
                     # Manually escape columns before rendering to HTML
                     pooled_coef_df_safe = pooled_coef_df.copy()
+
+                    # Escape cell values to prevent XSS (since we use escape=False)
+                    pooled_coef_df_safe = pooled_coef_df_safe.map(
+                        lambda v: html.escape(str(v))
+                    )
+
                     pooled_coef_df_safe.columns = [
-                        html.escape(c) for c in pooled_coef_df_safe.columns
+                        html.escape(str(c)) for c in pooled_coef_df_safe.columns
                     ]
                     html_report += pooled_coef_df_safe.to_html(
                         index=False, escape=False, classes="table table-striped"
