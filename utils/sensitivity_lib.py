@@ -354,6 +354,9 @@ def calculate_e_value(
         if estimate is None or not isinstance(estimate, (int, float)):
             return {"error": "Estimate must be a number."}
 
+        if estimate <= 0:
+            return {"error": "Estimate must be positive."}
+
         if estimate == 1.0:
             return {
                 "original_estimate": estimate,
