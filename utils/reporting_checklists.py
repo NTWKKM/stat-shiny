@@ -857,12 +857,12 @@ def format_strobe_html_compact(checklist: ReportingChecklist) -> str:
             <tr class="{status_class}">
                 <td>{icon}</td>
                 <td><strong>{item.number}</strong></td>
-                <td>{item.item}</td>
-                <td style="font-size: 0.85em;">{item.notes or "—"}</td>
+                <td>{html.escape(item.item)}</td>
+                <td style="font-size: 0.85em;">{html.escape(item.notes) if item.notes else "—"}</td>
             </tr>
         """)
 
-    html = f"""
+    html_content = f"""
     <div class="strobe-checklist">
         <div class="alert alert-info mb-3">
             <strong>STROBE Completion:</strong>
@@ -888,4 +888,4 @@ def format_strobe_html_compact(checklist: ReportingChecklist) -> str:
         </div>
     </div>
     """
-    return html
+    return html_content

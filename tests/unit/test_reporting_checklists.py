@@ -7,8 +7,10 @@ Tests CONSORT and STROBE checklist creation and validation.
 from utils.reporting_checklists import (
     ChecklistItem,
     ChecklistStatus,
+    auto_populate_strobe,
     create_consort_checklist,
     create_strobe_checklist,
+    format_strobe_html_compact,
     generate_checklist_markdown,
 )
 
@@ -144,6 +146,103 @@ class TestChecklistCompletion:
         summary = checklist.get_completion_summary()
         assert summary["complete"] == 3
         assert summary["completion_rate"] > 0
+
+    def test_get_completion_summary_excludes_not_applicable(self):
+        """Test completion summary excludes NOT_APPLICABLE items."""
+        checklist = create_consort_checklist()
+
+        # Mark items as N/A checks
+        # 25 items in CONSORT. Let's make 5 N/A.
+        items_to_na = checklist.items[:5]
+        for item in items_to_na:
+            checklist.update_item(item.number, ChecklistStatus.NOT_APPLICABLE)
+
+        # Complete 5 items
+        items_to_complete = checklist.items[5:10]
+        for item in items_to_complete:
+            checklist.update_item(item.number, ChecklistStatus.COMPLETE)
+
+        summary = checklist.get_completion_summary()
+
+        # Total applicable should be Total - 5
+        expected_total = len(checklist.items) - 5
+        assert summary["total_applicable"] == expected_total
+        assert summary["complete"] == 5
+        # 5/20 * 100 = 25.0%
+        expected_rate = round(5 / expected_total * 100, 1)
+        assert summary["completion_rate"] == expected_rate
+
+
+class TestSTROBEAutoPopulation:
+    """Tests for STROBE auto-population and formatting."""
+
+    def test_auto_populate_strobe_logic(self):
+        """Test auto_populate_strobe with various metadata."""
+        # Case 1: Minimal metadata (defaults)
+        checklist = auto_populate_strobe({}, study_type="cohort")
+        # Check basic defaulting
+        # Item 5 (Setting) should not be set if n_total is 0
+        item_5 = next(i for i in checklist.items if i.number == "5")
+        assert item_5.status == ChecklistStatus.NOT_DONE
+
+        # Case 2: Rich metadata
+        meta = {
+            "n_total": 100,
+            "n_analyzed": 90,
+            "outcome_name": "Death",
+            "predictors": ["Age", "Sex"],
+            "has_missing_report": True,
+            "has_ci": True,
+            "method": "firth",
+            "has_sensitivity": True,
+            "has_subgroup": True,
+        }
+        checklist = auto_populate_strobe(meta, study_type="cohort")
+
+        # Verify auto-marks
+        # 5. Setting (Partial)
+        assert (
+            next(i for i in checklist.items if i.number == "5").status
+            == ChecklistStatus.PARTIAL
+        )
+        # 7. Variables (Complete)
+        assert (
+            next(i for i in checklist.items if i.number == "7").status
+            == ChecklistStatus.COMPLETE
+        )
+        # 12a. Method (Complete, Firth)
+        item_12a = next(i for i in checklist.items if i.number == "12a")
+        assert item_12a.status == ChecklistStatus.COMPLETE
+        assert "Firth" in item_12a.notes
+        assert "95% CI" in item_12a.notes
+        # 13a. Participants (Partial, n_analyzed < n_total)
+        item_13a = next(i for i in checklist.items if i.number == "13a")
+        assert item_13a.status == ChecklistStatus.PARTIAL
+        assert "Excluded: 10" in item_13a.notes
+
+    def test_strobe_invalid_study_type(self):
+        """Test auto_populate_strobe raises ValueError for invalid type."""
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid study_type"):
+            auto_populate_strobe({}, study_type="invalid_type")
+
+    def test_format_strobe_html_compact_structure_and_escaping(self):
+        """Test HTML formatting and escaping."""
+        checklist = create_strobe_checklist()
+        # Inject unsafe content
+        unsafe_note = "<script>alert('xss')</script>"
+        checklist.update_item("1a", ChecklistStatus.COMPLETE, notes=unsafe_note)
+
+        html_out = format_strobe_html_compact(checklist)
+
+        # Check structure
+        assert "STROBE Completion:" in html_out
+        assert "table" in html_out
+
+        # Check escaping
+        assert "<script>" not in html_out
+        assert "&lt;script&gt;" in html_out or "&#x3C;script&#x3E;" in html_out
 
 
 class TestChecklistExport:

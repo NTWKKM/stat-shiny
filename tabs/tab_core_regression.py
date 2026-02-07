@@ -2225,8 +2225,15 @@ def core_regression_server(
             treatment_val = exposure_vals[1] if len(exposure_vals) > 1 else 1
             control_val = exposure_vals[0] if len(exposure_vals) > 0 else 0
 
-            risk_data = calculate_absolute_risk(
+            # Clean data before absolute risk calculation
+            clean_df, _ = prepare_data_for_analysis(
                 d,
+                required_cols=[target, exposure_col],
+                var_meta=var_meta.get(),
+                return_info=True,
+            )
+            risk_data = calculate_absolute_risk(
+                clean_df,
                 target,
                 exposure_col,
                 treatment_value=treatment_val,
