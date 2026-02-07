@@ -13,6 +13,7 @@ from utils.reporting_checklists import (
     format_strobe_html_compact,
     generate_checklist_markdown,
 )
+import pytest
 
 
 class TestChecklistItem:
@@ -222,10 +223,22 @@ class TestSTROBEAutoPopulation:
 
     def test_strobe_invalid_study_type(self):
         """Test auto_populate_strobe raises ValueError for invalid type."""
-        import pytest
-
         with pytest.raises(ValueError, match="Invalid study_type"):
             auto_populate_strobe({}, study_type="invalid_type")
+
+    def test_auto_populate_no_ci_does_not_mark_16a(self):
+        """Verify 16a is not marked complete when has_ci is False."""
+        meta = {"n_total": 50, "n_analyzed": 50, "has_ci": False}
+        checklist = auto_populate_strobe(meta, study_type="cohort")
+        item_16a = next(i for i in checklist.items if i.number == "16a")
+        assert item_16a.status == ChecklistStatus.NOT_DONE
+
+    def test_auto_populate_excluded_clamped(self):
+        """Verify excluded count is clamped to 0 when n_analyzed > n_total."""
+        meta = {"n_total": 50, "n_analyzed": 100}
+        checklist = auto_populate_strobe(meta, study_type="cohort")
+        item_13a = next(i for i in checklist.items if i.number == "13a")
+        assert "Excluded: 0" in item_13a.notes
 
     def test_format_strobe_html_compact_structure_and_escaping(self):
         """Test HTML formatting and escaping."""
