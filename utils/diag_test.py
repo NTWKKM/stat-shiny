@@ -195,6 +195,120 @@ def calculate_ci_nnt(rd: float, rd_se: float, ci: float = 0.95) -> tuple[float, 
     return min(nnt_lower, nnt_upper), max(nnt_lower, nnt_upper)
 
 
+def convert_or_to_rr(
+    odds_ratio: float,
+    baseline_risk: float,
+    or_ci_lower: float | None = None,
+    or_ci_upper: float | None = None,
+) -> dict[str, Any]:
+    """
+    Convert Odds Ratio to Risk Ratio (Relative Risk) using baseline risk.
+
+    Uses the Zhang-Yu formula: RR = OR / (1 - P0 + P0 * OR)
+    where P0 is the baseline risk in the unexposed group.
+
+    This conversion is important because:
+    - OR overestimates RR when outcome is common (>10%)
+    - RR is more intuitive for clinical interpretation
+    - Many case-control studies report OR but RR is desired
+
+    Args:
+        odds_ratio: The odds ratio to convert
+        baseline_risk: Risk in the control/unexposed group (0-1)
+        or_ci_lower: Lower bound of OR confidence interval
+        or_ci_upper: Upper bound of OR confidence interval
+
+    Returns:
+        Dictionary with:
+            - rr: Converted risk ratio
+            - rr_ci_lower: Lower CI bound (if OR CI provided)
+            - rr_ci_upper: Upper CI bound (if OR CI provided)
+            - interpretation: Clinical interpretation
+            - warning: Any caveats about the conversion
+
+    Examples:
+        >>> result = convert_or_to_rr(2.5, baseline_risk=0.20)
+        >>> print(f"RR = {result['rr']:.2f}")  # RR = 1.92
+
+        >>> # With confidence intervals
+        >>> result = convert_or_to_rr(2.5, 0.20, or_ci_lower=1.5, or_ci_upper=4.0)
+        >>> print(f"RR = {result['rr']:.2f} ({result['rr_ci_lower']:.2f}-{result['rr_ci_upper']:.2f})")
+
+    References:
+        Zhang J, Yu KF. (1998). What's the Relative Risk? A Method of
+            Correcting the Odds Ratio in Cohort Studies.
+            JAMA 280(19):1690-1.
+    """
+    result: dict[str, Any] = {}
+
+    # Validate inputs
+    if not np.isfinite(odds_ratio) or odds_ratio <= 0:
+        return {"error": "OR must be a positive finite number"}
+
+    if not (0 < baseline_risk < 1):
+        return {"error": "Baseline risk must be between 0 and 1 (exclusive)"}
+
+    # Zhang-Yu formula: RR = OR / (1 - P0 + P0 * OR)
+    denominator = 1 - baseline_risk + baseline_risk * odds_ratio
+    if denominator <= 0:
+        return {"error": "Invalid denominator in conversion formula"}
+
+    rr = odds_ratio / denominator
+    result["rr"] = round(rr, 4)
+    result["odds_ratio"] = odds_ratio
+    result["baseline_risk"] = baseline_risk
+
+    # Convert CI bounds using same formula
+    if or_ci_lower is not None and or_ci_upper is not None:
+        if np.isfinite(or_ci_lower) and or_ci_lower > 0:
+            denom_lower = 1 - baseline_risk + baseline_risk * or_ci_lower
+            result["rr_ci_lower"] = (
+                round(or_ci_lower / denom_lower, 4) if denom_lower > 0 else np.nan
+            )
+        else:
+            result["rr_ci_lower"] = np.nan
+
+        if np.isfinite(or_ci_upper) and or_ci_upper > 0:
+            denom_upper = 1 - baseline_risk + baseline_risk * or_ci_upper
+            result["rr_ci_upper"] = (
+                round(or_ci_upper / denom_upper, 4) if denom_upper > 0 else np.nan
+            )
+        else:
+            result["rr_ci_upper"] = np.nan
+
+    # Calculate approximation error (how much OR overestimates RR)
+    if not np.isclose(rr, 1.0) and not np.isclose(odds_ratio, 1.0):
+        # Formula: % overestimation = ((OR - 1) / (RR - 1) - 1) * 100
+        overestimation = ((odds_ratio - 1) / (rr - 1) - 1) * 100
+        result["or_overestimation_pct"] = round(overestimation, 1)
+    else:
+        result["or_overestimation_pct"] = 0
+
+    # Interpretation
+    if rr > 1:
+        result["interpretation"] = f"Exposed group has {rr:.2f}x the risk of unexposed"
+    elif rr < 1:
+        reduction = (1 - rr) * 100
+        result["interpretation"] = f"Exposed group has {reduction:.1f}% lower risk"
+    else:
+        result["interpretation"] = "No difference in risk between groups"
+
+    # Warnings
+    warnings = []
+    if baseline_risk > 0.1:
+        warnings.append(
+            f"Outcome is common ({baseline_risk:.1%}); "
+            f"OR ({odds_ratio:.2f}) overestimates RR ({rr:.2f}) by "
+            f"{result['or_overestimation_pct']:.0f}%"
+        )
+    if baseline_risk > 0.5:
+        warnings.append("Caution: conversion less reliable when baseline risk >50%")
+
+    result["warnings"] = warnings if warnings else None
+
+    return result
+
+
 def calculate_chi2(
     df: pd.DataFrame,
     col1: str,
