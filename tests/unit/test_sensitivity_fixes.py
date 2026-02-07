@@ -60,3 +60,11 @@ def test_e_value_or_conversion():
     # This is harder to test directly without mocking logger, but we can ensure it runs
     res_prot = calculate_e_value(0.5, lower=0.2)
     assert res_prot["e_value_estimate"] > 1.0
+
+    # Test protective effect with upper bound (exercises l_prime path)
+    res_prot_ci = calculate_e_value(0.5, upper=0.8)
+    assert res_prot_ci["e_value_estimate"] > 1.0
+    assert res_prot_ci["e_value_ci_limit"] >= 1.0
+
+    # Verify original_estimate reflects input, not converted RR
+    assert res_or["original_estimate"] == 4.0
