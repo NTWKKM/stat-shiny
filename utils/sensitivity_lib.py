@@ -298,11 +298,11 @@ def leave_one_out_cv(
 
         for i in range(n):
             # Create train/test split
-            mask = np.ones(n, dtype=bool)
-            mask[i] = False
+            train_mask = np.ones(n, dtype=bool)
+            train_mask[i] = False
 
-            X_train, X_test = X[mask], X[~mask]
-            y_train, y_test = y[mask], y[~mask]
+            X_train, X_test = X[train_mask], X[~train_mask]
+            y_train, y_test = y[train_mask], y[~train_mask]
 
             # Fit and predict
             model = model_fit_func(X_train, y_train)
@@ -341,7 +341,7 @@ def calculate_e_value(
     estimate: float,
     lower: float | None = None,
     upper: float | None = None,
-    estimate_type: str = "RR",
+    estimate_type: Literal["RR", "OR"] = "RR",
 ) -> dict:
     """
     Calculate E-value for a risk ratio (RR) or odds ratio (OR).
@@ -361,8 +361,12 @@ def calculate_e_value(
                 "e_value_ci_limit": 1.0,
             }
 
-        if estimate <= 0:
-            return {"error": "Estimate (RR/OR) must be positive."}
+        if estimate_type not in ("RR", "OR"):
+            raise ValueError(
+                f"Invalid estimate_type: {estimate_type}. Must be 'RR' or 'OR'."
+            )
+
+        original_estimate = estimate
 
         # Convert OR to approximate RR if needed (conservative sqrt heuristic)
         if estimate_type == "OR":
@@ -407,7 +411,7 @@ def calculate_e_value(
         # If CI crosses 1, the limit E-value is 1.
 
         return {
-            "original_estimate": estimate,
+            "original_estimate": original_estimate,
             "e_value_estimate": round(e_est, 3),
             "e_value_ci_limit": round(limit_e_val, 3),
         }

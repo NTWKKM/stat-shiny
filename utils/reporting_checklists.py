@@ -81,14 +81,20 @@ class ReportingChecklist:
         }
 
     def update_item(
-        self, number: str, status: ChecklistStatus, page: str = "", notes: str = ""
+        self,
+        number: str,
+        status: ChecklistStatus,
+        page: str | None = None,
+        notes: str | None = None,
     ) -> bool:
         """Update a checklist item status."""
         for item in self.items:
             if item.number == number:
                 item.status = status
-                item.page_number = page
-                item.notes = notes
+                if page is not None:
+                    item.page_number = page
+                if notes is not None:
+                    item.notes = notes
                 return True
         return False
 

@@ -84,6 +84,23 @@ class TestCONSORTChecklist:
         item = next(i for i in checklist.items if i.number == "1a")
         assert item.status == ChecklistStatus.COMPLETE
         assert item.page_number == "1"
+        assert item.notes == "Title includes 'randomized'"
+
+    def test_update_item_preserves_values(self):
+        """Test that update_item preserves existing values when inputs are None."""
+        checklist = create_consort_checklist()
+        # First set values
+        checklist.update_item(
+            "1a", ChecklistStatus.PARTIAL, page="5", notes="Initial note"
+        )
+
+        # Update only status
+        checklist.update_item("1a", ChecklistStatus.COMPLETE)
+
+        item = next(i for i in checklist.items if i.number == "1a")
+        assert item.status == ChecklistStatus.COMPLETE
+        assert item.page_number == "5"  # Should be preserved
+        assert item.notes == "Initial note"  # Should be preserved
 
 
 class TestSTROBEChecklist:

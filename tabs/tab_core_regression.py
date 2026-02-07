@@ -1599,7 +1599,8 @@ def core_regression_server(
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
             logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
         else:
-            exclude = []
+            # exclude = []  # FIX: Do not wipe user exclusions
+            pass
 
         # Start Loading State
         logit_is_running.set(True)
@@ -1905,8 +1906,29 @@ def core_regression_server(
                                 pred_cols.append(k)
 
                         if pred_cols:
+                            # Use centralized cleaning
+                            req_cols = [target] + pred_cols
+                            final_df_clean, _ = prepare_data_for_analysis(
+                                final_df,
+                                required_cols=req_cols,
+                                var_meta=var_meta.get(),
+                                return_info=True,
+                            )
+
+                            # Re-define y based on clean data
+                            y_raw_clean = final_df_clean[target]
+                            if not unique_vals.issubset({0, 1}):
+                                sorted_vals = sorted(unique_vals, key=str)
+                                y_binary = y_raw_clean.map(
+                                    {sorted_vals[0]: 0, sorted_vals[1]: 1}
+                                )
+                            else:
+                                y_binary = y_raw_clean.astype(int)
+
                             # Prepare design matrix
-                            X = pd.get_dummies(final_df[pred_cols], drop_first=True)
+                            X = pd.get_dummies(
+                                final_df_clean[pred_cols], drop_first=True
+                            )
                             common_idx = y_binary.index.intersection(X.index)
                             X_clean = X.loc[common_idx].dropna()
                             y_clean = y_binary.loc[X_clean.index]
@@ -2314,7 +2336,7 @@ def core_regression_server(
 
                 # Calculate E-value
                 e_result = calculate_e_value(
-                    estimate=aor, lower=ci_low, upper=ci_high, type="OR"
+                    estimate=aor, lower=ci_low, upper=ci_high, estimate_type="OR"
                 )
 
                 if "error" in e_result:
@@ -3130,11 +3152,12 @@ def core_regression_server(
                             req_cols.extend(predictors)
 
                         # prepare_data_for_analysis takes [df, required_columns, exclude_columns, var_meta]
+                        # Updated to use correct signature (return_info=True returns tuple)
                         cleaned_mi_df, _ = prepare_data_for_analysis(
-                            mi_df,
-                            required_columns=req_cols,
-                            exclude_columns=exclude,
+                            mi_df.drop(columns=exclude, errors="ignore"),
+                            required_cols=req_cols,
                             var_meta=var_meta.get(),
+                            return_info=True,
                         )
 
                         n_obs_list.append(len(cleaned_mi_df))
@@ -4115,7 +4138,7 @@ def core_regression_server(
 
         # Use centralized cleaning
         d, missing_info = prepare_data_for_analysis(
-            d, required_columns=cols_needed, var_meta=var_meta.get()
+            d, required_cols=cols_needed, var_meta=var_meta.get(), return_info=True
         )
 
         # Start Loading State
