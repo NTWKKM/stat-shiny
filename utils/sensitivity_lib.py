@@ -394,6 +394,8 @@ def calculate_e_value(
                     "Protective effect (RR<1): upper CI bound needed for E-value of CI limit, "
                     "but only lower bound was provided"
                 )
+            # Note: valid lower bound is ignored here because for RR < 1, the upper bound
+            # corresponds to the limit closest to the null (1.0) on the inverted scale.
         else:
             est_prime = estimate
             l_prime = lower
