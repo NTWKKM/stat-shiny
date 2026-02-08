@@ -4,6 +4,8 @@ Unit tests for utils/reporting_checklists.py
 Tests CONSORT and STROBE checklist creation and validation.
 """
 
+import pytest
+
 from utils.reporting_checklists import (
     ChecklistItem,
     ChecklistStatus,
@@ -13,7 +15,6 @@ from utils.reporting_checklists import (
     format_strobe_html_compact,
     generate_checklist_markdown,
 )
-import pytest
 
 
 class TestChecklistItem:
