@@ -26,6 +26,13 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
+__all__ = [
+    "bootstrap_confidence_interval",
+    "jackknife_estimate",
+    "leave_one_out_cv",
+    "calculate_e_value",
+]
+
 
 # =============================================================================
 # BOOTSTRAP CONFIDENCE INTERVALS
@@ -282,6 +289,8 @@ def leave_one_out_cv(
     """
     try:
         X = np.asarray(X)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
         y = np.asarray(y).flatten()
 
         # Remove rows with NaN in X or y
