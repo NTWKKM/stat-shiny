@@ -45,6 +45,7 @@ from utils.logic import (
     calculate_absolute_risk,
     calculate_nnt,
     format_absolute_risk_html,
+    generate_mi_pooled_report,
     run_glm,
 )
 from utils.multiple_imputation import pool_estimates
@@ -1732,32 +1733,9 @@ def core_regression_server(
                                 }
 
                     # Build HTML report with pooled results
-                    html_rep = f"""
-                    <div class="alert alert-success mb-3">
-                        <strong>🔄 Multiple Imputation Analysis</strong><br>
-                        Results pooled from {len(mi_dfs)} imputed datasets using Rubin's Rules.
-                    </div>
-                    """
-
-                    # Generate pooled results table
-                    if pooled_aor:
-                        html_rep += "<h4>Pooled Adjusted Odds Ratios</h4>"
-                        html_rep += "<table class='table table-striped'><thead><tr>"
-                        html_rep += "<th>Variable</th><th>AOR</th><th>95% CI</th><th>P-value</th><th>FMI</th></tr></thead><tbody>"
-                        for k, v in pooled_aor.items():
-                            p_fmt = format_p_value(v["p_value"])
-                            fmi_pct = (
-                                f"{v['fmi'] * 100:.1f}%"
-                                if v.get("fmi") is not None
-                                else "N/A"
-                            )
-                            html_rep += f"<tr><td>{html.escape(v.get('label', k))}</td>"
-                            html_rep += f"<td>{v['aor']:.2f}</td>"
-                            html_rep += (
-                                f"<td>{v['ci_low']:.2f} - {v['ci_high']:.2f}</td>"
-                            )
-                            html_rep += f"<td>{p_fmt}</td><td>{fmi_pct}</td></tr>"
-                        html_rep += "</tbody></table>"
+                    html_rep = generate_mi_pooled_report(
+                        len(mi_dfs), pooled_or, pooled_aor
+                    )
 
                     or_res = pooled_or
                     aor_res = pooled_aor
@@ -1968,6 +1946,26 @@ def core_regression_server(
                     "rows_analyzed": mi_n_obs,
                     "total_missing": "N/A (Imputed)",
                 }
+                logit_fragment_html += create_missing_data_report_html(
+                    mi_missing_info, var_meta.get() or {}
+                )
+
+                # Rebuild full HTML now that missing-data summary is included
+                full_logit_html = f"""
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Logistic Regression Report: {html.escape(target)}</title>
+                </head>
+                <body>
+                    <div class="report-container">
+                        {logit_fragment_html}
+                    </div>
+                </body>
+                </html>
+                """
 
             logit_res.set(
                 {

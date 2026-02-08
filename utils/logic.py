@@ -909,6 +909,7 @@ def analyze_outcome(
                             else:
                                 or_lines_styled.append("-")
                         res["or"] = "<br>".join(or_lines_styled)
+                        res["coef"] = "<br>".join(coef_lines)
                     else:
                         res["or"] = (
                             f"<span style='color:red; font-size:0.8em'>{status}</span>"
@@ -1387,9 +1388,12 @@ def analyze_outcome(
         if mode in mode_badge:
             lbl += f"<br><span style='font-size:0.8em; color:{COLORS['text_secondary']}'>{mode_badge[mode]}</span>"
 
-        or_s = fmt_or_with_styling(
-            res.get("or_val"), res.get("ci_low"), res.get("ci_high")
-        )
+        if mode == "categorical" and "or" in res:
+            or_s = res["or"]
+        else:
+            or_s = fmt_or_with_styling(
+                res.get("or_val"), res.get("ci_low"), res.get("ci_high")
+            )
         coef_s = res.get("coef", "-")
 
         if mode == "categorical":
@@ -1868,3 +1872,92 @@ def format_absolute_risk_html(
 
     html += "</div>"
     return html
+
+
+def generate_mi_pooled_report(
+    n_imputations: int,
+    pooled_or: dict[str, dict[str, Any]] | None,
+    pooled_aor: dict[str, dict[str, Any]] | None,
+) -> str:
+    """
+    Generate an HTML report for pooled Multiple Imputation results in logistic regression.
+    Includes Crude OR and Adjusted OR columns.
+    """
+    html_rep = f"""
+    <div class="alert alert-success mb-3">
+        <strong>🔄 Multiple Imputation Analysis</strong><br>
+        Results pooled from {n_imputations} imputed datasets using Rubin's Rules.
+    </div>
+    """
+
+    if not pooled_aor and not pooled_or:
+        return html_rep + "<p>No pooled results available.</p>"
+
+    html_rep += "<h4>Pooled Odds Ratios (Crude & Adjusted)</h4>"
+    html_rep += "<table class='table table-striped'><thead><tr>"
+    html_rep += "<th>Variable</th>"
+    html_rep += "<th>Crude OR (95% CI)</th><th>Crude P</th>"
+    html_rep += "<th>aOR (95% CI)</th><th>Adj. P</th>"
+    html_rep += "<th>FMI</th></tr></thead><tbody>"
+
+    # Iterate over variables. Prioritize AOR keys as they represent the multivariable model,
+    # but also check if OR keys have anything extra? Usually AOR is subset or equal.
+    # For reporting, we typically show rows for variables in the final model (AOR).
+    keys = []
+    if pooled_aor:
+        keys = list(pooled_aor.keys())
+    elif pooled_or:
+        keys = list(pooled_or.keys())
+
+    for k in keys:
+        # Get Label
+        label = k
+        if pooled_aor and k in pooled_aor:
+            label = pooled_aor[k].get("label", k)
+        elif pooled_or and k in pooled_or:
+            label = pooled_or[k].get("label", k)
+
+        # Crude
+        crude_cell = "-"
+        crude_p = "-"
+        if pooled_or and k in pooled_or:
+            v = pooled_or[k]
+            # Format Crude OR
+            # Use strict type checking or conversion if needed
+            ci = PublicationFormatter.format_ci(
+                float(v["ci_low"]), float(v["ci_high"]), include_brackets=True
+            )
+            crude_cell = f"{float(v['or']):.2f} {ci}"
+            if (float(v["ci_low"]) > 1.0) or (float(v["ci_high"]) < 1.0):
+                crude_cell = f"<b>{crude_cell}</b>"
+            crude_p = format_p_value(float(v["p_value"]))
+
+        # Adjusted
+        adj_cell = "-"
+        adj_p = "-"
+        fmi_cell = "-"
+        if pooled_aor and k in pooled_aor:
+            v = pooled_aor[k]
+            # Format Adjusted OR
+            ci = PublicationFormatter.format_ci(
+                float(v["ci_low"]), float(v["ci_high"]), include_brackets=True
+            )
+            adj_cell = f"{float(v['aor']):.2f} {ci}"
+            if (float(v["ci_low"]) > 1.0) or (float(v["ci_high"]) < 1.0):
+                adj_cell = f"<b>{adj_cell}</b>"
+            adj_p = format_p_value(float(v["p_value"]))
+            if v.get("fmi") is not None:
+                fmi_cell = f"{float(v['fmi']) * 100:.1f}%"
+        elif pooled_or and k in pooled_or:
+            v_or = pooled_or[k]
+            if v_or.get("fmi") is not None:
+                fmi_cell = f"{float(v_or['fmi']) * 100:.1f}%"
+
+        html_rep += f"<tr><td>{html.escape(str(label))}</td>"
+        html_rep += f"<td>{crude_cell}</td><td>{crude_p}</td>"
+        html_rep += f"<td>{adj_cell}</td><td>{adj_p}</td>"
+        html_rep += f"<td>{fmi_cell}</td></tr>"
+
+    html_rep += "</tbody></table>"
+
+    return html_rep
