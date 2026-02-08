@@ -1387,9 +1387,12 @@ def analyze_outcome(
         if mode in mode_badge:
             lbl += f"<br><span style='font-size:0.8em; color:{COLORS['text_secondary']}'>{mode_badge[mode]}</span>"
 
-        or_s = fmt_or_with_styling(
-            res.get("or_val"), res.get("ci_low"), res.get("ci_high")
-        )
+        if mode == "categorical" and "or" in res:
+            or_s = res["or"]
+        else:
+            or_s = fmt_or_with_styling(
+                res.get("or_val"), res.get("ci_low"), res.get("ci_high")
+            )
         coef_s = res.get("coef", "-")
 
         if mode == "categorical":
