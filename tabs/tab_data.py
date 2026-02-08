@@ -211,6 +211,93 @@ def data_ui() -> ui.TagChild:
                                 class_="mt-3 shadow-sm",
                             ),
                         ),
+                        # Tab 2.5: Multiple Imputation (NEW)
+                        ui.nav_panel(
+                            "🔄 Multiple Imputation",
+                            ui.div(
+                                # Header with info
+                                ui.div(
+                                    ui.tags.span(
+                                        "📊 Multiple Imputation with Rubin's Rules",
+                                        class_="fw-bold fs-5",
+                                    ),
+                                    ui.tags.span(
+                                        " — Generate m imputed datasets and pool estimates",
+                                        class_="text-muted",
+                                    ),
+                                    class_="mb-3",
+                                ),
+                                # Main controls
+                                ui.layout_columns(
+                                    # Left: Settings
+                                    ui.card(
+                                        ui.card_header(
+                                            ui.tags.span(
+                                                "⚙️ MI Settings", class_="fw-semibold"
+                                            )
+                                        ),
+                                        ui.input_select(
+                                            "sel_mi_cols",
+                                            "Columns to Impute:",
+                                            choices=[],
+                                            multiple=True,
+                                        ),
+                                        ui.layout_columns(
+                                            ui.input_numeric(
+                                                "num_mi_m",
+                                                "Imputations (m):",
+                                                value=5,
+                                                min=2,
+                                                max=50,
+                                            ),
+                                            ui.input_numeric(
+                                                "num_mi_iter",
+                                                "Iterations:",
+                                                value=10,
+                                                min=5,
+                                                max=100,
+                                            ),
+                                            col_widths=(6, 6),
+                                        ),
+                                        ui.hr(),
+                                        ui.input_action_button(
+                                            "btn_run_mi",
+                                            "🚀 Run Multiple Imputation",
+                                            class_="btn-primary w-100",
+                                        ),
+                                        ui.br(),
+                                        ui.div(
+                                            ui.tags.small(
+                                                "💡 Tip: Use m ≥ 5 imputations. "
+                                                "More is better for high % missing data.",
+                                                class_="text-muted",
+                                            ),
+                                            class_="mt-2",
+                                        ),
+                                        class_="shadow-sm",
+                                    ),
+                                    # Right: Status & Results
+                                    ui.card(
+                                        ui.card_header(
+                                            ui.tags.span(
+                                                "📈 MI Status", class_="fw-semibold"
+                                            )
+                                        ),
+                                        ui.output_ui("ui_mi_status"),
+                                        class_="shadow-sm",
+                                    ),
+                                    col_widths=(5, 7),
+                                ),
+                                # Diagnostics Section
+                                ui.br(),
+                                ui.card(
+                                    ui.card_header("🔍 Imputation Diagnostics"),
+                                    ui.output_ui("ui_mi_diagnostics"),
+                                    class_="shadow-sm",
+                                ),
+                                class_="p-2",
+                            ),
+                        ),
                         # Tab 3: Transformation
                         ui.nav_panel(
                             "⚡ Transformation",
@@ -309,6 +396,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
     is_matched: reactive.Value[bool],
     matched_treatment_col: reactive.Value[str | None],
     matched_covariates: reactive.Value[list[str]],
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]],  # NEW: Shared MI state
 ) -> None:
     """
     Initialize the server-side logic for the Data Management Shiny module, wiring data loading, metadata handling, cleaning/imputation/outlier/transform workflows, data-quality detection, and UI renderers.
@@ -1116,6 +1204,224 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             except Exception as e:
                 logger.error("Outlier error: %s", e)
                 ui.notification_show(f"❌ Outlier handling failed: {e}", type="error")
+
+    # ==========================================
+    # Multiple Imputation (MI) Server Logic
+    # ==========================================
+
+    # Reactive state for MI results (local - stores full MICEResult)
+    # Note: mi_imputed_datasets is now shared via parameter from app.py
+    mi_result: reactive.Value[Any] = reactive.Value(None)
+
+    @reactive.Effect
+    def _update_mi_choices():
+        """Update MI column choices when data changes"""
+        data = df.get()
+        if data is not None:
+            # Get columns with missing data (numeric only)
+            numeric_cols = data.select_dtypes(include=np.number).columns.tolist()
+            cols_with_missing = [c for c in numeric_cols if data[c].isna().any()]
+            ui.update_select("sel_mi_cols", choices=cols_with_missing)
+        else:
+            ui.update_select("sel_mi_cols", choices=[])
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_mi)
+    def _handle_mi():
+        """Run Multiple Imputation and store results"""
+        from utils.multiple_imputation import MICEImputer
+
+        d = df.get()
+        cols = input.sel_mi_cols()
+        m = input.num_mi_m() or 5
+        max_iter = input.num_mi_iter() or 10
+
+        if d is None or not cols:
+            ui.notification_show(
+                "⚠️ Please load data and select columns to impute",
+                type="warning",
+            )
+            return
+
+        try:
+            with ui.Progress(min=0, max=1) as p:
+                p.set(
+                    message=f"Running MICE with m={m} imputations...",
+                    detail="This may take a moment",
+                )
+
+                imputer = MICEImputer(
+                    n_imputations=m,
+                    max_iter=max_iter,
+                    random_state=42,
+                )
+                result = imputer.fit_transform(d, columns=list(cols))
+
+                # Store results
+                mi_result.set(result)
+                mi_imputed_datasets.set(result.imputed_datasets)
+
+            ui.notification_show(
+                f"✅ Generated {len(result.imputed_datasets)} imputed datasets "
+                f"({len(result.columns_imputed)} columns)",
+                type="message",
+            )
+            logger.info("MI complete: %d datasets", len(result.imputed_datasets))
+
+        except Exception as e:
+            logger.exception("MI error: %s", e)
+            ui.notification_show(f"❌ Multiple Imputation failed: {e}", type="error")
+
+    @render.ui
+    def ui_mi_status():
+        """Render MI status and summary"""
+        result = mi_result.get()
+        d = df.get()
+
+        if result is None:
+            if d is None:
+                return ui.div(
+                    ui.tags.i(class_="bi bi-info-circle me-2"),
+                    "Load data to begin",
+                    class_="text-muted text-center p-4",
+                )
+
+            # Show missing data summary
+            numeric_cols = d.select_dtypes(include=np.number).columns.tolist()
+            cols_with_missing = [c for c in numeric_cols if d[c].isna().any()]
+
+            if not cols_with_missing:
+                return ui.div(
+                    ui.tags.i(class_="bi bi-check-circle text-success me-2"),
+                    "No missing data in numeric columns!",
+                    class_="text-center p-4",
+                )
+
+            missing_counts = [d[c].isna().sum() for c in cols_with_missing]
+            total_missing = sum(missing_counts)
+
+            return ui.div(
+                ui.tags.div(
+                    ui.tags.span(
+                        f"{len(cols_with_missing)}", class_="fs-3 fw-bold text-primary"
+                    ),
+                    ui.tags.span(" columns with missing data", class_="text-muted"),
+                    class_="mb-2",
+                ),
+                ui.tags.div(
+                    ui.tags.span(f"{total_missing:,}", class_="fs-4 fw-semibold"),
+                    ui.tags.span(" total missing values", class_="text-muted"),
+                    class_="mb-3",
+                ),
+                ui.tags.small(
+                    "Select columns above and click 'Run Multiple Imputation' to generate imputed datasets.",
+                    class_="text-muted",
+                ),
+                class_="p-3",
+            )
+
+        # Show MI results summary
+        from utils.multiple_imputation import get_imputation_summary
+
+        summary_df = get_imputation_summary(result)
+
+        return ui.div(
+            ui.div(
+                ui.tags.span("✅ ", class_="text-success"),
+                ui.tags.span(
+                    f"{result.n_imputations} Imputed Datasets Generated",
+                    class_="fw-bold",
+                ),
+                class_="alert alert-success mb-3",
+            ),
+            ui.tags.h6("📊 Imputation Summary", class_="mb-2"),
+            ui.HTML(
+                summary_df.to_html(
+                    index=False,
+                    classes="table table-sm table-striped",
+                    float_format=lambda x: f"{x:.2f}",
+                )
+            )
+            if not summary_df.empty
+            else ui.div("No summary available"),
+            ui.hr(),
+            ui.div(
+                ui.input_action_button(
+                    "btn_apply_mi",
+                    "📥 Apply First Imputation to Data",
+                    class_="btn-outline-success btn-sm me-2",
+                ),
+                ui.input_action_button(
+                    "btn_clear_mi",
+                    "🗑️ Clear MI Results",
+                    class_="btn-outline-secondary btn-sm",
+                ),
+                class_="d-flex gap-2 mt-3",
+            ),
+            class_="p-2",
+        )
+
+    @reactive.Effect
+    @reactive.event(input.btn_apply_mi)
+    def _apply_first_imputation():
+        """Apply first imputed dataset to main dataframe"""
+        datasets = mi_imputed_datasets.get()
+        if datasets:
+            df.set(datasets[0])
+            ui.notification_show(
+                "✅ Applied first imputed dataset to data",
+                type="message",
+            )
+
+    @reactive.Effect
+    @reactive.event(input.btn_clear_mi)
+    def _clear_mi_results():
+        """Clear MI results"""
+        mi_result.set(None)
+        mi_imputed_datasets.set([])
+        ui.notification_show("🗑️ MI results cleared", type="message")
+
+    @render.ui
+    def ui_mi_diagnostics():
+        """Render MI diagnostic plots"""
+        result = mi_result.get()
+        d = df.get()
+
+        if result is None:
+            return ui.div(
+                "Run Multiple Imputation to view diagnostics",
+                class_="text-muted text-center p-4",
+            )
+
+        try:
+            from utils.multiple_imputation import create_imputation_diagnostics
+            from utils.plotly_html_renderer import plotly_figure_to_html
+
+            figures = create_imputation_diagnostics(result, d)
+
+            if not figures:
+                return ui.div(
+                    "No diagnostic plots available",
+                    class_="text-muted text-center p-3",
+                )
+
+            plots_html = []
+            for name, fig in figures.items():
+                plots_html.append(
+                    ui.div(
+                        ui.HTML(plotly_figure_to_html(fig)),
+                        class_="mb-3",
+                    )
+                )
+
+            return ui.div(*plots_html)
+
+        except Exception as e:
+            logger.error("MI diagnostics error: %s", e)
+            return ui.div(
+                f"Error generating diagnostics: {e}",
+                class_="alert alert-warning",
+            )
 
     @render.ui
     def ui_missing_plot():

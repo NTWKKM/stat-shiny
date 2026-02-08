@@ -34,11 +34,13 @@ from tabs._tvc_components import (
     tvc_risk_interval_picker_ui,
 )
 from utils import rcs_lib, survival_lib
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.formatting import (
     PublicationFormatter,
     create_missing_data_report_html,
     format_p_value,
 )
+from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.tvc_lib import create_tvc_forest_plot, fit_tvc_cox, generate_tvc_report
 from utils.ui_helpers import (
@@ -641,6 +643,7 @@ def survival_server(
     var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None = None,  # NEW: MI
 ) -> None:
     """
     Initialize server-side logic for the Survival Analysis Shiny module, wiring reactive state, dataset selection, input-choice auto-detection, and handlers for curves, landmark, Cox, subgroup, and time-varying Cox analyses.
@@ -663,6 +666,20 @@ def survival_server(
     tvc_is_running = reactive.Value(False)
     rcs_is_running = reactive.Value(False)
 
+    # ==================== MI HELPER FUNCTIONS ====================
+    def has_mi_datasets() -> bool:
+        """Check if Multiple Imputation datasets are available."""
+        if mi_imputed_datasets is None:
+            return False
+        datasets = mi_imputed_datasets.get()
+        return isinstance(datasets, list) and len(datasets) > 0
+
+    def get_mi_datasets() -> list[pd.DataFrame]:
+        """Retrieve list of MI imputed datasets."""
+        if mi_imputed_datasets is None:
+            return []
+        return mi_imputed_datasets.get() or []
+
     # ==================== DATASET SELECTION LOGIC ====================
     @reactive.Calc
     def current_df() -> pd.DataFrame | None:
@@ -673,17 +690,23 @@ def survival_server(
 
     @render.ui
     def ui_title_with_summary():
-        """Display title with dataset summary."""
+        """Display title with dataset summary and MI status."""
         d = current_df()
+        mi_badge = ""
+        if has_mi_datasets():
+            mi_count = len(get_mi_datasets())
+            mi_badge = (
+                f' <span class="badge bg-info">🔄 MI Active (m={mi_count})</span>'
+            )
         if d is not None:
             return ui.div(
-                ui.h3("⛳ Survival Analysis"),
+                ui.HTML(f"<h3>⛳ Survival Analysis{mi_badge}</h3>"),
                 ui.p(
                     f"{len(d):,} rows | {len(d.columns)} columns",
                     class_="text-secondary mb-3",
                 ),
             )
-        return ui.h3("⛳ Survival Analysis")
+        return ui.HTML(f"<h3>⛳ Survival Analysis{mi_badge}</h3>")
 
     @render.ui
     def ui_matched_info():
@@ -1413,7 +1436,7 @@ def survival_server(
     @reactive.Effect
     @reactive.event(input.btn_run_cox)
     def _run_cox():
-        """Run Cox proportional hazards regression."""
+        """Run Cox proportional hazards regression with optional MI pooling."""
         data = current_df()
         time_col = input.surv_time()
         event_col = input.surv_event()
@@ -1432,53 +1455,174 @@ def survival_server(
         try:
             cox_is_running.set(True)
             cox_result.set(None)
-            ui.notification_show("Fitting Cox Model...", duration=None, id="run_cox")
-
             cox_method = input.cox_method()
 
-            cph, res_df, clean_data, err, model_stats, missing_info = (
-                survival_lib.fit_cox_ph(
-                    data,
-                    time_col,
-                    event_col,
-                    list(covars),
-                    var_meta=var_meta.get(),
-                    method=cox_method,
+            # Check for MI datasets
+            mi_active = has_mi_datasets()
+            mi_dfs = get_mi_datasets() if mi_active else []
+
+            if mi_active and len(mi_dfs) > 0:
+                # ====== MI POOLED COX ANALYSIS ======
+                ui.notification_show(
+                    f"Fitting Cox Model on {len(mi_dfs)} MI datasets...",
+                    duration=None,
+                    id="run_cox",
                 )
-            )
 
-            if err:
-                ui.notification_show(err, type="error")
-                ui.notification_remove("run_cox")
-                return
+                all_results = []
+                clean_data = None
+                all_results = []
+                clean_data = None
+                for mi_df in mi_dfs:
+                    # Clean data first
+                    d_clean, _, _, _, _ = prepare_data_for_analysis(
+                        mi_df,
+                        target_col=time_col,
+                        predictor_cols=[event_col] + list(covars),
+                        var_meta=var_meta.get(),
+                        dropna=True,
+                    )
 
-            # Forest Plot
-            forest_fig = survival_lib.create_forest_plot_cox(res_df)
+                    _, res_df_i, clean_i, err_i, _, _ = survival_lib.fit_cox_ph(
+                        d_clean,
+                        time_col,
+                        event_col,
+                        list(covars),
+                        var_meta=var_meta.get(),
+                        method=cox_method,
+                    )
+                    if not err_i and res_df_i is not None:
+                        all_results.append(res_df_i)
+                        if clean_data is None:
+                            clean_data = clean_i
 
-            # Check Assumptions (Schoenfeld) - only for lifelines CoxPHFitter
-            from lifelines import CoxPHFitter
+                if not all_results:
+                    ui.notification_remove("run_cox")
+                    ui.notification_show("All MI models failed", type="error")
+                    return
 
-            if isinstance(cph, CoxPHFitter):
-                assump_text, assump_plots = survival_lib.check_cph_assumptions(
-                    cph, clean_data
-                )
-            else:
-                # Firth Cox PH doesn't support Schoenfeld residuals
-                assump_text = "⚠️ Proportional Hazards assumption test is not available for Firth Cox PH models."
+                # Pool HRs using Rubin's rules
+                pooled_rows = []
+                first_df = all_results[0]
+                for _, row in first_df.iterrows():
+                    var_name = row.get(
+                        "Variable", row.name if hasattr(row, "name") else ""
+                    )
+                    estimates = []
+                    variances = []
+                    for res_df in all_results:
+                        match = (
+                            res_df[res_df["Variable"] == var_name]
+                            if "Variable" in res_df.columns
+                            else res_df.loc[[var_name]]
+                            if var_name in res_df.index
+                            else None
+                        )
+                        if match is not None and len(match) > 0:
+                            hr_val = match.iloc[0].get(
+                                "HR", match.iloc[0].get("exp(coef)", 1.0)
+                            )
+                            se_val = match.iloc[0].get(
+                                "SE", match.iloc[0].get("se(coef)", 0.1)
+                            )
+                            if hr_val > 0 and se_val > 0:
+                                estimates.append(np.log(hr_val))
+                                variances.append(se_val**2)
+
+                    if len(estimates) == len(all_results) and len(estimates) > 0:
+                        pooled = pool_estimates(estimates, variances, n_obs=len(data))
+                        pooled_rows.append(
+                            {
+                                "Variable": var_name,
+                                "HR": np.exp(pooled.estimate),
+                                "CI Lower": np.exp(pooled.ci_lower),
+                                "CI Upper": np.exp(pooled.ci_upper),
+                                "p-value": pooled.p_value,
+                                "FMI": pooled.fmi,
+                            }
+                        )
+
+                res_df = pd.DataFrame(pooled_rows)
+
+                if res_df.empty:
+                    ui.notification_show(
+                        "No pooled results could be generated.", type="warning"
+                    )
+                    return
+
+                # Create forest plot from pooled results
+                forest_fig = survival_lib.create_forest_plot_cox(res_df)
+
+                # Pooled results don't support Schoenfeld test
+                assump_text = "⚠️ Proportional Hazards assumption test is not available for MI pooled models."
                 assump_plots = []
 
-            cox_result.set(
-                {
-                    "results_df": res_df,
-                    "forest_fig": forest_fig,
-                    "assumptions_text": assump_text,
-                    "assumptions_plots": assump_plots,
-                    "model_stats": model_stats,
-                    "missing_data_info": missing_info,
-                }
-            )
+                model_stats = {"MI Pooled": True, "M (imputations)": len(mi_dfs)}
+                missing_info = {"rows_analyzed": len(data), "mi_pooled": True}
 
-            ui.notification_remove("run_cox")
+                cox_result.set(
+                    {
+                        "results_df": res_df,
+                        "forest_fig": forest_fig,
+                        "assumptions_text": assump_text,
+                        "assumptions_plots": assump_plots,
+                        "model_stats": model_stats,
+                        "missing_data_info": missing_info,
+                        "mi_pooled": True,
+                    }
+                )
+
+                ui.notification_remove("run_cox")
+
+            else:
+                # ====== STANDARD COX ANALYSIS ======
+                ui.notification_show(
+                    "Fitting Cox Model...", duration=None, id="run_cox"
+                )
+
+                cph, res_df, clean_data, err, model_stats, missing_info = (
+                    survival_lib.fit_cox_ph(
+                        data,
+                        time_col,
+                        event_col,
+                        list(covars),
+                        var_meta=var_meta.get(),
+                        method=cox_method,
+                    )
+                )
+
+                if err:
+                    ui.notification_show(err, type="error")
+                    ui.notification_remove("run_cox")
+                    return
+
+                # Forest Plot
+                forest_fig = survival_lib.create_forest_plot_cox(res_df)
+
+                # Check Assumptions (Schoenfeld) - only for lifelines CoxPHFitter
+                from lifelines import CoxPHFitter
+
+                if isinstance(cph, CoxPHFitter):
+                    assump_text, assump_plots = survival_lib.check_cph_assumptions(
+                        cph, clean_data
+                    )
+                else:
+                    # Firth Cox PH doesn't support Schoenfeld residuals
+                    assump_text = "⚠️ Proportional Hazards assumption test is not available for Firth Cox PH models."
+                    assump_plots = []
+
+                cox_result.set(
+                    {
+                        "results_df": res_df,
+                        "forest_fig": forest_fig,
+                        "assumptions_text": assump_text,
+                        "assumptions_plots": assump_plots,
+                        "model_stats": model_stats,
+                        "missing_data_info": missing_info,
+                    }
+                )
+
+                ui.notification_remove("run_cox")
 
         except Exception as e:
             ui.notification_remove("run_cox")

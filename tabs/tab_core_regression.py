@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from shiny import module, reactive, render, req, ui
 
 from config import CONFIG
@@ -19,6 +20,13 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from utils.calibration_lib import (
+    create_calibration_plot,
+    create_decision_curve,
+    format_calibration_html,
+    get_calibration_report,
+)
+from utils.data_cleaning import prepare_data_for_analysis
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import (
     PublicationFormatter,
@@ -32,7 +40,14 @@ from utils.linear_lib import (
     format_stepwise_history,
     stepwise_selection,
 )
-from utils.logic import analyze_outcome, run_glm
+from utils.logic import (
+    analyze_outcome,
+    calculate_absolute_risk,
+    calculate_nnt,
+    format_absolute_risk_html,
+    run_glm,
+)
+from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.poisson_lib import analyze_poisson_outcome
 from utils.repeated_measures_lib import (
@@ -41,6 +56,12 @@ from utils.repeated_measures_lib import (
     run_gee,
     run_lmm,
 )
+from utils.reporting_checklists import (
+    auto_populate_strobe,
+    format_strobe_html_compact,
+    generate_checklist_markdown,
+)
+from utils.sensitivity_lib import calculate_e_value
 from utils.subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from utils.ui_helpers import (
     create_empty_state_ui,
@@ -60,9 +81,56 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
+def has_mi_datasets(
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
+) -> bool:
+    """Check if MI datasets are available for pooled analysis."""
+    if mi_imputed_datasets is None:
+        return False
+    datasets = mi_imputed_datasets.get()
+    return isinstance(datasets, list) and len(datasets) > 0
+
+
+def get_mi_datasets(
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
+) -> list[pd.DataFrame]:
+    """Safely get MI datasets."""
+    if mi_imputed_datasets is None:
+        return []
+    datasets = mi_imputed_datasets.get()
+    if isinstance(datasets, list):
+        return datasets
+    return []
+
+
 # ==============================================================================
 # Helper Functions (Pure Logic)
 # ==============================================================================
+def _build_strobe_metadata(
+    res: dict[str, Any],
+    d: pd.DataFrame | None,
+    outcome_name: str | None,
+) -> dict[str, Any]:
+    """Helper to build STROBE metadata for logistic regression."""
+    aor_res = res.get("aor_res", {})
+    n_total = len(d) if d is not None else 0
+    n_analyzed = (
+        len(res.get("y_true", [])) if res.get("y_true") is not None else n_total
+    )
+
+    return {
+        "n_total": n_total,
+        "n_analyzed": n_analyzed,
+        "outcome_name": outcome_name or "Unknown",
+        "predictors": list(aor_res.keys()) if aor_res else [],
+        "has_missing_report": True,  # We always include missing report
+        "has_ci": True,
+        "method": "logistic",  # Default method
+        "has_sensitivity": bool(aor_res),  # E-values are calculated
+        "has_subgroup": False,  # Could check if subgroup was run
+    }
+
+
 def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
     """Identify columns causing perfect separation."""
     risky_vars: list[str] = []
@@ -178,6 +246,17 @@ def core_regression_ui() -> ui.TagChild:
                                     "placeholder": "Select variable pairs to test interactions...",
                                     "plugins": ["remove_button"],
                                 },
+                            ),
+                            ui.hr(),
+                            ui.input_selectize(
+                                "sel_exposure",
+                                create_tooltip_label(
+                                    "Exposure for AR/NNT",
+                                    "Select the primary exposure variable for Absolute Risk calculation.",
+                                ),
+                                choices=[],
+                                width="100%",
+                                options={"plugins": ["remove_button"]},
                             ),
                             type="optional",
                         )
@@ -914,6 +993,7 @@ def core_regression_server(
     var_meta: reactive.Value[dict[str, Any]],
     df_matched: reactive.Value[pd.DataFrame | None],
     is_matched: reactive.Value[bool],
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None = None,  # NEW: MI
 ) -> None:
     # --- State Management ---
     # Store main logit results: {'html': str, 'fig_adj': FigureWidget, 'fig_crude': FigureWidget}
@@ -991,13 +1071,33 @@ def core_regression_server(
             return df_matched.get()
         return df.get()
 
+    @reactive.Calc
+    def has_mi() -> bool:
+        """Check if MI datasets are available for auto-pooling."""
+        return has_mi_datasets(mi_imputed_datasets)
+
+    @reactive.Calc
+    def mi_datasets_list() -> list[pd.DataFrame]:
+        """Get MI datasets for pooled analysis."""
+        return get_mi_datasets(mi_imputed_datasets)
+
     @render.ui
     def ui_title_with_summary():
-        """Display title with dataset summary."""
+        """Display title with dataset summary and MI status."""
         d = current_df()
+        mi_active = has_mi()
+        mi_count = len(mi_datasets_list()) if mi_active else 0
+
         if d is not None:
+            mi_badge = ""
+            if mi_active:
+                mi_badge = ui.span(
+                    f"🔄 MI Active (m={mi_count})",
+                    class_="badge bg-success ms-2",
+                    style="font-size: 0.7em; vertical-align: middle;",
+                )
             return ui.div(
-                ui.h3("📈 Regression Models"),
+                ui.h3("📈 Regression Models", mi_badge),
                 ui.p(
                     f"{len(d):,} rows | {len(d.columns)} columns",
                     class_="text-secondary mb-3",
@@ -1076,6 +1176,7 @@ def core_regression_server(
             islice((f"{a} × {b}" for a, b in combinations(cols, 2)), 50)
         )
         ui.update_selectize("sel_interactions", choices=interaction_choices)
+        ui.update_selectize("sel_exposure", choices=binary_cols)
 
         # Update Tab 2 (Poisson) Inputs
         # Identify count columns (non-negative integers)
@@ -1424,6 +1525,22 @@ def core_regression_server(
                     ui.nav_panel("🌳 Forest Plots", ui.output_ui("ui_forest_tabs")),
                     ui.nav_panel("📋 Detailed Report", ui.HTML(res["html_fragment"])),
                     ui.nav_panel(
+                        "📊 Model Diagnostics",
+                        ui.output_ui("out_logit_calibration"),
+                    ),
+                    ui.nav_panel(
+                        "📉 Absolute Measures",
+                        ui.output_ui("out_logit_absolute_risk"),
+                    ),
+                    ui.nav_panel(
+                        "🔬 Sensitivity",
+                        ui.output_ui("out_logit_sensitivity"),
+                    ),
+                    ui.nav_panel(
+                        "📋 STROBE",
+                        ui.output_ui("out_logit_strobe"),
+                    ),
+                    ui.nav_panel(
                         "✅ Assumptions",
                         ui.markdown("""
                             ### 🧐 Model Assumptions Checklist
@@ -1481,8 +1598,9 @@ def core_regression_server(
                 if len(parts) == 2:
                     interaction_pairs.append((parts[0].strip(), parts[1].strip()))
             logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
-
-            logger.info(f"Logit: Using {len(interaction_pairs)} interaction pairs")
+        else:
+            # exclude = []  # FIX: Do not wipe user exclusions
+            pass
 
         # Start Loading State
         logit_is_running.set(True)
@@ -1495,16 +1613,167 @@ def core_regression_server(
             p.set(message="Running Logistic Regression...", detail="Calculating...")
 
             try:
-                # Run Logic from logic.py
-                # Note: updated logic.py returns 4 values and html_rep typically includes the plot + css
-                html_rep, or_res, aor_res, interaction_res = analyze_outcome(
-                    target,
-                    final_df,
-                    var_meta=var_meta.get(),
-                    method=method,
-                    interaction_pairs=interaction_pairs,
-                    adv_stats=CONFIG,
-                )
+                # Check if MI datasets are available for pooled analysis
+                mi_active = has_mi()
+                mi_dfs = mi_datasets_list() if mi_active else []
+
+                if mi_active and len(mi_dfs) > 0:
+                    # ====== MI POOLED ANALYSIS ======
+                    p.set(
+                        message="Running MI Pooled Logistic Regression...",
+                        detail=f"Analyzing {len(mi_dfs)} imputed datasets...",
+                    )
+                    logger.info(
+                        f"Logit: Running pooled analysis on {len(mi_dfs)} MI datasets"
+                    )
+
+                    # Run analysis on each imputed dataset
+                    all_results = []
+                    for i, mi_df in enumerate(mi_dfs):
+                        p.set(
+                            value=(i + 1) / len(mi_dfs),
+                            detail=f"Processing imputed dataset {i + 1}/{len(mi_dfs)}...",
+                        )
+                        # Apply exclusions to MI dataset
+                        mi_df_clean = mi_df.drop(columns=exclude, errors="ignore")
+
+                        _, or_res_i, aor_res_i, _ = analyze_outcome(
+                            target,
+                            mi_df_clean,
+                            var_meta=var_meta.get(),
+                            method=method,
+                            interaction_pairs=interaction_pairs,
+                            adv_stats=CONFIG,
+                        )
+                        all_results.append(
+                            {
+                                "or_res": or_res_i,
+                                "aor_res": aor_res_i,
+                            }
+                        )
+
+                    # Pool results using Rubin's rules
+                    pooled_or = {}
+                    pooled_aor = {}
+
+                    # Pool crude ORs
+                    if all_results[0].get("or_res"):
+                        for var_key in all_results[0]["or_res"].keys():
+                            estimates = []
+                            variances = []
+                            for res in all_results:
+                                if res.get("or_res") and var_key in res["or_res"]:
+                                    v = res["or_res"][var_key]
+                                    # Extract estimate on log scale
+                                    or_val = v.get("or")
+                                    se = v.get("se")
+                                    if (
+                                        or_val is not None
+                                        and se is not None
+                                        and or_val > 0
+                                        and se > 0
+                                    ):
+                                        estimates.append(np.log(or_val))
+                                        variances.append(se**2)
+
+                            if len(estimates) == len(mi_dfs):
+                                # Calculate n_obs from MI datasets
+                                n_obs_mi = int(
+                                    np.mean([len(mi_df) for mi_df in mi_dfs])
+                                )
+                                pooled = pool_estimates(
+                                    estimates, variances, n_obs=n_obs_mi
+                                )
+                                pooled_or[var_key] = {
+                                    "or": np.exp(pooled.estimate),
+                                    "ci_low": np.exp(pooled.ci_lower),
+                                    "ci_high": np.exp(pooled.ci_upper),
+                                    "p_value": pooled.p_value,
+                                    "fmi": pooled.fmi,
+                                    "label": all_results[0]["or_res"][var_key].get(
+                                        "label", var_key
+                                    ),
+                                }
+
+                    # Pool adjusted ORs
+                    if all_results[0].get("aor_res"):
+                        for var_key in all_results[0]["aor_res"].keys():
+                            estimates = []
+                            variances = []
+                            for res in all_results:
+                                if res.get("aor_res") and var_key in res["aor_res"]:
+                                    v = res["aor_res"][var_key]
+                                    aor_val = v.get("aor")
+                                    se = v.get("se")
+                                    if (
+                                        aor_val is not None
+                                        and se is not None
+                                        and aor_val > 0
+                                        and se > 0
+                                    ):
+                                        estimates.append(np.log(aor_val))
+                                        variances.append(se**2)
+
+                            if len(estimates) == len(mi_dfs):
+                                # Calculate n_obs from MI datasets
+                                n_obs_mi = int(np.mean([len(d) for d in mi_dfs]))
+                                pooled = pool_estimates(
+                                    estimates, variances, n_obs=n_obs_mi
+                                )
+                                pooled_aor[var_key] = {
+                                    "aor": np.exp(pooled.estimate),
+                                    "ci_low": np.exp(pooled.ci_lower),
+                                    "ci_high": np.exp(pooled.ci_upper),
+                                    "p_value": pooled.p_value,
+                                    "fmi": pooled.fmi,
+                                    "label": all_results[0]["aor_res"][var_key].get(
+                                        "label", var_key
+                                    ),
+                                }
+
+                    # Build HTML report with pooled results
+                    html_rep = f"""
+                    <div class="alert alert-success mb-3">
+                        <strong>🔄 Multiple Imputation Analysis</strong><br>
+                        Results pooled from {len(mi_dfs)} imputed datasets using Rubin's Rules.
+                    </div>
+                    """
+
+                    # Generate pooled results table
+                    if pooled_aor:
+                        html_rep += "<h4>Pooled Adjusted Odds Ratios</h4>"
+                        html_rep += "<table class='table table-striped'><thead><tr>"
+                        html_rep += "<th>Variable</th><th>AOR</th><th>95% CI</th><th>P-value</th><th>FMI</th></tr></thead><tbody>"
+                        for k, v in pooled_aor.items():
+                            p_fmt = format_p_value(v["p_value"])
+                            fmi_pct = (
+                                f"{v['fmi'] * 100:.1f}%"
+                                if v.get("fmi") is not None
+                                else "N/A"
+                            )
+                            html_rep += f"<tr><td>{html.escape(v.get('label', k))}</td>"
+                            html_rep += f"<td>{v['aor']:.2f}</td>"
+                            html_rep += (
+                                f"<td>{v['ci_low']:.2f} - {v['ci_high']:.2f}</td>"
+                            )
+                            html_rep += f"<td>{p_fmt}</td><td>{fmi_pct}</td></tr>"
+                        html_rep += "</tbody></table>"
+
+                    or_res = pooled_or
+                    aor_res = pooled_aor
+                    interaction_res = None
+
+                else:
+                    # ====== STANDARD ANALYSIS ======
+                    # Run Logic from logic.py
+                    html_rep, or_res, aor_res, interaction_res = analyze_outcome(
+                        target,
+                        final_df,
+                        var_meta=var_meta.get(),
+                        method=method,
+                        interaction_pairs=interaction_pairs,
+                        adv_stats=CONFIG,
+                    )
             except Exception as e:
                 err_msg = f"Error running logistic regression: {e!s}"
                 logit_res.set({"error": err_msg})
@@ -1573,6 +1842,19 @@ def core_regression_server(
                 plot_html = plotly_figure_to_html(fig_crude, include_plotlyjs="cdn")
                 logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
+            # Append Assumptions Checklist
+            logit_fragment_html += """
+            <div class='assumptions-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'>
+                <h3>✅ Model Assumptions Checklist</h3>
+                <ol>
+                    <li><strong>Multicollinearity:</strong> Check standard errors. Large SEs indicate high correlation (VIF > 5-10).</li>
+                    <li><strong>Linearity:</strong> Log-odds should be linear with continuous predictors (Box-Tidwell).</li>
+                    <li><strong>Independence:</strong> Observations should be independent.</li>
+                    <li><strong>Separation:</strong> Huge SEs (>1000) imply perfect separation. Consider Firth's method.</li>
+                </ol>
+            </div>
+            """
+
             # 2. Create Full HTML for Download (Wrapped)
             full_logit_html = f"""
             <!DOCTYPE html>
@@ -1590,13 +1872,113 @@ def core_regression_server(
             </html>
             """
 
+            # --- Calculate Predictions for Calibration ---
+            # Note: For MI pooled analysis, we skip calibration (no single model)
+            y_true_arr = None
+            y_pred_arr = None
+
+            if not mi_active and aor_res:
+                try:
+                    # Prepare data for prediction
+                    y_raw = final_df[target].dropna()
+                    unique_vals = set(y_raw.unique())
+
+                    if len(unique_vals) == 2:
+                        # Map to 0/1 if needed
+                        if not unique_vals.issubset({0, 1}):
+                            sorted_vals = sorted(unique_vals, key=str)
+                            y_binary = y_raw.map({sorted_vals[0]: 0, sorted_vals[1]: 1})
+                        else:
+                            y_binary = y_raw.astype(int)
+
+                        # Get predictor columns from aor_res keys
+                        pred_cols = []
+                        for k in aor_res.keys():
+                            # Handle categorical dummy columns
+                            if "::" in k:
+                                base_col = k.split("::")[0].split(": ")[0]
+                                if (
+                                    base_col in final_df.columns
+                                    and base_col not in pred_cols
+                                ):
+                                    pred_cols.append(base_col)
+                            elif k in final_df.columns:
+                                pred_cols.append(k)
+
+                        if pred_cols:
+                            # Use centralized cleaning
+                            req_cols = [target] + pred_cols
+                            final_df_clean, _ = prepare_data_for_analysis(
+                                final_df,
+                                required_cols=req_cols,
+                                var_meta=var_meta.get(),
+                                return_info=True,
+                            )
+
+                            # Re-define y based on clean data
+                            y_raw_clean = final_df_clean[target]
+                            if not unique_vals.issubset({0, 1}):
+                                sorted_vals = sorted(unique_vals, key=str)
+                                y_binary = y_raw_clean.map(
+                                    {sorted_vals[0]: 0, sorted_vals[1]: 1}
+                                )
+                            else:
+                                y_binary = y_raw_clean.astype(int)
+
+                            # Prepare design matrix
+                            X = pd.get_dummies(
+                                final_df_clean[pred_cols], drop_first=True
+                            )
+                            common_idx = y_binary.index.intersection(X.index)
+                            X_clean = X.loc[common_idx].dropna()
+                            y_clean = y_binary.loc[X_clean.index]
+
+                            if len(y_clean) > 20:
+                                X_const = sm.add_constant(X_clean, has_constant="add")
+                                model = sm.Logit(y_clean, X_const)
+                                result = model.fit(disp=0, maxiter=50)
+
+                                if not result.mle_retvals.get("converged", False):
+                                    logger.warning(
+                                        "Logistic calibration model failed to converge"
+                                    )
+                                    # Skip results assignment
+                                else:
+                                    y_pred_arr = result.predict(X_const).values
+                                    y_true_arr = y_clean.values
+                                    logger.info(
+                                        "Calibration: Generated %d predictions",
+                                        len(y_pred_arr),
+                                    )
+                except Exception as e:
+                    logger.warning(
+                        "Could not generate predictions for calibration: %s", e
+                    )
+
             # Store Results
+            # Calculate missing info for MI pooled
+            mi_missing_info = None
+            if has_mi_datasets(mi_imputed_datasets):
+                # Use mean length of imputed datasets
+                mi_dfs = get_mi_datasets(mi_imputed_datasets)
+                mi_n_obs = int(np.mean([len(mi_df) for mi_df in mi_dfs]))
+                mi_missing_info = {
+                    "mi_pooled": True,
+                    "imputation_count": len(mi_dfs),
+                    "rows_analyzed": mi_n_obs,
+                    "total_missing": "N/A (Imputed)",
+                }
+
             logit_res.set(
                 {
                     "html_fragment": logit_fragment_html,  # For UI
                     "html_full": full_logit_html,  # For Download
                     "fig_adj": fig_adj,
                     "fig_crude": fig_crude,
+                    "y_true": y_true_arr,  # For calibration
+                    "y_pred": y_pred_arr,  # For calibration
+                    "aor_res": aor_res,  # For E-value sensitivity
+                    "missing_info": mi_missing_info,
                 }
             )
 
@@ -1612,10 +1994,12 @@ def core_regression_server(
         if res:
             return ui.div(
                 ui.h5("✅ Regression Complete"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']};",
             )
         return None
 
+    @render.ui
+    def logit_detailed_report():
         res = logit_res.get()
         if res:
             return ui.card(
@@ -1691,6 +2075,448 @@ def core_regression_server(
             responsive=True,
         )
         return ui.HTML(html_str)
+
+    @render.ui
+    def out_logit_calibration():
+        """
+        Render calibration plots and metrics for the logistic regression model.
+
+        Returns calibration plot, decision curve, and key metrics table.
+        """
+        res = logit_res.get()
+        if res is None:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see model diagnostics...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        # Check if we have prediction data
+        y_true = res.get("y_true")
+        y_pred = res.get("y_pred")
+
+        if y_true is None or y_pred is None:
+            # Fall back to metrics-only display if no predictions stored
+            return ui.card(
+                ui.card_header("📊 Model Diagnostics"),
+                ui.div(
+                    ui.markdown("""
+                        **Note:** Calibration plots require predicted probabilities.
+                        
+                        The model diagnostics table is included in the **Detailed Report** tab.
+                        
+                        To enable full calibration analysis, ensure the multivariate model was successfully fitted.
+                    """),
+                    style="padding: 20px; color: #666;",
+                ),
+            )
+
+        try:
+            # Generate calibration report
+            calib_report = get_calibration_report(y_true, y_pred)
+            metrics_html = format_calibration_html(calib_report)
+
+            # Create calibration plot
+            fig_calib = create_calibration_plot(
+                y_true, y_pred, title="Calibration Plot (Observed vs Predicted)"
+            )
+            calib_plot_html = plotly_figure_to_html(
+                fig_calib,
+                div_id="plot_logit_calibration",
+                include_plotlyjs="cdn",
+                responsive=True,
+            )
+
+            # Create decision curve
+            fig_dca = create_decision_curve(
+                y_true, y_pred, title="Decision Curve Analysis"
+            )
+            dca_plot_html = plotly_figure_to_html(
+                fig_dca,
+                div_id="plot_logit_dca",
+                include_plotlyjs="cdn",
+                responsive=True,
+            )
+
+            return ui.div(
+                ui.navset_tab(
+                    ui.nav_panel(
+                        "📈 Calibration Metrics",
+                        ui.HTML(metrics_html),
+                        ui.markdown("""
+                            ---
+                            **Interpretation Guide:**
+                            - **C-statistic (AUC)**: Measures discrimination (ability to distinguish outcomes). >0.8 is excellent.
+                            - **Brier Score**: Measures calibration accuracy. <0.25 is acceptable.
+                            - **Calibration Slope**: Should be close to 1. <0.8 or >1.2 suggests recalibration needed.
+                            - **Hosmer-Lemeshow**: p > 0.05 indicates adequate fit.
+                        """),
+                    ),
+                    ui.nav_panel("📊 Calibration Plot", ui.HTML(calib_plot_html)),
+                    ui.nav_panel("🎯 Decision Curve", ui.HTML(dca_plot_html)),
+                ),
+            )
+
+        except Exception as e:
+            logger.exception("Calibration plot generation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not generate calibration plots: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.ui
+    def out_logit_absolute_risk():
+        """
+        Render absolute risk measures (ARD/NNT) for logistic regression.
+
+        Requires a binary treatment/exposure variable to be selected.
+        """
+        res = logit_res.get()
+        d = current_df()
+        target = input.sel_outcome()
+
+        if res is None or d is None or not target:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see absolute risk measures...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        # Get binary predictors from the data
+        binary_cols = []
+        for col in d.columns:
+            if col != target:
+                unique_vals = d[col].dropna().unique()
+                if len(unique_vals) == 2:
+                    binary_cols.append(col)
+
+        if not binary_cols:
+            return ui.card(
+                ui.card_header("📉 Absolute Risk Measures"),
+                ui.div(
+                    ui.markdown("""
+                        **Note:** Absolute risk measures require a binary treatment/exposure variable.
+                        
+                        No binary predictors were found in the dataset.
+                        
+                        **What you need:**
+                        - A treatment or exposure variable with exactly 2 groups (e.g., Drug vs Placebo, Exposed vs Unexposed)
+                        
+                        The relative measures (OR) are still available in the Detailed Report.
+                    """),
+                    style="padding: 20px; color: #666;",
+                ),
+            )
+
+        try:
+            # Calculate absolute risk for the first binary predictor (primary exposure)
+            # Use selected exposure or fallback to first binary column
+            exposure_col = input.sel_exposure()
+            if not exposure_col or exposure_col not in d.columns:
+                if binary_cols:
+                    exposure_col = binary_cols[0]
+
+            if not exposure_col or exposure_col not in d.columns:
+                # If still no valid exposure, skip AR/NNT
+                return None
+
+            exposure_vals = sorted(d[exposure_col].dropna().unique())
+            treatment_val = exposure_vals[1] if len(exposure_vals) > 1 else 1
+            control_val = exposure_vals[0] if len(exposure_vals) > 0 else 0
+
+            # Clean data before absolute risk calculation
+            clean_df, _ = prepare_data_for_analysis(
+                d,
+                required_cols=[target, exposure_col],
+                var_meta=var_meta.get(),
+                return_info=True,
+            )
+            risk_data = calculate_absolute_risk(
+                clean_df,
+                target,
+                exposure_col,
+                treatment_value=treatment_val,
+                control_value=control_val,
+            )
+
+            if "error" in risk_data:
+                return ui.card(
+                    ui.card_header("📉 Absolute Risk Measures"),
+                    ui.div(
+                        f"Could not calculate: {risk_data['error']}",
+                        style="padding: 20px; color: #666;",
+                    ),
+                )
+
+            nnt_data = calculate_nnt(
+                risk_data["ard"],
+                risk_data.get("ard_ci_lower"),
+                risk_data.get("ard_ci_upper"),
+            )
+
+            html_report = format_absolute_risk_html(risk_data, nnt_data)
+
+            # Escape user-provided strings before inserting into HTML
+            esc_exposure = html.escape(str(exposure_col))
+            esc_treatment = html.escape(str(treatment_val))
+            esc_control = html.escape(str(control_val))
+
+            return ui.card(
+                ui.card_header(f"📉 Absolute Risk: {esc_exposure}"),
+                ui.HTML(html_report),
+                ui.hr(),
+                ui.div(
+                    ui.markdown(f"""
+                        **Exposure Variable:** `{esc_exposure}`
+                        - Treatment group: `{esc_treatment}` (n={risk_data["n_treatment"]})
+                        - Control group: `{esc_control}` (n={risk_data["n_control"]})
+                        
+                        ---
+                        
+                        **Why This Matters (NEJM/Lancet Standard):**
+                        
+                        Relative measures (OR, RR) can overstate clinical significance. Absolute measures show real-world impact:
+                        - **ARD**: The actual difference in event rates
+                        - **NNT**: How many patients need treatment to affect 1 outcome
+                    """),
+                    style="font-size: 0.9em; color: #666;",
+                ),
+            )
+
+        except Exception as e:
+            logger.exception("Absolute risk calculation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not calculate absolute risk: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.ui
+    def out_logit_sensitivity():
+        """
+        Render E-value sensitivity analysis for unmeasured confounding.
+
+        E-value quantifies the minimum strength of association an unmeasured
+        confounder would need with both treatment and outcome to explain away
+        the observed effect.
+        """
+        res = logit_res.get()
+
+        if res is None or "error" in res:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see sensitivity analysis...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        # Get adjusted OR results
+        aor_res = res.get("aor_res", {})
+
+        if not aor_res:
+            return ui.card(
+                ui.card_header("🔬 E-value Sensitivity Analysis"),
+                ui.div(
+                    ui.markdown("""
+                        **Note:** E-value calculation requires adjusted odds ratios (aOR).
+                        
+                        No multivariate results available. Run analysis with predictors to calculate E-values.
+                    """),
+                    style="padding: 20px; color: #666;",
+                ),
+            )
+
+        try:
+            # Calculate E-values for significant effects
+            e_value_rows = []
+            significant_count = 0
+
+            for var_name, var_data in aor_res.items():
+                aor = var_data.get("aor")
+                ci_low = var_data.get("ci_low")
+                ci_high = var_data.get("ci_high")
+                p_val = var_data.get("p_value")
+
+                if aor is None or np.isnan(aor):
+                    continue
+
+                # Calculate E-value
+                e_result = calculate_e_value(
+                    estimate=aor, lower=ci_low, upper=ci_high, estimate_type="OR"
+                )
+
+                if "error" in e_result:
+                    continue
+
+                e_val = e_result.get("e_value_estimate", np.nan)
+                e_ci = e_result.get("e_value_ci_limit", np.nan)
+
+                # Interpret strength
+                if e_val >= 3:
+                    strength = "🟢 Strong"
+                    note = "Robust to moderate confounding"
+                elif e_val >= 2:
+                    strength = "🟡 Moderate"
+                    note = "Sensitive to moderate confounding"
+                else:
+                    strength = "🔴 Weak"
+                    note = "Easily explained by confounding"
+
+                is_sig = p_val is not None and p_val < 0.05
+                if is_sig:
+                    significant_count += 1
+
+                sig_badge = "✓" if is_sig else ""
+
+                e_ci_str = (
+                    f"{e_ci:.2f}" if (e_ci is not None and not np.isnan(e_ci)) else "—"
+                )
+
+                e_value_rows.append(f"""
+                    <tr>
+                        <td>{html.escape(str(var_name))} {sig_badge}</td>
+                        <td>{aor:.2f}</td>
+                        <td><strong>{e_val:.2f}</strong></td>
+                        <td>{e_ci_str}</td>
+                        <td>{strength}</td>
+                        <td style='font-size: 0.85em; color: #666;'>{note}</td>
+                    </tr>
+                """)
+
+            if not e_value_rows:
+                return ui.card(
+                    ui.card_header("🔬 E-value Sensitivity Analysis"),
+                    ui.div(
+                        "No valid estimates for E-value calculation.",
+                        style="padding: 20px;",
+                    ),
+                )
+
+            e_table = f"""
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>Variable</th>
+                        <th>aOR</th>
+                        <th>E-value (Point)</th>
+                        <th>E-value (CI)</th>
+                        <th>Robustness</th>
+                        <th>Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {"".join(e_value_rows)}
+                </tbody>
+            </table>
+            """
+
+            return ui.card(
+                ui.card_header("🔬 E-value Sensitivity Analysis"),
+                ui.HTML(e_table),
+                ui.hr(),
+                ui.markdown("""
+                    **How to Interpret E-values (VanderWeele & Ding, 2017):**
+                    
+                    The **E-value** is the minimum strength of association (on the risk ratio scale) that an unmeasured confounder would need to have with **both** the treatment and the outcome to fully explain away the observed effect.
+                    
+                    | E-value | Interpretation |
+                    |---------|----------------|
+                    | ≥ 3.0 | **Strong robustness** - Would require a very strong confounder |
+                    | 2.0 - 3.0 | **Moderate robustness** - Moderately robust to confounding |
+                    | 1.5 - 2.0 | **Weak robustness** - Could be explained by a moderately strong confounder |
+                    | < 1.5 | **Very weak** - Easily explained by mild confounding |
+                    
+                    > **Citation:** VanderWeele TJ, Ding P. Sensitivity Analysis in Observational Research: Introducing the E-Value. *Ann Intern Med.* 2017;167(4):268-274.
+                """),
+            )
+
+        except Exception as e:
+            logger.exception("E-value calculation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not calculate E-values: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.ui
+    def out_logit_strobe():
+        """
+        Render STROBE checklist with auto-populated items.
+
+        Auto-marks items based on what was performed in the analysis.
+        """
+        res = logit_res.get()
+        d = current_df()
+        target = input.sel_outcome()
+
+        if res is None or "error" in res:
+            return ui.div(
+                ui.markdown("⏳ *Run analysis to see STROBE checklist...*"),
+                style="color: #999; text-align: center; padding: 20px;",
+            )
+
+        try:
+            # Build analysis metadata for auto-population
+            metadata = _build_strobe_metadata(res, d, target)
+
+            # Create auto-populated checklist
+            checklist = auto_populate_strobe(metadata)
+
+            # Generate HTML
+            html_content = format_strobe_html_compact(checklist)
+
+            return ui.card(
+                ui.card_header("📋 STROBE Checklist (Auto-filled)"),
+                ui.HTML(html_content),
+                ui.hr(),
+                ui.row(
+                    ui.column(
+                        6,
+                        ui.download_button(
+                            "dl_strobe_md",
+                            "📥 Download STROBE (Markdown)",
+                            class_="btn-outline-secondary btn-sm",
+                        ),
+                    ),
+                    ui.column(
+                        6,
+                        ui.markdown("""
+                            **Legend:** ✅ Complete | 🔶 Partial | ❌ Not addressed
+                        """),
+                    ),
+                ),
+            )
+
+        except Exception as e:
+            logger.exception("STROBE checklist generation failed: %s", e)
+            return ui.div(
+                ui.div(
+                    f"⚠️ Could not generate STROBE checklist: {e}",
+                    class_="alert alert-warning",
+                ),
+                style="padding: 20px;",
+            )
+
+    @render.download(filename="strobe_checklist.md")
+    def dl_strobe_md():
+        """Download STROBE checklist as markdown."""
+        res = logit_res.get()
+        d = current_df()
+
+        if res is None:
+            yield "# STROBE Checklist\n\nNo analysis results available."
+            return
+
+        try:
+            metadata = _build_strobe_metadata(res, d, input.sel_outcome())
+
+            checklist = auto_populate_strobe(metadata)
+            yield generate_checklist_markdown(checklist)
+        except Exception as e:
+            yield f"# Error\n\nCould not generate checklist: {e}"
 
     @render.download(filename="logit_report.html")
     def btn_dl_report():
@@ -2279,7 +3105,7 @@ def core_regression_server(
     @reactive.Effect
     @reactive.event(input.btn_run_linear)
     def _run_linear():
-        """Run linear regression analysis for continuous outcome."""
+        """Run linear regression analysis for continuous outcome with optional MI pooling."""
         d = current_df()
         target = input.linear_outcome()
         predictors = (
@@ -2302,64 +3128,232 @@ def core_regression_server(
         linear_is_running.set(True)
         linear_res.set(None)
 
-        with ui.Progress(min=0, max=1) as p:
-            p.set(message="Running Linear Regression...", detail="Preparing data...")
+        # Check for MI datasets
+        mi_active = has_mi()
+        mi_dfs = mi_datasets_list() if mi_active else []
 
+        with ui.Progress(min=0, max=1) as p:
             try:
-                # Run analysis from linear_lib
-                html_report, results, plots, missing_info = analyze_linear_outcome(
-                    outcome_name=target,
-                    df=d,
-                    predictor_cols=predictors,
-                    var_meta=var_meta.get(),
-                    exclude_cols=exclude,
-                    regression_type=method,
-                    robust_se=robust_se,
-                )
+                if mi_active and len(mi_dfs) > 0:
+                    # ====== MI POOLED LINEAR ANALYSIS ======
+                    p.set(
+                        message="Running MI Pooled Linear Regression...",
+                        detail=f"Analyzing {len(mi_dfs)} imputed datasets...",
+                    )
+
+                    all_results = []
+                    all_plots = None
+                    n_obs_list = []
+                    for i, mi_df in enumerate(mi_dfs):
+                        p.set(
+                            value=(i + 1) / len(mi_dfs),
+                            detail=f"Processing linear MI dataset {i + 1}/{len(mi_dfs)}...",
+                        )
+
+                        # Centralized cleaning for each imputed dataset
+                        # This ensures consistent exclusion and logic (e.g. inf checks)
+                        # We pass predictors + target (exclude cols are handled by prepare_data via exclude_columns arg if needed?
+                        # Actually prepare_data handles required_columns. We need to define them.
+                        req_cols = [target]
+                        if predictors:
+                            req_cols.extend(predictors)
+
+                        # prepare_data_for_analysis takes [df, required_columns, exclude_columns, var_meta]
+                        # Updated to use correct signature (return_info=True returns tuple)
+                        cleaned_mi_df, _ = prepare_data_for_analysis(
+                            mi_df.drop(columns=exclude, errors="ignore"),
+                            required_cols=req_cols,
+                            var_meta=var_meta.get(),
+                            return_info=True,
+                        )
+
+                        n_obs_list.append(len(cleaned_mi_df))
+
+                        _, res_i, plots_i, _ = analyze_linear_outcome(
+                            outcome_name=target,
+                            df=cleaned_mi_df,
+                            predictor_cols=predictors,
+                            var_meta=var_meta.get(),
+                            exclude_cols=[],  # Already excluded by prepare_data_for_analysis
+                            regression_type=method,
+                            robust_se=robust_se,
+                        )
+                        all_results.append(res_i)
+                        if all_plots is None:
+                            all_plots = plots_i
+
+                    if not all_results:
+                        linear_res.set({"error": "All MI models failed"})
+                        linear_is_running.set(False)
+                        return
+
+                    # Pool β coefficients using Rubin's rules
+                    pooled_rows = []
+                    first_coef = all_results[0]["coef_table"]
+                    for _, row in first_coef.iterrows():
+                        var_name = row["Variable"]
+                        estimates = []
+                        variances = []
+                        for res in all_results:
+                            coef_tbl = res.get("coef_table")
+                            if coef_tbl is not None:
+                                match = coef_tbl[coef_tbl["Variable"] == var_name]
+                                if len(match) > 0:
+                                    beta = match.iloc[0]["Coefficient"]
+                                    se = match.iloc[0]["Std. Error"]
+                                    if np.isfinite(beta) and se > 0:
+                                        estimates.append(beta)
+                                        variances.append(se**2)
+
+                        if len(estimates) == len(mi_dfs):
+                            # Use average n_obs from cleaned datasets for pooling
+                            avg_n_obs = (
+                                int(np.mean(n_obs_list)) if n_obs_list else len(d)
+                            )
+                            pooled = pool_estimates(
+                                estimates, variances, n_obs=avg_n_obs
+                            )
+                            pooled_rows.append(
+                                {
+                                    "Variable": var_name,
+                                    "β": pooled.estimate,
+                                    "Std. Error": pooled.se,
+                                    "95% CI": f"{pooled.ci_lower:.3f}, {pooled.ci_upper:.3f}",
+                                    "p-value": format_p_value(pooled.p_value),
+                                    "FMI": f"{pooled.fmi * 100:.1f}%",
+                                }
+                            )
+
+                    pooled_coef_df = pd.DataFrame(pooled_rows)
+
+                    # Build pooled HTML report
+                    html_report = f"""
+                    <div class="alert alert-info mb-3">
+                        <strong>🔄 Multiple Imputation Analysis</strong><br>
+                        Results pooled from {len(mi_dfs)} imputed datasets using Rubin's Rules.
+                    </div>
+                    <h2>Pooled Coefficients</h2>
+                    """
+                    # Manually escape columns before rendering to HTML
+                    pooled_coef_df_safe = pooled_coef_df.copy()
+
+                    # Escape cell values to prevent XSS (since we use escape=False)
+                    pooled_coef_df_safe = pooled_coef_df_safe.map(
+                        lambda v: html.escape(str(v))
+                    )
+
+                    pooled_coef_df_safe.columns = [
+                        html.escape(str(c)) for c in pooled_coef_df_safe.columns
+                    ]
+                    html_report += pooled_coef_df_safe.to_html(
+                        index=False, escape=False, classes="table table-striped"
+                    )
+
+                    target_escaped = html.escape(target)
+                    full_html = f"""
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="utf-8">
+                        <title>MI Pooled Linear Regression: {target_escaped}</title>
+                        <style>
+                            body {{ font-family: sans-serif; margin: 20px; }}
+                            .table {{ width: 100%; border-collapse: collapse; }}
+                            .table th, .table td {{ padding: 8px; border: 1px solid #ddd; }}
+                        </style>
+                    </head>
+                    <body>{html_report}</body>
+                    </html>
+                    """
+
+                    # Calculate n_obs from MI datasets
+                    n_obs_mi = int(np.mean([len(df) for df in mi_dfs]))
+
+                    linear_res.set(
+                        {
+                            "html_fragment": html_report,
+                            "html_full": full_html,
+                            "plots": all_plots or {},
+                            "results": {
+                                "mi_pooled": True,
+                                "m": len(mi_dfs),
+                                "n_obs": n_obs_mi,
+                                "r_squared": float("nan"),
+                                "coef_table": pooled_coef_df,
+                            },
+                            "missing_info": {
+                                "mi_pooled": True,
+                                "imputation_count": len(mi_dfs),
+                                "rows_analyzed": n_obs_mi,
+                                "total_missing": "N/A (Imputed)",
+                            },
+                        }
+                    )
+
+                    ui.notification_show(
+                        "✅ MI Pooled Linear Regression Complete!", type="message"
+                    )
+
+                else:
+                    # ====== STANDARD LINEAR ANALYSIS ======
+                    p.set(
+                        message="Running Linear Regression...",
+                        detail="Preparing data...",
+                    )
+
+                    html_report, results, plots, missing_info = analyze_linear_outcome(
+                        outcome_name=target,
+                        df=d,
+                        predictor_cols=predictors,
+                        var_meta=var_meta.get(),
+                        exclude_cols=exclude,
+                        regression_type=method,
+                        robust_se=robust_se,
+                    )
+
+                    target_escaped = html.escape(target)
+                    full_linear_html = f"""
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Linear Regression Report: {target_escaped}</title>
+                        <style>
+                            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }}
+                            .table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
+                            .table th, .table td {{ padding: 8px; border: 1px solid #ddd; text-align: left; }}
+                            .table th {{ background: #f5f5f5; }}
+                            .table-striped tbody tr:nth-child(odd) {{ background: #fafafa; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="report-container">
+                            {html_report}
+                        </div>
+                    </body>
+                    </html>
+                    """
+
+                    linear_res.set(
+                        {
+                            "html_fragment": html_report,
+                            "html_full": full_linear_html,
+                            "plots": plots,
+                            "results": results,
+                            "missing_info": missing_info,
+                        }
+                    )
+
+                    ui.notification_show(
+                        "✅ Linear Regression Complete!", type="message"
+                    )
+
             except Exception as e:
                 err_msg = f"Error running Linear Regression: {e!s}"
                 linear_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Linear regression error")
-                return
-
-            # Create full HTML for download
-            target_escaped = html.escape(target)
-            full_linear_html = f"""
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Linear Regression Report: {target_escaped}</title>
-                <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }}
-                    .table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
-                    .table th, .table td {{ padding: 8px; border: 1px solid #ddd; text-align: left; }}
-                    .table th {{ background: #f5f5f5; }}
-                    .table-striped tbody tr:nth-child(odd) {{ background: #fafafa; }}
-                </style>
-            </head>
-            <body>
-                <div class="report-container">
-                    {html_report}
-                </div>
-            </body>
-            </html>
-            """
-
-            # Store Results
-            linear_res.set(
-                {
-                    "html_fragment": html_report,
-                    "html_full": full_linear_html,
-                    "plots": plots,
-                    "results": results,
-                    "missing_info": missing_info,
-                }
-            )
-
-            ui.notification_show("✅ Linear Regression Complete!", type="message")
 
         # End Loading State
         linear_is_running.set(False)
@@ -3146,8 +4140,13 @@ def core_regression_server(
         covariates = list(input.rep_covariates()) if input.rep_covariates() else []
 
         # Exclude rows with missing data in selected columns
+        # Exclude rows with missing data in selected columns
         cols_needed = [outcome, treatment, time_var, subject] + covariates
-        d.dropna(subset=cols_needed)
+
+        # Use centralized cleaning
+        d, missing_info = prepare_data_for_analysis(
+            d, required_cols=cols_needed, var_meta=var_meta.get(), return_info=True
+        )
 
         # Start Loading State
         repeated_is_running.set(True)
@@ -3159,7 +4158,7 @@ def core_regression_server(
             try:
                 if model_type == "gee":
                     results, missing_info = run_gee(
-                        d,  # Pass original d, cleaning handled inside lib
+                        d,  # Cleaned via prepare_data_for_analysis above
                         outcome_col=outcome,
                         treatment_col=treatment,
                         time_col=time_var,
@@ -3450,7 +4449,7 @@ def core_regression_server(
 
             # Generate HTML Report
             html_parts = [
-                f"<h4>GLM Results: {outcome}</h4>",
+                f"<h4>GLM Results: {html.escape(outcome)}</h4>",
                 f"<p><b>Family:</b> {input.glm_family()} | <b>Link:</b> {input.glm_link()}</p>",
                 f"<p><b>AIC:</b> {metrics.get('aic', 'N/A'):.2f} | <b>Deviance:</b> {metrics.get('deviance', 'N/A'):.2f}</p>",
                 "<table class='table table-striped table-sm'>",
@@ -3476,7 +4475,7 @@ def core_regression_server(
 
                 html_parts.append(
                     f"<tr>"
-                    f"<td>{row['var']}</td>"
+                    f"<td>{html.escape(str(row['var']))}</td>"
                     f"<td>{coef:.3f}</td>"
                     f"<td>{exp_coef:.3f}</td>"
                     f"<td>{ci_disp}</td>"
