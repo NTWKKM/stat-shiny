@@ -2,7 +2,6 @@ import json
 
 import numpy as np
 
-
 from utils.sensitivity_lib import (
     bootstrap_confidence_interval,
     calculate_e_value,
@@ -105,3 +104,5 @@ def test_e_value_or_bounds_sanity():
     # upper=3.99 -> RR=1.99 (upper < estimate!) -> Should be set to None
     res_inconsistent_upper = calculate_e_value(4.0, upper=3.99, estimate_type="OR")
     assert res_inconsistent_upper["e_value_estimate"] > 1.0
+    # upper was set to None; no lower provided, so CI limit defaults to 1.0
+    assert res_inconsistent_upper["e_value_ci_limit"] == 1.0
