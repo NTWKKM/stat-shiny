@@ -366,17 +366,17 @@ def calculate_e_value(
         if estimate <= 0:
             return {"error": "Estimate must be positive."}
 
+        if estimate_type not in ("RR", "OR"):
+            raise ValueError(
+                f"Invalid estimate_type: {estimate_type}. Must be 'RR' or 'OR'."
+            )
+
         if estimate == 1.0:
             return {
                 "original_estimate": estimate,
                 "e_value_estimate": 1.0,
                 "e_value_ci_limit": 1.0,
             }
-
-        if estimate_type not in ("RR", "OR"):
-            raise ValueError(
-                f"Invalid estimate_type: {estimate_type}. Must be 'RR' or 'OR'."
-            )
 
         original_estimate = estimate
 
@@ -387,6 +387,19 @@ def calculate_e_value(
                 lower = np.sqrt(lower)
             if upper is not None and upper > 0:
                 upper = np.sqrt(upper)
+
+            # Bounds sanity check for OR->RR conversion
+            if lower is not None and lower > estimate:
+                logger.warning(
+                    f"OR->RR conversion produced inconsistent lower bound: {lower} > {estimate}. Setting lower to None."
+                )
+                lower = None
+            if upper is not None and upper < estimate:
+                logger.warning(
+                    f"OR->RR conversion produced inconsistent upper bound: {upper} < {estimate}. Setting upper to None."
+                )
+                upper = None
+
             logger.info(
                 "Converted OR to approximate RR using sqrt heuristic for E-value calculation"
             )

@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 
+
 from utils.sensitivity_lib import (
     bootstrap_confidence_interval,
     calculate_e_value,
@@ -68,3 +69,39 @@ def test_e_value_or_conversion():
 
     # Verify original_estimate reflects input, not converted RR
     assert res_or["original_estimate"] == 4.0
+
+
+def test_e_value_validation_order():
+    """Test that estimate_type is validated even if estimate is 1.0."""
+    # Before fix, this would return success dict with 1.0.
+    # Now it should return an error dict because ValueError is caught.
+    result = calculate_e_value(1.0, estimate_type="INVALID")
+    assert "error" in result
+    assert "Invalid estimate_type" in result["error"]
+
+
+def test_e_value_or_bounds_sanity():
+    """Test sanity check for OR->RR conversion with inconsistent bounds."""
+    # OR=4.0 -> approx RR=2.0
+    # Lower=0.01 -> approx RR=0.1
+    # Upper=100.0 -> approx RR=10.0
+    # This is consistent: 0.1 <= 2.0 <= 10.0
+    res_consistent = calculate_e_value(4.0, lower=0.01, upper=100.0, estimate_type="OR")
+    assert res_consistent["e_value_estimate"] > 1.0
+
+    # Inconsistent bounds after conversion (artificial example)
+    # estimate=4.0 -> RR=2.0
+    # lower=4.01 -> RR=2.002 (lower > estimate!) -> Should be set to None
+    res_inconsistent_lower = calculate_e_value(4.0, lower=4.01, estimate_type="OR")
+    assert res_inconsistent_lower["e_value_estimate"] > 1.0
+    # Since lower > estimate, it should be ignored (None) for CI limit calc if it was used
+    # But for RR > 1, we use lower bound for CI limit E-value.
+    # If lower is None, we get default E-value of 1.0 for limit.
+    assert (
+        res_inconsistent_lower["e_value_ci_limit"] == 1.0
+    )  # Because lower became None
+
+    # Inconsistent upper (estimate=4.0 -> RR=2.0)
+    # upper=3.99 -> RR=1.99 (upper < estimate!) -> Should be set to None
+    res_inconsistent_upper = calculate_e_value(4.0, upper=3.99, estimate_type="OR")
+    assert res_inconsistent_upper["e_value_estimate"] > 1.0
