@@ -1946,6 +1946,9 @@ def core_regression_server(
                     "rows_analyzed": mi_n_obs,
                     "total_missing": "N/A (Imputed)",
                 }
+                logit_fragment_html += create_missing_data_report_html(
+                    mi_missing_info, var_meta.get() or {}
+                )
 
             logit_res.set(
                 {

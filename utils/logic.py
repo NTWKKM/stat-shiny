@@ -1948,6 +1948,10 @@ def generate_mi_pooled_report(
             adj_p = format_p_value(float(v["p_value"]))
             if v.get("fmi") is not None:
                 fmi_cell = f"{float(v['fmi']) * 100:.1f}%"
+        elif pooled_or and k in pooled_or:
+            v_or = pooled_or[k]
+            if v_or.get("fmi") is not None:
+                fmi_cell = f"{float(v_or['fmi']) * 100:.1f}%"
 
         html_rep += f"<tr><td>{html.escape(str(label))}</td>"
         html_rep += f"<td>{crude_cell}</td><td>{crude_p}</td>"
