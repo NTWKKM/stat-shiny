@@ -8,6 +8,7 @@ import seaborn as sns
 import statsmodels.api as sm
 from shiny import module, reactive, render, ui
 
+from logger import get_logger
 from tabs._common import get_color_palette, select_variable_by_keyword
 from utils.collinearity_lib import calculate_vif
 from utils.data_cleaning import prepare_data_for_analysis
@@ -23,6 +24,7 @@ from utils.model_diagnostics_lib import (
     run_heteroscedasticity_test,
     run_reset_test,
 )
+from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.ui_helpers import (
     create_error_alert,
@@ -33,6 +35,7 @@ from utils.ui_helpers import (
 )
 
 COLORS = get_color_palette()
+logger = get_logger(__name__)
 
 
 @module.ui
@@ -199,7 +202,14 @@ def advanced_inference_ui():
 
 @module.server
 def advanced_inference_server(
-    input, output, session, df, var_meta, df_matched, is_matched
+    input,
+    output,
+    session,
+    df,
+    var_meta,
+    df_matched,
+    is_matched,
+    mi_imputed_datasets=None,  # NEW: MI state (future support)
 ):
     """Server logic for Advanced Inference."""
 
@@ -216,6 +226,20 @@ def advanced_inference_server(
     coll_is_running = reactive.Value(False)
     diag_is_running = reactive.Value(False)
     het_is_running = reactive.Value(False)
+
+    # ==================== MI HELPER FUNCTIONS ====================
+    def _has_mi_datasets() -> bool:
+        """Check if Multiple Imputation datasets are available."""
+        if mi_imputed_datasets is None:
+            return False
+        datasets = mi_imputed_datasets.get()
+        return isinstance(datasets, list) and len(datasets) > 0
+
+    def _get_mi_datasets() -> list[pd.DataFrame]:
+        """Retrieve list of MI imputed datasets."""
+        if mi_imputed_datasets is None:
+            return []
+        return mi_imputed_datasets.get() or []
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
@@ -355,23 +379,121 @@ def advanced_inference_server(
         try:
             med_is_running.set(True)
             mediation_results.set(None)
-            ui.notification_show(
-                "Running Mediation Analysis...", duration=None, id="run_med"
-            )
 
-            results = analyze_mediation(
-                data=current_df(),
-                outcome=input.med_outcome(),
-                treatment=input.med_treatment(),
-                mediator=input.med_mediator(),
-                confounders=(
-                    list(input.med_confounders()) if input.med_confounders() else None
-                ),
-                var_meta=var_meta.get() or {},
-            )
-            mediation_results.set(results)
-            ui.notification_remove("run_med")
-            ui.notification_show("Mediation Analysis Complete", type="message")
+            # Check for MI datasets
+            mi_active = _has_mi_datasets()
+            mi_dfs = _get_mi_datasets() if mi_active else []
+
+            if mi_active and len(mi_dfs) > 0:
+                # ====== MI POOLED MEDIATION ANALYSIS ======
+                ui.notification_show(
+                    f"Running MI Pooled Mediation ({len(mi_dfs)} datasets)...",
+                    duration=None,
+                    id="run_med",
+                )
+
+                all_results = []
+                for mi_df in mi_dfs:
+                    try:
+                        res_i = analyze_mediation(
+                            data=mi_df,
+                            outcome=input.med_outcome(),
+                            treatment=input.med_treatment(),
+                            mediator=input.med_mediator(),
+                            confounders=(
+                                list(input.med_confounders())
+                                if input.med_confounders()
+                                else None
+                            ),
+                            var_meta=var_meta.get() or {},
+                        )
+                        if "error" not in res_i:
+                            all_results.append(res_i)
+                    except Exception:
+                        pass
+
+                if not all_results:
+                    mediation_results.set({"error": "All MI mediation analyses failed"})
+                    ui.notification_remove("run_med")
+                    med_is_running.set(False)
+                    return
+
+                # Pool ACME and ADE using Rubin's rules
+                pooled = {"mi_pooled": True, "m": len(mi_dfs)}
+
+                for key in ["acme", "ade", "total_effect", "proportion_mediated"]:
+                    estimates = []
+                    variances = []
+                    for res in all_results:
+                        if key in res and res[key] is not None:
+                            est = (
+                                res[key].get("estimate", res[key])
+                                if isinstance(res[key], dict)
+                                else res[key]
+                            )
+                            se = (
+                                res[key].get("se", 0.1)
+                                if isinstance(res[key], dict)
+                                else 0.1
+                            )
+                            if np.isfinite(est) and se > 0:
+                                estimates.append(est)
+                                variances.append(se**2)
+
+                    if len(estimates) == len(mi_dfs):
+                        try:
+                            p = pool_estimates(
+                                estimates, variances, n_obs=len(current_df())
+                            )
+                            # Map to keys expected by table
+                            if key == "acme":
+                                pooled["indirect_effect"] = p.estimate
+                            elif key == "ade":
+                                pooled["direct_effect"] = p.estimate
+                            elif key == "total_effect":
+                                pooled["total_effect"] = p.estimate
+                            elif key == "proportion_mediated":
+                                pooled["proportion_mediated"] = p.estimate
+
+                            # Store full stats
+                            pooled[f"{key}_stats"] = {
+                                "estimate": p.estimate,
+                                "se": p.se,
+                                "ci_lower": p.ci_lower,
+                                "ci_upper": p.ci_upper,
+                                "p_value": p.p_value,
+                                "fmi": p.fmi,
+                            }
+                        except Exception:
+                            logger.exception(f"MI pooling failed for {key}")
+                            pass
+
+                mediation_results.set(pooled)
+                ui.notification_remove("run_med")
+                ui.notification_show("MI Pooled Mediation Complete", type="message")
+
+            else:
+                # ====== STANDARD MEDIATION ANALYSIS ======
+                ui.notification_show(
+                    "Running Mediation Analysis...", duration=None, id="run_med"
+                )
+
+                results = analyze_mediation(
+                    data=current_df(),
+                    outcome=input.med_outcome(),
+                    treatment=input.med_treatment(),
+                    mediator=input.med_mediator(),
+                    confounders=(
+                        list(input.med_confounders())
+                        if input.med_confounders()
+                        else None
+                    ),
+                    var_meta=var_meta.get() or {},
+                )
+                mediation_results.set(results)
+                ui.notification_remove("run_med")
+                ui.notification_show("Mediation Analysis Complete", type="message")
+
         except Exception as e:
             ui.notification_remove("run_med")
             ui.notification_show("Analysis failed", type="error")

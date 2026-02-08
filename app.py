@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from shiny import App, Inputs, Outputs, Session, reactive, ui
 
 # Import Config/Logger
@@ -222,6 +223,9 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     matched_treatment_col: reactive.Value[str | None] = reactive.Value(None)
     matched_covariates: reactive.Value[list[str]] = reactive.Value([])
 
+    # MI datasets (list of dataframes)
+    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] = reactive.Value([])
+
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:
         # Check from HAS_FIRTH variable prepared in logic.py
@@ -249,6 +253,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         is_matched,
         matched_treatment_col,
         matched_covariates,
+        mi_imputed_datasets,  # NEW: Share MI state
     )
 
     tab_baseline_matching.baseline_matching_server(
@@ -268,11 +273,13 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched)
     tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched)
     tab_core_regression.core_regression_server(
-        "core_reg", df, var_meta, df_matched, is_matched
+        "core_reg", df, var_meta, df_matched, is_matched, mi_imputed_datasets
     )
-    tab_survival.survival_server("survival", df, var_meta, df_matched, is_matched)
+    tab_survival.survival_server(
+        "survival", df, var_meta, df_matched, is_matched, mi_imputed_datasets
+    )
     tab_advanced_inference.advanced_inference_server(
-        "adv_inf", df, var_meta, df_matched, is_matched
+        "adv_inf", df, var_meta, df_matched, is_matched, mi_imputed_datasets
     )
     tab_causal_inference.causal_inference_server(
         "causal", df, var_meta, df_matched, is_matched
