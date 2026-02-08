@@ -396,7 +396,7 @@ def calculate_e_value(
             est_prime = 1 / estimate
             # CI flips
             # If upper is provided, it becomes the lower bound in the flipped scale
-            l_prime = 1 / upper if (upper and upper > 0) else None
+            l_prime = 1 / upper if (upper is not None and upper > 0) else None
 
             if l_prime is None and lower is not None:
                 logger.warning(
@@ -420,7 +420,7 @@ def calculate_e_value(
         # and the E-value for the CI limit closest to the null (1).
 
         limit_e_val = 1.0
-        if l_prime and l_prime > 1:
+        if l_prime is not None and l_prime > 1:
             limit_e_val = compute_e(l_prime)
         # If CI crosses 1, the limit E-value is 1.
 
