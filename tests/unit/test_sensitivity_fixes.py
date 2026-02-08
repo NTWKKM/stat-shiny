@@ -38,7 +38,9 @@ def test_leave_one_out_cv_nan_handling():
 def test_bootstrap_json_serialization():
     """Test that bootstrap distribution is JSON serializable."""
     data = [1, 2, 3, 4, 5]
-    result = bootstrap_confidence_interval(data, np.mean, n_iterations=100)
+    result = bootstrap_confidence_interval(
+        data, np.mean, n_iterations=100, random_seed=42
+    )
 
     # Should not raise TypeError
     _ = json.dumps(result)
