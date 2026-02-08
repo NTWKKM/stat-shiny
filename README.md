@@ -129,6 +129,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_heterogeneity.py
 |       |-- test_linear_lib.py
 |       |-- test_mediation.py
+|       |-- test_mi_reporting.py
 |       |-- test_missing_data.py
 |       |-- test_model_diagnostics.py
 |       |-- test_model_diagnostics_plots.py
