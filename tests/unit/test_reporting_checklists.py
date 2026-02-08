@@ -170,7 +170,7 @@ class TestChecklistCompletion:
         expected_total = len(checklist.items) - 5
         assert summary["total_applicable"] == expected_total
         assert summary["complete"] == 5
-        # 5/20 * 100 = 25.0%
+        # 5 / expected_total * 100
         expected_rate = round(5 / expected_total * 100, 1)
         assert summary["completion_rate"] == expected_rate
 
