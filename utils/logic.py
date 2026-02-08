@@ -909,6 +909,7 @@ def analyze_outcome(
                             else:
                                 or_lines_styled.append("-")
                         res["or"] = "<br>".join(or_lines_styled)
+                        res["coef"] = "<br>".join(coef_lines)
                     else:
                         res["or"] = (
                             f"<span style='color:red; font-size:0.8em'>{status}</span>"
