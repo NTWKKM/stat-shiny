@@ -121,6 +121,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_dca.py
 |       |-- test_diag_returns.py
 |       |-- test_diagnostic_advanced.py
+|       |-- test_effect_sizes.py
 |       |-- test_firth_regression.py
 |       |-- test_formatting.py
 |       |-- test_formatting_styles.py
@@ -132,12 +133,16 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_model_diagnostics.py
 |       |-- test_model_diagnostics_plots.py
 |       |-- test_multiple_imputation.py
+|       |-- test_phase3_features.py
 |       |-- test_plotly_html_rendering.py
 |       |-- test_poisson_lib.py
 |       |-- test_regression_publication.py
 |       |-- test_repeated_measures.py
+|       |-- test_reporting_checklists.py
 |       |-- test_sample_size.py
 |       |-- test_sensitivity.py
+|       |-- test_sensitivity_fixes.py
+|       |-- test_statistical_assumptions.py
 |       |-- test_statistics.py
 |       |-- test_survival_assumptions.py
 |       |-- test_survival_lib_patch.py
@@ -157,6 +162,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- decision_curve_lib.py
     |-- diag_test.py
     |-- diagnostic_advanced_lib.py
+    |-- effect_sizes.py
     |-- forest_plot_lib.py
     |-- formatting.py
     |-- heterogeneity_lib.py
@@ -170,10 +176,11 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- poisson_lib.py
     |-- psm_lib.py
     |-- rcs_lib.py
-    |-- reporting_checklists.py
     |-- repeated_measures_lib.py
+    |-- reporting_checklists.py
     |-- sample_size_lib.py
     |-- sensitivity_lib.py
+    |-- statistical_assumptions.py
     |-- stratified_lib.py
     |-- subgroup_analysis_module.py
     |-- survival_lib.py
@@ -184,6 +191,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- update_css.py
     `-- visualizations.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
