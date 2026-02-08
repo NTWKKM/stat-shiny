@@ -1950,6 +1950,23 @@ def core_regression_server(
                     mi_missing_info, var_meta.get() or {}
                 )
 
+                # Rebuild full HTML now that missing-data summary is included
+                full_logit_html = f"""
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Logistic Regression Report: {html.escape(target)}</title>
+                </head>
+                <body>
+                    <div class="report-container">
+                        {logit_fragment_html}
+                    </div>
+                </body>
+                </html>
+                """
+
             logit_res.set(
                 {
                     "html_fragment": logit_fragment_html,  # For UI
