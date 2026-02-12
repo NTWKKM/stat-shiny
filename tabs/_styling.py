@@ -1569,6 +1569,29 @@ def get_shiny_css():
                 transform: none;
             }}
         }}
+
+        /* ===========================
+           DOWNLOAD STATUS BADGE
+           =========================== */
+        .download-status-badge {{
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11.5px;
+            font-weight: 500;
+            padding: 3px 0;
+            margin-top: 4px;
+            line-height: 1.3;
+        }}
+
+        .download-status-badge.ready {{
+            color: {COLORS["success"]};
+        }}
+
+        .download-status-badge.pending {{
+            color: {COLORS["text_secondary"]};
+            opacity: 0.7;
+        }}
     </style>
     """
 

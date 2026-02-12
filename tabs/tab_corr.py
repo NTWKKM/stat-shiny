@@ -31,6 +31,7 @@ from utils import (
 from utils.download_helpers import safe_report_generation
 from utils.formatting import create_missing_data_report_html, format_p_value
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.ui_helpers import create_download_status_badge
 
 
 def _safe_filename_part(s: str) -> str:
@@ -91,11 +92,14 @@ def corr_ui() -> ui.TagChild:
                             width="100%",
                         ),
                         # ✅ CHANGED: Use download_button
-                        ui.download_button(
-                            "btn_dl_corr",
-                            "📥 Download Report",
-                            class_="btn-secondary",
-                            width="100%",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_corr",
+                                "📥 Download Report",
+                                class_="btn-secondary",
+                                width="100%",
+                            ),
+                            ui.output_ui("dl_status_corr"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -133,11 +137,14 @@ def corr_ui() -> ui.TagChild:
                             width="100%",
                         ),
                         # ✅ CHANGED: Use download_button
-                        ui.download_button(
-                            "btn_dl_matrix",
-                            "📥 Download Report",
-                            class_="btn-secondary",
-                            width="100%",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_matrix",
+                                "📥 Download Report",
+                                class_="btn-secondary",
+                                width="100%",
+                            ),
+                            ui.output_ui("dl_status_matrix"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -605,6 +612,15 @@ def corr_server(
             )
 
         yield safe_report_generation(_build, label="Correlation Report")
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_corr():
+        return create_download_status_badge(corr_result.get() is not None)
+
+    @render.ui
+    def dl_status_matrix():
+        return create_download_status_badge(matrix_result.get() is not None)
 
     # ==================== CORRELATION MATRIX / HEATMAP ====================
 

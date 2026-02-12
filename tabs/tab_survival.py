@@ -45,6 +45,7 @@ from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.tvc_lib import create_tvc_forest_plot, fit_tvc_cox, generate_tvc_report
 from utils.ui_helpers import (
+    create_download_status_badge,
     create_empty_state_ui,
     create_error_alert,
     create_input_group,
@@ -161,10 +162,13 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Generate Curve",
                             class_="btn-primary w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_curves",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_curves",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                            ),
+                            ui.output_ui("dl_status_curves"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -225,10 +229,13 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Run Landmark Analysis",
                             class_="btn-primary w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_landmark",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_landmark",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                            ),
+                            ui.output_ui("dl_status_landmark"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -286,10 +293,13 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Run Cox Model",
                             class_="btn-primary w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_cox",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_cox",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                            ),
+                            ui.output_ui("dl_status_cox"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -388,10 +398,13 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Run Subgroup Analysis",
                             class_="btn-primary w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_sg",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_sg",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                            ),
+                            ui.output_ui("dl_status_sg"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -470,10 +483,13 @@ def survival_ui() -> ui.TagChild:
                             "🚀 Run RCS Analysis",
                             class_="btn-primary w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_rcs",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_rcs",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                            ),
+                            ui.output_ui("dl_status_rcs"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -511,10 +527,13 @@ def survival_ui() -> ui.TagChild:
                                     "🚀 Run Model",
                                     class_="btn-primary w-100",
                                 ),
-                                ui.download_button(
-                                    "btn_dl_tvc",
-                                    "📥 Download Report",
-                                    class_="btn-secondary w-100",
+                                ui.div(
+                                    ui.download_button(
+                                        "btn_dl_tvc",
+                                        "📥 Download Report",
+                                        class_="btn-secondary w-100",
+                                    ),
+                                    ui.output_ui("dl_status_tvc"),
                                 ),
                                 col_widths=[6, 6],
                             ),
@@ -1284,6 +1303,31 @@ def survival_server(
             )
 
         yield safe_report_generation(_build, label="Survival Report")
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_curves():
+        return create_download_status_badge(curves_result.get() is not None)
+
+    @render.ui
+    def dl_status_landmark():
+        return create_download_status_badge(landmark_result.get() is not None)
+
+    @render.ui
+    def dl_status_cox():
+        return create_download_status_badge(cox_result.get() is not None)
+
+    @render.ui
+    def dl_status_sg():
+        return create_download_status_badge(sg_result.get() is not None)
+
+    @render.ui
+    def dl_status_rcs():
+        return create_download_status_badge(rcs_result.get() is not None)
+
+    @render.ui
+    def dl_status_tvc():
+        return create_download_status_badge(tvc_result.get() is not None)
 
     # ==================== 2. LANDMARK ANALYSIS LOGIC ====================
     @reactive.Effect

@@ -66,6 +66,7 @@ from utils.reporting_checklists import (
 from utils.sensitivity_lib import calculate_e_value
 from utils.subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from utils.ui_helpers import (
+    create_download_status_badge,
     create_empty_state_ui,
     create_error_alert,
     create_input_group,
@@ -269,10 +270,13 @@ def core_regression_ui() -> ui.TagChild:
                             "🚀 Run Regression",
                             class_="btn-primary btn-sm w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_report",
-                            "📥 Download Report",
-                            class_="btn-secondary btn-sm w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_report",
+                                "📥 Download Report",
+                                class_="btn-secondary btn-sm w-100",
+                            ),
+                            ui.output_ui("dl_status_logit"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -360,10 +364,13 @@ def core_regression_ui() -> ui.TagChild:
                             "🚀 Run Subgroup Analysis",
                             class_="btn-primary w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_sg_logit",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_sg_logit",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                            ),
+                            ui.output_ui("dl_status_sg_logit"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -453,10 +460,13 @@ def core_regression_ui() -> ui.TagChild:
                                     "🚀 Run Poisson Regression",
                                     class_="btn-primary btn-sm w-100",
                                 ),
-                                ui.download_button(
-                                    "btn_dl_poisson_report",
-                                    "📥 Download Report",
-                                    class_="btn-secondary btn-sm w-100",
+                                ui.div(
+                                    ui.download_button(
+                                        "btn_dl_poisson_report",
+                                        "📥 Download Report",
+                                        class_="btn-secondary btn-sm w-100",
+                                    ),
+                                    ui.output_ui("dl_status_poisson"),
                                 ),
                                 col_widths=[6, 6],
                             ),
@@ -536,10 +546,13 @@ def core_regression_ui() -> ui.TagChild:
                                     "🚀 Run Negative Binomial",
                                     class_="btn-primary btn-sm w-100",
                                 ),
-                                ui.download_button(
-                                    "btn_dl_nb_report",
-                                    "📥 Download Report",
-                                    class_="btn-secondary btn-sm w-100",
+                                ui.div(
+                                    ui.download_button(
+                                        "btn_dl_nb_report",
+                                        "📥 Download Report",
+                                        class_="btn-secondary btn-sm w-100",
+                                    ),
+                                    ui.output_ui("dl_status_nb"),
                                 ),
                                 col_widths=[6, 6],
                             ),
@@ -628,10 +641,13 @@ def core_regression_ui() -> ui.TagChild:
                                     "🚀 Run GLM",
                                     class_="btn-primary btn-sm w-100",
                                 ),
-                                ui.download_button(
-                                    "btn_dl_glm_report",
-                                    "📥 Download Report",
-                                    class_="btn-secondary btn-sm w-100",
+                                ui.div(
+                                    ui.download_button(
+                                        "btn_dl_glm_report",
+                                        "📥 Download Report",
+                                        class_="btn-secondary btn-sm w-100",
+                                    ),
+                                    ui.output_ui("dl_status_glm"),
                                 ),
                                 col_widths=[6, 6],
                             ),
@@ -786,10 +802,13 @@ def core_regression_ui() -> ui.TagChild:
                             "🚀 Run Linear Regression",
                             class_="btn-primary btn-sm w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_linear_report",
-                            "📥 Download Report",
-                            class_="btn-secondary btn-sm w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_linear_report",
+                                "📥 Download Report",
+                                class_="btn-secondary btn-sm w-100",
+                            ),
+                            ui.output_ui("dl_status_linear"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -2530,6 +2549,49 @@ def core_regression_server(
         res = logit_res.get()
         yield safe_download_html(
             res.get("html_full") if res else None, label="Logistic Regression Report"
+        )
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_logit():
+        res = logit_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_sg_logit():
+        res = logit_sg_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_poisson():
+        res = poisson_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_nb():
+        res = nb_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_glm():
+        res = glm_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_linear():
+        res = linear_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
         )
 
     # ==========================================================================

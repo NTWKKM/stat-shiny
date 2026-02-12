@@ -258,3 +258,18 @@ def create_skeleton_loader_ui(rows=3, show_chart=False):
         items.append(ui.div(class_="skeleton skeleton-chart"))
 
     return ui.div(*items, class_="skeleton-container")
+
+
+def create_download_status_badge(ready: bool) -> "ui.Tag":
+    """
+    Create a compact status badge indicating download readiness.
+
+    Args:
+        ready: Whether analysis results are available for download.
+
+    Returns:
+        ui.Tag: A styled badge with the appropriate icon and text.
+    """
+    if ready:
+        return ui.div("✅ Ready to download", class_="download-status-badge ready")
+    return ui.div("⏳ Run analysis first", class_="download-status-badge pending")
