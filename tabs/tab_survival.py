@@ -35,6 +35,7 @@ from tabs._tvc_components import (
 )
 from utils import rcs_lib, survival_lib
 from utils.data_cleaning import prepare_data_for_analysis
+from utils.download_helpers import safe_report_generation
 from utils.formatting import (
     PublicationFormatter,
     create_missing_data_report_html,
@@ -1249,37 +1250,40 @@ def survival_server(
     @render.download(filename="survival_report.html")
     def btn_dl_curves():
         """Download survival curves report."""
-        res = curves_result.get()
-        if not res:
-            yield "No results"
-            return
 
-        elements = [
-            {
-                "type": "header",
-                "data": f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km') == 'km' else 'Nelson-Aalen'})",
-            },
-            {"type": "plot", "data": res["fig"]},
-            {"type": "header", "data": "Statistics"},
-            {"type": "table", "data": res["stats"]},
-        ]
+        def _build():
+            res = curves_result.get()
+            if not res:
+                return None
 
-        if res.get("medians") is not None:
-            elements.append({"type": "header", "data": "Median Survival Time"})
-            elements.append({"type": "table", "data": res["medians"]})
+            elements = [
+                {
+                    "type": "header",
+                    "data": f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km') == 'km' else 'Nelson-Aalen'})",
+                },
+                {"type": "plot", "data": res["fig"]},
+                {"type": "header", "data": "Statistics"},
+                {"type": "table", "data": res["stats"]},
+            ]
 
-        if res.get("surv_at_times") is not None:
-            elements.append(
-                {"type": "header", "data": "Survival Probability at Fixed Times"}
+            if res.get("medians") is not None:
+                elements.append({"type": "header", "data": "Median Survival Time"})
+                elements.append({"type": "table", "data": res["medians"]})
+
+            if res.get("surv_at_times") is not None:
+                elements.append(
+                    {"type": "header", "data": "Survival Probability at Fixed Times"}
+                )
+                elements.append({"type": "table", "data": res["surv_at_times"]})
+
+            return survival_lib.generate_report_survival(
+                "Survival Analysis",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
             )
-            elements.append({"type": "table", "data": res["surv_at_times"]})
 
-        yield survival_lib.generate_report_survival(
-            "Survival Analysis",
-            elements,
-            missing_data_info=res.get("missing_data_info"),
-            var_meta=var_meta.get(),
-        )
+        yield safe_report_generation(_build, label="Survival Report")
 
     # ==================== 2. LANDMARK ANALYSIS LOGIC ====================
     @reactive.Effect
@@ -1414,23 +1418,26 @@ def survival_server(
     @render.download(filename="landmark_report.html")
     def btn_dl_landmark():
         """Download landmark analysis report."""
-        res = landmark_result.get()
-        if not res:
-            yield "No results"
-            return
 
-        elements = [
-            {"type": "header", "data": f"Landmark Analysis (t={res['t']})"},
-            {"type": "plot", "data": res["fig"]},
-            {"type": "header", "data": "Statistics"},
-            {"type": "table", "data": res["stats"]},
-        ]
-        yield survival_lib.generate_report_survival(
-            "Landmark Analysis",
-            elements,
-            missing_data_info=res.get("missing_data_info"),
-            var_meta=var_meta.get(),
-        )
+        def _build():
+            res = landmark_result.get()
+            if not res:
+                return None
+
+            elements = [
+                {"type": "header", "data": f"Landmark Analysis (t={res['t']})"},
+                {"type": "plot", "data": res["fig"]},
+                {"type": "header", "data": "Statistics"},
+                {"type": "table", "data": res["stats"]},
+            ]
+            return survival_lib.generate_report_survival(
+                "Landmark Analysis",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_report_generation(_build, label="Landmark Report")
 
     # ==================== 3. COX REGRESSION LOGIC ====================
     @reactive.Effect
@@ -1825,34 +1832,37 @@ def survival_server(
     @render.download(filename="cox_report.html")
     def btn_dl_cox():
         """Download Cox regression report."""
-        res = cox_result.get()
-        if not res:
-            yield "No results"
-            return
 
-        elements = [
-            {"type": "header", "data": "Cox Proportional Hazards Regression"},
-        ]
+        def _build():
+            res = cox_result.get()
+            if not res:
+                return None
 
-        if res.get("model_stats"):
-            s = res["model_stats"]
-            stats_text = f"C-index: {s.get('Concordance Index (C-index)')}, AIC: {s.get('AIC')}, Events: {s.get('Number of Events')}"
-            elements.append({"type": "text", "data": stats_text})
-
-        elements.extend(
-            [
-                {"type": "table", "data": res["results_df"]},
-                {"type": "plot", "data": res["forest_fig"]},
-                {"type": "header", "data": "PH Assumptions"},
-                {"type": "text", "data": res["assumptions_text"]},
+            elements = [
+                {"type": "header", "data": "Cox Proportional Hazards Regression"},
             ]
-        )
-        yield survival_lib.generate_report_survival(
-            "Cox Regression",
-            elements,
-            missing_data_info=res.get("missing_data_info"),
-            var_meta=var_meta.get(),
-        )
+
+            if res.get("model_stats"):
+                s = res["model_stats"]
+                stats_text = f"C-index: {s.get('Concordance Index (C-index)')}, AIC: {s.get('AIC')}, Events: {s.get('Number of Events')}"
+                elements.append({"type": "text", "data": stats_text})
+
+            elements.extend(
+                [
+                    {"type": "table", "data": res["results_df"]},
+                    {"type": "plot", "data": res["forest_fig"]},
+                    {"type": "header", "data": "PH Assumptions"},
+                    {"type": "text", "data": res["assumptions_text"]},
+                ]
+            )
+            return survival_lib.generate_report_survival(
+                "Cox Regression",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_report_generation(_build, label="Cox Report")
 
     # ==================== 4. SUBGROUP LOGIC ====================
     @reactive.Effect
@@ -2043,38 +2053,41 @@ def survival_server(
     @render.download(filename="subgroup_report.html")
     def btn_dl_sg():
         """Download subgroup analysis report."""
-        res = sg_result.get()
-        if not res:
-            yield "No results"
-            return
 
-        elements = [
-            {"type": "header", "data": "Cox Subgroup Analysis"},
-        ]
+        def _build():
+            res = sg_result.get()
+            if not res:
+                return None
 
-        if "interaction" in res:
-            inter = res["interaction"]
-            p_int = inter.get("p_value")
-            if p_int is not None and not pd.isna(p_int):
-                sig_text = (
-                    "Significant" if inter.get("significant") else "Not Significant"
-                )
-                elements.append(
-                    {
-                        "type": "text",
-                        "data": f"Interaction Test: P-value = {p_int:.4f} ({sig_text})",
-                    }
-                )
-
-        elements.extend(
-            [
-                {"type": "plot", "data": res.get("forest_plot")},
-                {"type": "header", "data": "Results"},
-                {"type": "table", "data": res.get("interaction_table")},
+            elements = [
+                {"type": "header", "data": "Cox Subgroup Analysis"},
             ]
-        )
-        elements = [e for e in elements if e.get("data") is not None]
-        yield survival_lib.generate_report_survival("Subgroup Analysis", elements)
+
+            if "interaction" in res:
+                inter = res["interaction"]
+                p_int = inter.get("p_value")
+                if p_int is not None and not pd.isna(p_int):
+                    sig_text = (
+                        "Significant" if inter.get("significant") else "Not Significant"
+                    )
+                    elements.append(
+                        {
+                            "type": "text",
+                            "data": f"Interaction Test: P-value = {p_int:.4f} ({sig_text})",
+                        }
+                    )
+
+            elements.extend(
+                [
+                    {"type": "plot", "data": res.get("forest_plot")},
+                    {"type": "header", "data": "Results"},
+                    {"type": "table", "data": res.get("interaction_table")},
+                ]
+            )
+            elements = [e for e in elements if e.get("data") is not None]
+            return survival_lib.generate_report_survival("Subgroup Analysis", elements)
+
+        yield safe_report_generation(_build, label="Subgroup Report")
 
     # ==================== 5. TIME-VARYING COX LOGIC (NEW) ====================
     @reactive.Effect
@@ -2548,24 +2561,27 @@ def survival_server(
     @render.download(filename="rcs_report.html")
     def btn_dl_rcs():
         """Download RCS analysis report."""
-        res = rcs_result.get()
-        if not res:
-            yield "No results. Please run analysis first."
-            return
 
-        elements = [
-            {"type": "header", "data": "Restricted Cubic Spline (RCS) Analysis"},
-            {"type": "plot", "data": res["fig"]},
-            {"type": "header", "data": "Model Summary"},
-            {"type": "table", "data": res["stats"]},
-        ]
+        def _build():
+            res = rcs_result.get()
+            if not res:
+                return None
 
-        yield survival_lib.generate_report_survival(
-            "RCS Analysis Report",
-            elements,
-            missing_data_info=res.get("missing_data_info"),
-            var_meta=var_meta.get(),
-        )
+            elements = [
+                {"type": "header", "data": "Restricted Cubic Spline (RCS) Analysis"},
+                {"type": "plot", "data": res["fig"]},
+                {"type": "header", "data": "Model Summary"},
+                {"type": "table", "data": res["stats"]},
+            ]
+
+            return survival_lib.generate_report_survival(
+                "RCS Analysis Report",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_report_generation(_build, label="RCS Report")
 
     @render.ui
     def out_rcs_status():
@@ -2684,27 +2700,29 @@ def survival_server(
     @render.download(filename="tvc_report.html")
     def btn_dl_tvc():
         """Download TVC Cox analysis report."""
-        res = tvc_result.get()
-        if not res:
-            yield "No results"
-            return
 
-        elements = [
-            {"type": "header", "data": "Time-Varying Cox Regression"},
-            {"type": "table", "data": res["results_df"]},
-            {"type": "plot", "data": res["forest_fig"]},
-            {"type": "header", "data": "Diagnostics"},
-            {"type": "text", "data": res["assumptions_text"]},
-        ]
+        def _build():
+            res = tvc_result.get()
+            if not res:
+                return None
 
-        html = generate_tvc_report(
-            "Time-Varying Cox Regression",
-            elements,
-            stats=res.get("model_stats", {}),
-            missing_data_info=res.get("missing_data_info", {}),
-            var_meta=var_meta.get(),
-        )
-        yield html
+            elements = [
+                {"type": "header", "data": "Time-Varying Cox Regression"},
+                {"type": "table", "data": res["results_df"]},
+                {"type": "plot", "data": res["forest_fig"]},
+                {"type": "header", "data": "Diagnostics"},
+                {"type": "text", "data": res["assumptions_text"]},
+            ]
+
+            return generate_tvc_report(
+                "Time-Varying Cox Regression",
+                elements,
+                stats=res.get("model_stats", {}),
+                missing_data_info=res.get("missing_data_info", {}),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_report_generation(_build, label="TVC Report")
 
     # ==================== VALIDATION LOGIC ====================
     @render.ui
