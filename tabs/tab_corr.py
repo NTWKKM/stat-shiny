@@ -28,6 +28,7 @@ from tabs._common import (
 from utils import (
     correlation,  # Import from utils
 )
+from utils.download_helpers import safe_report_generation
 from utils.formatting import create_missing_data_report_html, format_p_value
 from utils.plotly_html_renderer import plotly_figure_to_html
 
@@ -515,98 +516,95 @@ def corr_server(
     )
     def btn_dl_corr():
         """Generate and download correlation report."""
-        result = corr_result.get()
-        if result is None:
-            yield b"No results available"
-            return
 
-        stats = result["stats"]
+        def _build():
+            result = corr_result.get()
+            if result is None:
+                return None
 
-        # Build report elements
-        elements = [
-            {"type": "text", "data": f"Data Source: {result['data_label']}"},
-            {"type": "text", "data": f"Method: {result['method'].title()}"},
-            {
-                "type": "text",
-                "data": f"Variables: {result['var1']} vs {result['var2']}",
-            },
-            {"type": "text", "header": "Statistical Results", "data": ""},
-        ]
+            stats = result["stats"]
 
-        # Add statistics
-        # Helper for key lookup
-        coef_key = (
-            "Coefficient (r/rho/tau)"
-            if "Coefficient (r/rho/tau)" in stats
-            else "Coefficient (r)"
-        )
+            # Build report elements
+            elements = [
+                {"type": "text", "data": f"Data Source: {result['data_label']}"},
+                {"type": "text", "data": f"Method: {result['method'].title()}"},
+                {
+                    "type": "text",
+                    "data": f"Variables: {result['var1']} vs {result['var2']}",
+                },
+                {"type": "text", "header": "Statistical Results", "data": ""},
+            ]
 
-        for key in [
-            "Method",
-            coef_key,
-            "95% CI Lower",
-            "95% CI Upper",
-            "R-squared (R²)",
-            "P-value",
-            "N",
-        ]:
-            val = stats.get(key, "N/A")
-            if key == "P-value" and isinstance(val, (int, float, np.number)):
-                # Use standard P-value formatter with styling for the report
-                elements.append(
-                    {
-                        "type": "html",
-                        "data": f"<strong>P-value:</strong> {format_p_value(val, use_style=True)}",
-                    }
-                )
-            # Format numeric if possible
-            elif isinstance(val, (int, float, np.number)):
-                elements.append(
-                    {
-                        "type": "text",
-                        "data": (
-                            f"{key if key != coef_key else 'Correlation Coefficient'}: {val:.4f}"
-                            if isinstance(val, float)
-                            else f"{key}: {val}"
-                        ),
-                    }
-                )
-            else:
-                elements.append({"type": "text", "data": f"{key}: {val}"})
+            # Add statistics
+            coef_key = (
+                "Coefficient (r/rho/tau)"
+                if "Coefficient (r/rho/tau)" in stats
+                else "Coefficient (r)"
+            )
 
-        # Add interpretation
-        elements.append(
-            {
-                "type": "interpretation",
-                "data": f"{stats['Interpretation']}. R² = {stats['R-squared (R²)']:.3f} means {stats['R-squared (R²)'] * 100:.1f}% of variance is explained.",
-            }
-        )
+            for key in [
+                "Method",
+                coef_key,
+                "95% CI Lower",
+                "95% CI Upper",
+                "R-squared (R\u00b2)",
+                "P-value",
+                "N",
+            ]:
+                val = stats.get(key, "N/A")
+                if key == "P-value" and isinstance(val, (int, float, np.number)):
+                    elements.append(
+                        {
+                            "type": "html",
+                            "data": f"<strong>P-value:</strong> {format_p_value(val, use_style=True)}",
+                        }
+                    )
+                elif isinstance(val, (int, float, np.number)):
+                    elements.append(
+                        {
+                            "type": "text",
+                            "data": (
+                                f"{key if key != coef_key else 'Correlation Coefficient'}: {val:.4f}"
+                                if isinstance(val, float)
+                                else f"{key}: {val}"
+                            ),
+                        }
+                    )
+                else:
+                    elements.append({"type": "text", "data": f"{key}: {val}"})
 
-        elements.append({"type": "note", "data": stats["Sample Note"]})
-
-        # Add plot
-        elements.append(
-            {"type": "plot", "header": "Scatter Plot", "data": result["figure"]}
-        )
-
-        # Missing Data Report (moved to end)
-        if "missing_data_info" in stats:
+            # Add interpretation
             elements.append(
                 {
-                    "type": "html",
-                    "data": create_missing_data_report_html(
-                        stats["missing_data_info"], var_meta.get() or {}
-                    ),
+                    "type": "interpretation",
+                    "data": f"{stats['Interpretation']}. R\u00b2 = {stats['R-squared (R\u00b2)']:.3f} means {stats['R-squared (R\u00b2)'] * 100:.1f}% of variance is explained.",
                 }
             )
 
-        # Generate HTML
-        html_content = correlation.generate_report(
-            title=f"Correlation Analysis: {result['var1']} vs {result['var2']}",
-            elements=elements,
-        )
+            elements.append({"type": "note", "data": stats["Sample Note"]})
 
-        yield html_content.encode("utf-8")
+            # Add plot
+            elements.append(
+                {"type": "plot", "header": "Scatter Plot", "data": result["figure"]}
+            )
+
+            # Missing Data Report
+            if "missing_data_info" in stats:
+                elements.append(
+                    {
+                        "type": "html",
+                        "data": create_missing_data_report_html(
+                            stats["missing_data_info"], var_meta.get() or {}
+                        ),
+                    }
+                )
+
+            return correlation.generate_report(
+                title=f"Correlation Analysis: {result['var1']} vs {result['var2']}",
+                elements=elements,
+            )
+
+        yield safe_report_generation(_build, label="Correlation Report")
 
     # ==================== CORRELATION MATRIX / HEATMAP ====================
 
@@ -754,66 +752,77 @@ def corr_server(
     )
     def btn_dl_matrix():
         """Generate and download matrix report."""
-        result = matrix_result.get()
-        if result is None:
-            yield b"No results available"
-            return
 
-        summary = result["summary"]
+        def _build():
+            result = matrix_result.get()
+            if result is None:
+                return None
 
-        # Build report elements
-        elements = [
-            {"type": "text", "data": f"Data Source: {result['data_label']}"},
-            {"type": "text", "data": f"Method: {result['method'].title()}"},
-            {"type": "text", "data": f"Number of Variables: {summary['n_variables']}"},
-        ]
+            summary = result["summary"]
 
-        # Add summary statistics
-        summary_text = f"""
-        <h3>Matrix Summary Statistics</h3>
-        <p><strong>Correlations Computed:</strong> {_html.escape(str(summary["n_correlations"]))} unique pairs</p>
-        <p><strong>Mean |Correlation|:</strong> {_html.escape(str(summary["mean_correlation"]))}</p>
-        <p><strong>Maximum |Correlation|:</strong> {summary["max_correlation"]:.3f}</p>
-        <p><strong>Minimum |Correlation|:</strong> {summary["min_correlation"]:.3f}</p>
-        <p><strong>Significant Correlations (p<0.05):</strong> {summary["n_significant"]} out of {summary["n_correlations"]} ({summary["pct_significant"]:.1f}%)</p>
-        <p><strong>Strongest Positive:</strong> {summary["strongest_positive"]}</p>
-        <p><strong>Strongest Negative:</strong> {summary["strongest_negative"]}</p>
-        """
+            # Build report elements
+            elements = [
+                {"type": "text", "data": f"Data Source: {result['data_label']}"},
+                {"type": "text", "data": f"Method: {result['method'].title()}"},
+                {
+                    "type": "text",
+                    "data": f"Number of Variables: {summary['n_variables']}",
+                },
+            ]
 
-        elements.append({"type": "summary", "data": summary_text})
+            # Add summary statistics
+            summary_text = f"""
+            <h3>Matrix Summary Statistics</h3>
+            <p><strong>Correlations Computed:</strong> {_html.escape(str(summary["n_correlations"]))} unique pairs</p>
+            <p><strong>Mean |Correlation|:</strong> {_html.escape(str(summary["mean_correlation"]))}</p>
+            <p><strong>Maximum |Correlation|:</strong> {summary["max_correlation"]:.3f}</p>
+            <p><strong>Minimum |Correlation|:</strong> {summary["min_correlation"]:.3f}</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {summary["n_significant"]} out of {summary["n_correlations"]} ({summary["pct_significant"]:.1f}%)</p>
+            <p><strong>Strongest Positive:</strong> {summary["strongest_positive"]}</p>
+            <p><strong>Strongest Negative:</strong> {summary["strongest_negative"]}</p>
+            """
 
-        # Add heatmap
-        elements.append(
-            {"type": "plot", "header": "Correlation Heatmap", "data": result["figure"]}
-        )
+            elements.append({"type": "summary", "data": summary_text})
 
-        # Add matrix table
-        elements.append(
-            {"type": "table", "header": "Correlation Matrix", "data": result["matrix"]}
-        )
-
-        elements.append(
-            {
-                "type": "note",
-                "data": "Significance levels: * p<0.05, ** p<0.01, *** p<0.001",
-            }
-        )
-
-        # Missing Data Report (moved to end)
-        if "missing_data_info" in summary:
+            # Add heatmap
             elements.append(
                 {
-                    "type": "html",
-                    "data": create_missing_data_report_html(
-                        summary["missing_data_info"], var_meta.get() or {}
-                    ),
+                    "type": "plot",
+                    "header": "Correlation Heatmap",
+                    "data": result["figure"],
                 }
             )
 
-        # Generate HTML
-        html_content = correlation.generate_report(
-            title=f"Correlation Matrix Analysis ({result['method'].title()})",
-            elements=elements,
-        )
+            # Add matrix table
+            elements.append(
+                {
+                    "type": "table",
+                    "header": "Correlation Matrix",
+                    "data": result["matrix"],
+                }
+            )
 
-        yield html_content.encode("utf-8")
+            elements.append(
+                {
+                    "type": "note",
+                    "data": "Significance levels: * p<0.05, ** p<0.01, *** p<0.001",
+                }
+            )
+
+            # Missing Data Report
+            if "missing_data_info" in summary:
+                elements.append(
+                    {
+                        "type": "html",
+                        "data": create_missing_data_report_html(
+                            summary["missing_data_info"], var_meta.get() or {}
+                        ),
+                    }
+                )
+
+            return correlation.generate_report(
+                title=f"Correlation Matrix Analysis ({result['method'].title()})",
+                elements=elements,
+            )
+
+        yield safe_report_generation(_build, label="Correlation Matrix Report")

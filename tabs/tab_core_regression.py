@@ -27,6 +27,7 @@ from utils.calibration_lib import (
     get_calibration_report,
 )
 from utils.data_cleaning import prepare_data_for_analysis
+from utils.download_helpers import safe_download_html, safe_report_generation
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import (
     PublicationFormatter,
@@ -2527,8 +2528,9 @@ def core_regression_server(
             str: An HTML string containing the full, download-ready report, yielded if present.
         """
         res = logit_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Logistic Regression Report"
+        )
 
     # ==========================================================================
     # LOGIC: Poisson Regression
@@ -2829,8 +2831,9 @@ def core_regression_server(
             str: Full HTML document containing the Poisson analysis report, or nothing if no results are available.
         """
         res = poisson_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Poisson Regression Report"
+        )
 
     # ==========================================================================
     # LOGIC: Negative Binomial Regression
@@ -3094,8 +3097,9 @@ def core_regression_server(
     @render.download(filename="nb_report.html")
     def btn_dl_nb_report():
         res = nb_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Negative Binomial Report"
+        )
 
     # ==========================================================================
     # LOGIC: Linear Regression (OLS)
@@ -3531,8 +3535,9 @@ def core_regression_server(
     def btn_dl_linear_report():
         """Download the complete Linear Regression report as HTML."""
         res = linear_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Linear Regression Report"
+        )
 
     # --- Stepwise Selection Results ---
     @render.ui
@@ -4090,25 +4095,26 @@ def core_regression_server(
         Returns:
             generator (str): Yields the HTML report string or an availability message.
         """
-        res = logit_sg_res.get()
-        if not res:
-            yield "No results available."
-            return
 
-        # Simplified Report generation for now
-        html_content = f"""
-        <html>
-        <head><title>Subgroup Analysis Report</title></head>
-        <body>
-            <h1>Subgroup Analysis (Logistic Regression)</h1>
-            <h2>Forest Plot</h2>
-            {plotly_figure_to_html(res.get("forest_plot"))}
-            <h2>Detailed Results</h2>
-            {pd.DataFrame(res["results_df"]).to_html()}
-        </body>
-        </html>
-        """
-        yield html_content
+        def _build():
+            res = logit_sg_res.get()
+            if not res:
+                return None
+
+            return f"""
+            <html>
+            <head><title>Subgroup Analysis Report</title></head>
+            <body>
+                <h1>Subgroup Analysis (Logistic Regression)</h1>
+                <h2>Forest Plot</h2>
+                {plotly_figure_to_html(res.get("forest_plot"))}
+                <h2>Detailed Results</h2>
+                {pd.DataFrame(res["results_df"]).to_html()}
+            </body>
+            </html>
+            """
+
+        yield safe_report_generation(_build, label="Logistic Subgroup Report")
 
     # ==========================================================================
     # LOGIC: Repeated Measures
@@ -4503,5 +4509,6 @@ def core_regression_server(
     @render.download(filename="glm_report.html")
     def btn_dl_glm_report():
         res = glm_res.get()
-        if res and "html_report" in res:
-            yield res["html_report"]
+        yield safe_download_html(
+            res.get("html_report") if res else None, label="GLM Report"
+        )
