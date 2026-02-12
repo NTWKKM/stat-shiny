@@ -16,7 +16,7 @@ from utils.data_cleaning import prepare_data_for_analysis
 from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
 from utils.download_helpers import safe_download_html
 from utils.formatting import create_missing_data_report_html
-from utils.ui_helpers import create_results_container
+from utils.ui_helpers import create_download_status_badge, create_results_container
 
 logger = get_logger(__name__)
 
@@ -115,6 +115,7 @@ def diag_ui() -> ui.TagChild:
                                 class_="btn-secondary w-100",
                                 width="100%",
                             ),
+                            ui.output_ui("dl_status_roc"),
                         ),
                     ),
                 ),
@@ -180,6 +181,7 @@ def diag_ui() -> ui.TagChild:
                             class_="btn-secondary w-100",
                             width="100%",
                         ),
+                        ui.output_ui("dl_status_chi"),
                     ),
                 ),
                 ui.br(),
@@ -210,6 +212,7 @@ def diag_ui() -> ui.TagChild:
                             class_="btn-secondary w-100",
                             width="100%",
                         ),
+                        ui.output_ui("dl_status_desc"),
                     ),
                 ),
                 ui.br(),
@@ -242,6 +245,7 @@ def diag_ui() -> ui.TagChild:
                             class_="btn-outline-primary w-100",
                             width="100%",
                         ),
+                        ui.output_ui("dl_status_dca"),
                     ),
                 ),
                 ui.br(),
@@ -905,6 +909,23 @@ def diag_server(
             str: The ROC report HTML content.
         """
         yield safe_download_html(roc_html.get(), label="ROC Report")
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_roc():
+        return create_download_status_badge(bool(roc_html.get()))
+
+    @render.ui
+    def dl_status_chi():
+        return create_download_status_badge(bool(chi_html.get()))
+
+    @render.ui
+    def dl_status_desc():
+        return create_download_status_badge(bool(desc_html.get()))
+
+    @render.ui
+    def dl_status_dca():
+        return create_download_status_badge(bool(dca_html.get()))
 
     @render.download(filename="chi2_report.html")
     def btn_dl_chi_report():

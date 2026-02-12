@@ -18,6 +18,7 @@ from utils.agreement_lib import AgreementAnalysis
 from utils.download_helpers import safe_download_html
 from utils.formatting import create_missing_data_report_html
 from utils.ui_helpers import (
+    create_download_status_badge,
     create_error_alert,
     create_loading_state,
     create_placeholder_state,
@@ -115,6 +116,7 @@ def agreement_ui() -> ui.TagChild:
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
+                        ui.output_ui("dl_status_kappa"),
                     ),
                 ),
                 ui.br(),
@@ -157,6 +159,7 @@ def agreement_ui() -> ui.TagChild:
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
+                        ui.output_ui("dl_status_ba"),
                     ),
                 ),
                 ui.br(),
@@ -187,6 +190,7 @@ def agreement_ui() -> ui.TagChild:
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
+                        ui.output_ui("dl_status_icc"),
                     ),
                 ),
                 ui.br(),
@@ -591,6 +595,19 @@ def agreement_server(
             str: The HTML content of the latest Kappa agreement report.
         """
         yield safe_download_html(kappa_html.get(), label="Kappa Report")
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_kappa():
+        return create_download_status_badge(bool(kappa_html.get()))
+
+    @render.ui
+    def dl_status_ba():
+        return create_download_status_badge(bool(ba_html.get()))
+
+    @render.ui
+    def dl_status_icc():
+        return create_download_status_badge(bool(icc_html.get()))
 
     # ==================== BLAND-ALTMAN LOGIC ====================
     @reactive.Effect
