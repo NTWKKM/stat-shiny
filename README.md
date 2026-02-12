@@ -111,6 +111,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_causal.py
 |       |-- test_chi_html.py
 |       |-- test_collinearity.py
+|       |-- test_download_helpers.py
 |       |-- test_color_palette.py
 |       |-- test_correlation_returns.py
 |       |-- test_data_cleaning.py
@@ -159,6 +160,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- collinearity_lib.py
     |-- correlation.py
     |-- data_cleaning.py
+    |-- download_helpers.py
     |-- data_quality.py
     |-- decision_curve_lib.py
     |-- diag_test.py
@@ -192,7 +194,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- update_css.py
     `-- visualizations.py
 ```
-
 
 [--- REPOSITORY-TREE-END ---]
 
@@ -332,7 +333,8 @@ Every statistical analysis follows a rigorous, standardized data flow to ensure 
    - **Interactive Setup**: Users interactively cast variable types and choose missing value strategies.
    - **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
 3. **Central Preparation (`utils/data_cleaning.py`)**: Before analysis, data is passed through `prepare_data_for_analysis()` which handles exclusion logic and logging.
-4. **Integrated Reporting (`utils/formatting.py`)**: Missing data statistics are automatically analyzed and included in the final report for every module.
+4. **Download Safety (`utils/download_helpers.py`)**: All `@render.download` handlers use `safe_download_html()` or `safe_report_generation()` to guarantee valid HTML output and user notifications (✅ success, ⚠️ no results, ❌ generation error).
+5. **Integrated Reporting (`utils/formatting.py`)**: Missing data statistics are automatically analyzed and included in the final report for every module.
 
 ### 🧪 Testing & Quality Assurance
 

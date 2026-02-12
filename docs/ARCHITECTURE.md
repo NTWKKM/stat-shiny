@@ -210,7 +210,7 @@ sequenceDiagram
     participant Server as Tab Server
     participant Results as Results Storage
     participant HTML as HTML Builder
-    participant Download as Download Handler
+    participant DL as download_helpers.py
     
     User->>UI: Complete analysis
     UI->>Server: Analysis request
@@ -224,19 +224,20 @@ sequenceDiagram
     Server->>Results: Retrieve stored results
     Results-->>Server: Return results dict
     
-    Server->>HTML: Build HTML structure
-    HTML->>HTML: Add header & metadata
-    HTML->>HTML: Add results tables
-    HTML->>HTML: Embed visualizations (base64)
-    HTML->>HTML: Add interpretation text
-    HTML->>HTML: Add footer with timestamp
-    HTML-->>Server: Return complete HTML string
+    alt Pre-stored HTML (e.g. Logistic, Poisson)
+        Server->>DL: safe_download_html(content)
+    else Inline generation (e.g. Survival, Correlation)
+        Server->>DL: safe_report_generation(build_fn)
+        DL->>HTML: Execute build_fn()
+        HTML-->>DL: Return HTML string
+    end
     
-    Server->>Download: Prepare download response
-    Download->>Download: Set filename (with timestamp)
-    Download->>Download: Set content-type: text/html
-    Download-->>Server: Return download object
-    Server-->>UI: Initiate browser download
+    alt Content valid
+        DL-->>UI: ✅ Notification + yield HTML
+    else No results / error
+        DL-->>UI: ⚠️/❌ Notification + yield styled error page
+    end
+    
     UI-->>User: File downloaded
 ```
 
@@ -309,6 +310,7 @@ The application uses a centralized styling system to ensure visual consistency a
 - `utils/formatting.py`: Handles P-value styling, logic-driven badges, and statistical report HTML structure (syncing with `config.py`).
   - **PublicationFormatter**: Provides per-journal templates (**NEJM, JAMA, Lancet, BMJ**) and automated "Methods" text generation.
   - **MissingDataStatement**: Generates standardized reporting on missingness handling.
+- `utils/download_helpers.py`: **Download Safety Layer**. Provides `safe_download_html()` and `safe_report_generation()` to guarantee all download handlers yield valid HTML (or a styled error page) and show user-facing notifications.
 - `utils/table_one_advanced.py`: **Advanced Table 1 Generator** (OOP). Handles intelligent variable classification and **Odds Ratio (OR) calculation**.
   - **Categorical OR**: Uses **2x2 Contingency Tables** comparing each level (or Target) against the **First Level (Reference)**. Applies **Haldane-Anscombe correction** (+0.5) for zero cells. Supports "All Levels" and "Simple" (Binary Target vs Ref) styles.
   - **Continuous OR**: Uses **Univariate Logistic Regression**.
@@ -426,4 +428,5 @@ The data flow is standardized to ensure consistent handling of missing values an
 >
 > 1. Verify UI components use `get_color_palette()`.
 > 2. Ensure all data-heavy modules call `prepare_data_for_analysis()`.
-> 3. Add tests to the corresponding suite in `tests/`.
+> 3. Wrap `@render.download` handlers with `safe_download_html()` or `safe_report_generation()` from `utils/download_helpers.py`.
+> 4. Add tests to the corresponding suite in `tests/`.
