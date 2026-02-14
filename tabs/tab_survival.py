@@ -1272,7 +1272,7 @@ def survival_server(
 
         def _build():
             res = curves_result.get()
-            if not res:
+            if not res or "error" in res:
                 return None
 
             elements = [
@@ -1469,7 +1469,7 @@ def survival_server(
 
         def _build():
             res = landmark_result.get()
-            if not res:
+            if not res or "error" in res:
                 return None
 
             elements = [
@@ -1883,7 +1883,7 @@ def survival_server(
 
         def _build():
             res = cox_result.get()
-            if not res:
+            if not res or "error" in res:
                 return None
 
             elements = [
@@ -2111,7 +2111,7 @@ def survival_server(
 
         def _build():
             res = sg_result.get()
-            if not res:
+            if not res or "error" in res:
                 return None
 
             elements = [
@@ -2624,7 +2624,7 @@ def survival_server(
 
         def _build():
             res = rcs_result.get()
-            if not res:
+            if not res or "error" in res:
                 return None
 
             elements = [
@@ -2763,7 +2763,7 @@ def survival_server(
 
         def _build():
             res = tvc_result.get()
-            if not res:
+            if not res or "error" in res:
                 return None
 
             elements = [
