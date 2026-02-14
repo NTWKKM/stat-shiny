@@ -1526,8 +1526,6 @@ def survival_server(
 
                 all_results = []
                 clean_data = None
-                all_results = []
-                clean_data = None
                 for mi_df in mi_dfs:
                     # Clean data first
                     d_clean, _, _, _, _ = prepare_data_for_analysis(

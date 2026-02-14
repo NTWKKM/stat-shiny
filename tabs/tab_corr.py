@@ -693,9 +693,22 @@ def corr_server(
 
         summary = result["summary"]
 
-        # Format summary statistics
-        strongest_pos = _html.escape(str(summary["strongest_positive"]))
-        strongest_neg = _html.escape(str(summary["strongest_negative"]))
+        # Format summary statistics — defensive .get() access
+        strongest_pos = _html.escape(str(summary.get("strongest_positive", "N/A")))
+        strongest_neg = _html.escape(str(summary.get("strongest_negative", "N/A")))
+        n_vars = summary.get("n_variables", "N/A")
+        n_corrs = summary.get("n_correlations", "N/A")
+        mean_corr = summary.get("mean_correlation", "N/A")
+        n_sig = summary.get("n_significant", "N/A")
+        pct_sig = summary.get("pct_significant", "N/A")
+        mean_corr_str = (
+            f"{mean_corr:.3f}"
+            if isinstance(mean_corr, (int, float))
+            else str(mean_corr)
+        )
+        pct_sig_str = (
+            f"{pct_sig:.1f}" if isinstance(pct_sig, (int, float)) else str(pct_sig)
+        )
         summary_html = f"""
         <div style='background: linear-gradient(135deg, #fff3e0 0%, #f8f9fa 100%); 
                     border: 2px solid #ff9800; 
@@ -703,12 +716,12 @@ def corr_server(
                     padding: 15px; 
                     margin: 20px 0;'>
             <h4 style='color: #e65100; margin-top: 0;'>📊 Matrix Summary</h4>
-            <p><strong>Variables:</strong> {summary["n_variables"]}</p>
-            <p><strong>Correlations Computed:</strong> {summary["n_correlations"]} (unique pairs)</p>
-            <p><strong>Mean |Correlation|:</strong> {summary["mean_correlation"]:.3f}</p>
+            <p><strong>Variables:</strong> {n_vars}</p>
+            <p><strong>Correlations Computed:</strong> {n_corrs} (unique pairs)</p>
+            <p><strong>Mean |Correlation|:</strong> {mean_corr_str}</p>
             <p><strong>Strongest Positive:</strong> {strongest_pos}</p>
             <p><strong>Strongest Negative:</strong> {strongest_neg}</p>
-            <p><strong>Significant Correlations (p<0.05):</strong> {summary["n_significant"]} ({summary["pct_significant"]:.1f}%)</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {n_sig} ({pct_sig_str}%)</p>
         </div>
         """
 
@@ -784,26 +797,52 @@ def corr_server(
 
             summary = result["summary"]
 
-            # Build report elements
+            # Build report elements — defensive .get() access
+            n_vars = summary.get("n_variables", "N/A")
             elements = [
                 {"type": "text", "data": f"Data Source: {result['data_label']}"},
                 {"type": "text", "data": f"Method: {result['method'].title()}"},
                 {
                     "type": "text",
-                    "data": f"Number of Variables: {summary['n_variables']}",
+                    "data": f"Number of Variables: {n_vars}",
                 },
             ]
 
-            # Add summary statistics
+            # Add summary statistics — safe access with .get()
+            n_corrs = summary.get("n_correlations", "N/A")
+            mean_corr = summary.get("mean_correlation", "N/A")
+            max_corr = summary.get("max_correlation", "N/A")
+            min_corr = summary.get("min_correlation", "N/A")
+            n_sig = summary.get("n_significant", "N/A")
+            pct_sig = summary.get("pct_significant", "N/A")
+            strongest_pos = summary.get("strongest_positive", "N/A")
+            strongest_neg = summary.get("strongest_negative", "N/A")
+
+            max_corr_str = (
+                f"{max_corr:.3f}"
+                if isinstance(max_corr, (int, float))
+                else _html.escape(str(max_corr))
+            )
+            min_corr_str = (
+                f"{min_corr:.3f}"
+                if isinstance(min_corr, (int, float))
+                else _html.escape(str(min_corr))
+            )
+            pct_sig_str = (
+                f"{pct_sig:.1f}"
+                if isinstance(pct_sig, (int, float))
+                else _html.escape(str(pct_sig))
+            )
+
             summary_text = f"""
             <h3>Matrix Summary Statistics</h3>
-            <p><strong>Correlations Computed:</strong> {_html.escape(str(summary["n_correlations"]))} unique pairs</p>
-            <p><strong>Mean |Correlation|:</strong> {_html.escape(str(summary["mean_correlation"]))}</p>
-            <p><strong>Maximum |Correlation|:</strong> {_html.escape(str(f"{summary['max_correlation']:.3f}"))}</p>
-            <p><strong>Minimum |Correlation|:</strong> {_html.escape(str(f"{summary['min_correlation']:.3f}"))}</p>
-            <p><strong>Significant Correlations (p<0.05):</strong> {_html.escape(str(summary["n_significant"]))} out of {_html.escape(str(summary["n_correlations"]))} ({_html.escape(str(f"{summary['pct_significant']:.1f}"))}%)</p>
-            <p><strong>Strongest Positive:</strong> {_html.escape(str(summary["strongest_positive"]))}</p>
-            <p><strong>Strongest Negative:</strong> {_html.escape(str(summary["strongest_negative"]))}</p>
+            <p><strong>Correlations Computed:</strong> {_html.escape(str(n_corrs))} unique pairs</p>
+            <p><strong>Mean |Correlation|:</strong> {_html.escape(str(mean_corr))}</p>
+            <p><strong>Maximum |Correlation|:</strong> {max_corr_str}</p>
+            <p><strong>Minimum |Correlation|:</strong> {min_corr_str}</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {_html.escape(str(n_sig))} out of {_html.escape(str(n_corrs))} ({pct_sig_str}%)</p>
+            <p><strong>Strongest Positive:</strong> {_html.escape(str(strongest_pos))}</p>
+            <p><strong>Strongest Negative:</strong> {_html.escape(str(strongest_neg))}</p>
             """
 
             elements.append(
