@@ -526,7 +526,7 @@ def corr_server(
 
         def _build():
             result = corr_result.get()
-            if result is None:
+            if not result or "error" in result:
                 return None
 
             stats = result["stats"]
@@ -564,6 +564,7 @@ def corr_server(
                         {
                             "type": "html",
                             "data": f"<strong>P-value:</strong> {format_p_value(val, use_style=True)}",
+                            "safe_html": True,
                         }
                     )
                 elif isinstance(val, (int, float, np.number)):
@@ -605,6 +606,7 @@ def corr_server(
                         "data": create_missing_data_report_html(
                             stats["missing_data_info"], var_meta.get() or {}
                         ),
+                        "safe_html": True,
                     }
                 )
 
@@ -777,7 +779,7 @@ def corr_server(
 
         def _build():
             result = matrix_result.get()
-            if result is None:
+            if not result or "error" in result:
                 return None
 
             summary = result["summary"]
@@ -804,7 +806,9 @@ def corr_server(
             <p><strong>Strongest Negative:</strong> {_html.escape(str(summary["strongest_negative"]))}</p>
             """
 
-            elements.append({"type": "summary", "data": summary_text})
+            elements.append(
+                {"type": "summary", "data": summary_text, "safe_html": True}
+            )
 
             # Add heatmap
             elements.append(
@@ -839,6 +843,7 @@ def corr_server(
                         "data": create_missing_data_report_html(
                             summary["missing_data_info"], var_meta.get() or {}
                         ),
+                        "safe_html": True,
                     }
                 )
 
