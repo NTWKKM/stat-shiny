@@ -1,5 +1,7 @@
 """Unit tests for utils/download_helpers.py."""
 
+from unittest.mock import patch
+
 from utils.download_helpers import (
     _build_error_html,
     safe_download_html,
@@ -97,3 +99,14 @@ class TestSafeReportGeneration:
     def test_default_label(self):
         result = safe_report_generation(lambda: None)
         assert "Report" in result
+
+    def test_exception_notifies_error(self):
+        def _boom():
+            raise ValueError("fail")
+
+        with patch("utils.download_helpers._notify") as mock_notify:
+            result = safe_report_generation(_boom, label="Boom")
+            assert "<!DOCTYPE html>" in result
+            assert "Generation Failed" in result
+            mock_notify.assert_called_once()
+            assert mock_notify.call_args[1]["type"] == "error"
