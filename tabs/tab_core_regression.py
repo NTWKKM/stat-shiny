@@ -2563,7 +2563,7 @@ def core_regression_server(
     def dl_status_sg_logit():
         res = logit_sg_res.get()
         return create_download_status_badge(
-            res is not None and bool(res.get("html_full"))
+            res is not None and "error" not in res and res.get("results_df") is not None
         )
 
     @render.ui
@@ -2584,7 +2584,7 @@ def core_regression_server(
     def dl_status_glm():
         res = glm_res.get()
         return create_download_status_badge(
-            res is not None and bool(res.get("html_full"))
+            res is not None and bool(res.get("html_report"))
         )
 
     @render.ui

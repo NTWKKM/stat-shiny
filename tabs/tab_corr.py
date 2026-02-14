@@ -581,14 +581,16 @@ def corr_server(
                     elements.append({"type": "text", "data": f"{key}: {val}"})
 
             # Add interpretation
+            interp = stats.get("Interpretation", "N/A")
+            r2 = stats.get("R-squared (R\u00b2)", float("nan"))
             elements.append(
                 {
                     "type": "interpretation",
-                    "data": f"{stats['Interpretation']}. R\u00b2 = {stats['R-squared (R\u00b2)']:.3f} means {stats['R-squared (R\u00b2)'] * 100:.1f}% of variance is explained.",
+                    "data": f"{interp}. R\u00b2 = {r2:.3f} means {r2 * 100:.1f}% of variance is explained.",
                 }
             )
 
-            elements.append({"type": "note", "data": stats["Sample Note"]})
+            elements.append({"type": "note", "data": stats.get("Sample Note", "")})
 
             # Add plot
             elements.append(
@@ -791,11 +793,11 @@ def corr_server(
             <h3>Matrix Summary Statistics</h3>
             <p><strong>Correlations Computed:</strong> {_html.escape(str(summary["n_correlations"]))} unique pairs</p>
             <p><strong>Mean |Correlation|:</strong> {_html.escape(str(summary["mean_correlation"]))}</p>
-            <p><strong>Maximum |Correlation|:</strong> {summary["max_correlation"]:.3f}</p>
-            <p><strong>Minimum |Correlation|:</strong> {summary["min_correlation"]:.3f}</p>
-            <p><strong>Significant Correlations (p<0.05):</strong> {summary["n_significant"]} out of {summary["n_correlations"]} ({summary["pct_significant"]:.1f}%)</p>
-            <p><strong>Strongest Positive:</strong> {summary["strongest_positive"]}</p>
-            <p><strong>Strongest Negative:</strong> {summary["strongest_negative"]}</p>
+            <p><strong>Maximum |Correlation|:</strong> {_html.escape(str(f"{summary['max_correlation']:.3f}"))}</p>
+            <p><strong>Minimum |Correlation|:</strong> {_html.escape(str(f"{summary['min_correlation']:.3f}"))}</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {_html.escape(str(summary["n_significant"]))} out of {_html.escape(str(summary["n_correlations"]))} ({_html.escape(str(f"{summary['pct_significant']:.1f}"))}%)</p>
+            <p><strong>Strongest Positive:</strong> {_html.escape(str(summary["strongest_positive"]))}</p>
+            <p><strong>Strongest Negative:</strong> {_html.escape(str(summary["strongest_negative"]))}</p>
             """
 
             elements.append({"type": "summary", "data": summary_text})
