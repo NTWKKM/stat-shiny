@@ -1305,29 +1305,33 @@ def survival_server(
         yield safe_report_generation(_build, label="Survival Report")
 
     # --- Download Status Badges ---
+    def _is_download_ready(result: dict[str, Any] | None) -> bool:
+        """Return True only if result is non-None and not an error."""
+        return bool(result) and "error" not in result
+
     @render.ui
     def dl_status_curves():
-        return create_download_status_badge(curves_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(curves_result.get()))
 
     @render.ui
     def dl_status_landmark():
-        return create_download_status_badge(landmark_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(landmark_result.get()))
 
     @render.ui
     def dl_status_cox():
-        return create_download_status_badge(cox_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(cox_result.get()))
 
     @render.ui
     def dl_status_sg():
-        return create_download_status_badge(sg_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(sg_result.get()))
 
     @render.ui
     def dl_status_rcs():
-        return create_download_status_badge(rcs_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(rcs_result.get()))
 
     @render.ui
     def dl_status_tvc():
-        return create_download_status_badge(tvc_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(tvc_result.get()))
 
     # ==================== 2. LANDMARK ANALYSIS LOGIC ====================
     @reactive.Effect
@@ -2117,7 +2121,7 @@ def survival_server(
                     elements.append(
                         {
                             "type": "text",
-                            "data": f"Interaction Test: P-value = {p_int:.4f} ({sig_text})",
+                            "data": f"Interaction Test: P-value = {format_p_value(p_int)} ({sig_text})",
                         }
                     )
 
@@ -2129,7 +2133,12 @@ def survival_server(
                 ]
             )
             elements = [e for e in elements if e.get("data") is not None]
-            return survival_lib.generate_report_survival("Subgroup Analysis", elements)
+            return survival_lib.generate_report_survival(
+                "Subgroup Analysis",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
 
         yield safe_report_generation(_build, label="Subgroup Report")
 

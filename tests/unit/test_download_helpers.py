@@ -1,6 +1,10 @@
 """Unit tests for utils/download_helpers.py."""
 
-from utils.download_helpers import _build_error_html, safe_download_html
+from utils.download_helpers import (
+    _build_error_html,
+    safe_download_html,
+    safe_report_generation,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -60,4 +64,36 @@ class TestSafeDownloadHtml:
 
     def test_default_label(self):
         result = safe_download_html(None)
+        assert "Report" in result
+
+
+# ---------------------------------------------------------------------------
+# safe_report_generation
+# ---------------------------------------------------------------------------
+class TestSafeReportGeneration:
+    def test_success_returns_content(self):
+        content = "<!DOCTYPE html><html><body>OK</body></html>"
+        result = safe_report_generation(lambda: content, label="X")
+        assert result == content
+
+    def test_exception_returns_error_page(self):
+        def _boom():
+            raise ValueError("fail")
+
+        result = safe_report_generation(_boom, label="Boom")
+        assert "<!DOCTYPE html>" in result
+        assert "Generation Failed" in result
+
+    def test_none_returns_error_page(self):
+        result = safe_report_generation(lambda: None, label="Empty")
+        assert "<!DOCTYPE html>" in result
+        assert "No Results" in result
+
+    def test_empty_string_returns_error_page(self):
+        result = safe_report_generation(lambda: "", label="Blank")
+        assert "<!DOCTYPE html>" in result
+        assert "No Results" in result
+
+    def test_default_label(self):
+        result = safe_report_generation(lambda: None)
         assert "Report" in result
