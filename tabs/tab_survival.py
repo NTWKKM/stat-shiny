@@ -1892,7 +1892,14 @@ def survival_server(
 
             if res.get("model_stats"):
                 s = res["model_stats"]
-                stats_text = f"C-index: {s.get('Concordance Index (C-index)')}, AIC: {s.get('AIC')}, Events: {s.get('Number of Events')}"
+                if s.get("MI Pooled"):
+                    stats_text = f"MI Pooled Model (m={s.get('M (imputations)', '?')})"
+                else:
+                    stats_text = (
+                        f"C-index: {s.get('Concordance Index (C-index)', 'N/A')}, "
+                        f"AIC: {s.get('AIC', 'N/A')}, "
+                        f"Events: {s.get('Number of Events', 'N/A')}"
+                    )
                 elements.append({"type": "text", "data": stats_text})
 
             elements.extend(

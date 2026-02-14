@@ -616,13 +616,17 @@ def corr_server(
         yield safe_report_generation(_build, label="Correlation Report")
 
     # --- Download Status Badges ---
+    def _is_download_ready(result: dict[str, Any] | None) -> bool:
+        """Return True only if result is non-None and not an error."""
+        return bool(result) and "error" not in result
+
     @render.ui
     def dl_status_corr():
-        return create_download_status_badge(corr_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(corr_result.get()))
 
     @render.ui
     def dl_status_matrix():
-        return create_download_status_badge(matrix_result.get() is not None)
+        return create_download_status_badge(_is_download_ready(matrix_result.get()))
 
     # ==================== CORRELATION MATRIX / HEATMAP ====================
 
