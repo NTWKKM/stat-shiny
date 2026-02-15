@@ -412,7 +412,12 @@ def corr_server(
         var2 = _html.escape(str(result["var2"]))
         interpretation = _html.escape(str(stats.get("Interpretation", "")))
         sample_note = _html.escape(str(stats.get("Sample Note", "")))
-        r2 = float(stats["R-squared (R²)"])
+        r2_raw = stats.get("R-squared (R²)", None)
+        r2 = (
+            float(r2_raw)
+            if isinstance(r2_raw, (int, float)) and not pd.isna(r2_raw)
+            else None
+        )
         interp_html = f"""
         <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
                     border-left: 4px solid {COLORS["primary"]}; 
@@ -420,8 +425,8 @@ def corr_server(
                     margin: 16px 0; 
                     border-radius: 5px;'>
             <strong>Interpretation:</strong> {interpretation}<br>
-            <strong>R² = {r2:.3f}</strong> →
-            {r2 * 100:.1f}% of variance in {var2} is explained by {var1}<br>
+            <strong>R² = {f"{r2:.3f}" if r2 is not None else "N/A"}</strong> →
+            {f"{r2 * 100:.1f}" if r2 is not None else "N/A"}% of variance in {var2} is explained by {var1}<br>
             <strong>Sample:</strong> {sample_note}
         </div>
         """
