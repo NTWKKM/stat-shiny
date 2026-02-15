@@ -584,14 +584,18 @@ def corr_server(
             # Add interpretation
             interp = stats.get("Interpretation", "N/A")
             r2 = stats.get("R-squared (R\u00b2)", float("nan"))
+            if isinstance(r2, (int, float)) and not pd.isna(r2):
+                r2_text = f"R\u00b2 = {r2:.3f} means {r2 * 100:.1f}% of variance is explained."
+            else:
+                r2_text = "R\u00b2 is not available."
             elements.append(
                 {
                     "type": "interpretation",
-                    "data": f"{interp}. R\u00b2 = {r2:.3f} means {r2 * 100:.1f}% of variance is explained.",
+                    "data": f"{interp}. {r2_text}",
                 }
             )
 
-            elements.append({"type": "note", "data": stats.get("Sample Note", "")})
+            elements.append({"type": "text", "data": stats.get("Sample Note", "")})
 
             # Add plot
             elements.append(
@@ -716,12 +720,12 @@ def corr_server(
                     padding: 15px; 
                     margin: 20px 0;'>
             <h4 style='color: #e65100; margin-top: 0;'>📊 Matrix Summary</h4>
-            <p><strong>Variables:</strong> {n_vars}</p>
-            <p><strong>Correlations Computed:</strong> {n_corrs} (unique pairs)</p>
-            <p><strong>Mean |Correlation|:</strong> {mean_corr_str}</p>
+            <p><strong>Variables:</strong> {_html.escape(str(n_vars))}</p>
+            <p><strong>Correlations Computed:</strong> {_html.escape(str(n_corrs))} (unique pairs)</p>
+            <p><strong>Mean |Correlation|:</strong> {_html.escape(str(mean_corr_str))}</p>
             <p><strong>Strongest Positive:</strong> {strongest_pos}</p>
             <p><strong>Strongest Negative:</strong> {strongest_neg}</p>
-            <p><strong>Significant Correlations (p<0.05):</strong> {n_sig} ({pct_sig_str}%)</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {_html.escape(str(n_sig))} ({_html.escape(str(pct_sig_str))}%)</p>
         </div>
         """
 
@@ -869,7 +873,7 @@ def corr_server(
 
             elements.append(
                 {
-                    "type": "note",
+                    "type": "text",
                     "data": "Significance levels: * p<0.05, ** p<0.01, *** p<0.001",
                 }
             )
