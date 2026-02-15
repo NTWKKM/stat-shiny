@@ -15,8 +15,10 @@ from tabs._common import (
 )
 from utils import diag_test
 from utils.agreement_lib import AgreementAnalysis
+from utils.download_helpers import safe_download_html
 from utils.formatting import create_missing_data_report_html
 from utils.ui_helpers import (
+    create_download_status_badge,
     create_error_alert,
     create_loading_state,
     create_placeholder_state,
@@ -114,6 +116,7 @@ def agreement_ui() -> ui.TagChild:
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
+                        ui.output_ui("dl_status_kappa"),
                     ),
                 ),
                 ui.br(),
@@ -156,6 +159,7 @@ def agreement_ui() -> ui.TagChild:
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
+                        ui.output_ui("dl_status_ba"),
                     ),
                 ),
                 ui.br(),
@@ -186,6 +190,7 @@ def agreement_ui() -> ui.TagChild:
                             "📥 Download Report",
                             class_="btn-secondary w-100",
                         ),
+                        ui.output_ui("dl_status_icc"),
                     ),
                 ),
                 ui.br(),
@@ -589,8 +594,20 @@ def agreement_server(
         Returns:
             str: The HTML content of the latest Kappa agreement report.
         """
-        req(kappa_html.get())
-        yield kappa_html.get()
+        yield safe_download_html(kappa_html.get(), label="Kappa Report")
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_kappa():
+        return create_download_status_badge(bool(kappa_html.get()))
+
+    @render.ui
+    def dl_status_ba():
+        return create_download_status_badge(bool(ba_html.get()))
+
+    @render.ui
+    def dl_status_icc():
+        return create_download_status_badge(bool(icc_html.get()))
 
     # ==================== BLAND-ALTMAN LOGIC ====================
     @reactive.Effect
@@ -678,8 +695,7 @@ def agreement_server(
         filename=lambda: f"ba_{_safe_filename_part(input.sel_ba_v1())}_{_safe_filename_part(input.sel_ba_v2())}_report.html"
     )
     def btn_dl_ba_report():
-        req(ba_html.get())
-        yield ba_html.get()
+        yield safe_download_html(ba_html.get(), label="Bland-Altman Report")
 
     # ==================== ICC LOGIC ====================
     @reactive.Effect
@@ -775,8 +791,7 @@ def agreement_server(
         filename=lambda: f"icc_report_{_safe_filename_part('_'.join((input.icc_vars() or [])[:3]) or 'analysis')}.html"
     )
     def btn_dl_icc_report():
-        req(icc_html.get())
-        yield icc_html.get()
+        yield safe_download_html(icc_html.get(), label="ICC Report")
 
     # --- Validation ---
     @render.ui
