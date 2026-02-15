@@ -111,7 +111,6 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_causal.py
 |       |-- test_chi_html.py
 |       |-- test_collinearity.py
-|       |-- test_download_helpers.py
 |       |-- test_color_palette.py
 |       |-- test_correlation_returns.py
 |       |-- test_data_cleaning.py
@@ -122,6 +121,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_dca.py
 |       |-- test_diag_returns.py
 |       |-- test_diagnostic_advanced.py
+|       |-- test_download_helpers.py
 |       |-- test_effect_sizes.py
 |       |-- test_firth_regression.py
 |       |-- test_formatting.py
@@ -160,11 +160,11 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- collinearity_lib.py
     |-- correlation.py
     |-- data_cleaning.py
-    |-- download_helpers.py
     |-- data_quality.py
     |-- decision_curve_lib.py
     |-- diag_test.py
     |-- diagnostic_advanced_lib.py
+    |-- download_helpers.py
     |-- effect_sizes.py
     |-- forest_plot_lib.py
     |-- formatting.py
@@ -194,6 +194,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- update_css.py
     `-- visualizations.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
