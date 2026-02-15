@@ -837,11 +837,16 @@ def corr_server(
                 if isinstance(pct_sig, (int, float))
                 else _html.escape(str(pct_sig))
             )
+            mean_corr_str = (
+                f"{mean_corr:.3f}"
+                if isinstance(mean_corr, (int, float))
+                else _html.escape(str(mean_corr))
+            )
 
             summary_text = f"""
             <h3>Matrix Summary Statistics</h3>
             <p><strong>Correlations Computed:</strong> {_html.escape(str(n_corrs))} unique pairs</p>
-            <p><strong>Mean |Correlation|:</strong> {_html.escape(str(mean_corr))}</p>
+            <p><strong>Mean |Correlation|:</strong> {mean_corr_str}</p>
             <p><strong>Maximum |Correlation|:</strong> {max_corr_str}</p>
             <p><strong>Minimum |Correlation|:</strong> {min_corr_str}</p>
             <p><strong>Significant Correlations (p<0.05):</strong> {_html.escape(str(n_sig))} out of {_html.escape(str(n_corrs))} ({pct_sig_str}%)</p>
