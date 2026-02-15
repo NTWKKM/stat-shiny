@@ -27,6 +27,7 @@ from utils.calibration_lib import (
     get_calibration_report,
 )
 from utils.data_cleaning import prepare_data_for_analysis
+from utils.download_helpers import safe_download_html, safe_report_generation
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import (
     PublicationFormatter,
@@ -65,6 +66,7 @@ from utils.reporting_checklists import (
 from utils.sensitivity_lib import calculate_e_value
 from utils.subgroup_analysis_module import SubgroupAnalysisLogit, SubgroupResult
 from utils.ui_helpers import (
+    create_download_status_badge,
     create_empty_state_ui,
     create_error_alert,
     create_input_group,
@@ -268,10 +270,13 @@ def core_regression_ui() -> ui.TagChild:
                             "🚀 Run Regression",
                             class_="btn-primary btn-sm w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_report",
-                            "📥 Download Report",
-                            class_="btn-secondary btn-sm w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_report",
+                                "📥 Download Report",
+                                class_="btn-secondary btn-sm w-100",
+                            ),
+                            ui.output_ui("dl_status_logit"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -359,10 +364,13 @@ def core_regression_ui() -> ui.TagChild:
                             "🚀 Run Subgroup Analysis",
                             class_="btn-primary w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_sg_logit",
-                            "📥 Download Report",
-                            class_="btn-secondary w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_sg_logit",
+                                "📥 Download Report",
+                                class_="btn-secondary w-100",
+                            ),
+                            ui.output_ui("dl_status_sg_logit"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -452,10 +460,13 @@ def core_regression_ui() -> ui.TagChild:
                                     "🚀 Run Poisson Regression",
                                     class_="btn-primary btn-sm w-100",
                                 ),
-                                ui.download_button(
-                                    "btn_dl_poisson_report",
-                                    "📥 Download Report",
-                                    class_="btn-secondary btn-sm w-100",
+                                ui.div(
+                                    ui.download_button(
+                                        "btn_dl_poisson_report",
+                                        "📥 Download Report",
+                                        class_="btn-secondary btn-sm w-100",
+                                    ),
+                                    ui.output_ui("dl_status_poisson"),
                                 ),
                                 col_widths=[6, 6],
                             ),
@@ -535,10 +546,13 @@ def core_regression_ui() -> ui.TagChild:
                                     "🚀 Run Negative Binomial",
                                     class_="btn-primary btn-sm w-100",
                                 ),
-                                ui.download_button(
-                                    "btn_dl_nb_report",
-                                    "📥 Download Report",
-                                    class_="btn-secondary btn-sm w-100",
+                                ui.div(
+                                    ui.download_button(
+                                        "btn_dl_nb_report",
+                                        "📥 Download Report",
+                                        class_="btn-secondary btn-sm w-100",
+                                    ),
+                                    ui.output_ui("dl_status_nb"),
                                 ),
                                 col_widths=[6, 6],
                             ),
@@ -627,10 +641,13 @@ def core_regression_ui() -> ui.TagChild:
                                     "🚀 Run GLM",
                                     class_="btn-primary btn-sm w-100",
                                 ),
-                                ui.download_button(
-                                    "btn_dl_glm_report",
-                                    "📥 Download Report",
-                                    class_="btn-secondary btn-sm w-100",
+                                ui.div(
+                                    ui.download_button(
+                                        "btn_dl_glm_report",
+                                        "📥 Download Report",
+                                        class_="btn-secondary btn-sm w-100",
+                                    ),
+                                    ui.output_ui("dl_status_glm"),
                                 ),
                                 col_widths=[6, 6],
                             ),
@@ -785,10 +802,13 @@ def core_regression_ui() -> ui.TagChild:
                             "🚀 Run Linear Regression",
                             class_="btn-primary btn-sm w-100",
                         ),
-                        ui.download_button(
-                            "btn_dl_linear_report",
-                            "📥 Download Report",
-                            class_="btn-secondary btn-sm w-100",
+                        ui.div(
+                            ui.download_button(
+                                "btn_dl_linear_report",
+                                "📥 Download Report",
+                                class_="btn-secondary btn-sm w-100",
+                            ),
+                            ui.output_ui("dl_status_linear"),
                         ),
                         col_widths=[6, 6],
                     ),
@@ -2527,8 +2547,52 @@ def core_regression_server(
             str: An HTML string containing the full, download-ready report, yielded if present.
         """
         res = logit_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Logistic Regression Report"
+        )
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_logit():
+        res = logit_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_sg_logit():
+        res = logit_sg_res.get()
+        return create_download_status_badge(
+            res is not None and "error" not in res and res.get("results_df") is not None
+        )
+
+    @render.ui
+    def dl_status_poisson():
+        res = poisson_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_nb():
+        res = nb_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
+
+    @render.ui
+    def dl_status_glm():
+        res = glm_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_report"))
+        )
+
+    @render.ui
+    def dl_status_linear():
+        res = linear_res.get()
+        return create_download_status_badge(
+            res is not None and bool(res.get("html_full"))
+        )
 
     # ==========================================================================
     # LOGIC: Poisson Regression
@@ -2829,8 +2893,9 @@ def core_regression_server(
             str: Full HTML document containing the Poisson analysis report, or nothing if no results are available.
         """
         res = poisson_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Poisson Regression Report"
+        )
 
     # ==========================================================================
     # LOGIC: Negative Binomial Regression
@@ -3094,8 +3159,9 @@ def core_regression_server(
     @render.download(filename="nb_report.html")
     def btn_dl_nb_report():
         res = nb_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Negative Binomial Report"
+        )
 
     # ==========================================================================
     # LOGIC: Linear Regression (OLS)
@@ -3531,8 +3597,9 @@ def core_regression_server(
     def btn_dl_linear_report():
         """Download the complete Linear Regression report as HTML."""
         res = linear_res.get()
-        if res:
-            yield res["html_full"]
+        yield safe_download_html(
+            res.get("html_full") if res else None, label="Linear Regression Report"
+        )
 
     # --- Stepwise Selection Results ---
     @render.ui
@@ -4090,25 +4157,26 @@ def core_regression_server(
         Returns:
             generator (str): Yields the HTML report string or an availability message.
         """
-        res = logit_sg_res.get()
-        if not res:
-            yield "No results available."
-            return
 
-        # Simplified Report generation for now
-        html_content = f"""
-        <html>
-        <head><title>Subgroup Analysis Report</title></head>
-        <body>
-            <h1>Subgroup Analysis (Logistic Regression)</h1>
-            <h2>Forest Plot</h2>
-            {plotly_figure_to_html(res.get("forest_plot"))}
-            <h2>Detailed Results</h2>
-            {pd.DataFrame(res["results_df"]).to_html()}
-        </body>
-        </html>
-        """
-        yield html_content
+        def _build():
+            res = logit_sg_res.get()
+            if not res:
+                return None
+
+            return f"""
+            <html>
+            <head><title>Subgroup Analysis Report</title></head>
+            <body>
+                <h1>Subgroup Analysis (Logistic Regression)</h1>
+                <h2>Forest Plot</h2>
+                {plotly_figure_to_html(res.get("forest_plot"))}
+                <h2>Detailed Results</h2>
+                {pd.DataFrame(res["results_df"]).to_html()}
+            </body>
+            </html>
+            """
+
+        yield safe_report_generation(_build, label="Logistic Subgroup Report")
 
     # ==========================================================================
     # LOGIC: Repeated Measures
@@ -4503,5 +4571,6 @@ def core_regression_server(
     @render.download(filename="glm_report.html")
     def btn_dl_glm_report():
         res = glm_res.get()
-        if res and "html_report" in res:
-            yield res["html_report"]
+        yield safe_download_html(
+            res.get("html_report") if res else None, label="GLM Report"
+        )

@@ -14,8 +14,9 @@ from tabs._common import (
 from utils import decision_curve_lib, diag_test
 from utils.data_cleaning import prepare_data_for_analysis
 from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
+from utils.download_helpers import safe_download_html
 from utils.formatting import create_missing_data_report_html
-from utils.ui_helpers import create_results_container
+from utils.ui_helpers import create_download_status_badge, create_results_container
 
 logger = get_logger(__name__)
 
@@ -114,6 +115,7 @@ def diag_ui() -> ui.TagChild:
                                 class_="btn-secondary w-100",
                                 width="100%",
                             ),
+                            ui.output_ui("dl_status_roc"),
                         ),
                     ),
                 ),
@@ -179,6 +181,7 @@ def diag_ui() -> ui.TagChild:
                             class_="btn-secondary w-100",
                             width="100%",
                         ),
+                        ui.output_ui("dl_status_chi"),
                     ),
                 ),
                 ui.br(),
@@ -209,6 +212,7 @@ def diag_ui() -> ui.TagChild:
                             class_="btn-secondary w-100",
                             width="100%",
                         ),
+                        ui.output_ui("dl_status_desc"),
                     ),
                 ),
                 ui.br(),
@@ -241,6 +245,7 @@ def diag_ui() -> ui.TagChild:
                             class_="btn-outline-primary w-100",
                             width="100%",
                         ),
+                        ui.output_ui("dl_status_dca"),
                     ),
                 ),
                 ui.br(),
@@ -903,7 +908,34 @@ def diag_server(
         Returns:
             str: The ROC report HTML content.
         """
-        yield roc_html.get()
+        yield safe_download_html(roc_html.get(), label="ROC Report")
+
+    # --- Download Status Badges ---
+    @render.ui
+    def dl_status_roc():
+        return create_download_status_badge(bool(roc_html.get()))
+
+    @render.ui
+    def dl_status_chi():
+        return create_download_status_badge(bool(chi_html.get()))
+
+    @render.ui
+    def dl_status_desc():
+        return create_download_status_badge(bool(desc_html.get()))
+
+    @render.ui
+    def dl_status_dca():
+        return create_download_status_badge(bool(dca_html.get()))
+
+    @render.download(filename="chi2_report.html")
+    def btn_dl_chi_report():
+        """
+        Provide the generated Chi-Square report for download.
+
+        Returns:
+            str: The HTML content of the Chi-Square analysis report.
+        """
+        yield safe_download_html(chi_html.get(), label="Chi-Square Report")
 
     # --- ACTION: Compare ROC Analysis ---
     @reactive.Effect
@@ -1256,10 +1288,6 @@ def diag_server(
             )
         return ui.div("Results will appear here.", class_="text-secondary p-3")
 
-    @render.download(filename="chi2_report.html")
-    def btn_dl_chi_report():
-        yield chi_html.get()
-
     # --- Descriptive Analysis Logic ---
     @reactive.Effect
     @reactive.event(input.btn_run_desc)
@@ -1320,11 +1348,7 @@ def diag_server(
 
     @render.download(filename="descriptive_report.html")
     def btn_dl_desc_report():
-        content = desc_html.get()
-        if content:
-            yield content
-        else:
-            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
+        yield safe_download_html(desc_html.get(), label="Descriptive Statistics Report")
 
     # --- DCA Logic ---
     @render.ui
@@ -1449,8 +1473,4 @@ def diag_server(
 
     @render.download(filename="dca_report.html")
     def btn_dl_dca_report():
-        content = dca_html.get()
-        if content:
-            yield content
-        else:
-            yield "<html><body><p>No results available. Please run the analysis first.</p></body></html>"
+        yield safe_download_html(dca_html.get(), label="DCA Report")
