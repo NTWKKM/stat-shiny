@@ -13,6 +13,7 @@ from logger import LoggerFactory, get_logger
 # Import Tabs Modules (Verified)
 from tabs import (
     tab_advanced_inference,
+    tab_advanced_stats,
     tab_agreement,  # 🟢 Agreement Module
     tab_baseline_matching,
     tab_causal_inference,
@@ -40,6 +41,7 @@ class TabNames:
     DIAGNOSTIC = "diagnostic"
     CORRELATION = "correlation"
     AGREEMENT = "agreement"
+    ADVANCED_STATS = "adv_stats"
     REGRESSION = "regression"
     SURVIVAL = "survival"
     ADVANCED_REGRESSION = "adv_regression"
@@ -134,6 +136,11 @@ app_ui = ui.page_fluid(
                 "Agreement & Reliability",
                 wrap_with_container(tab_agreement.agreement_ui("agreement")),
                 value=TabNames.AGREEMENT,
+            ),
+            ui.nav_panel(
+                "Advanced Statistics",
+                wrap_with_container(tab_advanced_stats.advanced_stats_ui("adv_stats")),
+                value=TabNames.ADVANCED_STATS,
             ),
         ),
         # ========================================
@@ -272,6 +279,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     tab_diag.diag_server("diag", df, var_meta, df_matched, is_matched)
     tab_corr.corr_server("corr", df, var_meta, df_matched, is_matched)
     tab_agreement.agreement_server("agreement", df, var_meta, df_matched, is_matched)
+    tab_advanced_stats.advanced_stats_server("adv_stats", CONFIG)
     tab_core_regression.core_regression_server(
         "core_reg", df, var_meta, df_matched, is_matched, mi_imputed_datasets
     )

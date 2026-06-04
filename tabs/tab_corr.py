@@ -30,6 +30,7 @@ from utils import (
 )
 from utils.download_helpers import safe_report_generation
 from utils.formatting import create_missing_data_report_html, format_p_value
+from utils.pdf_helpers import safe_pdf_report_generation
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.ui_helpers import create_download_status_badge
 
@@ -95,8 +96,14 @@ def corr_ui() -> ui.TagChild:
                         ui.div(
                             ui.download_button(
                                 "btn_dl_corr",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary",
+                                width="100%",
+                            ),
+                            ui.download_button(
+                                "btn_dl_corr_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger mt-1",
                                 width="100%",
                             ),
                             ui.output_ui("dl_status_corr"),
@@ -140,8 +147,14 @@ def corr_ui() -> ui.TagChild:
                         ui.div(
                             ui.download_button(
                                 "btn_dl_matrix",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary",
+                                width="100%",
+                            ),
+                            ui.download_button(
+                                "btn_dl_matrix_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger mt-1",
                                 width="100%",
                             ),
                             ui.output_ui("dl_status_matrix"),
@@ -906,3 +919,214 @@ def corr_server(
             )
 
         yield safe_report_generation(_build, label="Correlation Matrix Report")
+
+    # --- PDF Download Handlers ---
+    @render.download(
+        filename=lambda: (
+            (
+                lambda r: f"correlation_{_safe_filename_part(r['var1'])}_{_safe_filename_part(r['var2'])}.pdf"
+            )(corr_result.get())
+            if corr_result.get() is not None
+            else "correlation_report.pdf"
+        ),
+    )
+    def btn_dl_corr_pdf():
+        """Generate and download correlation report as PDF."""
+
+        def _build():
+            result = corr_result.get()
+            if not result or "error" in result:
+                return None
+
+            stats = result["stats"]
+            elements = [
+                {"type": "text", "data": f"Data Source: {result['data_label']}"},
+                {"type": "text", "data": f"Method: {result['method'].title()}"},
+                {
+                    "type": "text",
+                    "data": f"Variables: {result['var1']} vs {result['var2']}",
+                },
+                {"type": "text", "header": "Statistical Results", "data": ""},
+            ]
+
+            coef_key = (
+                "Coefficient (r/rho/tau)"
+                if "Coefficient (r/rho/tau)" in stats
+                else "Coefficient (r)"
+            )
+
+            for key in [
+                "Method",
+                coef_key,
+                "95% CI Lower",
+                "95% CI Upper",
+                "R-squared (R\u00b2)",
+                "P-value",
+                "N",
+            ]:
+                val = stats.get(key, "N/A")
+                if key == "P-value" and isinstance(val, (int, float, np.number)):
+                    elements.append(
+                        {
+                            "type": "html",
+                            "data": f"<strong>P-value:</strong> {format_p_value(val, use_style=True)}",
+                            "safe_html": True,
+                        }
+                    )
+                elif isinstance(val, (int, float, np.number)):
+                    elements.append(
+                        {
+                            "type": "text",
+                            "data": (
+                                f"{key if key != coef_key else 'Correlation Coefficient'}: {val:.4f}"
+                                if isinstance(val, float)
+                                else f"{key}: {val}"
+                            ),
+                        }
+                    )
+                else:
+                    elements.append({"type": "text", "data": f"{key}: {val}"})
+
+            interp = stats.get("Interpretation", "N/A")
+            r2 = stats.get("R-squared (R\u00b2)", float("nan"))
+            if isinstance(r2, (int, float)) and not pd.isna(r2):
+                r2_text = f"R\u00b2 = {r2:.3f} means {r2 * 100:.1f}% of variance is explained."
+            else:
+                r2_text = "R\u00b2 is not available."
+            elements.append(
+                {
+                    "type": "interpretation",
+                    "data": f"{interp}. {r2_text}",
+                }
+            )
+
+            elements.append({"type": "text", "data": stats.get("Sample Note", "")})
+            elements.append(
+                {"type": "plot", "header": "Scatter Plot", "data": result["figure"]}
+            )
+
+            if "missing_data_info" in stats:
+                elements.append(
+                    {
+                        "type": "html",
+                        "data": create_missing_data_report_html(
+                            stats["missing_data_info"], var_meta.get() or {}
+                        ),
+                        "safe_html": True,
+                    }
+                )
+
+            return correlation.generate_report(
+                title=f"Correlation Analysis: {result['var1']} vs {result['var2']}",
+                elements=elements,
+            )
+
+        yield safe_pdf_report_generation(_build, label="Correlation Report")
+
+    @render.download(
+        filename=lambda: (
+            (lambda r: f"correlation_matrix_{_safe_filename_part(r['method'])}.pdf")(
+                matrix_result.get()
+            )
+            if matrix_result.get() is not None
+            else "correlation_matrix.pdf"
+        ),
+    )
+    def btn_dl_matrix_pdf():
+        """Generate and download matrix report as PDF."""
+
+        def _build():
+            result = matrix_result.get()
+            if not result or "error" in result:
+                return None
+
+            summary = result["summary"]
+            n_vars = summary.get("n_variables", "N/A")
+            elements = [
+                {"type": "text", "data": f"Data Source: {result['data_label']}"},
+                {"type": "text", "data": f"Method: {result['method'].title()}"},
+                {"type": "text", "data": f"Number of Variables: {n_vars}"},
+            ]
+
+            n_corrs = summary.get("n_correlations", "N/A")
+            mean_corr = summary.get("mean_correlation", "N/A")
+            max_corr = summary.get("max_correlation", "N/A")
+            min_corr = summary.get("min_correlation", "N/A")
+            n_sig = summary.get("n_significant", "N/A")
+            pct_sig = summary.get("pct_significant", "N/A")
+            strongest_pos = summary.get("strongest_positive", "N/A")
+            strongest_neg = summary.get("strongest_negative", "N/A")
+
+            max_corr_str = (
+                f"{max_corr:.3f}"
+                if isinstance(max_corr, (int, float))
+                else _html.escape(str(max_corr))
+            )
+            min_corr_str = (
+                f"{min_corr:.3f}"
+                if isinstance(min_corr, (int, float))
+                else _html.escape(str(min_corr))
+            )
+            pct_sig_str = (
+                f"{pct_sig:.1f}"
+                if isinstance(pct_sig, (int, float))
+                else _html.escape(str(pct_sig))
+            )
+            mean_corr_str = (
+                f"{mean_corr:.3f}"
+                if isinstance(mean_corr, (int, float))
+                else _html.escape(str(mean_corr))
+            )
+
+            summary_text = f"""
+            <h3>Matrix Summary Statistics</h3>
+            <p><strong>Correlations Computed:</strong> {_html.escape(str(n_corrs))} unique pairs</p>
+            <p><strong>Mean |Correlation|:</strong> {mean_corr_str}</p>
+            <p><strong>Maximum |Correlation|:</strong> {max_corr_str}</p>
+            <p><strong>Minimum |Correlation|:</strong> {min_corr_str}</p>
+            <p><strong>Significant Correlations (p<0.05):</strong> {_html.escape(str(n_sig))} out of {_html.escape(str(n_corrs))} ({pct_sig_str}%)</p>
+            <p><strong>Strongest Positive:</strong> {_html.escape(str(strongest_pos))}</p>
+            <p><strong>Strongest Negative:</strong> {_html.escape(str(strongest_neg))}</p>
+            """
+
+            elements.append(
+                {"type": "summary", "data": summary_text, "safe_html": True}
+            )
+            elements.append(
+                {
+                    "type": "plot",
+                    "header": "Correlation Heatmap",
+                    "data": result["figure"],
+                }
+            )
+            elements.append(
+                {
+                    "type": "table",
+                    "header": "Correlation Matrix",
+                    "data": result["matrix"],
+                }
+            )
+            elements.append(
+                {
+                    "type": "text",
+                    "data": "Significance levels: * p<0.05, ** p<0.01, *** p<0.001",
+                }
+            )
+
+            if "missing_data_info" in summary:
+                elements.append(
+                    {
+                        "type": "html",
+                        "data": create_missing_data_report_html(
+                            summary["missing_data_info"], var_meta.get() or {}
+                        ),
+                        "safe_html": True,
+                    }
+                )
+
+            return correlation.generate_report(
+                title=f"Correlation Matrix Analysis ({result['method'].title()})",
+                elements=elements,
+            )
+
+        yield safe_pdf_report_generation(_build, label="Correlation Matrix Report")

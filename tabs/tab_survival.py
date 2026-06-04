@@ -42,6 +42,7 @@ from utils.formatting import (
     format_p_value,
 )
 from utils.multiple_imputation import pool_estimates
+from utils.pdf_helpers import safe_pdf_report_generation
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.tvc_lib import create_tvc_forest_plot, fit_tvc_cox, generate_tvc_report
 from utils.ui_helpers import (
@@ -165,8 +166,13 @@ def survival_ui() -> ui.TagChild:
                         ui.div(
                             ui.download_button(
                                 "btn_dl_curves",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary w-100",
+                            ),
+                            ui.download_button(
+                                "btn_dl_curves_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger w-100 mt-1",
                             ),
                             ui.output_ui("dl_status_curves"),
                         ),
@@ -232,8 +238,13 @@ def survival_ui() -> ui.TagChild:
                         ui.div(
                             ui.download_button(
                                 "btn_dl_landmark",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary w-100",
+                            ),
+                            ui.download_button(
+                                "btn_dl_landmark_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger w-100 mt-1",
                             ),
                             ui.output_ui("dl_status_landmark"),
                         ),
@@ -296,8 +307,13 @@ def survival_ui() -> ui.TagChild:
                         ui.div(
                             ui.download_button(
                                 "btn_dl_cox",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary w-100",
+                            ),
+                            ui.download_button(
+                                "btn_dl_cox_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger w-100 mt-1",
                             ),
                             ui.output_ui("dl_status_cox"),
                         ),
@@ -401,8 +417,13 @@ def survival_ui() -> ui.TagChild:
                         ui.div(
                             ui.download_button(
                                 "btn_dl_sg",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary w-100",
+                            ),
+                            ui.download_button(
+                                "btn_dl_sg_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger w-100 mt-1",
                             ),
                             ui.output_ui("dl_status_sg"),
                         ),
@@ -486,8 +507,13 @@ def survival_ui() -> ui.TagChild:
                         ui.div(
                             ui.download_button(
                                 "btn_dl_rcs",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary w-100",
+                            ),
+                            ui.download_button(
+                                "btn_dl_rcs_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger w-100 mt-1",
                             ),
                             ui.output_ui("dl_status_rcs"),
                         ),
@@ -530,8 +556,13 @@ def survival_ui() -> ui.TagChild:
                                 ui.div(
                                     ui.download_button(
                                         "btn_dl_tvc",
-                                        "📥 Download Report",
+                                        "📥 HTML",
                                         class_="btn-secondary w-100",
+                                    ),
+                                    ui.download_button(
+                                        "btn_dl_tvc_pdf",
+                                        "📥 PDF",
+                                        class_="btn-outline-danger w-100 mt-1",
                                     ),
                                     ui.output_ui("dl_status_tvc"),
                                 ),
@@ -2781,6 +2812,180 @@ def survival_server(
             )
 
         yield safe_report_generation(_build, label="TVC Report")
+
+    # --- PDF Download Handlers ---
+    @render.download(filename="survival_report.pdf")
+    def btn_dl_curves_pdf():
+        """Download survival curves report as PDF."""
+
+        def _build():
+            res = curves_result.get()
+            if not res or "error" in res:
+                return None
+            elements = [
+                {
+                    "type": "header",
+                    "data": f"Survival Analysis ({'Kaplan-Meier' if res.get('plot_type', 'km') == 'km' else 'Nelson-Aalen'})",
+                },
+                {"type": "plot", "data": res["fig"]},
+                {"type": "header", "data": "Statistics"},
+                {"type": "table", "data": res["stats"]},
+            ]
+            if res.get("medians") is not None:
+                elements.append({"type": "header", "data": "Median Survival Time"})
+                elements.append({"type": "table", "data": res["medians"]})
+            if res.get("surv_at_times") is not None:
+                elements.append(
+                    {"type": "header", "data": "Survival Probability at Fixed Times"}
+                )
+                elements.append({"type": "table", "data": res["surv_at_times"]})
+            return survival_lib.generate_report_survival(
+                "Survival Analysis",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_pdf_report_generation(_build, label="Survival Report")
+
+    @render.download(filename="landmark_report.pdf")
+    def btn_dl_landmark_pdf():
+        def _build():
+            res = landmark_result.get()
+            if not res or "error" in res:
+                return None
+            elements = [
+                {"type": "header", "data": f"Landmark Analysis (t={res['t']})"},
+                {"type": "plot", "data": res["fig"]},
+                {"type": "header", "data": "Statistics"},
+                {"type": "table", "data": res["stats"]},
+            ]
+            return survival_lib.generate_report_survival(
+                "Landmark Analysis",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_pdf_report_generation(_build, label="Landmark Report")
+
+    @render.download(filename="cox_report.pdf")
+    def btn_dl_cox_pdf():
+        def _build():
+            res = cox_result.get()
+            if not res or "error" in res:
+                return None
+            elements = [
+                {"type": "header", "data": "Cox Proportional Hazards Regression"}
+            ]
+            if res.get("model_stats"):
+                s = res["model_stats"]
+                if s.get("MI Pooled"):
+                    stats_text = f"MI Pooled Model (m={s.get('M (imputations)', '?')})"
+                else:
+                    stats_text = (
+                        f"C-index: {s.get('Concordance Index (C-index)', 'N/A')}, "
+                        f"AIC: {s.get('AIC', 'N/A')}, "
+                        f"Events: {s.get('Number of Events', 'N/A')}"
+                    )
+                elements.append({"type": "text", "data": stats_text})
+            elements.extend(
+                [
+                    {"type": "table", "data": res["results_df"]},
+                    {"type": "plot", "data": res["forest_fig"]},
+                    {"type": "header", "data": "PH Assumptions"},
+                    {"type": "text", "data": res["assumptions_text"]},
+                ]
+            )
+            return survival_lib.generate_report_survival(
+                "Cox Regression",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_pdf_report_generation(_build, label="Cox Report")
+
+    @render.download(filename="subgroup_report.pdf")
+    def btn_dl_sg_pdf():
+        def _build():
+            res = sg_result.get()
+            if not res or "error" in res:
+                return None
+            elements = [{"type": "header", "data": "Cox Subgroup Analysis"}]
+            if "interaction" in res:
+                inter = res["interaction"]
+                p_int = inter.get("p_value")
+                if p_int is not None and not pd.isna(p_int):
+                    sig_text = (
+                        "Significant" if inter.get("significant") else "Not Significant"
+                    )
+                    elements.append(
+                        {
+                            "type": "text",
+                            "data": f"Interaction Test: P-value = {format_p_value(p_int)} ({sig_text})",
+                        }
+                    )
+            elements.extend(
+                [
+                    {"type": "plot", "data": res.get("forest_plot")},
+                    {"type": "header", "data": "Results"},
+                    {"type": "table", "data": res.get("interaction_table")},
+                ]
+            )
+            elements = [e for e in elements if e.get("data") is not None]
+            return survival_lib.generate_report_survival(
+                "Subgroup Analysis",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_pdf_report_generation(_build, label="Subgroup Report")
+
+    @render.download(filename="rcs_report.pdf")
+    def btn_dl_rcs_pdf():
+        def _build():
+            res = rcs_result.get()
+            if not res or "error" in res:
+                return None
+            elements = [
+                {"type": "header", "data": "Restricted Cubic Spline (RCS) Analysis"},
+                {"type": "plot", "data": res["fig"]},
+                {"type": "header", "data": "Model Summary"},
+                {"type": "table", "data": res["stats"]},
+            ]
+            return survival_lib.generate_report_survival(
+                "RCS Analysis Report",
+                elements,
+                missing_data_info=res.get("missing_data_info"),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_pdf_report_generation(_build, label="RCS Report")
+
+    @render.download(filename="tvc_report.pdf")
+    def btn_dl_tvc_pdf():
+        def _build():
+            res = tvc_result.get()
+            if not res or "error" in res:
+                return None
+            elements = [
+                {"type": "header", "data": "Time-Varying Cox Regression"},
+                {"type": "table", "data": res["results_df"]},
+                {"type": "plot", "data": res["forest_fig"]},
+                {"type": "header", "data": "Diagnostics"},
+                {"type": "text", "data": res["assumptions_text"]},
+            ]
+            return generate_tvc_report(
+                "Time-Varying Cox Regression",
+                elements,
+                stats=res.get("model_stats", {}),
+                missing_data_info=res.get("missing_data_info", {}),
+                var_meta=var_meta.get(),
+            )
+
+        yield safe_pdf_report_generation(_build, label="TVC Report")
 
     # ==================== VALIDATION LOGIC ====================
     @render.ui

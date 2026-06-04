@@ -56,20 +56,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Copy installed dependencies from builder stage FIRST so playoffs binary is available
+COPY --from=builder /build/deps /app/deps
+
 # -----------------------------------------------------------------------------
-# SECURITY FIXES (Runtime)
+# SECURITY FIXES (Runtime) & BROWSER INSTALL
 # -----------------------------------------------------------------------------
 # 1. Update OS packages (fixes system-level CVEs like glibc, openssl)
 # 2. Update System PIP (fixes CVE-2025-8869: pip <= 25.2)
+# 3. Install Playwright system dependencies & Chromium (needed for PDF export)
 RUN apt-get update && \
   apt-get upgrade -y && \
   pip install --no-cache-dir --upgrade "pip>=25.3" && \
+  python -m playwright install --with-deps chromium && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # -----------------------------------------------------------------------------
-
-# Copy installed dependencies from builder stage
-COPY --from=builder /build/deps /app/deps
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \
