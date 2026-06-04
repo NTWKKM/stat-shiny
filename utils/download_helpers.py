@@ -8,6 +8,7 @@ handle errors gracefully, and show user notifications.
 import html as _html
 import logging
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -149,3 +150,45 @@ def safe_report_generation(
             "An error occurred while generating the report. "
             "Please check the analysis results and try again.",
         )
+
+
+def safe_data_download(data: Any, *, label: str = "Data", type_: str = "dataset") -> None:
+    """
+    Validate data exists before allowing a download, aborting gracefully if empty.
+
+    Use this inside ``@render.download`` handlers before yielding raw data
+    (like CSVs, Excels, or JSONs) to prevent server errors or empty file downloads.
+    If the data is missing or empty (e.g. an empty pandas DataFrame), this will
+    show a notification and silently cancel the download.
+
+    Args:
+        data: The dataset (e.g. pd.DataFrame, list, dict) or file content to check.
+            If None or empty, the download is aborted.
+        label: Human-readable name used in the notification.
+        type_: Description of what is being downloaded (e.g. "dataset", "checklist").
+
+    Raises:
+        shiny.SilentException: If data is missing/empty (via req(False)).
+    """
+    from shiny import req
+    import pandas as pd
+
+    is_valid = False
+    if data is not None:
+        if isinstance(data, pd.DataFrame):
+            is_valid = not data.empty
+        elif isinstance(data, (str, list, dict, set, tuple)):
+            is_valid = len(data) > 0
+        else:
+            is_valid = True  # Assuming true for other objects if not None
+
+    if not is_valid:
+        logger.warning("Download aborted - empty %s for: %s", type_, label)
+        _notify(
+            f"⚠️ {label}: No {type_} available. Please check your inputs.",
+            type="warning",
+            duration=5,
+        )
+        req(False)
+
+    _notify(f"✅ {label} download initiated.", type="message", duration=3)

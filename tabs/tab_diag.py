@@ -16,6 +16,7 @@ from utils.data_cleaning import prepare_data_for_analysis
 from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
 from utils.download_helpers import safe_download_html
 from utils.formatting import create_missing_data_report_html
+from utils.pdf_helpers import safe_download_pdf
 from utils.ui_helpers import create_download_status_badge, create_results_container
 
 logger = get_logger(__name__)
@@ -108,11 +109,20 @@ def diag_ui() -> ui.TagChild:
                             ),
                         ),
                         ui.column(
-                            6,
+                            3,
                             ui.download_button(
                                 "btn_dl_roc_report",
-                                "📥 Download Report",
+                                "📥 HTML",
                                 class_="btn-secondary w-100",
+                                width="100%",
+                            ),
+                        ),
+                        ui.column(
+                            3,
+                            ui.download_button(
+                                "btn_dl_roc_pdf",
+                                "📥 PDF",
+                                class_="btn-outline-danger w-100",
                                 width="100%",
                             ),
                             ui.output_ui("dl_status_roc"),
@@ -174,11 +184,20 @@ def diag_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.column(
-                        6,
+                        3,
                         ui.download_button(
                             "btn_dl_chi_report",
-                            "📥 Download Report",
+                            "📥 HTML",
                             class_="btn-secondary w-100",
+                            width="100%",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_chi_pdf",
+                            "📥 PDF",
+                            class_="btn-outline-danger w-100",
                             width="100%",
                         ),
                         ui.output_ui("dl_status_chi"),
@@ -205,11 +224,20 @@ def diag_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.column(
-                        6,
+                        3,
                         ui.download_button(
                             "btn_dl_desc_report",
-                            "📥 Download Report",
+                            "📥 HTML",
                             class_="btn-secondary w-100",
+                            width="100%",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_desc_pdf",
+                            "📥 PDF",
+                            class_="btn-outline-danger w-100",
                             width="100%",
                         ),
                         ui.output_ui("dl_status_desc"),
@@ -238,11 +266,20 @@ def diag_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.column(
-                        6,
+                        3,
                         ui.download_button(
                             "btn_dl_dca_report",
-                            "📥 Download Report",
+                            "📥 HTML",
                             class_="btn-outline-primary w-100",
+                            width="100%",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_dca_pdf",
+                            "📥 PDF",
+                            class_="btn-outline-danger w-100",
                             width="100%",
                         ),
                         ui.output_ui("dl_status_dca"),
@@ -1474,3 +1511,20 @@ def diag_server(
     @render.download(filename="dca_report.html")
     def btn_dl_dca_report():
         yield safe_download_html(dca_html.get(), label="DCA Report")
+
+    # --- PDF Download Handlers ---
+    @render.download(filename="roc_report.pdf")
+    def btn_dl_roc_pdf():
+        yield safe_download_pdf(roc_html.get(), label="ROC Report")
+
+    @render.download(filename="chi2_report.pdf")
+    def btn_dl_chi_pdf():
+        yield safe_download_pdf(chi_html.get(), label="Chi-Square Report")
+
+    @render.download(filename="descriptive_report.pdf")
+    def btn_dl_desc_pdf():
+        yield safe_download_pdf(desc_html.get(), label="Descriptive Statistics Report")
+
+    @render.download(filename="dca_report.pdf")
+    def btn_dl_dca_pdf():
+        yield safe_download_pdf(dca_html.get(), label="DCA Report")

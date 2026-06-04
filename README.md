@@ -195,7 +195,6 @@ This content reflects the repository structure (updated by GitHub Actions):
     `-- visualizations.py
 ```
 
-
 [--- REPOSITORY-TREE-END ---]
 
 ## 🏥 Medical Statistical Tool (Shiny for Python)
@@ -334,7 +333,7 @@ Every statistical analysis follows a rigorous, standardized data flow to ensure 
    - **Interactive Setup**: Users interactively cast variable types and choose missing value strategies.
    - **Advanced Cleaning**: Users can apply Imputation (KNN/MICE), handle Outliers (Winsorize/Cap), and Transform variables (Log/Sqrt) directly within the UI.
 3. **Central Preparation (`utils/data_cleaning.py`)**: Before analysis, data is passed through `prepare_data_for_analysis()` which handles exclusion logic and logging.
-4. **Download Safety (`utils/download_helpers.py`)**: All `@render.download` handlers use `safe_download_html()` or `safe_report_generation()` to guarantee valid HTML output and user notifications (✅ success, ⚠️ no results, ❌ generation error).
+4. **Download Safety (`utils/download_helpers.py` & `utils/pdf_helpers.py`)**: All `@render.download` handlers use `safe_download_html()` / `safe_report_generation()` for HTML, or `safe_download_pdf()` / `safe_pdf_report_generation()` for PDF output. Both layers guarantee valid output (or a styled error page) and show user-facing notifications (✅ success, ⚠️ no results, ❌ generation error). PDF conversion uses Playwright (requires `playwright install chromium`).
 5. **Integrated Reporting (`utils/formatting.py`)**: Missing data statistics are automatically analyzed and included in the final report for every module.
 
 ### 🧪 Testing & Quality Assurance

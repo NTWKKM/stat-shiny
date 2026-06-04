@@ -17,6 +17,7 @@ from utils import diag_test
 from utils.agreement_lib import AgreementAnalysis
 from utils.download_helpers import safe_download_html
 from utils.formatting import create_missing_data_report_html
+from utils.pdf_helpers import safe_download_pdf
 from utils.ui_helpers import (
     create_download_status_badge,
     create_error_alert,
@@ -110,11 +111,19 @@ def agreement_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.column(
-                        6,
+                        3,
                         ui.download_button(
                             "btn_dl_kappa_report",
-                            "📥 Download Report",
+                            "📥 HTML",
                             class_="btn-secondary w-100",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_kappa_pdf",
+                            "📥 PDF",
+                            class_="btn-outline-danger w-100",
                         ),
                         ui.output_ui("dl_status_kappa"),
                     ),
@@ -153,11 +162,19 @@ def agreement_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.column(
-                        6,
+                        3,
                         ui.download_button(
                             "btn_dl_ba_report",
-                            "📥 Download Report",
+                            "📥 HTML",
                             class_="btn-secondary w-100",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_ba_pdf",
+                            "📥 PDF",
+                            class_="btn-outline-danger w-100",
                         ),
                         ui.output_ui("dl_status_ba"),
                     ),
@@ -184,11 +201,19 @@ def agreement_ui() -> ui.TagChild:
                         ),
                     ),
                     ui.column(
-                        6,
+                        3,
                         ui.download_button(
                             "btn_dl_icc_report",
-                            "📥 Download Report",
+                            "📥 HTML",
                             class_="btn-secondary w-100",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_icc_pdf",
+                            "📥 PDF",
+                            class_="btn-outline-danger w-100",
                         ),
                         ui.output_ui("dl_status_icc"),
                     ),
@@ -792,6 +817,23 @@ def agreement_server(
     )
     def btn_dl_icc_report():
         yield safe_download_html(icc_html.get(), label="ICC Report")
+
+    # --- PDF Download Handlers ---
+    @render.download(filename=lambda: "kappa_agreement_report.pdf")
+    def btn_dl_kappa_pdf():
+        yield safe_download_pdf(kappa_html.get(), label="Kappa Report")
+
+    @render.download(
+        filename=lambda: f"ba_{_safe_filename_part(input.sel_ba_v1())}_{_safe_filename_part(input.sel_ba_v2())}_report.pdf"
+    )
+    def btn_dl_ba_pdf():
+        yield safe_download_pdf(ba_html.get(), label="Bland-Altman Report")
+
+    @render.download(
+        filename=lambda: f"icc_report_{_safe_filename_part('_'.join((input.icc_vars() or [])[:3]) or 'analysis')}.pdf"
+    )
+    def btn_dl_icc_pdf():
+        yield safe_download_pdf(icc_html.get(), label="ICC Report")
 
     # --- Validation ---
     @render.ui

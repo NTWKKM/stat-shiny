@@ -16,6 +16,8 @@ from tabs._common import (
 )
 from utils import psm_lib, table_one
 from utils.formatting import create_missing_data_report_html
+from utils.download_helpers import safe_download_html, safe_data_download
+from utils.pdf_helpers import safe_download_pdf, safe_pdf_report_generation
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.ui_helpers import (
     create_empty_state_ui,
@@ -97,10 +99,15 @@ def baseline_matching_ui() -> ui.TagChild:
                     ),
                     ui.download_button(
                         "btn_dl_table1",
-                        "📥 Download HTML",
+                        "📥 HTML",
                         class_="btn-success w-100",
                     ),
-                    col_widths=[6, 6],
+                    ui.download_button(
+                        "btn_dl_table1_pdf",
+                        "📥 PDF",
+                        class_="btn-outline-danger w-100",
+                    ),
+                    col_widths=[4, 4, 4],
                 ),
             ),
             # Content section (bottom)
@@ -553,8 +560,7 @@ def baseline_matching_server(
 
     @render.download(filename="table1.html")
     def btn_dl_table1():
-        if html_content.get():
-            yield html_content.get()
+        yield safe_download_html(html_content.get(), label="Table 1")
 
     # =========================================================================
     # TAB 2: PSM LOGIC
@@ -870,12 +876,17 @@ def baseline_matching_server(
                     ui.h5("Step 5️⃣: Export & Next Steps"),
                     ui.layout_columns(
                         ui.download_button(
-                            "btn_dl_psm_csv", "📥 Download CSV", class_="w-100 btn-sm"
+                            "btn_dl_psm_csv", "📥 CSV", class_="w-100 btn-sm"
                         ),
                         ui.download_button(
-                            "btn_dl_psm_report", "📥 Report HTML", class_="w-100 btn-sm"
+                            "btn_dl_psm_report", "📥 HTML", class_="w-100 btn-sm"
                         ),
-                        col_widths=[6, 6],
+                        ui.download_button(
+                            "btn_dl_psm_pdf",
+                            "📥 PDF",
+                            class_="w-100 btn-sm btn-outline-danger",
+                        ),
+                        col_widths=[4, 4, 4],
                     ),
                     ui.p(
                         "✅ Full matched data available in **Subtab 3 (Matched Data View)**",
@@ -1115,8 +1126,8 @@ def baseline_matching_server(
     @render.download(filename="matched_data.csv")
     def btn_dl_psm_csv():
         res = psm_results.get()
-        if res:
-            yield res["df_matched"].to_csv(index=False)
+        safe_data_download(res, label="PSM Matched Data")
+        yield res["df_matched"].to_csv(index=False)
 
     @render.download(filename="psm_report.html")
     def btn_dl_psm_report():
@@ -1134,7 +1145,32 @@ def baseline_matching_server(
             html = psm_lib.generate_psm_report(
                 "Propensity Score Matching Report", elements
             )
-            yield html
+            yield safe_download_html(html, label="PSM Report")
+
+    @render.download(filename="table1.pdf")
+    def btn_dl_table1_pdf():
+        yield safe_download_pdf(html_content.get(), label="Table 1")
+
+    @render.download(filename="psm_report.pdf")
+    def btn_dl_psm_pdf():
+        def _build():
+            res = psm_results.get()
+            if not res:
+                return None
+            fig = psm_lib.plot_love_plot(res["smd_pre"], res["smd_post"])
+            merged = res["smd_pre"].merge(
+                res["smd_post"], on="Variable", suffixes=("_before", "_after")
+            )
+            elements = [
+                {"type": "text", "data": "PSM Report"},
+                {"type": "table", "data": merged},
+                {"type": "plot", "data": fig},
+            ]
+            return psm_lib.generate_psm_report(
+                "Propensity Score Matching Report", elements
+            )
+
+        yield safe_pdf_report_generation(_build, label="PSM Report")
 
     # =========================================================================
     # TAB 3: MATCHED DATA VIEW
@@ -1262,13 +1298,15 @@ def baseline_matching_server(
     # Exports for Tab 3
     @render.download(filename="matched_data.csv")
     def btn_dl_matched_csv_view():
-        if df_matched.get() is not None:
-            yield df_matched.get().to_csv(index=False)
+        data = df_matched.get()
+        safe_data_download(data, label="Matched Data CSV")
+        yield data.to_csv(index=False)
 
     @render.download(filename="matched_data.xlsx")
     def btn_dl_matched_xlsx_view():
-        if df_matched.get() is not None:
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                df_matched.get().to_excel(writer, index=False)
-            yield buffer.getvalue()
+        data = df_matched.get()
+        safe_data_download(data, label="Matched Data Excel", type_="dataset")
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            data.to_excel(writer, index=False)
+        yield buffer.getvalue()

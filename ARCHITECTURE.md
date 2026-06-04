@@ -311,6 +311,7 @@ The application uses a centralized styling system to ensure visual consistency a
   - **PublicationFormatter**: Provides per-journal templates (**NEJM, JAMA, Lancet, BMJ**) and automated "Methods" text generation.
   - **MissingDataStatement**: Generates standardized reporting on missingness handling.
 - `utils/download_helpers.py`: **Download Safety Layer**. Provides `safe_download_html()` and `safe_report_generation()` to guarantee all download handlers yield valid HTML (or a styled error page) and show user-facing notifications.
+- `utils/pdf_helpers.py`: **PDF Download Layer**. Provides `html_to_pdf()` (Playwright-based conversion), `safe_download_pdf()`, and `safe_pdf_report_generation()` mirroring the HTML helpers for PDF output. Requires `playwright install chromium`.
 - `utils/table_one_advanced.py`: **Advanced Table 1 Generator** (OOP). Handles intelligent variable classification and **Odds Ratio (OR) calculation**.
   - **Categorical OR**: Uses **2x2 Contingency Tables** comparing each level (or Target) against the **First Level (Reference)**. Applies **Haldane-Anscombe correction** (+0.5) for zero cells. Supports "All Levels" and "Simple" (Binary Target vs Ref) styles.
   - **Continuous OR**: Uses **Univariate Logistic Regression**.
@@ -428,5 +429,5 @@ The data flow is standardized to ensure consistent handling of missing values an
 >
 > 1. Verify UI components use `get_color_palette()`.
 > 2. Ensure all data-heavy modules call `prepare_data_for_analysis()`.
-> 3. Wrap `@render.download` handlers with `safe_download_html()` or `safe_report_generation()` from `utils/download_helpers.py`.
+> 3. Wrap `@render.download` handlers with `safe_download_html()` / `safe_report_generation()` from `utils/download_helpers.py` for HTML, or `safe_download_pdf()` / `safe_pdf_report_generation()` from `utils/pdf_helpers.py` for PDF.
 > 4. Add tests to the corresponding suite in `tests/`.
