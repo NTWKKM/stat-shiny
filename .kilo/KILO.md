@@ -61,9 +61,9 @@ Consult directly when a failure mode fires — no need to re-invoke the full ski
 
 ## ⚙️ Project Integration
 
-- **Configuration**: Managed via `kilo.json` / `kilo.jsonc`.
+- **Configuration**: Managed via `app.py`.
 - **Context**: Aligned with `AI_CONTEXT.md` and `ARCHITECTURE.md` for project-specific constraints.
-- **Workflows**: Custom commands reachable via `/` in the TUI.
+- **Workflows**: Custom commands reachable via `/` in the Shiny web UI.
 
 ---
 

@@ -69,12 +69,13 @@ RUN apt-get update && \
   apt-get upgrade -y && \
   pip install --no-cache-dir --upgrade "pip>=25.3" && \
   python -m playwright install --with-deps chromium && \
+  chown -R appuser:appuser /home/appuser/.cache && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # -----------------------------------------------------------------------------
 
 # Create non-root user for security
-RUN useradd -m -u 1000 appuser && \
+RUN id -u appuser &>/dev/null || useradd -m -u 1000 appuser && \
   chown -R appuser:appuser /app
 
 # Copy application code (respecting .dockerignore)

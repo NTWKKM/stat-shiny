@@ -4003,15 +4003,24 @@ def core_regression_server(
     @render.download(filename=lambda: f"subgroup_plot_{input.sg_subgroup()}.html")
     def dl_sg_html():
         analyzer = subgroup_analyzer.get()
-        safe_data_download(analyzer, label="Subgroup Plot HTML")
-        if analyzer.figure:
-            yield analyzer.figure.to_html(include_plotlyjs="cdn")
+        if analyzer and analyzer.figure:
+            html_payload = analyzer.figure.to_html(include_plotlyjs="cdn")
+            safe_data_download(html_payload, label="Subgroup Plot HTML")
+            yield html_payload
+        else:
+            safe_data_download(None, label="Subgroup Plot HTML")
+            yield "No plot available"
 
     @render.download(filename=lambda: f"subgroup_res_{input.sg_subgroup()}.csv")
     def dl_sg_csv():
         res = subgroup_res.get()
-        safe_data_download(res, label="Subgroup Results CSV")
-        yield res["results_df"].to_csv(index=False)
+        if res and "results_df" in res:
+            csv_payload = res["results_df"].to_csv(index=False)
+            safe_data_download(csv_payload, label="Subgroup Results CSV")
+            yield csv_payload
+        else:
+            safe_data_download(None, label="Subgroup Results CSV")
+            yield "No results available"
 
     @render.download(filename=lambda: f"subgroup_data_{input.sg_subgroup()}.json")
     def dl_sg_json():
@@ -4022,9 +4031,13 @@ def core_regression_server(
             str: A JSON-formatted string of the subgroup results (indent=2). Non-JSON-native types (e.g., NumPy scalars/arrays) are converted to strings to ensure serializability.
         """
         res = subgroup_res.get()
-        safe_data_download(res, label="Subgroup Results JSON")
-        # Need to handle numpy types for JSON serialization
-        yield json.dumps(res, indent=2, default=str)
+        if res:
+            json_payload = json.dumps(res, indent=2, default=str)
+            safe_data_download(json_payload, label="Subgroup Results JSON")
+            yield json_payload
+        else:
+            safe_data_download(None, label="Subgroup Results JSON")
+            yield "No results available"
 
     # =========================================================================
     # LOGISTIC SUBGROUP SERVER LOGIC
@@ -4625,7 +4638,7 @@ def core_regression_server(
             <body>
             <h1>Logistic Regression Subgroup Analysis</h1>
             {plotly_figure_to_html(res.get("forest_plot"))}
-            {res.get("results_df", pd.DataFrame()).to_html(classes="table table-hover", index=False, escape=False)}
+            {res.get("results_df", pd.DataFrame()).to_html(classes="table table-hover", index=False, escape=True)}
             </body></html>
             """
 
