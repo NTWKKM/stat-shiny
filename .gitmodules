@@ -1,0 +1,3 @@
+[submodule ".kilo/skills/buddhist-method"]
+	path = .kilo/skills/buddhist-method
+	url = https://github.com/nai0om/buddhist-method
