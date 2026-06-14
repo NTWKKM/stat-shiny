@@ -1,0 +1,38 @@
+# ==============================================================================
+# Medical Stat Tool - Causal Inference / ML Extension Requirements
+# ==============================================================================
+# Optional heavy dependencies for future EconML/SHAP/LightGBM integration.
+# These are NOT used in the current codebase but are reserved for planned
+# expansion of the Causal Inference module.
+#
+# Install with:
+#   pip install -r requirements-causal.txt
+#   (or: uv pip install -r requirements-causal.txt)
+#
+# ⚠️  Do NOT add to requirements-prod.txt — adds ~200MB and 5-10s cold-start.
+# ==============================================================================
+
+# EconML — Causal ML (CATE, DML, DragonNet)
+econml==0.16.0
+
+# SHAP — Explainability / feature importance
+shap==0.48.0
+
+# LightGBM — Gradient boosting backend for EconML/SHAP
+lightgbm==4.6.0
+
+# Numba / llvmlite — JIT compilation (SHAP TreeExplainer dependency)
+numba==0.63.1
+llvmlite==0.46.0
+
+# Sparse — Sparse array support (EconML dependency)
+sparse==0.17.0
+
+# Slicer — Array slicing utility (SHAP dependency)
+slicer==0.0.8
+
+# CloudPickle — Serialization (EconML dependency)
+cloudpickle==3.1.2
+
+# XArray — N-dimensional arrays (EconML dependency)
+xarray==2025.12.0
