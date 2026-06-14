@@ -289,7 +289,9 @@ class StatisticalEngine:
                 try:
                     _, p_fisher = stats.fisher_exact(tab)
                     return p_fisher, "Fisher's Exact"
-                except Exception:
+                except (ValueError, TypeError):
+                    # Fisher's exact not applicable (non-2x2 or invalid table);
+                    # fall through to return chi2 result below
                     pass
 
             test_name = "Chi-square" if min_expected >= 5 else "Chi-square (Low N)"

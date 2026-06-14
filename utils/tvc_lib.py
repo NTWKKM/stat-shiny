@@ -724,7 +724,12 @@ def check_tvc_assumptions(
                     quartile_coefs.append(cph_q.params_.to_dict())
                     quartile_labels.append(f"Q{q + 1}")
                 except Exception:
-                    pass
+                    logger.debug(
+                        "TVC quartile refit failed for Q%d (n=%d, events=%d); skipping",
+                        q + 1,
+                        len(df_quartile),
+                        int(df_quartile[event_col].sum()),
+                    )
 
         # --- Diagnostic 2: Partial Likelihood Residuals ---
         residuals = cph.predict_partial_hazard(df)

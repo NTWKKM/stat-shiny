@@ -88,7 +88,8 @@ class ForestPlot:
             logger.info(
                 f"ForestPlot initialized: {len(self.data)} variables, estimate range [{est_min:.3f}, {est_max:.3f}]"
             )
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
+            # Non-critical: logging only — initialization still succeeds
             pass
 
     @staticmethod
