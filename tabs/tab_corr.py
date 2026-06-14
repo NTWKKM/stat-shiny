@@ -25,6 +25,7 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from tabs._dataset_mixin import register_dataset_selector
 from utils import (
     correlation,  # Import from utils
 )
@@ -256,59 +257,15 @@ def corr_server(
     )  # List of numeric columns
 
     # ==================== DATASET SELECTION LOGIC ====================
-
-    @reactive.Calc
-    def current_df() -> pd.DataFrame | None:
-        """Select between original and matched dataset based on user preference."""
-        if is_matched.get() and input.radio_corr_source() == "matched":
-            return df_matched.get()
-        return df.get()
-
-    @render.ui
-    def ui_title_with_summary():
-        """Display title with dataset summary."""
-        d = current_df()
-        if d is not None:
-            return ui.div(
-                ui.h3("📈 Correlation Analysis"),
-                ui.p(
-                    f"{len(d):,} rows | {len(d.columns)} columns",
-                    class_="text-secondary mb-3",
-                ),
-            )
-        return ui.h3("📈 Correlation Analysis")
-
-    @render.ui
-    def ui_matched_info():
-        """Display matched dataset availability info."""
-        if is_matched.get():
-            return ui.div(
-                ui.tags.div(
-                    "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info",
-                )
-            )
-        return None
-
-    @render.ui
-    def ui_dataset_selector():
-        """Render dataset selector radio buttons."""
-        if is_matched.get():
-            original = df.get()
-            matched = df_matched.get()
-            original_len = len(original) if original is not None else 0
-            matched_len = len(matched) if matched is not None else 0
-            return ui.input_radio_buttons(
-                "radio_corr_source",
-                "📊 Select Dataset:",
-                {
-                    "original": f"📊 Original Data ({original_len:,} rows)",
-                    "matched": f"✅ Matched Data ({matched_len:,} rows)",
-                },
-                selected="matched",
-                inline=True,
-            )
-        return None
+    current_df = register_dataset_selector(
+        input=input,
+        output=output,
+        df=df,
+        df_matched=df_matched,
+        is_matched=is_matched,
+        radio_input_id="radio_corr_source",
+        title="📈 Correlation Analysis",
+    )
 
     # ==================== UPDATE NUMERIC COLUMNS ====================
 

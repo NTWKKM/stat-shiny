@@ -13,6 +13,7 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from tabs._dataset_mixin import register_dataset_selector
 from utils import diag_test
 from utils.agreement_lib import AgreementAnalysis
 from utils.download_helpers import safe_download_html
@@ -273,54 +274,15 @@ def agreement_server(
     icc_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- Dataset Selection Logic ---
-    @reactive.Calc
-    def current_df() -> pd.DataFrame | None:
-        if is_matched.get():
-            try:
-                if input.radio_source() == "matched":
-                    return df_matched.get()
-            except (AttributeError, KeyError):
-                pass
-        return df.get()
-
-    @render.ui
-    def ui_title_with_summary():
-        d = current_df()
-        if d is not None:
-            return ui.div(
-                ui.h3("🤝 Agreement & Reliability"),
-                ui.p(
-                    f"{len(d):,} rows | {len(d.columns)} columns",
-                    class_="text-secondary mb-3",
-                ),
-            )
-        return ui.h3("🤝 Agreement & Reliability")
-
-    @render.ui
-    def ui_matched_info():
-        if is_matched.get():
-            return ui.div(
-                ui.tags.div(
-                    "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info",
-                )
-            )
-        return None
-
-    @render.ui
-    def ui_dataset_selector():
-        if is_matched.get():
-            return ui.input_radio_buttons(
-                "radio_source",
-                "📄 Select Dataset:",
-                {
-                    "original": "📊 Original Data",
-                    "matched": "✅ Matched Data (from PSM)",
-                },
-                selected="matched",
-                inline=True,
-            )
-        return None
+    current_df = register_dataset_selector(
+        input=input,
+        output=output,
+        df=df,
+        df_matched=df_matched,
+        is_matched=is_matched,
+        radio_input_id="radio_source",
+        title="🤝 Agreement & Reliability",
+    )
 
     # Get all columns
     @reactive.Calc

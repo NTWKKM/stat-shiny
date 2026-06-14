@@ -26,6 +26,7 @@ from utils.model_diagnostics_lib import (
 )
 from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
+from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 from utils.ui_helpers import (
     create_error_alert,
     create_input_group,
@@ -228,18 +229,9 @@ def advanced_inference_server(
     het_is_running = reactive.Value(False)
 
     # ==================== MI HELPER FUNCTIONS ====================
-    def _has_mi_datasets() -> bool:
-        """Check if Multiple Imputation datasets are available."""
-        if mi_imputed_datasets is None:
-            return False
-        datasets = mi_imputed_datasets.get()
-        return isinstance(datasets, list) and len(datasets) > 0
-
-    def _get_mi_datasets() -> list[pd.DataFrame]:
-        """Retrieve list of MI imputed datasets."""
-        if mi_imputed_datasets is None:
-            return []
-        return mi_imputed_datasets.get() or []
+    # (Shared utilities — see utils/mi_helpers.py)
+    _has_mi_datasets = lambda: has_mi_datasets(mi_imputed_datasets)  # noqa: E731
+    _get_mi_datasets = lambda: get_mi_datasets(mi_imputed_datasets)  # noqa: E731
 
     # --- Dataset Selection Logic ---
     @reactive.Calc
@@ -393,7 +385,7 @@ def advanced_inference_server(
                 )
 
                 all_results = []
-                for mi_df in mi_dfs:
+                for _mi_idx, mi_df in enumerate(mi_dfs):
                     try:
                         res_i = analyze_mediation(
                             data=mi_df,
@@ -410,7 +402,11 @@ def advanced_inference_server(
                         if "error" not in res_i:
                             all_results.append(res_i)
                     except Exception:
-                        pass
+                        logger.warning(
+                            "MI mediation failed for imputed dataset %d/%d",
+                            _mi_idx + 1,
+                            len(mi_dfs),
+                        )
 
                 if not all_results:
                     mediation_results.set({"error": "All MI mediation analyses failed"})
@@ -465,8 +461,7 @@ def advanced_inference_server(
                                 "fmi": p.fmi,
                             }
                         except Exception:
-                            logger.exception(f"MI pooling failed for {key}")
-                            pass
+                            logger.exception("MI pooling failed for key '%s'", key)
 
                 mediation_results.set(pooled)
                 ui.notification_remove("run_med")

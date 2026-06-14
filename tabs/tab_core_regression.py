@@ -20,6 +20,7 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from tabs._dataset_mixin import register_dataset_selector
 from utils.calibration_lib import (
     create_calibration_plot,
     create_decision_curve,
@@ -58,6 +59,7 @@ from utils.repeated_measures_lib import (
     run_gee,
     run_lmm,
 )
+from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 from utils.reporting_checklists import (
     auto_populate_strobe,
     format_strobe_html_compact,
@@ -84,26 +86,7 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
-def has_mi_datasets(
-    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
-) -> bool:
-    """Check if MI datasets are available for pooled analysis."""
-    if mi_imputed_datasets is None:
-        return False
-    datasets = mi_imputed_datasets.get()
-    return isinstance(datasets, list) and len(datasets) > 0
 
-
-def get_mi_datasets(
-    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
-) -> list[pd.DataFrame]:
-    """Safely get MI datasets."""
-    if mi_imputed_datasets is None:
-        return []
-    datasets = mi_imputed_datasets.get()
-    if isinstance(datasets, list):
-        return datasets
-    return []
 
 
 # ==============================================================================
@@ -1086,11 +1069,15 @@ def core_regression_server(
             logger.warning(f"Cache cleanup error: {e}")
 
     # --- Dataset Selection Logic ---
-    @reactive.Calc
-    def current_df() -> pd.DataFrame | None:
-        if is_matched.get() and input.radio_logit_source() == "matched":
-            return df_matched.get()
-        return df.get()
+    current_df = register_dataset_selector(
+        input=input,
+        output=output,
+        df=df,
+        df_matched=df_matched,
+        is_matched=is_matched,
+        radio_input_id="radio_logit_source",
+        title=None,
+    )
 
     @reactive.Calc
     def has_mi() -> bool:

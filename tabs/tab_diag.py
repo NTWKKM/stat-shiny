@@ -11,6 +11,7 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from tabs._dataset_mixin import register_dataset_selector
 from utils import decision_curve_lib, diag_test
 from utils.data_cleaning import prepare_data_for_analysis
 from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
@@ -365,50 +366,15 @@ def diag_server(
     desc_processing: reactive.Value[bool] = reactive.Value(False)
 
     # --- Dataset Selection Logic ---
-    @reactive.Calc
-    def current_df() -> pd.DataFrame | None:
-        if is_matched.get() and input.radio_diag_source() == "matched":
-            return df_matched.get()
-        return df.get()
-
-    @render.ui
-    def ui_title_with_summary():
-        d = current_df()
-        if d is not None:
-            return ui.div(
-                ui.h3("🧪 Diagnostic Tests (ROC)"),
-                ui.p(
-                    f"{len(d):,} rows | {len(d.columns)} columns",
-                    class_="text-secondary mb-3",
-                ),
-            )
-        return ui.h3("🧪 Diagnostic Tests (ROC)")
-
-    @render.ui
-    def ui_matched_info():
-        if is_matched.get():
-            return ui.div(
-                ui.tags.div(
-                    "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info",
-                )
-            )
-        return None
-
-    @render.ui
-    def ui_dataset_selector():
-        if is_matched.get():
-            return ui.input_radio_buttons(
-                "radio_diag_source",
-                "📄 Select Dataset:",
-                {
-                    "original": "📊 Original Data",
-                    "matched": "✅ Matched Data (from PSM)",
-                },
-                selected="matched",
-                inline=True,
-            )
-        return None
+    current_df = register_dataset_selector(
+        input=input,
+        output=output,
+        df=df,
+        df_matched=df_matched,
+        is_matched=is_matched,
+        radio_input_id="radio_diag_source",
+        title="🧪 Diagnostic Tests (ROC)",
+    )
 
     # Get all columns
     @reactive.Calc
