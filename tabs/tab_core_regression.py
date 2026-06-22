@@ -200,6 +200,21 @@ def core_regression_ui() -> ui.TagChild:
                                     "firth": "Firth's (Penalized)",
                                 },
                             ),
+                            ui.panel_conditional(
+                                "input.radio_method === 'firth'",
+                                ui.input_slider(
+                                    "firth_penalty_weight",
+                                    "Firth Penalty Weight:",
+                                    min=0.0,
+                                    max=2.0,
+                                    value=1.0,
+                                    step=0.1,
+                                ),
+                                ui.tags.small(
+                                    "1.0 = Standard Firth | 0 = Unpenalized MLE | >1 = Stronger bias-reduction",
+                                    class_="text-muted",
+                                ),
+                            ),
                             type="required",
                         ),
                         col_widths=[6, 6],
@@ -1585,6 +1600,7 @@ def core_regression_server(
         target = input.sel_outcome()
         exclude = input.sel_exclude()
         method = input.radio_method()
+        penalty_weight = float(input.firth_penalty_weight()) if method == "firth" else 1.0
         interactions_raw = input.sel_interactions()
 
         if d is None or d.empty:
@@ -1758,6 +1774,7 @@ def core_regression_server(
                         method=method,
                         interaction_pairs=interaction_pairs,
                         adv_stats=CONFIG,
+                        penalty_weight=penalty_weight,
                     )
             except Exception as e:
                 err_msg = f"Error running logistic regression: {e!s}"

@@ -83,38 +83,15 @@ def progress_end(id: str = "progress_notif") -> None:
         pass  # No active session (e.g., running tests)
 
 
-# Try to import Firth Cox regression for small samples / rare events
-# Try to import Firth Cox regression for small samples / rare events
+# Try to import Firth Cox regression for small samples / rare events (firthmodels >= 0.7.2)
 try:
     from firthmodels import FirthCoxPH
-
-    # CHECK: scikit-learn >= 1.6 compatibility patch
-    # firthmodels 0.6.0 uses the deprecated/removed `_validate_data` method.
-    # We must monkeypatch it to use the new public validation API.
-    if not hasattr(FirthCoxPH, "_validate_data"):
-        from sklearn.utils.validation import check_array, check_X_y
-
-        logger.info("Applying sklearn 1.6+ compatibility patch to FirthCoxPH")
-
-        def _validate_data_patch(
-            self, X, y=None, reset=True, validate_separately=False, **check_params
-        ):
-            # Compatibility shim for sklearn >= 1.6.
-            # 'reset' and 'validate_separately' are arguments in the old API that we consume/ignore
-            # to prevent passing them to check_array which doesn't expect them in the same way.
-            if y is None:
-                return check_array(X, **check_params)
-            else:
-                return check_X_y(X, y, **check_params)
-
-        FirthCoxPH._validate_data = _validate_data_patch
-        logger.info("FirthCoxPH patch applied successfully")
 
     HAS_FIRTH_COX = True
 except (ImportError, AttributeError) as e:
     HAS_FIRTH_COX = False
     logger.warning(
-        f"firthmodels.FirthCoxPH not available or patch failed: {e} - Firth Cox PH will be disabled"
+        f"firthmodels.FirthCoxPH not available: {e} - Firth Cox PH will be disabled"
     )
 
 
@@ -951,6 +928,7 @@ def fit_cox_ph(
     covariate_cols: list[str],
     var_meta: dict[str, Any] | None = None,
     method: str = "auto",
+    penalty_weight: float = 1.0,
 ) -> tuple[
     CoxPHFitter | Any | None,
     pd.DataFrame | None,
@@ -1129,7 +1107,8 @@ def fit_cox_ph(
 
         try:
             cph, res_df, method_used = _fit_firth_cox(
-                data, duration_col, event_col, covariate_cols
+                data, duration_col, event_col, covariate_cols,
+                penalty_weight=penalty_weight,
             )
         except Exception as e:
             logger.error(f"Firth Cox fitting failed: {e}")
@@ -1171,7 +1150,8 @@ def fit_cox_ph(
             logger.info("Lifelines failed, attempting Firth Cox PH fallback...")
             try:
                 cph, res_df, method_used = _fit_firth_cox(
-                    data, duration_col, event_col, covariate_cols
+                    data, duration_col, event_col, covariate_cols,
+                    penalty_weight=penalty_weight,
                 )
             except Exception as e:
                 logger.error(f"Firth fallback also failed: {e}")
@@ -1300,7 +1280,11 @@ def fit_cox_ph(
 
 
 def _fit_firth_cox(
-    data: pd.DataFrame, duration_col: str, event_col: str, covariate_cols: list[str]
+    data: pd.DataFrame,
+    duration_col: str,
+    event_col: str,
+    covariate_cols: list[str],
+    penalty_weight: float = 1.0,
 ) -> tuple[Any, pd.DataFrame, str]:
     # Internal helper: Fit Firth-penalized Cox PH model using firthmodels.
     #
@@ -1316,8 +1300,7 @@ def _fit_firth_cox(
     time = data[duration_col].values.astype(float)
 
     # 2. Fit model (FirthCoxPH accepts y as tuple (event, time))
-    # Note: firthmodels 0.6.0 expects (event, time) for survival
-    model = FirthCoxPH()
+    model = FirthCoxPH(penalty_weight=penalty_weight)
     model.fit(X, (event, time))
 
     # 3. Extract results

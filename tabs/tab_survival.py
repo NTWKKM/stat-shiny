@@ -268,6 +268,21 @@ def survival_ui() -> ui.TagChild:
                                 },
                                 selected="auto",
                             ),
+                            ui.panel_conditional(
+                                "input.cox_method === 'firth'",
+                                ui.input_slider(
+                                    "cox_firth_penalty_weight",
+                                    "Firth Penalty Weight:",
+                                    min=0.0,
+                                    max=2.0,
+                                    value=1.0,
+                                    step=0.1,
+                                ),
+                                ui.tags.small(
+                                    "1.0 = Standard Firth | 0 = Unpenalized MLE | >1 = Stronger bias-reduction",
+                                    class_="text-muted",
+                                ),
+                            ),
                             create_tooltip_label(
                                 "Select Covariates (Predictors)",
                                 "Variables to adjust for in the model.",
@@ -1481,6 +1496,7 @@ def survival_server(
             cox_is_running.set(True)
             cox_result.set(None)
             cox_method = input.cox_method()
+            penalty_weight = float(input.cox_firth_penalty_weight()) if cox_method == "firth" else 1.0
 
             # Check for MI datasets
             mi_active = has_mi_datasets()
@@ -1513,6 +1529,7 @@ def survival_server(
                         list(covars),
                         var_meta=var_meta.get(),
                         method=cox_method,
+                        penalty_weight=penalty_weight,
                     )
                     if not err_i and res_df_i is not None:
                         all_results.append(res_df_i)
@@ -1611,6 +1628,7 @@ def survival_server(
                         list(covars),
                         var_meta=var_meta.get(),
                         method=cox_method,
+                        penalty_weight=penalty_weight,
                     )
                 )
 
