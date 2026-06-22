@@ -57,26 +57,9 @@ COLORS = {
     "surface": _PALETTE.get("surface", "#FFFFFF"),
 }
 
-# Try to import Firth regression
+# Try to import Firth regression (firthmodels >= 0.7.2)
 try:
-    from firthmodels import FirthLogisticRegression
-
-    if not hasattr(FirthLogisticRegression, "_validate_data"):
-        from sklearn.utils.validation import check_array, check_X_y
-
-        logger.info("Applying sklearn compatibility patch to FirthLogisticRegression")
-
-        def _validate_data_patch(
-            self, X, y=None, reset=True, validate_separately=False, **check_params
-        ):
-            """Compatibility shim for sklearn >= 1.6."""
-            if y is None:
-                return check_array(X, **check_params)
-            else:
-                return check_X_y(X, y, **check_params)
-
-        FirthLogisticRegression._validate_data = _validate_data_patch
-        logger.info("Patch applied successfully")
+    from firthmodels import FirthLogisticRegression, detect_separation
 
     HAS_FIRTH = True
 except (ImportError, AttributeError):
@@ -305,11 +288,13 @@ def _robust_sort_key(x: Any) -> tuple[int, float | str]:
 
 
 def fit_firth_logistic(
-    y: pd.Series, X_const: pd.DataFrame
+    y: pd.Series,
+    X_const: pd.DataFrame,
+    penalty_weight: float = 1.0,
 ) -> tuple[
     pd.Series | None, pd.DataFrame | None, pd.Series | None, FitStatus, StatsMetrics
 ]:
-    """Fit Firth logistic regression."""
+    """Fit Firth logistic regression with configurable penalty weight."""
     stats_metrics: StatsMetrics = {
         "mcfadden": np.nan,
         "nagelkerke": np.nan,
@@ -325,9 +310,10 @@ def fit_firth_logistic(
         return None, None, None, "firthmodels not installed", stats_metrics
 
     try:
-        # Check for separation detection to log it (optional, usually done before)
-        # Using firthmodels
-        fl = FirthLogisticRegression(fit_intercept=False)
+        # Using firthmodels with configurable penalty weight
+        fl = FirthLogisticRegression(
+            fit_intercept=False, penalty_weight=penalty_weight
+        )
 
         fl.fit(X_const, y)
 
@@ -464,6 +450,7 @@ def run_binary_logit(
     X: pd.DataFrame,
     method: MethodType = "default",
     ci_method: str = "wald",
+    penalty_weight: float = 1.0,
 ) -> tuple[
     pd.Series | None,
     pd.DataFrame | None,
@@ -494,7 +481,7 @@ def run_binary_logit(
         X_const = sm.add_constant(X, has_constant="add")
 
         if method == "firth":
-            return fit_firth_logistic(y, X_const)
+            return fit_firth_logistic(y, X_const, penalty_weight=penalty_weight)
 
         # Default or BFGS
         return fit_standard_logistic(y, X_const, method=method, ci_method=ci_method)
@@ -617,6 +604,7 @@ def analyze_outcome(
     method: MethodType = "auto",
     interaction_pairs: list[tuple[str, str | None]] = None,
     adv_stats: dict[str, Any] | None = None,
+    penalty_weight: float = 1.0,
 ) -> tuple[
     str, dict[str, ORResult], dict[str, AORResult], dict[str, InteractionResult]
 ]:
@@ -721,19 +709,44 @@ def analyze_outcome(
     mode_map = {}
     cat_levels_map = {}
 
-    # Check for perfect separation
+    # Check for perfect separation using Konis (2007) LP method
     has_perfect_separation = False
-    if method == "auto":
-        for col in sorted_cols:
-            if col == outcome_name or col not in df_aligned.columns:
-                continue
-            try:
-                X_num = df_aligned[col].apply(clean_numeric_value)
-                if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
-                    has_perfect_separation = True
-                    break
-            except Exception:
-                continue
+    if method == "auto" and HAS_FIRTH:
+        try:
+            numeric_cols = [
+                c
+                for c in sorted_cols
+                if c != outcome_name
+                and c in df_aligned.columns
+                and pd.api.types.is_numeric_dtype(df_aligned[c])
+                and df_aligned[c].nunique() > 1
+            ]
+            if numeric_cols:
+                X_sep = df_aligned[numeric_cols].apply(
+                    lambda s: s.apply(clean_numeric_value)
+                ).dropna()
+                y_sep = y.loc[X_sep.index]
+                if len(X_sep) > 0:
+                    sep_result = detect_separation(X_sep.values, y_sep.values)
+                    has_perfect_separation = sep_result.separation
+                    if has_perfect_separation:
+                        logger.info(
+                            "Separation detected (Konis LP method): %s",
+                            sep_result.summary() if hasattr(sep_result, 'summary') else 'True',
+                        )
+        except Exception as e:
+            logger.warning("detect_separation failed, falling back to heuristic: %s", e)
+            # Fallback: original crosstab heuristic
+            for col in sorted_cols:
+                if col == outcome_name or col not in df_aligned.columns:
+                    continue
+                try:
+                    X_num = df_aligned[col].apply(clean_numeric_value)
+                    if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
+                        has_perfect_separation = True
+                        break
+                except Exception:
+                    continue
 
     # Select fitting method
     preferred_method: MethodType = "bfgs"
@@ -859,7 +872,8 @@ def analyze_outcome(
 
                 if dummy_cols and temp_df[dummy_cols].std().sum() > 0:
                     params, conf, pvals, status, _ = run_binary_logit(
-                        temp_df["y"], temp_df[dummy_cols], method=preferred_method
+                        temp_df["y"], temp_df[dummy_cols], method=preferred_method,
+                        penalty_weight=penalty_weight
                     )
                     if status == "OK":
                         or_lines, coef_lines, p_lines = ["Ref."], ["-"], ["-"]
@@ -952,7 +966,8 @@ def analyze_outcome(
             data_uni = pd.DataFrame({"y": y, "x": X_num}).dropna()
             if not data_uni.empty and data_uni["x"].nunique() > 1:
                 params, hex_conf, pvals, status, _ = run_binary_logit(
-                    data_uni["y"], data_uni[["x"]], method=preferred_method
+                    data_uni["y"], data_uni[["x"]], method=preferred_method,
+                    penalty_weight=penalty_weight
                 )
                 if status == "OK" and "x" in params:
                     coef = params["x"]
@@ -1088,6 +1103,7 @@ def analyze_outcome(
                 multi_data[predictors_for_vif],
                 method=preferred_method,
                 ci_method=effective_ci_method,
+                penalty_weight=penalty_weight,
             )
 
             if status == "OK":
