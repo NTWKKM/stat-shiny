@@ -22,7 +22,7 @@ from utils.data_cleaning import (
     detect_outliers,
     is_continuous_variable,
     prepare_data_for_analysis,
-    DataValidationError,
+    DataCleaningError,
     validate_data_quality,
 )
 
@@ -137,13 +137,13 @@ class TestPrepareDataEdgeCases:
     def test_missing_column_raises(self):
         """Request a column that doesn't exist."""
         df = pd.DataFrame({"a": [1, 2, 3]})
-        with pytest.raises(Exception, match="Missing required columns"):
+        with pytest.raises(DataCleaningError, match="Missing required columns"):
             prepare_data_for_analysis(df, required_cols=["a", "nonexistent"])
 
     def test_all_rows_excluded(self):
         """Every row has missing data → should raise."""
         df = pd.DataFrame({"x": [np.nan, np.nan], "y": [np.nan, np.nan]})
-        with pytest.raises(Exception, match="No valid data remaining"):
+        with pytest.raises(DataCleaningError, match="No valid data remaining"):
             prepare_data_for_analysis(
                 df, required_cols=["x", "y"], handle_missing="complete_case"
             )
@@ -175,9 +175,9 @@ class TestPrepareDataEdgeCases:
         assert pd.api.types.is_float_dtype(result["val"])
 
     def test_unsupported_strategy_raises(self):
-        """Unknown missing data strategy should raise ValueError."""
+        """Unknown missing data strategy should raise DataCleaningError."""
         df = pd.DataFrame({"x": [1, 2]})
-        with pytest.raises(Exception, match="Unknown missing data strategy"):
+        with pytest.raises(DataCleaningError, match="Unknown missing data strategy"):
             prepare_data_for_analysis(
                 df, required_cols=["x"], handle_missing="magic_imputation"
             )

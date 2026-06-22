@@ -1498,9 +1498,9 @@ def survival_server(
             cox_method = input.cox_method()
             penalty_weight = float(input.cox_firth_penalty_weight()) if cox_method == "firth" else 1.0
 
-            # Check for MI datasets
-            mi_active = has_mi_datasets()
-            mi_dfs = get_mi_datasets() if mi_active else []
+            # Check MI availability
+            mi_active = _has_mi_datasets()
+            mi_dfs = _get_mi_datasets() if mi_active else []
 
             if mi_active and len(mi_dfs) > 0:
                 # ====== MI POOLED COX ANALYSIS ======

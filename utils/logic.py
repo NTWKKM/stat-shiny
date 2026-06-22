@@ -290,7 +290,7 @@ def _robust_sort_key(x: Any) -> tuple[int, float | str]:
 def fit_firth_logistic(
     y: pd.Series,
     X_const: pd.DataFrame,
-    penalty_weight: float = 1.0,
+    penalty_weight: float = 0.5,
 ) -> tuple[
     pd.Series | None, pd.DataFrame | None, pd.Series | None, FitStatus, StatsMetrics
 ]:

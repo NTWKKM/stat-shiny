@@ -118,27 +118,32 @@ def _build_strobe_metadata(
 
 
 def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
-    """Identify columns causing perfect separation."""
+    try:
+        from firthmodels import detect_separation
+    except ImportError:
+        return []
+
     risky_vars: list[str] = []
     try:
         y = pd.to_numeric(df[target_col], errors="coerce").dropna()
         if y.nunique() < 2:
             return []
-    except (KeyError, TypeError, ValueError):
-        return []
 
-    for col in df.columns:
-        if col == target_col:
-            continue
+        X = df.drop(columns=[target_col]).loc[y.index]
+        X_num = pd.get_dummies(X, drop_first=True, dtype=float)
+        
+        sep_result = detect_separation(X_num.values, y.values)
+        is_separated = False
+        if hasattr(sep_result, 'separation'):
+            is_separated = sep_result.separation
+        else:
+            is_separated = bool(sep_result)
+            
+        if is_separated:
+            risky_vars.append("Data Separation Detected (Konis LP)")
+    except Exception:
+        pass
 
-        if df[col].nunique() < 10:
-            try:
-                # Use crosstab to find cells with 0 count (perfect separation indicator)
-                tab = pd.crosstab(df[col], y)
-                if (tab == 0).any().any():
-                    risky_vars.append(col)
-            except (ValueError, TypeError):
-                pass
     return risky_vars
 
 
@@ -1128,37 +1133,7 @@ def core_regression_server(
             )
         return ui.h3("📈 Regression Models")
 
-    @render.ui
-    def ui_matched_info():
-        """Display matched dataset availability info."""
-        if is_matched.get():
-            return ui.div(
-                ui.tags.div(
-                    "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info",
-                )
-            )
-        return None
 
-    @render.ui
-    def ui_dataset_selector():
-        """Render dataset selector radio buttons."""
-        if is_matched.get():
-            original = df.get()
-            matched = df_matched.get()
-            original_len = len(original) if original is not None else 0
-            matched_len = len(matched) if matched is not None else 0
-            return ui.input_radio_buttons(
-                "radio_logit_source",
-                "📊 Select Dataset:",
-                {
-                    "original": f"📊 Original ({original_len:,} rows)",
-                    "matched": f"✅ Matched ({matched_len:,} rows)",
-                },
-                selected="matched",
-                inline=True,
-            )
-        return None
 
     # --- Dynamic Input Updates ---
     @reactive.Effect
@@ -1668,6 +1643,7 @@ def core_regression_server(
                             method=method,
                             interaction_pairs=interaction_pairs,
                             adv_stats=CONFIG,
+                            penalty_weight=penalty_weight,
                         )
                         all_results.append(
                             {
@@ -1781,6 +1757,7 @@ def core_regression_server(
                 logit_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Logistic regression error")
+                logit_is_running.set(False)
                 return
 
             # Generate Forest Plots using library (for interactive widgets)
@@ -2655,6 +2632,7 @@ def core_regression_server(
                 poisson_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Poisson regression error")
+                poisson_is_running.set(False)
                 return
 
             # Generate Forest Plots for IRR
@@ -2961,6 +2939,7 @@ def core_regression_server(
                 nb_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Negative Binomial regression error")
+                nb_is_running.set(False)
                 return
 
             # Generate Forest Plots for IRR
