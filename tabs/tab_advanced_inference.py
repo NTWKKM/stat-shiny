@@ -414,6 +414,19 @@ def advanced_inference_server(
                     med_is_running.set(False)
                     return
 
+                if len(all_results) != len(mi_dfs):
+                    mediation_results.set(
+                        {
+                            "error": (
+                                f"MI pooling requires all imputations to succeed "
+                                f"({len(all_results)}/{len(mi_dfs)} succeeded)."
+                            )
+                        }
+                    )
+                    ui.notification_remove("run_med")
+                    med_is_running.set(False)
+                    return
+
                 # Pool ACME and ADE using Rubin's rules
                 pooled = {"mi_pooled": True, "m": len(mi_dfs)}
 
