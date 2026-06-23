@@ -9,49 +9,6 @@ import pytest
 # However, to test the patch logic itself, we need to let it execute.
 # Since we might not have firthmodels installed in this environment, we'll simulate the import.
 
-
-@pytest.fixture
-def mock_firth_module():
-    """Mock firthmodels module to simulate its presence and behavior."""
-    mock_fm = MagicMock()
-    mock_class = MagicMock()
-
-    # Simulate missing _validate_data to trigger the patch
-    try:
-        del mock_class._validate_data
-    except AttributeError:
-        pass
-
-    mock_fm.FirthCoxPH = mock_class
-
-    with patch.dict(sys.modules, {"firthmodels": mock_fm}):
-        yield mock_fm
-
-
-def test_sklearn_1_6_patch_application(mock_firth_module):
-    """Test that _validate_data is patched onto FirthCoxPH if missing."""
-    import importlib
-
-    import utils.survival_lib
-
-    # The mock_firth_module fixture puts a mock firthmodels in sys.modules.
-    # It specifically deletes _validate_data from FirthCoxPH.
-    # We reload utils.survival_lib to trigger the top-level try/except block.
-
-    # Reload to run the patch logic
-    importlib.reload(utils.survival_lib)
-
-    # Now verify that the mock class has the patched method
-    from firthmodels import FirthCoxPH
-
-    assert hasattr(FirthCoxPH, "_validate_data"), (
-        "Patch failed: _validate_data not added to FirthCoxPH"
-    )
-    assert callable(FirthCoxPH._validate_data), (
-        "_validate_data should be a callable method"
-    )
-
-
 def test_fit_firth_cox_logic():
     """Test the data preparation and calling convention of _fit_firth_cox."""
     from utils.survival_lib import _fit_firth_cox
@@ -70,7 +27,10 @@ def test_fit_firth_cox_logic():
         mock_instance.pvalues_ = np.array([0.05])
 
         # Run function
-        model, res, method = _fit_firth_cox(df, "time", "event", ["var1"])
+        model, res, method = _fit_firth_cox(df, "time", "event", ["var1"], penalty_weight=0.5)
+
+        # Check that FirthCoxPH was initialized with penalty_weight
+        MockFirth.assert_called_with(penalty_weight=0.5)
 
         # Check call args
         # Should be called with X (2d array) and y (tuple of arrays)

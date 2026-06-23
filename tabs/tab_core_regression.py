@@ -20,6 +20,7 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from tabs._dataset_mixin import register_dataset_selector
 from utils.calibration_lib import (
     create_calibration_plot,
     create_decision_curve,
@@ -59,6 +60,7 @@ from utils.repeated_measures_lib import (
     run_gee,
     run_lmm,
 )
+from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 from utils.reporting_checklists import (
     auto_populate_strobe,
     format_strobe_html_compact,
@@ -85,26 +87,7 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
-def has_mi_datasets(
-    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
-) -> bool:
-    """Check if MI datasets are available for pooled analysis."""
-    if mi_imputed_datasets is None:
-        return False
-    datasets = mi_imputed_datasets.get()
-    return isinstance(datasets, list) and len(datasets) > 0
 
-
-def get_mi_datasets(
-    mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] | None,
-) -> list[pd.DataFrame]:
-    """Safely get MI datasets."""
-    if mi_imputed_datasets is None:
-        return []
-    datasets = mi_imputed_datasets.get()
-    if isinstance(datasets, list):
-        return datasets
-    return []
 
 
 # ==============================================================================
@@ -136,27 +119,46 @@ def _build_strobe_metadata(
 
 
 def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
-    """Identify columns causing perfect separation."""
-    risky_vars: list[str] = []
     try:
-        y = pd.to_numeric(df[target_col], errors="coerce").dropna()
-        if y.nunique() < 2:
-            return []
-    except (KeyError, TypeError, ValueError):
+        from firthmodels import detect_separation
+    except ImportError:
         return []
 
-    for col in df.columns:
-        if col == target_col:
-            continue
+    risky_vars: list[str] = []
+    try:
+        y_raw = df[target_col].dropna()
+        unique_values = sorted(y_raw.unique(), key=str)
+        if len(unique_values) != 2:
+            return []
 
-        if df[col].nunique() < 10:
-            try:
-                # Use crosstab to find cells with 0 count (perfect separation indicator)
-                tab = pd.crosstab(df[col], y)
-                if (tab == 0).any().any():
-                    risky_vars.append(col)
-            except (ValueError, TypeError):
-                pass
+        if set(unique_values).issubset({0, 1}):
+            y = y_raw.astype(int)
+        else:
+            y = y_raw.map({unique_values[0]: 0, unique_values[1]: 1}).astype(int)
+
+        X = df.drop(columns=[target_col]).loc[y.index]
+        X_num = pd.get_dummies(X, drop_first=True, dtype=float)
+        
+        sep_result = detect_separation(X_num.values, y.values)
+        is_separated = False
+        if hasattr(sep_result, 'separation'):
+            is_separated = sep_result.separation
+        else:
+            is_separated = bool(sep_result)
+            
+        if is_separated:
+            risky_vars.append("Data Separation Detected (Konis LP)")
+    except Exception as e:
+        logger.debug("detect_separation failed; using fallback heuristic: %s", e)
+        if "X" in locals() and "y" in locals():
+            for col in X.columns:
+                try:
+                    ct = pd.crosstab(X[col], y)
+                    if (ct == 0).any().any():
+                        risky_vars.append(col)
+                except (ValueError, TypeError):
+                    continue
+
     return risky_vars
 
 
@@ -217,6 +219,21 @@ def core_regression_ui() -> ui.TagChild:
                                     "bfgs": "Standard (MLE)",
                                     "firth": "Firth's (Penalized)",
                                 },
+                            ),
+                            ui.panel_conditional(
+                                "input.radio_method === 'firth'",
+                                ui.input_slider(
+                                    "firth_penalty_weight",
+                                    "Firth Penalty Weight:",
+                                    min=0.0,
+                                    max=2.0,
+                                    value=1.0,
+                                    step=0.1,
+                                ),
+                                ui.tags.small(
+                                    "1.0 = Standard Firth | 0 = Unpenalized MLE | >1 = Stronger bias-reduction",
+                                    class_="text-muted",
+                                ),
                             ),
                             type="required",
                         ),
@@ -1117,11 +1134,15 @@ def core_regression_server(
             logger.warning(f"Cache cleanup error: {e}")
 
     # --- Dataset Selection Logic ---
-    @reactive.Calc
-    def current_df() -> pd.DataFrame | None:
-        if is_matched.get() and input.radio_logit_source() == "matched":
-            return df_matched.get()
-        return df.get()
+    current_df = register_dataset_selector(
+        input=input,
+        output=output,
+        df=df,
+        df_matched=df_matched,
+        is_matched=is_matched,
+        radio_input_id="radio_logit_source",
+        title=None,
+    )
 
     @reactive.Calc
     def has_mi() -> bool:
@@ -1157,37 +1178,7 @@ def core_regression_server(
             )
         return ui.h3("📈 Regression Models")
 
-    @render.ui
-    def ui_matched_info():
-        """Display matched dataset availability info."""
-        if is_matched.get():
-            return ui.div(
-                ui.tags.div(
-                    "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info",
-                )
-            )
-        return None
 
-    @render.ui
-    def ui_dataset_selector():
-        """Render dataset selector radio buttons."""
-        if is_matched.get():
-            original = df.get()
-            matched = df_matched.get()
-            original_len = len(original) if original is not None else 0
-            matched_len = len(matched) if matched is not None else 0
-            return ui.input_radio_buttons(
-                "radio_logit_source",
-                "📊 Select Dataset:",
-                {
-                    "original": f"📊 Original ({original_len:,} rows)",
-                    "matched": f"✅ Matched ({matched_len:,} rows)",
-                },
-                selected="matched",
-                inline=True,
-            )
-        return None
 
     # --- Dynamic Input Updates ---
     @reactive.Effect
@@ -1629,6 +1620,7 @@ def core_regression_server(
         target = input.sel_outcome()
         exclude = input.sel_exclude()
         method = input.radio_method()
+        penalty_weight = float(input.firth_penalty_weight()) if method == "firth" else 1.0
         interactions_raw = input.sel_interactions()
 
         if d is None or d.empty:
@@ -1696,6 +1688,7 @@ def core_regression_server(
                             method=method,
                             interaction_pairs=interaction_pairs,
                             adv_stats=CONFIG,
+                            penalty_weight=penalty_weight,
                         )
                         all_results.append(
                             {
@@ -1802,12 +1795,14 @@ def core_regression_server(
                         method=method,
                         interaction_pairs=interaction_pairs,
                         adv_stats=CONFIG,
+                        penalty_weight=penalty_weight,
                     )
             except Exception as e:
                 err_msg = f"Error running logistic regression: {e!s}"
                 logit_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Logistic regression error")
+                logit_is_running.set(False)
                 return
 
             # Generate Forest Plots using library (for interactive widgets)
@@ -2680,6 +2675,7 @@ def core_regression_server(
                 poisson_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Poisson regression error")
+                poisson_is_running.set(False)
                 return
 
             # Generate Forest Plots for IRR
@@ -2986,6 +2982,7 @@ def core_regression_server(
                 nb_res.set({"error": err_msg})
                 ui.notification_show("Analysis failed", type="error")
                 logger.exception("Negative Binomial regression error")
+                nb_is_running.set(False)
                 return
 
             # Generate Forest Plots for IRR

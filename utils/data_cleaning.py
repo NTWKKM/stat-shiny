@@ -22,8 +22,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.experimental import enable_iterative_imputer  # noqa
-from sklearn.impute import IterativeImputer, KNNImputer
+
 
 from config import CONFIG
 from logger import get_logger
@@ -280,8 +279,12 @@ def clean_numeric(
         if remove_whitespace:
             s = s.strip()
 
+        is_negative_parentheses = False
         # Handle special characters if enabled
         if handle_special_chars:
+            if s.startswith("(") and s.endswith(")"):
+                is_negative_parentheses = True
+                
             # Remove common comparison operators
             s = s.replace(">", "").replace("<", "")
             # Remove comma separators
@@ -296,6 +299,8 @@ def clean_numeric(
 
         # Try to convert to float
         result = float(s)
+        if is_negative_parentheses:
+            result = -abs(result)
 
         logger.debug("Cleaned numeric: %s -> %s", val, result)
         return result
@@ -1080,12 +1085,17 @@ def impute_missing_data(
 
     try:
         if method == "knn":
+            from sklearn.impute import KNNImputer
+
             n_neighbors = kwargs.get("n_neighbors", 5)
             logger.info(f"Running KNN Imputation (k={n_neighbors})...")
             imputer = KNNImputer(n_neighbors=n_neighbors)
             df_out[numeric_df.columns] = imputer.fit_transform(numeric_df)
 
         elif method == "mice":
+            from sklearn.experimental import enable_iterative_imputer  # noqa
+            from sklearn.impute import IterativeImputer
+
             random_state = kwargs.get("random_state", 42)
             max_iter = kwargs.get("max_iter", 10)
             logger.info(f"Running MICE Imputation (iter={max_iter})...")

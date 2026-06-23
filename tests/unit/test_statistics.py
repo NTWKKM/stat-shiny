@@ -233,6 +233,13 @@ def setup_mocks():
 
         yield
 
+    # Restore unmocked state for other tests in the suite
+    importlib.reload(utils.poisson_lib)
+    importlib.reload(utils.diag_test)
+    importlib.reload(utils.agreement_lib)
+    importlib.reload(utils.logic)
+    importlib.reload(utils.survival_lib)
+
 
 # Mark all tests as unit tests
 pytestmark = pytest.mark.unit

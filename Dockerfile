@@ -22,8 +22,7 @@ WORKDIR /build
 # Update OS packages to fix system vulnerabilities
 RUN apt-get update && \
   apt-get upgrade -y && \
-  apt-cache policy gcc && \
-  apt-get install -y --no-install-recommends gcc=4:12.2.0-3 && \
+  apt-get install -y --no-install-recommends gcc && \
   rm -rf /var/lib/apt/lists/*
 
 # Pre-install latest security tools into the target directory (ensuring fresh install)
@@ -97,6 +96,7 @@ CMD ["python", "-m", "gunicorn", \
   "-w", "2", \
   "--timeout", "120", \
   "--graceful-timeout", "30", \
+  "--worker-tmp-dir", "/dev/shm", \
   "--bind", "0.0.0.0:7860", \
   "--preload", \
   "asgi:app"]
