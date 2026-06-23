@@ -716,20 +716,27 @@ def analyze_outcome(
     has_perfect_separation = False
     if method == "auto" and HAS_FIRTH:
         try:
-            numeric_cols = [
-                c
-                for c in sorted_cols
-                if c != outcome_name
-                and c in df_aligned.columns
-                and pd.api.types.is_numeric_dtype(df_aligned[c])
-                and df_aligned[c].nunique() > 1
-            ]
-            if numeric_cols:
-                X_sep = df_aligned[numeric_cols].apply(
-                    lambda s: s.apply(clean_numeric_value)
-                ).dropna()
+            sep_parts = []
+            for c in sorted_cols:
+                if c == outcome_name or c not in df_aligned.columns:
+                    continue
+
+                numeric = df_aligned[c].apply(clean_numeric_value)
+                if numeric.notna().any() and numeric.nunique(dropna=True) > 1:
+                    sep_parts.append(numeric.rename(c))
+                    continue
+
+                dummies = pd.get_dummies(
+                    df_aligned[c], prefix=c, drop_first=True, dtype=float
+                )
+                if dummies.shape[1] > 0:
+                    sep_parts.append(dummies)
+
+            if sep_parts:
+                X_sep = pd.concat(sep_parts, axis=1)
+                X_sep = X_sep.loc[:, X_sep.nunique(dropna=True) > 1].dropna()
                 y_sep = y.loc[X_sep.index]
-                if len(X_sep) > 0:
+                if len(X_sep) > 0 and X_sep.shape[1] > 0:
                     sep_result = detect_separation(X_sep.values, y_sep.values)
                     has_perfect_separation = sep_result.separation
                     if has_perfect_separation:

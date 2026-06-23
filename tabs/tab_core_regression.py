@@ -125,9 +125,15 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
 
     risky_vars: list[str] = []
     try:
-        y = pd.to_numeric(df[target_col], errors="coerce").dropna()
-        if y.nunique() < 2:
+        y_raw = df[target_col].dropna()
+        unique_values = sorted(y_raw.unique(), key=str)
+        if len(unique_values) != 2:
             return []
+
+        if set(unique_values).issubset({0, 1}):
+            y = y_raw.astype(int)
+        else:
+            y = y_raw.map({unique_values[0]: 0, unique_values[1]: 1}).astype(int)
 
         X = df.drop(columns=[target_col]).loc[y.index]
         X_num = pd.get_dummies(X, drop_first=True, dtype=float)

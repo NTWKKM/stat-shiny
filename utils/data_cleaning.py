@@ -300,7 +300,7 @@ def clean_numeric(
         # Try to convert to float
         result = float(s)
         if is_negative_parentheses:
-            result = -result
+            result = -abs(result)
 
         logger.debug("Cleaned numeric: %s -> %s", val, result)
         return result

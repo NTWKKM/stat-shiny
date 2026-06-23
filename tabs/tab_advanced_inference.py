@@ -431,6 +431,7 @@ def advanced_inference_server(
 
                 # Pool ACME and ADE using Rubin's rules
                 pooled = {"mi_pooled": True, "m": len(mi_dfs)}
+                failed_pool_keys = []
 
                 for key in ["acme", "ade", "total_effect", "proportion_mediated"]:
                     estimates = []
@@ -476,7 +477,22 @@ def advanced_inference_server(
                                 "fmi": p.fmi,
                             }
                         except Exception:
+                            failed_pool_keys.append(key)
                             logger.exception("MI pooling failed for key '%s'", key)
+
+                if failed_pool_keys:
+                    mediation_results.set(
+                        {
+                            "error": (
+                                "MI pooling failed for: "
+                                + ", ".join(failed_pool_keys)
+                                + ". Please review imputation/model stability."
+                            )
+                        }
+                    )
+                    ui.notification_remove("run_med")
+                    med_is_running.set(False)
+                    return
 
                 mediation_results.set(pooled)
                 ui.notification_remove("run_med")
