@@ -401,11 +401,13 @@ def advanced_inference_server(
                         )
                         if "error" not in res_i:
                             all_results.append(res_i)
-                    except Exception:
+                    except Exception as exc:
                         logger.warning(
-                            "MI mediation failed for imputed dataset %d/%d",
+                            "MI mediation failed for imputed dataset %d/%d: %s",
                             _mi_idx + 1,
                             len(mi_dfs),
+                            exc,
+                            exc_info=True,
                         )
 
                 if not all_results:

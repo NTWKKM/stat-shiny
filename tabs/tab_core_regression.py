@@ -141,8 +141,16 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
             
         if is_separated:
             risky_vars.append("Data Separation Detected (Konis LP)")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("detect_separation failed; using fallback heuristic: %s", e)
+        if "X" in locals() and "y" in locals():
+            for col in X.columns:
+                try:
+                    ct = pd.crosstab(X[col], y)
+                    if (ct == 0).any().any():
+                        risky_vars.append(col)
+                except (ValueError, TypeError):
+                    continue
 
     return risky_vars
 
