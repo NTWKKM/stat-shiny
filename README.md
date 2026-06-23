@@ -34,27 +34,84 @@ This content reflects the repository structure (updated by GitHub Actions):
 
 ```text
 |-- AI_CONTEXT.md
+|-- ARCHITECTURE.md
 |-- Dockerfile
+|-- __pycache__ /
+|   |-- app.cpython-312.pyc
+|   |-- app.cpython-314.pyc
+|   |-- config.cpython-311.pyc
+|   |-- config.cpython-312.pyc
+|   |-- config.cpython-314.pyc
+|   |-- logger.cpython-311.pyc
+|   |-- logger.cpython-312.pyc
+|   `-- logger.cpython-314.pyc
 |-- app.py
 |-- asgi.py
 |-- config.py
 |-- docker-compose.yml
 |-- docs /
-|   |-- ARCHITECTURE.md
+|   |-- .DS_Store
 |   `-- assets /
+|       |-- .DS_Store
 |       `-- navigation_sequence.png
 |-- logger.py
 |-- pyproject.toml
 |-- pytest.ini
+|-- python_results /
+|   |-- benchmark_firth_cox.csv
+|   |-- benchmark_firth_logistic.csv
+|   |-- dataset_breast.csv
+|   `-- dataset_sex2.csv
+|-- requirements-causal.txt
 |-- requirements-prod.txt
 |-- requirements.txt
 |-- static /
 |   |-- js /
 |   |   `-- custom_handlers.js
-|   `-- styles.css
+|   |-- styles.css
+|   `-- styles.min.css
 |-- tabs /
 |   |-- __init__.py
+|   |-- __pycache__ /
+|   |   |-- __init__.cpython-311.pyc
+|   |   |-- __init__.cpython-312.pyc
+|   |   |-- __init__.cpython-314.pyc
+|   |   |-- _common.cpython-311.pyc
+|   |   |-- _common.cpython-312.pyc
+|   |   |-- _common.cpython-314.pyc
+|   |   |-- _styling.cpython-312.pyc
+|   |   |-- _styling.cpython-314.pyc
+|   |   |-- _tvc_components.cpython-312.pyc
+|   |   |-- _tvc_components.cpython-314.pyc
+|   |   |-- tab_advanced_inference.cpython-312.pyc
+|   |   |-- tab_advanced_inference.cpython-314.pyc
+|   |   |-- tab_advanced_stats.cpython-312.pyc
+|   |   |-- tab_advanced_stats.cpython-314.pyc
+|   |   |-- tab_agreement.cpython-312.pyc
+|   |   |-- tab_agreement.cpython-314.pyc
+|   |   |-- tab_baseline_matching.cpython-312.pyc
+|   |   |-- tab_baseline_matching.cpython-314.pyc
+|   |   |-- tab_causal_inference.cpython-312.pyc
+|   |   |-- tab_causal_inference.cpython-314.pyc
+|   |   |-- tab_core_regression.cpython-312.pyc
+|   |   |-- tab_core_regression.cpython-314.pyc
+|   |   |-- tab_corr.cpython-312.pyc
+|   |   |-- tab_corr.cpython-314.pyc
+|   |   |-- tab_data.cpython-312.pyc
+|   |   |-- tab_data.cpython-314.pyc
+|   |   |-- tab_diag.cpython-311.pyc
+|   |   |-- tab_diag.cpython-312.pyc
+|   |   |-- tab_diag.cpython-314.pyc
+|   |   |-- tab_home.cpython-312.pyc
+|   |   |-- tab_home.cpython-314.pyc
+|   |   |-- tab_sample_size.cpython-312.pyc
+|   |   |-- tab_sample_size.cpython-314.pyc
+|   |   |-- tab_settings.cpython-312.pyc
+|   |   |-- tab_settings.cpython-314.pyc
+|   |   |-- tab_survival.cpython-312.pyc
+|   |   `-- tab_survival.cpython-314.pyc
 |   |-- _common.py
+|   |-- _dataset_mixin.py
 |   |-- _styling.py
 |   |-- _tvc_components.py
 |   |-- tab_advanced_inference.py
@@ -71,6 +128,31 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- tab_settings.py
 |   `-- tab_survival.py
 |-- tests /
+|   |-- __pycache__ /
+|   |   |-- conftest.cpython-311-pytest-9.0.2.pyc
+|   |   |-- conftest.cpython-312-pytest-9.0.2.pyc
+|   |   |-- conftest.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_bland_altman.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_bland_altman.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_color_palette.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_color_palette.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_corr_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_data_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_dca.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_dca.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_diag_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_diag_returns.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_diag_returns.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_glm.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_glm.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_plotly_html_rendering.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_plotly_html_rendering.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_poisson_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_repeated_measures.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_repeated_measures.cpython-314-pytest-9.0.2.pyc
+|   |   |-- test_sample_size.cpython-312-pytest-9.0.2.pyc
+|   |   |-- test_sample_size.cpython-314-pytest-9.0.2.pyc
+|   |   `-- test_survival_pipeline.cpython-314-pytest-9.0.2.pyc
 |   |-- benchmarks /
 |   |   |-- python_results /
 |   |   |   |-- benchmark_firth_cox.csv
@@ -81,10 +163,75 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |       `-- test_firth.R
 |   |-- conftest.py
 |   |-- e2e /
+|   |   |-- __pycache__ /
+|   |   |   |-- test_app_flow.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_app_flow.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_app_flow.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_load_example_data.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_load_example_data.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_load_example_data.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_smart_defaults.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_smart_defaults.cpython-312-pytest-9.0.2.pyc
+|   |   |   `-- test_smart_defaults.cpython-314-pytest-9.0.2.pyc
 |   |   |-- test_app_flow.py
 |   |   |-- test_load_example_data.py
 |   |   `-- test_smart_defaults.py
 |   |-- integration /
+|   |   |-- __pycache__ /
+|   |   |   |-- test_advanced_features.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_advanced_features.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_advanced_features.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_corr_cleaning.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_corr_cleaning.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_corr_cleaning.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_corr_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_corr_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_corr_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_data_cleaning_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_data_cleaning_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_data_cleaning_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_diag_cleaning.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_diag_cleaning.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_diag_cleaning.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_diag_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_diag_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_diag_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_firth_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_forest_plot_lib.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_forest_plot_lib.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_forest_plot_lib.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_interaction_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_interaction_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_interaction_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_logic_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_logic_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_logic_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_poisson_cleaning.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_poisson_cleaning.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_poisson_cleaning.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_poisson_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_poisson_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_poisson_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_psm_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_psm_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_psm_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_robustness_check.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_robustness_check.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_robustness_check.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_subgroup_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_subgroup_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_subgroup_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_cleaning.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_cleaning.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_cleaning.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_landmark.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_landmark.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   |-- test_survival_pipeline.cpython-314-pytest-9.0.2.pyc
+|   |   |   |-- test_table_one_pipeline.cpython-311-pytest-9.0.2.pyc
+|   |   |   |-- test_table_one_pipeline.cpython-312-pytest-9.0.2.pyc
+|   |   |   `-- test_table_one_pipeline.cpython-314-pytest-9.0.2.pyc
 |   |   |-- test_advanced_features.py
 |   |   |-- test_corr_cleaning.py
 |   |   |-- test_corr_pipeline.py
@@ -104,6 +251,129 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |   |-- test_survival_pipeline.py
 |   |   `-- test_table_one_pipeline.py
 |   `-- unit /
+|       |-- __pycache__ /
+|       |   |-- test_advanced_stats.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_advanced_stats.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_advanced_stats.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_bland_altman.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_bland_altman.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_bland_altman.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_causal.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_causal.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_causal.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_chi_html.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_chi_html.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_collinearity.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_collinearity.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_collinearity.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_color_palette.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_color_palette.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_color_palette.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_correlation_returns.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_correlation_returns.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning_advanced.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning_advanced.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning_workflow.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning_workflow.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_data_cleaning_workflow.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_data_quality.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_data_quality.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_data_quality_report.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_data_quality_report.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_dca.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_dca.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_dca.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_diag_returns.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_diag_returns.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_diag_returns.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_diagnostic_advanced.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_diagnostic_advanced.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_download_helpers.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_download_helpers.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_effect_sizes.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_effect_sizes.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_firth_regression.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_firth_regression.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_formatting.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_formatting.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_formatting.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_formatting_styles.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_formatting_styles.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_glm.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_glm.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_glm.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_heterogeneity.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_heterogeneity.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_heterogeneity.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_linear_lib.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_linear_lib.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_linear_lib.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_mediation.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_mediation.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_mediation.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_mi_reporting.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_mi_reporting.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_missing_data.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_missing_data.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_missing_data.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_model_diagnostics.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_model_diagnostics.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_model_diagnostics.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_model_diagnostics_plots.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_model_diagnostics_plots.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_model_diagnostics_plots.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_modular_causal.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_modular_regression.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_modular_survival.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_multiple_imputation.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_multiple_imputation.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_pdf_helpers.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_pdf_helpers.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_phase3_features.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_phase3_features.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_plotly_html_rendering.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_plotly_html_rendering.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_plotly_html_rendering.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_poisson_lib.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_poisson_lib.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_poisson_lib.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_regression_publication.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_regression_publication.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_repeated_measures.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_repeated_measures.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_repeated_measures.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_reporting_checklists.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_reporting_checklists.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_sample_size.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_sample_size.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_sample_size.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_sensitivity.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_sensitivity.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_sensitivity.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_sensitivity_fixes.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_sensitivity_fixes.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_statistical_assumptions.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_statistical_assumptions.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_statistics.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_statistics.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_statistics.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_subgroup_analysis.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_survival_assumptions.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_survival_assumptions.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_survival_lib_patch.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_survival_lib_patch.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_tab_diag_html_logic.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_tab_diag_html_logic.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_tvc_lib.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_tvc_lib.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_tvc_lib.cpython-314-pytest-9.0.2.pyc
+|       |   |-- test_ui_ux_styles.cpython-311-pytest-9.0.2.pyc
+|       |   |-- test_ui_ux_styles.cpython-312-pytest-9.0.2.pyc
+|       |   |-- test_ui_ux_styles.cpython-314-pytest-9.0.2.pyc
+|       |   `-- verify_table_one.cpython-312-pytest-9.0.2.pyc
 |       |-- output /
 |       |   `-- test_output_2.html
 |       |-- test_advanced_stats.py
@@ -130,11 +400,13 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_heterogeneity.py
 |       |-- test_linear_lib.py
 |       |-- test_mediation.py
+|       |-- test_medical_edge_cases.py
 |       |-- test_mi_reporting.py
 |       |-- test_missing_data.py
 |       |-- test_model_diagnostics.py
 |       |-- test_model_diagnostics_plots.py
 |       |-- test_multiple_imputation.py
+|       |-- test_pdf_helpers.py
 |       |-- test_phase3_features.py
 |       |-- test_plotly_html_rendering.py
 |       |-- test_poisson_lib.py
@@ -153,7 +425,95 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_ui_ux_styles.py
 |       `-- verify_table_one.py
 `-- utils /
+    |-- .DS_Store
     |-- __init__.py
+    |-- __pycache__ /
+    |   |-- __init__.cpython-311.pyc
+    |   |-- __init__.cpython-312.pyc
+    |   |-- __init__.cpython-314.pyc
+    |   |-- advanced_stats_lib.cpython-312.pyc
+    |   |-- advanced_stats_lib.cpython-314.pyc
+    |   |-- agreement_lib.cpython-312.pyc
+    |   |-- causal_engine.cpython-312.pyc
+    |   |-- causal_output.cpython-312.pyc
+    |   |-- collinearity_lib.cpython-312.pyc
+    |   |-- collinearity_lib.cpython-314.pyc
+    |   |-- correlation.cpython-312.pyc
+    |   |-- correlation.cpython-314.pyc
+    |   |-- data_cleaning.cpython-312.pyc
+    |   |-- data_cleaning.cpython-314.pyc
+    |   |-- data_quality.cpython-312.pyc
+    |   |-- decision_curve_lib.cpython-312.pyc
+    |   |-- decision_curve_lib.cpython-314.pyc
+    |   |-- diag_test.cpython-311-pytest-9.0.2.pyc
+    |   |-- diag_test.cpython-312-pytest-9.0.2.pyc
+    |   |-- diag_test.cpython-312.pyc
+    |   |-- diag_test.cpython-314-pytest-9.0.2.pyc
+    |   |-- diag_test.cpython-314.pyc
+    |   |-- diagnostic_advanced_lib.cpython-312.pyc
+    |   |-- download_helpers.cpython-311.pyc
+    |   |-- download_helpers.cpython-312.pyc
+    |   |-- effect_sizes.cpython-312.pyc
+    |   |-- forest_plot_lib.cpython-312.pyc
+    |   |-- forest_plot_lib.cpython-314.pyc
+    |   |-- formatting.cpython-311.pyc
+    |   |-- formatting.cpython-312.pyc
+    |   |-- formatting.cpython-314.pyc
+    |   |-- heterogeneity_lib.cpython-311.pyc
+    |   |-- heterogeneity_lib.cpython-312.pyc
+    |   |-- heterogeneity_lib.cpython-314.pyc
+    |   |-- interaction_lib.cpython-312.pyc
+    |   |-- interaction_lib.cpython-314.pyc
+    |   |-- linear_lib.cpython-312.pyc
+    |   |-- linear_lib.cpython-314.pyc
+    |   |-- logic.cpython-311.pyc
+    |   |-- logic.cpython-312.pyc
+    |   |-- logic.cpython-314.pyc
+    |   |-- mediation_lib.cpython-312.pyc
+    |   |-- mediation_lib.cpython-314.pyc
+    |   |-- model_diagnostics_lib.cpython-312.pyc
+    |   |-- model_diagnostics_lib.cpython-314.pyc
+    |   |-- multiple_imputation.cpython-312.pyc
+    |   |-- pdf_helpers.cpython-311.pyc
+    |   |-- pdf_helpers.cpython-312.pyc
+    |   |-- plotly_html_renderer.cpython-311.pyc
+    |   |-- plotly_html_renderer.cpython-312.pyc
+    |   |-- plotly_html_renderer.cpython-314.pyc
+    |   |-- poisson_lib.cpython-312.pyc
+    |   |-- poisson_lib.cpython-314.pyc
+    |   |-- psm_lib.cpython-312.pyc
+    |   |-- psm_lib.cpython-314.pyc
+    |   |-- rcs_lib.cpython-312.pyc
+    |   |-- regression_engine.cpython-312.pyc
+    |   |-- regression_output.cpython-312.pyc
+    |   |-- regression_validation.cpython-312.pyc
+    |   |-- repeated_measures_lib.cpython-312.pyc
+    |   |-- repeated_measures_lib.cpython-314.pyc
+    |   |-- reporting_checklists.cpython-311.pyc
+    |   |-- reporting_checklists.cpython-312.pyc
+    |   |-- sample_size_lib.cpython-311.pyc
+    |   |-- sample_size_lib.cpython-312.pyc
+    |   |-- sample_size_lib.cpython-314.pyc
+    |   |-- sensitivity_lib.cpython-311.pyc
+    |   |-- sensitivity_lib.cpython-312.pyc
+    |   |-- sensitivity_lib.cpython-314.pyc
+    |   |-- statistical_assumptions.cpython-312.pyc
+    |   |-- stratified_lib.cpython-312.pyc
+    |   |-- stratified_lib.cpython-314.pyc
+    |   |-- subgroup_analysis_module.cpython-312.pyc
+    |   |-- subgroup_analysis_module.cpython-314.pyc
+    |   |-- survival_engine.cpython-312.pyc
+    |   |-- survival_lib.cpython-312.pyc
+    |   |-- survival_lib.cpython-314.pyc
+    |   |-- survival_output.cpython-312.pyc
+    |   |-- table_one.cpython-312.pyc
+    |   |-- table_one.cpython-314.pyc
+    |   |-- table_one_advanced.cpython-312.pyc
+    |   |-- tvc_lib.cpython-312.pyc
+    |   |-- tvc_lib.cpython-314.pyc
+    |   |-- ui_helpers.cpython-312.pyc
+    |   |-- ui_helpers.cpython-314.pyc
+    |   `-- visualizations.cpython-312.pyc
     |-- advanced_stats_lib.py
     |-- agreement_lib.py
     |-- calibration_lib.py
@@ -173,8 +533,10 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- linear_lib.py
     |-- logic.py
     |-- mediation_lib.py
+    |-- mi_helpers.py
     |-- model_diagnostics_lib.py
     |-- multiple_imputation.py
+    |-- pdf_helpers.py
     |-- plotly_html_renderer.py
     |-- poisson_lib.py
     |-- psm_lib.py
@@ -194,6 +556,7 @@ This content reflects the repository structure (updated by GitHub Actions):
     |-- update_css.py
     `-- visualizations.py
 ```
+
 
 [--- REPOSITORY-TREE-END ---]
 
