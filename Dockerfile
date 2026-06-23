@@ -58,6 +58,10 @@ WORKDIR /app
 # Copy installed dependencies from builder stage FIRST so playoffs binary is available
 COPY --from=builder /build/deps /app/deps
 
+# Create non-root user for security FIRST so we can set ownership later
+RUN id -u appuser &>/dev/null || useradd -m -u 1000 appuser && \
+  chown -R appuser:appuser /app
+
 # -----------------------------------------------------------------------------
 # SECURITY FIXES (Runtime) & BROWSER INSTALL
 # -----------------------------------------------------------------------------
@@ -67,15 +71,11 @@ COPY --from=builder /build/deps /app/deps
 RUN apt-get update && \
   apt-get upgrade -y && \
   pip install --no-cache-dir --upgrade "pip>=25.3" && \
-  python -m playwright install --with-deps chromium && \
+  PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright python -m playwright install --with-deps chromium && \
   chown -R appuser:appuser /home/appuser/.cache && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # -----------------------------------------------------------------------------
-
-# Create non-root user for security
-RUN id -u appuser &>/dev/null || useradd -m -u 1000 appuser && \
-  chown -R appuser:appuser /app
 
 # Copy application code (respecting .dockerignore)
 COPY --chown=appuser:appuser . .
