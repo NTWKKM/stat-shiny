@@ -12,6 +12,7 @@ __pycache__/
 # Test Logs
 pytest_output.txt
 test_output.txt
+import_profile.log
 
 # Docs
 docs/*
