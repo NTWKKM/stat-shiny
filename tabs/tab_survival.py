@@ -66,6 +66,9 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from tabs._dataset_mixin import register_dataset_selector
+from utils import formatting
+from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 
 logger = get_logger(__name__)
 COLORS = get_color_palette()
@@ -275,6 +278,21 @@ def survival_ui() -> ui.TagChild:
                                     "firth": "Firth (for rare events / small samples)",
                                 },
                                 selected="auto",
+                            ),
+                            ui.panel_conditional(
+                                "input.cox_method === 'firth'",
+                                ui.input_slider(
+                                    "cox_firth_penalty_weight",
+                                    "Firth Penalty Weight:",
+                                    min=0.0,
+                                    max=2.0,
+                                    value=1.0,
+                                    step=0.1,
+                                ),
+                                ui.tags.small(
+                                    "1.0 = Standard Firth | 0 = Unpenalized MLE | >1 = Stronger bias-reduction",
+                                    class_="text-muted",
+                                ),
                             ),
                             create_tooltip_label(
                                 "Select Covariates (Predictors)",
@@ -718,34 +736,27 @@ def survival_server(
     rcs_is_running = reactive.Value(False)
 
     # ==================== MI HELPER FUNCTIONS ====================
-    def has_mi_datasets() -> bool:
-        """Check if Multiple Imputation datasets are available."""
-        if mi_imputed_datasets is None:
-            return False
-        datasets = mi_imputed_datasets.get()
-        return isinstance(datasets, list) and len(datasets) > 0
-
-    def get_mi_datasets() -> list[pd.DataFrame]:
-        """Retrieve list of MI imputed datasets."""
-        if mi_imputed_datasets is None:
-            return []
-        return mi_imputed_datasets.get() or []
+    _has_mi_datasets = lambda: has_mi_datasets(mi_imputed_datasets)  # noqa: E731
+    _get_mi_datasets = lambda: get_mi_datasets(mi_imputed_datasets)  # noqa: E731
 
     # ==================== DATASET SELECTION LOGIC ====================
-    @reactive.Calc
-    def current_df() -> pd.DataFrame | None:
-        """Select between original and matched dataset based on user preference."""
-        if is_matched.get() and input.radio_survival_source() == "matched":
-            return df_matched.get()
-        return df.get()
+    current_df = register_dataset_selector(
+        input=input,
+        output=output,
+        df=df,
+        df_matched=df_matched,
+        is_matched=is_matched,
+        radio_input_id="radio_survival_source",
+        title=None, # We use a custom title below
+    )
 
     @render.ui
     def ui_title_with_summary():
         """Display title with dataset summary and MI status."""
         d = current_df()
         mi_badge = ""
-        if has_mi_datasets():
-            mi_count = len(get_mi_datasets())
+        if _has_mi_datasets():
+            mi_count = len(_get_mi_datasets())
             mi_badge = (
                 f' <span class="badge bg-info">🔄 MI Active (m={mi_count})</span>'
             )
@@ -759,37 +770,7 @@ def survival_server(
             )
         return ui.HTML(f"<h3>⛳ Survival Analysis{mi_badge}</h3>")
 
-    @render.ui
-    def ui_matched_info():
-        """Display matched dataset availability info."""
-        if is_matched.get():
-            return ui.div(
-                ui.tags.div(
-                    "✅ **Matched Dataset Available** - You can select it below for analysis",
-                    class_="alert alert-info",
-                )
-            )
-        return None
 
-    @render.ui
-    def ui_dataset_selector():
-        """Render dataset selector radio buttons."""
-        if is_matched.get():
-            original = df.get()
-            matched = df_matched.get()
-            original_len = len(original) if original is not None else 0
-            matched_len = len(matched) if matched is not None else 0
-            return ui.input_radio_buttons(
-                "radio_survival_source",
-                "📊 Select Dataset:",
-                {
-                    "original": f"📊 Original Data ({original_len:,} rows)",
-                    "matched": f"✅ Matched Data ({matched_len:,} rows)",
-                },
-                selected="matched",
-                inline=True,
-            )
-        return None
 
     # ==================== LABEL MAPPING LOGIC ====================
     @reactive.Calc
@@ -836,8 +817,12 @@ def survival_server(
                 max_t = data[default_time].max()
                 if pd.notna(max_t):
                     max_time_val = int(np.ceil(max_t))
-            except Exception:
-                pass
+            except (ValueError, TypeError):
+                logger.debug(
+                    "Could not compute max time from column '%s'; using default %d",
+                    default_time,
+                    max_time_val,
+                )
 
         # 2. Detect Event Variable
         default_event = select_variable_by_keyword(
@@ -1542,10 +1527,11 @@ def survival_server(
             cox_is_running.set(True)
             cox_result.set(None)
             cox_method = input.cox_method()
+            penalty_weight = float(input.cox_firth_penalty_weight()) if cox_method == "firth" else 1.0
 
-            # Check for MI datasets
-            mi_active = has_mi_datasets()
-            mi_dfs = get_mi_datasets() if mi_active else []
+            # Check MI availability
+            mi_active = _has_mi_datasets()
+            mi_dfs = _get_mi_datasets() if mi_active else []
 
             if mi_active and len(mi_dfs) > 0:
                 # ====== MI POOLED COX ANALYSIS ======
@@ -1574,6 +1560,7 @@ def survival_server(
                         list(covars),
                         var_meta=var_meta.get(),
                         method=cox_method,
+                        penalty_weight=penalty_weight,
                     )
                     if not err_i and res_df_i is not None:
                         all_results.append(res_df_i)
@@ -1672,6 +1659,7 @@ def survival_server(
                         list(covars),
                         var_meta=var_meta.get(),
                         method=cox_method,
+                        penalty_weight=penalty_weight,
                     )
                 )
 

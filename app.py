@@ -85,9 +85,9 @@ app_ui = ui.page_fluid(
             rel="stylesheet",
         ),
         # ✅ Preload CSS for faster loading
-        ui.tags.link(rel="preload", href="static/styles.css", as_="style"),
+        ui.tags.link(rel="preload", href="static/styles.min.css", as_="style"),
         # ✅ Link to external CSS file
-        ui.tags.link(rel="stylesheet", href="static/styles.css"),
+        ui.tags.link(rel="stylesheet", href="static/styles.min.css"),
         # ✅ Custom JS Handlers
         ui.tags.script(src="static/js/custom_handlers.js"),
         ui.tags.style(".navbar-brand { font-size: 1.5rem !important; }"),
