@@ -59,7 +59,7 @@ WORKDIR /app
 COPY --from=builder /build/deps /app/deps
 
 # Create non-root user for security FIRST so we can set ownership later
-RUN id -u appuser &>/dev/null || useradd -m -u 1000 appuser && \
+RUN (id -u appuser >/dev/null 2>&1 || useradd -m -u 1000 appuser) && \
   chown -R appuser:appuser /app
 
 # -----------------------------------------------------------------------------
