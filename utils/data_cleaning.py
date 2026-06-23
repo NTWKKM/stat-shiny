@@ -279,8 +279,12 @@ def clean_numeric(
         if remove_whitespace:
             s = s.strip()
 
+        is_negative_parentheses = False
         # Handle special characters if enabled
         if handle_special_chars:
+            if s.startswith("(") and s.endswith(")"):
+                is_negative_parentheses = True
+                
             # Remove common comparison operators
             s = s.replace(">", "").replace("<", "")
             # Remove comma separators
@@ -295,6 +299,8 @@ def clean_numeric(
 
         # Try to convert to float
         result = float(s)
+        if is_negative_parentheses:
+            result = -result
 
         logger.debug("Cleaned numeric: %s -> %s", val, result)
         return result

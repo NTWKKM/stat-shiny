@@ -287,10 +287,13 @@ def _robust_sort_key(x: Any) -> tuple[int, float | str]:
         return (1, str(x))
 
 
+DEFAULT_FIRTH_PENALTY_WEIGHT = 1.0
+
+
 def fit_firth_logistic(
     y: pd.Series,
     X_const: pd.DataFrame,
-    penalty_weight: float = 0.5,
+    penalty_weight: float = DEFAULT_FIRTH_PENALTY_WEIGHT,
 ) -> tuple[
     pd.Series | None, pd.DataFrame | None, pd.Series | None, FitStatus, StatsMetrics
 ]:
@@ -450,7 +453,7 @@ def run_binary_logit(
     X: pd.DataFrame,
     method: MethodType = "default",
     ci_method: str = "wald",
-    penalty_weight: float = 1.0,
+    penalty_weight: float = DEFAULT_FIRTH_PENALTY_WEIGHT,
 ) -> tuple[
     pd.Series | None,
     pd.DataFrame | None,
@@ -604,7 +607,7 @@ def analyze_outcome(
     method: MethodType = "auto",
     interaction_pairs: list[tuple[str, str | None]] = None,
     adv_stats: dict[str, Any] | None = None,
-    penalty_weight: float = 1.0,
+    penalty_weight: float = DEFAULT_FIRTH_PENALTY_WEIGHT,
 ) -> tuple[
     str, dict[str, ORResult], dict[str, AORResult], dict[str, InteractionResult]
 ]:

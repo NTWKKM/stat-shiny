@@ -56,7 +56,7 @@ class TestMedicalLabValues:
 
     def test_parenthetical_negatives(self):
         """Accounting-style negative numbers in billing data."""
-        assert clean_numeric("(100)") == 100.0
+        assert clean_numeric("(100)") == -100.0
 
     def test_vector_mixed_lab_values(self):
         """Vector of typical lab report values."""
