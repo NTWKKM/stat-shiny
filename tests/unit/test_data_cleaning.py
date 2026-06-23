@@ -47,7 +47,7 @@ class TestNumericCleaning:
         assert np.isnan(clean_numeric("abc"))
         assert clean_numeric("$500") == 500.0
         assert clean_numeric("10%") == 10.0
-        assert clean_numeric("(100)") == 100.0
+        assert clean_numeric("(100)") == -100.0
 
     def test_clean_numeric_vector(self):
         """Test clean_numeric_vector with series input."""
