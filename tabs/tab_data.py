@@ -1580,7 +1580,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             return ui.div(
                 ui.p(
                     "Select a variable to view missing data configuration.",
-                    style=f"color: {COLORS['text_secondary']}; font-size: 0.85em;",
+                    class_="text-muted-sm",
                 ),
             )
 
@@ -1588,14 +1588,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         if not meta or var_name not in meta:
             return ui.p(
                 "No config yet",
-                style=f"color: {COLORS['text_secondary']}; font-size: 0.85em;",
+                class_="text-muted-sm",
             )
 
         missing_vals = meta[var_name].get("missing_values", [])
         if not missing_vals:
             return ui.p(
                 "No missing codes configured",
-                style=f"color: {COLORS['text_secondary']}; font-size: 0.85em;",
+                class_="text-muted-sm",
             )
 
         codes_str = ", ".join(str(v) for v in missing_vals)
@@ -1733,7 +1733,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             ),
             ui.div(
                 f"📦 Memory: {mem_usage:.2f} MB",
-                style=f"font-size: 0.9em; color: {COLORS['text_secondary']};",
+                class_="text-muted-sm",
             ),
             ui.div(
                 f"📄 {info.get('name', 'Unknown')}" if info else "",

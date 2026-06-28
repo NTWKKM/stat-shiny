@@ -203,7 +203,7 @@ def survival_ui() -> ui.TagChild:
                             2. Patients who died/censored *before* t are **excluded**.
                             3. Analysis is performed only on patients who survived to time t, resetting their "start" time to t.
                             """),
-                        style=f"padding: 15px; margin-bottom: 20px; background-color: {COLORS['info']}10; border-left: 4px solid {COLORS['info']}; border-radius: 4px;",
+                        class_="info-callout",
                     ),
                     ui.layout_columns(
                         create_input_group(
@@ -1232,7 +1232,7 @@ def survival_server(
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig"],
@@ -1424,7 +1424,7 @@ def survival_server(
                 ui.markdown(
                     f"**Total N:** {res['n_pre']} | **Included (Survived > {res['t']}):** {res['n_post']}"
                 ),
-                style=f"padding: 10px; border-radius: 5px; background-color: {COLORS['info']}15; margin-bottom: 15px; border-left: 4px solid {COLORS['info']};",
+                class_="info-callout",
             ),
             ui.output_ui("out_landmark_plot"),
             ui.output_ui("out_landmark_table"),
@@ -1449,7 +1449,7 @@ def survival_server(
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig"],
@@ -1738,7 +1738,7 @@ def survival_server(
                     ui.strong("Events: "),
                     f"{s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}",
                 ),
-                style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
+                style="display: flex; gap: 20px; padding: 10px; margin-bottom: 10px;",
             )
 
         elements = [
@@ -1845,7 +1845,7 @@ def survival_server(
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["forest_fig"],
@@ -1865,7 +1865,7 @@ def survival_server(
         elements = [
             ui.div(
                 ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}"),
-                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};",
+                class_="info-callout",
             )
         ]
 
@@ -2043,7 +2043,7 @@ def survival_server(
                             ui.markdown(
                                 f"**Test for Interaction:** P-value = {p_text} {sig_text}"
                             ),
-                            style=f"padding: 10px; margin-bottom: 15px; border-radius: 5px; background-color: {color}15; border-left: 4px solid {color};",
+                            class_="info-callout",
                         )
                     )
 
@@ -2069,13 +2069,13 @@ def survival_server(
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         fig = res.get("forest_plot")
         if fig is None:
             return ui.div(
                 ui.markdown("⏳ *No forest plot available...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             fig, div_id="plot_subgroup_forest", include_plotlyjs="cdn", responsive=True
@@ -2695,7 +2695,7 @@ def survival_server(
                     ui.strong("Events: "),
                     f"{s.get('N Events', '-')}/{s.get('N Observations', '-')}",
                 ),
-                style="display: flex; gap: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;",
+                style="display: flex; gap: 20px; padding: 10px; margin-bottom: 10px;",
             )
 
         elements = [
@@ -2733,7 +2733,7 @@ def survival_server(
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for TVC results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["forest_fig"],
@@ -2753,7 +2753,7 @@ def survival_server(
         elements = [
             ui.div(
                 ui.markdown(f"**Interpretation:**\n\n{res['assumptions_text']}"),
-                style=f"padding: 15px; border-radius: 5px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};",
+                class_="info-callout",
             )
         ]
 

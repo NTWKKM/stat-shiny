@@ -91,15 +91,15 @@ def get_badge_html(text: str, level: str = "info") -> str:
     safe_text = _html.escape(str(text))
 
     colors = {
-        "success": {"bg": "#d4edda", "color": "#155724", "border": "#c3e6cb"},
-        "warning": {"bg": "#fff3cd", "color": "#856404", "border": "#ffeeba"},
-        "danger": {"bg": "#f8d7da", "color": "#721c24", "border": "#f5c6cb"},
-        "info": {"bg": "#d1ecf1", "color": "#0c5460", "border": "#bee5eb"},
-        "neutral": {"bg": "#e2e3e5", "color": "#383d41", "border": "#d6d8db"},
+        "success": {"bg": "#ECFDF5", "color": "#065F46", "border": "#A7F3D0"},
+        "warning": {"bg": "#FFFBEB", "color": "#78350F", "border": "#FDE68A"},
+        "danger": {"bg": "#FEF2F2", "color": "#991B1B", "border": "#FECACA"},
+        "info": {"bg": "#F8FAFC", "color": "#334155", "border": "#CBD5E1"},
+        "neutral": {"bg": "#F1F5F9", "color": "#475569", "border": "#CBD5E1"},
     }
     c = colors.get(level, colors["neutral"])
     style = (
-        f"padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85em; "
+        f"padding: 2px 6px; border-radius: 4px; font-weight: 500; font-size: 0.85em; "
         f"display: inline-block; background-color: {c['bg']}; color: {c['color']}; "
         f"border: 1px solid {c['border']};"
     )
@@ -145,7 +145,7 @@ def create_missing_data_report_html(missing_data_info: dict, var_meta: dict) -> 
     html += (
         "  <div>Included: <b>"
         f"{rows_analyzed:,}</b> ({pct_included:.1f}%) | Excluded: "
-        "<span style='color: #dc3545;'><b>"
+        "<span style='color: #DC2626;'><b>"
         f"{rows_excluded:,}</b> ({pct_excluded:.1f}%)</span></div>"
     )
     html += "</div>"

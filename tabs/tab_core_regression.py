@@ -1859,16 +1859,16 @@ def core_regression_server(
             # Append Adjusted Plot if available
             if fig_adj:
                 plot_html = plotly_figure_to_html(fig_adj, include_plotlyjs="cdn")
-                logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+                logit_fragment_html += f"<div class='forest-plot-section' ><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
 
             # Append Crude Plot if available
             if fig_crude:
                 plot_html = plotly_figure_to_html(fig_crude, include_plotlyjs="cdn")
-                logit_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+                logit_fragment_html += f"<div class='forest-plot-section' ><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Append Assumptions Checklist
             logit_fragment_html += """
-            <div class='assumptions-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'>
+            <div class='assumptions-section' >
                 <h3>✅ Model Assumptions Checklist</h3>
                 <ol>
                     <li><strong>Multicollinearity:</strong> Check standard errors. Large SEs indicate high correlation (VIF > 5-10).</li>
@@ -2038,7 +2038,7 @@ def core_regression_server(
         if res:
             return ui.div(
                 ui.h5("✅ Regression Complete"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']};",
+                class_="info-callout",
             )
         return None
 
@@ -2088,7 +2088,7 @@ def core_regression_server(
         if res is None or not res.get("fig_adj"):
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig_adj"],
@@ -2110,7 +2110,7 @@ def core_regression_server(
         if res is None or not res.get("fig_crude"):
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig_crude"],
@@ -2131,7 +2131,7 @@ def core_regression_server(
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Run analysis to see model diagnostics...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
 
         # Check if we have prediction data
@@ -2224,7 +2224,7 @@ def core_regression_server(
         if res is None or d is None or not target:
             return ui.div(
                 ui.markdown("⏳ *Run analysis to see absolute risk measures...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
 
         # Get binary predictors from the data
@@ -2352,7 +2352,7 @@ def core_regression_server(
         if res is None or "error" in res:
             return ui.div(
                 ui.markdown("⏳ *Run analysis to see sensitivity analysis...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
 
         # Get adjusted OR results
@@ -2499,7 +2499,7 @@ def core_regression_server(
         if res is None or "error" in res:
             return ui.div(
                 ui.markdown("⏳ *Run analysis to see STROBE checklist...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
 
         try:
@@ -2735,10 +2735,10 @@ def core_regression_server(
             plot_html = ""
             if fig_adj:
                 plot_html = fig_adj.to_html(full_html=False, include_plotlyjs="cdn")
-                poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+                poisson_fragment_html += f"<div class='forest-plot-section' ><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
             elif fig_crude:
                 plot_html = fig_crude.to_html(full_html=False, include_plotlyjs="cdn")
-                poisson_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+                poisson_fragment_html += f"<div class='forest-plot-section' ><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Wrap in standard HTML structure for standalone download correctness
             wrapped_html = f"""
@@ -2780,7 +2780,7 @@ def core_regression_server(
         if res:
             return ui.div(
                 ui.h5("✅ Poisson Regression Complete"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                class_="info-callout",
             )
         return None
 
@@ -2848,7 +2848,7 @@ def core_regression_server(
         if not res:
             return ui.div(
                 "Run analysis to see forest plots.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                class_="muted-placeholder",
             )
 
         tabs = []
@@ -2877,7 +2877,7 @@ def core_regression_server(
         if res is None or not res.get("fig_adj"):
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig_adj"],
@@ -2899,7 +2899,7 @@ def core_regression_server(
         if res is None or not res.get("fig_crude"):
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig_crude"],
@@ -3034,10 +3034,10 @@ def core_regression_server(
             plot_html = ""
             if fig_adj:
                 plot_html = fig_adj.to_html(full_html=False, include_plotlyjs="cdn")
-                nb_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
+                nb_fragment_html += f"<div class='forest-plot-section' ><h3>🌲 Adjusted Forest Plot</h3>{plot_html}</div>"
             elif fig_crude:
                 plot_html = fig_crude.to_html(full_html=False, include_plotlyjs="cdn")
-                nb_fragment_html += f"<div class='forest-plot-section' style='margin-top: 30px; padding: 10px; border-top: 2px solid #eee;'><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
+                nb_fragment_html += f"<div class='forest-plot-section' ><h3>🌲 Crude Forest Plot</h3>{plot_html}</div>"
 
             # Wrap in standard HTML structure for standalone download correctness
             wrapped_html = f"""
@@ -3079,7 +3079,7 @@ def core_regression_server(
         if res:
             return ui.div(
                 ui.h5("✅ Negative Binomial Regression Complete"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                class_="info-callout",
             )
         return None
 
@@ -3137,7 +3137,7 @@ def core_regression_server(
         if not res:
             return ui.div(
                 "Run analysis to see forest plots.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                class_="muted-placeholder",
             )
 
         tabs = []
@@ -3156,7 +3156,7 @@ def core_regression_server(
         if res is None or not res.get("fig_adj"):
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig_adj"],
@@ -3172,7 +3172,7 @@ def core_regression_server(
         if res is None or not res.get("fig_crude"):
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             res["fig_crude"],
@@ -3476,7 +3476,7 @@ def core_regression_server(
                                 ui.h5(
                                     f"✅ Linear Regression Complete ({r2_text}, n = {n_obs:,})"
                                 ),
-                                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                                class_="info-callout",
                             ),
                             ui.output_ui("out_linear_html_report"),
                         ),
@@ -3554,7 +3554,7 @@ def core_regression_server(
             ui.card_header("📋 Linear Regression Report"),
             ui.div(
                 "Run analysis to see detailed report.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                class_="muted-placeholder",
             ),
         )
 
@@ -3565,7 +3565,7 @@ def core_regression_server(
         if not res or not res.get("plots"):
             return ui.div(
                 "Run analysis to see diagnostic plots.",
-                style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                class_="muted-placeholder",
             )
 
         plots = res["plots"]
@@ -3638,7 +3638,7 @@ def core_regression_server(
                 ui.card_header("🔍 Variable Selection"),
                 ui.div(
                     "Enable stepwise selection in Advanced Options to use this feature.",
-                    style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                    class_="muted-placeholder",
                 ),
             )
 
@@ -3654,7 +3654,7 @@ def core_regression_server(
                 ui.card_header("🔍 Variable Selection"),
                 ui.div(
                     "Load data and select outcome to run stepwise selection.",
-                    style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                    class_="muted-placeholder",
                 ),
             )
 
@@ -3670,7 +3670,7 @@ def core_regression_server(
                 ui.card_header("🔍 Variable Selection"),
                 ui.div(
                     "Need at least 2 candidate variables for stepwise selection.",
-                    style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                    class_="muted-placeholder",
                 ),
             )
 
@@ -3736,7 +3736,7 @@ def core_regression_server(
                 ui.card_header("🎲 Bootstrap Confidence Intervals"),
                 ui.div(
                     "Enable Bootstrap CIs in Advanced Options to use this feature.",
-                    style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                    class_="muted-placeholder",
                 ),
             )
 
@@ -3752,7 +3752,7 @@ def core_regression_server(
                 ui.card_header("🎲 Bootstrap Confidence Intervals"),
                 ui.div(
                     "Load data and select outcome to compute bootstrap CIs.",
-                    style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+                    class_="muted-placeholder",
                 ),
             )
 
@@ -3890,7 +3890,7 @@ def core_regression_server(
         if res:
             return ui.div(
                 ui.h5("✅ Subgroup Analysis Complete"),
-                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                class_="info-callout",
             )
         return None
 
@@ -3908,7 +3908,7 @@ def core_regression_server(
         if analyzer is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         # Use txt_edit_forest_title if provided, fallback to sg_title
         title = input.txt_edit_forest_title() or input.sg_title() or None
@@ -3918,12 +3918,12 @@ def core_regression_server(
             logger.warning("Forest plot creation failed: %s", e)
             return ui.div(
                 ui.markdown("⚠️ *Run analysis first to generate forest plot.*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         if fig is None:
             return ui.div(
                 ui.markdown("⏳ *No forest plot available...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             fig, div_id="plot_logit_subgroup", include_plotlyjs="cdn", responsive=True
@@ -4357,7 +4357,7 @@ def core_regression_server(
                                     ui.h5(
                                         f"✅ {res['model_type'].upper()} Analysis Complete"
                                     ),
-                                    style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                                    class_="info-callout",
                                 ),
                                 ui.output_data_frame("out_rep_results"),
                             ),
@@ -4397,7 +4397,7 @@ def core_regression_server(
             return ui.HTML(plotly_figure_to_html(res["plot"], include_plotlyjs="cdn"))
         return ui.div(
             "Run analysis to see trajectory plot.",
-            style="color: gray; font-style: italic; padding: 20px; text-align: center;",
+            class_="muted-placeholder",
         )
 
     # --- GLM Logic (Tab 2.5) ---
@@ -4430,7 +4430,7 @@ def core_regression_server(
                                 ui.h5(
                                     f"✅ Analysis Complete (AIC: {metrics.get('aic', 'N/A'):.2f}, Deviance: {metrics.get('deviance', 'N/A'):.2f})"
                                 ),
-                                style=f"background-color: {COLORS['primary_light']}; padding: 15px; border-radius: 5px; border: 1px solid {COLORS['primary']}; margin-bottom: 15px;",
+                                class_="info-callout",
                             ),
                             ui.HTML(res["html_report"]),
                         ),
