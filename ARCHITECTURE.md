@@ -287,7 +287,15 @@ sequenceDiagram
 
 ## 🎨 UI Styling System
 
-The application uses a centralized styling system to ensure visual consistency across all modules.
+The application uses a centralized, minimal slate-monochrome styling system to ensure clean, publication-grade aesthetics.
+
+### Styling Architecture
+
+- **Slate-Monochrome Theme**: Updated from Navy Blue to a slate-monochrome design (Slate 900 primary `#0F172A`, Slate 50 primary-light `#F8FAFC`, Emerald 600 success `#059669`, Red 600 danger `#DC2626`, Amber 600 warning `#D97706`).
+- **Minimal Navigation**: Active page tabs use an elegant Slate 900 bottom underline marker, completely removing active colored pills for a cleaner, decluttered visual hierarchy.
+- **Flat Card Containers**: Replaced heavy drop shadows and vertical float animations with thin, flat borders (`1px solid var(--color-border)`).
+- **Refined Forms**: Form controls and dropdowns use a clean off-white background (`#F8FAFC`) with standard border widths and a soft outline focus ring.
+- **Desaturated Badges & Reports**: Badge outputs in HTML reports and tabular summaries use desaturated emerald, red, and amber colors with medium (`500`) weights for a premium layout.
 
 ### Core Components & Sync Workflow
 
@@ -297,6 +305,7 @@ The application uses a centralized styling system to ensure visual consistency a
 | `tabs/_styling.py` | **CSS Generator** | Main injector that generates CSS using the palette from `_common.py`. |
 | `static/styles.css` | **Compiled CSS** | Auto-generated output. **DO NOT EDIT DIRECTLY.** |
 | `utils/update_css.py` | **Sync Utility** | Script to update `static/styles.css` whenever `_styling.py` changes. |
+| `DESIGN.md` | **Design Tokens & States** | Comprehensive system reference for design tokens, component specifications, and states. |
 
 > [!TIP]
 **To update styles**: Edit `tabs/_styling.py` then run:

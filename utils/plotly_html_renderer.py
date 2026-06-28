@@ -120,9 +120,9 @@ def _create_placeholder_html(message: str) -> str:
             color: #6b7280;
             text-align: center;
             padding: 40px 20px;
-            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            background: #FAFAFA;
             border-radius: 12px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #E2E8F0;
             font-family: 'Inter', -apple-system, system-ui, sans-serif;
             font-size: 14px;
             position: relative;

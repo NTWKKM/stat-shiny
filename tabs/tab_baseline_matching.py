@@ -127,7 +127,7 @@ def baseline_matching_ui() -> ui.TagChild:
                     " Use ",
                     ui.strong("Clinical Tools → Causal Methods"),
                     " for Inverse Probability Weighting (keeps all data, no matching).",
-                    style=f"padding: 8px 12px; margin-bottom: 12px; background-color: {COLORS['info']}15; border-left: 3px solid {COLORS['info']}; border-radius: 4px; font-size: 0.85em;",
+                    class_="info-callout",
                 ),
                 ui.layout_columns(
                     create_input_group(
@@ -489,7 +489,7 @@ def baseline_matching_server(
             f"**Using:** {label}",
             ui.br(),
             f"**Rows:** {len(data)} | **Columns:** {len(data.columns)}",
-            style=f"font-size: 0.9em; color: {COLORS['text_secondary']};",
+            class_="text-muted-sm",
         )
 
     @render.ui
@@ -651,7 +651,7 @@ def baseline_matching_server(
         # เปลี่ยนจาก ui.info_message เป็น UI component ที่ถูกต้อง
         return ui.div(
             ui.markdown(summary_text),
-            style=f"padding: 15px; border-radius: 8px; background-color: {COLORS['primary']}10; border-left: 5px solid {COLORS['primary']};",
+            class_="info-callout",
         )
 
     @render.ui
@@ -857,7 +857,7 @@ def baseline_matching_server(
                             ui.output_ui("out_ps_distribution"),  # NEW OUTPUT
                             ui.p(
                                 "💡 Checks if treated and control groups overlap enough to be comparable.",
-                                style=f"font-size: 0.85em; color: {COLORS['text_secondary']}; margin-top: 10px;",
+                                class_="text-muted-sm",
                             ),
                         ),
                         ui.nav_panel(
@@ -1026,13 +1026,13 @@ def baseline_matching_server(
         if res is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         fig = psm_lib.plot_love_plot(res["smd_pre"], res["smd_post"])
         if fig is None:
             return ui.div(
                 ui.markdown("⏳ *No plot available...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             fig, div_id="plot_balance_love", include_plotlyjs="cdn", responsive=True
@@ -1207,7 +1207,7 @@ def baseline_matching_server(
                     "2. Configure variables and run PSM matching\n\n"
                     "3. Return here to view and export matched data"
                 ),
-                style=f"padding: 20px; border-radius: 8px; background-color: {COLORS['info']}15; border: 1px solid {COLORS['info']};",
+                class_="info-callout",
             )
 
     @render.ui
@@ -1225,7 +1225,7 @@ def baseline_matching_server(
                 ui.strong(f"Group Sizes ({treat_col}):"),
                 ui.br(),
                 ", ".join([f"{idx}: {count}" for idx, count in grp_counts.items()]),
-                style=f"font-size: 0.9em; color: {COLORS['text_secondary']};",
+                class_="text-muted-sm",
             )
         return None
 
@@ -1275,7 +1275,7 @@ def baseline_matching_server(
         ):
             return ui.div(
                 ui.markdown("⏳ *Waiting for data...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         fig = px.box(d, x=treat, y=var, title=f"{var} by {treat}")
         html_str = plotly_figure_to_html(

@@ -72,7 +72,7 @@ def get_shiny_css():
             --color-step-current: #1E3A5F;
             --color-step-pending: #D1D5DB;
 
-            /* Spacing System - INCREASED for better proportions */
+            /* Spacing System */
             --spacing-2xs: 2px;
             --spacing-1-5xs: 6px;
             --spacing-xs: 4px;
@@ -89,17 +89,17 @@ def get_shiny_css():
             --spacing-input-gap: 8px;
             --spacing-form-section: 20px;
             
-            /* Border Radius */
+            /* Border Radius - Crisper edges */
             --radius-sm: 4px;
             --radius-md: 6px;
-            --radius-lg: 12px;
-            --radius-xl: 16px;
+            --radius-lg: 8px;
+            --radius-xl: 12px;
             
-            /* Shadows - Softened */
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+            /* Shadows - Flattened for minimal aesthetic */
+            --shadow-sm: none;
+            --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.04);
+            --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.06);
+            --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.08);
             
             /* Transitions */
             --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -109,12 +109,12 @@ def get_shiny_css():
             --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             --font-family-mono: 'Courier New', monospace;
             
-            /* ADDED: Typography Scale (Audit Section 9) */
-            --text-display-size: 32px;
+            /* Typography Scale */
+            --text-display-size: 30px;
             --text-display-lh: 1.2;
-            --text-heading-size: 24px;
+            --text-heading-size: 22px;
             --text-heading-lh: 1.3;
-            --text-subheading-size: 18px;
+            --text-subheading-size: 16px;
             --text-subheading-lh: 1.4;
             --text-body-size: 14px;
             --text-body-lh: 1.6;
@@ -260,52 +260,62 @@ def get_shiny_css():
            SHINY CARDS & CONTAINERS
            (Updated to standard Bootstrap .card classes)
            =========================== */
-        
-        .card {{
+          .card {{
             border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm); /* Softer shadow */
+            box-shadow: var(--shadow-sm); /* None */
             transition: all var(--transition-normal);
             background-color: {COLORS["surface"]};
             overflow: hidden;
-            margin-bottom: 24px;  /* Increased vertical spacing */
+            margin-bottom: 24px;
         }}
         
         .card:hover {{
-            box-shadow: var(--shadow-md);
+            box-shadow: none;
             border-color: {COLORS["neutral"]};
         }}
         
         /* Feature Cards (Home Page) */
-        .feature-card:hover {{
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg) !important;
-            border-color: var(--color-primary) !important;
+        .feature-card {{
+            background: white !important;
+            border: 1px solid {COLORS["border"]} !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 24px !important;
+            height: 100%;
+            transition: border-color var(--transition-normal) !important;
+            cursor: pointer;
+            box-shadow: none !important;
+            transform: none !important;
         }}
-
+        
+        .feature-card:hover {{
+            border-color: {COLORS["primary"]} !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }}
         
         .card-header {{
-            background: #FAFAFA; /* Very light gray, effectively transparent appeal */
+            background: #FAFAFA; /* Transparent fallback appeal */
             border: none;
             border-bottom: 1px solid {COLORS["border"]};
-            font-weight: 600;
-            color: {COLORS["primary_dark"]}; /* Dark text instead of white */
-            padding: 16px 24px; /* Spacious header */
-            font-size: 15px;
+            font-weight: 500;
+            color: {COLORS["primary"]};
+            padding: 14px 20px;
+            font-size: 14px;
             text-transform: none;
             display: flex;
             align-items: center;
         }}
         
         .card-body {{
-            padding: 24px 24px;  /* Increased padding for "uncluttered" look */
+            padding: 20px 20px;
             line-height: 1.6;
         }}
         
         .card-footer {{
             background-color: #FAFAFA;
             border-top: 1px solid {COLORS["border"]};
-            padding: 16px 24px;
+            padding: 14px 20px;
         }}
         
         /* ===========================
@@ -395,16 +405,16 @@ def get_shiny_css():
         .btn-primary:hover:not(:disabled) {{
             background-color: {COLORS["primary_dark"]};
             border-color: {COLORS["primary_dark"]};
-            transform: translateY(-1px);
+            transform: none;
         }}
         
         .btn-primary:active:not(:disabled) {{
-            transform: translateY(0);
+            transform: none;
         }}
         
         /* Secondary Buttons - Outline style mostly */
         .btn-secondary {{
-            background-color: white;
+            background-color: transparent;
             color: {COLORS["text"]};
             border-color: {COLORS["border"]};
         }}
@@ -424,7 +434,7 @@ def get_shiny_css():
         
         .btn-success:hover:not(:disabled) {{
             filter: brightness(0.9);
-            transform: translateY(-1px);
+            transform: none;
         }}
         
         /* Danger Buttons */
@@ -436,7 +446,7 @@ def get_shiny_css():
         
         .btn-danger:hover:not(:disabled) {{
             filter: brightness(0.9);
-            transform: translateY(-1px);
+            transform: none;
         }}
         
         /* Warning Buttons */
@@ -459,16 +469,16 @@ def get_shiny_css():
         }}
         
         /* ===========================
-           FORM INPUTS - More Spacious
+           FORM INPUTS - Stripe/Apple-like
            =========================== */
         
         .form-control {{
             border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-md);
-            padding: 10px 14px; /* Larger touch area */
+            padding: 10px 14px;
             font-size: 14px;
             font-family: var(--font-family-base);
-            background-color: {COLORS["surface"]};
+            background-color: #F8FAFC; /* Slate 50 tint */
             color: {COLORS["text"]};
             transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
             line-height: 1.5;
@@ -477,7 +487,7 @@ def get_shiny_css():
         .form-control:focus {{
             border-color: {COLORS["primary"]};
             background-color: {COLORS["surface"]};
-            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1); /* Soft focus ring */
+            box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.15); /* Soft slate ring */
             outline: none;
         }}
         
@@ -499,7 +509,7 @@ def get_shiny_css():
             border-radius: var(--radius-md);
             padding: 10px 36px 10px 14px;
             font-size: 14px;
-            background-color: {COLORS["surface"]};
+            background-color: #F8FAFC; /* Slate 50 tint */
             color: {COLORS["text"]};
             transition: all var(--transition-fast);
             cursor: pointer;
@@ -512,15 +522,16 @@ def get_shiny_css():
         
         .form-select:focus {{
             border-color: {COLORS["primary"]};
-            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+            background-color: {COLORS["surface"]};
+            box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.15); /* Soft slate ring */
             outline: none;
         }}
         
         /* Form Label */
         .form-label {{
-            font-weight: 500;
-            font-size: 14px;
-            color: {COLORS["text"]};
+            font-weight: 400; /* Muted weight */
+            font-size: 13px;
+            color: {COLORS["text_secondary"]};
             margin-bottom: 6px;
             display: block;
         }}
@@ -541,22 +552,21 @@ def get_shiny_css():
             min-height: 100px;
             font-family: var(--font-family-base);
         }}
-        
-        /* ===========================
+          /* ===========================
            NAVIGATION & NAVBAR
            =========================== */
         
         .navbar {{
             background-color: {COLORS["surface"]} !important;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Very subtle shadow */
+            box-shadow: none; /* No shadow */
             border-bottom: 1px solid {COLORS["border"]};
             padding: 12px 24px;
         }}
         
         .navbar-brand {{
-            color: {COLORS["primary_dark"]} !important;
+            color: {COLORS["primary"]} !important;
             font-weight: 700;
-            font-size: 19px;
+            font-size: 18px;
             letter-spacing: -0.5px;
         }}
         
@@ -565,21 +575,23 @@ def get_shiny_css():
             color: {COLORS["text_secondary"]} !important;
             font-weight: 500;
             font-size: 14px;
-            padding: 8px 16px !important;
+            padding: 8px 12px !important;
             margin: 0 4px;
-            border-radius: var(--radius-md);
+            border-radius: 0;
             transition: all var(--transition-fast);
+            border-bottom: 2px solid transparent;
         }}
         
         .navbar .nav-link:hover {{
             color: {COLORS["primary"]} !important;
-            background-color: {COLORS["smoke_white"]};
+            background-color: transparent;
         }}
         
         .navbar .nav-link.active {{
-            color: {COLORS["primary_dark"]} !important;
-            background-color: {COLORS["primary_light"]};
-            font-weight: 600;
+            color: {COLORS["primary"]} !important;
+            background-color: transparent !important;
+            font-weight: 500;
+            border-bottom: 2px solid {COLORS["primary"]} !important;
         }}
         
         /* Hide Home tab from navbar links (accessible via title) */
@@ -592,18 +604,19 @@ def get_shiny_css():
             color: {COLORS["text_secondary"]} !important;
             font-weight: 500;
             font-size: 14px;
-            padding: 8px 16px !important;
+            padding: 8px 12px !important;
             margin: 0 4px;
-            border-radius: var(--radius-md);
+            border-radius: 0;
             transition: all var(--transition-fast);
             background: transparent;
             border: none;
+            border-bottom: 2px solid transparent;
         }}
         
         .navbar .dropdown-toggle:hover,
         .navbar .dropdown-toggle:focus {{
             color: {COLORS["primary"]} !important;
-            background-color: {COLORS["smoke_white"]};
+            background-color: transparent;
         }}
         
         .navbar .dropdown-toggle::after {{
@@ -615,17 +628,17 @@ def get_shiny_css():
             background-color: {COLORS["surface"]};
             border: 1px solid {COLORS["border"]};
             border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            padding: 8px 0;
+            box-shadow: var(--shadow-md);
+            padding: 6px 0;
             min-width: 200px;
             margin-top: 4px;
         }}
         
         .navbar .dropdown-item {{
-            color: {COLORS["text"]};
+            color: {COLORS["text_secondary"]};
             font-size: 14px;
             font-weight: 500;
-            padding: 10px 20px;
+            padding: 8px 20px;
             transition: all var(--transition-fast);
         }}
         
@@ -636,8 +649,9 @@ def get_shiny_css():
         
         .navbar .dropdown-item.active,
         .navbar .dropdown-item:active {{
-            background-color: {COLORS["primary_light"]};
-            color: {COLORS["primary_dark"]};
+            background-color: transparent;
+            color: {COLORS["primary"]};
+            font-weight: 600;
         }}
         
         /* ===========================
@@ -653,8 +667,8 @@ def get_shiny_css():
             color: {COLORS["text_secondary"]};
             border: none;
             border-bottom: 2px solid transparent;
-            font-weight: 600;
-            padding: 12px 20px;
+            font-weight: 500;
+            padding: 10px 16px;
             margin-bottom: -1px;
             transition: all var(--transition-fast);
             font-size: 14px;
@@ -670,12 +684,13 @@ def get_shiny_css():
             color: {COLORS["primary"]};
             background-color: transparent;
             border-bottom-color: {COLORS["primary"]};
+            font-weight: 500;
         }}
         
         /* Subtabs - Pills style often mostly used inside spacing */
         .nav-item .nav-link[role="tab"]:not(.active):hover {{
             color: {COLORS["primary"]} !important;
-            background-color: {COLORS["smoke_white"]};
+            background-color: transparent;
         }}
         
         /* ===========================
@@ -685,12 +700,12 @@ def get_shiny_css():
         .alert {{
             border-radius: var(--radius-lg);
             border: 1px solid;
-            padding: 16px 20px;
+            padding: 12px 16px;
             margin-bottom: 24px;
             display: flex;
             align-items: flex-start;
             gap: 16px;
-            box-shadow: var(--shadow-sm);
+            box-shadow: none;
         }}
         
         .alert-success {{
@@ -712,9 +727,9 @@ def get_shiny_css():
         }}
         
         .alert-info {{
-            background-color: #EFF6FF;
-            border-color: #BFDBFE;
-            color: #1E40AF;
+            background-color: #F8FAFC;
+            border-color: #CBD5E1;
+            color: #475569;
         }}
         
         /* ===========================
@@ -727,26 +742,26 @@ def get_shiny_css():
             border-spacing: 0;
             width: 100%;
             margin-bottom: 24px;
-            border: 1px solid {COLORS["border"]};
-            border-radius: var(--radius-lg);
-            overflow: hidden; /* For border radius */
+            border: none; /* No heavy border wrapper */
+            border-radius: 0;
+            overflow: visible;
         }}
         
         .table thead th {{
-            background-color: #F8F9FA; /* Light Gray Header */
-            color: {COLORS["text"]};
-            border-bottom: 1px solid {COLORS["border"]};
-            font-weight: 600;
-            padding: 12px 16px;
+            background-color: transparent; /* Clean transparent */
+            color: {COLORS["text_secondary"]};
+            border-bottom: 2px solid {COLORS["border"]};
+            font-weight: 500;
+            padding: 10px 16px;
             text-align: left;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.05em;
+            text-transform: none; /* Minimal case */
+            font-size: 13px;
+            letter-spacing: normal;
         }}
         
         .table tbody td {{
             border-bottom: 1px solid {COLORS["border"]};
-            padding: 12px 16px;
+            padding: 10px 16px;
             vertical-align: middle;
             color: {COLORS["text"]};
         }}
@@ -756,7 +771,7 @@ def get_shiny_css():
         }}
         
         .table tbody tr:hover {{
-            background-color: {COLORS["smoke_white"]};
+            background-color: {COLORS["primary_light"]};
         }}
         
         .sig-p {{
@@ -768,10 +783,11 @@ def get_shiny_css():
         }}
 
         .shiny-table th, table.dataframe th {{
-            background-color: #FAFAFA !important;
-            color: {COLORS["text"]} !important;
-            font-weight: 600;
-            border-bottom: 1px solid {COLORS["border"]} !important;
+            background-color: transparent !important;
+            color: {COLORS["text_secondary"]} !important;
+            font-weight: 500;
+            border-bottom: 2px solid {COLORS["border"]} !important;
+            text-transform: none !important;
         }}
         
         /* Table Responsiveness */
@@ -1457,8 +1473,8 @@ def get_shiny_css():
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 400px;
-            background: linear-gradient(135deg, #F8F9FA 0%, #E8EEF7 100%);
+            min-height: 240px;
+            background: {COLORS["smoke_white"]};
             border-radius: var(--radius-lg);
             border: 1px dashed var(--color-border);
             text-align: center;
@@ -1592,6 +1608,43 @@ def get_shiny_css():
             color: {COLORS["text_secondary"]};
             opacity: 0.7;
         }}
+
+        /* ===========================
+           CUSTOM REDESIGN CLASSES
+           =========================== */
+        .muted-placeholder {{
+            color: {COLORS["text_secondary"]} !important;
+            text-align: center !important;
+            padding: var(--spacing-lg) !important;
+            font-style: italic !important;
+            font-size: 13px !important;
+        }}
+
+        .info-callout {{
+            padding: var(--spacing-md) !important;
+            border-radius: var(--radius-md) !important;
+            background-color: {COLORS["primary_light"]} !important;
+            border-left: 3px solid {COLORS["border"]} !important;
+            font-size: 14px !important;
+            color: {COLORS["text"]} !important;
+        }}
+
+        .text-muted-sm {{
+            font-size: 13px !important;
+            color: {COLORS["text_secondary"]} !important;
+        }}
+
+        .home-grid {{
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+            gap: 20px !important;
+        }}
+
+        .forest-plot-section, .assumptions-section {{
+            margin-top: 32px !important;
+            padding: 16px 0 0 0 !important;
+            border-top: 1px solid {COLORS["border"]} !important;
+        }}
     </style>
     """
 
@@ -1612,13 +1665,13 @@ def style_card_header(title: str, icon: str = "") -> str:
     COLORS = get_color_palette()
     return f"""
     <div style="
-        background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["primary_dark"]} 100%);
-        border-bottom: 2px solid {COLORS["primary_dark"]};
+        background: transparent;
+        border-bottom: 1px solid {COLORS["border"]};
         padding: 14px 16px;
-        font-weight: 600;
-        color: white;
+        font-weight: 500;
+        color: {COLORS["text"]};
         border-radius: 6px 6px 0 0;
-        font-size: 15px;
+        font-size: 14px;
     ">
         {icon} {title}
     </div>

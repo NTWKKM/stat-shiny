@@ -389,11 +389,7 @@ def corr_server(
             else None
         )
         interp_html = f"""
-        <div style='background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%); 
-                    border-left: 4px solid {COLORS["primary"]}; 
-                    padding: 14px 15px; 
-                    margin: 16px 0; 
-                    border-radius: 5px;'>
+        <div class='info-callout'>
             <strong>Interpretation:</strong> {interpretation}<br>
             <strong>R² = {f"{r2:.3f}" if r2 is not None else "N/A"}</strong> →
             {f"{r2 * 100:.1f}" if r2 is not None else "N/A"}% of variance in {var2} is explained by {var1}<br>
@@ -477,7 +473,7 @@ def corr_server(
         if result is None or result["figure"] is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             result["figure"],
@@ -689,12 +685,8 @@ def corr_server(
             f"{pct_sig:.1f}" if isinstance(pct_sig, (int, float)) else str(pct_sig)
         )
         summary_html = f"""
-        <div style='background: linear-gradient(135deg, #fff3e0 0%, #f8f9fa 100%); 
-                    border: 2px solid #ff9800; 
-                    border-radius: 8px; 
-                    padding: 15px; 
-                    margin: 20px 0;'>
-            <h4 style='color: #e65100; margin-top: 0;'>📊 Matrix Summary</h4>
+        <div class='info-callout'>
+            <h4 style='margin-top: 0;'>📊 Matrix Summary</h4>
             <p><strong>Variables:</strong> {_html.escape(str(n_vars))}</p>
             <p><strong>Correlations Computed:</strong> {_html.escape(str(n_corrs))} (unique pairs)</p>
             <p><strong>Mean |Correlation|:</strong> {_html.escape(str(mean_corr_str))}</p>
@@ -735,7 +727,7 @@ def corr_server(
         if result is None or result["figure"] is None:
             return ui.div(
                 ui.markdown("⏳ *Waiting for results...*"),
-                style="color: #999; text-align: center; padding: 20px;",
+                class_="muted-placeholder",
             )
         html_str = plotly_figure_to_html(
             result["figure"],

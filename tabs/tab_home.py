@@ -49,10 +49,9 @@ def home_ui():
                     "6. Settings",
                     tab_value="settings",
                 ),
-                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;",
+                class_="home-grid",
             ),
-            class_="app-container",  # Re-use container padding if needed, or just div
-            style="padding: 24px 0;",
+            class_="app-container",
         ),
     )
 
@@ -65,12 +64,12 @@ def _feature_card(title, description, subtitle, tab_value=None):
     return ui.div(
         ui.div(
             subtitle,
-            style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 8px; font-weight: 600;",
+            class_="text-muted-sm",
+            style="margin-bottom: 8px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;",
         ),
-        ui.h4(title, style="margin-top: 0; margin-bottom: 12px; font-size: 18px;"),
-        ui.p(description, style="color: #555; font-size: 14px; margin-bottom: 0;"),
-        class_="card-body feature-card",
-        style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; height: 100%; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;",
+        ui.h4(title, style="margin-top: 0; margin-bottom: 12px; font-size: 16px; font-weight: 500;"),
+        ui.p(description, class_="text-muted-sm"),
+        class_="feature-card",
         onclick=onclick_js,
     )
 

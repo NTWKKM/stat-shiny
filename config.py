@@ -150,10 +150,9 @@ class ConfigManager:
                 "table_max_rows": 1000,  # Max rows to display in data table
                 "table_pagination": True,
                 "table_decimal_places": 3,
-                # Styles (Added for utils/formatting.py to centralize CSS)
                 "styles": {
-                    "sig_p_value": "font-weight: bold; color: #d63384;",
-                    "sig_ci": "font-weight: bold; color: #198754;",
+                    "sig_p_value": "font-weight: bold; color: #0F172A;",
+                    "sig_ci": "font-weight: bold; color: #059669;",
                 },
                 # Plots
                 "plot_width": 10,

@@ -185,11 +185,11 @@ class TestGetBadgeHtml:
     @pytest.mark.parametrize(
         "level,expected_bg_color",
         [
-            ("success", "#d4edda"),
-            ("warning", "#fff3cd"),
-            ("danger", "#f8d7da"),
-            ("info", "#d1ecf1"),
-            ("neutral", "#e2e3e5"),
+            ("success", "#ECFDF5"),
+            ("warning", "#FFFBEB"),
+            ("danger", "#FEF2F2"),
+            ("info", "#F8FAFC"),
+            ("neutral", "#F1F5F9"),
         ],
     )
     def test_badge_levels(self, level, expected_bg_color):
@@ -232,7 +232,7 @@ class TestGetBadgeHtml:
         Then: Neutral colors are used
         """
         result = get_badge_html("Test", level="unknown_level")
-        assert "#e2e3e5" in result  # Neutral background
+        assert "#F1F5F9" in result  # Neutral background
 
 
 # ============================================================================

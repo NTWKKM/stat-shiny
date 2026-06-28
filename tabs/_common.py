@@ -30,24 +30,24 @@ def get_color_palette() -> dict[str, str]:
         dict[str, str]: A dictionary mapping color names to hex codes.
     """
     return {
-        # Primary colors - Navy Blue theme
-        "primary": "#1E3A5F",
-        "primary_dark": "#0F2440",
-        "primary_light": "#E8EEF7",
-        "secondary": "#6c757d",  # Standard Bootstrap secondary gray
+        # Primary colors - Slate theme
+        "primary": "#0F172A",        # Slate 900
+        "primary_dark": "#020617",   # Slate 950
+        "primary_light": "#F8FAFC",  # Slate 50
+        "secondary": "#64748B",      # Slate 500
         # Neutral colors - Light theme
-        "smoke_white": "#F8F9FA",
-        "text": "#1F2328",
-        "text_secondary": "#6B7280",
-        "border": "#E5E7EB",
-        "background": "#F9FAFB",
+        "smoke_white": "#F8FAFC",    # Slate 50
+        "text": "#0F172A",           # Slate 900
+        "text_secondary": "#64748B", # Slate 500
+        "border": "#E2E8F0",         # Slate 200
+        "background": "#FAFAFA",     # Very clean off-white
         "surface": "#FFFFFF",
-        # Status/Semantic colors
-        "success": "#22A765",
-        "danger": "#E74856",
-        "warning": "#FFB900",
-        "info": "#5A7B8E",
-        "neutral": "#D1D5DB",
+        # Status/Semantic colors - Soft/desaturated pastels
+        "success": "#059669",        # Emerald 600
+        "danger": "#DC2626",         # Red 600
+        "warning": "#D97706",        # Amber 600
+        "info": "#475569",           # Slate 600
+        "neutral": "#CBD5E1",        # Slate 300
     }
 
 
