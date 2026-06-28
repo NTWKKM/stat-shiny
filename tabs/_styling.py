@@ -496,11 +496,13 @@ def get_shiny_css():
             opacity: 0.7;
         }}
         
-        .form-control:disabled {{
-            background-color: {COLORS["smoke_white"]};
+        .form-control:disabled,
+        .form-select:disabled {{
+            background-color: {COLORS["background"]};
             border-color: {COLORS["border"]};
             color: {COLORS["text_secondary"]};
             cursor: not-allowed;
+            opacity: 0.8;
         }}
         
         /* Select/Dropdown */

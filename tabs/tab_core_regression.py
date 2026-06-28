@@ -1890,7 +1890,7 @@ def core_regression_server(
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Logistic Regression Report: {{html.escape(target)}}</title>
+                <title>Logistic Regression Report: {html.escape(target)}</title>
                 {get_shiny_css()}
             </head>
             <body>
@@ -2008,7 +2008,7 @@ def core_regression_server(
                 <head>
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Logistic Regression Report: {{html.escape(target)}}</title>
+                    <title>Logistic Regression Report: {html.escape(target)}</title>
                     {get_shiny_css()}
                 </head>
                 <body>
@@ -2753,7 +2753,7 @@ def core_regression_server(
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Poisson Regression Report: {{html.escape(target)}}</title>
+                <title>Poisson Regression Report: {html.escape(target)}</title>
                 {get_shiny_css()}
             </head>
             <body>
@@ -3053,7 +3053,7 @@ def core_regression_server(
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Negative Binomial Regression Report: {{html.escape(target)}}</title>
+                <title>Negative Binomial Regression Report: {html.escape(target)}</title>
                 {get_shiny_css()}
             </head>
             <body>
