@@ -1114,7 +1114,7 @@
            =========================== */
         
         .missing-data-section {
-            background-color: #f0f7ff;
+            background-color: #F8FAFC;
             border-left: 4px solid #0F172A;
             padding: var(--spacing-lg);
             margin: var(--spacing-xl) 0;
@@ -1148,7 +1148,7 @@
         }
         
         .missing-table th {
-            background-color: #e8f1ff;
+            background-color: #F8FAFC;
             font-weight: 600;
             color: #020617;
         }

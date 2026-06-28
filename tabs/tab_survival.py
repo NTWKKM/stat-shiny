@@ -1738,7 +1738,7 @@ def survival_server(
                     ui.strong("Events: "),
                     f"{s.get('Number of Events', '-')} / {s.get('Number of Observations', '-')}",
                 ),
-                style="display: flex; gap: 20px; padding: 10px; margin-bottom: 10px;",
+                style="display: flex; flex-wrap: wrap; gap: 20px; padding: 10px; margin-bottom: 10px;",
             )
 
         elements = [
@@ -2044,6 +2044,7 @@ def survival_server(
                                 f"**Test for Interaction:** P-value = {p_text} {sig_text}"
                             ),
                             class_="info-callout",
+                            style=f"border-left-color: {color};",
                         )
                     )
 
@@ -2695,7 +2696,7 @@ def survival_server(
                     ui.strong("Events: "),
                     f"{s.get('N Events', '-')}/{s.get('N Observations', '-')}",
                 ),
-                style="display: flex; gap: 20px; padding: 10px; margin-bottom: 10px;",
+                style="display: flex; flex-wrap: wrap; gap: 20px; padding: 10px; margin-bottom: 10px;",
             )
 
         elements = [

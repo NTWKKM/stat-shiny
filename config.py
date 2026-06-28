@@ -151,7 +151,7 @@ class ConfigManager:
                 "table_pagination": True,
                 "table_decimal_places": 3,
                 "styles": {
-                    "sig_p_value": "font-weight: bold; color: #0F172A;",
+                    "sig_p_value": "font-weight: bold; color: #DC2626;",
                     "sig_ci": "font-weight: bold; color: #059669;",
                 },
                 # Plots

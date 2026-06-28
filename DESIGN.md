@@ -22,6 +22,7 @@ This document outlines the **Minimal Slate-Monochrome Design System** for the Me
 | `surface` | `#FFFFFF` | White | Cards, modal content, results container background |
 
 #### Soft Semantic States
+
 - **Success**: `#059669` (Emerald 600) — Validation passed, successful calculation, check badges.
 - **Danger**: `#DC2626` (Red 600) — Error alerts, excluded data indicators, risk flags.
 - **Warning**: `#D97706` (Amber 600) — Assumptions violated, caveats, warning badges.
@@ -40,6 +41,7 @@ This document outlines the **Minimal Slate-Monochrome Design System** for the Me
   - `600` (Semi-bold) — Main component headers, strong emphasis.
 
 #### Scale
+
 - **Display**: `30px` (line-height: `1.2`, letter-spacing: `-0.02em`)
 - **Heading (H2)**: `22px` (line-height: `1.3`, letter-spacing: `-0.01em`)
 - **Subheading (H3/H4)**: `16px` (line-height: `1.4`)
@@ -65,6 +67,7 @@ Based on an 8px modular scale:
 ## 2. UI Components & States
 
 ### Cards
+
 - **Role**: Groups input fields, filters, and statistical outputs.
 - **Styling**: `border: 1px solid var(--color-border); border-radius: 8px; box-shadow: none;`
 - **States**:
@@ -74,6 +77,7 @@ Based on an 8px modular scale:
   - *Card Header*: Transparent background with thin bottom border (`1px solid var(--color-border)`). Lighter weight (`500`) titles.
 
 ### Buttons
+
 - **Primary**: Flat Slate 900 (`#0F172A`) background with white text. Hover state darkens background.
 - **Secondary**: Transparent background with Slate 500 (`#64748B`) border and Slate 900 text. Hover gets faint slate light background.
 - **States**:
@@ -83,6 +87,7 @@ Based on an 8px modular scale:
   - *Disabled*: `opacity: 0.6`, cursor not allowed.
 
 ### Form Inputs & Dropdowns
+
 - **Role**: Selectize fields, number inputs, variables dropdown.
 - **Styling**: Apple/Stripe-like. Background is Slate 50 (`#F8FAFC`), thin borders (`#E2E8F0`), border-radius `6px`.
 - **States**:
@@ -91,11 +96,13 @@ Based on an 8px modular scale:
   - *Disabled*: Gray background (`#F8FAFC`), muted secondary text, cursor blocked.
 
 ### Navigation Header
+
 - **Role**: Fluid page-level navbar links.
 - **Styling**: Transparent header background, thin bottom border.
 - **Active State**: Inactive text is Slate 500. Active text turns to Slate 900 with a clean `2px` bottom border underline indicator (no dark navy pills).
 
 ### Tables
+
 - **Role**: Displays model metrics, coefficients, hazard ratios.
 - **Styling**: Generous padding (`10px 16px`), cell-only bottom borders, clean transparent header background, font-weight `500` headers.
 - **Hover**: Table row hover highlights with `var(--color-primary-light)` (`#F8FAFC`).
