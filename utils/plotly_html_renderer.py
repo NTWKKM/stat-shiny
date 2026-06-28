@@ -104,7 +104,9 @@ def _sanitize_div_id(div_id: str) -> str:
 def _create_placeholder_html(message: str) -> str:
     """Create a styled pulse-animated placeholder (Skeleton UI)."""
     import html
+    from tabs._common import get_color_palette
 
+    COLORS = get_color_palette()
     escaped_message = html.escape(str(message))
 
     # Using a unique ID for the style ensures no collisions if multiple placeholders exist
@@ -117,12 +119,12 @@ def _create_placeholder_html(message: str) -> str:
             align-items: center;
             justify-content: center;
             min-height: 200px;
-            color: #6b7280;
+            color: {COLORS["secondary"]};
             text-align: center;
             padding: 40px 20px;
-            background: #FAFAFA;
+            background: {COLORS["background"]}; /* #FAFAFA */
             border-radius: 12px;
-            border: 1px solid #E2E8F0;
+            border: 1px solid {COLORS["border"]}; /* #E2E8F0 */
             font-family: 'Inter', -apple-system, system-ui, sans-serif;
             font-size: 14px;
             position: relative;

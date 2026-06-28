@@ -20,6 +20,7 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
+from tabs._styling import get_shiny_css
 from tabs._dataset_mixin import register_dataset_selector
 from utils.calibration_lib import (
     create_calibration_plot,
@@ -1886,7 +1887,8 @@ def core_regression_server(
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Logistic Regression Report: {html.escape(target)}</title>
+                <title>Logistic Regression Report: {{html.escape(target)}}</title>
+                {get_shiny_css()}
             </head>
             <body>
                 <div class="report-container">
@@ -2003,7 +2005,8 @@ def core_regression_server(
                 <head>
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Logistic Regression Report: {html.escape(target)}</title>
+                    <title>Logistic Regression Report: {{html.escape(target)}}</title>
+                    {get_shiny_css()}
                 </head>
                 <body>
                     <div class="report-container">
@@ -2747,7 +2750,8 @@ def core_regression_server(
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Poisson Regression Report: {html.escape(target)}</title>
+                <title>Poisson Regression Report: {{html.escape(target)}}</title>
+                {get_shiny_css()}
             </head>
             <body>
                 <div class="report-container">
@@ -3046,7 +3050,8 @@ def core_regression_server(
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Negative Binomial Regression Report: {html.escape(target)}</title>
+                <title>Negative Binomial Regression Report: {{html.escape(target)}}</title>
+                {get_shiny_css()}
             </head>
             <body>
                 <div class="report-container">

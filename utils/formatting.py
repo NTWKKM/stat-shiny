@@ -94,7 +94,7 @@ def get_badge_html(text: str, level: str = "info") -> str:
         "success": {"bg": "#ECFDF5", "color": "#065F46", "border": "#A7F3D0"},
         "warning": {"bg": "#FFFBEB", "color": "#78350F", "border": "#FDE68A"},
         "danger": {"bg": "#FEF2F2", "color": "#991B1B", "border": "#FECACA"},
-        "info": {"bg": "#F8FAFC", "color": "#334155", "border": "#CBD5E1"},
+        "info": {"bg": "#F1F5F9", "color": "#334155", "border": "#CBD5E1"},
         "neutral": {"bg": "#F1F5F9", "color": "#475569", "border": "#CBD5E1"},
     }
     c = colors.get(level, colors["neutral"])

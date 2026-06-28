@@ -188,7 +188,7 @@ class TestGetBadgeHtml:
             ("success", "#ECFDF5"),
             ("warning", "#FFFBEB"),
             ("danger", "#FEF2F2"),
-            ("info", "#F8FAFC"),
+            ("info", "#F1F5F9"),
             ("neutral", "#F1F5F9"),
         ],
     )

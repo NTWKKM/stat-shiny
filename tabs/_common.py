@@ -29,14 +29,15 @@ def get_color_palette() -> dict[str, str]:
     Returns:
         dict[str, str]: A dictionary mapping color names to hex codes.
     """
+    slate_50 = "#F8FAFC"  # Slate 50
     return {
         # Primary colors - Slate theme
         "primary": "#0F172A",        # Slate 900
         "primary_dark": "#020617",   # Slate 950
-        "primary_light": "#F8FAFC",  # Slate 50
+        "primary_light": slate_50,
         "secondary": "#64748B",      # Slate 500
         # Neutral colors - Light theme
-        "smoke_white": "#F8FAFC",    # Slate 50
+        "smoke_white": slate_50,
         "text": "#0F172A",           # Slate 900
         "text_secondary": "#64748B", # Slate 500
         "border": "#E2E8F0",         # Slate 200

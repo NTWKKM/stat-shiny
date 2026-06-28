@@ -295,7 +295,7 @@ def get_shiny_css():
         }}
         
         .card-header {{
-            background: #FAFAFA; /* Transparent fallback appeal */
+            background: {COLORS["background"]}; /* Transparent fallback appeal */
             border: none;
             border-bottom: 1px solid {COLORS["border"]};
             font-weight: 500;
@@ -313,7 +313,7 @@ def get_shiny_css():
         }}
         
         .card-footer {{
-            background-color: #FAFAFA;
+            background-color: {COLORS["background"]};
             border-top: 1px solid {COLORS["border"]};
             padding: 14px 20px;
         }}
@@ -478,7 +478,7 @@ def get_shiny_css():
             padding: 10px 14px;
             font-size: 14px;
             font-family: var(--font-family-base);
-            background-color: #F8FAFC; /* Slate 50 tint */
+            background-color: {COLORS["primary_light"]}; /* Slate 50 tint */
             color: {COLORS["text"]};
             transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
             line-height: 1.5;
@@ -509,7 +509,7 @@ def get_shiny_css():
             border-radius: var(--radius-md);
             padding: 10px 36px 10px 14px;
             font-size: 14px;
-            background-color: #F8FAFC; /* Slate 50 tint */
+            background-color: {COLORS["primary_light"]}; /* Slate 50 tint */
             color: {COLORS["text"]};
             transition: all var(--transition-fast);
             cursor: pointer;
@@ -727,9 +727,9 @@ def get_shiny_css():
         }}
         
         .alert-info {{
-            background-color: #F8FAFC;
-            border-color: #CBD5E1;
-            color: #475569;
+            background-color: {COLORS["primary_light"]};
+            border-color: {COLORS["neutral"]};
+            color: {COLORS["info"]};
         }}
         
         /* ===========================
@@ -1156,7 +1156,7 @@ def get_shiny_css():
            =========================== */
         
         .missing-data-section {{
-            background-color: #f0f7ff;
+            background-color: {COLORS["primary_light"]};
             border-left: 4px solid {COLORS["primary"]};
             padding: var(--spacing-lg);
             margin: var(--spacing-xl) 0;
@@ -1190,7 +1190,7 @@ def get_shiny_css():
         }}
         
         .missing-table th {{
-            background-color: #e8f1ff;
+            background-color: {COLORS["primary_light"]};
             font-weight: 600;
             color: {COLORS["primary_dark"]};
         }}
