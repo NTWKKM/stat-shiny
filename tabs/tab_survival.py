@@ -747,7 +747,7 @@ def survival_server(
         df_matched=df_matched,
         is_matched=is_matched,
         radio_input_id="radio_survival_source",
-        title=None, # We use a custom title below
+        title=None,  # We use a custom title below
     )
 
     @render.ui
@@ -769,8 +769,6 @@ def survival_server(
                 ),
             )
         return ui.HTML(f"<h3>⛳ Survival Analysis{mi_badge}</h3>")
-
-
 
     # ==================== LABEL MAPPING LOGIC ====================
     @reactive.Calc
@@ -1527,7 +1525,11 @@ def survival_server(
             cox_is_running.set(True)
             cox_result.set(None)
             cox_method = input.cox_method()
-            penalty_weight = float(input.cox_firth_penalty_weight()) if cox_method == "firth" else 1.0
+            penalty_weight = (
+                float(input.cox_firth_penalty_weight())
+                if cox_method == "firth"
+                else 1.0
+            )
 
             # Check MI availability
             mi_active = _has_mi_datasets()
@@ -1585,9 +1587,11 @@ def survival_server(
                         match = (
                             res_df[res_df["Variable"] == var_name]
                             if "Variable" in res_df.columns
-                            else res_df.loc[[var_name]]
-                            if var_name in res_df.index
-                            else None
+                            else (
+                                res_df.loc[[var_name]]
+                                if var_name in res_df.index
+                                else None
+                            )
                         )
                         if match is not None and len(match) > 0:
                             hr_val = match.iloc[0].get(
