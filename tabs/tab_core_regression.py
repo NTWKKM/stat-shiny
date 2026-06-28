@@ -29,7 +29,11 @@ from utils.calibration_lib import (
     get_calibration_report,
 )
 from utils.data_cleaning import prepare_data_for_analysis
-from utils.download_helpers import safe_download_html, safe_report_generation, safe_data_download
+from utils.download_helpers import (
+    safe_download_html,
+    safe_report_generation,
+    safe_data_download,
+)
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import (
     PublicationFormatter,
@@ -88,9 +92,6 @@ logger = get_logger(__name__)
 COLORS = get_color_palette()
 
 
-
-
-
 # ==============================================================================
 # Helper Functions (Pure Logic)
 # ==============================================================================
@@ -139,14 +140,14 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
 
         X = df.drop(columns=[target_col]).loc[y.index]
         X_num = pd.get_dummies(X, drop_first=True, dtype=float)
-        
+
         sep_result = detect_separation(X_num.values, y.values)
         is_separated = False
-        if hasattr(sep_result, 'separation'):
+        if hasattr(sep_result, "separation"):
             is_separated = sep_result.separation
         else:
             is_separated = bool(sep_result)
-            
+
         if is_separated:
             risky_vars.append("Data Separation Detected (Konis LP)")
     except Exception as e:
@@ -1179,8 +1180,6 @@ def core_regression_server(
             )
         return ui.h3("📈 Regression Models")
 
-
-
     # --- Dynamic Input Updates ---
     @reactive.Effect
     def _update_inputs():
@@ -1279,7 +1278,9 @@ def core_regression_server(
             if c != default_linear_y
             and c not in ["ID", "id_tvc"]
             and not c.startswith("Time_")
-        ][:5]  # limit to 5
+        ][
+            :5
+        ]  # limit to 5
         ui.update_selectize(
             "linear_predictors", choices=numeric_cols, selected=default_linear_x
         )
@@ -1621,7 +1622,9 @@ def core_regression_server(
         target = input.sel_outcome()
         exclude = input.sel_exclude()
         method = input.radio_method()
-        penalty_weight = float(input.firth_penalty_weight()) if method == "firth" else 1.0
+        penalty_weight = (
+            float(input.firth_penalty_weight()) if method == "firth" else 1.0
+        )
         interactions_raw = input.sel_interactions()
 
         if d is None or d.empty:
@@ -4185,9 +4188,11 @@ def core_regression_server(
                         if res["interaction"]["significant"]
                         else "No significant heterogeneity detected."
                     ),
-                    class_="alert alert-info"
-                    if not res["interaction"]["significant"]
-                    else "alert alert-warning",
+                    class_=(
+                        "alert alert-info"
+                        if not res["interaction"]["significant"]
+                        else "alert alert-warning"
+                    ),
                 ),
             ),
         )

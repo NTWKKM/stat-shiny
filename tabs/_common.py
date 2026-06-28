@@ -32,23 +32,23 @@ def get_color_palette() -> dict[str, str]:
     slate_50 = "#F8FAFC"  # Slate 50
     return {
         # Primary colors - Slate theme
-        "primary": "#0F172A",        # Slate 900
-        "primary_dark": "#020617",   # Slate 950
+        "primary": "#0F172A",  # Slate 900
+        "primary_dark": "#020617",  # Slate 950
         "primary_light": slate_50,
-        "secondary": "#64748B",      # Slate 500
+        "secondary": "#64748B",  # Slate 500
         # Neutral colors - Light theme
         "smoke_white": slate_50,
-        "text": "#0F172A",           # Slate 900
-        "text_secondary": "#64748B", # Slate 500
-        "border": "#E2E8F0",         # Slate 200
-        "background": "#FAFAFA",     # Very clean off-white
+        "text": "#0F172A",  # Slate 900
+        "text_secondary": "#64748B",  # Slate 500
+        "border": "#E2E8F0",  # Slate 200
+        "background": "#FAFAFA",  # Very clean off-white
         "surface": "#FFFFFF",
         # Status/Semantic colors - Soft/desaturated pastels
-        "success": "#059669",        # Emerald 600
-        "danger": "#DC2626",         # Red 600
-        "warning": "#D97706",        # Amber 600
-        "info": "#475569",           # Slate 600
-        "neutral": "#CBD5E1",        # Slate 300
+        "success": "#059669",  # Emerald 600
+        "danger": "#DC2626",  # Red 600
+        "warning": "#D97706",  # Amber 600
+        "info": "#475569",  # Slate 600
+        "neutral": "#CBD5E1",  # Slate 300
     }
 
 
