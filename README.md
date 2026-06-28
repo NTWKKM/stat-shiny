@@ -35,6 +35,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 ```text
 |-- AI_CONTEXT.md
 |-- ARCHITECTURE.md
+|-- DESIGN.md
 |-- Dockerfile
 |-- __pycache__ /
 |   |-- app.cpython-312.pyc
