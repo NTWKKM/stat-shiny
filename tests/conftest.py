@@ -161,12 +161,19 @@ def start_shiny_server(request):
             if log_file is not None:
                 try:
                     log_file.close()
-                finally:
+                    with open(log_file.name, encoding="utf-8", errors="replace") as f:
+                        print(
+                            "\n=== SHINY SERVER LOGS ===\n",
+                            f.read(),
+                            "\n=========================",
+                        )
+                except Exception:
+                    pass
+                try:
                     if os.path.exists(log_file.name):
-                        try:
-                            os.remove(log_file.name)
-                        except OSError:
-                            pass
+                        os.remove(log_file.name)
+                except OSError:
+                    pass
 
 
 # ============================================================================

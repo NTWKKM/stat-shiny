@@ -1676,7 +1676,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                     class_="d-flex justify-content-center gap-2",
                 ),
             )
-        return ui.output_data_frame("out_df_preview")
+        return ui.output_data_frame(session.ns("out_df_preview"))
 
     @render.data_frame
     def out_df_preview():

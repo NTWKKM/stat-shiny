@@ -324,14 +324,13 @@ def meta_analysis_ui() -> ui.TagChild:
 
 @module.server
 def meta_analysis_server(
-    input: module.Inputs,
-    output: module.Outputs,
-    session: module.Session,
-    dataset: reactive.Value[pd.DataFrame | None] | None = None,
-    dataset_name: reactive.Value[str] | None = None,
-    matched_dataset: reactive.Value[pd.DataFrame | None] | None = None,
-    matched_specs: reactive.Value[dict[str, Any] | None] | None = None,
-    current_tab: reactive.Value[str] | None = None,
+    input: Any,
+    output: Any,
+    session: Any,
+    df: reactive.Value[pd.DataFrame | None],
+    var_meta: reactive.Value[dict[str, Any]],
+    df_matched: reactive.Value[pd.DataFrame | None] | None = None,
+    is_matched: reactive.Value[bool] | None = None,
 ) -> None:
     """Server module for Clinical Meta-Analysis."""
 
@@ -339,18 +338,21 @@ def meta_analysis_server(
     local_name = reactive.Value("Dataset")
 
     # Dataset Selector
-    active_df = register_dataset_selector(
+    current_df = register_dataset_selector(
         input=input,
         output=output,
-        session=session,
-        dataset=dataset,
-        dataset_name=dataset_name,
-        matched_dataset=matched_dataset,
-        matched_specs=matched_specs,
-        ns_prefix="meta",
-        current_tab=current_tab,
-        tab_name="meta_analysis",
+        df=df,
+        df_matched=df_matched if df_matched is not None else reactive.Value(None),
+        is_matched=is_matched if is_matched is not None else reactive.Value(False),
+        radio_input_id="radio_meta_source",
+        title="📚 Clinical Meta-Analysis",
     )
+
+    @reactive.calc
+    def active_df():
+        if local_df.get() is not None:
+            return local_df.get()
+        return current_df()
 
     # Demo Dataset Loader Handlers
     @reactive.effect
@@ -359,10 +361,6 @@ def meta_analysis_server(
         bcg = get_bcg_vaccine_data()
         local_df.set(bcg)
         local_name.set("BCG Vaccine RCTs (Colditz 1994)")
-        if dataset is not None:
-            dataset.set(bcg)
-        if dataset_name is not None:
-            dataset_name.set("BCG Vaccine RCTs")
 
     @reactive.effect
     @reactive.event(input.btn_load_statin)
@@ -370,10 +368,6 @@ def meta_analysis_server(
         statin = get_statin_continuous_data()
         local_df.set(statin)
         local_name.set("Statin LDL Reduction Trials")
-        if dataset is not None:
-            dataset.set(statin)
-        if dataset_name is not None:
-            dataset_name.set("Statin LDL Reduction Trials")
 
     # Dynamic Column Pickers
     @output

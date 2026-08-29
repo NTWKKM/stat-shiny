@@ -11,6 +11,9 @@ def test_load_example_data(page: Page):
     """
     ✅ Test that "Load Example Data" button works correctly.
     """
+    page.on("console", lambda msg: print(f"BROWSER CONSOLE: {msg.text}"))
+    page.on("pageerror", lambda err: print(f"BROWSER ERROR: {err}"))
+
     page.goto(BASE_URL)
 
     # 1. Navigate to Data tab
