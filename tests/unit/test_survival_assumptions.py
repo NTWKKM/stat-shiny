@@ -1,4 +1,5 @@
 import importlib
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -64,9 +65,6 @@ def test_check_cph_assumptions_structure():
     assert "Proportional Hazards Test Results" in text_report
     # It might pass or fail depending on random data, but we check for structure
     assert "Assumption Passed" in text_report or "Assumption Violations" in text_report
-
-
-from unittest.mock import MagicMock, patch
 
 
 def test_check_cph_assumptions_violation_text():

@@ -23,7 +23,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 from config import CONFIG
 from logger import get_logger
 

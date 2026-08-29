@@ -1,6 +1,6 @@
 """Unit tests for utils/pdf_helpers.py."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from utils.pdf_helpers import (
     safe_download_pdf,

@@ -12,7 +12,7 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from tabs._dataset_mixin import register_dataset_selector
-from utils import calibration_lib, decision_curve_lib, diag_test, fagan_nomogram_lib
+from utils import decision_curve_lib, diag_test, fagan_nomogram_lib
 from utils.data_cleaning import prepare_data_for_analysis
 from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
 from utils.download_helpers import safe_download_html

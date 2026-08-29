@@ -67,7 +67,6 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from tabs._dataset_mixin import register_dataset_selector
-from utils import formatting
 from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 
 logger = get_logger(__name__)

@@ -122,7 +122,10 @@ def calculate_multilevel_likelihood_ratios(
         DataFrame with Tiers, Diseased counts, Non-diseased counts, Stratum sensitivity/specificity, Interval LR, 95% CI
     """
     clean_df = df[[outcome_col, score_col]].dropna().copy()
-    clean_df["_disease"] = (clean_df[outcome_col] == pos_label).astype(int)
+    clean_df["_disease"] = (
+        (clean_df[outcome_col] == pos_label)
+        | (clean_df[outcome_col].astype(str) == str(pos_label))
+    ).astype(int)
     scores = clean_df[score_col].astype(float)
 
     total_d_pos = int(clean_df["_disease"].sum())
@@ -216,13 +219,20 @@ def create_fagan_nomogram_plot(
     """
 
     # Helper to convert probability to y-coordinate (logit scale)
-    def prob_to_y(p: float) -> float:
-        p_clamped = np.clip(p, 0.001, 0.999)
+    def prob_to_y_pre(p: float) -> float:
+        """Pre-test probability axis is inverted (0.1% at top, 99.9% at bottom)."""
+        p_clamped = float(np.clip(p, 0.001, 0.999))
+        return -math.log(p_clamped / (1.0 - p_clamped))
+
+    def prob_to_y_post(p: float) -> float:
+        """Post-test probability axis is standard (0.1% at bottom, 99.9% at top)."""
+        p_clamped = float(np.clip(p, 0.001, 0.999))
         return math.log(p_clamped / (1.0 - p_clamped))
 
     # Center axis y-coordinate for a given LR (geometric midpoint)
     def lr_to_y(lr_val: float) -> float:
-        lr_clamped = max(1e-4, lr_val)
+        """Likelihood Ratio axis (1000 at top, 1 at center, 0.001 at bottom)."""
+        lr_clamped = float(max(1e-4, lr_val))
         return 0.5 * math.log(lr_clamped)
 
     fig = go.Figure()
@@ -250,7 +260,8 @@ def create_fagan_nomogram_plot(
         99.9,
     ]
     prob_ticks_val = [p / 100.0 for p in prob_ticks_pct]
-    prob_ticks_y = [prob_to_y(p) for p in prob_ticks_val]
+    prob_ticks_y_pre = [prob_to_y_pre(p) for p in prob_ticks_val]
+    prob_ticks_y_post = [prob_to_y_post(p) for p in prob_ticks_val]
 
     # Predefined tick marks and values for Likelihood Ratios
     lr_ticks_val = [
@@ -297,7 +308,8 @@ def create_fagan_nomogram_plot(
     ]
     lr_ticks_y = [lr_to_y(val) for val in lr_ticks_val]
 
-    y_min, y_max = prob_to_y(0.001), prob_to_y(0.999)
+    y_max = prob_to_y_post(0.999)
+    y_min = -y_max
 
     # 1. Draw Axis Lines
     # Left Axis (Pre-test)
@@ -330,7 +342,7 @@ def create_fagan_nomogram_plot(
 
     # 2. Add Tick Marks & Labels
     # Left Axis Ticks (Pre-test)
-    for p_label, y_pos in zip(prob_ticks_pct, prob_ticks_y):
+    for p_label, y_pos in zip(prob_ticks_pct, prob_ticks_y_pre):
         fig.add_shape(
             type="line",
             x0=-0.015,
@@ -368,7 +380,7 @@ def create_fagan_nomogram_plot(
         )
 
     # Right Axis Ticks (Post-test)
-    for p_label, y_pos in zip(prob_ticks_pct, prob_ticks_y):
+    for p_label, y_pos in zip(prob_ticks_pct, prob_ticks_y_post):
         fig.add_shape(
             type="line",
             x0=1.0,
@@ -413,14 +425,14 @@ def create_fagan_nomogram_plot(
     )
 
     # 4. Draw Diagnostic Trajectories
-    y_pre = prob_to_y(pre_test_prob)
+    y_pre = prob_to_y_pre(pre_test_prob)
 
     # Standard Binary Test (LR+ and LR-)
     res_pos = calculate_post_test_probability(pre_test_prob, lr_pos)
     res_neg = calculate_post_test_probability(pre_test_prob, lr_neg)
 
-    y_post_pos = prob_to_y(res_pos["post_test_prob"])
-    y_post_neg = prob_to_y(res_neg["post_test_prob"])
+    y_post_pos = prob_to_y_post(res_pos["post_test_prob"])
+    y_post_neg = prob_to_y_post(res_neg["post_test_prob"])
 
     # Line for LR+ (Positive Result - Red/Orange)
     fig.add_trace(
@@ -469,7 +481,7 @@ def create_fagan_nomogram_plot(
             tier_name = tier.get("name", f"Tier {idx + 1}")
             tier_lr = tier.get("lr", 1.0)
             tier_res = calculate_post_test_probability(pre_test_prob, tier_lr)
-            y_post_tier = prob_to_y(tier_res["post_test_prob"])
+            y_post_tier = prob_to_y_post(tier_res["post_test_prob"])
             t_color = tier_palette[idx % len(tier_palette)]
 
             fig.add_trace(

@@ -7,9 +7,11 @@ Tests:
 - create_fagan_nomogram_plot (Plotly 3-axis canvas)
 """
 
-import numpy as np
+import math
+
 import pandas as pd
 import pytest
+
 from utils import fagan_nomogram_lib
 
 
@@ -59,14 +61,29 @@ def test_calculate_multilevel_likelihood_ratios():
     high_tier_lr = res_df.iloc[-1]["Interval LR"]
     assert high_tier_lr > 1.0
 
+    # Test string pos_label compatibility
+    res_df_str = fagan_nomogram_lib.calculate_multilevel_likelihood_ratios(
+        df,
+        outcome_col="disease",
+        score_col="troponin",
+        cutoffs=[14, 50],
+        pos_label="1",
+    )
+    assert len(res_df_str) == 3
+    assert res_df_str.iloc[-1]["Interval LR"] == high_tier_lr
+
 
 @pytest.mark.unit
 def test_create_fagan_nomogram_plot():
-    """Test 3-axis Plotly Fagan Nomogram generation."""
+    """Test 3-axis Plotly Fagan Nomogram generation and geometric collinearity."""
+    pre_prob = 0.25
+    lr_pos = 8.0
+    lr_neg = 0.15
+
     fig = fagan_nomogram_lib.create_fagan_nomogram_plot(
-        pre_test_prob=0.25,
-        lr_pos=8.0,
-        lr_neg=0.15,
+        pre_test_prob=pre_prob,
+        lr_pos=lr_pos,
+        lr_neg=lr_neg,
         test_name="Cardiac Troponin I",
         multilevel_lrs=[
             {"name": "Low Tier (<14)", "lr": 0.12},
@@ -82,3 +99,16 @@ def test_create_fagan_nomogram_plot():
     assert any("Test Positive" in str(name) for name in trace_names)
     assert any("Test Negative" in str(name) for name in trace_names)
     assert any("High Tier" in str(name) for name in trace_names)
+
+    # Verify exact collinearity on positive trace
+    pos_trace = [t for t in fig.data if "Test Positive" in str(getattr(t, "name", ""))][
+        0
+    ]
+    xs = list(pos_trace.x)
+    ys = list(pos_trace.y)
+    assert xs == [0, 0.5, 1.0]
+
+    # Midpoint of y0 and y1 must equal y_mid and equal 0.5 * ln(LR)
+    y_pre, y_mid, y_post = ys[0], ys[1], ys[2]
+    assert pytest.approx(y_mid, 1e-6) == (y_pre + y_post) / 2.0
+    assert pytest.approx(y_mid, 1e-6) == 0.5 * math.log(lr_pos)

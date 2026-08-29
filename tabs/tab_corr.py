@@ -22,7 +22,6 @@ from shiny import module, reactive, render, ui
 
 from logger import get_logger
 from tabs._common import (
-    get_color_palette,
     select_variable_by_keyword,
 )
 from tabs._dataset_mixin import register_dataset_selector
@@ -255,7 +254,6 @@ def corr_server(
     """
     Register server-side reactives, event handlers, and UI outputs for the Correlation & ICC Analysis tab.
     """
-    COLORS = get_color_palette()
 
     # ==================== REACTIVE STATES ====================
 

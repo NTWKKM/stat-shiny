@@ -18,6 +18,7 @@ from utils.formatting import (
 )
 from utils.heterogeneity_lib import calculate_heterogeneity
 from utils.mediation_lib import analyze_mediation
+from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 from utils.model_diagnostics_lib import (
     calculate_cooks_distance,
     get_diagnostic_plot_data,
@@ -26,7 +27,6 @@ from utils.model_diagnostics_lib import (
 )
 from utils.multiple_imputation import pool_estimates
 from utils.plotly_html_renderer import plotly_figure_to_html
-from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 from utils.ui_helpers import (
     create_error_alert,
     create_input_group,

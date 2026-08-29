@@ -104,6 +104,7 @@ def _sanitize_div_id(div_id: str) -> str:
 def _create_placeholder_html(message: str) -> str:
     """Create a styled pulse-animated placeholder (Skeleton UI)."""
     import html
+
     from tabs._common import get_color_palette
 
     COLORS = get_color_palette()

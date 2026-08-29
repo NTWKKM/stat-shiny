@@ -14,13 +14,10 @@ Provides:
 
 from __future__ import annotations
 
-import html as _html
-import re
 from typing import Any
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 from shiny import module, reactive, render, req, ui
 
 from logger import get_logger
@@ -33,9 +30,6 @@ from utils import meta_analysis_lib
 from utils.download_helpers import safe_download_html
 from utils.pdf_helpers import safe_download_pdf
 from utils.ui_helpers import (
-    create_download_status_badge,
-    create_error_alert,
-    create_loading_state,
     create_placeholder_state,
     create_results_container,
 )
@@ -170,11 +164,17 @@ def meta_analysis_ui() -> ui.TagChild:
                 ui.input_action_button(
                     "btn_load_statin",
                     "📈 Load Statin LDL Trials (Continuous)",
-                    class_="btn-sm btn-outline-secondary",
+                    class_="btn-sm btn-outline-secondary me-2",
+                ),
+                ui.input_action_button(
+                    "btn_reset_demo",
+                    "🔄 Exit Demo (Use Uploaded Data)",
+                    class_="btn-sm btn-outline-danger",
                 ),
                 class_="d-flex align-items-center mb-3",
             ),
         ),
+        ui.output_ui("ui_demo_dataset_banner"),
         ui.navset_tab(
             # TAB 1: Forest Plot & Effect Summary
             ui.nav_panel(
@@ -361,6 +361,8 @@ def meta_analysis_server(
         bcg = get_bcg_vaccine_data()
         local_df.set(bcg)
         local_name.set("BCG Vaccine RCTs (Colditz 1994)")
+        meta_state.set(None)
+        status_msg.set(None)
 
     @reactive.effect
     @reactive.event(input.btn_load_statin)
@@ -368,6 +370,59 @@ def meta_analysis_server(
         statin = get_statin_continuous_data()
         local_df.set(statin)
         local_name.set("Statin LDL Reduction Trials")
+        meta_state.set(None)
+        status_msg.set(None)
+
+    # Demo Reset / Exit Handlers
+    @reactive.effect
+    @reactive.event(input.btn_reset_demo)
+    def _reset_demo():
+        if local_df.get() is not None:
+            local_df.set(None)
+            local_name.set("Dataset")
+            meta_state.set(None)
+            status_msg.set(None)
+            ui.notification_show("Returned to uploaded dataset mode.", type="message")
+
+    @reactive.effect
+    @reactive.event(input.btn_exit_demo_banner)
+    def _exit_demo_banner():
+        if local_df.get() is not None:
+            local_df.set(None)
+            local_name.set("Dataset")
+            meta_state.set(None)
+            status_msg.set(None)
+            ui.notification_show("Returned to uploaded dataset mode.", type="message")
+
+    @reactive.effect
+    @reactive.event(input.radio_meta_source)
+    def _on_source_radio_change():
+        if local_df.get() is not None:
+            local_df.set(None)
+            local_name.set("Dataset")
+            meta_state.set(None)
+            status_msg.set(None)
+
+    @output
+    @render.ui
+    def ui_demo_dataset_banner():
+        if local_df.get() is not None:
+            return ui.div(
+                ui.div(
+                    ui.span(
+                        f"💡 Demo Mode Active: {local_name.get()}",
+                        class_="fw-bold text-primary",
+                    ),
+                    ui.input_action_button(
+                        "btn_exit_demo_banner",
+                        "✕ Exit Demo (Use Uploaded Data)",
+                        class_="btn-sm btn-outline-danger ms-3 py-0 px-2",
+                    ),
+                    class_="d-flex align-items-center justify-content-between",
+                ),
+                class_="alert alert-info py-2 px-3 mb-3 border-0 shadow-sm",
+            )
+        return None
 
     # Dynamic Column Pickers
     @output
@@ -673,7 +728,6 @@ def meta_analysis_server(
         re_eff = res["random_effect"]
         het = res["heterogeneity"]
         measure = state["measure"]
-        is_ratio = res.get("is_ratio", False)
 
         # Build Forest Plot
         fig_forest = meta_analysis_lib.create_meta_forest_plot(
@@ -771,7 +825,7 @@ def meta_analysis_server(
                     <h5 class="card-title text-info fw-bold">🏷️ Subgroup Analysis & Test for Subgroup Differences</h5>
                     <p class="mb-2"><strong>Between-Subgroup Heterogeneity:</strong> Q_between = <strong>{sg["Q_between"]:.2f}</strong> (df = {sg["df_between"]}, p = <strong>{sg["p_between"]:.4f}</strong>)</p>
                     <div class="alert alert-light border">
-                        {f"⚠️ Significant effect variation across subgroups (p < 0.05)" if sg["p_between"] < 0.05 else "✅ No significant difference detected between subgroups (p ≥ 0.05)"}
+                        {"⚠️ Significant effect variation across subgroups (p < 0.05)" if sg["p_between"] < 0.05 else "✅ No significant difference detected between subgroups (p ≥ 0.05)"}
                     </div>
                 </div>
             </div>
