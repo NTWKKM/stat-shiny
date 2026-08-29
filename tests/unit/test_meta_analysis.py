@@ -13,6 +13,7 @@ Tests:
 import numpy as np
 import pandas as pd
 import pytest
+
 from utils import meta_analysis_lib
 
 
@@ -199,4 +200,26 @@ def test_create_meta_forest_and_funnel_plots():
 
     fig_funnel = meta_analysis_lib.create_contour_enhanced_funnel_plot(meta_res)
     assert fig_funnel is not None
-    assert len(fig_funnel.data) >= 4  # Contours + points
+    # 1 central + 2*(0.05-0.10) + 2*(0.01-0.05) + 2*(<0.01) + 1 studies = 8 traces
+    assert len(fig_funnel.data) >= 8
+
+    # Verify trace names and legend presence
+    trace_names = [t.name for t in fig_funnel.data]
+    assert "p ≥ 0.10" in trace_names
+    assert "0.05 ≤ p < 0.10" in trace_names
+    assert "0.01 ≤ p < 0.05" in trace_names
+    assert "p < 0.01" in trace_names
+    assert "Studies" in trace_names
+
+    # Verify that side bands have mirrored left (negative) and right (positive) coverage
+    traces_005_010 = [t for t in fig_funnel.data if t.name == "0.05 ≤ p < 0.10"]
+    assert len(traces_005_010) == 2
+    x_min_left = np.min(traces_005_010[0].x)
+    x_max_right = np.max(traces_005_010[1].x)
+    assert x_min_left < 0.0
+    assert x_max_right > 0.0
+
+    # Verify central region covers around 0 (p >= 0.10)
+    trace_p10 = [t for t in fig_funnel.data if t.name == "p ≥ 0.10"][0]
+    assert np.min(trace_p10.x) < 0.0
+    assert np.max(trace_p10.x) > 0.0

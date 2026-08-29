@@ -696,67 +696,54 @@ def create_contour_enhanced_funnel_plot(
 
     fig = go.Figure()
 
-    # Shaded Contour: p < 0.01 (Outer)
-    x_99_left = -z_99 * se_grid
-    x_99_right = z_99 * se_grid
-    fig.add_trace(
-        go.Scatter(
-            x=np.concatenate([x_99_left, x_99_right[::-1]]),
-            y=np.concatenate([se_grid, se_grid[::-1]]),
-            fill="toself",
-            fillcolor="rgba(243, 244, 246, 0.8)",  # Very light gray (p >= 0.10)
-            line=dict(color="rgba(0,0,0,0)"),
-            name="p ≥ 0.10 (White)",
-            showlegend=False,
-            hoverinfo="skip",
-        )
-    )
+    def _add_band(z_inner: float, z_outer: float, color: str, label: str) -> None:
+        """Shade the mirrored band z_inner*se <= |x| < z_outer*se."""
+        if z_inner == 0.0:
+            # Central non-significant region: |x| < z_outer * se
+            x_left = -z_outer * se_grid
+            x_right = z_outer * se_grid
+            fig.add_trace(
+                go.Scatter(
+                    x=np.concatenate([x_left, x_right[::-1]]),
+                    y=np.concatenate([se_grid, se_grid[::-1]]),
+                    fill="toself",
+                    fillcolor=color,
+                    line=dict(color="rgba(0,0,0,0)"),
+                    name=label,
+                    showlegend=True,
+                    hoverinfo="skip",
+                )
+            )
+        else:
+            # Mirrored symmetric side bands (both negative and positive effect sides)
+            for idx, sign in enumerate((-1.0, 1.0)):
+                inner = sign * z_inner * se_grid
+                outer = sign * z_outer * se_grid
+                fig.add_trace(
+                    go.Scatter(
+                        x=np.concatenate([outer, inner[::-1]]),
+                        y=np.concatenate([se_grid, se_grid[::-1]]),
+                        fill="toself",
+                        fillcolor=color,
+                        line=dict(color="rgba(0,0,0,0)"),
+                        name=label,
+                        showlegend=(idx == 0),
+                        hoverinfo="skip",
+                    )
+                )
 
-    # Shaded Contour: 0.05 < p < 0.10
-    x_95_left = -z_95 * se_grid
-    x_95_right = z_95 * se_grid
-    fig.add_trace(
-        go.Scatter(
-            x=np.concatenate([x_95_left, x_99_left[::-1]]),
-            y=np.concatenate([se_grid, se_grid[::-1]]),
-            fill="toself",
-            fillcolor="rgba(219, 234, 254, 0.7)",  # Light Blue
-            line=dict(color="rgba(0,0,0,0)"),
-            name="0.05 ≤ p < 0.10",
-            showlegend=True,
-            hoverinfo="skip",
-        )
-    )
+    # 1. Central non-significant region: |x| < z_90 * se -> p >= 0.10
+    _add_band(0.0, z_90, "rgba(243, 244, 246, 0.8)", "p ≥ 0.10")
 
-    # Shaded Contour: 0.01 < p < 0.05
-    x_90_left = -z_90 * se_grid
-    x_90_right = z_90 * se_grid
-    fig.add_trace(
-        go.Scatter(
-            x=np.concatenate([x_90_left, x_95_left[::-1]]),
-            y=np.concatenate([se_grid, se_grid[::-1]]),
-            fill="toself",
-            fillcolor="rgba(191, 219, 254, 0.7)",  # Medium Blue
-            line=dict(color="rgba(0,0,0,0)"),
-            name="0.01 ≤ p < 0.05",
-            showlegend=True,
-            hoverinfo="skip",
-        )
-    )
+    # 2. Shaded Contour: 0.05 <= p < 0.10 (between z_90 and z_95)
+    _add_band(z_90, z_95, "rgba(219, 234, 254, 0.7)", "0.05 ≤ p < 0.10")
 
-    # Shaded Contour: p < 0.01
-    fig.add_trace(
-        go.Scatter(
-            x=np.concatenate([x_99_left, x_99_right[::-1]]),
-            y=np.concatenate([se_grid, se_grid[::-1]]),
-            fill="toself",
-            fillcolor="rgba(147, 197, 253, 0.5)",  # Darker Blue
-            line=dict(color="rgba(0,0,0,0)"),
-            name="p < 0.01",
-            showlegend=True,
-            hoverinfo="skip",
-        )
-    )
+    # 3. Shaded Contour: 0.01 <= p < 0.05 (between z_95 and z_99)
+    _add_band(z_95, z_99, "rgba(191, 219, 254, 0.7)", "0.01 ≤ p < 0.05")
+
+    # 4. Shaded Contour: p < 0.01 (beyond z_99 * se)
+    z_outer = max(z_99 * 1.6, 4.0)
+    _add_band(z_99, z_outer, "rgba(147, 197, 253, 0.5)", "p < 0.01")
 
     # Pooled summary line
     re_effect = meta_results["random_effect"]["log_effect"]
