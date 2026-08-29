@@ -31,8 +31,16 @@ if sys.version_info < (3, 10):
 @pytest.fixture(scope="session", autouse=True)
 def start_shiny_server(request):
     """
-    Start a Shiny app server for the test session.
-    Improved with Error Log capturing for better debugging.
+    Start the Shiny application server when the test session includes E2E tests.
+    
+    The server listens on 127.0.0.1:8000 and remains available for the test
+    session after it becomes ready. It is stopped and its logs are captured during
+    cleanup.
+    
+    Raises:
+        FileNotFoundError: If the project does not contain app.py.
+        RuntimeError: If the server cannot start, exits during startup, or fails
+            to become ready within 60 seconds.
     """
 
     # ────────────────────────────────────────────────────────────────────

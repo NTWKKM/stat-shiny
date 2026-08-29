@@ -29,14 +29,16 @@ COLORS = get_color_palette()
 
 def calculate_post_test_probability(pre_test_prob: float, lr: float) -> dict[str, Any]:
     """
-    Calculate post-test odds and probability given pre-test probability and likelihood ratio.
-
-    Args:
-        pre_test_prob: Probability between 0.0001 and 0.9999 (e.g. 0.25 for 25%)
-        lr: Likelihood Ratio (LR+ or LR- or Interval LR)
-
+    Calculate post-test probability and odds from a pre-test probability and likelihood ratio.
+    
+    Parameters:
+        pre_test_prob (float): Pre-test probability, clipped to the range 0.0001 to 0.9999.
+        lr (float): Likelihood ratio, constrained to a minimum of 0.0001.
+    
     Returns:
-        Dictionary with pre_test_prob, lr, post_test_prob, post_test_odds, interpretation
+        dict[str, Any]: Calculated probabilities, odds, likelihood ratio, risk-zone metadata,
+        and diagnostic impact interpretation. If calculation fails, includes the original
+        inputs, a NaN post-test probability, and an error message.
     """
     try:
         p = float(np.clip(pre_test_prob, 1e-4, 1.0 - 1e-4))
@@ -109,17 +111,22 @@ def calculate_multilevel_likelihood_ratios(
     pos_label: Any = 1,
 ) -> pd.DataFrame:
     """
-    Calculate Interval / Multi-level Likelihood Ratios for continuous biomarker strata.
-
-    Args:
-        df: Input DataFrame
-        outcome_col: Disease outcome column (0/1 or True/False)
-        score_col: Biomarker score / continuous variable
-        cutoffs: List of cutoffs (e.g. [14, 50] creates <14, 14-50, >=50)
-        pos_label: Value representing disease positive
-
+    Calculate likelihood ratios for score intervals defined by the supplied cutoffs.
+    
+    Parameters:
+        df (pd.DataFrame): Data containing outcome and biomarker score values.
+        outcome_col (str): Name of the disease-outcome column.
+        score_col (str): Name of the continuous biomarker-score column.
+        cutoffs (list[float]): Values defining the score intervals.
+        pos_label (Any): Outcome value identifying diseased cases.
+    
     Returns:
-        DataFrame with Tiers, Diseased counts, Non-diseased counts, Stratum sensitivity/specificity, Interval LR, 95% CI
+        pd.DataFrame: Interval counts, disease-group proportions, smoothed likelihood
+            ratios, 95% confidence intervals, and estimated post-test probabilities
+            at a 20% pre-test probability.
+    
+    Raises:
+        ValueError: If the data contains no diseased cases or no non-diseased cases.
     """
     clean_df = df[[outcome_col, score_col]].dropna().copy()
     clean_df["_disease"] = (
@@ -200,38 +207,58 @@ def create_fagan_nomogram_plot(
     multilevel_lrs: list[dict] | None = None,
 ) -> go.Figure:
     """
-    Generate an interactive 3-axis Plotly Fagan's Nomogram.
-
-    Axes:
-    - Left (x=0): Pre-test probability (0.1% to 99.9% on logit scale)
-    - Middle (x=0.5): Likelihood Ratio (0.001 to 1000 on 0.5*ln(LR) scale)
-    - Right (x=1.0): Post-test probability (0.1% to 99.9% on logit scale)
-
-    Args:
-        pre_test_prob: Pre-test probability (0.001 to 0.999)
-        lr_pos: Positive Likelihood Ratio (LR+)
-        lr_neg: Negative Likelihood Ratio (LR-)
-        test_name: Name of diagnostic test or biomarker
-        multilevel_lrs: Optional list of dicts for multi-tier interval LRs
-
+    Create an interactive three-axis Plotly Fagan nomogram for diagnostic test results.
+    
+    Parameters:
+        pre_test_prob (float): Pre-test probability.
+        lr_pos (float): Likelihood ratio for a positive test result.
+        lr_neg (float): Likelihood ratio for a negative test result.
+        test_name (str): Label for the diagnostic test or biomarker.
+        multilevel_lrs (list[dict] | None): Optional tier definitions containing
+            ``name`` and ``lr`` values for additional trajectories.
+    
     Returns:
-        Plotly Figure object
+        go.Figure: Plotly figure containing the nomogram and diagnostic
+            trajectories.
     """
 
     # Helper to convert probability to y-coordinate (logit scale)
     def prob_to_y_pre(p: float) -> float:
-        """Pre-test probability axis is inverted (0.1% at top, 99.9% at bottom)."""
+        """
+        Convert a pre-test probability to the inverted nomogram y-coordinate.
+        
+        Parameters:
+            p (float): Pre-test probability, clamped to the range 0.001 to 0.999.
+        
+        Returns:
+            float: The y-coordinate corresponding to the probability.
+        """
         p_clamped = float(np.clip(p, 0.001, 0.999))
         return -math.log(p_clamped / (1.0 - p_clamped))
 
     def prob_to_y_post(p: float) -> float:
-        """Post-test probability axis is standard (0.1% at bottom, 99.9% at top)."""
+        """Convert a post-test probability to its log-odds axis coordinate.
+        
+        Parameters:
+            p (float): Post-test probability.
+        
+        Returns:
+            float: Log-odds coordinate for the probability, clipped to the range 0.001 through 0.999.
+        """
         p_clamped = float(np.clip(p, 0.001, 0.999))
         return math.log(p_clamped / (1.0 - p_clamped))
 
     # Center axis y-coordinate for a given LR (geometric midpoint)
     def lr_to_y(lr_val: float) -> float:
-        """Likelihood Ratio axis (1000 at top, 1 at center, 0.001 at bottom)."""
+        """
+        Map a likelihood ratio to its logarithmic nomogram-axis coordinate.
+        
+        Parameters:
+            lr_val (float): Likelihood ratio to transform.
+        
+        Returns:
+            float: Logarithmic axis coordinate based on the likelihood ratio.
+        """
         lr_clamped = float(max(1e-4, lr_val))
         return 0.5 * math.log(lr_clamped)
 

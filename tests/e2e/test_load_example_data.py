@@ -9,7 +9,10 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")
 @pytest.mark.e2e
 def test_load_example_data(page: Page):
     """
-    ✅ Test that "Load Example Data" button works correctly.
+    Verify that loading the example data populates the preview, metadata, and variable mapping.
+    
+    Parameters:
+        page (Page): Playwright page used to interact with the application.
     """
     page.on("console", lambda msg: print(f"BROWSER CONSOLE: {msg.text}"))
     page.on("pageerror", lambda err: print(f"BROWSER ERROR: {err}"))

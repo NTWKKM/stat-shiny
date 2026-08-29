@@ -54,9 +54,9 @@ AgreementAnalysis = None
 @pytest.fixture(scope="module", autouse=True)
 def setup_mocks():
     """
-    Provide a pytest fixture that injects robust mocks for external libraries and exposes test-target callables.
-
-    Patches sys.modules with mocked versions of plotly, lifelines, sklearn, pingouin, and related submodules, reloads the modules under test so they use those mocks, and binds module-level globals (e.g., run_negative_binomial_regression, analyze_roc, AgreementAnalysis, fit_cox_ph, calculate_descriptive, validate_logit_data, etc.) for use by the test suite. Yields control to allow tests to run within the patched context.
+    Provide mocked external dependencies for the test suite and expose the reloaded test targets.
+    
+    The fixture patches external statistical and visualization libraries, reloads the modules under test within the patched environment, and restores their unmocked state after the tests complete.
     """
     global run_negative_binomial_regression, run_poisson_regression
     global analyze_roc, auc_ci_delong, calculate_chi2, calculate_ci_wilson_score

@@ -44,7 +44,14 @@ COLORS = get_color_palette()
 
 
 def get_bcg_vaccine_data() -> pd.DataFrame:
-    """Colditz et al. (1994) BCG Vaccine Tuberculosis Prevention RCTs."""
+    """
+    Provide BCG vaccine tuberculosis prevention trial data from Colditz et al. (1994).
+    
+    Returns:
+        pd.DataFrame: Data for 13 randomized controlled trials, including study names,
+            latitude groups, tuberculosis events, and participant totals for vaccine
+            and control groups.
+    """
     return pd.DataFrame(
         {
             "Study": [
@@ -114,7 +121,12 @@ def get_bcg_vaccine_data() -> pd.DataFrame:
 
 
 def get_statin_continuous_data() -> pd.DataFrame:
-    """Illustrative Continuous Meta-Analysis: Statin vs Control LDL Reduction (mg/dL)."""
+    """
+    Provide illustrative continuous LDL-reduction data for statin and control groups across six trials.
+    
+    Returns:
+        pd.DataFrame: Trial-level means, standard deviations, sample sizes, and dose tiers.
+    """
     return pd.DataFrame(
         {
             "Trial": [
@@ -143,7 +155,9 @@ def get_statin_continuous_data() -> pd.DataFrame:
 
 @module.ui
 def meta_analysis_ui() -> ui.TagChild:
-    """Constructs the Clinical Meta-Analysis UI."""
+    """
+    Construct the user interface for the clinical meta-analysis module.
+    """
     return ui.div(
         ui.output_ui("ui_title_with_summary"),
         ui.output_ui("ui_matched_info"),
@@ -340,7 +354,18 @@ def meta_analysis_server(
     df_matched: reactive.Value[pd.DataFrame | None] | None = None,
     is_matched: reactive.Value[bool] | None = None,
 ) -> None:
-    """Server module for Clinical Meta-Analysis."""
+    """
+    Configure the Shiny server module for clinical meta-analysis.
+    
+    Parameters:
+    	input: Shiny input bindings for dataset selection and analysis controls.
+    	output: Shiny output bindings for rendered interfaces, reports, and downloads.
+    	session: Current Shiny session.
+    	df: Reactive uploaded dataset.
+    	var_meta: Reactive metadata associated with the dataset.
+    	df_matched: Optional reactive dataset containing matched records.
+    	is_matched: Optional reactive flag indicating whether matched data is active.
+    """
 
     local_df = reactive.Value(None)
     local_name = reactive.Value("Dataset")
@@ -358,6 +383,12 @@ def meta_analysis_server(
 
     @reactive.calc
     def active_df():
+        """
+        Selects the dataset currently active for the meta-analysis.
+        
+        Returns:
+            pandas.DataFrame or None: The locally loaded dataset when available; otherwise, the current dataset.
+        """
         if local_df.get() is not None:
             return local_df.get()
         return current_df()
@@ -366,6 +397,7 @@ def meta_analysis_server(
     @reactive.effect
     @reactive.event(input.btn_load_bcg)
     def _load_bcg():
+        """Load the BCG vaccine randomized controlled trial dataset and reset the analysis state."""
         bcg = get_bcg_vaccine_data()
         local_df.set(bcg)
         local_name.set("BCG Vaccine RCTs (Colditz 1994)")
@@ -375,6 +407,7 @@ def meta_analysis_server(
     @reactive.effect
     @reactive.event(input.btn_load_statin)
     def _load_statin():
+        """Load the statin LDL reduction trial dataset and reset the current analysis state."""
         statin = get_statin_continuous_data()
         local_df.set(statin)
         local_name.set("Statin LDL Reduction Trials")
@@ -385,6 +418,7 @@ def meta_analysis_server(
     @reactive.effect
     @reactive.event(input.btn_reset_demo)
     def _reset_demo():
+        """Return to uploaded-dataset mode and clear the current demo analysis state."""
         if local_df.get() is not None:
             local_df.set(None)
             local_name.set("Dataset")
@@ -395,6 +429,7 @@ def meta_analysis_server(
     @reactive.effect
     @reactive.event(input.btn_exit_demo_banner)
     def _exit_demo_banner():
+        """Returns the interface to uploaded-dataset mode and clears the active demo analysis state."""
         if local_df.get() is not None:
             local_df.set(None)
             local_name.set("Dataset")
@@ -405,6 +440,7 @@ def meta_analysis_server(
     @reactive.effect
     @reactive.event(input.radio_meta_source)
     def _on_source_radio_change():
+        """Clear demo data and reset the analysis state when the data source changes."""
         if local_df.get() is not None:
             local_df.set(None)
             local_name.set("Dataset")
@@ -414,6 +450,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_demo_dataset_banner():
+        """
+        Display a banner indicating when a demo dataset is active and provide an option to return to uploaded data.
+        
+        Returns:
+            A demo-mode banner UI element, or `None` when no demo dataset is active.
+        """
         if local_df.get() is not None:
             return ui.div(
                 ui.div(
@@ -436,6 +478,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_meta_measure():
+        """
+        Create an effect-measure selector appropriate for the selected meta-analysis data type.
+        
+        Returns:
+            A select input containing effect-measure options for binary, continuous, or generic effect-size data.
+        """
         dtype = input.meta_data_type()
         if dtype == "binary":
             opts = {
@@ -457,6 +505,9 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_meta_study_col():
+        """
+        Create the selector for choosing the study identifier column.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         default_study = select_variable_by_keyword(
@@ -472,6 +523,7 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_meta_subgroup_col():
+        """Create a selector for the optional subgroup column in the active dataset."""
         df = active_df()
         cols = ["None"] + (list(df.columns) if df is not None else [])
         default_sg = select_variable_by_keyword(
@@ -488,6 +540,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_bin_events_t():
+        """
+        Create a selector for the treatment-group event-count variable.
+        
+        Returns:
+            A UI select input populated with the active dataset's columns.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
@@ -500,6 +558,9 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_bin_n_t():
+        """
+        Create a selector for the treatment-group sample-size column.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
@@ -512,6 +573,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_bin_events_c():
+        """
+        Create the selector for the control-group event-count column.
+        
+        Returns:
+            A UI control containing the available dataset columns and a keyword-based default selection.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
@@ -524,6 +591,7 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_bin_n_c():
+        """Create a selector for the control-group sample-size column."""
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
@@ -537,6 +605,9 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_cont_mean_t():
+        """
+        Create a selector for the treatment-group mean column in continuous-effect data.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
@@ -549,6 +620,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_cont_sd_t():
+        """
+        Create a selector for the treatment-group standard deviation column.
+        
+        Returns:
+        	ui.TagChild: A select input populated with available dataset columns.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(cols, ["sd_statin", "sd_t", "sd1", "s_t"])
@@ -559,6 +636,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_cont_n_t():
+        """
+        Create a selector for the treatment-group sample-size column.
+        
+        Returns:
+        	ui.TagChild: A select input populated with available dataset columns and a keyword-matched default selection.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(cols, ["n_statin", "n_t", "n1"])
@@ -567,6 +650,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_cont_mean_c():
+        """
+        Create a selector for the control-group mean column in continuous-effect data.
+        
+        Returns:
+            A UI selector populated with available dataset columns.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
@@ -579,6 +668,9 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_cont_sd_c():
+        """
+        Create the continuous-outcome control-group standard deviation selector.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(cols, ["sd_control", "sd_c", "sd0", "s_c"])
@@ -587,6 +679,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_cont_n_c():
+        """
+        Create a selector for the continuous-outcome control-group sample-size column.
+        
+        Returns:
+            A UI select input populated with available dataset columns and a keyword-based default selection.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(cols, ["n_control", "n_c", "n0"])
@@ -596,6 +694,7 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_gen_effect_col():
+        """Create a selector for the generic effect-size column."""
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
@@ -608,6 +707,9 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_gen_se_col():
+        """
+        Create a selector for the generic effect-size standard-error column.
+        """
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(cols, ["se", "vi", "stderr", "std_err"])
@@ -622,6 +724,7 @@ def meta_analysis_server(
     @reactive.effect
     @reactive.event(input.btn_run_meta)
     def _execute_meta():
+        """Execute the configured meta-analysis and update its results and status."""
         df = active_df()
         if df is None or df.empty:
             status_msg.set("⚠️ Please select or load a dataset first.")
@@ -717,6 +820,12 @@ def meta_analysis_server(
     @output
     @render.ui
     def ui_meta_status():
+        """
+        Render the current meta-analysis status message as a success or error alert.
+        
+        Returns:
+        	ui.TagChild | None: An alert containing the status message, or `None` when no message is available.
+        """
         msg = status_msg()
         if not msg:
             return None
@@ -726,6 +835,9 @@ def meta_analysis_server(
     @output
     @render.ui
     def out_meta_results():
+        """
+        Render pooled meta-analysis estimates, heterogeneity statistics, subgroup comparisons, and a forest plot.
+        """
         state = meta_state()
         if not state or "error" in state["meta"]:
             return create_placeholder_state(
@@ -872,6 +984,13 @@ def meta_analysis_server(
     @output
     @render.ui
     def out_meta_funnel_results():
+        """
+        Render publication-bias test results and a contour-enhanced funnel plot.
+        
+        Returns:
+            A UI container with publication-bias diagnostics and a funnel plot, or a
+            placeholder prompting the user to run the meta-analysis first.
+        """
         state = meta_state()
         if not state or "error" in state["meta"]:
             return create_placeholder_state(
@@ -949,6 +1068,11 @@ def meta_analysis_server(
     # HTML Download Handler
     @render.download(filename="meta_analysis_report.html")
     def btn_dl_meta_html():
+        """Generate an HTML report containing the meta-analysis forest plot.
+        
+        Returns:
+            str: The downloadable HTML content, or an empty string when no analysis is available.
+        """
         state = meta_state()
         if not state:
             return ""
@@ -959,6 +1083,7 @@ def meta_analysis_server(
     # PDF Download Handler
     @render.download(filename="meta_analysis_report.pdf")
     def btn_dl_meta_pdf():
+        """Generate a PDF report for the completed meta-analysis."""
         state = meta_state()
         if not state:
             return b""

@@ -58,10 +58,10 @@ COLORS = get_color_palette()
 @module.ui
 def diag_ui() -> ui.TagChild:
     """
-    Construct the Diagnostics page UI with controls and result areas for ROC, Chi-Square, Descriptive, Decision Curve Analysis, and a reference/interpretation guide.
-
+    Build the Diagnostics page interface for ROC analysis, chi-square and risk analysis, descriptive statistics, decision curve analysis, Fagan’s nomogram, and interpretation guidance.
+    
     Returns:
-        ui.TagChild: A UI container that includes the page title and dataset selector followed by a tabset of five panels (ROC Curve & AUC, Chi-Square & Risk, Descriptive statistics, Decision Curve Analysis, and Reference & Interpretation) with their corresponding input controls, action/download buttons, status displays, and result output regions.
+    	ui.TagChild: The Diagnostics page UI container.
     """
     return ui.div(
         # Title + Data Summary inline
@@ -517,31 +517,18 @@ def diag_server(
 ) -> None:
     # --- Reactive Results Storage ---
     """
-    Register server-side UI renderers, reactive handlers, and analysis workflows for the Diagnostics module (ROC, ROC comparison, Chi-Square, Descriptive, and Decision Curve Analysis). Sets up reactive storage for generated HTML reports and processing flags and wires input-driven analysis effects and download handlers.
-
+    Register the reactive UI, analysis handlers, result storage, and download handlers for the Diagnostics module.
+    
     Parameters:
-        input: Shiny-like input accessor used to read UI control values and events.
-        output: Shiny-like output registry used to attach UI render targets.
-        session: Shiny-like session object for the current user connection.
+        input: Shiny input accessor for reading control values and action events.
+        output: Shiny output registry for attaching rendered UI and downloads.
+        session: Shiny session for the current client connection.
         df (reactive.Value[pd.DataFrame | None]): Primary reactive dataset.
-        var_meta (reactive.Value[dict[str, Any]]): Reactive variable metadata used for reports and missing-data summaries.
-        df_matched (reactive.Value[pd.DataFrame | None]): Optional reactive matched dataset (e.g., from propensity score matching).
-        is_matched (reactive.Value[bool]): Reactive flag indicating whether a matched dataset is available/selected.
-
-    Behavior:
-        - Exposes UI renderers for inputs, status indicators, and result containers used by the Diagnostics tab.
-        - Maintains reactive storage for generated HTML reports (ROC, ROC comparison, Chi-Square, Descriptive, DCA) and processing flags.
-        - Implements analysis event handlers that run when corresponding action buttons are triggered:
-            * Single-test ROC analysis (ROC plot, statistics, calibration/sens-spec plots, performance table).
-            * Paired ROC comparison using a DeLong paired test (comparison plot, DeLong table, optimal-threshold metrics).
-            * Chi-Square / 2x2 analysis (contingency table, statistics, risk/effect measures).
-            * Descriptive statistics for a selected variable.
-            * Decision Curve Analysis (net benefit calculations, DCA plot, selected-threshold net benefits).
-        - Each analysis appends missing-data summaries to reports when applicable and exposes download handlers that yield the generated HTML report content.
-        - All processing flags are managed to allow UI status spinners while computations run.
-
-    Note:
-        This function configures server-side behavior and does not return a value.
+        var_meta (reactive.Value[dict[str, Any]]): Variable metadata used in reports.
+        df_matched (reactive.Value[pd.DataFrame | None]): Optional matched dataset.
+        is_matched (reactive.Value[bool]): Indicates whether the matched dataset is selected.
+    
+    Configures ROC analysis and comparison, chi-square and risk analysis, descriptive statistics, decision curve analysis, and Fagan's nomogram workflows, including their status displays, generated reports, and HTML/PDF downloads.
     """
     roc_html: reactive.Value[str | None] = reactive.Value(None)
     chi_html: reactive.Value[str | None] = reactive.Value(None)
@@ -1657,6 +1644,7 @@ def diag_server(
 
     @render.ui
     def ui_fagan_truth():
+        """Create a selector for the Fagan nomogram's outcome or gold-standard variable."""
         cols = all_cols()
         default = select_variable_by_keyword(
             cols,
@@ -1672,6 +1660,12 @@ def diag_server(
 
     @render.ui
     def ui_fagan_score():
+        """
+        Create a selector for the diagnostic test or score used in Fagan's nomogram analysis.
+        
+        Returns:
+        	ui.input_select: A selector populated with dataset columns and a keyword-matched default.
+        """
         cols = all_cols()
         default = select_variable_by_keyword(
             cols, ["score", "test", "pred", "prob", "biomarker"], default_to_first=True
@@ -1685,6 +1679,12 @@ def diag_server(
 
     @render.ui
     def ui_fagan_pos_label():
+        """
+        Create the positive-class selector for the Fagan nomogram inputs.
+        
+        Returns:
+        	ui.Tag: A select input populated with available outcome values, or a text input defaulting to `"1"` when the outcome data is unavailable.
+        """
         d = current_df()
         truth = input.sel_fagan_truth()
         if d is not None and truth in d.columns:
@@ -1700,6 +1700,7 @@ def diag_server(
 
     @render.ui
     def ui_fagan_multi_truth():
+        """Create a selector for the outcome variable used in multilevel Fagan analysis."""
         cols = all_cols()
         default = select_variable_by_keyword(
             cols, ["gold", "outcome", "diag", "disease"], default_to_first=True
@@ -1713,6 +1714,11 @@ def diag_server(
 
     @render.ui
     def ui_fagan_multi_pos_label():
+        """Create a selector for the positive class used in multilevel Fagan analysis.
+        
+        Returns:
+        	ui element: A positive-class selector populated from the selected truth column, or a text input when the dataset or column is unavailable.
+        """
         d = current_df()
         truth = input.sel_fagan_multi_truth()
         if d is not None and truth in d.columns:
@@ -1728,6 +1734,7 @@ def diag_server(
 
     @render.ui
     def ui_fagan_multi_score():
+        """Create a selector for the multilevel Fagan biomarker or score column."""
         cols = all_cols()
         default = select_variable_by_keyword(
             cols, ["trop", "dimer", "score", "prob", "biomarker"], default_to_first=True
@@ -1741,6 +1748,12 @@ def diag_server(
 
     @render.ui
     def ui_fagan_status():
+        """
+        Render the Fagan nomogram status message as a styled alert.
+        
+        Returns:
+            A success or error alert containing the current status message, or ``None`` when no message is available.
+        """
         msg = fagan_status_msg.get()
         if not msg:
             return None
@@ -1750,6 +1763,11 @@ def diag_server(
     @reactive.Effect
     @reactive.event(input.btn_generate_fagan)
     def _generate_fagan():
+        """
+        Generate a Fagan's nomogram report using manual inputs, ROC-derived metrics, or multilevel likelihood ratios.
+        
+        The generated report includes post-test probability summaries and, for multilevel analysis, an interval likelihood-ratio table. Errors are recorded in the status message.
+        """
         mode = input.fagan_mode()
 
         try:
@@ -1930,6 +1948,7 @@ def diag_server(
 
     @render.ui
     def out_fagan_results():
+        """Display the generated Fagan's nomogram analysis or an instruction to generate one."""
         content = fagan_html.get()
         if content:
             return create_results_container(

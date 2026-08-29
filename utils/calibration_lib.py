@@ -35,17 +35,15 @@ COLORS = get_color_palette()
 
 def calculate_brier_score(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     """
-    Calculate Brier Score and its decomposition.
-
-    Brier Score ranges from 0 (perfect) to 1 (worst).
-    Brier < 0.25 is generally acceptable for clinical prediction.
-
-    Args:
-        y_true: Binary outcome (0/1)
-        y_pred: Predicted probabilities
-
+    Calculate the Brier score and prevalence-based reference metrics for binary predictions.
+    
+    Parameters:
+        y_true (np.ndarray): Observed binary outcomes.
+        y_pred (np.ndarray): Predicted probabilities.
+    
     Returns:
-        Dictionary with Brier score and interpretation
+        dict: Brier score metrics, performance interpretation, and the number of
+            valid observations. Includes an error message if calculation fails.
     """
     try:
         y_true = np.asarray(y_true).flatten()
@@ -94,17 +92,18 @@ def calculate_ici(
     n_bootstrap: int = 100,
 ) -> dict:
     """
-    Calculate Integrated Calibration Index (ICI), E50, E90, and Emax.
-
-    According to Austin & Steyerberg (2019) and TRIPOD+AI standards:
-    - ICI: Weighted absolute difference between predicted and LOESS-smoothed observed probabilities.
-    - E50: Median absolute calibration error.
-    - E90: 90th percentile of absolute calibration error.
-    - Emax: Maximum absolute calibration error.
-
-    References:
-        Austin PC, Steyerberg EW. Stat Med. 2019;38(21):4051-4065.
-        Collins GS, et al. BMJ. 2024;385:e078378 (TRIPOD+AI Statement).
+    Estimate continuous calibration error using LOESS-smoothed observed probabilities.
+    
+    Parameters:
+        y_true (np.ndarray): Observed binary outcomes.
+        y_pred (np.ndarray): Predicted probabilities.
+        span (float): Fraction of observations used for LOESS smoothing.
+        n_bootstrap (int): Number of bootstrap samples used to estimate the ICI confidence interval.
+    
+    Returns:
+        dict: Calibration metrics including ICI, E50, E90, Emax, optional ICI confidence
+            limits, interpretation, LOESS coordinates, and sample size. Returns NaN
+            metrics and an error message when the data are insufficient or calculation fails.
     """
     try:
         y_true = np.asarray(y_true, dtype=float).flatten()
@@ -208,16 +207,16 @@ def calculate_ici(
 
 def calculate_calibration_slope(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     """
-    Calculate calibration slope and intercept via logistic regression.
-
-    Perfect calibration: slope = 1, intercept = 0
-
-    Args:
-        y_true: Binary outcome
-        y_pred: Predicted probabilities
-
+    Estimate calibration slope and intercept from predicted probabilities.
+    
+    Parameters:
+        y_true (np.ndarray): Binary observed outcomes.
+        y_pred (np.ndarray): Predicted probabilities.
+    
     Returns:
-        Dictionary with slope, intercept, and CIs
+        dict: Calibration slope and intercept with 95% confidence intervals and
+        interpretation labels. If estimation fails, contains a NaN calibration
+        slope and an error message.
     """
     try:
         import statsmodels.api as sm
@@ -359,18 +358,19 @@ def create_calibration_plot(
     show_loess: bool = True,
 ) -> go.Figure:
     """
-    Create a publication-grade calibration plot with LOESS smooth curve, binned points, and histogram.
-
-    Args:
-        y_true: Binary outcome
-        y_pred: Predicted probabilities
-        n_bins: Number of bins for grouping
-        title: Plot title
-        strategy: 'uniform' or 'quantile' binning
-        show_loess: Whether to display continuous LOESS smoothed calibration curve
-
+    Create a calibration plot with ideal, LOESS-smoothed, and binned calibration curves.
+    
+    Parameters:
+        y_true (np.ndarray): Binary observed outcomes.
+        y_pred (np.ndarray): Predicted probabilities.
+        n_bins (int): Number of bins for the observed-versus-predicted points.
+        title (str): Plot title.
+        strategy (str): Binning strategy, either ``"uniform"`` or ``"quantile"``.
+        show_loess (bool): Whether to display the LOESS-smoothed calibration curve.
+    
     Returns:
-        Plotly Figure object
+        go.Figure: Plotly figure containing calibration curves and the prediction
+            distribution.
     """
     try:
         y_true = np.asarray(y_true).flatten()
@@ -742,17 +742,15 @@ def get_calibration_report(
     y_pred: np.ndarray,
 ) -> dict:
     """
-    Generate comprehensive calibration report for publication (TRIPOD+AI Compliant).
-
-    Combines discrimination (C-statistic/AUC), continuous calibration (ICI, E50, E90, Emax),
-    calibration-in-the-large, calibration slope, Brier score, and goodness-of-fit.
-
-    Args:
-        y_true: Binary outcome
-        y_pred: Predicted probabilities
-
+    Aggregate discrimination, calibration, and goodness-of-fit metrics for model evaluation.
+    
+    Parameters:
+        y_true (np.ndarray): Binary observed outcomes.
+        y_pred (np.ndarray): Predicted probabilities corresponding to the observed outcomes.
+    
     Returns:
-        Dictionary with all calibration and discrimination metrics
+        dict: A report containing C-statistic, ICI, Brier score, calibration, and
+            Hosmer–Lemeshow test results.
     """
     return {
         "c_statistic": calculate_c_statistic_with_ci(y_true, y_pred),
@@ -765,13 +763,14 @@ def get_calibration_report(
 
 def format_calibration_html(report: dict) -> str:
     """
-    Format calibration report as HTML table adhering to TRIPOD+AI standards.
-
-    Args:
-        report: Output from get_calibration_report()
-
+    Format a calibration report as a TRIPOD+AI-styled HTML table.
+    
+    Parameters:
+        report (dict): Calibration metrics and interpretations, typically produced by
+            `get_calibration_report`.
+    
     Returns:
-        HTML string
+        str: HTML representation of the available calibration metrics.
     """
     c_stat = report.get("c_statistic", {})
     ici_dict = report.get("ici", {})

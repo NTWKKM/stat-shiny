@@ -102,7 +102,15 @@ def _sanitize_div_id(div_id: str) -> str:
 
 
 def _create_placeholder_html(message: str) -> str:
-    """Create a styled pulse-animated placeholder (Skeleton UI)."""
+    """
+    Create a styled, pulse-animated HTML placeholder displaying the supplied message.
+    
+    Parameters:
+        message (str): Text to display in the placeholder.
+    
+    Returns:
+        str: An HTML fragment containing the escaped message and animated placeholder styling.
+    """
     import html
 
     from tabs._common import get_color_palette

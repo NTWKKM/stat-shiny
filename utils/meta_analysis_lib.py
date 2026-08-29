@@ -51,20 +51,24 @@ def compute_binary_effect_sizes(
     subgroup_col: str | None = None,
 ) -> pd.DataFrame:
     """
-    Compute effect sizes (OR, RR, RD) and standard errors from 2x2 contingency table columns.
-
-    Args:
-        df: Input DataFrame
-        events_t_col: Number of events in treatment arm
-        n_t_col: Total sample size in treatment arm
-        events_c_col: Number of events in control arm
-        n_c_col: Total sample size in control arm
-        study_col: Study identification column
-        effect_measure: "OR" (Odds Ratio), "RR" (Risk Ratio), or "RD" (Risk Difference)
-        subgroup_col: Optional column for subgroup stratification
-
+    Compute binary treatment effects and confidence intervals from 2×2 contingency-table data.
+    
+    Parameters:
+        df (pd.DataFrame): Input study-level data.
+        events_t_col (str): Column containing treatment-arm event counts.
+        n_t_col (str): Column containing treatment-arm sample sizes.
+        events_c_col (str): Column containing control-arm event counts.
+        n_c_col (str): Column containing control-arm sample sizes.
+        study_col (str): Column identifying each study.
+        effect_measure (str): Effect measure to compute: ``"OR"`` for odds ratio,
+            ``"RR"`` for risk ratio, or ``"RD"`` for risk difference.
+        subgroup_col (str | None): Optional column containing subgroup labels.
+    
     Returns:
-        DataFrame with study, effect_size, log_effect, se, ci_lower, ci_upper, weight data
+        pd.DataFrame: Study-level effects, standard errors, 95% confidence
+        intervals, arm counts, subgroup labels, and ratio-scale metadata. Rows
+        with missing required values are excluded. A 0.5 continuity correction is
+        applied when any contingency-table cell is zero.
     """
     cols = [study_col, events_t_col, n_t_col, events_c_col, n_c_col]
     if subgroup_col and subgroup_col in df.columns:
@@ -162,7 +166,22 @@ def compute_continuous_effect_sizes(
     subgroup_col: str | None = None,
 ) -> pd.DataFrame:
     """
-    Compute Mean Difference (MD) or Standardized Mean Difference (SMD / Hedges' g) for continuous endpoints.
+    Compute mean differences or standardized mean differences (Hedges' g) for continuous outcomes.
+    
+    Parameters:
+        df (pd.DataFrame): Study-level data.
+        mean_t_col (str): Column containing treatment-group means.
+        sd_t_col (str): Column containing treatment-group standard deviations.
+        n_t_col (str): Column containing treatment-group sample sizes.
+        mean_c_col (str): Column containing control-group means.
+        sd_c_col (str): Column containing control-group standard deviations.
+        n_c_col (str): Column containing control-group sample sizes.
+        study_col (str): Column identifying each study.
+        effect_measure (str): Effect measure to calculate: `"MD"` for mean difference or `"SMD"` for Hedges' g.
+        subgroup_col (str | None): Optional column containing subgroup labels.
+    
+    Returns:
+        pd.DataFrame: Study-level effect sizes, standard errors, 95% confidence intervals, sample information, subgroup labels, and ratio-scale metadata. Studies with incomplete data, sample sizes below two, or nonpositive standard deviations are omitted.
     """
     cols = [study_col, mean_t_col, sd_t_col, n_t_col, mean_c_col, sd_c_col, n_c_col]
     if subgroup_col and subgroup_col in df.columns:
@@ -243,11 +262,31 @@ def compute_continuous_effect_sizes(
 def _estimate_tau2_pm(
     theta: np.ndarray, se: np.ndarray, q_stat: float, k: int
 ) -> float:
-    """Estimate tau^2 between-study variance using Paule-Mandel method."""
+    """
+    Estimate the between-study variance using the Paule–Mandel method.
+    
+    Parameters:
+    	theta (np.ndarray): Study effect estimates.
+    	se (np.ndarray): Study standard errors.
+    	q_stat (float): Cochran’s Q statistic.
+    	k (int): Number of studies.
+    
+    Returns:
+    	float: Estimated between-study variance.
+    """
     if q_stat <= (k - 1) or k <= 1:
         return 0.0
 
     def f_pm(t2: float) -> float:
+        """
+        Evaluate the Paule–Mandel estimating equation for a candidate between-study variance.
+        
+        Parameters:
+        	t2 (float): Candidate between-study variance.
+        
+        Returns:
+        	float: Difference between the weighted heterogeneity statistic and its residual degrees of freedom.
+        """
         w = 1.0 / (se**2 + t2)
         mu = float(np.sum(w * theta) / np.sum(w))
         return float(np.sum(w * ((theta - mu) ** 2)) - (k - 1))
@@ -268,11 +307,30 @@ def _estimate_tau2_pm(
 def _estimate_tau2_reml(
     theta: np.ndarray, se: np.ndarray, q_stat: float, k: int
 ) -> float:
-    """Estimate tau^2 between-study variance using Restricted Maximum Likelihood (REML)."""
+    """Estimate the between-study variance using restricted maximum likelihood.
+    
+    Parameters:
+        theta (np.ndarray): Study effect estimates.
+        se (np.ndarray): Standard errors corresponding to the effect estimates.
+        q_stat (float): Cochran's heterogeneity statistic.
+        k (int): Number of studies.
+    
+    Returns:
+        float: The estimated between-study variance, or zero when the estimate cannot be determined.
+    """
     if q_stat <= (k - 1) or k <= 1:
         return 0.0
 
     def f_reml(t2: float) -> float:
+        """
+        Evaluate the REML estimating equation for a candidate between-study variance.
+        
+        Parameters:
+            t2 (float): Candidate between-study variance.
+        
+        Returns:
+            float: Value of the REML estimating equation at the candidate variance.
+        """
         w = 1.0 / (se**2 + t2)
         mu = float(np.sum(w * theta) / np.sum(w))
         return float(np.sum((w**2) * ((theta - mu) ** 2)) - np.sum(w))
@@ -300,16 +358,22 @@ def run_meta_analysis(
     alpha: float = 0.05,
 ) -> dict[str, Any]:
     """
-    Fit Fixed-Effect and Random-Effects Meta-Analysis models.
-
-    Args:
-        data: DataFrame containing 'log_effect' (or effect size) and 'se' columns
-        method_re: Random-effects variance estimator ("dl", "reml", "pm")
-        use_hksj: Whether to apply Hartung-Knapp-Sidik-Jonkman adjustment for random effects
-        alpha: Significance level (default 0.05 for 95% CIs)
-
+    Fit fixed-effect and random-effects meta-analysis models and summarize heterogeneity.
+    
+    Parameters:
+        data (pd.DataFrame): Study data containing ``log_effect`` and ``se`` columns.
+        method_re (str): Estimator for between-study variance: ``"dl"``, ``"reml"``,
+            or ``"pm"``.
+        use_hksj (bool): Whether to apply the Hartung-Knapp adjustment to the
+            random-effects confidence interval when at least three studies are valid.
+        alpha (float): Significance level used for confidence and prediction intervals.
+    
     Returns:
-        Dictionary with pooled effects, weights, heterogeneity stats, and prediction intervals
+        dict[str, Any]: Meta-analysis results, including pooled fixed- and
+            random-effects estimates, study weights, heterogeneity statistics,
+            prediction intervals, and subgroup analyses when available. If fewer
+            than two valid studies remain, contains an ``"error"`` entry and the
+            valid study count.
     """
     df = data.dropna(subset=["log_effect", "se"]).copy()
     df = df[df["se"] > 0].reset_index(drop=True)
@@ -395,6 +459,15 @@ def run_meta_analysis(
 
     # Transform back to natural scale if ratio (OR/RR)
     def disp(x: float) -> float:
+        """
+        Convert a log-scale effect to its ratio-scale value when applicable.
+        
+        Parameters:
+            x (float): Effect value on the analysis scale.
+        
+        Returns:
+            float: The exponentiated effect for ratio measures, or the original effect otherwise.
+        """
         return math.exp(x) if is_ratio else x
 
     df["weight_fe_pct"] = w_fe_pct
@@ -487,13 +560,14 @@ def run_meta_analysis(
 
 def run_publication_bias_tests(data: pd.DataFrame) -> dict[str, Any]:
     """
-    Run Egger's linear regression test and Begg's rank test for publication bias.
-
-    Args:
-        data: DataFrame containing 'log_effect' and 'se'
-
+    Assess potential publication bias using Egger's regression and Begg's rank correlation tests.
+    
+    Parameters:
+    	data (pd.DataFrame): Study-level data containing `log_effect` and `se` columns.
+    
     Returns:
-        Dictionary with Egger's intercept, p-value, Begg's tau, and interpretation
+    	dict[str, Any]: Test results, study count, and an interpretation. If fewer than three
+    		valid studies remain or an exception occurs, contains an `error` entry instead.
     """
     try:
         df = data.dropna(subset=["log_effect", "se"]).copy()
@@ -561,7 +635,15 @@ def create_meta_forest_plot(
     effect_label: str = "Odds Ratio (95% CI)",
 ) -> go.Figure:
     """
-    Generate an interactive Plotly Forest Plot with study weights, summary diamond, and prediction interval.
+    Create an interactive forest plot showing study estimates, confidence intervals, pooled effects, and heterogeneity statistics.
+    
+    Parameters:
+        meta_results (dict[str, Any]): Meta-analysis results containing study estimates and pooled model results.
+        title (str): Plot title.
+        effect_label (str): Label for the effect-size axis.
+    
+    Returns:
+        go.Figure: Plotly forest plot figure.
     """
     if "error" in meta_results:
         fig = go.Figure()
@@ -734,8 +816,17 @@ def create_contour_enhanced_funnel_plot(
     title: str = "Contour-Enhanced Funnel Plot",
 ) -> go.Figure:
     """
-    Generate an interactive Plotly Contour-Enhanced Funnel Plot.
-    Shades regions of significance (p < 0.10, p < 0.05, p < 0.01) around null to test publication bias.
+    Create a funnel plot with significance contours for assessing publication bias.
+    
+    Parameters:
+        meta_results (dict[str, Any]): Meta-analysis results containing study effects,
+            standard errors, and the pooled random-effects estimate.
+        title (str): Figure title.
+    
+    Returns:
+        go.Figure: Interactive Plotly funnel plot with significance regions, study
+            estimates, pooled and null-effect reference lines, and publication-bias
+            test results.
     """
     if "error" in meta_results:
         fig = go.Figure()
@@ -759,7 +850,15 @@ def create_contour_enhanced_funnel_plot(
     fig = go.Figure()
 
     def _add_band(z_inner: float, z_outer: float, color: str, label: str) -> None:
-        """Shade the mirrored band z_inner*se <= |x| < z_outer*se."""
+        """
+        Shade a symmetric significance band across the funnel plot.
+        
+        Parameters:
+        	z_inner (float): Inner z-score boundary of the band.
+        	z_outer (float): Outer z-score boundary of the band.
+        	color (str): Fill color for the band.
+        	label (str): Legend label for the band.
+        """
         if z_inner == 0.0:
             # Central non-significant region: |x| < z_outer * se
             x_left = -z_outer * se_grid

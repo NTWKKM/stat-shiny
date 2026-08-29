@@ -252,7 +252,16 @@ def corr_server(
     is_matched: reactive.Value[bool],
 ) -> None:
     """
-    Register server-side reactives, event handlers, and UI outputs for the Correlation & ICC Analysis tab.
+    Register server-side reactives, event handlers, outputs, and report downloads for correlation and correlation-matrix analyses.
+    
+    Parameters:
+    	input (Any): Shiny inputs for dataset selection and analysis controls.
+    	output (Any): Shiny output registry for rendered results and downloads.
+    	session (Any): Current Shiny session.
+    	df (reactive.Value[pd.DataFrame | None]): Reactive original dataset.
+    	var_meta (reactive.Value[dict[str, Any]]): Reactive variable metadata.
+    	df_matched (reactive.Value[pd.DataFrame | None]): Reactive matched dataset.
+    	is_matched (reactive.Value[bool]): Indicates whether matched data is available.
     """
 
     # ==================== REACTIVE STATES ====================

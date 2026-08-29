@@ -224,6 +224,11 @@ app_ui = ui.page_fluid(
 # 2. SERVER LOGIC
 # ==========================================
 def server(input: Inputs, output: Outputs, session: Session) -> None:
+    """
+    Initialize a Shiny session and register shared reactive state with all application modules.
+    
+    The session also checks optional dependencies and displays a warning when Firth regression is unavailable.
+    """
     logger.info("📱 Shiny app session started")
 
     # --- Reactive State (Global) ---

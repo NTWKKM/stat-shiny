@@ -154,21 +154,12 @@ def safe_report_generation(
 
 def safe_data_download(data: Any, *, label: str = "Data", type_: str = "dataset") -> None:
     """
-    Validate data exists before allowing a download, aborting gracefully if empty.
-
-    Use this inside ``@render.download`` handlers before yielding raw data
-    (like CSVs, Excels, or JSONs) to prevent server errors or empty file downloads.
-    If the data is missing or empty (e.g. an empty pandas DataFrame), this will
-    show a notification and silently cancel the download.
-
+    Validate that downloadable data is available and cancel the download when it is empty.
+    
     Args:
-        data: The dataset (e.g. pd.DataFrame, list, dict) or file content to check.
-            If None or empty, the download is aborted.
-        label: Human-readable name used in the notification.
-        type_: Description of what is being downloaded (e.g. "dataset", "checklist").
-
-    Raises:
-        shiny.SilentException: If data is missing/empty (via req(False)).
+        data: Data or file content to validate.
+        label: Human-readable name included in the notification.
+        type_: Description of the downloadable content included in the notification.
     """
     import pandas as pd
     from shiny import req
