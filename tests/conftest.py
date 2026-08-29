@@ -16,6 +16,13 @@ from pathlib import Path
 import pytest
 import requests
 
+# Forward execution to .venv if running under legacy Python (< 3.10)
+if sys.version_info < (3, 10):
+    venv_pytest = Path(__file__).parent.parent / ".venv" / "bin" / "pytest"
+    if venv_pytest.exists():
+        res = subprocess.run([str(venv_pytest)] + sys.argv[1:])
+        sys.exit(res.returncode)
+
 # ============================================================================
 # 🚀 Session-Scoped Fixture: Start Shiny Server
 # ============================================================================

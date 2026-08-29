@@ -12,7 +12,7 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from tabs._dataset_mixin import register_dataset_selector
-from utils import decision_curve_lib, diag_test
+from utils import calibration_lib, decision_curve_lib, diag_test, fagan_nomogram_lib
 from utils.data_cleaning import prepare_data_for_analysis
 from utils.diagnostic_advanced_lib import DiagnosticComparison, DiagnosticTest
 from utils.download_helpers import safe_download_html
@@ -291,7 +291,159 @@ def diag_ui() -> ui.TagChild:
                 ui.br(),
                 ui.output_ui("out_dca_results"),
             ),
-            # TAB 5: Reference & Interpretation
+            # TAB 5: Interactive Fagan's Nomogram
+            ui.nav_panel(
+                "🧭 Fagan's Nomogram",
+                ui.markdown("##### 🧭 Interactive Fagan's Nomogram (Bedside Bayes)"),
+                ui.input_radio_buttons(
+                    "fagan_mode",
+                    "Operating Mode:",
+                    {
+                        "standalone": "Bedside Calculator (Manual Input)",
+                        "dataset": "Linked to Dataset & Cutoff",
+                        "multilevel": "Multi-Level Biomarker Tiers (Interval LRs)",
+                    },
+                    selected="standalone",
+                    inline=True,
+                ),
+                ui.hr(),
+                # Mode 1: Standalone
+                ui.panel_conditional(
+                    "input.fagan_mode == 'standalone'",
+                    ui.row(
+                        ui.column(
+                            4,
+                            ui.input_slider(
+                                "fagan_manual_pre_prob",
+                                "Pre-test Probability (%):",
+                                min=0.1,
+                                max=99.9,
+                                value=20.0,
+                                step=0.5,
+                            ),
+                        ),
+                        ui.column(
+                            4,
+                            ui.input_numeric(
+                                "fagan_manual_lr_pos",
+                                "Positive Likelihood Ratio (LR+):",
+                                value=10.0,
+                                min=0.01,
+                                step=0.5,
+                            ),
+                        ),
+                        ui.column(
+                            4,
+                            ui.input_numeric(
+                                "fagan_manual_lr_neg",
+                                "Negative Likelihood Ratio (LR-):",
+                                value=0.10,
+                                min=0.001,
+                                max=5.0,
+                                step=0.05,
+                            ),
+                        ),
+                    ),
+                    ui.row(
+                        ui.column(
+                            6,
+                            ui.input_text(
+                                "fagan_manual_test_name",
+                                "Diagnostic Test / Biomarker Name:",
+                                value="Bedside Clinical Test",
+                            ),
+                        ),
+                        ui.column(
+                            6,
+                            ui.div(
+                                ui.markdown(
+                                    "<small class='text-muted'>💡 Adjust LR+ and LR- directly. Lines update dynamically to show post-test probabilities.</small>"
+                                ),
+                                style="margin-top: 25px;",
+                            ),
+                        ),
+                    ),
+                ),
+                # Mode 2: Linked to Dataset
+                ui.panel_conditional(
+                    "input.fagan_mode == 'dataset'",
+                    ui.row(
+                        ui.column(3, ui.output_ui("ui_fagan_truth")),
+                        ui.column(3, ui.output_ui("ui_fagan_score")),
+                        ui.column(3, ui.output_ui("ui_fagan_pos_label")),
+                        ui.column(
+                            3,
+                            ui.input_slider(
+                                "fagan_ds_pre_prob",
+                                "Pre-test Probability (%):",
+                                min=0.1,
+                                max=99.9,
+                                value=20.0,
+                                step=0.5,
+                            ),
+                        ),
+                    ),
+                ),
+                # Mode 3: Multi-Level Interval LRs
+                ui.panel_conditional(
+                    "input.fagan_mode == 'multilevel'",
+                    ui.row(
+                        ui.column(3, ui.output_ui("ui_fagan_multi_truth")),
+                        ui.column(3, ui.output_ui("ui_fagan_multi_score")),
+                        ui.column(
+                            3,
+                            ui.input_text(
+                                "fagan_multi_cutoffs",
+                                "Interval Cutoffs (comma-separated):",
+                                value="14, 50",
+                            ),
+                        ),
+                        ui.column(
+                            3,
+                            ui.input_slider(
+                                "fagan_multi_pre_prob",
+                                "Pre-test Probability (%):",
+                                min=0.1,
+                                max=99.9,
+                                value=20.0,
+                                step=0.5,
+                            ),
+                        ),
+                    ),
+                ),
+                ui.row(
+                    ui.column(
+                        6,
+                        ui.input_action_button(
+                            "btn_generate_fagan",
+                            "🚀 Generate Nomogram",
+                            class_="btn-primary w-100",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_fagan_report",
+                            "📥 HTML",
+                            class_="btn-secondary w-100",
+                        ),
+                    ),
+                    ui.column(
+                        3,
+                        ui.download_button(
+                            "btn_dl_fagan_pdf",
+                            "📥 PDF",
+                            class_="btn-outline-danger w-100",
+                        ),
+                        ui.output_ui("dl_status_fagan"),
+                    ),
+                ),
+                ui.br(),
+                ui.output_ui("ui_fagan_status"),
+                ui.br(),
+                ui.output_ui("out_fagan_results"),
+            ),
+            # TAB 6: Reference & Interpretation
             ui.nav_panel(
                 "ℹ️ Reference & Interpretation",
                 ui.markdown("""
@@ -1494,3 +1646,287 @@ def diag_server(
     @render.download(filename="dca_report.pdf")
     def btn_dl_dca_pdf():
         yield safe_download_pdf(dca_html.get(), label="DCA Report")
+
+    # =========================================================================
+    # 🧭 FAGAN'S NOMOGRAM SERVER LOGIC
+    # =========================================================================
+
+    fagan_html = reactive.Value("")
+    fagan_status_msg = reactive.Value("")
+
+    @render.ui
+    def ui_fagan_truth():
+        cols = all_cols()
+        default = select_variable_by_keyword(
+            cols,
+            ["gold", "outcome", "diag", "status", "disease"],
+            default_to_first=True,
+        )
+        return ui.input_select(
+            "sel_fagan_truth",
+            "Outcome (Gold Standard):",
+            choices=cols,
+            selected=default,
+        )
+
+    @render.ui
+    def ui_fagan_score():
+        cols = all_cols()
+        default = select_variable_by_keyword(
+            cols, ["score", "test", "pred", "prob", "biomarker"], default_to_first=True
+        )
+        return ui.input_select(
+            "sel_fagan_score",
+            "Diagnostic Test / Score:",
+            choices=cols,
+            selected=default,
+        )
+
+    @render.ui
+    def ui_fagan_pos_label():
+        d = current_df()
+        truth = input.sel_fagan_truth()
+        if d is not None and truth in d.columns:
+            uniques = [str(x) for x in d[truth].dropna().unique()]
+            default = uniques[0] if uniques else "1"
+            return ui.input_select(
+                "sel_fagan_pos_label",
+                "Positive Class:",
+                choices=uniques,
+                selected=default,
+            )
+        return ui.input_text("sel_fagan_pos_label", "Positive Class:", value="1")
+
+    @render.ui
+    def ui_fagan_multi_truth():
+        cols = all_cols()
+        default = select_variable_by_keyword(
+            cols, ["gold", "outcome", "diag", "disease"], default_to_first=True
+        )
+        return ui.input_select(
+            "sel_fagan_multi_truth",
+            "Outcome (Gold Standard):",
+            choices=cols,
+            selected=default,
+        )
+
+    @render.ui
+    def ui_fagan_multi_score():
+        cols = all_cols()
+        default = select_variable_by_keyword(
+            cols, ["trop", "dimer", "score", "prob", "biomarker"], default_to_first=True
+        )
+        return ui.input_select(
+            "sel_fagan_multi_score",
+            "Biomarker / Score Column:",
+            choices=cols,
+            selected=default,
+        )
+
+    @render.ui
+    def ui_fagan_status():
+        msg = fagan_status_msg.get()
+        if not msg:
+            return None
+        alert_type = "alert-success" if "✅" in msg else "alert-danger"
+        return ui.div(msg, class_=f"alert {alert_type} py-2 mb-3")
+
+    @reactive.Effect
+    @reactive.event(input.btn_generate_fagan)
+    def _generate_fagan():
+        mode = input.fagan_mode()
+
+        try:
+            multilevel_list = None
+            interval_df = None
+
+            if mode == "standalone":
+                pre_prob = float(input.fagan_manual_pre_prob() or 20.0) / 100.0
+                lr_pos = float(input.fagan_manual_lr_pos() or 10.0)
+                lr_neg = float(input.fagan_manual_lr_neg() or 0.10)
+                test_name = str(input.fagan_manual_test_name() or "Bedside Test")
+            elif mode == "dataset":
+                d = current_df()
+                req(d is not None, input.sel_fagan_truth(), input.sel_fagan_score())
+                truth_col = input.sel_fagan_truth()
+                score_col = input.sel_fagan_score()
+                pos_val = input.sel_fagan_pos_label() or "1"
+                pre_prob = float(input.fagan_ds_pre_prob() or 20.0) / 100.0
+
+                # Analyze ROC to get optimal cutoff & LR+/LR-
+                roc_res, _ = diag_test.analyze_roc(
+                    d,
+                    truth_col,
+                    score_col,
+                    pos_label=pos_val,
+                    optimize_by="youden",
+                    var_meta=var_meta.get() or {},
+                )
+                if not roc_res:
+                    raise ValueError("Failed to compute ROC metrics for dataset.")
+
+                lr_pos = float(roc_res.get("lr_positive", 10.0))
+                lr_neg = float(roc_res.get("lr_negative", 0.10))
+                sens = roc_res.get("sensitivity", 0.8) * 100.0
+                spec = roc_res.get("specificity", 0.8) * 100.0
+                cutoff = roc_res.get("optimal_cutoff", 0.0)
+                test_name = f"{score_col} (Cutoff: {cutoff:.2f} | Sens: {sens:.1f}%, Spec: {spec:.1f}%)"
+            else:  # Multilevel
+                d = current_df()
+                req(
+                    d is not None,
+                    input.sel_fagan_multi_truth(),
+                    input.sel_fagan_multi_score(),
+                    input.fagan_multi_cutoffs(),
+                )
+                truth_col = input.sel_fagan_multi_truth()
+                score_col = input.sel_fagan_multi_score()
+                pre_prob = float(input.fagan_multi_pre_prob() or 20.0) / 100.0
+                raw_cutoffs = [
+                    float(x.strip())
+                    for x in input.fagan_multi_cutoffs().split(",")
+                    if x.strip()
+                ]
+
+                interval_df = fagan_nomogram_lib.calculate_multilevel_likelihood_ratios(
+                    d, outcome_col=truth_col, score_col=score_col, cutoffs=raw_cutoffs
+                )
+                multilevel_list = []
+                for _, r in interval_df.iterrows():
+                    multilevel_list.append(
+                        {
+                            "name": str(r["Tier / Interval"]),
+                            "lr": float(r["Interval LR"]),
+                        }
+                    )
+
+                lr_pos = float(interval_df.iloc[-1]["Interval LR"])
+                lr_neg = float(interval_df.iloc[0]["Interval LR"])
+                test_name = f"{score_col} (Multi-Tier Likelihood Ratios)"
+
+            # Generate interactive Plotly nomogram
+            fig_nomo = fagan_nomogram_lib.create_fagan_nomogram_plot(
+                pre_test_prob=pre_prob,
+                lr_pos=lr_pos,
+                lr_neg=lr_neg,
+                test_name=test_name,
+                multilevel_lrs=multilevel_list,
+            )
+            nomo_plot_html = fig_nomo.to_html(include_plotlyjs="cdn", full_html=False)
+
+            # Calculate outcome probability cards
+            pos_card = fagan_nomogram_lib.calculate_post_test_probability(
+                pre_prob, lr_pos
+            )
+            neg_card = fagan_nomogram_lib.calculate_post_test_probability(
+                pre_prob, lr_neg
+            )
+
+            # Build HTML Summary
+            cards_html = f"""
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="p-3 bg-light rounded border text-center h-100">
+                        <span class="text-muted d-block small fw-semibold">PRE-TEST PROBABILITY</span>
+                        <span class="fs-2 fw-bold text-dark">{pre_prob * 100:.1f}%</span>
+                        <div class="small text-muted mt-1">Clinical Pre-Test Suspicion (Prior)</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded border text-center h-100" style="background-color: #FEF2F2; border-color: #F87171 !important;">
+                        <span class="text-danger d-block small fw-semibold">POST-TEST IF POSITIVE (LR+ = {lr_pos:.2f})</span>
+                        <span class="fs-2 fw-bold text-danger">{pos_card["post_test_prob_pct"]:.1f}%</span>
+                        <div class="small fw-semibold mt-1" style="color: {pos_card["zone_color"]};">{pos_card["zone"]}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded border text-center h-100" style="background-color: #ECFDF5; border-color: #34D399 !important;">
+                        <span class="text-success d-block small fw-semibold">POST-TEST IF NEGATIVE (LR- = {lr_neg:.2f})</span>
+                        <span class="fs-2 fw-bold text-success">{neg_card["post_test_prob_pct"]:.1f}%</span>
+                        <div class="small fw-semibold mt-1" style="color: {neg_card["zone_color"]};">{neg_card["zone"]}</div>
+                    </div>
+                </div>
+            </div>
+            """
+
+            # Multi-level Interval Table HTML if applicable
+            interval_table_html = ""
+            if interval_df is not None:
+                interval_table_html = f"""
+                <div class="card mb-4 border-0 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary fw-bold">🏷️ Multi-Level Interval Likelihood Ratios ({score_col})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Biomarker Tier</th>
+                                        <th>Diseased (D+)</th>
+                                        <th>Non-Diseased (D-)</th>
+                                        <th>Interval LR</th>
+                                        <th>95% CI</th>
+                                        <th>Post-test Prob @ {pre_prob * 100:.0f}% Prior</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                """
+                for _, r in interval_df.iterrows():
+                    tier_post = fagan_nomogram_lib.calculate_post_test_probability(
+                        pre_prob, r["Interval LR"]
+                    )
+                    interval_table_html += f"""
+                                    <tr>
+                                        <td><strong>{r["Tier / Interval"]}</strong></td>
+                                        <td>{r["Diseased (D+)"]}</td>
+                                        <td>{r["Non-Diseased (D-)"]}</td>
+                                        <td><span class="badge bg-primary text-white fs-6">{r["Interval LR"]:.2f}</span></td>
+                                        <td>{r["95% CI Lower"]:.2f} – {r["95% CI Upper"]:.2f}</td>
+                                        <td><strong>{tier_post["post_test_prob_pct"]:.1f}%</strong> <small class="text-muted">({tier_post["zone"]})</small></td>
+                                    </tr>
+                    """
+                interval_table_html += """
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                """
+
+            full_html = f"""
+            <div class="fagan-nomogram-container">
+                {cards_html}
+                {interval_table_html}
+                <div class="card border-0 shadow-sm p-3 mb-3">
+                    {nomo_plot_html}
+                </div>
+            </div>
+            """
+            fagan_html.set(full_html)
+            fagan_status_msg.set("✅ Fagan's Nomogram successfully computed.")
+        except Exception as e:
+            logger.exception("Fagan's nomogram generation failed")
+            fagan_status_msg.set(f"❌ Error generating nomogram: {str(e)}")
+
+    @render.ui
+    def out_fagan_results():
+        content = fagan_html.get()
+        if content:
+            return create_results_container(
+                title="🧭 Interactive Fagan's Nomogram Analysis",
+                elements=[{"type": "html", "data": content}],
+                download_prefix="fagan_nomogram",
+                show_copy=True,
+                show_export=True,
+            )
+        return ui.div(
+            "Click 'Generate Nomogram' to view bedside Bayes probability analysis.",
+            class_="text-secondary p-3",
+        )
+
+    @render.download(filename="fagan_nomogram_report.html")
+    def btn_dl_fagan_report():
+        yield safe_download_html(fagan_html.get(), label="Fagan Nomogram Report")
+
+    @render.download(filename="fagan_nomogram_report.pdf")
+    def btn_dl_fagan_pdf():
+        yield safe_download_pdf(fagan_html.get(), label="Fagan Nomogram Report")

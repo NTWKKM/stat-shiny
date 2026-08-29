@@ -851,14 +851,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             },
         }
 
-    @reactive.Effect
+    @reactive.effect
     @reactive.event(input.btn_load_example)
-    def _():
+    def _handle_btn_load_example():
         generate_example_data_logic()
 
-    @reactive.Effect
+    @reactive.effect
     @reactive.event(input.btn_load_example_trigger)
-    def _():
+    def _handle_btn_load_example_trigger():
         generate_example_data_logic()
 
     @reactive.Effect
