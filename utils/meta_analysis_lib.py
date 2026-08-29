@@ -26,7 +26,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from scipy import stats
+from scipy import optimize, stats
 
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -240,6 +240,59 @@ def compute_continuous_effect_sizes(
 # =============================================================================
 
 
+def _estimate_tau2_pm(
+    theta: np.ndarray, se: np.ndarray, q_stat: float, k: int
+) -> float:
+    """Estimate tau^2 between-study variance using Paule-Mandel method."""
+    if q_stat <= (k - 1) or k <= 1:
+        return 0.0
+
+    def f_pm(t2: float) -> float:
+        w = 1.0 / (se**2 + t2)
+        mu = float(np.sum(w * theta) / np.sum(w))
+        return float(np.sum(w * ((theta - mu) ** 2)) - (k - 1))
+
+    b = 10.0
+    while f_pm(b) > 0 and b < 1e7:
+        b *= 4.0
+    if f_pm(b) > 0:
+        return float(b)
+
+    try:
+        root = optimize.brentq(f_pm, 0.0, b, xtol=1e-6, maxiter=100)
+        return max(0.0, float(root))
+    except Exception:
+        return 0.0
+
+
+def _estimate_tau2_reml(
+    theta: np.ndarray, se: np.ndarray, q_stat: float, k: int
+) -> float:
+    """Estimate tau^2 between-study variance using Restricted Maximum Likelihood (REML)."""
+    if q_stat <= (k - 1) or k <= 1:
+        return 0.0
+
+    def f_reml(t2: float) -> float:
+        w = 1.0 / (se**2 + t2)
+        mu = float(np.sum(w * theta) / np.sum(w))
+        return float(np.sum((w**2) * ((theta - mu) ** 2)) - np.sum(w))
+
+    if f_reml(0.0) <= 0:
+        return 0.0
+
+    b = 10.0
+    while f_reml(b) > 0 and b < 1e7:
+        b *= 4.0
+    if f_reml(b) > 0:
+        return float(b)
+
+    try:
+        root = optimize.brentq(f_reml, 0.0, b, xtol=1e-6, maxiter=100)
+        return max(0.0, float(root))
+    except Exception:
+        return 0.0
+
+
 def run_meta_analysis(
     data: pd.DataFrame,
     method_re: str = "dl",  # "dl" (DerSimonian-Laird), "reml", "pm"
@@ -287,11 +340,20 @@ def run_meta_analysis(
     df_q = k - 1
     p_q = float(1.0 - stats.chi2.cdf(q_stat, df_q)) if df_q > 0 else 1.0
 
-    # DerSimonian-Laird tau^2 calculation
-    c_const = sum_w_fe - (np.sum(w_fe**2) / sum_w_fe)
-    tau2_dl = max(0.0, (q_stat - df_q) / c_const) if c_const > 0 else 0.0
+    # Between-study variance tau^2 estimation
+    method_re_clean = str(method_re).lower().strip()
+    if method_re_clean == "reml":
+        tau2 = _estimate_tau2_reml(theta, se, q_stat, k)
+        method_label = "REML"
+    elif method_re_clean == "pm":
+        tau2 = _estimate_tau2_pm(theta, se, q_stat, k)
+        method_label = "Paule-Mandel"
+    else:
+        # Default DerSimonian-Laird
+        c_const = sum_w_fe - (np.sum(w_fe**2) / sum_w_fe)
+        tau2 = max(0.0, (q_stat - df_q) / c_const) if c_const > 0 else 0.0
+        method_label = "DerSimonian-Laird"
 
-    tau2 = tau2_dl
     tau = math.sqrt(tau2)
 
     # I^2 statistic and Higgins 95% CI
@@ -314,14 +376,14 @@ def run_meta_analysis(
         ci_re_high = theta_re + t_crit * se_re
         t_val = theta_re / se_re if se_re > 0 else 0
         p_val_re = float(2.0 * (1.0 - stats.t.cdf(abs(t_val), df=k - 1)))
-        method_name = "Random Effects (DL + Hartung-Knapp)"
+        method_name = f"Random Effects ({method_label} + Hartung-Knapp)"
     else:
         se_re = se_re_standard
         ci_re_low = theta_re - z_crit * se_re
         ci_re_high = theta_re + z_crit * se_re
         z_val = theta_re / se_re if se_re > 0 else 0
         p_val_re = float(2.0 * (1.0 - stats.norm.cdf(abs(z_val))))
-        method_name = "Random Effects (DerSimonian-Laird)"
+        method_name = f"Random Effects ({method_label})"
 
     # 4. 95% Prediction Interval (for future trial setting)
     pi_low, pi_high = np.nan, np.nan

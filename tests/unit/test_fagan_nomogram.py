@@ -72,6 +72,19 @@ def test_calculate_multilevel_likelihood_ratios():
     assert len(res_df_str) == 3
     assert res_df_str.iloc[-1]["Interval LR"] == high_tier_lr
 
+    # Test categorical text labels ("Yes" / "No")
+    df_text = df.copy()
+    df_text["disease"] = df_text["disease"].map({1: "Yes", 0: "No"})
+    res_df_text = fagan_nomogram_lib.calculate_multilevel_likelihood_ratios(
+        df_text,
+        outcome_col="disease",
+        score_col="troponin",
+        cutoffs=[14, 50],
+        pos_label="Yes",
+    )
+    assert len(res_df_text) == 3
+    assert res_df_text.iloc[-1]["Interval LR"] == high_tier_lr
+
 
 @pytest.mark.unit
 def test_create_fagan_nomogram_plot():

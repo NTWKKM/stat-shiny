@@ -226,8 +226,16 @@ def meta_analysis_ui() -> ui.TagChild:
                 ui.panel_conditional(
                     "input.meta_data_type == 'generic'",
                     ui.row(
-                        ui.column(6, ui.output_ui("ui_gen_effect_col")),
-                        ui.column(6, ui.output_ui("ui_gen_se_col")),
+                        ui.column(4, ui.output_ui("ui_gen_effect_col")),
+                        ui.column(4, ui.output_ui("ui_gen_se_col")),
+                        ui.column(
+                            4,
+                            ui.input_checkbox(
+                                "meta_gen_is_ratio",
+                                "Effect is Log-Ratio (e.g. Log OR/RR/HR)",
+                                value=False,
+                            ),
+                        ),
                     ),
                 ),
                 ui.row(
@@ -681,10 +689,11 @@ def meta_analysis_server(
                     },
                     inplace=True,
                 )
+                is_ratio = bool(input.meta_gen_is_ratio())
                 eff_df["log_effect"] = eff_df["effect_size"]
                 eff_df["ci_lower"] = eff_df["effect_size"] - 1.96 * eff_df["se"]
                 eff_df["ci_upper"] = eff_df["effect_size"] + 1.96 * eff_df["se"]
-                eff_df["is_ratio"] = False
+                eff_df["is_ratio"] = is_ratio
 
             meta_res = meta_analysis_lib.run_meta_analysis(
                 eff_df, method_re=method_re, use_hksj=use_hksj
@@ -738,10 +747,21 @@ def meta_analysis_server(
         forest_html = fig_forest.to_html(include_plotlyjs="cdn", full_html=False)
 
         # Summary Table HTML
+        use_pi = bool(input.meta_use_pi())
         pi_str = ""
         pi_dict = re_eff.get("prediction_interval", {})
         if not np.isnan(pi_dict.get("pi_lower", np.nan)):
             pi_str = f" [{pi_dict['pi_lower']:.2f}, {pi_dict['pi_upper']:.2f}]"
+
+        pi_th = "<th>95% Prediction Interval</th>" if use_pi else ""
+        pi_td_fe = (
+            '<td><span class="text-muted">N/A (Fixed Effect)</span></td>'
+            if use_pi
+            else ""
+        )
+        pi_td_re = (
+            f"<td><strong>{pi_str if pi_str else 'N/A'}</strong></td>" if use_pi else ""
+        )
 
         summary_table_html = f"""
         <div class="card mb-4 border-0 shadow-sm">
@@ -755,7 +775,7 @@ def meta_analysis_server(
                                 <th>Estimate ({measure})</th>
                                 <th>95% Confidence Interval</th>
                                 <th>p-value</th>
-                                <th>95% Prediction Interval</th>
+                                {pi_th}
                             </tr>
                         </thead>
                         <tbody>
@@ -764,14 +784,14 @@ def meta_analysis_server(
                                 <td><span class="badge bg-primary text-white fs-6">{fe["effect_disp"]:.3f}</span></td>
                                 <td>{fe["ci_lower"]:.3f} – {fe["ci_upper"]:.3f}</td>
                                 <td><strong>{fe["p_value"]:.4f}</strong></td>
-                                <td><span class="text-muted">N/A (Fixed Effect)</span></td>
+                                {pi_td_fe}
                             </tr>
                             <tr class="table-warning">
                                 <td><strong>Random Effects ({re_eff["method"]})</strong></td>
                                 <td><span class="badge bg-danger text-white fs-6">{re_eff["effect_disp"]:.3f}</span></td>
                                 <td>{re_eff["ci_lower"]:.3f} – {re_eff["ci_upper"]:.3f}</td>
                                 <td><strong>{re_eff["p_value"]:.4f}</strong></td>
-                                <td><strong>{pi_str if pi_str else "N/A"}</strong></td>
+                                {pi_td_re}
                             </tr>
                         </tbody>
                     </table>
@@ -831,23 +851,22 @@ def meta_analysis_server(
             </div>
             """
 
-        elements = [
-            {"type": "html", "data": summary_table_html},
-            {"type": "html", "data": het_html},
-            {"type": "html", "data": subgroup_html} if subgroup_html else None,
-            {
-                "type": "html",
-                "data": f"<div class='card border-0 shadow-sm p-3 mb-4'>{forest_html}</div>",
-            },
+        content_tags = [
+            ui.HTML(summary_table_html),
+            ui.HTML(het_html),
         ]
-        elements = [e for e in elements if e is not None]
+        if subgroup_html:
+            content_tags.append(ui.HTML(subgroup_html))
+        content_tags.append(
+            ui.HTML(
+                f"<div class='card border-0 shadow-sm p-3 mb-4'>{forest_html}</div>"
+            )
+        )
 
         return create_results_container(
-            title=f"📚 Meta-Analysis Report ({measure})",
-            elements=elements,
-            download_prefix="meta_analysis",
-            show_copy=True,
-            show_export=True,
+            f"📚 Meta-Analysis Report ({measure})",
+            *content_tags,
+            class_="fade-in-entry",
         )
 
     @output
@@ -869,57 +888,62 @@ def meta_analysis_server(
         funnel_html = fig_funnel.to_html(include_plotlyjs="cdn", full_html=False)
 
         # Egger & Begg Table HTML
-        egger = pub.get("egger", {})
-        begg = pub.get("begg", {})
-
-        bias_html = f"""
-        <div class="card mb-4 border-0 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title text-primary fw-bold">📉 Small-Study Effects & Statistical Bias Tests</h5>
-                <div class="table-responsive">
-                    <table class="table table-bordered table-sm align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Test</th>
-                                <th>Statistic</th>
-                                <th>p-value</th>
-                                <th>Interpretation</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><strong>Egger's Linear Regression Test</strong></td>
-                                <td>Intercept = <strong>{egger.get("intercept", 0):.3f}</strong> (t = {egger.get("t_stat", 0):.2f})</td>
-                                <td><strong>{egger.get("p_value", 1.0):.4f}</strong></td>
-                                <td>{pub.get("interpretation", "")}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Begg & Mazumdar Rank Correlation</strong></td>
-                                <td>Kendall's τ = <strong>{begg.get("kendall_tau", 0):.3f}</strong></td>
-                                <td><strong>{begg.get("p_value", 1.0):.4f}</strong></td>
-                                <td>{"Significant rank asymmetry" if begg.get("p_value", 1.0) < 0.05 else "No significant rank asymmetry"}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+        if "error" in pub:
+            bias_html = f"""
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title text-primary fw-bold">📉 Small-Study Effects & Statistical Bias Tests</h5>
+                    <div class="alert alert-warning mb-0">
+                        ⚠️ <strong>Publication Bias Tests Unavailable:</strong> {pub["error"]}
+                    </div>
                 </div>
             </div>
-        </div>
-        """
+            """
+        else:
+            egger = pub.get("egger", {})
+            begg = pub.get("begg", {})
 
-        elements = [
-            {"type": "html", "data": bias_html},
-            {
-                "type": "html",
-                "data": f"<div class='card border-0 shadow-sm p-3 mb-4'>{funnel_html}</div>",
-            },
-        ]
+            bias_html = f"""
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title text-primary fw-bold">📉 Small-Study Effects & Statistical Bias Tests</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Test</th>
+                                    <th>Statistic</th>
+                                    <th>p-value</th>
+                                    <th>Interpretation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Egger's Linear Regression Test</strong></td>
+                                    <td>Intercept = <strong>{egger.get("intercept", 0):.3f}</strong> (t = {egger.get("t_stat", 0):.2f})</td>
+                                    <td><strong>{egger.get("p_value", 1.0):.4f}</strong></td>
+                                    <td>{pub.get("interpretation", "")}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Begg & Mazumdar Rank Correlation</strong></td>
+                                    <td>Kendall's τ = <strong>{begg.get("kendall_tau", 0):.3f}</strong></td>
+                                    <td><strong>{begg.get("p_value", 1.0):.4f}</strong></td>
+                                    <td>{"Significant rank asymmetry" if begg.get("p_value", 1.0) < 0.05 else "No significant rank asymmetry"}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            """
 
         return create_results_container(
-            title="🎯 Publication Bias & Contour Funnel Plot",
-            elements=elements,
-            download_prefix="publication_bias",
-            show_copy=True,
-            show_export=True,
+            "🎯 Publication Bias & Contour Funnel Plot",
+            ui.HTML(bias_html),
+            ui.HTML(
+                f"<div class='card border-0 shadow-sm p-3 mb-4'>{funnel_html}</div>"
+            ),
+            class_="fade-in-entry",
         )
 
     # HTML Download Handler

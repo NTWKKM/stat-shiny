@@ -389,20 +389,21 @@ def diag_ui() -> ui.TagChild:
                     "input.fagan_mode == 'multilevel'",
                     ui.row(
                         ui.column(3, ui.output_ui("ui_fagan_multi_truth")),
+                        ui.column(2, ui.output_ui("ui_fagan_multi_pos_label")),
                         ui.column(3, ui.output_ui("ui_fagan_multi_score")),
                         ui.column(
-                            3,
+                            2,
                             ui.input_text(
                                 "fagan_multi_cutoffs",
-                                "Interval Cutoffs (comma-separated):",
+                                "Interval Cutoffs:",
                                 value="14, 50",
                             ),
                         ),
                         ui.column(
-                            3,
+                            2,
                             ui.input_slider(
                                 "fagan_multi_pre_prob",
-                                "Pre-test Probability (%):",
+                                "Pre-test Prob (%):",
                                 min=0.1,
                                 max=99.9,
                                 value=20.0,
@@ -1711,6 +1712,21 @@ def diag_server(
         )
 
     @render.ui
+    def ui_fagan_multi_pos_label():
+        d = current_df()
+        truth = input.sel_fagan_multi_truth()
+        if d is not None and truth in d.columns:
+            uniques = [str(x) for x in d[truth].dropna().unique()]
+            default = uniques[0] if uniques else "1"
+            return ui.input_select(
+                "sel_fagan_multi_pos_label",
+                "Positive Class:",
+                choices=uniques,
+                selected=default,
+            )
+        return ui.input_text("sel_fagan_multi_pos_label", "Positive Class:", value="1")
+
+    @render.ui
     def ui_fagan_multi_score():
         cols = all_cols()
         default = select_variable_by_keyword(
@@ -1788,8 +1804,13 @@ def diag_server(
                     if x.strip()
                 ]
 
+                pos_val = input.sel_fagan_multi_pos_label() or "1"
                 interval_df = fagan_nomogram_lib.calculate_multilevel_likelihood_ratios(
-                    d, outcome_col=truth_col, score_col=score_col, cutoffs=raw_cutoffs
+                    d,
+                    outcome_col=truth_col,
+                    score_col=score_col,
+                    cutoffs=raw_cutoffs,
+                    pos_label=pos_val,
                 )
                 multilevel_list = []
                 for _, r in interval_df.iterrows():
@@ -1912,11 +1933,9 @@ def diag_server(
         content = fagan_html.get()
         if content:
             return create_results_container(
-                title="🧭 Interactive Fagan's Nomogram Analysis",
-                elements=[{"type": "html", "data": content}],
-                download_prefix="fagan_nomogram",
-                show_copy=True,
-                show_export=True,
+                "🧭 Interactive Fagan's Nomogram Analysis",
+                ui.HTML(content),
+                class_="fade-in-entry",
             )
         return ui.div(
             "Click 'Generate Nomogram' to view bedside Bayes probability analysis.",

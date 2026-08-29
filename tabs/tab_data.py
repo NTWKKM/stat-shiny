@@ -457,7 +457,6 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
             if total_count > 0 and (valid_count / total_count) > numeric_threshold:
                 inferred_type = "Continuous"
-                df_in[col] = numeric_conversion  # Mutates the DF
 
                 # Identify Bad Rows
                 bad_mask = numeric_conversion.isna() & series.notna()
@@ -493,16 +492,15 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         df.set(new_df)
         uploaded_file_info.set({"name": file_name})
 
-        current_meta = (
-            preset_meta.copy() if preset_meta is not None else (var_meta.get() or {})
-        )
+        current_meta = preset_meta.copy() if preset_meta is not None else {}
         current_issues = []
 
         # --- Infer Types and Detect Quality Issues ---
         for col in new_df.columns:
+            if col in current_meta:
+                continue
             inferred_type, issues = _infer_column_type(new_df, col)
-            if col not in current_meta:
-                current_meta[col] = {"type": inferred_type, "map": {}, "label": col}
+            current_meta[col] = {"type": inferred_type, "map": {}, "label": col}
             current_issues.extend(issues)
 
         var_meta.set(current_meta)

@@ -136,6 +136,22 @@ def test_run_meta_analysis_pooling_and_heterogeneity():
     assert "pi_lower" in pi
     assert "pi_upper" in pi
 
+    # Test REML estimator
+    res_reml = meta_analysis_lib.run_meta_analysis(
+        eff_df, method_re="reml", use_hksj=True
+    )
+    assert (
+        res_reml["random_effect"]["method"] == "Random Effects (REML + Hartung-Knapp)"
+    )
+    assert res_reml["heterogeneity"]["tau2"] >= 0.0
+    assert not np.isnan(res_reml["random_effect"]["effect_disp"])
+
+    # Test Paule-Mandel estimator
+    res_pm = meta_analysis_lib.run_meta_analysis(eff_df, method_re="pm", use_hksj=False)
+    assert res_pm["random_effect"]["method"] == "Random Effects (Paule-Mandel)"
+    assert res_pm["heterogeneity"]["tau2"] >= 0.0
+    assert not np.isnan(res_pm["random_effect"]["effect_disp"])
+
 
 @pytest.mark.unit
 def test_publication_bias_tests():
@@ -167,6 +183,12 @@ def test_publication_bias_tests():
     assert "intercept" in pb["egger"]
     assert "p_value" in pb["egger"]
     assert "kendall_tau" in pb["begg"]
+
+    # Test error when k < 3
+    df_small = df.head(2)
+    pb_small = meta_analysis_lib.run_publication_bias_tests(df_small)
+    assert "error" in pb_small
+    assert pb_small["k"] == 2
 
 
 @pytest.mark.unit
