@@ -371,6 +371,7 @@ def meta_analysis_server(
         local_name.set("BCG Vaccine RCTs (Colditz 1994)")
         meta_state.set(None)
         status_msg.set(None)
+        ui.update_select("meta_data_type", selected="binary")
 
     @reactive.effect
     @reactive.event(input.btn_load_statin)
@@ -380,6 +381,7 @@ def meta_analysis_server(
         local_name.set("Statin LDL Reduction Trials")
         meta_state.set(None)
         status_msg.set(None)
+        ui.update_select("meta_data_type", selected="continuous")
 
     # Demo Reset / Exit Handlers
     @reactive.effect
@@ -631,7 +633,18 @@ def meta_analysis_server(
         study_col = input.meta_study_col()
         sg_col = input.meta_subgroup_col()
         sg_name = None if sg_col == "None" else sg_col
-        measure = input.meta_measure() or "OR"
+        if dtype == "binary":
+            measure = (
+                input.meta_measure()
+                if input.meta_measure() in ["OR", "RR", "RD"]
+                else "OR"
+            )
+        elif dtype == "continuous":
+            measure = (
+                input.meta_measure() if input.meta_measure() in ["SMD", "MD"] else "SMD"
+            )
+        else:
+            measure = "Generic"
         use_hksj = input.meta_use_hksj()
         method_re = input.meta_method_re()
 
