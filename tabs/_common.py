@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -71,12 +72,39 @@ def select_variable_by_keyword(
     if not columns:
         return None
 
-    # Try to find a match by keyword priority
+    # Tier 1: Exact match (case-insensitive) across keyword priority
     for k in keywords:
-        k_lower = k.lower()
+        k_lower = k.lower().strip()
         for col in columns:
-            if k_lower in col.lower():
+            if k_lower == col.lower().strip():
                 return col
+
+    # Tier 2: Word / Underscore / Token Boundary match
+    # Prevents false positive substring matches (e.g., 'n_statin' matching 'mean_statin')
+    for k in keywords:
+        k_lower = k.lower().strip()
+        pattern = rf"(^|[^a-zA-Z0-9]){re.escape(k_lower)}([^a-zA-Z0-9]|$)"
+        for col in columns:
+            if re.search(pattern, col.lower()):
+                return col
+
+    # Tier 3: Starts-with or ends-with token boundary
+    for k in keywords:
+        k_lower = k.lower().strip()
+        for col in columns:
+            c_lower = col.lower()
+            if c_lower.startswith(k_lower + "_") or c_lower.startswith(k_lower + " "):
+                return col
+            if c_lower.endswith("_" + k_lower) or c_lower.endswith(" " + k_lower):
+                return col
+
+    # Tier 4: Substring match (filtered for longer keywords >= 4 chars to prevent false positives on short tokens)
+    for k in keywords:
+        k_lower = k.lower().strip()
+        if len(k_lower) >= 4:
+            for col in columns:
+                if k_lower in col.lower():
+                    return col
 
     # Default fallback
     if default_to_first:

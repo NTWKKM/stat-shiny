@@ -566,3 +566,89 @@ def test_render_demo_table_html_and_modal():
 
     modal_tag = create_demo_data_modal()
     assert modal_tag is not None
+
+
+@pytest.mark.unit
+def test_statin_preload_smart_variable_selection():
+    """
+    Regression Test:
+    Verify that select_variable_by_keyword on Statin continuous demo dataset
+    correctly selects N_Statin and N_Control (not Mean_Statin / Mean_Control),
+    and successfully computes effect sizes without ValueError (distinct columns).
+    """
+    from tabs._common import select_variable_by_keyword
+    from tabs.tab_meta_analysis import get_statin_continuous_data
+
+    statin_df = get_statin_continuous_data()
+    cols = list(statin_df.columns)
+
+    mean_t = select_variable_by_keyword(cols, ["mean_statin", "mean_t", "mean1", "m_t"])
+    sd_t = select_variable_by_keyword(cols, ["sd_statin", "sd_t", "sd1", "s_t"])
+    n_t = select_variable_by_keyword(cols, ["n_statin", "n_t", "n1"])
+
+    mean_c = select_variable_by_keyword(
+        cols, ["mean_control", "mean_c", "mean0", "m_c"]
+    )
+    sd_c = select_variable_by_keyword(cols, ["sd_control", "sd_c", "sd0", "s_c"])
+    n_c = select_variable_by_keyword(cols, ["n_control", "n_c", "n0"])
+
+    assert mean_t == "Mean_Statin"
+    assert sd_t == "SD_Statin"
+    assert n_t == "N_Statin", f"Expected N_Statin, got {n_t}"
+    assert mean_c == "Mean_Control"
+    assert sd_c == "SD_Control"
+    assert n_c == "N_Control", f"Expected N_Control, got {n_c}"
+
+    # Verify all 6 continuous columns are distinct
+    distinct_cols = {mean_t, sd_t, n_t, mean_c, sd_c, n_c}
+    assert len(distinct_cols) == 6
+
+    # Verify calculation runs cleanly without error
+    eff_df = meta_analysis_lib.compute_continuous_effect_sizes(
+        statin_df,
+        mean_t_col=mean_t,
+        sd_t_col=sd_t,
+        n_t_col=n_t,
+        mean_c_col=mean_c,
+        sd_c_col=sd_c,
+        n_c_col=n_c,
+        study_col="Trial",
+        effect_measure="SMD",
+        subgroup_col="Dose_Tier",
+    )
+    assert len(eff_df) == 6
+    assert "effect_size" in eff_df.columns
+    assert "se" in eff_df.columns
+
+    res = meta_analysis_lib.run_meta_analysis(eff_df, method_re="dl", use_hksj=True)
+    assert res["k"] == 6
+    assert res["random_effect"]["effect_disp"] < 0  # Statin reduces LDL
+
+
+@pytest.mark.unit
+def test_select_variable_by_keyword_anti_collision():
+    """Verify select_variable_by_keyword prevents substring collisions on short keywords."""
+    from tabs._common import select_variable_by_keyword
+
+    cols = [
+        "Study",
+        "Mean_Treatment",
+        "SD_Treatment",
+        "N_Treatment",
+        "Mean_Control",
+        "SD_Control",
+        "N_Control",
+    ]
+
+    # Short keyword 'n_t' should not match 'Mean_Treatment'
+    n_t_match = select_variable_by_keyword(cols, ["n_t", "n1"])
+    assert (
+        n_t_match == "N_Treatment"
+        or n_t_match == "Study"
+        or n_t_match != "Mean_Treatment"
+    )
+    assert n_t_match != "Mean_Treatment"
+
+    # Exact match priority
+    exact_match = select_variable_by_keyword(["Patient_ID", "ID", "Identity"], ["id"])
+    assert exact_match == "ID"
