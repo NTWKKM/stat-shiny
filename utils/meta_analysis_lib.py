@@ -275,7 +275,9 @@ def _estimate_tau2_reml(
     def f_reml(t2: float) -> float:
         w = 1.0 / (se**2 + t2)
         mu = float(np.sum(w * theta) / np.sum(w))
-        return float(np.sum((w**2) * ((theta - mu) ** 2)) - np.sum(w))
+        return float(
+            np.sum((w**2) * ((theta - mu) ** 2)) - np.sum(w) + np.sum(w**2) / np.sum(w)
+        )
 
     if f_reml(0.0) <= 0:
         return 0.0

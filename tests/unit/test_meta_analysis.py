@@ -216,7 +216,11 @@ def test_reml_estimation_roots():
     mu = float(np.sum(w * theta_unequal) / np.sum(w))
     q_unequal = float(np.sum(w * (theta_unequal - mu) ** 2))
     df_unequal = k_unequal - 1
-    f_reml_0 = float(np.sum((w**2) * ((theta_unequal - mu) ** 2)) - np.sum(w))
+    f_reml_0 = float(
+        np.sum((w**2) * ((theta_unequal - mu) ** 2))
+        - np.sum(w)
+        + np.sum(w**2) / np.sum(w)
+    )
 
     assert q_unequal < df_unequal  # Q < df
     assert f_reml_0 > 0.0  # f_reml(0) > 0
