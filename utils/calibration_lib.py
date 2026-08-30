@@ -87,6 +87,125 @@ def calculate_brier_score(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
         return {"brier_score": np.nan, "error": str(e)}
 
 
+def calculate_ici(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    span: float = 0.75,
+    n_bootstrap: int = 100,
+) -> dict:
+    """
+    Calculate Integrated Calibration Index (ICI), E50, E90, and Emax.
+
+    According to Austin & Steyerberg (2019) and TRIPOD+AI standards:
+    - ICI: Weighted absolute difference between predicted and LOESS-smoothed observed probabilities.
+    - E50: Median absolute calibration error.
+    - E90: 90th percentile of absolute calibration error.
+    - Emax: Maximum absolute calibration error.
+
+    References:
+        Austin PC, Steyerberg EW. Stat Med. 2019;38(21):4051-4065.
+        Collins GS, et al. BMJ. 2024;385:e078378 (TRIPOD+AI Statement).
+    """
+    try:
+        y_true = np.asarray(y_true, dtype=float).flatten()
+        y_pred = np.asarray(y_pred, dtype=float).flatten()
+
+        mask = ~(np.isnan(y_true) | np.isnan(y_pred))
+        y_true = y_true[mask]
+        y_pred = np.clip(y_pred[mask], 1e-6, 1.0 - 1e-6)
+
+        n = len(y_true)
+        if n < 10 or len(np.unique(y_true)) < 2:
+            return {
+                "ici": np.nan,
+                "e50": np.nan,
+                "e90": np.nan,
+                "emax": np.nan,
+                "error": "Insufficient sample size or classes for continuous calibration",
+            }
+
+        from statsmodels.nonparametric.smoothers_lowess import lowess
+
+        # Fit LOESS: y_true ~ y_pred
+        smooth_res = lowess(
+            y_true, y_pred, frac=span, it=0, is_sorted=False, return_sorted=True
+        )
+        loess_x = smooth_res[:, 0]
+        loess_y = np.clip(smooth_res[:, 1], 0.0, 1.0)
+
+        # Interpolate smoothed observed probability for each predicted probability
+        y_obs_smooth = np.interp(y_pred, loess_x, loess_y)
+        abs_errors = np.abs(y_pred - y_obs_smooth)
+
+        ici = float(np.mean(abs_errors))
+        e50 = float(np.median(abs_errors))
+        e90 = float(np.percentile(abs_errors, 90))
+        emax = float(np.max(abs_errors))
+
+        # Bootstrap 95% Confidence Intervals if sample size allows
+        ici_boots = []
+        if n_bootstrap > 0 and n >= 30:
+            rng = np.random.default_rng(42)
+            for _ in range(n_bootstrap):
+                idx = rng.choice(n, size=n, replace=True)
+                if len(np.unique(y_true[idx])) < 2:
+                    continue
+                try:
+                    b_smooth = lowess(
+                        y_true[idx],
+                        y_pred[idx],
+                        frac=span,
+                        it=0,
+                        is_sorted=False,
+                        return_sorted=True,
+                    )
+                    b_obs = np.clip(
+                        np.interp(y_pred[idx], b_smooth[:, 0], b_smooth[:, 1]), 0.0, 1.0
+                    )
+                    ici_boots.append(np.mean(np.abs(y_pred[idx] - b_obs)))
+                except Exception:
+                    continue
+
+        ici_ci_lower = (
+            float(np.percentile(ici_boots, 2.5)) if len(ici_boots) >= 20 else np.nan
+        )
+        ici_ci_upper = (
+            float(np.percentile(ici_boots, 97.5)) if len(ici_boots) >= 20 else np.nan
+        )
+
+        interpretation = (
+            "Excellent (ICI < 0.02)"
+            if ici < 0.02
+            else "Good (ICI < 0.05)"
+            if ici < 0.05
+            else "Moderate (ICI < 0.10)"
+            if ici < 0.10
+            else "Poor (Recalibration Recommended)"
+        )
+
+        return {
+            "ici": ici,
+            "ici_ci_lower": ici_ci_lower,
+            "ici_ci_upper": ici_ci_upper,
+            "e50": e50,
+            "e90": e90,
+            "emax": emax,
+            "interpretation": interpretation,
+            "loess_x": loess_x.tolist(),
+            "loess_y": loess_y.tolist(),
+            "n": n,
+        }
+    except Exception as e:
+        logger.warning("ICI calculation failed: %s", e)
+        return {
+            "ici": np.nan,
+            "e50": np.nan,
+            "e90": np.nan,
+            "emax": np.nan,
+            "error": str(e),
+        }
+
+
 def calculate_calibration_slope(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     """
     Calculate calibration slope and intercept via logistic regression.
@@ -136,6 +255,11 @@ def calculate_calibration_slope(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
         slope_status = (
             "✅ Well calibrated" if 0.8 <= slope <= 1.2 else "⚠️ Needs recalibration"
         )
+        intercept_status = (
+            "✅ Good calibration-in-the-large"
+            if abs(intercept) < 0.2
+            else "⚠️ Systematic over/underestimation"
+        )
 
         return {
             "calibration_slope": slope,
@@ -145,6 +269,7 @@ def calculate_calibration_slope(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
             "intercept_ci_lower": ci_intercept[0],
             "intercept_ci_upper": ci_intercept[1],
             "slope_interpretation": slope_status,
+            "intercept_interpretation": intercept_status,
         }
     except Exception as e:
         logger.warning("Calibration slope calculation failed: %s", e)
@@ -229,11 +354,12 @@ def create_calibration_plot(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     n_bins: int = 10,
-    title: str = "Calibration Plot",
+    title: str = "Calibration Plot (TRIPOD+AI)",
     strategy: str = "quantile",
+    show_loess: bool = True,
 ) -> go.Figure:
     """
-    Create a calibration plot with LOWESS smooth and histogram.
+    Create a publication-grade calibration plot with LOESS smooth curve, binned points, and histogram.
 
     Args:
         y_true: Binary outcome
@@ -241,6 +367,7 @@ def create_calibration_plot(
         n_bins: Number of bins for grouping
         title: Plot title
         strategy: 'uniform' or 'quantile' binning
+        show_loess: Whether to display continuous LOESS smoothed calibration curve
 
     Returns:
         Plotly Figure object
@@ -253,7 +380,10 @@ def create_calibration_plot(
         y_true = y_true[mask]
         y_pred = y_pred[mask]
 
-        # Use sklearn's calibration_curve
+        # Compute continuous ICI & LOESS
+        ici_res = calculate_ici(y_true, y_pred)
+
+        # Use sklearn's calibration_curve for binned points
         fraction_of_positives, mean_predicted_value = calibration_curve(
             y_true, y_pred, n_bins=n_bins, strategy=strategy
         )
@@ -267,44 +397,78 @@ def create_calibration_plot(
                 x=[0, 1],
                 y=[0, 1],
                 mode="lines",
-                line=dict(dash="dash", color="gray", width=1),
-                name="Perfect Calibration",
+                line=dict(dash="dash", color="gray", width=1.5),
+                name="Ideal (Slope = 1, Intercept = 0)",
                 showlegend=True,
             )
         )
 
-        # Observed vs predicted points with error bars
+        # Continuous LOESS smoothed curve if available
+        if show_loess and "loess_x" in ici_res and len(ici_res["loess_x"]) > 1:
+            fig.add_trace(
+                go.Scatter(
+                    x=ici_res["loess_x"],
+                    y=ici_res["loess_y"],
+                    mode="lines",
+                    line=dict(color=COLORS.get("primary", "#1E3A5F"), width=3),
+                    name=f"LOESS Smooth (ICI: {ici_res.get('ici', 0):.3f})",
+                    showlegend=True,
+                )
+            )
+
+        # Observed vs predicted binned points
         fig.add_trace(
             go.Scatter(
                 x=mean_predicted_value,
                 y=fraction_of_positives,
-                mode="lines+markers",
-                marker=dict(size=10, color=COLORS.get("primary", "#1E3A5F")),
-                line=dict(color=COLORS.get("primary", "#1E3A5F"), width=2),
-                name="Observed",
+                mode="markers",
+                marker=dict(
+                    size=9,
+                    color=COLORS.get("accent", "#3B82F6"),
+                    symbol="circle",
+                    line=dict(width=1.5, color="white"),
+                ),
+                name=f"Binned Deciles ({strategy.title()})",
+                showlegend=True,
             )
         )
 
-        # Add histogram of predictions at bottom
+        # Add histogram/distribution of predictions at bottom
         fig.add_trace(
             go.Histogram(
                 x=y_pred,
-                nbinsx=20,
+                nbinsx=30,
                 marker=dict(
                     color=COLORS.get("secondary", "#64748B"),
-                    opacity=0.3,
+                    opacity=0.35,
                 ),
                 yaxis="y2",
-                name="Distribution",
+                name="Risk Distribution",
                 showlegend=False,
             )
         )
 
+        # Subtitle metrics annotation
+        metrics_subtitle = ""
+        if not np.isnan(ici_res.get("ici", np.nan)):
+            metrics_subtitle = (
+                f"ICI: {ici_res['ici']:.3f} | E50: {ici_res.get('e50', 0):.3f} | "
+                f"E90: {ici_res.get('e90', 0):.3f} | Emax: {ici_res.get('emax', 0):.3f}"
+            )
+
         # Layout
         fig.update_layout(
-            title=dict(text=f"<b>{title}</b>", x=0.5),
+            title=dict(
+                text=f"<b>{title}</b>"
+                + (
+                    f"<br><span style='font-size: 11px; color: #4B5563;'>{metrics_subtitle}</span>"
+                    if metrics_subtitle
+                    else ""
+                ),
+                x=0.5,
+            ),
             xaxis=dict(
-                title="Mean Predicted Probability",
+                title="Predicted Probability",
                 range=[0, 1],
                 tickformat=".1f",
                 domain=[0, 1],
@@ -313,19 +477,31 @@ def create_calibration_plot(
                 title="Observed Proportion",
                 range=[0, 1],
                 tickformat=".1f",
-                domain=[0.2, 1],  # Top 80% for calibration plot
+                domain=[0.22, 1],  # Top 78% for calibration plot
             ),
             yaxis2=dict(
-                domain=[0, 0.15],  # Bottom 15% for histogram
+                domain=[0, 0.16],  # Bottom 16% for histogram
                 showticklabels=False,
                 showgrid=False,
+                title="Density",
             ),
             template="plotly_white",
             font=dict(family="Inter, sans-serif", size=12),
-            legend=dict(x=0.02, y=0.98),
-            height=450,
+            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)"),
+            height=460,
         )
 
+        return fig
+    except Exception as e:
+        logger.exception("Calibration plot creation failed: %s", e)
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"Error: {e}",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=14, color="red"),
+        )
         return fig
     except Exception as e:
         logger.exception("Calibration plot creation failed: %s", e)
@@ -566,19 +742,21 @@ def get_calibration_report(
     y_pred: np.ndarray,
 ) -> dict:
     """
-    Generate comprehensive calibration report for publication.
+    Generate comprehensive calibration report for publication (TRIPOD+AI Compliant).
 
-    Combines all calibration metrics into a single report.
+    Combines discrimination (C-statistic/AUC), continuous calibration (ICI, E50, E90, Emax),
+    calibration-in-the-large, calibration slope, Brier score, and goodness-of-fit.
 
     Args:
         y_true: Binary outcome
         y_pred: Predicted probabilities
 
     Returns:
-        Dictionary with all calibration metrics
+        Dictionary with all calibration and discrimination metrics
     """
     return {
         "c_statistic": calculate_c_statistic_with_ci(y_true, y_pred),
+        "ici": calculate_ici(y_true, y_pred),
         "brier": calculate_brier_score(y_true, y_pred),
         "calibration": calculate_calibration_slope(y_true, y_pred),
         "hosmer_lemeshow": hosmer_lemeshow_test(y_true, y_pred),
@@ -587,7 +765,7 @@ def get_calibration_report(
 
 def format_calibration_html(report: dict) -> str:
     """
-    Format calibration report as HTML table.
+    Format calibration report as HTML table adhering to TRIPOD+AI standards.
 
     Args:
         report: Output from get_calibration_report()
@@ -596,66 +774,110 @@ def format_calibration_html(report: dict) -> str:
         HTML string
     """
     c_stat = report.get("c_statistic", {})
+    ici_dict = report.get("ici", {})
     brier = report.get("brier", {})
     calib = report.get("calibration", {})
     hl = report.get("hosmer_lemeshow", {})
 
     html = """
     <div class="calibration-report">
-        <h4>📊 Model Calibration & Discrimination</h4>
-        <table class="table table-sm">
-            <thead>
-                <tr><th>Metric</th><th>Value</th><th>Interpretation</th></tr>
-            </thead>
-            <tbody>
+        <h5 class="mb-2">📊 Model Discrimination & Calibration Assessment (TRIPOD+AI)</h5>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 30%;">Metric</th>
+                        <th style="width: 35%;">Value (95% CI)</th>
+                        <th style="width: 35%;">Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
     """
 
-    # C-statistic
-    if "c_statistic" in c_stat:
+    # 1. Discrimination (C-statistic)
+    if "c_statistic" in c_stat and not np.isnan(c_stat.get("c_statistic", np.nan)):
         c_val = c_stat["c_statistic"]
         c_ci = f"({c_stat.get('ci_lower', 0):.3f}–{c_stat.get('ci_upper', 0):.3f})"
         html += f"""
-                <tr>
-                    <td><strong>C-statistic (AUC)</strong></td>
-                    <td>{c_val:.3f} {c_ci}</td>
-                    <td>{c_stat.get("interpretation", "")}</td>
-                </tr>
+                    <tr>
+                        <td><strong>C-statistic (AUC)</strong><br><small class="text-muted">Discrimination</small></td>
+                        <td><span class="badge bg-primary text-white fs-6">{c_val:.3f}</span> <small class="text-muted">{c_ci}</small></td>
+                        <td>{c_stat.get("interpretation", "")}</td>
+                    </tr>
         """
 
-    # Brier score
-    if "brier_score" in brier:
+    # 2. Integrated Calibration Index (ICI)
+    if "ici" in ici_dict and not np.isnan(ici_dict.get("ici", np.nan)):
+        ici_val = ici_dict["ici"]
+        ici_ci_str = ""
+        if not np.isnan(ici_dict.get("ici_ci_lower", np.nan)):
+            ici_ci_str = (
+                f" ({ici_dict['ici_ci_lower']:.3f}–{ici_dict['ici_ci_upper']:.3f})"
+            )
         html += f"""
-                <tr>
-                    <td><strong>Brier Score</strong></td>
-                    <td>{brier["brier_score"]:.4f}</td>
-                    <td>{brier.get("interpretation", "")}</td>
-                </tr>
+                    <tr>
+                        <td><strong>Integrated Calibration Index (ICI)</strong><br><small class="text-muted">Mean absolute error (TRIPOD standard)</small></td>
+                        <td><strong>{ici_val:.4f}</strong><small class="text-muted">{ici_ci_str}</small></td>
+                        <td>{ici_dict.get("interpretation", "")}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Calibration Error Percentiles</strong><br><small class="text-muted">Median (E50) & 90th percentile (E90)</small></td>
+                        <td>E50: <strong>{ici_dict.get("e50", 0):.4f}</strong> | E90: <strong>{ici_dict.get("e90", 0):.4f}</strong> | Emax: <strong>{ici_dict.get("emax", 0):.4f}</strong></td>
+                        <td><small class="text-muted">E90 indicates error for 90% of patient predictions</small></td>
+                    </tr>
         """
 
-    # Calibration slope
-    if "calibration_slope" in calib:
+    # 3. Calibration Slope & Intercept
+    if "calibration_slope" in calib and not np.isnan(
+        calib.get("calibration_slope", np.nan)
+    ):
         slope = calib["calibration_slope"]
+        slope_ci = f"({calib.get('slope_ci_lower', 0):.2f}–{calib.get('slope_ci_upper', 0):.2f})"
+        intercept = calib.get("calibration_intercept", 0.0)
+        intercept_ci = f"({calib.get('intercept_ci_lower', 0):.2f}–{calib.get('intercept_ci_upper', 0):.2f})"
         html += f"""
-                <tr>
-                    <td><strong>Calibration Slope</strong></td>
-                    <td>{slope:.3f}</td>
-                    <td>{calib.get("slope_interpretation", "")}</td>
-                </tr>
+                    <tr>
+                        <td><strong>Calibration Slope</strong><br><small class="text-muted">Ideal = 1.0 (over/under-fitting check)</small></td>
+                        <td><strong>{slope:.3f}</strong> <small class="text-muted">{slope_ci}</small></td>
+                        <td>{calib.get("slope_interpretation", "")}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Calibration Intercept</strong><br><small class="text-muted">Calibration-in-the-large (Ideal = 0.0)</small></td>
+                        <td><strong>{intercept:.3f}</strong> <small class="text-muted">{intercept_ci}</small></td>
+                        <td>{calib.get("intercept_interpretation", "")}</td>
+                    </tr>
         """
 
-    # Hosmer-Lemeshow
+    # 4. Brier Score
+    if "brier_score" in brier and not np.isnan(brier.get("brier_score", np.nan)):
+        brier_val = brier["brier_score"]
+        scaled_str = (
+            f" (Scaled: {brier.get('brier_scaled', 0):.3f})"
+            if not np.isnan(brier.get("brier_scaled", np.nan))
+            else ""
+        )
+        html += f"""
+                    <tr>
+                        <td><strong>Brier Score</strong><br><small class="text-muted">Overall accuracy (&lt;0.25 is acceptable)</small></td>
+                        <td><strong>{brier_val:.4f}</strong><small class="text-muted">{scaled_str}</small></td>
+                        <td>{brier.get("interpretation", "")}</td>
+                    </tr>
+        """
+
+    # 5. Hosmer-Lemeshow (Legacy / Supplementary)
     if "p_value" in hl and not np.isnan(hl.get("p_value", np.nan)):
         html += f"""
-                <tr>
-                    <td><strong>Hosmer-Lemeshow Test</strong></td>
-                    <td>χ² = {hl["chi2"]:.2f}, p = {hl["p_value"]:.3f}</td>
-                    <td>{hl.get("interpretation", "")}</td>
-                </tr>
+                    <tr>
+                        <td><strong>Hosmer-Lemeshow Test</strong><br><small class="text-muted">Binned goodness-of-fit (Legacy metric)</small></td>
+                        <td>χ² = {hl["chi2"]:.2f}, df = {hl["df"]}, p = {hl["p_value"]:.3f}</td>
+                        <td>{hl.get("interpretation", "")}</td>
+                    </tr>
         """
 
     html += """
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
     </div>
     """
     return html

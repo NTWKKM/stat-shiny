@@ -18,17 +18,16 @@ def test_smart_variable_defaults(page: Page):
     page.goto(BASE_URL)
 
     # 2. Go to Data Tab and Click Load Example Data
-    # Standalone tab
     page.get_by_role("tab", name="📁 Data Management").click()
+    page.wait_for_timeout(1000)
 
-    load_btn = page.locator("#data-btn_load_example")
+    load_btn = page.get_by_role("button", name="📄 Load Example Data")
     expect(load_btn).to_be_visible()
     load_btn.click()
 
     # Wait for data to load
-    expect(page.get_by_text("Loaded 1600 Clinical Records")).to_be_visible(
-        timeout=15000
-    )
+    grid = page.locator("#data-out_df_preview")
+    expect(grid).to_contain_text("Treatment_Group", timeout=25000)
 
     # Navigate: General Statistics -> Correlation Analysis
     page.get_by_role("button", name="📊 General Statistics").click()

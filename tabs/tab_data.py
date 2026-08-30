@@ -432,7 +432,106 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             return []
         return check_data_quality(data)
 
-    # --- 1. Data Loading Logic ---
+    # --- 1. Data Loading Logic & Immediate Quality Check ---
+    def _infer_column_type(df_in: pd.DataFrame, col: str) -> tuple[str, list[dict]]:
+        series = df_in[col]
+        unique_vals = series.dropna().unique()
+        n_unique = len(unique_vals)
+        inferred_type = "Categorical"
+        issues = []
+
+        # Constants for detection logic
+        max_categorical_unique = 12
+        numeric_threshold = 0.70
+        max_issue_per_col = 10
+
+        # Check 1: Is it already numeric?
+        if pd.api.types.is_numeric_dtype(series):
+            if n_unique > max_categorical_unique:
+                inferred_type = "Continuous"
+        # Check 2: Is it Object/String but looks like numbers?
+        elif pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(
+            series
+        ):
+            numeric_conversion = pd.to_numeric(series, errors="coerce")
+            valid_count = numeric_conversion.notna().sum()
+            total_count = series.notna().sum()
+
+            if total_count > 0 and (valid_count / total_count) > numeric_threshold:
+                inferred_type = "Continuous"
+
+                # Identify Bad Rows
+                bad_mask = numeric_conversion.isna() & series.notna()
+                bad_rows = series[bad_mask]
+
+                for idx, val in bad_rows.items():
+                    if len(issues) < max_issue_per_col:
+                        issues.append(
+                            {
+                                "col": col,
+                                "row": idx + 2,
+                                "value": str(val),
+                                "issue": "Non-numeric value in continuous column",
+                            }
+                        )
+                    elif len(issues) == max_issue_per_col:
+                        issues.append(
+                            {
+                                "col": col,
+                                "row": "...",
+                                "value": "...",
+                                "issue": "More issues suppressed...",
+                            }
+                        )
+        return inferred_type, issues
+
+    def _process_ingested_dataset(
+        new_df: pd.DataFrame,
+        file_name: str,
+        preset_meta: dict[str, Any] | None = None,
+    ) -> None:
+        """Shared dataset ingestion, type inference, and immediate quality-check pipeline."""
+        processed_df = new_df.copy()
+        uploaded_file_info.set({"name": file_name})
+
+        current_meta = preset_meta.copy() if preset_meta is not None else {}
+        current_issues = []
+
+        # --- Infer Types and Detect Quality Issues ---
+        for col in processed_df.columns:
+            if col in current_meta:
+                if current_meta[col].get(
+                    "type"
+                ) == "Continuous" and not pd.api.types.is_numeric_dtype(
+                    processed_df[col]
+                ):
+                    processed_df[col] = pd.to_numeric(
+                        processed_df[col], errors="coerce"
+                    )
+                continue
+            inferred_type, issues = _infer_column_type(processed_df, col)
+            if inferred_type == "Continuous" and not pd.api.types.is_numeric_dtype(
+                processed_df[col]
+            ):
+                processed_df[col] = pd.to_numeric(processed_df[col], errors="coerce")
+            current_meta[col] = {"type": inferred_type, "map": {}, "label": col}
+            current_issues.extend(issues)
+
+        df.set(processed_df)
+        var_meta.set(current_meta)
+        data_issues.set(current_issues)
+
+        msg = (
+            f"✅ Loaded {len(new_df)} rows."
+            if file_name != "Example Clinical Data"
+            else f"✅ Loaded {len(new_df)} Clinical Records (Simulated)"
+        )
+        if current_issues:
+            msg += " ⚠️ Found data quality issues (see report)."
+            ui.notification_show(msg, type="warning")
+        else:
+            ui.notification_show(msg, type="message")
+
     def generate_example_data_logic():
         logger.info("Generating example data...")
         is_loading_data.set(True)
@@ -441,15 +540,11 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
 
         try:
             new_df, meta = _simulate_clinical_data()
-            df.set(new_df)
-            var_meta.set(meta)
-            uploaded_file_info.set({"name": "Example Clinical Data"})
-
-            logger.info("✅ Successfully generated %d records", len(new_df))
             ui.notification_remove(id_notify)
-            ui.notification_show(
-                f"✅ Loaded {len(new_df)} Clinical Records (Simulated)", type="message"
+            _process_ingested_dataset(
+                new_df, file_name="Example Clinical Data", preset_meta=meta
             )
+            logger.info("✅ Successfully generated %d records", len(new_df))
 
         except Exception as e:
             logger.error("Error generating example data: %s", e)
@@ -851,14 +946,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             },
         }
 
-    @reactive.Effect
+    @reactive.effect
     @reactive.event(input.btn_load_example)
-    def _():
+    def _handle_btn_load_example():
         generate_example_data_logic()
 
-    @reactive.Effect
+    @reactive.effect
     @reactive.event(input.btn_load_example_trigger)
-    def _():
+    def _handle_btn_load_example_trigger():
         generate_example_data_logic()
 
     @reactive.Effect
@@ -938,87 +1033,14 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                     f"⚠️ Large file: showing first {max_rows:,} rows", type="warning"
                 )
 
-            df.set(new_df)
-            uploaded_file_info.set({"name": f["name"]})
-
-            current_meta = var_meta.get() or {}
-            current_issues = []
-
-            # --- 3. Infer Types and Detect Quality Issues ---
-            for col in new_df.columns:
-                if col in current_meta:
-                    continue
-
-                inferred_type, issues = _infer_column_type(new_df, col)
-                current_meta[col] = {"type": inferred_type, "map": {}, "label": col}
-                current_issues.extend(issues)
-
-            var_meta.set(current_meta)
-            data_issues.set(current_issues)  # Store issues for UI
-
-            msg = f"✅ Loaded {len(new_df)} rows."
-            if current_issues:
-                msg += " ⚠️ Found data quality issues (see report)."
-                ui.notification_show(msg, type="warning")
-            else:
-                ui.notification_show(msg, type="message")
+            # --- 3. Unified Ingestion & Quality Check ---
+            _process_ingested_dataset(new_df, file_name=f["name"])
 
         except Exception as e:
             logger.error("Error: %s", e)
             ui.notification_show(f"❌ Error: {e!s}", type="error")
         finally:
             is_loading_data.set(False)
-
-    def _infer_column_type(df_in: pd.DataFrame, col: str) -> tuple[str, list[dict]]:
-        series = df_in[col]
-        unique_vals = series.dropna().unique()
-        n_unique = len(unique_vals)
-        inferred_type = "Categorical"
-        issues = []
-
-        # Constants for detection logic
-        max_categorical_unique = 12
-        numeric_threshold = 0.70
-        max_issue_per_col = 10
-
-        # Check 1: Is it already numeric?
-        if pd.api.types.is_numeric_dtype(series):
-            if n_unique > max_categorical_unique:
-                inferred_type = "Continuous"
-        # Check 2: Is it Object/String but looks like numbers?
-        elif pd.api.types.is_object_dtype(series):
-            numeric_conversion = pd.to_numeric(series, errors="coerce")
-            valid_count = numeric_conversion.notna().sum()
-            total_count = series.notna().sum()
-
-            if total_count > 0 and (valid_count / total_count) > numeric_threshold:
-                inferred_type = "Continuous"
-                df_in[col] = numeric_conversion  # Mutates the DF
-
-                # Identify Bad Rows
-                bad_mask = numeric_conversion.isna() & series.notna()
-                bad_rows = series[bad_mask]
-
-                for idx, val in bad_rows.items():
-                    if len(issues) < max_issue_per_col:
-                        issues.append(
-                            {
-                                "col": col,
-                                "row": idx + 2,
-                                "value": str(val),
-                                "issue": "Non-numeric value in continuous column",
-                            }
-                        )
-                    elif len(issues) == max_issue_per_col:
-                        issues.append(
-                            {
-                                "col": col,
-                                "row": "...",
-                                "value": "...",
-                                "issue": "More issues suppressed...",
-                            }
-                        )
-        return inferred_type, issues
 
     @reactive.Effect
     @reactive.event(lambda: input.btn_reset_all())
@@ -1676,7 +1698,7 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
                     class_="d-flex justify-content-center gap-2",
                 ),
             )
-        return ui.output_data_frame("out_df_preview")
+        return ui.output_data_frame(session.ns("out_df_preview"))
 
     @render.data_frame
     def out_df_preview():

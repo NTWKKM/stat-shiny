@@ -20,8 +20,8 @@ from tabs._common import (
     get_color_palette,
     select_variable_by_keyword,
 )
-from tabs._styling import get_shiny_css
 from tabs._dataset_mixin import register_dataset_selector
+from tabs._styling import get_shiny_css
 from utils.calibration_lib import (
     create_calibration_plot,
     create_decision_curve,
@@ -30,9 +30,9 @@ from utils.calibration_lib import (
 )
 from utils.data_cleaning import prepare_data_for_analysis
 from utils.download_helpers import (
+    safe_data_download,
     safe_download_html,
     safe_report_generation,
-    safe_data_download,
 )
 from utils.forest_plot_lib import create_forest_plot
 from utils.formatting import (
@@ -55,6 +55,7 @@ from utils.logic import (
     generate_mi_pooled_report,
     run_glm,
 )
+from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 from utils.multiple_imputation import pool_estimates
 from utils.pdf_helpers import safe_download_pdf, safe_pdf_report_generation
 from utils.plotly_html_renderer import plotly_figure_to_html
@@ -65,7 +66,6 @@ from utils.repeated_measures_lib import (
     run_gee,
     run_lmm,
 )
-from utils.mi_helpers import get_mi_datasets, has_mi_datasets
 from utils.reporting_checklists import (
     auto_populate_strobe,
     format_strobe_html_compact,

@@ -16,13 +16,13 @@ import pandas as pd
 import pytest
 
 from utils.data_cleaning import (
+    DataCleaningError,
+    clean_dataframe,
     clean_numeric,
     clean_numeric_vector,
-    clean_dataframe,
     detect_outliers,
     is_continuous_variable,
     prepare_data_for_analysis,
-    DataCleaningError,
     validate_data_quality,
 )
 

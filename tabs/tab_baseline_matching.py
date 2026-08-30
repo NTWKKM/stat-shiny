@@ -15,8 +15,8 @@ from tabs._common import (
     select_variable_by_keyword,
 )
 from utils import psm_lib, table_one
+from utils.download_helpers import safe_data_download, safe_download_html
 from utils.formatting import create_missing_data_report_html
-from utils.download_helpers import safe_download_html, safe_data_download
 from utils.pdf_helpers import safe_download_pdf, safe_pdf_report_generation
 from utils.plotly_html_renderer import plotly_figure_to_html
 from utils.ui_helpers import (

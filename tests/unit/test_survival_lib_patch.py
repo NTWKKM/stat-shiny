@@ -1,9 +1,7 @@
-import sys
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
-import pytest
 
 # We'll mock the entire survival_lib module context primarily to test the *patch* logic.
 # However, to test the patch logic itself, we need to let it execute.

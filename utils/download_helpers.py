@@ -170,8 +170,8 @@ def safe_data_download(data: Any, *, label: str = "Data", type_: str = "dataset"
     Raises:
         shiny.SilentException: If data is missing/empty (via req(False)).
     """
-    from shiny import req
     import pandas as pd
+    from shiny import req
 
     is_valid = False
     if data is not None:

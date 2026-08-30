@@ -1301,8 +1301,7 @@ def analyze_roc(
         return stats_dict, None, fig, coords_df
 
     except Exception as e:
-        import traceback; traceback.print_exc()
-        logger.error(f"ROC analysis unexpected error: {e}")
+        logger.exception("ROC analysis unexpected error: %s", e)
         return None, f"Analysis Error: {str(e)}", None, None
 
 

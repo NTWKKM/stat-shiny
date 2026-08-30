@@ -234,11 +234,17 @@ def setup_mocks():
         yield
 
     # Restore unmocked state for other tests in the suite
-    importlib.reload(utils.poisson_lib)
-    importlib.reload(utils.diag_test)
-    importlib.reload(utils.agreement_lib)
-    importlib.reload(utils.logic)
-    importlib.reload(utils.survival_lib)
+    for mod_name in (
+        "utils.poisson_lib",
+        "utils.diag_test",
+        "utils.agreement_lib",
+        "utils.logic",
+        "utils.survival_lib",
+    ):
+        if mod_name in sys.modules:
+            importlib.reload(sys.modules[mod_name])
+        else:
+            importlib.import_module(mod_name)
 
 
 # Mark all tests as unit tests

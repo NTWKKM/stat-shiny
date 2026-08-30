@@ -22,6 +22,7 @@ from tabs import (
     tab_data,  # 🟢 Data Module
     tab_diag,
     tab_home,  # 🏠 Home Module
+    tab_meta_analysis,  # 📚 Meta-Analysis Module
     tab_sample_size,  # 🟢 Sample Size Module
     tab_settings,
     tab_survival,
@@ -45,6 +46,7 @@ class TabNames:
     REGRESSION = "regression"
     SURVIVAL = "survival"
     ADVANCED_REGRESSION = "adv_regression"
+    META_ANALYSIS = "meta_analysis"
     CAUSAL = "causal"
     SAMPLE_SIZE = "sample_size"
     SETTINGS = "settings"
@@ -164,6 +166,13 @@ app_ui = ui.page_fluid(
                     tab_advanced_inference.advanced_inference_ui("adv_inf")
                 ),
                 value=TabNames.ADVANCED_REGRESSION,
+            ),
+            ui.nav_panel(
+                "Meta-Analysis",
+                wrap_with_container(
+                    tab_meta_analysis.meta_analysis_ui("meta_analysis")
+                ),
+                value=TabNames.META_ANALYSIS,
             ),
         ),
         # ========================================
@@ -288,6 +297,9 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     )
     tab_advanced_inference.advanced_inference_server(
         "adv_inf", df, var_meta, df_matched, is_matched, mi_imputed_datasets
+    )
+    tab_meta_analysis.meta_analysis_server(
+        "meta_analysis", df, var_meta, df_matched, is_matched
     )
     tab_causal_inference.causal_inference_server(
         "causal", df, var_meta, df_matched, is_matched

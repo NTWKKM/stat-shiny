@@ -16,6 +16,13 @@ from pathlib import Path
 import pytest
 import requests
 
+# Forward execution to .venv if running under legacy Python (< 3.10)
+if sys.version_info < (3, 10):
+    venv_pytest = Path(__file__).parent.parent / ".venv" / "bin" / "pytest"
+    if venv_pytest.exists():
+        res = subprocess.run([str(venv_pytest)] + sys.argv[1:])
+        sys.exit(res.returncode)
+
 # ============================================================================
 # 🚀 Session-Scoped Fixture: Start Shiny Server
 # ============================================================================
@@ -154,12 +161,19 @@ def start_shiny_server(request):
             if log_file is not None:
                 try:
                     log_file.close()
-                finally:
+                    with open(log_file.name, encoding="utf-8", errors="replace") as f:
+                        print(
+                            "\n=== SHINY SERVER LOGS ===\n",
+                            f.read(),
+                            "\n=========================",
+                        )
+                except Exception:
+                    pass
+                try:
                     if os.path.exists(log_file.name):
-                        try:
-                            os.remove(log_file.name)
-                        except OSError:
-                            pass
+                        os.remove(log_file.name)
+                except OSError:
+                    pass
 
 
 # ============================================================================

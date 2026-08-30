@@ -1,4 +1,5 @@
 import importlib
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -67,5 +68,35 @@ def test_check_cph_assumptions_structure():
 
 
 def test_check_cph_assumptions_violation_text():
-    """Simulate a violation case (mocking the test result if needed, or just checking logic flow)."""
-    pytest.skip("TODO: add a deterministic violation case")
+    """Test check_cph_assumptions text output when proportional hazards assumption is violated."""
+    np.random.seed(42)
+    df = pd.DataFrame(
+        {
+            "T": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+            "E": [1, 1, 1, 0, 1, 1, 0, 1, 1, 0],
+            "var1": np.random.normal(0, 1, 10),
+            "var2": np.random.normal(0, 1, 10),
+        }
+    )
+
+    cph = CoxPHFitter()
+    cph.fit(df, duration_col="T", event_col="E")
+
+    # Mock proportional_hazard_test to return p < 0.05 for var1
+    mock_res = MagicMock()
+    mock_res.summary = pd.DataFrame(
+        {
+            "test_statistic": [12.5, 0.4],
+            "p": [0.001, 0.65],
+            "-log2(p)": [9.96, 0.62],
+        },
+        index=["var1", "var2"],
+    )
+
+    with patch("utils.survival_lib.proportional_hazard_test", return_value=mock_res):
+        text_report, figs = utils.survival_lib.check_cph_assumptions(cph, df)
+
+    assert "Assumption Violations Detected" in text_report
+    assert "var1 (p=0.001)" in text_report
+    assert "Suggested Remedies" in text_report
+    assert len(figs) >= 3

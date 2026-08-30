@@ -3,6 +3,7 @@
 
 [project]
 name = "stat-shiny"
+version = "0.1.0"
 requires-python = ">=3.12"
 description = "Medical statistical analysis web app built with Shiny for Python"
 
