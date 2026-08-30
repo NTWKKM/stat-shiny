@@ -627,7 +627,7 @@ def test_statin_preload_smart_variable_selection():
 
 @pytest.mark.unit
 def test_select_variable_by_keyword_anti_collision():
-    """Verify select_variable_by_keyword prevents substring collisions on short keywords."""
+    """Verify select_variable_by_keyword prevents substring collisions on short and structured keywords."""
     from tabs._common import select_variable_by_keyword
 
     cols = [
@@ -640,15 +640,53 @@ def test_select_variable_by_keyword_anti_collision():
         "N_Control",
     ]
 
-    # Short keyword 'n_t' should not match 'Mean_Treatment'
+    # Short keyword 'n_t' should not match 'Mean_Treatment' (falls back to default 'Study')
     n_t_match = select_variable_by_keyword(cols, ["n_t", "n1"])
-    assert (
-        n_t_match == "N_Treatment"
-        or n_t_match == "Study"
-        or n_t_match != "Mean_Treatment"
-    )
+    assert n_t_match == "Study"
     assert n_t_match != "Mean_Treatment"
+
+    # Full keyword 'n_treatment' matches 'N_Treatment' via token boundary
+    n_treat_match = select_variable_by_keyword(cols, ["n_treatment", "n_t"])
+    assert n_treat_match == "N_Treatment"
 
     # Exact match priority
     exact_match = select_variable_by_keyword(["Patient_ID", "ID", "Identity"], ["id"])
     assert exact_match == "ID"
+
+    # Structured keywords must not collide with substrings in mean columns (e.g. n_statin inside mean_statin)
+    cols_without_n = ["Trial", "Mean_Statin", "SD_Statin", "Mean_Control", "SD_Control"]
+    n_statin_match = select_variable_by_keyword(
+        cols_without_n, ["n_statin", "n_t", "n1"], default_to_first=False
+    )
+    assert n_statin_match is None, (
+        f"Expected None for n_statin when N_Statin is missing, got {n_statin_match}"
+    )
+
+    n_control_match = select_variable_by_keyword(
+        cols_without_n, ["n_control", "n_c", "n0"], default_to_first=False
+    )
+    assert n_control_match is None, (
+        f"Expected None for n_control when N_Control is missing, got {n_control_match}"
+    )
+
+    n_treatment_match = select_variable_by_keyword(
+        ["Mean_Treatment", "SD_Treatment"],
+        ["n_treatment", "n_t"],
+        default_to_first=False,
+    )
+    assert n_treatment_match is None, (
+        f"Expected None for n_treatment, got {n_treatment_match}"
+    )
+
+    # Verify delimiter-separated matching still works via Tier 2
+    cols_delimited = ["Trial", "Total_N_Statin", "Subgroup_Mean_Statin"]
+    assert (
+        select_variable_by_keyword(cols_delimited, ["n_statin"], default_to_first=False)
+        == "Total_N_Statin"
+    )
+    assert (
+        select_variable_by_keyword(
+            cols_delimited, ["mean_statin"], default_to_first=False
+        )
+        == "Subgroup_Mean_Statin"
+    )

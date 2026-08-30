@@ -80,31 +80,13 @@ def select_variable_by_keyword(
                 return col
 
     # Tier 2: Word / Underscore / Token Boundary match
-    # Prevents false positive substring matches (e.g., 'n_statin' matching 'mean_statin')
+    # Enforces token boundaries to prevent false positive substring matches (e.g., 'n_statin' matching 'mean_statin')
     for k in keywords:
         k_lower = k.lower().strip()
         pattern = rf"(^|[^a-zA-Z0-9]){re.escape(k_lower)}([^a-zA-Z0-9]|$)"
         for col in columns:
             if re.search(pattern, col.lower()):
                 return col
-
-    # Tier 3: Starts-with or ends-with token boundary
-    for k in keywords:
-        k_lower = k.lower().strip()
-        for col in columns:
-            c_lower = col.lower()
-            if c_lower.startswith(k_lower + "_") or c_lower.startswith(k_lower + " "):
-                return col
-            if c_lower.endswith("_" + k_lower) or c_lower.endswith(" " + k_lower):
-                return col
-
-    # Tier 4: Substring match (filtered for longer keywords >= 4 chars to prevent false positives on short tokens)
-    for k in keywords:
-        k_lower = k.lower().strip()
-        if len(k_lower) >= 4:
-            for col in columns:
-                if k_lower in col.lower():
-                    return col
 
     # Default fallback
     if default_to_first:
