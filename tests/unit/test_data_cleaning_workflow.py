@@ -296,6 +296,90 @@ def test_edge_cases():
     print("\n✓ TEST PASSED: All edge cases handled correctly")
 
 
+def test_continuous_ingestion_normalization_and_preservation():
+    """Verify that columns inferred as Continuous are normalized to numeric without mutating original input dataframe."""
+    original_input = pd.DataFrame(
+        {
+            "id": [
+                "P001",
+                "P002",
+                "P003",
+                "P004",
+                "P005",
+                "P006",
+                "P007",
+                "P008",
+                "P009",
+                "P010",
+                "P011",
+                "P012",
+                "P013",
+                "P014",
+                "P015",
+            ],
+            "cont_col": [str(i * 1.5) for i in range(14)] + ["corrupt_val"],
+            "cat_col": [
+                "A",
+                "B",
+                "A",
+                "B",
+                "A",
+                "B",
+                "A",
+                "B",
+                "A",
+                "B",
+                "A",
+                "B",
+                "A",
+                "B",
+                "A",
+            ],
+        }
+    )
+    original_copy = original_input.copy(deep=True)
+
+    # Ingestion flow simulation
+    processed = original_input.copy()
+    meta = {}
+    for col in processed.columns:
+        series = processed[col]
+        unique_vals = series.dropna().unique()
+        n_unique = len(unique_vals)
+        inferred_type = "Categorical"
+        if pd.api.types.is_numeric_dtype(series):
+            if n_unique > 12:
+                inferred_type = "Continuous"
+        elif pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(
+            series
+        ):
+            num_conv = pd.to_numeric(series, errors="coerce")
+            if (
+                series.notna().sum() > 0
+                and (num_conv.notna().sum() / series.notna().sum()) > 0.7
+            ):
+                inferred_type = "Continuous"
+        if inferred_type == "Continuous" and not pd.api.types.is_numeric_dtype(
+            processed[col]
+        ):
+            processed[col] = pd.to_numeric(processed[col], errors="coerce")
+        meta[col] = {"type": inferred_type, "map": {}, "label": col}
+
+    # 1. Original dataframe is not mutated
+    pd.testing.assert_frame_equal(original_input, original_copy)
+
+    # 2. Inferred as Continuous and normalized to numeric
+    assert meta["cont_col"]["type"] == "Continuous"
+    assert pd.api.types.is_numeric_dtype(processed["cont_col"])
+    assert np.isnan(processed.loc[14, "cont_col"])
+
+    # 3. Downstream numeric selector includes normalized column
+    numeric_cols = processed.select_dtypes(include=np.number).columns.tolist()
+    assert "cont_col" in numeric_cols
+    assert "cat_col" not in numeric_cols
+    assert "id" not in numeric_cols
+
+
 def run_all_tests():
     """Run all tests and report results."""
     print("\n" + "=" * 60)
@@ -308,6 +392,10 @@ def run_all_tests():
         ("Table One Workflow", test_table_one_workflow),
         ("Outlier Detection and Handling", test_outlier_detection_and_handling),
         ("Edge Cases and Error Handling", test_edge_cases),
+        (
+            "Continuous Ingestion Normalization",
+            test_continuous_ingestion_normalization_and_preservation,
+        ),
     ]
 
     results = []

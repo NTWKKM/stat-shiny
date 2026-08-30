@@ -141,7 +141,8 @@ def test_run_meta_analysis_pooling_and_heterogeneity():
         eff_df, method_re="reml", use_hksj=True
     )
     assert (
-        res_reml["random_effect"]["method"] == "Random Effects (REML + Hartung-Knapp)"
+        res_reml["random_effect"]["method"]
+        == "Random Effects (REML + Modified Hartung-Knapp)"
     )
     assert res_reml["heterogeneity"]["tau2"] >= 0.0
     assert not np.isnan(res_reml["random_effect"]["effect_disp"])
@@ -151,6 +152,79 @@ def test_run_meta_analysis_pooling_and_heterogeneity():
     assert res_pm["random_effect"]["method"] == "Random Effects (Paule-Mandel)"
     assert res_pm["heterogeneity"]["tau2"] >= 0.0
     assert not np.isnan(res_pm["random_effect"]["effect_disp"])
+
+
+@pytest.mark.unit
+def test_modified_hksj_identical_effects_bound():
+    """Verify Modified HKSJ does not collapse SE when study effects are identical (q_hksj == 0)."""
+    df = pd.DataFrame(
+        {
+            "study": ["Study 1", "Study 2", "Study 3", "Study 4"],
+            "log_effect": [0.5, 0.5, 0.5, 0.5],
+            "se": [0.2, 0.2, 0.2, 0.2],
+            "effect_size": [0.5, 0.5, 0.5, 0.5],
+            "ci_lower": [0.1, 0.1, 0.1, 0.1],
+            "ci_upper": [0.9, 0.9, 0.9, 0.9],
+            "is_ratio": [False, False, False, False],
+        }
+    )
+
+    res_hksj = meta_analysis_lib.run_meta_analysis(df, method_re="dl", use_hksj=True)
+    res_standard = meta_analysis_lib.run_meta_analysis(
+        df, method_re="dl", use_hksj=False
+    )
+
+    se_hksj = res_hksj["random_effect"]["se"]
+    se_std = res_standard["random_effect"]["se"]
+
+    # SE must not collapse to zero and must be >= standard SE
+    assert se_hksj >= se_std
+    assert se_hksj > 0.05
+
+    # CI width under HKSJ (t-dist with scale >= 1) must be wider/equal to standard (z-dist)
+    ci_width_hksj = (
+        res_hksj["random_effect"]["ci_upper"] - res_hksj["random_effect"]["ci_lower"]
+    )
+    ci_width_std = (
+        res_standard["random_effect"]["ci_upper"]
+        - res_standard["random_effect"]["ci_lower"]
+    )
+    assert ci_width_hksj >= ci_width_std
+    assert (
+        res_hksj["random_effect"]["method"]
+        == "Random Effects (DerSimonian-Laird + Modified Hartung-Knapp)"
+    )
+
+
+@pytest.mark.unit
+def test_reml_estimation_roots():
+    """Verify REML estimation handles heterogeneous precision without artificial Q short-circuiting."""
+    # Case 1: Standard heterogeneous precision
+    theta = np.array([0.2, -0.2, 0.4, -0.4])
+    se = np.array([0.1, 0.3, 0.1, 0.3])
+    q_stat = 8.0
+    tau2 = meta_analysis_lib._estimate_tau2_reml(theta, se, q_stat, k=4)
+    assert tau2 >= 0.0
+    assert not np.isnan(tau2)
+
+    # Case 2: Unequal standard errors where Q < df (k - 1) but f_reml(0) > 0
+    # Demonstrates that REML finds a positive tau^2 root even when Cochran's Q < df
+    theta_unequal = np.array([0.182, 0.625, -0.799, -0.59])
+    se_unequal = np.array([0.371, 1.425, 1.407, 0.37])
+    k_unequal = len(theta_unequal)
+    w = 1.0 / (se_unequal**2)
+    mu = float(np.sum(w * theta_unequal) / np.sum(w))
+    q_unequal = float(np.sum(w * (theta_unequal - mu) ** 2))
+    df_unequal = k_unequal - 1
+    f_reml_0 = float(np.sum((w**2) * ((theta_unequal - mu) ** 2)) - np.sum(w))
+
+    assert q_unequal < df_unequal  # Q < df
+    assert f_reml_0 > 0.0  # f_reml(0) > 0
+
+    tau2_unequal = meta_analysis_lib._estimate_tau2_reml(
+        theta_unequal, se_unequal, q_unequal, k=k_unequal
+    )
+    assert tau2_unequal > 0.0
 
 
 @pytest.mark.unit

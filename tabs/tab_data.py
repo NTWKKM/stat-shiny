@@ -450,7 +450,9 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
             if n_unique > max_categorical_unique:
                 inferred_type = "Continuous"
         # Check 2: Is it Object/String but looks like numbers?
-        elif pd.api.types.is_object_dtype(series):
+        elif pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(
+            series
+        ):
             numeric_conversion = pd.to_numeric(series, errors="coerce")
             valid_count = numeric_conversion.notna().sum()
             total_count = series.notna().sum()
@@ -489,20 +491,33 @@ def data_server(  # noqa: C901, PLR0915, PLR0913
         preset_meta: dict[str, Any] | None = None,
     ) -> None:
         """Shared dataset ingestion, type inference, and immediate quality-check pipeline."""
-        df.set(new_df)
+        processed_df = new_df.copy()
         uploaded_file_info.set({"name": file_name})
 
         current_meta = preset_meta.copy() if preset_meta is not None else {}
         current_issues = []
 
         # --- Infer Types and Detect Quality Issues ---
-        for col in new_df.columns:
+        for col in processed_df.columns:
             if col in current_meta:
+                if current_meta[col].get(
+                    "type"
+                ) == "Continuous" and not pd.api.types.is_numeric_dtype(
+                    processed_df[col]
+                ):
+                    processed_df[col] = pd.to_numeric(
+                        processed_df[col], errors="coerce"
+                    )
                 continue
-            inferred_type, issues = _infer_column_type(new_df, col)
+            inferred_type, issues = _infer_column_type(processed_df, col)
+            if inferred_type == "Continuous" and not pd.api.types.is_numeric_dtype(
+                processed_df[col]
+            ):
+                processed_df[col] = pd.to_numeric(processed_df[col], errors="coerce")
             current_meta[col] = {"type": inferred_type, "map": {}, "label": col}
             current_issues.extend(issues)
 
+        df.set(processed_df)
         var_meta.set(current_meta)
         data_issues.set(current_issues)
 

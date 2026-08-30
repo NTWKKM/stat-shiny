@@ -269,7 +269,7 @@ def _estimate_tau2_reml(
     theta: np.ndarray, se: np.ndarray, q_stat: float, k: int
 ) -> float:
     """Estimate tau^2 between-study variance using Restricted Maximum Likelihood (REML)."""
-    if q_stat <= (k - 1) or k <= 1:
+    if k <= 1:
         return 0.0
 
     def f_reml(t2: float) -> float:
@@ -367,16 +367,17 @@ def run_meta_analysis(
     theta_re = float(np.sum(w_re * theta) / sum_w_re)
     se_re_standard = math.sqrt(1.0 / sum_w_re)
 
-    # Hartung-Knapp-Sidik-Jonkman (HKSJ) adjustment
+    # Hartung-Knapp-Sidik-Jonkman (Modified HKSJ) adjustment
     if use_hksj and k >= 3:
-        q_hksj = (1.0 / (k - 1)) * np.sum(w_re * ((theta - theta_re) ** 2))
-        se_re = math.sqrt(max(1e-8, q_hksj * (1.0 / sum_w_re)))
+        q_hksj = float((1.0 / (k - 1)) * np.sum(w_re * ((theta - theta_re) ** 2)))
+        hksj_scale = max(1.0, q_hksj)
+        se_re = math.sqrt(hksj_scale / sum_w_re)
         t_crit = stats.t.ppf(1.0 - alpha / 2.0, df=k - 1)
         ci_re_low = theta_re - t_crit * se_re
         ci_re_high = theta_re + t_crit * se_re
         t_val = theta_re / se_re if se_re > 0 else 0
         p_val_re = float(2.0 * (1.0 - stats.t.cdf(abs(t_val), df=k - 1)))
-        method_name = f"Random Effects ({method_label} + Hartung-Knapp)"
+        method_name = f"Random Effects ({method_label} + Modified Hartung-Knapp)"
     else:
         se_re = se_re_standard
         ci_re_low = theta_re - z_crit * se_re
