@@ -1012,7 +1012,6 @@ def meta_analysis_server(
                 "or",
                 "rr",
                 "estimate",
-                "hazard_ratio",
             ],
         )
         return ui.input_select(
@@ -1103,19 +1102,19 @@ def meta_analysis_server(
                 )
             else:  # Generic
                 req(input.gen_effect_col(), input.gen_se_col())
-                eff_df = (
-                    df[[study_col, input.gen_effect_col(), input.gen_se_col()]]
-                    .dropna()
-                    .copy()
-                )
-                eff_df.rename(
-                    columns={
-                        study_col: "study",
-                        input.gen_effect_col(): "effect_size",
-                        input.gen_se_col(): "se",
-                    },
-                    inplace=True,
-                )
+                gen_cols = [study_col, input.gen_effect_col(), input.gen_se_col()]
+                if sg_name and sg_name in df.columns:
+                    gen_cols.append(sg_name)
+                gen_cols = list(dict.fromkeys(gen_cols))
+                eff_df = df[gen_cols].dropna().copy()
+                rename_map = {
+                    study_col: "study",
+                    input.gen_effect_col(): "effect_size",
+                    input.gen_se_col(): "se",
+                }
+                if sg_name and sg_name in df.columns:
+                    rename_map[sg_name] = "subgroup"
+                eff_df.rename(columns=rename_map, inplace=True)
                 is_ratio = bool(input.meta_gen_is_ratio())
                 eff_df["log_effect"] = eff_df["effect_size"]
                 eff_df["ci_lower"] = eff_df["effect_size"] - 1.96 * eff_df["se"]

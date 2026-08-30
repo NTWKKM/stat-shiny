@@ -492,31 +492,58 @@ def test_demo_datasets_structure_and_generators():
 
 @pytest.mark.unit
 def test_generic_ratio_demo_pipeline():
-    """Test full generic effect size meta-analysis pipeline on SGLT2i HR demo dataset."""
+    """Test full generic effect size meta-analysis pipeline on SGLT2i HR demo dataset with and without subgroup."""
     from tabs.tab_meta_analysis import get_generic_ratio_data
 
     df = get_generic_ratio_data()
     assert len(df) == 5
 
-    eff_df = df[["Trial", "Log_HR", "SE_Log_HR", "Subgroup"]].copy()
-    eff_df.rename(
+    # 1. With Subgroup configured
+    eff_df_sg = df[["Trial", "Log_HR", "SE_Log_HR", "Subgroup"]].copy()
+    eff_df_sg.rename(
+        columns={
+            "Trial": "study",
+            "Log_HR": "effect_size",
+            "SE_Log_HR": "se",
+            "Subgroup": "subgroup",
+        },
+        inplace=True,
+    )
+    eff_df_sg["log_effect"] = eff_df_sg["effect_size"]
+    eff_df_sg["ci_lower"] = eff_df_sg["effect_size"] - 1.96 * eff_df_sg["se"]
+    eff_df_sg["ci_upper"] = eff_df_sg["effect_size"] + 1.96 * eff_df_sg["se"]
+    eff_df_sg["is_ratio"] = True
+
+    res_sg = meta_analysis_lib.run_meta_analysis(
+        eff_df_sg, method_re="dl", use_hksj=True
+    )
+
+    assert res_sg["k"] == 5
+    assert "fixed_effect" in res_sg
+    assert "random_effect" in res_sg
+    # SGLT2i reduces heart failure mortality: HR < 1.0 (log_HR < 0)
+    assert res_sg["fixed_effect"]["effect_disp"] < 1.0
+    assert res_sg["random_effect"]["effect_disp"] < 1.0
+    assert res_sg["heterogeneity"]["I2"] >= 0.0
+    # Regression assertion: res["subgroups"] is not None when subgroup column is provided
+    assert res_sg["subgroups"] is not None
+    assert "HFrEF" in res_sg["subgroups"]["subgroups"]
+
+    # 2. Without Subgroup configured (preserve when no subgroup column is set)
+    eff_df_nosg = df[["Trial", "Log_HR", "SE_Log_HR"]].copy()
+    eff_df_nosg.rename(
         columns={"Trial": "study", "Log_HR": "effect_size", "SE_Log_HR": "se"},
         inplace=True,
     )
-    eff_df["log_effect"] = eff_df["effect_size"]
-    eff_df["ci_lower"] = eff_df["effect_size"] - 1.96 * eff_df["se"]
-    eff_df["ci_upper"] = eff_df["effect_size"] + 1.96 * eff_df["se"]
-    eff_df["is_ratio"] = True
+    eff_df_nosg["log_effect"] = eff_df_nosg["effect_size"]
+    eff_df_nosg["ci_lower"] = eff_df_nosg["effect_size"] - 1.96 * eff_df_nosg["se"]
+    eff_df_nosg["ci_upper"] = eff_df_nosg["effect_size"] + 1.96 * eff_df_nosg["se"]
+    eff_df_nosg["is_ratio"] = True
 
-    res = meta_analysis_lib.run_meta_analysis(eff_df, method_re="dl", use_hksj=True)
-
-    assert res["k"] == 5
-    assert "fixed_effect" in res
-    assert "random_effect" in res
-    # SGLT2i reduces heart failure mortality: HR < 1.0 (log_HR < 0)
-    assert res["fixed_effect"]["effect_disp"] < 1.0
-    assert res["random_effect"]["effect_disp"] < 1.0
-    assert res["heterogeneity"]["I2"] >= 0.0
+    res_nosg = meta_analysis_lib.run_meta_analysis(
+        eff_df_nosg, method_re="dl", use_hksj=True
+    )
+    assert res_nosg["subgroups"] is None
 
 
 @pytest.mark.unit
