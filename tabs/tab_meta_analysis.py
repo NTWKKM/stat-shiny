@@ -136,6 +136,311 @@ def get_statin_continuous_data() -> pd.DataFrame:
     )
 
 
+def get_generic_ratio_data() -> pd.DataFrame:
+    """Illustrative Generic Meta-Analysis: SGLT2 Inhibitors vs Placebo for All-Cause Mortality in Heart Failure (Hazard Ratios)."""
+    return pd.DataFrame(
+        {
+            "Trial": [
+                "DAPA-HF (2019)",
+                "EMPEROR-Reduced (2020)",
+                "EMPEROR-Preserved (2021)",
+                "DELIVER (2022)",
+                "SOLOIST-WHF (2020)",
+            ],
+            "Subgroup": [
+                "HFrEF",
+                "HFrEF",
+                "HFpEF",
+                "HFpEF",
+                "Worsening HF",
+            ],
+            "Hazard_Ratio": [0.83, 0.92, 0.90, 0.94, 0.69],
+            "Log_HR": [-0.1863, -0.0834, -0.1054, -0.0619, -0.3711],
+            "SE_Log_HR": [0.0820, 0.0880, 0.0750, 0.0730, 0.1650],
+        }
+    )
+
+
+def render_demo_table_html(
+    df: pd.DataFrame, col_descriptions: dict[str, str] | None = None
+) -> str:
+    """Generate a high-contrast, cleanly styled Bootstrap HTML table for demo dataset preview."""
+    header_th = []
+    for col in df.columns:
+        desc = col_descriptions.get(col, "") if col_descriptions else ""
+        desc_badge = (
+            f"<span class='badge bg-light text-dark ms-1 border font-monospace fw-normal'>{desc}</span>"
+            if desc
+            else ""
+        )
+        header_th.append(f"<th class='text-nowrap'>{col} {desc_badge}</th>")
+
+    rows_html = []
+    for _, row in df.iterrows():
+        tds = []
+        for col in df.columns:
+            val = row[col]
+            if isinstance(val, (int, np.integer)):
+                formatted_val = f"{val:,}"
+                tds.append(f"<td class='text-end font-monospace'>{formatted_val}</td>")
+            elif isinstance(val, (float, np.floating)):
+                formatted_val = (
+                    f"{val:.4f}"
+                    if abs(val) < 1.0
+                    else (f"{val:.2f}" if abs(val) < 100 else f"{val:.1f}")
+                )
+                tds.append(f"<td class='text-end font-monospace'>{formatted_val}</td>")
+            else:
+                tds.append(f"<td class='text-nowrap'>{val}</td>")
+        rows_html.append(f"<tr>{''.join(tds)}</tr>")
+
+    return f"""
+    <div class="table-responsive border rounded shadow-sm bg-white" style="max-height: 380px; overflow-y: auto;">
+        <table class="table table-sm table-hover table-striped table-bordered align-middle mb-0">
+            <thead class="table-light sticky-top shadow-sm">
+                <tr>{"".join(header_th)}</tr>
+            </thead>
+            <tbody>
+                {"".join(rows_html)}
+            </tbody>
+        </table>
+    </div>
+    """
+
+
+def create_demo_data_modal() -> ui.Tag:
+    """Constructs the comprehensive modal dialog showcasing raw demo data tables and upload formats."""
+    bcg_df = get_bcg_vaccine_data()
+    statin_df = get_statin_continuous_data()
+    generic_df = get_generic_ratio_data()
+
+    bcg_desc = {
+        "Study": "Study ID / Author",
+        "Latitude_Group": "Subgroup",
+        "TB_Vaccine": "Events (Treatment)",
+        "Total_Vaccine": "Total N (Treatment)",
+        "TB_Control": "Events (Control)",
+        "Total_Control": "Total N (Control)",
+    }
+
+    statin_desc = {
+        "Trial": "Trial ID",
+        "Dose_Tier": "Subgroup",
+        "Mean_Statin": "Mean (Treatment)",
+        "SD_Statin": "SD (Treatment)",
+        "N_Statin": "N (Treatment)",
+        "Mean_Control": "Mean (Control)",
+        "SD_Control": "SD (Control)",
+        "N_Control": "N (Control)",
+    }
+
+    generic_desc = {
+        "Trial": "Trial ID",
+        "Subgroup": "Subgroup",
+        "Hazard_Ratio": "Natural Ratio (HR)",
+        "Log_HR": "Log-Ratio (θ)",
+        "SE_Log_HR": "Standard Error (SE)",
+    }
+
+    modal_content = ui.div(
+        ui.div(
+            ui.markdown("""
+            💡 **Data Formatting & Upload Guide**:
+            This reference window displays the exact table structure and column types required for uploading your own systematic review data.
+            Select a data format below to inspect the raw data values, column descriptions, and download sample CSV templates.
+            """),
+            class_="alert alert-light border shadow-sm mb-3",
+        ),
+        ui.navset_tab(
+            # TAB 1: Binary (2x2)
+            ui.nav_panel(
+                "📊 1. Binary Outcome (2x2 Table)",
+                ui.div(
+                    ui.div(
+                        ui.tags.h6(
+                            "📋 Required Column Format for Binary Endpoints (OR, RR, RD)",
+                            class_="text-primary fw-bold mb-1",
+                        ),
+                        ui.tags.p(
+                            "For RCTs or cohort studies reporting event counts and total participants in experimental vs control groups.",
+                            class_="text-muted small mb-2",
+                        ),
+                        ui.tags.ul(
+                            ui.tags.li(
+                                ui.tags.strong("Study Identifier: "),
+                                "Study name or author and publication year (e.g. Aronson 1948)",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Treatment Arm (2 columns): "),
+                                "Events in Treatment (a) + Total Sample Size (n1)",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Control Arm (2 columns): "),
+                                "Events in Control (c) + Total Sample Size (n0)",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Subgroup (Optional): "),
+                                "Categorical column for subgroup heterogeneity testing (Q_between)",
+                            ),
+                            class_="small mb-0",
+                        ),
+                        class_="card p-3 mb-3 bg-light border-0 shadow-sm",
+                    ),
+                    ui.div(
+                        ui.input_action_button(
+                            "btn_modal_load_bcg",
+                            "📊 Load BCG Vaccine Dataset",
+                            class_="btn-sm btn-primary me-2",
+                        ),
+                        ui.download_button(
+                            "btn_dl_demo_bcg_csv",
+                            "📥 Download BCG CSV Template",
+                            class_="btn-sm btn-outline-secondary",
+                        ),
+                        class_="d-flex align-items-center mb-2",
+                    ),
+                    ui.HTML(render_demo_table_html(bcg_df, bcg_desc)),
+                    ui.div(
+                        ui.span(
+                            f"Displaying {len(bcg_df)} studies from Colditz et al. (1994) BCG Tuberculosis Prevention RCTs.",
+                            class_="text-muted small",
+                        ),
+                        class_="mt-2",
+                    ),
+                    class_="py-2",
+                ),
+            ),
+            # TAB 2: Continuous
+            ui.nav_panel(
+                "📈 2. Continuous Outcome (Mean / SD / N)",
+                ui.div(
+                    ui.div(
+                        ui.tags.h6(
+                            "📋 Required Column Format for Continuous Endpoints (MD, SMD)",
+                            class_="text-primary fw-bold mb-1",
+                        ),
+                        ui.tags.p(
+                            "For clinical trials comparing continuous biomarker values, blood pressure, or symptom scores.",
+                            class_="text-muted small mb-2",
+                        ),
+                        ui.tags.ul(
+                            ui.tags.li(
+                                ui.tags.strong("Trial Identifier: "),
+                                "Study name or trial name (e.g. Trial 1 (Low Dose))",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Treatment Arm (3 columns): "),
+                                "Mean (x̄1) + Standard Deviation (s1) + Sample Size (n1)",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Control Arm (3 columns): "),
+                                "Mean (x̄0) + Standard Deviation (s0) + Sample Size (n0)",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Subgroup (Optional): "),
+                                "Categorical dosage tier or patient category",
+                            ),
+                            class_="small mb-0",
+                        ),
+                        class_="card p-3 mb-3 bg-light border-0 shadow-sm",
+                    ),
+                    ui.div(
+                        ui.input_action_button(
+                            "btn_modal_load_statin",
+                            "📈 Load Statin Trials Dataset",
+                            class_="btn-sm btn-primary me-2",
+                        ),
+                        ui.download_button(
+                            "btn_dl_demo_statin_csv",
+                            "📥 Download Statin CSV Template",
+                            class_="btn-sm btn-outline-secondary",
+                        ),
+                        class_="d-flex align-items-center mb-2",
+                    ),
+                    ui.HTML(render_demo_table_html(statin_df, statin_desc)),
+                    ui.div(
+                        ui.span(
+                            f"Displaying {len(statin_df)} trials from Statin vs Control LDL Reduction dataset (mg/dL).",
+                            class_="text-muted small",
+                        ),
+                        class_="mt-2",
+                    ),
+                    class_="py-2",
+                ),
+            ),
+            # TAB 3: Generic (Log-Ratio / Effect & SE)
+            ui.nav_panel(
+                "📑 3. Generic Effect Size (Log-Ratio / SE)",
+                ui.div(
+                    ui.div(
+                        ui.tags.h6(
+                            "📋 Required Column Format for Generic Effect Sizes & Hazard Ratios",
+                            class_="text-primary fw-bold mb-1",
+                        ),
+                        ui.tags.p(
+                            "For pre-calculated effect sizes from survival models (Hazard Ratios), pre-calculated Log-Ratios, or multivariable regression coefficients.",
+                            class_="text-muted small mb-2",
+                        ),
+                        ui.tags.ul(
+                            ui.tags.li(
+                                ui.tags.strong("Study Identifier: "),
+                                "Trial or study name (e.g. DAPA-HF (2019))",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Effect Size (θ or ln(HR)): "),
+                                "Point estimate (must be on natural log scale if ratio metric)",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Standard Error (SE): "),
+                                "Standard error of the estimate (SE = (ln(CI_upper) - ln(CI_lower)) / 3.92)",
+                            ),
+                            ui.tags.li(
+                                ui.tags.strong("Subgroup (Optional): "),
+                                "Clinical phenotype stratification (e.g. HFrEF vs HFpEF)",
+                            ),
+                            class_="small mb-0",
+                        ),
+                        class_="card p-3 mb-3 bg-light border-0 shadow-sm",
+                    ),
+                    ui.div(
+                        ui.input_action_button(
+                            "btn_modal_load_generic",
+                            "📑 Load SGLT2i HR Dataset",
+                            class_="btn-sm btn-primary me-2",
+                        ),
+                        ui.download_button(
+                            "btn_dl_demo_generic_csv",
+                            "📥 Download SGLT2i CSV Template",
+                            class_="btn-sm btn-outline-secondary",
+                        ),
+                        class_="d-flex align-items-center mb-2",
+                    ),
+                    ui.HTML(render_demo_table_html(generic_df, generic_desc)),
+                    ui.div(
+                        ui.span(
+                            f"Displaying {len(generic_df)} landmark trials in SGLT2i Heart Failure meta-analysis dataset.",
+                            class_="text-muted small",
+                        ),
+                        class_="mt-2",
+                    ),
+                    class_="py-2",
+                ),
+            ),
+        ),
+    )
+
+    return ui.modal(
+        modal_content,
+        title="📋 Meta-Analysis Data Formats & Demo Raw Data Viewer",
+        size="xl",
+        easy_close=True,
+        footer=ui.div(
+            ui.modal_button("Close", class_="btn-secondary"),
+            class_="d-flex justify-content-end",
+        ),
+    )
+
+
 # ==============================================================================
 # UI DEFINITION
 # ==============================================================================
@@ -158,20 +463,30 @@ def meta_analysis_ui() -> ui.TagChild:
                 ),
                 ui.input_action_button(
                     "btn_load_bcg",
-                    "📊 Load BCG Vaccine RCTs (Binary)",
+                    "📊 Load BCG Vaccine (Binary)",
                     class_="btn-sm btn-outline-primary me-2",
                 ),
                 ui.input_action_button(
                     "btn_load_statin",
-                    "📈 Load Statin LDL Trials (Continuous)",
+                    "📈 Load Statin LDL (Continuous)",
                     class_="btn-sm btn-outline-secondary me-2",
+                ),
+                ui.input_action_button(
+                    "btn_load_generic",
+                    "📑 Load SGLT2i HR (Generic)",
+                    class_="btn-sm btn-outline-success me-2",
+                ),
+                ui.input_action_button(
+                    "btn_view_demo_data",
+                    "👁️ View Demo Raw Data & Format Guide",
+                    class_="btn-sm btn-outline-info me-2 fw-semibold",
                 ),
                 ui.input_action_button(
                     "btn_reset_demo",
                     "🔄 Exit Demo (Use Uploaded Data)",
                     class_="btn-sm btn-outline-danger",
                 ),
-                class_="d-flex align-items-center mb-3",
+                class_="d-flex flex-wrap align-items-center gap-1 mb-3",
             ),
         ),
         ui.output_ui("ui_demo_dataset_banner"),
@@ -383,6 +698,85 @@ def meta_analysis_server(
         status_msg.set(None)
         ui.update_select("meta_data_type", selected="continuous")
 
+    @reactive.effect
+    @reactive.event(input.btn_load_generic)
+    def _load_generic():
+        generic_data = get_generic_ratio_data()
+        local_df.set(generic_data)
+        local_name.set("SGLT2i Heart Failure Trials (Generic HR)")
+        meta_state.set(None)
+        status_msg.set(None)
+        ui.update_select("meta_data_type", selected="generic")
+        ui.update_checkbox("meta_gen_is_ratio", value=True)
+
+    # Demo Modal & Raw Data Preview Handlers
+    @reactive.effect
+    @reactive.event(input.btn_view_demo_data)
+    def _show_demo_modal():
+        ui.modal_show(create_demo_data_modal())
+
+    @reactive.effect
+    @reactive.event(input.btn_view_demo_banner)
+    def _show_demo_modal_banner():
+        ui.modal_show(create_demo_data_modal())
+
+    # Modal Dataset Quick Loaders
+    @reactive.effect
+    @reactive.event(input.btn_modal_load_bcg)
+    def _modal_load_bcg():
+        bcg = get_bcg_vaccine_data()
+        local_df.set(bcg)
+        local_name.set("BCG Vaccine RCTs (Colditz 1994)")
+        meta_state.set(None)
+        status_msg.set(None)
+        ui.update_select("meta_data_type", selected="binary")
+        ui.modal_remove()
+        ui.notification_show(
+            "Loaded BCG Vaccine RCTs dataset (Binary 2x2).", type="message"
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_modal_load_statin)
+    def _modal_load_statin():
+        statin = get_statin_continuous_data()
+        local_df.set(statin)
+        local_name.set("Statin LDL Reduction Trials")
+        meta_state.set(None)
+        status_msg.set(None)
+        ui.update_select("meta_data_type", selected="continuous")
+        ui.modal_remove()
+        ui.notification_show(
+            "Loaded Statin LDL Reduction dataset (Continuous).", type="message"
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_modal_load_generic)
+    def _modal_load_generic():
+        generic_data = get_generic_ratio_data()
+        local_df.set(generic_data)
+        local_name.set("SGLT2i Heart Failure Trials (Generic HR)")
+        meta_state.set(None)
+        status_msg.set(None)
+        ui.update_select("meta_data_type", selected="generic")
+        ui.update_checkbox("meta_gen_is_ratio", value=True)
+        ui.modal_remove()
+        ui.notification_show(
+            "Loaded SGLT2i Heart Failure Trials dataset (Generic HR).", type="message"
+        )
+
+    # CSV Template Downloads
+    @render.download(filename="bcg_vaccine_binary_template.csv")
+    def btn_dl_demo_bcg_csv():
+        return get_bcg_vaccine_data().to_csv(index=False)
+
+    @render.download(filename="statin_continuous_template.csv")
+    def btn_dl_demo_statin_csv():
+        return get_statin_continuous_data().to_csv(index=False)
+
+    @render.download(filename="sglt2i_generic_template.csv")
+    def btn_dl_demo_generic_csv():
+        return get_generic_ratio_data().to_csv(index=False)
+
     # Demo Reset / Exit Handlers
     @reactive.effect
     @reactive.event(input.btn_reset_demo)
@@ -423,10 +817,18 @@ def meta_analysis_server(
                         f"💡 Demo Mode Active: {local_name.get()}",
                         class_="fw-bold text-primary",
                     ),
-                    ui.input_action_button(
-                        "btn_exit_demo_banner",
-                        "✕ Exit Demo (Use Uploaded Data)",
-                        class_="btn-sm btn-outline-danger ms-3 py-0 px-2",
+                    ui.div(
+                        ui.input_action_button(
+                            "btn_view_demo_banner",
+                            "👁️ View Raw Data",
+                            class_="btn-sm btn-outline-primary me-2 py-0 px-2",
+                        ),
+                        ui.input_action_button(
+                            "btn_exit_demo_banner",
+                            "✕ Exit Demo (Use Uploaded Data)",
+                            class_="btn-sm btn-outline-danger py-0 px-2",
+                        ),
+                        class_="d-flex align-items-center",
                     ),
                     class_="d-flex align-items-center justify-content-between",
                 ),
@@ -601,7 +1003,16 @@ def meta_analysis_server(
         df = active_df()
         cols = list(df.columns) if df is not None else []
         sel = select_variable_by_keyword(
-            cols, ["effect", "log_effect", "yi", "or", "rr", "estimate"]
+            cols,
+            [
+                "log_hr",
+                "log_effect",
+                "effect",
+                "yi",
+                "or",
+                "rr",
+                "estimate",
+            ],
         )
         return ui.input_select(
             "gen_effect_col", "Effect Size (or Log-Ratio):", choices=cols, selected=sel
@@ -612,7 +1023,9 @@ def meta_analysis_server(
     def ui_gen_se_col():
         df = active_df()
         cols = list(df.columns) if df is not None else []
-        sel = select_variable_by_keyword(cols, ["se", "vi", "stderr", "std_err"])
+        sel = select_variable_by_keyword(
+            cols, ["se_log_hr", "se", "vi", "stderr", "std_err"]
+        )
         return ui.input_select(
             "gen_se_col", "Standard Error (SE):", choices=cols, selected=sel
         )
@@ -689,19 +1102,19 @@ def meta_analysis_server(
                 )
             else:  # Generic
                 req(input.gen_effect_col(), input.gen_se_col())
-                eff_df = (
-                    df[[study_col, input.gen_effect_col(), input.gen_se_col()]]
-                    .dropna()
-                    .copy()
-                )
-                eff_df.rename(
-                    columns={
-                        study_col: "study",
-                        input.gen_effect_col(): "effect_size",
-                        input.gen_se_col(): "se",
-                    },
-                    inplace=True,
-                )
+                gen_cols = [study_col, input.gen_effect_col(), input.gen_se_col()]
+                if sg_name and sg_name in df.columns:
+                    gen_cols.append(sg_name)
+                gen_cols = list(dict.fromkeys(gen_cols))
+                eff_df = df[gen_cols].dropna().copy()
+                rename_map = {
+                    study_col: "study",
+                    input.gen_effect_col(): "effect_size",
+                    input.gen_se_col(): "se",
+                }
+                if sg_name and sg_name in df.columns:
+                    rename_map[sg_name] = "subgroup"
+                eff_df.rename(columns=rename_map, inplace=True)
                 is_ratio = bool(input.meta_gen_is_ratio())
                 eff_df["log_effect"] = eff_df["effect_size"]
                 eff_df["ci_lower"] = eff_df["effect_size"] - 1.96 * eff_df["se"]
