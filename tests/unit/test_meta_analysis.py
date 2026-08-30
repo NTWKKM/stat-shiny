@@ -431,3 +431,111 @@ def test_defensive_column_validation_errors():
             n_c_col="Val",
             study_col="Trial",
         )
+
+
+@pytest.mark.unit
+def test_demo_datasets_structure_and_generators():
+    """Verify integrity, non-emptiness, and required columns for all demo datasets."""
+    from tabs.tab_meta_analysis import (
+        get_bcg_vaccine_data,
+        get_generic_ratio_data,
+        get_statin_continuous_data,
+    )
+
+    # 1. BCG Binary Dataset
+    bcg = get_bcg_vaccine_data()
+    assert isinstance(bcg, pd.DataFrame)
+    assert len(bcg) == 13
+    assert set(
+        [
+            "Study",
+            "Latitude_Group",
+            "TB_Vaccine",
+            "Total_Vaccine",
+            "TB_Control",
+            "Total_Control",
+        ]
+    ).issubset(bcg.columns)
+    assert (bcg["TB_Vaccine"] <= bcg["Total_Vaccine"]).all()
+    assert (bcg["TB_Control"] <= bcg["Total_Control"]).all()
+
+    # 2. Statin Continuous Dataset
+    statin = get_statin_continuous_data()
+    assert isinstance(statin, pd.DataFrame)
+    assert len(statin) == 6
+    assert set(
+        [
+            "Trial",
+            "Dose_Tier",
+            "Mean_Statin",
+            "SD_Statin",
+            "N_Statin",
+            "Mean_Control",
+            "SD_Control",
+            "N_Control",
+        ]
+    ).issubset(statin.columns)
+    assert (statin["SD_Statin"] > 0).all()
+    assert (statin["SD_Control"] > 0).all()
+    assert (statin["N_Statin"] > 0).all()
+
+    # 3. Generic Ratio Dataset
+    generic = get_generic_ratio_data()
+    assert isinstance(generic, pd.DataFrame)
+    assert len(generic) == 5
+    assert set(["Trial", "Subgroup", "Hazard_Ratio", "Log_HR", "SE_Log_HR"]).issubset(
+        generic.columns
+    )
+    assert (generic["Hazard_Ratio"] > 0).all()
+    assert (generic["SE_Log_HR"] > 0).all()
+
+
+@pytest.mark.unit
+def test_generic_ratio_demo_pipeline():
+    """Test full generic effect size meta-analysis pipeline on SGLT2i HR demo dataset."""
+    from tabs.tab_meta_analysis import get_generic_ratio_data
+
+    df = get_generic_ratio_data()
+    assert len(df) == 5
+
+    eff_df = df[["Trial", "Log_HR", "SE_Log_HR", "Subgroup"]].copy()
+    eff_df.rename(
+        columns={"Trial": "study", "Log_HR": "effect_size", "SE_Log_HR": "se"},
+        inplace=True,
+    )
+    eff_df["log_effect"] = eff_df["effect_size"]
+    eff_df["ci_lower"] = eff_df["effect_size"] - 1.96 * eff_df["se"]
+    eff_df["ci_upper"] = eff_df["effect_size"] + 1.96 * eff_df["se"]
+    eff_df["is_ratio"] = True
+
+    res = meta_analysis_lib.run_meta_analysis(eff_df, method_re="dl", use_hksj=True)
+
+    assert res["k"] == 5
+    assert "fixed_effect" in res
+    assert "random_effect" in res
+    # SGLT2i reduces heart failure mortality: HR < 1.0 (log_HR < 0)
+    assert res["fixed_effect"]["effect_disp"] < 1.0
+    assert res["random_effect"]["effect_disp"] < 1.0
+    assert res["heterogeneity"]["I2"] >= 0.0
+
+
+@pytest.mark.unit
+def test_render_demo_table_html_and_modal():
+    """Verify demo HTML table renderer and modal structure generate valid markup."""
+    from tabs.tab_meta_analysis import (
+        create_demo_data_modal,
+        get_bcg_vaccine_data,
+        render_demo_table_html,
+    )
+
+    bcg = get_bcg_vaccine_data()
+    table_html = render_demo_table_html(
+        bcg, {"Study": "Study Name", "TB_Vaccine": "Events (T)"}
+    )
+
+    assert "<table" in table_html
+    assert "Aronson 1948" in table_html
+    assert "Events (T)" in table_html
+
+    modal_tag = create_demo_data_modal()
+    assert modal_tag is not None
