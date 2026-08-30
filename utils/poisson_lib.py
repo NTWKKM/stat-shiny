@@ -18,9 +18,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 import statsmodels.api as sm
-import statsmodels.genmod.generalized_linear_model
 
-# Suppress statsmodels FutureWarning for BIC calculation
 from config import CONFIG
 from logger import get_logger
 from tabs._common import get_color_palette
@@ -32,9 +30,6 @@ from utils.formatting import (
     create_missing_data_report_html,
     format_p_value,
 )
-
-# Suppress statsmodels FutureWarning for BIC calculation
-statsmodels.genmod.generalized_linear_model.SET_USE_BIC_LLF(True)
 
 logger = get_logger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="statsmodels")
