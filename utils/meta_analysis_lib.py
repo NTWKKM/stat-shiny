@@ -66,11 +66,22 @@ def compute_binary_effect_sizes(
     Returns:
         DataFrame with study, effect_size, log_effect, se, ci_lower, ci_upper, weight data
     """
+    for c in [study_col, events_t_col, n_t_col, events_c_col, n_c_col]:
+        if c not in df.columns:
+            raise ValueError(f"Column '{c}' not found in dataset.")
+
+    if len({events_t_col, n_t_col, events_c_col, n_c_col}) < 4:
+        raise ValueError(
+            "Events and Total N columns for treatment and control must be distinct. "
+            "Please check column mappings."
+        )
+
     cols = [study_col, events_t_col, n_t_col, events_c_col, n_c_col]
     if subgroup_col and subgroup_col in df.columns:
         cols.append(subgroup_col)
 
-    clean_df = df[cols].dropna().copy()
+    unique_cols = list(dict.fromkeys(cols))
+    clean_df = df[unique_cols].dropna().copy()
 
     records = []
     for _, row in clean_df.iterrows():
@@ -81,10 +92,15 @@ def compute_binary_effect_sizes(
             else "Overall"
         )
 
-        a = float(row[events_t_col])
-        n1 = float(row[n_t_col])
-        c = float(row[events_c_col])
-        n0 = float(row[n_c_col])
+        try:
+            a = float(row[events_t_col])
+            n1 = float(row[n_t_col])
+            c = float(row[events_c_col])
+            n0 = float(row[n_c_col])
+        except (ValueError, TypeError) as err:
+            raise ValueError(
+                f"Non-numeric value encountered in 2x2 data for study '{study}': {err}"
+            ) from err
 
         b = n1 - a
         d = n0 - c
@@ -164,11 +180,22 @@ def compute_continuous_effect_sizes(
     """
     Compute Mean Difference (MD) or Standardized Mean Difference (SMD / Hedges' g) for continuous endpoints.
     """
+    for c in [study_col, mean_t_col, sd_t_col, n_t_col, mean_c_col, sd_c_col, n_c_col]:
+        if c not in df.columns:
+            raise ValueError(f"Column '{c}' not found in dataset.")
+
+    if len({mean_t_col, sd_t_col, n_t_col, mean_c_col, sd_c_col, n_c_col}) < 6:
+        raise ValueError(
+            "Mean, SD, and N columns for treatment and control must be distinct. "
+            "Please check column mappings."
+        )
+
     cols = [study_col, mean_t_col, sd_t_col, n_t_col, mean_c_col, sd_c_col, n_c_col]
     if subgroup_col and subgroup_col in df.columns:
         cols.append(subgroup_col)
 
-    clean_df = df[cols].dropna().copy()
+    unique_cols = list(dict.fromkeys(cols))
+    clean_df = df[unique_cols].dropna().copy()
 
     records = []
     for _, row in clean_df.iterrows():
@@ -179,12 +206,17 @@ def compute_continuous_effect_sizes(
             else "Overall"
         )
 
-        m1 = float(row[mean_t_col])
-        s1 = float(row[sd_t_col])
-        n1 = float(row[n_t_col])
-        m0 = float(row[mean_c_col])
-        s0 = float(row[sd_c_col])
-        n0 = float(row[n_c_col])
+        try:
+            m1 = float(row[mean_t_col])
+            s1 = float(row[sd_t_col])
+            n1 = float(row[n_t_col])
+            m0 = float(row[mean_c_col])
+            s0 = float(row[sd_c_col])
+            n0 = float(row[n_c_col])
+        except (ValueError, TypeError) as err:
+            raise ValueError(
+                f"Non-numeric value encountered in continuous data for study '{study}': {err}"
+            ) from err
 
         if n1 < 2 or n0 < 2 or s1 <= 0 or s0 <= 0:
             continue
@@ -811,18 +843,32 @@ def create_contour_enhanced_funnel_plot(
     _add_band(z_99, z_outer, "rgba(147, 197, 253, 0.5)", "p < 0.01")
 
     # Pooled summary line
-    re_effect = meta_results["random_effect"]["log_effect"]
+    re_effect = float(meta_results["random_effect"]["log_effect"])
     fig.add_vline(
         x=re_effect,
         line=dict(color="#EF4444", width=2, dash="dash"),
-        annotation_text="Pooled Effect",
-        annotation_position="top right",
+        annotation_text="<b>Pooled Effect</b>",
+        annotation_position="top left" if re_effect < 0 else "top right",
+        annotation=dict(
+            font=dict(color="#EF4444", size=11, family="Inter, sans-serif"),
+            bgcolor="rgba(255, 255, 255, 0.92)",
+            bordercolor="#EF4444",
+            borderwidth=1,
+            borderpad=3,
+        ),
     )
     fig.add_vline(
         x=0.0,
         line=dict(color="#4B5563", width=1.5, dash="dot"),
-        annotation_text="Null Line (0)",
-        annotation_position="top left",
+        annotation_text="<b>Null Line (0)</b>",
+        annotation_position="bottom right",
+        annotation=dict(
+            font=dict(color="#4B5563", size=10, family="Inter, sans-serif"),
+            bgcolor="rgba(255, 255, 255, 0.92)",
+            bordercolor="#9CA3AF",
+            borderwidth=1,
+            borderpad=3,
+        ),
     )
 
     # Study Points

@@ -323,3 +323,111 @@ def test_create_meta_forest_and_funnel_plots():
     trace_p10 = [t for t in fig_funnel.data if t.name == "p ≥ 0.10"][0]
     assert np.min(trace_p10.x) < 0.0
     assert np.max(trace_p10.x) > 0.0
+
+    # Verify annotations for Pooled Effect and Null Line are vertically separated and do not collide
+    ann_texts = [a.text for a in fig_funnel.layout.annotations]
+    assert any("Pooled Effect" in t for t in ann_texts)
+    assert any("Null Line" in t for t in ann_texts)
+    # Check y-anchors / y-positions
+    pooled_ann = [
+        a for a in fig_funnel.layout.annotations if "Pooled Effect" in a.text
+    ][0]
+    null_ann = [a for a in fig_funnel.layout.annotations if "Null Line" in a.text][0]
+    assert pooled_ann.y != null_ann.y  # Top vs Bottom vertical stagger
+
+
+@pytest.mark.unit
+def test_statin_continuous_demo_pipeline():
+    """Test full continuous meta-analysis pipeline on Statin LDL demo dataset."""
+    from tabs.tab_meta_analysis import get_statin_continuous_data
+
+    statin_df = get_statin_continuous_data()
+    assert len(statin_df) == 6
+
+    # 1. SMD Calculation
+    eff_smd = meta_analysis_lib.compute_continuous_effect_sizes(
+        statin_df,
+        mean_t_col="Mean_Statin",
+        sd_t_col="SD_Statin",
+        n_t_col="N_Statin",
+        mean_c_col="Mean_Control",
+        sd_c_col="SD_Control",
+        n_c_col="N_Control",
+        study_col="Trial",
+        effect_measure="SMD",
+        subgroup_col="Dose_Tier",
+    )
+    assert len(eff_smd) == 6
+    assert all(eff_smd["effect_size"] < 0)  # All statin trials reduced LDL
+
+    res_smd = meta_analysis_lib.run_meta_analysis(
+        eff_smd, method_re="dl", use_hksj=True
+    )
+    assert res_smd["k"] == 6
+    assert res_smd["random_effect"]["effect_disp"] < 0
+    assert res_smd["subgroups"] is not None
+    assert "High" in res_smd["subgroups"]["subgroups"]
+
+    # 2. MD Calculation
+    eff_md = meta_analysis_lib.compute_continuous_effect_sizes(
+        statin_df,
+        mean_t_col="Mean_Statin",
+        sd_t_col="SD_Statin",
+        n_t_col="N_Statin",
+        mean_c_col="Mean_Control",
+        sd_c_col="SD_Control",
+        n_c_col="N_Control",
+        study_col="Trial",
+        effect_measure="MD",
+        subgroup_col="Dose_Tier",
+    )
+    res_md = meta_analysis_lib.run_meta_analysis(eff_md, method_re="dl", use_hksj=True)
+    assert (
+        res_md["random_effect"]["effect_disp"] < -20.0
+    )  # Significant reduction in mg/dL
+
+
+@pytest.mark.unit
+def test_defensive_column_validation_errors():
+    """Verify informative errors when column mappings are invalid or duplicated."""
+    df_invalid = pd.DataFrame(
+        {
+            "Trial": ["T1", "T2"],
+            "Val": ["A", "B"],
+        }
+    )
+
+    # 1. Missing columns
+    with pytest.raises(ValueError, match="not found in dataset"):
+        meta_analysis_lib.compute_binary_effect_sizes(
+            df_invalid,
+            events_t_col="missing",
+            n_t_col="Val",
+            events_c_col="Val",
+            n_c_col="Val",
+            study_col="Trial",
+        )
+
+    # 2. Duplicate columns (e.g. all set to 'Val')
+    with pytest.raises(ValueError, match="must be distinct"):
+        meta_analysis_lib.compute_binary_effect_sizes(
+            df_invalid,
+            events_t_col="Val",
+            n_t_col="Val",
+            events_c_col="Val",
+            n_c_col="Val",
+            study_col="Trial",
+        )
+
+    # 3. Continuous duplicate columns
+    with pytest.raises(ValueError, match="must be distinct"):
+        meta_analysis_lib.compute_continuous_effect_sizes(
+            df_invalid,
+            mean_t_col="Val",
+            sd_t_col="Val",
+            n_t_col="Val",
+            mean_c_col="Val",
+            sd_c_col="Val",
+            n_c_col="Val",
+            study_col="Trial",
+        )
