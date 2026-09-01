@@ -77,18 +77,18 @@ def select_variable_by_keyword(
 
     # Tier 1: Exact match (case-insensitive) across keyword priority
     for k in keywords:
-        k_lower = k.lower().strip()
+        k_lower = str(k).lower().strip()
         for col in columns:
-            if k_lower == col.lower().strip():
+            if k_lower == str(col).lower().strip():
                 return col
 
     # Tier 2: Word / Underscore / Token Boundary match
     # Enforces token boundaries to prevent false positive substring matches (e.g., 'n_statin' matching 'mean_statin')
     for k in keywords:
-        k_lower = k.lower().strip()
+        k_lower = str(k).lower().strip()
         pattern = rf"(^|[^a-zA-Z0-9]){re.escape(k_lower)}([^a-zA-Z0-9]|$)"
         for col in columns:
-            if re.search(pattern, col.lower()):
+            if re.search(pattern, str(col).lower().strip()):
                 return col
 
     # Default fallback

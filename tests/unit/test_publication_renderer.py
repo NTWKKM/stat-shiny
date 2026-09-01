@@ -4,6 +4,7 @@ from utils.publication_renderer import (
     Estimate,
     EstimateTable,
     ModelMeta,
+    format_confidence_level,
     format_journal_estimate_ci,
     format_journal_p_value,
     generate_methods_paragraph,
@@ -208,3 +209,58 @@ def test_publication_renderer_html_escaping():
         "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt; = 1.20, 95% CI [0.90, 1.60]"
         in html_apa
     )
+
+
+def test_format_confidence_level():
+    assert format_confidence_level(0.95) == "95%"
+    assert format_confidence_level(0.90) == "90%"
+    assert format_confidence_level(0.975) == "97.5%"
+    assert format_confidence_level(0.99) == "99%"
+    assert format_confidence_level(0.999) == "99.9%"
+
+
+def test_publication_renderer_fractional_confidence_level_975():
+    # 1. format_journal_estimate_ci APA7 check
+    apa_ci = format_journal_estimate_ci(
+        1.24, 0.98, 1.57, scale="OR", style="APA7", confidence_level=0.975
+    )
+    assert apa_ci == "OR = 1.24, 97.5% CI [0.98, 1.57]"
+
+    # 2. generate_methods_paragraph check
+    meta = ModelMeta(
+        estimator="Multivariable Logistic Regression",
+        n_total=500,
+        n_events=120,
+    )
+    methods = generate_methods_paragraph(meta, scale="OR", confidence_level=0.975)
+    assert "two-sided 97.5% confidence intervals" in methods
+
+    # 3. render_publication_html table headers and content check
+    rows = [
+        Estimate(
+            term="drug",
+            label="Study Drug",
+            estimate=1.45,
+            ci_lower=1.12,
+            ci_upper=1.88,
+            p_value=0.004,
+            scale="OR",
+        )
+    ]
+    table = EstimateTable(
+        title="Table with 97.5% CI",
+        rows=rows,
+        meta=meta,
+        confidence_level=0.975,
+    )
+
+    html_nejm = render_publication_html(
+        table, style="NEJM", include_meta_paragraph=True
+    )
+    assert "OR (97.5% CI)" in html_nejm
+    assert "two-sided 97.5% confidence intervals" in html_nejm
+
+    html_apa = render_publication_html(table, style="APA7", include_meta_paragraph=True)
+    assert "OR [97.5% CI]" in html_apa
+    assert "OR = 1.45, 97.5% CI [1.12, 1.88]" in html_apa
+    assert "two-sided 97.5% confidence intervals" in html_apa

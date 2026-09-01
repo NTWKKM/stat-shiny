@@ -59,6 +59,14 @@ class EstimateTable:
     confidence_level: float = 0.95
 
 
+def format_confidence_level(confidence_level: float = 0.95) -> str:
+    """
+    Formats confidence level as a percentage string (e.g. 0.95 -> "95%", 0.975 -> "97.5%", 0.9 -> "90%").
+    """
+    pct = round(confidence_level * 100, 6)
+    return f"{pct:g}%"
+
+
 def format_journal_p_value(p: float, style: str = "NEJM") -> str:
     """
     Formats p-values according to specific journal conventions.
@@ -109,12 +117,12 @@ def format_journal_estimate_ci(
     est_str = f"{est:.{decimals}f}"
     lo_str = f"{ci_lo:.{decimals}f}"
     hi_str = f"{ci_hi:.{decimals}f}"
-    ci_pct = int(confidence_level * 100)
+    ci_label = format_confidence_level(confidence_level)
 
     if style.upper() in ("NEJM", "JAMA"):
         return f"{est_str} ({lo_str}–{hi_str})"
     else:
-        return f"{html.escape(scale)} = {est_str}, {ci_pct}% CI [{lo_str}, {hi_str}]"
+        return f"{html.escape(scale)} = {est_str}, {ci_label} CI [{lo_str}, {hi_str}]"
 
 
 def render_publication_html(
@@ -142,14 +150,14 @@ def render_publication_html(
         )
     normalized_style = style_upper.lower()
 
-    ci_pct = int(table.confidence_level * 100)
+    ci_label = format_confidence_level(table.confidence_level)
     scale_label = table.rows[0].scale if table.rows else "Estimate"
 
     if style_upper in ("NEJM", "JAMA"):
-        header_est = f"{html.escape(scale_label)} ({ci_pct}% CI)"
+        header_est = f"{html.escape(scale_label)} ({ci_label} CI)"
         header_p = "P Value"
     else:
-        header_est = f"{html.escape(scale_label)} [{ci_pct}% CI]"
+        header_est = f"{html.escape(scale_label)} [{ci_label} CI]"
         header_p = "p"
 
     # Inline styles for Word pasting
@@ -297,7 +305,7 @@ def generate_methods_paragraph(
             f"Multivariable adjustment included the following covariates: {cov_str}."
         )
 
-    ci_pct_str = f"{confidence_level * 100:g}%"
+    ci_pct_str = format_confidence_level(confidence_level)
     parts.append(
         f"Effect estimates are presented as {get_scale_full_name(scale)}s alongside two-sided {ci_pct_str} confidence intervals."
     )
