@@ -93,3 +93,149 @@ def select_variable_by_keyword(
         return columns[0]
 
     return None
+
+
+class VariableRoles:
+    """
+    Standardized dataclass holding inferred or user-assigned variable roles across the application.
+    Acts as a single source of truth for downstream analysis modules.
+    """
+
+    def __init__(
+        self,
+        outcome: str | None = None,
+        exposure: str | None = None,
+        covariates: list[str] | None = None,
+        time: str | None = None,
+        event: str | None = None,
+        strata: str | None = None,
+    ):
+        self.outcome = outcome
+        self.exposure = exposure
+        self.covariates = covariates or []
+        self.time = time
+        self.event = event
+        self.strata = strata
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "outcome": self.outcome,
+            "exposure": self.exposure,
+            "covariates": self.covariates,
+            "time": self.time,
+            "event": self.event,
+            "strata": self.strata,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "VariableRoles":
+        if not d:
+            return cls()
+        return cls(
+            outcome=d.get("outcome"),
+            exposure=d.get("exposure"),
+            covariates=d.get("covariates", []),
+            time=d.get("time"),
+            event=d.get("event"),
+            strata=d.get("strata"),
+        )
+
+
+def infer_variable_roles(columns: list[str]) -> VariableRoles:
+    """
+    Intelligently infers variable roles based on biostatistical naming conventions.
+
+    Args:
+        columns: List of available dataset column names.
+
+    Returns:
+        VariableRoles instance with inferred column assignments.
+    """
+    if not columns:
+        return VariableRoles()
+
+    # Heuristic Keyword Dictionaries
+    TIME_KEYWORDS = [
+        "time",
+        "duration",
+        "followup",
+        "survival_time",
+        "days",
+        "months",
+        "tt_event",
+        "tte",
+        "surv_time",
+    ]
+    EVENT_KEYWORDS = [
+        "status",
+        "event",
+        "death",
+        "died",
+        "recurrence",
+        "censored",
+        "mortality",
+        "endpoint",
+        "dead",
+    ]
+    EXPOSURE_KEYWORDS = [
+        "treatment",
+        "treat",
+        "group",
+        "arm",
+        "exposure",
+        "rx",
+        "intervention",
+        "drug",
+        "therapy",
+    ]
+    OUTCOME_KEYWORDS = [
+        "outcome",
+        "target",
+        "y",
+        "disease",
+        "response",
+        "case",
+        "diagnosis",
+        "result",
+    ]
+    STRATA_KEYWORDS = [
+        "subgroup",
+        "strata",
+        "stratification",
+        "cohort",
+        "center",
+        "site",
+        "cluster",
+    ]
+
+    time_col = select_variable_by_keyword(
+        columns, TIME_KEYWORDS, default_to_first=False
+    )
+    event_col = select_variable_by_keyword(
+        columns, EVENT_KEYWORDS, default_to_first=False
+    )
+    exposure_col = select_variable_by_keyword(
+        columns, EXPOSURE_KEYWORDS, default_to_first=False
+    )
+    outcome_col = select_variable_by_keyword(
+        columns, OUTCOME_KEYWORDS, default_to_first=False
+    )
+    strata_col = select_variable_by_keyword(
+        columns, STRATA_KEYWORDS, default_to_first=False
+    )
+
+    assigned_cols = {
+        c
+        for c in [time_col, event_col, exposure_col, outcome_col, strata_col]
+        if c is not None
+    }
+    covariates = [c for c in columns if c not in assigned_cols]
+
+    return VariableRoles(
+        outcome=outcome_col,
+        exposure=exposure_col,
+        covariates=covariates,
+        time=time_col,
+        event=event_col,
+        strata=strata_col,
+    )
