@@ -90,6 +90,18 @@ def test_get_result_state_missing_required_inputs_after_run():
     assert state == ResultState.EMPTY
 
 
+def test_get_result_state_missing_required_inputs_with_differing_fingerprints():
+    # Missing required inputs must take precedence over STALE state even when fingerprints differ
+    state = get_result_state(
+        has_run=True,
+        is_computing=False,
+        current_fingerprint="new_fp_after_clearing_var",
+        last_run_fingerprint="old_fp_when_run",
+        has_required_inputs=False,
+    )
+    assert state == ResultState.EMPTY
+
+
 def test_render_state_badge():
     fresh_badge = render_state_badge(ResultState.FRESH)
     assert "Synchronized" in str(fresh_badge)

@@ -86,16 +86,16 @@ def get_result_state(
     """
     if is_computing:
         return ResultState.COMPUTING
+    if not has_required_inputs:
+        return ResultState.EMPTY
     if not has_run:
-        return ResultState.CONFIGURING if has_required_inputs else ResultState.EMPTY
+        return ResultState.CONFIGURING
     if (
         current_fingerprint
         and last_run_fingerprint
         and current_fingerprint != last_run_fingerprint
     ):
         return ResultState.STALE
-    if not has_required_inputs:
-        return ResultState.EMPTY
     return ResultState.FRESH
 
 

@@ -211,27 +211,21 @@ def infer_variable_roles(columns: list[str]) -> VariableRoles:
         "cluster",
     ]
 
-    time_col = select_variable_by_keyword(
-        columns, TIME_KEYWORDS, default_to_first=False
-    )
-    event_col = select_variable_by_keyword(
-        columns, EVENT_KEYWORDS, default_to_first=False
-    )
-    exposure_col = select_variable_by_keyword(
-        columns, EXPOSURE_KEYWORDS, default_to_first=False
-    )
-    outcome_col = select_variable_by_keyword(
-        columns, OUTCOME_KEYWORDS, default_to_first=False
-    )
-    strata_col = select_variable_by_keyword(
-        columns, STRATA_KEYWORDS, default_to_first=False
-    )
+    assigned_cols: set[str] = set()
 
-    assigned_cols = {
-        c
-        for c in [time_col, event_col, exposure_col, outcome_col, strata_col]
-        if c is not None
-    }
+    def _select(keywords: list[str]) -> str | None:
+        available = [c for c in columns if c not in assigned_cols]
+        chosen = select_variable_by_keyword(available, keywords, default_to_first=False)
+        if chosen is not None:
+            assigned_cols.add(chosen)
+        return chosen
+
+    time_col = _select(TIME_KEYWORDS)
+    event_col = _select(EVENT_KEYWORDS)
+    exposure_col = _select(EXPOSURE_KEYWORDS)
+    outcome_col = _select(OUTCOME_KEYWORDS)
+    strata_col = _select(STRATA_KEYWORDS)
+
     covariates = [c for c in columns if c not in assigned_cols]
 
     return VariableRoles(

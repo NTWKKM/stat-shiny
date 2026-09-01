@@ -161,3 +161,38 @@ class TestFigureLegendGenerator:
         assert "Scatter plot" in legend
         assert "age and blood pressure" in legend
         assert "N = 1000" in legend
+
+
+class TestInferVariableRoles:
+    """Tests for variable role inference and collision prevention."""
+
+    def test_infer_roles_anti_collision_event_time(self):
+        """Verify that a column matching multiple roles is only assigned once."""
+        from tabs._common import infer_variable_roles
+
+        cols = ["event_time", "status", "treatment", "age", "bmi"]
+        roles = infer_variable_roles(cols)
+
+        assert roles.time == "event_time"
+        assert roles.event == "status"
+        assert roles.exposure == "treatment"
+        assert roles.outcome is None
+        assert roles.covariates == ["age", "bmi"]
+
+    def test_infer_roles_single_conflicting_column(self):
+        """Verify single column matching both time and event is not assigned to both."""
+        from tabs._common import infer_variable_roles
+
+        cols = ["event_time"]
+        roles = infer_variable_roles(cols)
+
+        assert roles.time == "event_time"
+        assert roles.event is None
+        assert roles.covariates == []
+
+    def test_infer_roles_empty_list(self):
+        from tabs._common import infer_variable_roles
+
+        roles = infer_variable_roles([])
+        assert roles.outcome is None
+        assert roles.covariates == []

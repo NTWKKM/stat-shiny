@@ -114,7 +114,7 @@ def format_journal_estimate_ci(
     if style.upper() in ("NEJM", "JAMA"):
         return f"{est_str} ({lo_str}–{hi_str})"
     else:
-        return f"{scale} = {est_str}, {ci_pct}% CI [{lo_str}, {hi_str}]"
+        return f"{html.escape(scale)} = {est_str}, {ci_pct}% CI [{lo_str}, {hi_str}]"
 
 
 def render_publication_html(
@@ -146,10 +146,10 @@ def render_publication_html(
     scale_label = table.rows[0].scale if table.rows else "Estimate"
 
     if style_upper in ("NEJM", "JAMA"):
-        header_est = f"{scale_label} ({ci_pct}% CI)"
+        header_est = f"{html.escape(scale_label)} ({ci_pct}% CI)"
         header_p = "P Value"
     else:
-        header_est = f"{scale_label} [{ci_pct}% CI]"
+        header_est = f"{html.escape(scale_label)} [{ci_pct}% CI]"
         header_p = "p"
 
     # Inline styles for Word pasting
@@ -239,7 +239,11 @@ def render_publication_html(
 
     # Methods text
     if include_meta_paragraph and table.meta:
-        methods_p = generate_methods_paragraph(table.meta, scale=scale_label)
+        methods_p = generate_methods_paragraph(
+            table.meta,
+            scale=scale_label,
+            confidence_level=table.confidence_level,
+        )
         html_parts.append(
             '<div class="methods-paragraph-box" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 16px;margin-top:12px;font-size:12px;color:#334155;line-height:1.6;">'
         )
@@ -267,7 +271,11 @@ def get_scale_full_name(scale: str) -> str:
     return mapping.get(scale, "effect estimate")
 
 
-def generate_methods_paragraph(meta: ModelMeta, scale: str = "OR") -> str:
+def generate_methods_paragraph(
+    meta: ModelMeta,
+    scale: str = "OR",
+    confidence_level: float = 0.95,
+) -> str:
     """
     Generates a formal, reproducible methodology paragraph ready for academic papers.
     """
@@ -289,8 +297,9 @@ def generate_methods_paragraph(meta: ModelMeta, scale: str = "OR") -> str:
             f"Multivariable adjustment included the following covariates: {cov_str}."
         )
 
+    ci_pct_str = f"{confidence_level * 100:g}%"
     parts.append(
-        f"Effect estimates are presented as {get_scale_full_name(scale)}s alongside two-sided 95% confidence intervals."
+        f"Effect estimates are presented as {get_scale_full_name(scale)}s alongside two-sided {ci_pct_str} confidence intervals."
     )
     parts.append(
         f"All computational procedures were executed in {meta.software_version}."

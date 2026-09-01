@@ -151,3 +151,60 @@ def test_publication_renderer_invalid_style():
     table = EstimateTable(title="Test", rows=[])
     with pytest.raises(ValueError, match="Unsupported publication style"):
         render_publication_html(table, style="INVALID_STYLE")
+
+
+def test_generate_methods_paragraph_custom_confidence_level():
+    meta = ModelMeta(
+        estimator="Multivariable Logistic Regression",
+        n_total=200,
+        n_events=40,
+    )
+    p = generate_methods_paragraph(meta, scale="OR", confidence_level=0.90)
+    assert "two-sided 90% confidence intervals" in p
+
+    rows = [
+        Estimate(
+            term="drug",
+            label="Study Drug",
+            estimate=1.5,
+            ci_lower=1.1,
+            ci_upper=2.1,
+            p_value=0.01,
+            scale="OR",
+        )
+    ]
+    table = EstimateTable(
+        title="Table 90% CI",
+        rows=rows,
+        meta=meta,
+        confidence_level=0.90,
+    )
+    html_out = render_publication_html(table, style="NEJM", include_meta_paragraph=True)
+    assert "two-sided 90% confidence intervals" in html_out
+
+
+def test_publication_renderer_html_escaping():
+    malicious_scale = "<script>alert('xss')</script>"
+    rows = [
+        Estimate(
+            term="x",
+            label="Safe Label",
+            estimate=1.2,
+            ci_lower=0.9,
+            ci_upper=1.6,
+            p_value=0.2,
+            scale=malicious_scale,
+        )
+    ]
+    table = EstimateTable(title="Escaped Table", rows=rows)
+    html_nejm = render_publication_html(table, style="NEJM")
+    assert "<script>" not in html_nejm
+    assert "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;" in html_nejm
+
+    html_apa = render_publication_html(table, style="APA7")
+    assert "<script>" not in html_apa
+    assert "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;" in html_apa
+    assert (
+        "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt; = 1.20, 95% CI [0.90, 1.60]"
+        in html_apa
+    )
