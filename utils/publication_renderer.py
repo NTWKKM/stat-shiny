@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import List, Optional
 
 
 @dataclass
@@ -98,21 +98,23 @@ def format_journal_estimate_ci(
     scale: str = "OR",
     style: str = "NEJM",
     decimals: int = 2,
+    confidence_level: float = 0.95,
 ) -> str:
     """
-    Formats point estimate and 95% CI according to journal style.
+    Formats point estimate and CI according to journal style.
 
     NEJM/JAMA: 1.24 (0.98–1.57) using en-dash
-    APA 7: OR = 1.24, 95% CI [0.98, 1.57]
+    APA 7: OR = 1.24, 95% CI [0.98, 1.57] (reflecting configured confidence level)
     """
     est_str = f"{est:.{decimals}f}"
     lo_str = f"{ci_lo:.{decimals}f}"
     hi_str = f"{ci_hi:.{decimals}f}"
+    ci_pct = int(confidence_level * 100)
 
     if style.upper() in ("NEJM", "JAMA"):
         return f"{est_str} ({lo_str}–{hi_str})"
     else:
-        return f"{scale} = {est_str}, 95% CI [{lo_str}, {hi_str}]"
+        return f"{scale} = {est_str}, {ci_pct}% CI [{lo_str}, {hi_str}]"
 
 
 def render_publication_html(
@@ -134,6 +136,12 @@ def render_publication_html(
         HTML string.
     """
     style_upper = style.upper()
+    if style_upper not in ("NEJM", "JAMA", "APA7"):
+        raise ValueError(
+            f"Unsupported publication style '{style}'. Supported styles are 'NEJM', 'JAMA', 'APA7'."
+        )
+    normalized_style = style_upper.lower()
+
     ci_pct = int(table.confidence_level * 100)
     scale_label = table.rows[0].scale if table.rows else "Estimate"
 
@@ -141,7 +149,7 @@ def render_publication_html(
         header_est = f"{scale_label} ({ci_pct}% CI)"
         header_p = "P Value"
     else:
-        header_est = f"{scale_label} [95% CI]"
+        header_est = f"{scale_label} [{ci_pct}% CI]"
         header_p = "p"
 
     # Inline styles for Word pasting
@@ -157,29 +165,34 @@ def render_publication_html(
     td_foot = "padding: 8px 10px; font-size: 9.5pt; color: #475569; border-top: 1pt solid #000; border-bottom: 2pt solid #000;"
 
     html_parts = []
-    html_parts.append(f'<div class="publication-table-container">')
+    html_parts.append('<div class="publication-table-container">')
     html_parts.append(
-        f'<table class="table-publication table-{style.lower()}" style="{tbl_style}">'
+        f'<table class="table-publication table-{normalized_style}" style="{tbl_style}">'
     )
     html_parts.append(
         f"  <caption><strong>{html.escape(table.title)}</strong></caption>"
     )
-    html_parts.append(f"  <thead>")
-    html_parts.append(f"    <tr>")
+    html_parts.append("  <thead>")
+    html_parts.append("    <tr>")
     html_parts.append(f'      <th style="{th_top}">Variable</th>')
     html_parts.append(f'      <th style="{th_num}">{header_est}</th>')
     html_parts.append(f'      <th style="{th_num}">{header_p}</th>')
-    html_parts.append(f"    </tr>")
-    html_parts.append(f"  </thead>")
-    html_parts.append(f"  <tbody>")
+    html_parts.append("    </tr>")
+    html_parts.append("  </thead>")
+    html_parts.append("  <tbody>")
 
     for row in table.rows:
         escaped_label = html.escape(row.label or row.term)
         if row.reference:
+            null_val = (
+                "0.00"
+                if (row.scale or "").upper() in ("BETA", "MD", "MEAN DIFF", "DIFF")
+                else "1.00"
+            )
             est_text = (
-                f"1.00 ({html.escape(row.ref_label)})"
+                f"{null_val} ({html.escape(row.ref_label)})"
                 if style_upper in ("NEJM", "JAMA")
-                else f"1.00 [{html.escape(row.ref_label)}]"
+                else f"{null_val} [{html.escape(row.ref_label)}]"
             )
             p_text = "—"
         else:
@@ -189,16 +202,17 @@ def render_publication_html(
                 row.ci_upper,
                 scale=row.scale,
                 style=style_upper,
+                confidence_level=table.confidence_level,
             )
             p_text = format_journal_p_value(row.p_value, style=style_upper)
 
-        html_parts.append(f"    <tr>")
+        html_parts.append("    <tr>")
         html_parts.append(f'      <td style="{td_text}">{escaped_label}</td>')
         html_parts.append(f'      <td style="{td_num}">{est_text}</td>')
         html_parts.append(f'      <td style="{td_num}">{p_text}</td>')
-        html_parts.append(f"    </tr>")
+        html_parts.append("    </tr>")
 
-    html_parts.append(f"  </tbody>")
+    html_parts.append("  </tbody>")
 
     # Footnote
     footnotes = [
@@ -214,30 +228,30 @@ def render_publication_html(
         footnotes.append(n_str)
 
     footnote_text = " ".join(footnotes)
-    html_parts.append(f"  <tfoot>")
-    html_parts.append(f"    <tr>")
+    html_parts.append("  <tfoot>")
+    html_parts.append("    <tr>")
     html_parts.append(
         f'      <td colspan="3" style="{td_foot}">{html.escape(footnote_text)}</td>'
     )
-    html_parts.append(f"    </tr>")
-    html_parts.append(f"  </tfoot>")
-    html_parts.append(f"</table>")
+    html_parts.append("    </tr>")
+    html_parts.append("  </tfoot>")
+    html_parts.append("</table>")
 
     # Methods text
     if include_meta_paragraph and table.meta:
         methods_p = generate_methods_paragraph(table.meta, scale=scale_label)
         html_parts.append(
-            f'<div class="methods-paragraph-box" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 16px;margin-top:12px;font-size:12px;color:#334155;line-height:1.6;">'
+            '<div class="methods-paragraph-box" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 16px;margin-top:12px;font-size:12px;color:#334155;line-height:1.6;">'
         )
         html_parts.append(
-            f"  <strong>📝 Reproducible Methods Paragraph (for Manuscript):</strong>"
+            "  <strong>📝 Reproducible Methods Paragraph (for Manuscript):</strong>"
         )
         html_parts.append(
             f'  <p class="mb-0 mt-1" style="font-family:serif;font-size:13px;color:#0F172A;">{html.escape(methods_p)}</p>'
         )
-        html_parts.append(f"</div>")
+        html_parts.append("</div>")
 
-    html_parts.append(f"</div>")
+    html_parts.append("</div>")
     return "\n".join(html_parts)
 
 

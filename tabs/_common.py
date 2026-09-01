@@ -50,6 +50,9 @@ def get_color_palette() -> dict[str, str]:
         "warning": "#D97706",  # Amber 600
         "info": "#475569",  # Slate 600
         "neutral": "#CBD5E1",  # Slate 300
+        "stale": "#D97706",  # Amber 600 - Stale inputs
+        "stale_bg": "#FFFBEB",  # Amber 50
+        "stale_border": "#FDE68A",  # Amber 200
     }
 
 

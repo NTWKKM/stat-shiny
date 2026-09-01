@@ -227,6 +227,7 @@ def create_accessible_chart_twin_ui(
                     class_="chart-twin-toggle-btn me-1 active",
                     data_target_id=wrapper_id,
                     data_view="chart",
+                    aria_pressed="true",
                     aria_label=f"Show interactive chart for {title}",
                 ),
                 ui.tags.button(
@@ -235,6 +236,7 @@ def create_accessible_chart_twin_ui(
                     class_="chart-twin-toggle-btn",
                     data_target_id=wrapper_id,
                     data_view="table",
+                    aria_pressed="false",
                     aria_label=f"Show data table view for {title}",
                 ),
                 class_="btn-group btn-group-sm",

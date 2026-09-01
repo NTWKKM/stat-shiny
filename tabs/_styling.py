@@ -65,10 +65,9 @@ def get_shiny_css():
             --color-modified: #8B5CF6;    /* Purple - user has modified */
             --color-processing: #3B82F6;  /* Blue - computation running */
             --color-valid: #10B981;       /* Green - validation passed */
-            --color-attention: #F59E0B;   /* Amber - needs attention */
-            --color-stale: #D97706;       /* Amber 600 - Stale inputs */
-            --color-stale-bg: #FFFBEB;    /* Amber 50 */
-            --color-stale-border: #FDE68A;/* Amber 200 */
+            --color-stale: {COLORS["stale"]};       /* Amber 600 - Stale inputs */
+            --color-stale-bg: {COLORS["stale_bg"]};    /* Amber 50 */
+            --color-stale-border: {COLORS["stale_border"]};/* Amber 200 */
             
             /* ADDED: Feedback States (Audit Section 9) */
             --color-step-complete: #10B981;
@@ -1778,6 +1777,12 @@ def get_shiny_css():
             font-size: 15px;
             font-family: var(--font-family-base);
             color: {COLORS["primary"]};
+        }}
+
+        .cmd-palette-input:focus-visible {{
+            outline: none;
+            box-shadow: var(--focus-ring);
+            border-radius: 4px;
         }}
 
         .cmd-palette-input::placeholder {{

@@ -1,10 +1,9 @@
-import pytest
 from utils.state_machine import (
     ResultState,
     compute_input_fingerprint,
     get_result_state,
-    render_state_badge,
     render_stale_warning_banner,
+    render_state_badge,
 )
 
 
@@ -70,6 +69,25 @@ def test_get_result_state_stale():
         last_run_fingerprint="abc",
     )
     assert state == ResultState.STALE
+
+
+def test_compute_input_fingerprint_nested_dict():
+    p1 = {"model": {"penalty": "l2", "alpha": 0.1, "nested": {"b": 2, "a": 1}}}
+    p2 = {"model": {"nested": {"a": 1, "b": 2}, "alpha": 0.1, "penalty": "l2"}}
+    assert compute_input_fingerprint(p1) == compute_input_fingerprint(p2)
+
+
+def test_get_result_state_missing_required_inputs_after_run():
+    # If user has run the model, but clears required inputs (has_required_inputs=False),
+    # it must return EMPTY rather than FRESH
+    state = get_result_state(
+        has_run=True,
+        is_computing=False,
+        current_fingerprint=None,
+        last_run_fingerprint=None,
+        has_required_inputs=False,
+    )
+    assert state == ResultState.EMPTY
 
 
 def test_render_state_badge():

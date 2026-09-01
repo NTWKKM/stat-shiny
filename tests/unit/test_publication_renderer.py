@@ -1,4 +1,5 @@
 import pytest
+
 from utils.publication_renderer import (
     Estimate,
     EstimateTable,
@@ -91,3 +92,62 @@ def test_render_publication_html():
     html_apa = render_publication_html(table, style="APA7")
     assert "OR = 1.45, 95% CI [1.12, 1.88]" in html_apa
     assert "p = .004" in html_apa
+
+
+def test_publication_renderer_custom_confidence_level():
+    rows = [
+        Estimate(
+            term="treat",
+            label="Treatment Effect",
+            estimate=0.85,
+            ci_lower=0.75,
+            ci_upper=0.96,
+            p_value=0.012,
+            scale="HR",
+        )
+    ]
+    table = EstimateTable(
+        title="Table 3. 90% CI Estimates",
+        rows=rows,
+        confidence_level=0.90,
+    )
+    html_apa = render_publication_html(table, style="APA7")
+    assert "HR [90% CI]" in html_apa
+    assert "HR = 0.85, 90% CI [0.75, 0.96]" in html_apa
+
+
+def test_publication_renderer_additive_reference_value():
+    rows = [
+        Estimate(
+            term="group_ref",
+            label="Control Group",
+            estimate=0.0,
+            ci_lower=0.0,
+            ci_upper=0.0,
+            p_value=1.0,
+            scale="Beta",
+            reference=True,
+            ref_label="Ref",
+        ),
+        Estimate(
+            term="group_treat",
+            label="Active Group",
+            estimate=2.5,
+            ci_lower=1.2,
+            ci_upper=3.8,
+            p_value=0.001,
+            scale="Beta",
+        ),
+    ]
+    table = EstimateTable(title="Table 4. Linear Regression", rows=rows)
+    html_nejm = render_publication_html(table, style="NEJM")
+    assert "0.00 (Ref)" in html_nejm
+
+    html_apa = render_publication_html(table, style="APA7")
+    assert "0.00 [Ref]" in html_apa
+
+
+def test_publication_renderer_invalid_style():
+    table = EstimateTable(title="Test", rows=[])
+    with pytest.raises(ValueError, match="Unsupported publication style"):
+        render_publication_html(table, style="INVALID_STYLE")

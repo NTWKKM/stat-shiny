@@ -29,6 +29,26 @@ class ResultState(str, Enum):
     STALE = "stale"
 
 
+def _canonicalize_item(val: Any) -> Any:
+    if isinstance(val, dict):
+        return {
+            str(k): _canonicalize_item(v)
+            for k, v in sorted(val.items(), key=lambda x: str(x[0]))
+        }
+    elif isinstance(val, (list, tuple, set)):
+        items = [_canonicalize_item(item) for item in val]
+        return sorted(
+            items,
+            key=lambda x: json.dumps(x, sort_keys=True)
+            if isinstance(x, (dict, list))
+            else str(x),
+        )
+    elif val is None or isinstance(val, (int, float, bool, str)):
+        return val
+    else:
+        return str(val)
+
+
 def compute_input_fingerprint(params: dict[str, Any]) -> str:
     """
     Computes a deterministic MD5 hash string of input parameters.
@@ -39,18 +59,7 @@ def compute_input_fingerprint(params: dict[str, Any]) -> str:
     Returns:
         Hexadecimal hash string.
     """
-    # Normalize dictionary items
-    normalized = {}
-    for k, v in sorted(params.items()):
-        if isinstance(v, (list, tuple, set)):
-            normalized[k] = sorted(str(item) for item in v)
-        elif v is None:
-            normalized[k] = None
-        elif isinstance(v, (int, float, bool, str)):
-            normalized[k] = v
-        else:
-            normalized[k] = str(v)
-
+    normalized = _canonicalize_item(params)
     raw_str = json.dumps(normalized, sort_keys=True)
     return hashlib.md5(raw_str.encode("utf-8")).hexdigest()
 
@@ -85,6 +94,8 @@ def get_result_state(
         and current_fingerprint != last_run_fingerprint
     ):
         return ResultState.STALE
+    if not has_required_inputs:
+        return ResultState.EMPTY
     return ResultState.FRESH
 
 

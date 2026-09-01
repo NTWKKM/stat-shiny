@@ -27,7 +27,7 @@ from tabs import (
     tab_settings,
     tab_survival,
 )
-from tabs._common import VariableRoles, infer_variable_roles, wrap_with_container
+from tabs._common import infer_variable_roles, wrap_with_container
 from utils.logic import HAS_FIRTH
 
 # ==========================================
@@ -90,8 +90,9 @@ app_ui = ui.page_fluid(
         ui.tags.link(rel="preload", href="static/styles.min.css", as_="style"),
         # ✅ Link to external CSS file
         ui.tags.link(rel="stylesheet", href="static/styles.min.css"),
-        # ✅ Custom JS Handlers
+        # ✅ Custom JS Handlers & Interactions
         ui.tags.script(src="static/js/custom_handlers.js"),
+        ui.tags.script(src="static/js/interactions.js"),
         ui.tags.style(".navbar-brand { font-size: 1.5rem !important; }"),
     ),
     ui.page_navbar(
@@ -260,13 +261,11 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     def _sync_variable_roles():
         d = df()
         if d is not None and isinstance(d, pd.DataFrame) and not d.empty:
-            current = var_roles()
-            if not current:
-                inferred = infer_variable_roles(list(d.columns))
-                var_roles.set(inferred.to_dict())
-                logger.info(
-                    f"🔄 Inferred initial variable roles for {len(d.columns)} columns"
-                )
+            inferred = infer_variable_roles(list(d.columns))
+            var_roles.set(inferred.to_dict())
+            logger.info(f"🔄 Inferred variable roles for {len(d.columns)} columns")
+        else:
+            var_roles.set({})
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:
