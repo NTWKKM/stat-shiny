@@ -16,6 +16,7 @@ Features:
 from __future__ import annotations
 
 import html
+import math
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -63,6 +64,16 @@ def format_confidence_level(confidence_level: float = 0.95) -> str:
     """
     Formats confidence level as a percentage string (e.g. 0.95 -> "95%", 0.975 -> "97.5%", 0.9 -> "90%").
     """
+    if (
+        confidence_level is None
+        or isinstance(confidence_level, bool)
+        or not isinstance(confidence_level, (int, float))
+        or not math.isfinite(confidence_level)
+        or not (0.0 < confidence_level < 1.0)
+    ):
+        raise ValueError(
+            f"confidence_level must be a finite number strictly between 0 and 1, got {confidence_level!r}"
+        )
     pct = round(confidence_level * 100, 6)
     return f"{pct:g}%"
 
@@ -151,7 +162,17 @@ def render_publication_html(
     normalized_style = style_upper.lower()
 
     ci_label = format_confidence_level(table.confidence_level)
-    scale_label = table.rows[0].scale if table.rows else "Estimate"
+
+    if table.rows:
+        distinct_scales = {(row.scale or "").strip().upper() for row in table.rows}
+        if len(distinct_scales) > 1:
+            scales_list = sorted(distinct_scales)
+            raise ValueError(
+                f"EstimateTable rows have incompatible effect scales ({', '.join(scales_list)}). All rows in a table must share the same effect scale."
+            )
+        scale_label = table.rows[0].scale
+    else:
+        scale_label = "Estimate"
 
     if style_upper in ("NEJM", "JAMA"):
         header_est = f"{html.escape(scale_label)} ({ci_label} CI)"

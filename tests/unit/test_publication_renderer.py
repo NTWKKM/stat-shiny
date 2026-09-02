@@ -219,6 +219,137 @@ def test_format_confidence_level():
     assert format_confidence_level(0.999) == "99.9%"
 
 
+def test_format_confidence_level_validation_boundaries():
+    # Boundary values 0 and 1
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(0)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(0.0)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(1)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(1.0)
+
+    # Values outside the range (0, 1)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(-0.05)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(1.5)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(95)
+
+    # Non-finite and invalid values
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(float("nan"))
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(float("inf"))
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(float("-inf"))
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(None)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level(True)
+    with pytest.raises(
+        ValueError,
+        match="confidence_level must be a finite number strictly between 0 and 1",
+    ):
+        format_confidence_level("0.95")
+
+
+def test_render_publication_html_inconsistent_scales_rejected():
+    rows = [
+        Estimate(
+            term="var1",
+            label="Exposure A",
+            estimate=1.5,
+            ci_lower=1.1,
+            ci_upper=2.0,
+            p_value=0.01,
+            scale="OR",
+        ),
+        Estimate(
+            term="var2",
+            label="Exposure B",
+            estimate=0.8,
+            ci_lower=0.6,
+            ci_upper=0.95,
+            p_value=0.02,
+            scale="HR",
+        ),
+    ]
+    table = EstimateTable(title="Incompatible Scales Table", rows=rows)
+    with pytest.raises(
+        ValueError, match="EstimateTable rows have incompatible effect scales"
+    ):
+        render_publication_html(table, style="NEJM")
+    with pytest.raises(
+        ValueError, match="EstimateTable rows have incompatible effect scales"
+    ):
+        render_publication_html(table, style="APA7")
+
+
+def test_render_publication_html_case_insensitive_scales():
+    rows = [
+        Estimate(
+            term="var1",
+            label="Exposure A",
+            estimate=1.5,
+            ci_lower=1.1,
+            ci_upper=2.0,
+            p_value=0.01,
+            scale="OR",
+        ),
+        Estimate(
+            term="var2",
+            label="Exposure B",
+            estimate=1.8,
+            ci_lower=1.2,
+            ci_upper=2.7,
+            p_value=0.005,
+            scale="or",
+        ),
+    ]
+    table = EstimateTable(title="Case Insensitive Scales Table", rows=rows)
+    html_out = render_publication_html(table, style="NEJM")
+    assert "OR (95% CI)" in html_out
+
+
 def test_publication_renderer_fractional_confidence_level_975():
     # 1. format_journal_estimate_ci APA7 check
     apa_ci = format_journal_estimate_ci(
