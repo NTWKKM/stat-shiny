@@ -4,6 +4,7 @@ from utils.publication_renderer import (
     Estimate,
     EstimateTable,
     ModelMeta,
+    canonicalize_scale,
     format_confidence_level,
     format_journal_estimate_ci,
     format_journal_p_value,
@@ -400,6 +401,83 @@ def test_render_publication_html_lowercase_hr_scale():
     assert get_scale_full_name("HR") == "hazard ratio"
     apa_ci = format_journal_estimate_ci(0.72, 0.55, 0.94, scale="hr", style="APA7")
     assert apa_ci == "HR = 0.72, 95% CI [0.55, 0.94]"
+
+
+def test_render_publication_html_mixed_additive_scale_aliases():
+    rows = [
+        Estimate(
+            term="placebo",
+            label="Placebo Control",
+            estimate=0.0,
+            ci_lower=0.0,
+            ci_upper=0.0,
+            p_value=1.0,
+            scale="MD",
+            reference=True,
+        ),
+        Estimate(
+            term="drug_low",
+            label="Low-Dose Intervention",
+            estimate=-2.3,
+            ci_lower=-3.8,
+            ci_upper=-0.8,
+            p_value=0.003,
+            scale="Mean Diff",
+        ),
+        Estimate(
+            term="drug_high",
+            label="High-Dose Intervention",
+            estimate=-4.1,
+            ci_lower=-5.9,
+            ci_upper=-2.3,
+            p_value=0.0001,
+            scale="DIFF",
+        ),
+        Estimate(
+            term="drug_combo",
+            label="Combination Therapy",
+            estimate=-5.5,
+            ci_lower=-7.2,
+            ci_upper=-3.8,
+            p_value=0.00005,
+            scale="mean difference",
+        ),
+    ]
+    meta = ModelMeta(
+        estimator="Linear Mixed-Effects Model",
+        n_total=320,
+    )
+    table = EstimateTable(
+        title="Table 4. Primary Outcome Differences", rows=rows, meta=meta
+    )
+
+    # 1. NEJM check
+    html_nejm = render_publication_html(
+        table, style="NEJM", include_meta_paragraph=True
+    )
+    assert "MD (95% CI)" in html_nejm
+    assert "0.00 (Reference)" in html_nejm
+    assert "-2.30 (-3.80–-0.80)" in html_nejm
+    assert "CI denotes confidence interval; MD, mean difference." in html_nejm
+    assert "mean differences" in html_nejm
+
+    # 2. APA 7 check
+    html_apa = render_publication_html(table, style="APA7", include_meta_paragraph=True)
+    assert "MD [95% CI]" in html_apa
+    assert "0.00 [Reference]" in html_apa
+    assert "MD = -2.30, 95% CI [-3.80, -0.80]" in html_apa
+    assert "MD = -4.10, 95% CI [-5.90, -2.30]" in html_apa
+    assert "CI denotes confidence interval; MD, mean difference." in html_apa
+    assert "mean differences" in html_apa
+
+    # 3. Direct canonicalize_scale checks
+    assert canonicalize_scale("MD") == "MD"
+    assert canonicalize_scale("Mean Diff") == "MD"
+    assert canonicalize_scale("DIFF") == "MD"
+    assert canonicalize_scale("mean difference") == "MD"
+    assert canonicalize_scale("Beta") == "Beta"
+    assert canonicalize_scale("COEF") == "Beta"
+    assert canonicalize_scale("regression coefficient") == "Beta"
 
 
 def test_publication_renderer_fractional_confidence_level_975():

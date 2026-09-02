@@ -110,6 +110,38 @@ def format_journal_p_value(p: float, style: str = "NEJM") -> str:
             return f"p = {p_str}"
 
 
+SCALE_CANONICAL_MAP: dict[str, str] = {
+    "OR": "OR",
+    "ODDS RATIO": "OR",
+    "HR": "HR",
+    "HAZARD RATIO": "HR",
+    "RR": "RR",
+    "RISK RATIO": "RR",
+    "RELATIVE RISK": "RR",
+    "IRR": "IRR",
+    "INCIDENCE RATE RATIO": "IRR",
+    "BETA": "Beta",
+    "COEF": "Beta",
+    "COEFFICIENT": "Beta",
+    "REGRESSION COEFFICIENT": "Beta",
+    "MD": "MD",
+    "MEAN DIFF": "MD",
+    "MEAN DIFFERENCE": "MD",
+    "DIFF": "MD",
+    "DIFFERENCE": "MD",
+}
+
+
+def canonicalize_scale(scale: Optional[str]) -> str:
+    """
+    Normalizes scale aliases (e.g. 'mean diff', 'DIFF', 'md' -> 'MD', 'beta' -> 'Beta', 'hr' -> 'HR').
+    """
+    if not scale:
+        return "Estimate"
+    cleaned = str(scale).strip()
+    return SCALE_CANONICAL_MAP.get(cleaned.upper(), cleaned)
+
+
 def format_journal_estimate_ci(
     est: float,
     ci_lo: float,
@@ -129,18 +161,7 @@ def format_journal_estimate_ci(
     lo_str = f"{ci_lo:.{decimals}f}"
     hi_str = f"{ci_hi:.{decimals}f}"
     ci_label = format_confidence_level(confidence_level)
-
-    canonical_map = {
-        "OR": "OR",
-        "HR": "HR",
-        "RR": "RR",
-        "IRR": "IRR",
-        "BETA": "Beta",
-        "MD": "MD",
-    }
-    canonical_scale = canonical_map.get(
-        (scale or "").strip().upper(), (scale or "").strip()
-    )
+    canonical_scale = canonicalize_scale(scale)
 
     if style.upper() in ("NEJM", "JAMA"):
         return f"{est_str} ({lo_str}–{hi_str})"
@@ -175,27 +196,14 @@ def render_publication_html(
 
     ci_label = format_confidence_level(table.confidence_level)
 
-    canonical_map = {
-        "OR": "OR",
-        "HR": "HR",
-        "RR": "RR",
-        "IRR": "IRR",
-        "BETA": "Beta",
-        "MD": "MD",
-    }
-
     if table.rows:
-        distinct_scales = {(row.scale or "").strip().upper() for row in table.rows}
+        distinct_scales = {canonicalize_scale(row.scale) for row in table.rows}
         if len(distinct_scales) > 1:
             scales_list = sorted(distinct_scales)
             raise ValueError(
                 f"EstimateTable rows have incompatible effect scales ({', '.join(scales_list)}). All rows in a table must share the same effect scale."
             )
-        raw_scale = table.rows[0].scale or ""
-        normalized_scale = raw_scale.strip().upper()
-        scale_label = canonical_map.get(
-            normalized_scale, raw_scale.strip() or "Estimate"
-        )
+        scale_label = next(iter(distinct_scales))
     else:
         scale_label = "Estimate"
 
@@ -237,12 +245,9 @@ def render_publication_html(
 
     for row in table.rows:
         escaped_label = html.escape(row.label or row.term)
+        row_scale = canonicalize_scale(row.scale)
         if row.reference:
-            null_val = (
-                "0.00"
-                if (row.scale or "").upper() in ("BETA", "MD", "MEAN DIFF", "DIFF")
-                else "1.00"
-            )
+            null_val = "0.00" if row_scale in ("Beta", "MD") else "1.00"
             est_text = (
                 f"{null_val} ({html.escape(row.ref_label)})"
                 if style_upper in ("NEJM", "JAMA")
@@ -254,7 +259,7 @@ def render_publication_html(
                 row.estimate,
                 row.ci_lower,
                 row.ci_upper,
-                scale=row.scale,
+                scale=scale_label,
                 style=style_upper,
                 confidence_level=table.confidence_level,
             )
@@ -319,11 +324,11 @@ def get_scale_full_name(scale: str) -> str:
         "HR": "hazard ratio",
         "RR": "risk ratio",
         "IRR": "incidence rate ratio",
-        "BETA": "regression coefficient",
+        "Beta": "regression coefficient",
         "MD": "mean difference",
     }
-    normalized = (scale or "").strip().upper()
-    return mapping.get(normalized, "effect estimate")
+    canonical = canonicalize_scale(scale)
+    return mapping.get(canonical, "effect estimate")
 
 
 def generate_methods_paragraph(
@@ -352,9 +357,10 @@ def generate_methods_paragraph(
             f"Multivariable adjustment included the following covariates: {cov_str}."
         )
 
+    canonical_scale = canonicalize_scale(scale)
     ci_pct_str = format_confidence_level(confidence_level)
     parts.append(
-        f"Effect estimates are presented as {get_scale_full_name(scale)}s alongside two-sided {ci_pct_str} confidence intervals."
+        f"Effect estimates are presented as {get_scale_full_name(canonical_scale)}s alongside two-sided {ci_pct_str} confidence intervals."
     )
     parts.append(
         f"All computational procedures were executed in {meta.software_version}."
