@@ -690,3 +690,39 @@ def test_select_variable_by_keyword_anti_collision():
         )
         == "Subgroup_Mean_Statin"
     )
+
+
+@pytest.mark.unit
+def test_select_variable_by_keyword_normalization():
+    """Verify select_variable_by_keyword normalizes candidate labels with str(col).lower().strip() while retaining original label."""
+    from tabs._common import select_variable_by_keyword
+
+    # 1. Whitespace handling in candidate labels (Tier 1 exact match)
+    cols_with_spaces = ["  Age  ", "  Systolic_BP  ", " BMI "]
+    assert select_variable_by_keyword(cols_with_spaces, ["age"]) == "  Age  "
+    assert (
+        select_variable_by_keyword(cols_with_spaces, ["systolic_bp"])
+        == "  Systolic_BP  "
+    )
+
+    # 2. Whitespace handling in Tier 2 boundary match
+    cols_boundary = ["  Total_N_Statin  ", "  Patient_ID  "]
+    assert (
+        select_variable_by_keyword(cols_boundary, ["n_statin"], default_to_first=False)
+        == "  Total_N_Statin  "
+    )
+
+    # 3. Non-string candidate column labels (e.g. int columns)
+    cols_mixed = [101, 202, "Treatment", 303]
+    assert select_variable_by_keyword(cols_mixed, ["101"]) == 101
+    assert select_variable_by_keyword(cols_mixed, ["treatment"]) == "Treatment"
+
+    # 4. Non-string and boundary matching fallback
+    assert (
+        select_variable_by_keyword(cols_mixed, ["nonexistent"], default_to_first=True)
+        == 101
+    )
+    assert (
+        select_variable_by_keyword(cols_mixed, ["nonexistent"], default_to_first=False)
+        is None
+    )

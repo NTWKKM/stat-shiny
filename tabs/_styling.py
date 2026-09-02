@@ -65,12 +65,15 @@ def get_shiny_css():
             --color-modified: #8B5CF6;    /* Purple - user has modified */
             --color-processing: #3B82F6;  /* Blue - computation running */
             --color-valid: #10B981;       /* Green - validation passed */
-            --color-attention: #F59E0B;   /* Amber - needs attention */
+            --color-stale: {COLORS["stale"]};       /* Amber 600 - Stale inputs */
+            --color-stale-bg: {COLORS["stale_bg"]};    /* Amber 50 */
+            --color-stale-border: {COLORS["stale_border"]};/* Amber 200 */
             
             /* ADDED: Feedback States (Audit Section 9) */
             --color-step-complete: #10B981;
             --color-step-current: #1E3A5F;
             --color-step-pending: #D1D5DB;
+            --focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px #0F172A;
 
             /* Spacing System */
             --spacing-2xs: 2px;
@@ -100,6 +103,7 @@ def get_shiny_css():
             --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.04);
             --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.06);
             --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.08);
+            --shadow-cmd: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             
             /* Transitions */
             --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -747,13 +751,14 @@ def get_shiny_css():
             border: none; /* No heavy border wrapper */
             border-radius: 0;
             overflow: visible;
+            font-variant-numeric: tabular-nums;
         }}
         
         .table thead th {{
             background-color: transparent; /* Clean transparent */
             color: {COLORS["text_secondary"]};
             border-bottom: 2px solid {COLORS["border"]};
-            font-weight: 500;
+            font-weight: 600;
             padding: 10px 16px;
             text-align: left;
             text-transform: none; /* Minimal case */
@@ -766,6 +771,7 @@ def get_shiny_css():
             padding: 10px 16px;
             vertical-align: middle;
             color: {COLORS["text"]};
+            font-variant-numeric: tabular-nums;
         }}
         
         .table tbody tr:last-child td {{
@@ -776,22 +782,83 @@ def get_shiny_css():
             background-color: {COLORS["primary_light"]};
         }}
         
+        /* Column Alignments & Numbers */
+        .table td.num-col, .table th.num-col {{
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }}
+        
+        .table td.ci-col, .table th.ci-col {{
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }}
+        
+        .table td.p-col, .table th.p-col {{
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+        }}
+
         .sig-p {{
             color: #fff;
             background-color: {COLORS["danger"]};
             padding: 2px 6px;
             border-radius: 3px;
             font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }}
 
         .shiny-table th, table.dataframe th {{
             background-color: transparent !important;
             color: {COLORS["text_secondary"]} !important;
-            font-weight: 500;
+            font-weight: 600;
             border-bottom: 2px solid {COLORS["border"]} !important;
             text-transform: none !important;
+            font-variant-numeric: tabular-nums;
+        }}
+
+        .shiny-table td, table.dataframe td {{
+            font-variant-numeric: tabular-nums;
         }}
         
+        /* Publication Table Styles (NEJM, JAMA, APA7) */
+        .table-publication {{
+            width: 100%;
+            border-top: 2px solid #0F172A;
+            border-bottom: 2px solid #0F172A;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+            margin: 16px 0;
+            background: #FFFFFF;
+        }}
+
+        .table-publication thead th {{
+            border-bottom: 1px solid #0F172A;
+            padding: 8px 12px;
+            color: #0F172A;
+            font-weight: 600;
+            text-align: left;
+        }}
+
+        .table-publication tbody td {{
+            border-bottom: 1px solid #E2E8F0;
+            padding: 8px 12px;
+            color: #0F172A;
+        }}
+
+        .table-publication tbody tr:last-child td {{
+            border-bottom: none;
+        }}
+
+        .table-publication tfoot td {{
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #64748B;
+            border-top: 1px solid #0F172A;
+        }}
+
         /* Table Responsiveness */
         .table-responsive {{
             overflow-x: auto;
@@ -1646,6 +1713,237 @@ def get_shiny_css():
             margin-top: 32px !important;
             padding: 16px 0 0 0 !important;
             border-top: 1px solid {COLORS["border"]} !important;
+        }}
+
+        /* ===========================
+           COMMAND PALETTE (⌘K)
+           =========================== */
+        .cmd-palette-backdrop {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 10500;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 12vh;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 150ms ease, visibility 150ms ease;
+        }}
+
+        .cmd-palette-backdrop.open {{
+            opacity: 1;
+            visibility: visible;
+        }}
+
+        .cmd-palette-modal {{
+            background: #FFFFFF;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 12px;
+            border: 1px solid {COLORS["border"]};
+            box-shadow: var(--shadow-cmd);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.97);
+            transition: transform 150ms ease;
+        }}
+
+        .cmd-palette-backdrop.open .cmd-palette-modal {{
+            transform: scale(1);
+        }}
+
+        .cmd-palette-header {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-bottom: 1px solid {COLORS["border"]};
+            background: {COLORS["background"]};
+        }}
+
+        .cmd-palette-input {{
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 15px;
+            font-family: var(--font-family-base);
+            color: {COLORS["primary"]};
+        }}
+
+        .cmd-palette-input:focus-visible {{
+            outline: none;
+            box-shadow: var(--focus-ring);
+            border-radius: 4px;
+        }}
+
+        .cmd-palette-input::placeholder {{
+            color: {COLORS["text_secondary"]};
+        }}
+
+        .cmd-palette-badge {{
+            font-size: 11px;
+            font-weight: 600;
+            background: {COLORS["border"]};
+            color: {COLORS["text_secondary"]};
+            padding: 2px 7px;
+            border-radius: 4px;
+            border: 1px solid {COLORS["neutral"]};
+        }}
+
+        .cmd-palette-body {{
+            max-height: 360px;
+            overflow-y: auto;
+            padding: 8px;
+        }}
+
+        .cmd-palette-group-title {{
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: {COLORS["text_secondary"]};
+            padding: 8px 12px 4px;
+        }}
+
+        .cmd-palette-item {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: {COLORS["text"]};
+            transition: background-color 100ms ease;
+            text-decoration: none;
+        }}
+
+        .cmd-palette-item:hover, .cmd-palette-item.active {{
+            background-color: {COLORS["primary_light"]};
+            color: {COLORS["primary"]};
+        }}
+
+        .cmd-palette-item-left {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+
+        .cmd-palette-item-icon {{
+            font-size: 16px;
+        }}
+
+        .cmd-palette-item-title {{
+            font-size: 14px;
+            font-weight: 500;
+        }}
+
+        .cmd-palette-item-desc {{
+            font-size: 12px;
+            color: {COLORS["text_secondary"]};
+            margin-left: 8px;
+        }}
+
+        .cmd-palette-footer {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-top: 1px solid {COLORS["border"]};
+            background: {COLORS["smoke_white"]};
+            font-size: 12px;
+            color: {COLORS["text_secondary"]};
+        }}
+
+        /* ===========================
+           RESULT STATE MACHINE
+           =========================== */
+        .result-state-badge {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }}
+
+        .result-state-badge.state-fresh {{
+            background-color: #ECFDF5;
+            color: #065F46;
+            border-color: #A7F3D0;
+        }}
+
+        .result-state-badge.state-stale {{
+            background-color: #FFFBEB;
+            color: #92400E;
+            border-color: #FDE68A;
+        }}
+
+        .result-state-badge.state-computing {{
+            background-color: #EFF6FF;
+            color: #1E40AF;
+            border-color: #BFDBFE;
+        }}
+
+        .stale-warning-banner {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background-color: #FFFBEB;
+            border: 1px solid #FDE68A;
+            border-left: 4px solid #D97706;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #92400E;
+        }}
+
+        /* ===========================
+           ACCESSIBLE PLOTLY CHART TWIN
+           =========================== */
+        .chart-twin-wrapper {{
+            border: 1px solid {COLORS["border"]};
+            border-radius: var(--radius-lg);
+            background: {COLORS["surface"]};
+            overflow: hidden;
+            margin-bottom: 20px;
+        }}
+
+        .chart-twin-toolbar {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid {COLORS["border"]};
+            background: {COLORS["background"]};
+        }}
+
+        .chart-twin-toggle-btn {{
+            background: {COLORS["surface"]};
+            border: 1px solid {COLORS["neutral"]};
+            color: {COLORS["text"]};
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 150ms ease;
+        }}
+
+        .chart-twin-toggle-btn:hover {{
+            background: {COLORS["primary_light"]};
+            border-color: {COLORS["primary"]};
         }}
     </style>
     """

@@ -139,7 +139,7 @@ def test_formatting_consistency(palette):
 
 
 def test_custom_handlers_js_integrity():
-    """Verify static/js/custom_handlers.js exists and has standard handlers."""
+    """Verify static/js/custom_handlers.js exists and has standard styling handlers."""
     js_path = PROJECT_ROOT / "static" / "js" / "custom_handlers.js"
     assert js_path.exists(), "custom_handlers.js is missing"
 
@@ -148,6 +148,19 @@ def test_custom_handlers_js_integrity():
 
     assert "set_element_style" in content
     assert "set_inner_text" in content
+
+
+def test_interactions_js_integrity():
+    """Verify static/js/interactions.js exists and has clipboard and interactive handlers."""
+    js_path = PROJECT_ROOT / "static" / "js" / "interactions.js"
+    assert js_path.exists(), "interactions.js is missing"
+
+    with open(js_path, "r") as f:
+        content = f.read()
+
+    assert "copy_rich_html" in content
+    assert "cmd_palette_backdrop" in content
+    assert "chart-twin-toggle-btn" in content
 
 
 if __name__ == "__main__":

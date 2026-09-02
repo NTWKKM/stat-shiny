@@ -27,7 +27,7 @@ from tabs import (
     tab_settings,
     tab_survival,
 )
-from tabs._common import wrap_with_container
+from tabs._common import infer_variable_roles, wrap_with_container
 from utils.logic import HAS_FIRTH
 
 # ==========================================
@@ -90,8 +90,9 @@ app_ui = ui.page_fluid(
         ui.tags.link(rel="preload", href="static/styles.min.css", as_="style"),
         # ✅ Link to external CSS file
         ui.tags.link(rel="stylesheet", href="static/styles.min.css"),
-        # ✅ Custom JS Handlers
+        # ✅ Custom JS Handlers & Interactions
         ui.tags.script(src="static/js/custom_handlers.js"),
+        ui.tags.script(src="static/js/interactions.js"),
         ui.tags.style(".navbar-brand { font-size: 1.5rem !important; }"),
     ),
     ui.page_navbar(
@@ -199,11 +200,22 @@ app_ui = ui.page_fluid(
             wrap_with_container(tab_settings.settings_ui("settings")),
             value=TabNames.SETTINGS,
         ),
-        title=ui.tags.a(
-            "🏥 Medical Stat Tool",
-            href="#",
-            id="navbar_brand_home",
-            style="color: var(--color-primary); font-weight: 700; text-decoration: none;",
+        title=ui.tags.div(
+            ui.tags.a(
+                "🏥 Medical Stat Tool",
+                href="#",
+                id="navbar_brand_home",
+                style="color: var(--color-primary); font-weight: 700; text-decoration: none;",
+            ),
+            ui.tags.button(
+                "🔍 Search ⌘K",
+                type="button",
+                class_="btn btn-sm btn-outline d-none d-md-inline-flex",
+                onclick="var el = document.getElementById('cmd_palette_backdrop'); if (el) { el.classList.add('open'); setTimeout(function(){ document.getElementById('cmd_palette_input').focus(); }, 50); }",
+                style="padding: 2px 8px; font-size: 11px; border-radius: 14px; margin-left: 12px; color: #64748B; border-color: #E2E8F0; vertical-align: middle;",
+                title="Search modules (⌘K or Ctrl+K)",
+            ),
+            style="display: inline-flex; align-items: center;",
         ),
         id="main_nav",
         header=ui.tags.div(
@@ -241,6 +253,19 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 
     # MI datasets (list of dataframes)
     mi_imputed_datasets: reactive.Value[list[pd.DataFrame]] = reactive.Value([])
+
+    # Global Variable Roles (Shared Single Source of Truth)
+    var_roles: reactive.Value[dict[str, Any]] = reactive.Value({})
+
+    @reactive.Effect
+    def _sync_variable_roles():
+        d = df()
+        if d is not None and isinstance(d, pd.DataFrame) and not d.empty:
+            inferred = infer_variable_roles(list(d.columns))
+            var_roles.set(inferred.to_dict())
+            logger.info(f"🔄 Inferred variable roles for {len(d.columns)} columns")
+        else:
+            var_roles.set({})
 
     # --- Helper: Check Dependencies ---
     def check_optional_deps() -> None:

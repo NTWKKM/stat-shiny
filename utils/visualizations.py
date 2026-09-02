@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, Optional
+
 import pandas as pd
 import plotly.graph_objects as go
 from plotly import subplots
@@ -167,3 +171,91 @@ def plot_missing_pattern(
     fig.update_yaxes(autorange="reversed", row=2, col=1)  # Top variable at top
 
     return fig
+
+
+def create_accessible_chart_twin_ui(
+    wrapper_id: str,
+    chart_ui_tag: Any,
+    table_df: Optional[pd.DataFrame] = None,
+    title: str = "Statistical Visualization",
+    summary_text: str = "",
+) -> Any:
+    """
+    Constructs an accessible container with an integrated 1-click toggle between
+    an interactive Plotly figure and its structured tabular data twin.
+
+    Args:
+        wrapper_id: Unique DOM ID for this component wrapper.
+        chart_ui_tag: The Shiny UI element containing the Plotly output.
+        table_df: Optional pandas DataFrame representing the data plotted.
+        title: Descriptive title for the chart.
+        summary_text: Optional plain-language summary for screen-readers.
+
+    Returns:
+        Shiny UI Tag tree with toolbar toggle and dual-panel view.
+    """
+    from shiny import ui
+
+    table_html = ""
+    if (
+        table_df is not None
+        and isinstance(table_df, pd.DataFrame)
+        and not table_df.empty
+    ):
+        table_html = table_df.to_html(
+            classes="table table-sm table-hover table-publication",
+            index=False,
+            border=0,
+        )
+    else:
+        table_html = (
+            '<div class="p-3 text-muted">Tabular data twin currently unavailable.</div>'
+        )
+
+    return ui.div(
+        # Toolbar header
+        ui.div(
+            ui.div(
+                ui.span("📊", class_="me-2"),
+                ui.strong(title),
+                class_="chart-twin-title",
+            ),
+            ui.div(
+                ui.tags.button(
+                    "📈 Chart View",
+                    type="button",
+                    class_="chart-twin-toggle-btn me-1 active",
+                    data_target_id=wrapper_id,
+                    data_view="chart",
+                    aria_pressed="true",
+                    aria_label=f"Show interactive chart for {title}",
+                ),
+                ui.tags.button(
+                    "📋 Data Table View",
+                    type="button",
+                    class_="chart-twin-toggle-btn",
+                    data_target_id=wrapper_id,
+                    data_view="table",
+                    aria_pressed="false",
+                    aria_label=f"Show data table view for {title}",
+                ),
+                class_="btn-group btn-group-sm",
+            ),
+            class_="chart-twin-toolbar",
+        ),
+        # Chart Panel
+        ui.div(
+            chart_ui_tag,
+            class_="chart-view-panel p-2",
+            role="img",
+            aria_label=summary_text or f"Chart visualization of {title}",
+        ),
+        # Table Panel (Initially Hidden)
+        ui.div(
+            ui.HTML(table_html),
+            class_="table-view-panel p-2 table-responsive",
+            style="display: none;",
+        ),
+        id=wrapper_id,
+        class_="chart-twin-wrapper",
+    )
