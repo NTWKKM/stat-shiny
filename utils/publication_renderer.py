@@ -130,10 +130,22 @@ def format_journal_estimate_ci(
     hi_str = f"{ci_hi:.{decimals}f}"
     ci_label = format_confidence_level(confidence_level)
 
+    canonical_map = {
+        "OR": "OR",
+        "HR": "HR",
+        "RR": "RR",
+        "IRR": "IRR",
+        "BETA": "Beta",
+        "MD": "MD",
+    }
+    canonical_scale = canonical_map.get(
+        (scale or "").strip().upper(), (scale or "").strip()
+    )
+
     if style.upper() in ("NEJM", "JAMA"):
         return f"{est_str} ({lo_str}–{hi_str})"
     else:
-        return f"{html.escape(scale)} = {est_str}, {ci_label} CI [{lo_str}, {hi_str}]"
+        return f"{html.escape(canonical_scale)} = {est_str}, {ci_label} CI [{lo_str}, {hi_str}]"
 
 
 def render_publication_html(
@@ -163,6 +175,15 @@ def render_publication_html(
 
     ci_label = format_confidence_level(table.confidence_level)
 
+    canonical_map = {
+        "OR": "OR",
+        "HR": "HR",
+        "RR": "RR",
+        "IRR": "IRR",
+        "BETA": "Beta",
+        "MD": "MD",
+    }
+
     if table.rows:
         distinct_scales = {(row.scale or "").strip().upper() for row in table.rows}
         if len(distinct_scales) > 1:
@@ -170,7 +191,11 @@ def render_publication_html(
             raise ValueError(
                 f"EstimateTable rows have incompatible effect scales ({', '.join(scales_list)}). All rows in a table must share the same effect scale."
             )
-        scale_label = table.rows[0].scale
+        raw_scale = table.rows[0].scale or ""
+        normalized_scale = raw_scale.strip().upper()
+        scale_label = canonical_map.get(
+            normalized_scale, raw_scale.strip() or "Estimate"
+        )
     else:
         scale_label = "Estimate"
 
@@ -294,10 +319,11 @@ def get_scale_full_name(scale: str) -> str:
         "HR": "hazard ratio",
         "RR": "risk ratio",
         "IRR": "incidence rate ratio",
-        "Beta": "regression coefficient",
+        "BETA": "regression coefficient",
         "MD": "mean difference",
     }
-    return mapping.get(scale, "effect estimate")
+    normalized = (scale or "").strip().upper()
+    return mapping.get(normalized, "effect estimate")
 
 
 def generate_methods_paragraph(

@@ -8,6 +8,7 @@ from utils.publication_renderer import (
     format_journal_estimate_ci,
     format_journal_p_value,
     generate_methods_paragraph,
+    get_scale_full_name,
     render_publication_html,
 )
 
@@ -348,6 +349,57 @@ def test_render_publication_html_case_insensitive_scales():
     table = EstimateTable(title="Case Insensitive Scales Table", rows=rows)
     html_out = render_publication_html(table, style="NEJM")
     assert "OR (95% CI)" in html_out
+
+
+def test_render_publication_html_lowercase_hr_scale():
+    rows = [
+        Estimate(
+            term="statin",
+            label="Statin Treatment",
+            estimate=0.72,
+            ci_lower=0.55,
+            ci_upper=0.94,
+            p_value=0.015,
+            scale="hr",
+        ),
+        Estimate(
+            term="control",
+            label="Standard Care",
+            estimate=1.0,
+            ci_lower=1.0,
+            ci_upper=1.0,
+            p_value=1.0,
+            scale="HR",
+            reference=True,
+        ),
+    ]
+    meta = ModelMeta(
+        estimator="Cox Proportional Hazards Model",
+        n_total=450,
+        n_events=85,
+    )
+    table = EstimateTable(title="Survival Table (HR)", rows=rows, meta=meta)
+
+    # 1. Check NEJM style
+    html_nejm = render_publication_html(
+        table, style="NEJM", include_meta_paragraph=True
+    )
+    assert "HR (95% CI)" in html_nejm
+    assert "CI denotes confidence interval; HR, hazard ratio." in html_nejm
+    assert "hazard ratios" in html_nejm
+
+    # 2. Check APA7 style
+    html_apa = render_publication_html(table, style="APA7", include_meta_paragraph=True)
+    assert "HR [95% CI]" in html_apa
+    assert "HR = 0.72, 95% CI [0.55, 0.94]" in html_apa
+    assert "CI denotes confidence interval; HR, hazard ratio." in html_apa
+    assert "hazard ratios" in html_apa
+
+    # 3. Direct helper checks
+    assert get_scale_full_name("hr") == "hazard ratio"
+    assert get_scale_full_name("HR") == "hazard ratio"
+    apa_ci = format_journal_estimate_ci(0.72, 0.55, 0.94, scale="hr", style="APA7")
+    assert apa_ci == "HR = 0.72, 95% CI [0.55, 0.94]"
 
 
 def test_publication_renderer_fractional_confidence_level_975():
