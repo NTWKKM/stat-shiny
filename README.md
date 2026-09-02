@@ -59,7 +59,8 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- requirements.txt
 |-- static /
 |   |-- js /
-|   |   `-- custom_handlers.js
+|   |   |-- custom_handlers.js
+|   |   `-- interactions.js
 |   |-- styles.css
 |   `-- styles.min.css
 |-- tabs /
@@ -155,17 +156,20 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_phase3_features.py
 |       |-- test_plotly_html_rendering.py
 |       |-- test_poisson_lib.py
+|       |-- test_publication_renderer.py
 |       |-- test_regression_publication.py
 |       |-- test_repeated_measures.py
 |       |-- test_reporting_checklists.py
 |       |-- test_sample_size.py
 |       |-- test_sensitivity.py
 |       |-- test_sensitivity_fixes.py
+|       |-- test_state_machine.py
 |       |-- test_statistical_assumptions.py
 |       |-- test_statistics.py
 |       |-- test_survival_assumptions.py
 |       |-- test_survival_lib_patch.py
 |       |-- test_tab_diag_html_logic.py
+|       |-- test_tabs_common.py
 |       |-- test_tvc_lib.py
 |       |-- test_ui_ux_styles.py
 |       `-- verify_table_one.py
@@ -200,11 +204,13 @@ This content reflects the repository structure (updated by GitHub Actions):
 |   |-- plotly_html_renderer.py
 |   |-- poisson_lib.py
 |   |-- psm_lib.py
+|   |-- publication_renderer.py
 |   |-- rcs_lib.py
 |   |-- repeated_measures_lib.py
 |   |-- reporting_checklists.py
 |   |-- sample_size_lib.py
 |   |-- sensitivity_lib.py
+|   |-- state_machine.py
 |   |-- statistical_assumptions.py
 |   |-- stratified_lib.py
 |   |-- subgroup_analysis_module.py
