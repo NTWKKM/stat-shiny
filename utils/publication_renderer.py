@@ -139,6 +139,8 @@ def canonicalize_scale(scale: Optional[str]) -> str:
     if not scale:
         return "Estimate"
     cleaned = str(scale).strip()
+    if not cleaned:
+        return "Estimate"
     return SCALE_CANONICAL_MAP.get(cleaned.upper(), cleaned)
 
 

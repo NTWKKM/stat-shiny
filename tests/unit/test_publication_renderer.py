@@ -478,6 +478,32 @@ def test_render_publication_html_mixed_additive_scale_aliases():
     assert canonicalize_scale("Beta") == "Beta"
     assert canonicalize_scale("COEF") == "Beta"
     assert canonicalize_scale("regression coefficient") == "Beta"
+    assert canonicalize_scale("   ") == "Estimate"
+    assert canonicalize_scale("\t\n") == "Estimate"
+    assert canonicalize_scale("") == "Estimate"
+    assert canonicalize_scale(None) == "Estimate"
+
+
+def test_render_publication_html_whitespace_scale_fallback():
+    rows = [
+        Estimate(
+            term="exposure",
+            label="Exposure Factor",
+            estimate=1.2,
+            ci_lower=0.9,
+            ci_upper=1.5,
+            p_value=0.2,
+            scale="   ",
+        )
+    ]
+    table = EstimateTable(title="Fallback Scale Table", rows=rows)
+    html_nejm = render_publication_html(table, style="NEJM")
+    assert "Estimate (95% CI)" in html_nejm
+    assert "CI denotes confidence interval; Estimate, effect estimate." in html_nejm
+
+    html_apa = render_publication_html(table, style="APA7")
+    assert "Estimate [95% CI]" in html_apa
+    assert "Estimate = 1.20, 95% CI [0.90, 1.50]" in html_apa
 
 
 def test_publication_renderer_fractional_confidence_level_975():
