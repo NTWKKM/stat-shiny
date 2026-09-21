@@ -150,6 +150,11 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
 
         if is_separated:
             risky_vars.append("Data Separation Detected (Konis LP)")
+    except np.linalg.LinAlgError as e:
+        logger.debug(
+            "detect_separation: design matrix is rank-deficient (collinearity detected, not separation): %s",
+            e,
+        )
     except Exception as e:
         logger.debug("detect_separation failed; using fallback heuristic: %s", e)
         if "X" in locals() and "y" in locals():
@@ -1278,9 +1283,7 @@ def core_regression_server(
             if c != default_linear_y
             and c not in ["ID", "id_tvc"]
             and not c.startswith("Time_")
-        ][
-            :5
-        ]  # limit to 5
+        ][:5]  # limit to 5
         ui.update_selectize(
             "linear_predictors", choices=numeric_cols, selected=default_linear_x
         )

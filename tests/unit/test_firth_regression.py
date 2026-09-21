@@ -54,6 +54,8 @@ def test_firth_separation_resolution():
 
     # Check P-values exist
     assert not pvals.isna().all()
+    assert "lrt_fallback_vars" in metrics
+    assert "ci_fallback" in metrics
 
 
 def test_firth_vs_r_benchmark():
@@ -122,11 +124,13 @@ def test_firth_vs_r_benchmark():
         # CI matching might be slightly looser due to optimization diffs
         assert py_low <= py_high, f"Invalid Python CI ordering for {term}"
         assert r_low <= r_high, f"Invalid R CI ordering for {term}"
-        
-        # We don't strictly assert the bounds values because firthmodels and R 
+
+        # We don't strictly assert the bounds values because firthmodels and R
         # logistf can differ significantly in how they calculate PL CI bounds.
         # But we verify they have the same sign if they are far from 0.
         if abs(r_low) > 0.1:
             assert np.sign(py_low) == np.sign(r_low), f"CI Low sign mismatch for {term}"
         if abs(r_high) > 0.1:
-            assert np.sign(py_high) == np.sign(r_high), f"CI High sign mismatch for {term}"
+            assert np.sign(py_high) == np.sign(r_high), (
+                f"CI High sign mismatch for {term}"
+            )

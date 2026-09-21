@@ -83,7 +83,7 @@ def progress_end(id: str = "progress_notif") -> None:
         pass  # No active session (e.g., running tests)
 
 
-# Try to import Firth Cox regression for small samples / rare events (firthmodels >= 0.7.2)
+# Try to import Firth Cox regression for small samples / rare events (firthmodels >= 0.8.2)
 try:
     from firthmodels import FirthCoxPH
 
@@ -1107,7 +1107,10 @@ def fit_cox_ph(
 
         try:
             cph, res_df, method_used = _fit_firth_cox(
-                data, duration_col, event_col, covariate_cols,
+                data,
+                duration_col,
+                event_col,
+                covariate_cols,
                 penalty_weight=penalty_weight,
             )
         except Exception as e:
@@ -1150,7 +1153,10 @@ def fit_cox_ph(
             logger.info("Lifelines failed, attempting Firth Cox PH fallback...")
             try:
                 cph, res_df, method_used = _fit_firth_cox(
-                    data, duration_col, event_col, covariate_cols,
+                    data,
+                    duration_col,
+                    event_col,
+                    covariate_cols,
                     penalty_weight=penalty_weight,
                 )
             except Exception as e:
@@ -1264,6 +1270,16 @@ def fit_cox_ph(
             "Number of Events": n_events,
         }
 
+        if method_used == "Firth Cox PH (Penalized)":
+            p_fb = getattr(res_df, "attrs", {}).get("firth_p_fallback_vars", [])
+            ci_fb = getattr(res_df, "attrs", {}).get("firth_ci_fallback", False)
+            p_note = "Penalized LRT"
+            if p_fb:
+                p_note += f" (Wald fallback for: {', '.join(p_fb)})"
+            ci_note = "Wald fallback" if ci_fb else "Profile Likelihood (PL)"
+            model_stats["P-value Method"] = p_note
+            model_stats["CI Method"] = ci_note
+
         # NEW: Add VIF results to model_stats
         if vif_results is not None:
             model_stats["VIF"] = vif_results.to_dict("records")
@@ -1307,14 +1323,51 @@ def _fit_firth_cox(
     # firthmodels stores coefficients in .coef_ and standard errors in .bse_
     coefs = model.coef_
     se = model.bse_
-    pvals = model.pvalues_
 
-    # 4. Compute Hazard Ratios and 95% Wald CI
+    # Prefer Penalized Likelihood Ratio Test (LRT) for p-values (matching R coxphf)
+    wald_p_fallback_vars: list[str] = []
+    try:
+        model.lrt()
+        lrt_p = getattr(model, "lrt_pvalues_", None)
+        if isinstance(lrt_p, (np.ndarray, list, pd.Series)) and not np.all(
+            np.isnan(lrt_p)
+        ):
+            lrt_arr = np.asarray(lrt_p)
+            if np.isnan(lrt_arr).any() and model.pvalues_ is not None:
+                pvals = np.where(np.isnan(lrt_arr), model.pvalues_, lrt_arr)
+                for idx, is_nan in enumerate(np.isnan(lrt_arr)):
+                    if is_nan and idx < len(covariate_cols):
+                        wald_p_fallback_vars.append(str(covariate_cols[idx]))
+            else:
+                pvals = lrt_p
+        else:
+            pvals = model.pvalues_
+            wald_p_fallback_vars = [str(c) for c in covariate_cols]
+    except Exception:
+        pvals = model.pvalues_
+        wald_p_fallback_vars = [str(c) for c in covariate_cols]
+
+    # 4. Compute Hazard Ratios and 95% CI (Profile Likelihood with Wald fallback)
     # HR = exp(coef)
     hrs = np.exp(coefs)
-    # Wald CI: exp(coef +/- 1.96 * SE)
-    ci_low = np.exp(coefs - 1.96 * se)
-    ci_high = np.exp(coefs + 1.96 * se)
+    wald_ci_fallback: bool = False
+    try:
+        ci_bounds = model.conf_int(method="pl")
+        if (
+            isinstance(ci_bounds, np.ndarray)
+            and ci_bounds.ndim == 2
+            and ci_bounds.shape[1] == 2
+        ):
+            ci_low = np.exp(ci_bounds[:, 0])
+            ci_high = np.exp(ci_bounds[:, 1])
+        else:
+            ci_low = np.exp(coefs - 1.96 * se)
+            ci_high = np.exp(coefs + 1.96 * se)
+            wald_ci_fallback = True
+    except Exception:
+        ci_low = np.exp(coefs - 1.96 * se)
+        ci_high = np.exp(coefs + 1.96 * se)
+        wald_ci_fallback = True
 
     # 5. Build results DataFrame
     res_df = pd.DataFrame(
@@ -1328,6 +1381,8 @@ def _fit_firth_cox(
         index=covariate_cols,
     )
     res_df.index.name = "Covariate"
+    res_df.attrs["firth_p_fallback_vars"] = wald_p_fallback_vars
+    res_df.attrs["firth_ci_fallback"] = wald_ci_fallback
 
     return model, res_df, "Firth Cox PH (Penalized)"
 

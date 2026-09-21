@@ -1835,11 +1835,38 @@ def survival_server(
                 # Variable might contain HTML from user data
                 df_safe[col] = df_safe[col].astype(str).map(html.escape)
 
-        return ui.HTML(
-            df_safe.to_html(
-                classes="table table-hover table-striped", index=False, escape=False
+        # Check if Firth Cox notes exist
+        firth_note = ""
+        res_df_orig = res.get("results_df")
+        if (
+            res_df_orig is not None
+            and hasattr(res_df_orig, "attrs")
+            and (
+                "firth_p_fallback_vars" in res_df_orig.attrs
+                or "firth_ci_fallback" in res_df_orig.attrs
             )
+        ):
+            p_fb = res_df_orig.attrs.get("firth_p_fallback_vars", [])
+            ci_fb = res_df_orig.attrs.get("firth_ci_fallback", False)
+            notes = []
+            if p_fb:
+                notes.append(
+                    f"⚠️ <em>Note: Parameter(s) <strong>{', '.join(p_fb)}</strong> used Wald test P-value as fallback because penalized likelihood ratio test (LRT) did not converge.</em>"
+                )
+            if ci_fb:
+                notes.append(
+                    "⚠️ <em>Note: 95% CI used Wald approximation as fallback because Profile Likelihood optimization did not converge.</em>"
+                )
+            if not notes:
+                notes.append(
+                    "ℹ️ <em>Firth Cox PH uses Penalized Likelihood Ratio Tests (LRT) for P-values and Profile Likelihood (PL) for 95% CIs.</em>"
+                )
+            firth_note = f"<div class='firth-cox-note' style='margin-top: 8px; font-size: 0.88em; color: #475569;'>{'<br>'.join(notes)}</div>"
+
+        table_html = df_safe.to_html(
+            classes="table table-hover table-striped", index=False, escape=False
         )
+        return ui.HTML(f"{table_html}{firth_note}")
 
     @render.ui
     def out_cox_forest():
