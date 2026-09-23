@@ -419,3 +419,16 @@ def test_check_perfect_separation_high_cardinality_numeric():
         mock_detect.side_effect = np.linalg.LinAlgError("Matrix is singular")
         risky = check_perfect_separation(df_no_overlap, "y")
         assert "continuous_sep" in risky
+
+    # Predictor with missing values and overlapping ranges should not be flagged as risky
+    df_missing = pd.DataFrame(
+        {
+            "y": [0] * 20 + [1] * 20,
+            "continuous_with_nan": [np.nan] + list(range(10, 29)) + list(range(20, 40)),
+            "collinear_dummy": [1] * 40,
+        }
+    )
+    with patch("firthmodels.detect_separation") as mock_detect:
+        mock_detect.side_effect = np.linalg.LinAlgError("Matrix is singular")
+        risky = check_perfect_separation(df_missing, "y")
+        assert "continuous_with_nan" not in risky

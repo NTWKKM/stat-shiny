@@ -126,8 +126,11 @@ def _fallback_risky_vars(X: pd.DataFrame, y: pd.Series) -> list[str]:
         try:
             x_col = X[col]
             num = pd.to_numeric(x_col, errors="coerce")
-            if num.notna().all() and num.nunique() > 10:
-                x0, x1 = num[y == 0], num[y == 1]
+            observed = x_col.notna()
+            numeric = num.loc[observed]
+            y_numeric = y.loc[observed]
+            if numeric.notna().all() and numeric.nunique() > 10:
+                x0, x1 = numeric[y_numeric == 0], numeric[y_numeric == 1]
                 if (
                     len(x0) > 0
                     and len(x1) > 0
