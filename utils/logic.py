@@ -1337,7 +1337,10 @@ def analyze_outcome(
                 alignment_parts = []
                 if len(predictors_for_vif) > 0:
                     adj_list = ", ".join(
-                        [str(p).replace("::", ": ") for p in predictors_for_vif[:5]]
+                        [
+                            html.escape(str(p).replace("::", ": "))
+                            for p in predictors_for_vif[:5]
+                        ]
                     )
                     if len(predictors_for_vif) > 5:
                         adj_list += " et al."

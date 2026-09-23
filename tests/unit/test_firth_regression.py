@@ -344,15 +344,16 @@ def test_separation_linalg_error_crosstab_fallback():
     # but collinearity causes LinAlgError: separation_indeterminate ensures Firth is still selected.
     df_large = pd.DataFrame(
         {
-            "y": [0, 1] * 30,
-            "x1": [1, 2] * 30,
-            "x2": [1, 2] * 30,  # collinear with x1
+            "y": [0, 1, 1, 0] * 15,
+            "x1": [1, 1, 2, 2] * 15,  # no zero cells with y
+            "x2": [1, 1, 2, 2] * 15,  # collinear with x1
         }
     )
-    with patch("firthmodels.detect_separation") as mock_detect:
+    with patch("utils.logic.detect_separation") as mock_detect:
         mock_detect.side_effect = np.linalg.LinAlgError("Matrix is singular")
 
         html_large, _, _, _ = analyze_outcome("y", df_large, method="auto")
+        mock_detect.assert_called_once()
         assert "Firth's Penalized Likelihood" in html_large
 
 
@@ -362,22 +363,59 @@ def test_firth_note_html_escaping():
 
     df = pd.DataFrame(
         {
-            "y": [0, 1, 0, 1, 0, 1],
-            "<script>alert(1)</script>": [1, 2, 3, 4, 5, 6],
+            "y": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+            "<script>alert(1)</script>": list(range(1, 13)),
         }
     )
     with patch("utils.logic.run_binary_logit") as mock_logit:
         # Mock run_binary_logit to return lrt_fallback_vars with dangerous string
         mock_logit.return_value = (
             pd.Series({"const": 0.1, "<script>alert(1)</script>": 0.5}),
-            pd.DataFrame([[0.0, 1.0], [0.1, 0.9]]),
+            pd.DataFrame(
+                [[0.0, 1.0], [0.1, 0.9]],
+                index=["const", "<script>alert(1)</script>"],
+            ),
             pd.Series({"const": 0.5, "<script>alert(1)</script>": 0.05}),
             "OK",
             {
                 "lrt_fallback_vars": ["<script>alert(1)</script>"],
                 "ci_fallback": True,
+                "auc": 0.85,
             },
         )
         html_table, _, _, _ = analyze_outcome("y", df, method="firth")
         assert "<script>alert(1)</script>" not in html_table
         assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html_table
+        assert "due to LRT non-convergence" in html_table
+        assert "95% CI used Wald approximation as fallback" in html_table
+
+
+def test_check_perfect_separation_high_cardinality_numeric():
+    """Verify that high-cardinality continuous predictors are only flagged if ranges do not overlap."""
+    from tabs.tab_core_regression import check_perfect_separation
+
+    # Overlapping ranges: y=0 has values 10..29, y=1 has values 20..39 (range overlaps on [20, 29])
+    df_overlap = pd.DataFrame(
+        {
+            "y": [0] * 20 + [1] * 20,
+            "continuous_var": list(range(10, 30)) + list(range(20, 40)),
+            "collinear_dummy": [1] * 40,  # force singular matrix
+        }
+    )
+    with patch("firthmodels.detect_separation") as mock_detect:
+        mock_detect.side_effect = np.linalg.LinAlgError("Matrix is singular")
+        risky = check_perfect_separation(df_overlap, "y")
+        assert "continuous_var" not in risky
+
+    # Non-overlapping ranges: y=0 has values 10..29, y=1 has values 30..49 (completely separated)
+    df_no_overlap = pd.DataFrame(
+        {
+            "y": [0] * 20 + [1] * 20,
+            "continuous_sep": list(range(10, 30)) + list(range(30, 50)),
+            "collinear_dummy": [1] * 40,
+        }
+    )
+    with patch("firthmodels.detect_separation") as mock_detect:
+        mock_detect.side_effect = np.linalg.LinAlgError("Matrix is singular")
+        risky = check_perfect_separation(df_no_overlap, "y")
+        assert "continuous_sep" in risky

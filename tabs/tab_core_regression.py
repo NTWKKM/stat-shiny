@@ -120,6 +120,29 @@ def _build_strobe_metadata(
     }
 
 
+def _fallback_risky_vars(X: pd.DataFrame, y: pd.Series) -> list[str]:
+    risky_vars: list[str] = []
+    for col in X.columns:
+        try:
+            x_col = X[col]
+            num = pd.to_numeric(x_col, errors="coerce")
+            if num.notna().all() and num.nunique() > 10:
+                x0, x1 = num[y == 0], num[y == 1]
+                if (
+                    len(x0) > 0
+                    and len(x1) > 0
+                    and (x0.max() < x1.min() or x1.max() < x0.min())
+                ):
+                    risky_vars.append(col)
+                continue
+            ct = pd.crosstab(x_col, y)
+            if (ct == 0).any().any():
+                risky_vars.append(col)
+        except (ValueError, TypeError):
+            continue
+    return risky_vars
+
+
 def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
     try:
         from firthmodels import detect_separation
@@ -156,23 +179,11 @@ def check_perfect_separation(df: pd.DataFrame, target_col: str) -> list[str]:
             e,
         )
         if "X" in locals() and "y" in locals():
-            for col in X.columns:
-                try:
-                    ct = pd.crosstab(X[col], y)
-                    if (ct == 0).any().any():
-                        risky_vars.append(col)
-                except (ValueError, TypeError):
-                    continue
+            risky_vars.extend(_fallback_risky_vars(X, y))
     except Exception as e:
         logger.debug("detect_separation failed; using fallback heuristic: %s", e)
         if "X" in locals() and "y" in locals():
-            for col in X.columns:
-                try:
-                    ct = pd.crosstab(X[col], y)
-                    if (ct == 0).any().any():
-                        risky_vars.append(col)
-                except (ValueError, TypeError):
-                    continue
+            risky_vars.extend(_fallback_risky_vars(X, y))
 
     return risky_vars
 
