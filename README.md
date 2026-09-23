@@ -270,68 +270,94 @@ This application is a complete statistical workbench organized into modular tabs
 ### 📈 Core Regression Models
 
 - **GLM Framework**:
-  - **Logistic Regression**: Standard, Auto, **Firth's Regression** (rare events), and **Subgroup Analysis** (Forest Plots with **Interaction P-value** annotation and **ICEMAN credibility**).
-  - **Count Models**: Poisson and Negative Binomial regression.
-  - **Linear Regression**: OLS with options for robust standard errors.
-- **Repeated Measures**: Generalized Estimating Equations (GEE) and Linear Mixed Models (LMM).
-- **NEJM/Lancet Publication Standards (NEW)**:
-  - **Model Diagnostics**: C-statistic with 95% CI, Brier Score, Calibration Slope, Hosmer-Lemeshow test, Calibration plots with LOWESS.
+  - **Logistic Regression**: Standard MLE, BFGS, **Firth's Penalized Logistic** (for rare events and separation via `firthmodels 0.8.2`), and **Subgroup Analysis** (Forest Plots with **Interaction P-value** annotation and **ICEMAN credibility**).
+  - **Firth Enhancements (`0.8.2`)**: Penalized Likelihood Ratio Tests (LRT) for P-values, Profile Likelihood Confidence Intervals (PL-CI), Konis LP separation detection with collinearity differentiation, and **explicit UI/report annotations whenever Wald P-value or Wald CI fallback is triggered**.
+  - **Count Models**: Poisson and Negative Binomial regression (handling overdispersion) with offset support.
+  - **Linear Regression**: OLS with robust standard error options (HC0, HC1, HC2, HC3 / White's).
+- **Multiple Testing Correction (MCC)**: Family-wise error and false discovery rate control via Bonferroni, Benjamini-Hochberg (FDR), Holm, Hochberg, Hommel, and BY.
+- **NEJM/Lancet Publication Standards**:
+  - **Model Diagnostics**: C-statistic / AUC with DeLong 95% CI, Brier Score, Calibration Slope, Hosmer-Lemeshow goodness-of-fit test, Calibration plots with LOWESS smoothing.
   - **Absolute Measures**: ARD (Absolute Risk Difference) with Newcombe CI, NNT/NNH with Altman method.
-  - **Sensitivity Analysis**: E-value for unmeasured confounding assessment.
-  - **STROBE Checklist**: Auto-populated reporting checklist with markdown export.
-- **Effect Sizes (NEW)**: Cohen's d, Hedges' g, **η² (Eta-squared)**, **ω² (Omega-squared)** with interpretation badges.
-- **MI Auto-Pooling (NEW)**: When Multiple Imputation is active, regression automatically pools results using **Rubin's Rules** with **FMI (Fraction Missing Information)** reporting. Supported analyses: **Logistic**, **Linear**, **Cox PH**, and **Mediation**.
+  - **Sensitivity Analysis**: E-value for unmeasured confounding assessment (point estimate and CI limit).
+  - **Reporting Alignment**: STROBE checklist auto-population and TRIPOD guideline alignment.
+- **Effect Sizes**: Cohen's d, Hedges' g, **η² (Eta-squared)**, **ω² (Omega-squared)** with evidence-based interpretation badges.
+- **MI Auto-Pooling**: When Multiple Imputation (MICE) is active, regression automatically pools results using **Rubin's Rules** with **FMI (Fraction Missing Information)** reporting across Logistic, Linear, Cox PH, and Mediation models.
 
 ### ⏳ Survival Analysis
 
-- **Visualizations**: Kaplan-Meier curves and Nelson-Aalen cumulative hazard plots.
-- **Cox Modeling**: Cox Proportional Hazards regression with forest plots and **Firth's Penalized Cox** for rare events/small samples.
+- **Visualizations**: Interactive Kaplan-Meier curves (with Number-at-Risk tables, median survival times, and log-rank tests) and Nelson-Aalen cumulative hazard plots.
+- **Cox Modeling**: Cox Proportional Hazards regression with forest plots and **Firth's Penalized Cox PH (`firthmodels 0.8.2`)** for rare events or small samples:
+  - **Penalized LRT P-values**: Penalized Likelihood Ratio Tests for superior inference in rare events (with automated Wald fallback and clear UI table annotations).
+  - **Profile Likelihood CIs**: 95% PL-CIs for exact confidence bounds.
+  - **Baseline Hazard & Survival**: Breslow-type cumulative hazard and survival predictions.
 - **Advanced Techniques**:
-  - **Time-Varying Cox**: Handle covariates that change over time.
-  - **Landmark Analysis**: Address immortal time bias.
-  - **Subgroup Analysis**: Explore treatment effect heterogeneity with **Formal Interaction Tests (LRT)** and annotated Forest Plots.
+  - **Time-Varying Cox (TVC)**: Episodic data splitting to handle covariates that change over time, including time-interaction ($t \times X$) checks.
+  - **Landmark Analysis**: Pre-specified landmark cutoff to mitigate immortal time bias.
+  - **Subgroup Analysis**: Treatment effect heterogeneity with **Formal Interaction Tests (LRT)** and annotated Forest Plots.
 - **Model Diagnostics**:
-  - **Assumption Checks**: Automated Schoenfeld residuals with remedies.
-  - **Extended Plots**: Martingale (linearity) and Deviance (outliers) residuals.
+  - **Assumption Checks**: Automated Schoenfeld residuals with scatter/trend plots and actionable clinical remedies.
+  - **Extended Plots**: Martingale residuals (non-linearity assessment) and Deviance residuals (outlier detection).
+
+### 🌐 Meta-Analysis
+
+- **Pooling Models**: Fixed-Effect (Inverse Variance, Mantel-Haenszel) and Random-Effects (DerSimonian-Laird).
+- **Effect Size Metrics**: Odds Ratio (OR), Risk Ratio (RR), Risk Difference (RD), Standardized Mean Difference (SMD: Hedges' g, Cohen's d), and Mean Difference (MD).
+- **Forest Plots**: Publication-grade interactive Forest Plots showing study weights, point estimates, confidence intervals, and pooled summary diamonds.
+- **Heterogeneity Assessment**: Cochran's Q test, $I^2$ index, and $\tau^2$ (between-study variance) with Higgins clinical interpretation standards.
+- **Publication Bias Diagnostics**: Funnel plots with pseudo 95% confidence limits, **Egger's linear regression test**, and **Begg-Mazumdar rank correlation test**.
+- **Subgroup Meta-Analysis**: Stratified study pooling with between-subgroup heterogeneity test ($Q_{\text{between}}$).
+
+### 🧬 Advanced Statistical Modeling & Repeated Measures
+
+- **G-Computation (Parametric G-Formula)**: Standardized marginal effect estimation for causal inference under non-linear settings.
+- **Generalized Estimating Equations (GEE)**: Population-averaged models for clustered longitudinal data with customizable working correlation structures (Exchangeable, AR(1), Independent).
+- **Linear Mixed Models (LMM / MixedLM)**: Random intercept and random slope models for hierarchical/repeated measures data.
 
 ### 🎯 Causal Inference
 
-- **Propensity Methods**: IPW (Inverse Probability Weighting) and PSM integration.
+- **Propensity Methods**: Inverse Probability Weighting (IPW) with stabilized weights and optional 1st/99th percentile weight truncation, and Propensity Score Matching (PSM).
 - **Stratified Analysis**: Mantel-Haenszel odds ratios and Breslow-Day homogeneity tests.
 - **Sensitivity Analysis**: **E-Value** calculation for unmeasured confounding.
-- **Subgroup Credibility (NEW)**: **ICEMAN framework** for assessing heterogeneity claims with Bonferroni adjustment.
-- **Diagnostics**: Comprehensive **Propensity Score Diagnostics** including overlapping density plots and summary statistics.
+- **Subgroup Credibility**: **ICEMAN framework** (8 core clinical criteria) for assessing heterogeneity claims with Bonferroni adjustment.
+- **Diagnostics**: Comprehensive **Propensity Score Diagnostics** including overlapping density plots (Common Support) and summary statistics.
 
 ### 🧪 Diagnostic Tests & Agreement
 
-- **Diagnostic Accuracy**: Advanced ROC Analysis with **DeLong's Test** for comparison, Optimal Thresholds (Youden/F1), and **Confidence Intervals** for all metrics.
-- **Decision Curve Analysis (DCA)**: Assess clinical net benefit.
-- **Agreement Statistics**: **Cohen's Kappa** (with CI), **Fleiss' Kappa** (Multi-rater), **Bland-Altman** (with LoA CI bands), and enhanced **ICC** (pingouin integration) with interpretation badges.
-- **Contingency Analysis**: Chi-Square, Fisher's Exact Test, Risk Ratios, and Odds Ratios.
+- **Diagnostic Accuracy**: Sensitivity, Specificity, PPV, NPV, Positive Likelihood Ratio (LR+), Negative Likelihood Ratio (LR-), Diagnostic Odds Ratio (DOR), and Overall Accuracy with Wilson score CIs.
+- **ROC / AUC Analysis**: Area Under Curve evaluation with paired **DeLong's Test** for comparing diagnostic models.
+- **Optimal Cutpoints**: Automated threshold identification via Youden's Index ($J$), F1-Score, and Sensitivity/Specificity vs Threshold curves.
+- **Fagan's Nomogram**: Interactive Bayesian pre-test to post-test probability mapping for positive and negative findings.
+- **Decision Curve Analysis (DCA)**: Clinical Net Benefit curves across threshold probabilities compared to treat-all and treat-none strategies.
+- **Agreement Statistics**:
+  - **Cohen's Kappa**: Unweighted and quadratic weighted with Landis-Koch interpretation badges.
+  - **Fleiss' Kappa**: Inter-rater reliability for multi-rater setups (> 2 raters).
+  - **Bland-Altman**: Mean difference and Limits of Agreement (LoA) with 95% confidence bands and proportional bias test.
+  - **Intraclass Correlation (ICC)**: Pingouin-powered ICC1, ICC2, ICC3 (single and average measures) with Cicchetti interpretation badges.
+- **Contingency Analysis**: Chi-Square test of independence, Fisher's Exact Test, Risk Ratios, and Odds Ratios.
 
 ### 🧩 Advanced Inference
 
-- **Mediation Analysis**: Decomposition into Direct (ADE) and Indirect (ACME) effects.
-- **Model Diagnostics**: Residual plots, Q-Q plots, Cook's distance for influence, and heteroscedasticity tests.
-- **Multicollinearity**: Variance Inflation Factor (VIF) analysis.
-- **Heterogeneity**: Statistics for meta-analysis contexts.
-- **Sensitivity Analysis (NEW)**: **Bootstrap CI**, **Jackknife**, and **LOO-CV** for model robustness validation.
+- **Mediation Analysis**: Counterfactual and Baron-Kenny causal mediation decomposition into Average Direct Effect (ADE), Average Causal Mediation Effect (ACME), Total Effect, and Proportion Mediated (with Quasi-Bayesian Monte Carlo / Bootstrap CIs).
+- **Model Diagnostics**: Residual vs Fitted plots, Q-Q plots, Cook's distance for influential observations, and Breusch-Pagan heteroscedasticity tests.
+- **Multicollinearity**: Variance Inflation Factor (VIF) analysis with clinical alert levels.
+- **Model Robustness Validation**: **Bootstrap CI**, **Jackknife resampling**, and **Leave-One-Out Cross-Validation (LOO-CV)**.
 
 ### 🔗 Correlation & Reliability
 
-- **Correlation**: Pairwise Pearson/Spearman matrices with heatmap visualizations.
-- **Intraclass Correlation (ICC)**: Assess reliability and consistency.
+- **Correlation Matrix**: Multi-method pairwise correlation (**Pearson, Spearman, Kendall's Tau**) with interactive heatmaps.
+- **Scatter Matrix & Regression**: Bivariate scatter plots with linear trendlines and residual distributions.
 
-### ⚙️ Settings & Performance
+### 📄 Publication Reports & Download Safety
 
-- **Publication Ready**: Configurable **Reporting Style** templates for major journals (**NEJM, JAMA, Lancet, BMJ**).
-- **Reporting Checklists**: **CONSORT** (RCTs) and **STROBE** (Observational) checklist generators with **auto-population** from analysis metadata.
-- **Figure Legends**: Auto-generated publication-ready figure legends for plots.
-- **Model Calibration (NEW)**: Decision Curve Analysis (DCA) for clinical utility assessment.
-- **Auto-Methods**: Automated generation of "Methods" and "Missing Data" statements.
-- **Customization**: Theme switching (Light/Dark), plot sizing, and decimal precision control.
-- **Logging**: Configurable logging levels and file output.
-- **Performance**: Caching and multi-threading options for large datasets.
+- **Dual-Format Publication Export**:
+  - **HTML Reports**: Self-contained, styled publication reports with embedded CSS and Plotly charts.
+  - **PDF Reports**: Publication-grade PDF compilation via Playwright headless Chromium (`safe_download_pdf`).
+- **Download Safety Layer (`download_helpers.py` & `pdf_helpers.py`)**: Guaranteed valid document output or styled error page, with user notifications (✅ Success, ⚠️ Incomplete, ❌ Error).
+- **Reporting Styles**: Journal-specific presets (**NEJM, JAMA, Lancet, BMJ**).
+- **Automated Checklists**: **STROBE** (Observational) and **CONSORT** (RCTs) checklist auto-fill and export.
+- **Auto-Methods**: Automated generation of standardized "Methods" and "Missing Data" statements.
+- **Figure Legends**: Automated publication-ready figure legends.
+- **Theme & Design System**: Minimal Slate-Monochrome design token system (`_common.py`, `_styling.py`, `DESIGN.md`), 100% WCAG AA contrast compliant.
 
 ## 🏗️ System Architecture
 
@@ -461,9 +487,9 @@ If you use VS Code, you can open the project in a pre-configured [Dev Container]
   - **Machine Learning**: Scikit-learn
   - **Survival**: Lifelines (KM, CoxPH)
   - **Causal Inference**: EconML, PsmPy
-  - **Advanced**: FirthModels (Penalized Logistic)
+  - **Advanced & Penalized**: FirthModels 0.8.2 (Penalized Logistic & Cox PH with LRT / Profile Likelihood CI)
 - **Visualization**: Plotly (Interactive), Matplotlib, Seaborn
-- **Quality & Testing**: Pytest, Playwright, Ruff
+- **Quality, Export & Testing**: Pytest, Playwright (E2E & PDF Engine), Ruff
 - **Deployment**: Docker, Gunicorn/Uvicorn
 
 ## ✅ Deployment Features

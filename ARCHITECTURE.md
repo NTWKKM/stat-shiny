@@ -365,7 +365,7 @@ The application covers a wide range of medical statistical needs, organized into
 | Category | Modules | Key Features |
 | :--- | :--- | :--- |
 | **Standard** | `tab_corr`, `tab_diag`, `tab_agreement` | Multi-method Correlation (**Kendall/Spearman/Pearson**), **ROC/AUC** (Youden/F1/Calibration), **Paired DeLong Test**, **Sens/Spec vs Threshold**, **Agreement** (Cohen's/Fleiss' Kappa, Bland-Altman with CI bands, ICC with interpretation). |
-| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth/Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox with ICEMAN credibility), Forest Plots, **Model Diagnostics** (Calibration, C-statistic, Brier), **Absolute Measures** (ARD, NNT), **E-value**, **STROBE auto-fill**. |
+| **Inference** | `tab_core_regression`, `tab_advanced_inference` | Linear/Logistic/Cox Regressions (**Firth Penalized Logistic & Cox PH with LRT / Profile Likelihood CI / Deep Diagnostics**), **Subgroup analysis** (Logistic/Cox with ICEMAN credibility), Forest Plots, **Model Diagnostics** (Calibration, C-statistic, Brier), **Absolute Measures** (ARD, NNT), **E-value**, **STROBE auto-fill**. |
 | **Causal** | `tab_causal_inference`, `tab_baseline_matching` | EconML Integration, Propensity Score Matching (PSM), Covariate Balance (Love Plots: Green <0.1, Yellow 0.1–0.2 (Red: >0.2, not rendered)), Common Support Visualization. |
 | **Specialized** | `tab_survival`, `tab_advanced_stats`, `tab_sample_size` | Kaplan-Meier, **Extended Diagnostics** (Schoenfeld/Martingale/Deviance), Time-Varying Cox (with Interaction Check), G-Computation, Power Analysis. |
 

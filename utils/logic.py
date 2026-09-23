@@ -57,7 +57,7 @@ COLORS = {
     "surface": _PALETTE.get("surface", "#FFFFFF"),
 }
 
-# Try to import Firth regression (firthmodels >= 0.7.2)
+# Try to import Firth regression (firthmodels >= 0.8.2)
 try:
     from firthmodels import FirthLogisticRegression, detect_separation
 
@@ -74,7 +74,7 @@ FitStatus: TypeAlias = Literal["OK"] | str
 MethodType: TypeAlias = Literal["default", "bfgs", "firth", "auto"]
 
 
-class StatsMetrics(TypedDict):
+class StatsMetrics(TypedDict, total=False):
     mcfadden: float
     nagelkerke: float
     p_value: float | None
@@ -83,6 +83,8 @@ class StatsMetrics(TypedDict):
     auc: float | None  # New
     hl_pvalue: float | None  # New
     hl_stat: float | None  # New
+    lrt_fallback_vars: list[str] | None
+    ci_fallback: bool | None
 
 
 # Functional syntax for TypedDict to support 'or' as a key
@@ -314,18 +316,33 @@ def fit_firth_logistic(
 
     try:
         # Using firthmodels with configurable penalty weight
-        fl = FirthLogisticRegression(
-            fit_intercept=False, penalty_weight=penalty_weight
-        )
+        fl = FirthLogisticRegression(fit_intercept=False, penalty_weight=penalty_weight)
 
         fl.fit(X_const, y)
 
+        lrt_fallback_vars: list[str] = []
         # Explicitly call LRT for better p-values
         try:
             fl.lrt()
-            pvalues_src = getattr(fl, "lrt_pvalues_", fl.pvalues_)
+            lrt_p = getattr(fl, "lrt_pvalues_", None)
+            if isinstance(lrt_p, (np.ndarray, list, pd.Series)) and not np.all(
+                np.isnan(lrt_p)
+            ):
+                lrt_arr = np.asarray(lrt_p)
+                # If individual constrained LRT fits failed to converge, fall back to Wald for those features
+                if np.isnan(lrt_arr).any() and fl.pvalues_ is not None:
+                    pvalues_src = np.where(np.isnan(lrt_arr), fl.pvalues_, lrt_arr)
+                    for idx, is_nan in enumerate(np.isnan(lrt_arr)):
+                        if is_nan and idx < len(X_const.columns):
+                            lrt_fallback_vars.append(str(X_const.columns[idx]))
+                else:
+                    pvalues_src = lrt_p
+            else:
+                pvalues_src = fl.pvalues_
+                lrt_fallback_vars = [str(c) for c in X_const.columns]
         except Exception:
             pvalues_src = fl.pvalues_
+            lrt_fallback_vars = [str(c) for c in X_const.columns]
 
         coef = np.asarray(fl.coef_).reshape(-1)
         if coef.shape[0] != len(X_const.columns):
@@ -339,14 +356,48 @@ def fit_firth_logistic(
             index=X_const.columns,
         )
 
+        ci_fallback: bool = False
         try:
             # Try Profile Likelihood CIs first
             ci = fl.conf_int(method="pl")
+            ci_arr = np.asarray(ci, dtype=float)
+            if ci_arr.ndim == 2 and ci_arr.shape == (len(X_const.columns), 2):
+                if not np.all(np.isfinite(ci_arr)):
+                    try:
+                        wald_ci = np.asarray(fl.conf_int(method="wald"), dtype=float)
+                    except Exception:
+                        se = getattr(fl, "bse_", None)
+                        if se is not None:
+                            se_arr = np.asarray(se, dtype=float)
+                            wald_ci = np.column_stack(
+                                [coef - 1.96 * se_arr, coef + 1.96 * se_arr]
+                            )
+                        else:
+                            wald_ci = ci_arr
+                    non_finite_mask = ~np.isfinite(ci_arr)
+                    if non_finite_mask.any() and wald_ci.shape == ci_arr.shape:
+                        ci_arr = np.where(non_finite_mask, wald_ci, ci_arr)
+                        ci_fallback = True
+                ci = ci_arr
+            else:
+                ci = fl.conf_int(method="wald")
+                ci_fallback = True
         except Exception:
             # Fallback to Wald
-            ci = fl.conf_int(method="wald")
+            try:
+                ci = fl.conf_int(method="wald")
+            except Exception:
+                se = getattr(fl, "bse_", None)
+                if se is not None:
+                    se_arr = np.asarray(se, dtype=float)
+                    ci = np.column_stack([coef - 1.96 * se_arr, coef + 1.96 * se_arr])
+                else:
+                    ci = np.full((len(X_const.columns), 2), np.nan)
+            ci_fallback = True
 
         conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
+        stats_metrics["lrt_fallback_vars"] = lrt_fallback_vars
+        stats_metrics["ci_fallback"] = ci_fallback
 
         # ✅ NEW: Calculate Predictions & Diagnostics
         try:
@@ -714,6 +765,7 @@ def analyze_outcome(
 
     # Check for perfect separation using Konis (2007) LP method
     has_perfect_separation = False
+    separation_indeterminate = False
     if method == "auto" and HAS_FIRTH:
         try:
             sep_parts = []
@@ -742,11 +794,17 @@ def analyze_outcome(
                     if has_perfect_separation:
                         logger.info(
                             "Separation detected (Konis LP method): %s",
-                            sep_result.summary() if hasattr(sep_result, 'summary') else 'True',
+                            sep_result.summary()
+                            if hasattr(sep_result, "summary")
+                            else "True",
                         )
-        except Exception as e:
-            logger.warning("detect_separation failed, falling back to heuristic: %s", e)
-            # Fallback: original crosstab heuristic
+        except np.linalg.LinAlgError as e:
+            logger.info(
+                "detect_separation: design matrix is rank-deficient (collinearity detected): %s",
+                e,
+            )
+            # Fallback: crosstab heuristic to detect predictor-level separators
+            found_sep = False
             for col in sorted_cols:
                 if col == outcome_name or col not in df_aligned.columns:
                     continue
@@ -754,16 +812,47 @@ def analyze_outcome(
                     X_num = df_aligned[col].apply(clean_numeric_value)
                     if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
                         has_perfect_separation = True
+                        found_sep = True
                         break
                 except Exception:
                     continue
+            if not found_sep:
+                separation_indeterminate = True
+                logger.info(
+                    "detect_separation: separation status is indeterminate due to collinearity; crosstab found no single-variable separator."
+                )
+        except Exception as e:
+            logger.warning("detect_separation failed, falling back to heuristic: %s", e)
+            # Fallback: original crosstab heuristic
+            found_sep = False
+            for col in sorted_cols:
+                if col == outcome_name or col not in df_aligned.columns:
+                    continue
+                try:
+                    X_num = df_aligned[col].apply(clean_numeric_value)
+                    if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
+                        has_perfect_separation = True
+                        found_sep = True
+                        break
+                except Exception:
+                    continue
+            if not found_sep:
+                separation_indeterminate = True
+                logger.info(
+                    "detect_separation: separation status is indeterminate; crosstab found no single-variable separator."
+                )
 
     # Select fitting method
     preferred_method: MethodType = "bfgs"
     if (
         method == "auto"
         and HAS_FIRTH
-        and (has_perfect_separation or len(df) < 50 or (y == 1).sum() < 20)
+        and (
+            has_perfect_separation
+            or separation_indeterminate
+            or len(df) < 50
+            or (y == 1).sum() < 20
+        )
     ):
         preferred_method = "firth"
     elif method == "firth":
@@ -882,8 +971,10 @@ def analyze_outcome(
 
                 if dummy_cols and temp_df[dummy_cols].std().sum() > 0:
                     params, conf, pvals, status, _ = run_binary_logit(
-                        temp_df["y"], temp_df[dummy_cols], method=preferred_method,
-                        penalty_weight=penalty_weight
+                        temp_df["y"],
+                        temp_df[dummy_cols],
+                        method=preferred_method,
+                        penalty_weight=penalty_weight,
                     )
                     if status == "OK":
                         or_lines, coef_lines, p_lines = ["Ref."], ["-"], ["-"]
@@ -976,8 +1067,10 @@ def analyze_outcome(
             data_uni = pd.DataFrame({"y": y, "x": X_num}).dropna()
             if not data_uni.empty and data_uni["x"].nunique() > 1:
                 params, hex_conf, pvals, status, _ = run_binary_logit(
-                    data_uni["y"], data_uni[["x"]], method=preferred_method,
-                    penalty_weight=penalty_weight
+                    data_uni["y"],
+                    data_uni[["x"]],
+                    method=preferred_method,
+                    penalty_weight=penalty_weight,
                 )
                 if status == "OK" and "x" in params:
                     coef = params["x"]
@@ -1244,7 +1337,10 @@ def analyze_outcome(
                 alignment_parts = []
                 if len(predictors_for_vif) > 0:
                     adj_list = ", ".join(
-                        [str(p).replace("::", ": ") for p in predictors_for_vif[:5]]
+                        [
+                            html.escape(str(p).replace("::", ": "))
+                            for p in predictors_for_vif[:5]
+                        ]
                     )
                     if len(predictors_for_vif) > 5:
                         adj_list += " et al."
@@ -1267,6 +1363,19 @@ def analyze_outcome(
                     alignment_parts.append(
                         "Firth's penalized likelihood was used to account for potential separation or small sample bias."
                     )
+                    lrt_fb = mv_stats.get("lrt_fallback_vars", [])
+                    ci_fb = mv_stats.get("ci_fallback", False)
+                    if lrt_fb:
+                        fb_names = [
+                            html.escape(str(v).replace("::", ": ")) for v in lrt_fb
+                        ]
+                        alignment_parts.append(
+                            f"<b>Note:</b> Wald test P-value was used as fallback for parameter(s) <i>{', '.join(fb_names)}</i> due to LRT non-convergence."
+                        )
+                    if ci_fb:
+                        alignment_parts.append(
+                            "<b>Note:</b> Wald approximation was used for 95% CI due to Profile Likelihood non-convergence."
+                        )
 
                 alignment_html = ""
                 if alignment_parts:
@@ -1597,9 +1706,20 @@ def analyze_outcome(
     </div></div><br>"""
 
     if preferred_method == "firth":
+        firth_extra = ""
+        if "mv_stats" in locals() and isinstance(mv_stats, dict):
+            lrt_fb = mv_stats.get("lrt_fallback_vars", [])
+            ci_fb = mv_stats.get("ci_fallback", False)
+            if lrt_fb:
+                fb_names = [html.escape(str(v).replace("::", ": ")) for v in lrt_fb]
+                firth_extra += f"<br>⚠️ <em>Note: Parameter(s) <strong>{', '.join(fb_names)}</strong> used Wald P-value as fallback because penalized LRT did not converge.</em>"
+            if ci_fb:
+                firth_extra += "<br>⚠️ <em>Note: 95% CI used Wald approximation as fallback because Profile Likelihood did not converge.</em>"
+
         banner = (
             f"<div style='background-color: {COLORS['info']}20; border: 1px solid {COLORS['info']}; padding: 10px; border-radius: 5px; margin-bottom: 20px;'>"
             "<strong>ℹ️ Method Used:</strong> Firth's Penalized Likelihood (useful for rare events or separation)."
+            f"{firth_extra}"
             "</div>"
         )
 
