@@ -340,6 +340,21 @@ def test_separation_linalg_error_crosstab_fallback():
         assert "x1" not in risky_no_sep
         assert "x2" not in risky_no_sep
 
+    # 3. Large dataset (N=60, events=30) where small-sample heuristics don't trigger Firth,
+    # but collinearity causes LinAlgError: separation_indeterminate ensures Firth is still selected.
+    df_large = pd.DataFrame(
+        {
+            "y": [0, 1] * 30,
+            "x1": [1, 2] * 30,
+            "x2": [1, 2] * 30,  # collinear with x1
+        }
+    )
+    with patch("firthmodels.detect_separation") as mock_detect:
+        mock_detect.side_effect = np.linalg.LinAlgError("Matrix is singular")
+
+        html_large, _, _, _ = analyze_outcome("y", df_large, method="auto")
+        assert "Firth's Penalized Likelihood" in html_large
+
 
 def test_firth_note_html_escaping():
     """Verify that fallback variable names with HTML characters are escaped in note text."""

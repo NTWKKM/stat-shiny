@@ -765,6 +765,7 @@ def analyze_outcome(
 
     # Check for perfect separation using Konis (2007) LP method
     has_perfect_separation = False
+    separation_indeterminate = False
     if method == "auto" and HAS_FIRTH:
         try:
             sep_parts = []
@@ -803,6 +804,7 @@ def analyze_outcome(
                 e,
             )
             # Fallback: crosstab heuristic to detect predictor-level separators
+            found_sep = False
             for col in sorted_cols:
                 if col == outcome_name or col not in df_aligned.columns:
                     continue
@@ -810,12 +812,19 @@ def analyze_outcome(
                     X_num = df_aligned[col].apply(clean_numeric_value)
                     if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
                         has_perfect_separation = True
+                        found_sep = True
                         break
                 except Exception:
                     continue
+            if not found_sep:
+                separation_indeterminate = True
+                logger.info(
+                    "detect_separation: separation status is indeterminate due to collinearity; crosstab found no single-variable separator."
+                )
         except Exception as e:
             logger.warning("detect_separation failed, falling back to heuristic: %s", e)
             # Fallback: original crosstab heuristic
+            found_sep = False
             for col in sorted_cols:
                 if col == outcome_name or col not in df_aligned.columns:
                     continue
@@ -823,16 +832,27 @@ def analyze_outcome(
                     X_num = df_aligned[col].apply(clean_numeric_value)
                     if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
                         has_perfect_separation = True
+                        found_sep = True
                         break
                 except Exception:
                     continue
+            if not found_sep:
+                separation_indeterminate = True
+                logger.info(
+                    "detect_separation: separation status is indeterminate; crosstab found no single-variable separator."
+                )
 
     # Select fitting method
     preferred_method: MethodType = "bfgs"
     if (
         method == "auto"
         and HAS_FIRTH
-        and (has_perfect_separation or len(df) < 50 or (y == 1).sum() < 20)
+        and (
+            has_perfect_separation
+            or separation_indeterminate
+            or len(df) < 50
+            or (y == 1).sum() < 20
+        )
     ):
         preferred_method = "firth"
     elif method == "firth":
