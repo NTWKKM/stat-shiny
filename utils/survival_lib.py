@@ -1351,22 +1351,29 @@ def _fit_firth_cox(
     # HR = exp(coef)
     hrs = np.exp(coefs)
     wald_ci_fallback: bool = False
+    wald_low = coefs - 1.96 * se
+    wald_high = coefs + 1.96 * se
     try:
         ci_bounds = model.conf_int(method="pl")
-        if (
-            isinstance(ci_bounds, np.ndarray)
-            and ci_bounds.ndim == 2
-            and ci_bounds.shape[1] == 2
-        ):
-            ci_low = np.exp(ci_bounds[:, 0])
-            ci_high = np.exp(ci_bounds[:, 1])
+        ci_arr = np.asarray(ci_bounds, dtype=float)
+        if ci_arr.ndim == 2 and ci_arr.shape == (len(covariate_cols), 2):
+            low = ci_arr[:, 0].copy()
+            high = ci_arr[:, 1].copy()
+            non_finite_low = ~np.isfinite(low)
+            non_finite_high = ~np.isfinite(high)
+            if non_finite_low.any() or non_finite_high.any():
+                low = np.where(non_finite_low, wald_low, low)
+                high = np.where(non_finite_high, wald_high, high)
+                wald_ci_fallback = True
+            ci_low = np.exp(low)
+            ci_high = np.exp(high)
         else:
-            ci_low = np.exp(coefs - 1.96 * se)
-            ci_high = np.exp(coefs + 1.96 * se)
+            ci_low = np.exp(wald_low)
+            ci_high = np.exp(wald_high)
             wald_ci_fallback = True
     except Exception:
-        ci_low = np.exp(coefs - 1.96 * se)
-        ci_high = np.exp(coefs + 1.96 * se)
+        ci_low = np.exp(wald_low)
+        ci_high = np.exp(wald_high)
         wald_ci_fallback = True
 
     # 5. Build results DataFrame

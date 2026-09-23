@@ -1850,8 +1850,9 @@ def survival_server(
             ci_fb = res_df_orig.attrs.get("firth_ci_fallback", False)
             notes = []
             if p_fb:
+                fb_names = [html.escape(str(v)) for v in p_fb]
                 notes.append(
-                    f"⚠️ <em>Note: Parameter(s) <strong>{', '.join(p_fb)}</strong> used Wald test P-value as fallback because penalized likelihood ratio test (LRT) did not converge.</em>"
+                    f"⚠️ <em>Note: Parameter(s) <strong>{', '.join(fb_names)}</strong> used Wald test P-value as fallback because penalized likelihood ratio test (LRT) did not converge.</em>"
                 )
             if ci_fb:
                 notes.append(

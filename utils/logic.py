@@ -360,9 +360,39 @@ def fit_firth_logistic(
         try:
             # Try Profile Likelihood CIs first
             ci = fl.conf_int(method="pl")
+            ci_arr = np.asarray(ci, dtype=float)
+            if ci_arr.ndim == 2 and ci_arr.shape == (len(X_const.columns), 2):
+                if not np.all(np.isfinite(ci_arr)):
+                    try:
+                        wald_ci = np.asarray(fl.conf_int(method="wald"), dtype=float)
+                    except Exception:
+                        se = getattr(fl, "bse_", None)
+                        if se is not None:
+                            se_arr = np.asarray(se, dtype=float)
+                            wald_ci = np.column_stack(
+                                [coef - 1.96 * se_arr, coef + 1.96 * se_arr]
+                            )
+                        else:
+                            wald_ci = ci_arr
+                    non_finite_mask = ~np.isfinite(ci_arr)
+                    if non_finite_mask.any() and wald_ci.shape == ci_arr.shape:
+                        ci_arr = np.where(non_finite_mask, wald_ci, ci_arr)
+                        ci_fallback = True
+                ci = ci_arr
+            else:
+                ci = fl.conf_int(method="wald")
+                ci_fallback = True
         except Exception:
             # Fallback to Wald
-            ci = fl.conf_int(method="wald")
+            try:
+                ci = fl.conf_int(method="wald")
+            except Exception:
+                se = getattr(fl, "bse_", None)
+                if se is not None:
+                    se_arr = np.asarray(se, dtype=float)
+                    ci = np.column_stack([coef - 1.96 * se_arr, coef + 1.96 * se_arr])
+                else:
+                    ci = np.full((len(X_const.columns), 2), np.nan)
             ci_fallback = True
 
         conf_int = pd.DataFrame(ci, index=X_const.columns, columns=[0, 1])
@@ -772,6 +802,17 @@ def analyze_outcome(
                 "detect_separation: design matrix is rank-deficient (collinearity detected): %s",
                 e,
             )
+            # Fallback: crosstab heuristic to detect predictor-level separators
+            for col in sorted_cols:
+                if col == outcome_name or col not in df_aligned.columns:
+                    continue
+                try:
+                    X_num = df_aligned[col].apply(clean_numeric_value)
+                    if X_num.nunique() > 1 and (pd.crosstab(X_num, y) == 0).any().any():
+                        has_perfect_separation = True
+                        break
+                except Exception:
+                    continue
         except Exception as e:
             logger.warning("detect_separation failed, falling back to heuristic: %s", e)
             # Fallback: original crosstab heuristic
@@ -1302,7 +1343,9 @@ def analyze_outcome(
                     lrt_fb = mv_stats.get("lrt_fallback_vars", [])
                     ci_fb = mv_stats.get("ci_fallback", False)
                     if lrt_fb:
-                        fb_names = [str(v).replace("::", ": ") for v in lrt_fb]
+                        fb_names = [
+                            html.escape(str(v).replace("::", ": ")) for v in lrt_fb
+                        ]
                         alignment_parts.append(
                             f"<b>Note:</b> Wald test P-value was used as fallback for parameter(s) <i>{', '.join(fb_names)}</i> due to LRT non-convergence."
                         )
@@ -1645,7 +1688,7 @@ def analyze_outcome(
             lrt_fb = mv_stats.get("lrt_fallback_vars", [])
             ci_fb = mv_stats.get("ci_fallback", False)
             if lrt_fb:
-                fb_names = [str(v).replace("::", ": ") for v in lrt_fb]
+                fb_names = [html.escape(str(v).replace("::", ": ")) for v in lrt_fb]
                 firth_extra += f"<br>⚠️ <em>Note: Parameter(s) <strong>{', '.join(fb_names)}</strong> used Wald P-value as fallback because penalized LRT did not converge.</em>"
             if ci_fb:
                 firth_extra += "<br>⚠️ <em>Note: 95% CI used Wald approximation as fallback because Profile Likelihood did not converge.</em>"
