@@ -133,8 +133,8 @@ class TestPlotlyHtmlRenderer:
 
         result = plotly_figure_to_html(fig, div_id=malicious_id)
 
-        # Script tags should NOT appear in output
-        assert "<script>" not in result
+        # Injected script tag from malicious div_id should NOT appear in output
+        assert '<script>alert("xss")</script>' not in result
         assert 'alert("xss")' not in result
         # Verify the malicious content was sanitized, not just removed
         assert "scriptalertxss" in result.lower() or "script" not in result.lower()

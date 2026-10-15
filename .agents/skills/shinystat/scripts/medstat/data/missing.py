@@ -838,9 +838,12 @@ def prepare_data_for_analysis(
 
     protected = set(outcome_cols or strategy_params.get("outcome_cols", []))
     bad = [c for c in protected if missing_counts.get(c, 0) > 0]
-    if bad:
+    if bad and strategy_norm in {"mice", "knn", "indicator"}:
         raise MissingStrategyRequiredError(
-            message=f"Primary outcome column(s) {bad} contain missing values; outcomes must not be imputed (Pillar 4 Invariant).",
+            message=(
+                f"Primary outcome column(s) {bad} contain missing values; outcomes must not be imputed "
+                f"(Pillar 4 Invariant). Use 'complete-case' to exclude these rows."
+            ),
             missing_counts=missing_counts,
             missing_pct=missing_pct,
             required_cols=required_cols,

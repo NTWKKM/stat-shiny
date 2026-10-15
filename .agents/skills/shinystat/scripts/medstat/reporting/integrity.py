@@ -126,35 +126,21 @@ _DATE_PREFIX_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Common non-data numbers to ignore during traceability check
+# Common non-data numbers to ignore during traceability check when used in structural context
 IGNORED_NUMBERS = {
     0.0,
-    1.0,
-    2.0,
-    3.0,
-    4.0,
-    5.0,
-    6.0,
-    7.0,
-    8.0,
-    9.0,
-    10.0,  # Single-digit indices/levels
+    *(float(i) for i in range(1, 21)),  # Single-digit and small integer indices/levels
     1.5,
     2.5,
+    90.0,
     95.0,
     99.0,
     0.05,
     0.01,
-    0.001,  # Standard alpha/confidence level constants
+    0.001,
+    0.005,  # Standard alpha/confidence level constants
     100.0,  # Standard 100% scale
-    2020.0,
-    2021.0,
-    2022.0,
-    2023.0,
-    2024.0,
-    2025.0,
-    2026.0,
-    2027.0,  # Years
+    *(float(y) for y in range(2010, 2036)),  # Calendar years
 }
 
 
@@ -352,7 +338,12 @@ def verify_report_integrity(doc: ReportDocument) -> IntegrityReport:
                     break
 
         if not matched:
-            if not is_structural and tn not in IGNORED_NUMBERS:
+            # Structural numbers and constants are exempt ONLY when their token
+            # context identifies a structural constant (e.g. CI level, alpha cutoff,
+            # calendar year, table/figure counter). Reported results (effect sizes, counts)
+            # remain subject to results_dict traceability even if their values match IGNORED_NUMBERS.
+            is_exempt = is_structural and (tn in IGNORED_NUMBERS)
+            if not is_exempt:
                 untraced.append(tn)
 
     # 3. Observational Causal Inference & E-value Check
