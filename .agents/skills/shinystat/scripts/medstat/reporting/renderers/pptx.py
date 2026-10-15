@@ -9,11 +9,23 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from pptx import Presentation
-from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN
-from pptx.util import Inches, Pt
+
+try:
+    from pptx import Presentation
+    from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_SHAPE
+    from pptx.enum.text import PP_ALIGN
+    from pptx.util import Inches, Pt
+
+    PPTX_AVAILABLE = True
+except ImportError:
+    Presentation = None
+    RGBColor = None
+    MSO_SHAPE = None
+    PP_ALIGN = None
+    Inches = None
+    Pt = None
+    PPTX_AVAILABLE = False
 
 from medstat.reporting.ir import (
     CalloutBlock,
@@ -25,13 +37,22 @@ from medstat.reporting.ir import (
 )
 
 # Color Palette (Clinical Executive Slate & Blue)
-COLOR_PRIMARY = RGBColor(15, 23, 42)  # Slate 900
-COLOR_SECONDARY = RGBColor(30, 41, 59)  # Slate 800
-COLOR_ACCENT = RGBColor(2, 132, 199)  # Sky 600
-COLOR_MUTED = RGBColor(100, 116, 139)  # Slate 500
-COLOR_BG_LIGHT = RGBColor(248, 250, 252)  # Slate 50
-COLOR_WHITE = RGBColor(255, 255, 255)
-COLOR_CARD_BORDER = RGBColor(226, 232, 240)
+if PPTX_AVAILABLE and RGBColor is not None:
+    COLOR_PRIMARY = RGBColor(15, 23, 42)  # Slate 900
+    COLOR_SECONDARY = RGBColor(30, 41, 59)  # Slate 800
+    COLOR_ACCENT = RGBColor(2, 132, 199)  # Sky 600
+    COLOR_MUTED = RGBColor(100, 116, 139)  # Slate 500
+    COLOR_BG_LIGHT = RGBColor(248, 250, 252)  # Slate 50
+    COLOR_WHITE = RGBColor(255, 255, 255)
+    COLOR_CARD_BORDER = RGBColor(226, 232, 240)
+else:
+    COLOR_PRIMARY = None
+    COLOR_SECONDARY = None
+    COLOR_ACCENT = None
+    COLOR_MUTED = None
+    COLOR_BG_LIGHT = None
+    COLOR_WHITE = None
+    COLOR_CARD_BORDER = None
 
 
 def _add_title_slide(prs: Presentation, doc: ReportDocument) -> None:
@@ -349,6 +370,12 @@ def render_pptx(
     """
     out_p = Path(out_path).resolve()
     out_p.parent.mkdir(parents=True, exist_ok=True)
+
+    if not PPTX_AVAILABLE or Presentation is None or Inches is None:
+        raise ImportError(
+            "python-pptx is required for pptx export. "
+            "Please install it via 'pip install python-pptx'."
+        )
 
     prs = Presentation()
     # 16:9 Widescreen standard: 13.333 in x 7.5 in

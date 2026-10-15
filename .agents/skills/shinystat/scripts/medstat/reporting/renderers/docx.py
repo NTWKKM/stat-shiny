@@ -8,12 +8,27 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from docx import Document
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls, qn
-from docx.shared import Inches, Pt, RGBColor
+
+try:
+    from docx import Document
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import parse_xml
+    from docx.oxml.ns import nsdecls, qn
+    from docx.shared import Inches, Pt, RGBColor
+
+    DOCX_AVAILABLE = True
+except ImportError:
+    Document = None
+    WD_TABLE_ALIGNMENT = None
+    WD_ALIGN_PARAGRAPH = None
+    parse_xml = None
+    nsdecls = None
+    qn = None
+    Inches = None
+    Pt = None
+    RGBColor = None
+    DOCX_AVAILABLE = False
 
 from medstat.reporting.ir import (
     CalloutBlock,
@@ -79,6 +94,12 @@ def render_docx(
     """
     out_p = Path(out_path).resolve()
     out_p.parent.mkdir(parents=True, exist_ok=True)
+
+    if not DOCX_AVAILABLE or Document is None:
+        raise ImportError(
+            "python-docx is required for docx export. "
+            "Please install it via 'pip install python-docx'."
+        )
 
     document = Document()
 

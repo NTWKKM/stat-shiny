@@ -111,3 +111,21 @@ def test_verify_report_integrity_structural_vs_untraced():
     # 2024.0 (sample count) and 0.05 (unsupported effect estimate) must NOT be exempt!
     assert 2024.0 in rep_untraced.untraced_numbers
     assert 0.05 in rep_untraced.untraced_numbers
+
+
+def test_renderers_graceful_import_error(monkeypatch):
+    """Verify that render_docx and render_pptx raise clear ImportError when packages are missing."""
+    import medstat.reporting.renderers.docx as docx_mod
+    import medstat.reporting.renderers.pptx as pptx_mod
+
+    doc = ReportDocument(title="Test Export")
+
+    monkeypatch.setattr(docx_mod, "DOCX_AVAILABLE", False)
+    with pytest.raises(ImportError) as exc_docx:
+        docx_mod.render_docx(doc, "dummy.docx")
+    assert "python-docx is required" in str(exc_docx.value)
+
+    monkeypatch.setattr(pptx_mod, "PPTX_AVAILABLE", False)
+    with pytest.raises(ImportError) as exc_pptx:
+        pptx_mod.render_pptx(doc, "dummy.pptx")
+    assert "python-pptx is required" in str(exc_pptx.value)
