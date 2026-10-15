@@ -107,6 +107,13 @@ Based on an 8px modular scale:
 - **Styling**: Generous padding (`10px 16px`), cell-only bottom borders, clean transparent header background, font-weight `500` headers.
 - **Hover**: Table row hover highlights with `var(--color-primary-light)` (`#F8FAFC`).
 
+### AI Agent Skills Promotion Components
+
+- **Showcase Banner (`.skill-promo-banner`)**: Flat white card with Slate 200 border, 24px padding, housing the primary value proposition, agent compatibility badges, terminal install bar, and skill comparison cards.
+- **Terminal Code Box (`.skill-terminal-box`)**: Slate 900 (`#0F172A`) background with dark border (`#1E293B`), Sky 400 (`#38BDF8`) monospace text, paired with a white flat Copy button providing 2-second visual feedback.
+- **Sub-Skill Cards (`.skill-card-sub`)**: Dual-card grid displaying `shinystat` (Local/CLI) and `shinystat-cloud` (Cloud/Web) with subtle hover borders (`#0F172A`).
+- **Sidebar Promo Card (`.sidebar-promo-card`)**: Compact card integrated into the sidebars (`tab_home.py` and `tab_data.py`) with 1-click clipboard copy and GitHub external link.
+
 ---
 
 ## 3. Accessibility & Constraints
@@ -115,3 +122,13 @@ Based on an 8px modular scale:
 2. **Motion Preference**: Layout animations (like fade-in entries) must respect `@media (prefers-reduced-motion: reduce)` by disabling transitions.
 3. **Keyboard Focus Indicators**: Every interactive control must show a standard high-visibility outline state on `:focus-visible` (3px outline offset by 2px in Slate 900).
 4. **Skip Links**: Retain screen-reader landmarks and page skip-links for keyboard-only navigation.
+
+---
+
+## 4. Containerization & Multi-Architecture Invariants
+
+- **Multi-Arch Compilation (`linux/amd64`, `linux/arm64`)**:
+  - Docker builder stages must install `build-essential` instead of bare `gcc` to guarantee standard C library headers (`libc6-dev`, `stdlib.h`) during QEMU cross-compilations.
+  - Pure-Python wheel preference: `shinychat` is constrained to `>=0.2.8,<0.7.0` to avoid implicit transitive dependencies on `libsass` (which lacks prebuilt aarch64 wheels and requires native compilation).
+  - Build context minimization: `.dockerignore` excludes virtual environments (`.venv`), git metadata, agent skills caches, and local result artifacts to keep context size < 1MB.
+
