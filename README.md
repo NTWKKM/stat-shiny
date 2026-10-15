@@ -57,6 +57,7 @@ This content reflects the repository structure (updated by GitHub Actions):
 |-- requirements-causal.txt
 |-- requirements-prod.txt
 |-- requirements.txt
+|-- skills-lock.json
 |-- static /
 |   |-- js /
 |   |   |-- custom_handlers.js
@@ -143,9 +144,11 @@ This content reflects the repository structure (updated by GitHub Actions):
 |       |-- test_formatting_styles.py
 |       |-- test_glm.py
 |       |-- test_heterogeneity.py
+|       |-- test_home_skills_promotion.py
 |       |-- test_linear_lib.py
 |       |-- test_mediation.py
 |       |-- test_medical_edge_cases.py
+|       |-- test_medstat_skill_integrity.py
 |       |-- test_meta_analysis.py
 |       |-- test_mi_reporting.py
 |       |-- test_missing_data.py
