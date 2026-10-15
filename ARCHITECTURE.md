@@ -433,6 +433,30 @@ The data flow is standardized to ensure consistent handling of missing values an
 
 ---
 
+## 🤖 AI Agent Skills Integration & Discovery
+
+The statistical calculation algorithms, decision heuristics, and publication renderers of the Medical Statistical Tool are synthesized into open-source Agent Skills (`shinystat` and `shinystat-cloud`) hosted at `https://github.com/ntwkkm/shinystat-skills`.
+
+### 1. The Two Synthesized Skills
+- **`shinystat` (Local & IDE CLI Edition)**:
+  - Designed for **Antigravity, Claude Code, Cursor, Windsurf, Cline, Codex**.
+  - Bundles the standalone `medstat` CLI package (`scripts/medstat/`).
+  - Features autonomous Firth penalized logistic regression with profile likelihood CIs, restricted cubic splines (RCS), Austin 2009 SMD, Austin & Steyerberg 2019 ICI, Vickers DCA Net Benefit, 300 DPI publication plots, and interactive dual-view Plotly HTML reports.
+- **`shinystat-cloud` (Cloud Sandboxes & Web LLMs)**:
+  - Designed for **Claude.ai Web Analysis Tool, ChatGPT Code Interpreter, Google Colab, Jupyter**.
+  - Pure-Python standalone recipes using pre-installed standard scientific packages (`pandas`, `scipy`, `statsmodels`, `lifelines`, `scikit-learn`).
+
+### 2. UI Discovery Points
+- **Home Page (`tabs/tab_home.py`)**:
+  - **Left Sidebar**: Dedicated quick-access panel with one-click copy command (`npx skills add https://github.com/ntwkkm/shinystat-skills`), agent badges, and GitHub links.
+  - **Showcase Banner**: High-visibility hero banner with detailed side-by-side feature comparisons for `shinystat` and `shinystat-cloud`, direct copy buttons, and an expandable multi-agent quickstart guide.
+- **Data Management Sidebar (`tabs/tab_data.py`)**:
+  - Embedded AI Agent Skills card situated below the workspace reset controls, enabling researchers to discover the skill during active data preparation.
+- **Command Palette (`static/js/interactions.js`)**:
+  - Registered in `MODULE_REGISTRY` under the "AI Skills" category (`⌘K` / `Ctrl+K`), discoverable via keywords like `skill`, `shinystat`, `agent`, `claude`, `cursor`, `ai`.
+
+---
+
 > [!NOTE]
 > **AI AGENT GUIDANCE**: When adding new features:
 >
@@ -440,3 +464,4 @@ The data flow is standardized to ensure consistent handling of missing values an
 > 2. Ensure all data-heavy modules call `prepare_data_for_analysis()`.
 > 3. Wrap `@render.download` handlers with `safe_download_html()` / `safe_report_generation()` from `utils/download_helpers.py` for HTML, or `safe_download_pdf()` / `safe_pdf_report_generation()` from `utils/pdf_helpers.py` for PDF.
 > 4. Add tests to the corresponding suite in `tests/`.
+

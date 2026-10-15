@@ -89,6 +89,7 @@ $(document).ready(function () {
     // ==========================================
     var MODULE_REGISTRY = [
         { id: "home", title: "🏠 Home", category: "General", desc: "Overview, quick links, and platform features", keywords: "home dashboard start landing" },
+        { id: "home", title: "🤖 Shinystat AI Skills (CLI & Cloud)", category: "AI Skills", desc: "Open-source agent skills for Antigravity, Claude Code, Cursor, and Claude Web", keywords: "skill skills shinystat agent ai claude cursor npx antigravity prompt biostatistics medstat" },
         { id: "data", title: "📁 Data Management", category: "Intake & Prep", desc: "Import CSV/Excel, type casting, missing imputation (KNN/MICE)", keywords: "data import upload csv excel imputation clean mice outliers" },
         { id: "bm", title: "📋 Table 1 & Matching", category: "Baseline & Matching", desc: "Patient baseline characteristics, SMD, and Propensity Score Matching (PSM)", keywords: "table 1 baseline matching psm propensity score smd balance" },
         { id: "diagnostic", title: "📊 Diagnostic Tests", category: "General Statistics", desc: "Sensitivity, specificity, ROC/AUC curve, DeLong test, Likelihood ratios", keywords: "roc auc sensitivity specificity diagnostic accuracy ppv npv youden delong" },

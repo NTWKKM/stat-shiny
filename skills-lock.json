@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "shinystat": {
+      "source": "ntwkkm/shinystat-skills",
+      "sourceType": "github",
+      "skillPath": "skills/shinystat/SKILL.md",
+      "computedHash": "4b2199a356abb78dfa539fed8a8274a326a5c91d89958b0908511e73dc502260"
+    },
+    "shinystat-cloud": {
+      "source": "ntwkkm/shinystat-skills",
+      "sourceType": "github",
+      "skillPath": "skills/shinystat-cloud/SKILL.md",
+      "computedHash": "2bba54a358c3980c8cb8611a1ec24c6cb1dea3b22528c2ccf06dde5e6957abc8"
+    }
+  }
+}
