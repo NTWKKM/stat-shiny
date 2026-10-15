@@ -36,11 +36,11 @@ def calculate_dca(
     Returns:
         pd.DataFrame with columns: threshold, net_benefit, strategy, tp_rate, fp_rate
     """
-    y_t = np.asarray(y_true, dtype=int).ravel()
+    raw_y_t = np.asarray(y_true).ravel()
     y_p = np.asarray(y_pred, dtype=float).ravel()
 
-    valid = ~(np.isnan(y_t) | np.isnan(y_p))
-    y_t = y_t[valid]
+    valid = ~(pd.isna(raw_y_t) | np.isnan(y_p))
+    y_t = raw_y_t[valid].astype(int)
     y_p = y_p[valid]
 
     n = len(y_t)

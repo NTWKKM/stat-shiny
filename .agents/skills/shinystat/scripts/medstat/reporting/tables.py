@@ -433,23 +433,35 @@ def render_diagnostic_table(
                     ),
                 }
             )
-        if "positive_likelihood_ratio" in acc or "lr_positive" in acc:
-            lr_pos = acc.get("positive_likelihood_ratio", acc.get("lr_positive"))
+        if any(
+            k in acc for k in ("positive_likelihood_ratio", "lr_positive", "lr_plus")
+        ):
+            lr_pos = acc.get(
+                "positive_likelihood_ratio", acc.get("lr_positive", acc.get("lr_plus"))
+            )
             records.append(
                 {
                     "Diagnostic Metric": "Positive Likelihood Ratio (LR+)",
                     "Estimate (95% CI)": _fmt_ci(
-                        lr_pos, acc.get("lr_positive_ci"), is_pct=False
+                        lr_pos,
+                        acc.get("lr_positive_ci", acc.get("lr_plus_ci")),
+                        is_pct=False,
                     ),
                 }
             )
-        if "negative_likelihood_ratio" in acc or "lr_negative" in acc:
-            lr_neg = acc.get("negative_likelihood_ratio", acc.get("lr_negative"))
+        if any(
+            k in acc for k in ("negative_likelihood_ratio", "lr_negative", "lr_minus")
+        ):
+            lr_neg = acc.get(
+                "negative_likelihood_ratio", acc.get("lr_negative", acc.get("lr_minus"))
+            )
             records.append(
                 {
                     "Diagnostic Metric": "Negative Likelihood Ratio (LR-)",
                     "Estimate (95% CI)": _fmt_ci(
-                        lr_neg, acc.get("lr_negative_ci"), is_pct=False
+                        lr_neg,
+                        acc.get("lr_negative_ci", acc.get("lr_minus_ci")),
+                        is_pct=False,
                     ),
                 }
             )

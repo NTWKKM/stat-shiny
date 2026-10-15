@@ -64,6 +64,7 @@ def run_mediation(
         handle_missing=missing_strategy,
         missing_justification=missing_justification,
         disallowed_strategies={"mice"},
+        outcome_cols=[outcome],
     )
 
     if len(df_clean) < 10:

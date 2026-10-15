@@ -480,10 +480,11 @@ def build_plotly_km_spec(
             ),
         })
 
-        if "censored_times" in curve and curve["censored_times"] and timeline:
+        raw_cens = curve.get("censored_times")
+        if raw_cens is not None and len(raw_cens) > 0 and timeline:
             cens_times = [
                 float(x)
-                for x in curve["censored_times"]
+                for x in raw_cens
                 if _clean_float(x) is not None
             ]
             cens_surv = []
@@ -659,6 +660,8 @@ def build_plotly_dca_spec(
 ) -> dict:
     """Builds a pure-dict Plotly specification for Decision Curve Analysis (Vickers DCA)."""
     strategies = {}
+    if hasattr(dca_data, "to_dict") and hasattr(dca_data, "columns"):
+        dca_data = dca_data.to_dict(orient="records")
     if isinstance(dca_data, dict) and "threshold" not in dca_data:
         strategies = dca_data
     elif isinstance(dca_data, list):
@@ -964,6 +967,23 @@ def build_plotly_love_spec(
 ) -> dict:
     """Builds a pure-dict Plotly specification for an Austin 2009 Love plot of Standardized Mean Differences."""
     clean_thresh = _clean_float(threshold, default=0.10)
+    if hasattr(love_data, "to_dict") and hasattr(love_data, "columns"):
+        records = []
+        for _, r in love_data.iterrows():
+            v = r.get("Variable", r.get("variable", ""))
+            pre = r.get("Pre-Match SMD", r.get("pre_smd", r.get("pre_match_smd", 0)))
+            post = r.get("Post-Match SMD", r.get("post_smd", r.get("post_match_smd", 0)))
+            records.append({"variable": v, "pre_smd": pre, "post_smd": post})
+        love_data = records
+    elif isinstance(love_data, dict) and "covariates" in love_data:
+        love_data = [
+            {"variable": v, "pre_smd": a, "post_smd": b}
+            for v, a, b in zip(
+                love_data.get("covariates", []),
+                love_data.get("smd_raw", []),
+                love_data.get("smd_matched", []),
+            )
+        ]
     variables, pre_smds, post_smds = [], [], []
     for d in love_data:
         try:
@@ -1038,6 +1058,9 @@ def build_plotly_love_spec(
 ### C. Standalone Word (`.docx`) Report (when `python-docx` is installed)
 
 ```python
+from pathlib import Path
+import pandas as pd
+
 try:
     import docx
     from docx.shared import Inches, Pt, RGBColor
@@ -1064,10 +1087,14 @@ try:
             tbl = doc.add_table(rows=len(df) + 1, cols=len(df.columns))
             # Format header
             for j, col in enumerate(df.columns):
-                tbl.cell(0, j).text = str(col)
-                tbl.cell(0, j).paragraphs[0].runs[0].bold = True
+                c = tbl.cell(0, j)
+                c.text = str(col)
+                if c.paragraphs and c.paragraphs[0].runs:
+                    c.paragraphs[0].runs[0].bold = True
+                elif c.paragraphs:
+                    c.paragraphs[0].add_run().bold = True
             # Populate data
-            for i, row in df.iterrows():
+            for i, (_, row) in enumerate(df.iterrows()):
                 for j, col in enumerate(df.columns):
                     val = str(row[col]) if pd.notna(row[col]) else ""
                     tbl.cell(i + 1, j).text = val

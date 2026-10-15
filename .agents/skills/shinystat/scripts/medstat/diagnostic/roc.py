@@ -23,11 +23,11 @@ def calculate_roc_curve(
     """
     Compute empirical ROC curve points (FPR, TPR, thresholds) and AUC.
     """
-    y_t = (np.asarray(y_true) == pos_label).astype(int)
+    raw_y_t = np.asarray(y_true)
     y_s = np.asarray(y_score, dtype=float)
 
-    valid = ~(np.isnan(y_t) | np.isnan(y_s))
-    y_t = y_t[valid]
+    valid = ~(pd.isna(raw_y_t) | np.isnan(y_s))
+    y_t = (raw_y_t[valid] == pos_label).astype(int)
     y_s = y_s[valid]
 
     if len(np.unique(y_t)) < 2:
@@ -109,11 +109,11 @@ def auc_ci_delong(
     """
     Compute AUC and DeLong analytical 95% confidence intervals (DeLong et al., 1988).
     """
-    y_t = (np.asarray(y_true) == pos_label).astype(int)
+    raw_y_t = np.asarray(y_true)
     y_s = np.asarray(y_score, dtype=float)
 
-    valid = ~(np.isnan(y_t) | np.isnan(y_s))
-    y_t = y_t[valid]
+    valid = ~(pd.isna(raw_y_t) | np.isnan(y_s))
+    y_t = (raw_y_t[valid] == pos_label).astype(int)
     y_s = y_s[valid]
 
     n_pos = np.sum(y_t == 1)
@@ -153,12 +153,12 @@ def delong_paired_test(
     """
     Paired DeLong test for comparing two correlated ROC curves evaluated on the same subjects.
     """
-    y_t = (np.asarray(y_true) == pos_label).astype(int)
+    raw_y_t = np.asarray(y_true)
     s1 = np.asarray(score1, dtype=float)
     s2 = np.asarray(score2, dtype=float)
 
-    valid = ~(np.isnan(y_t) | np.isnan(s1) | np.isnan(s2))
-    y_t = y_t[valid]
+    valid = ~(pd.isna(raw_y_t) | np.isnan(s1) | np.isnan(s2))
+    y_t = (raw_y_t[valid] == pos_label).astype(int)
     s1 = s1[valid]
     s2 = s2[valid]
 

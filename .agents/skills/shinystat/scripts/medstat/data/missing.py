@@ -724,6 +724,7 @@ def prepare_data_for_analysis(
     strategy_params: dict[str, Any] | None = None,
     return_info: bool = True,
     disallowed_strategies: set[str] | list[str] | None = None,
+    outcome_cols: list[str] | None = None,
     **kwargs: Any,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """
@@ -835,6 +836,16 @@ def prepare_data_for_analysis(
     mice_result = None
     added_columns: list[str] = []
 
+    protected = set(outcome_cols or strategy_params.get("outcome_cols", []))
+    bad = [c for c in protected if missing_counts.get(c, 0) > 0]
+    if bad:
+        raise MissingStrategyRequiredError(
+            message=f"Primary outcome column(s) {bad} contain missing values; outcomes must not be imputed (Pillar 4 Invariant).",
+            missing_counts=missing_counts,
+            missing_pct=missing_pct,
+            required_cols=required_cols,
+        )
+
     if total_missing_cells == 0 or strategy_norm == "none":
         df_clean = df_subset
         rows_excluded = 0
@@ -867,6 +878,22 @@ def prepare_data_for_analysis(
                 f"MICE imputation requires numeric columns; non-numeric columns with missing data: {non_numeric_missing}"
             )
 
+        binary_missing = [
+            col
+            for col in required_cols
+            if missing_counts.get(col, 0) > 0 and df_subset[col].dropna().nunique() <= 2
+        ]
+        if binary_missing:
+            raise ValueError(
+                f"MICE cannot impute binary columns {binary_missing}; use a type-specific model."
+            )
+
+        eligible_cols = [
+            c
+            for c in required_cols
+            if pd.api.types.is_numeric_dtype(df_subset[c]) and c not in protected
+        ]
+
         m_imputations = strategy_params.get(
             "n_imputations", strategy_params.get("m", 5)
         )
@@ -876,7 +903,7 @@ def prepare_data_for_analysis(
         imputer = MICEImputer(
             n_imputations=m_imputations, max_iter=max_iter, random_state=random_state
         )
-        mice_result = imputer.fit_transform(df_subset)
+        mice_result = imputer.fit_transform(df_subset, columns=eligible_cols)
         df_clean = mice_result.imputed_datasets[0]
         imputed_datasets = mice_result.imputed_datasets
         rows_excluded = 0
@@ -901,8 +928,26 @@ def prepare_data_for_analysis(
                 f"KNN imputation requires numeric columns; non-numeric columns with missing data: {non_numeric_missing}"
             )
 
+        binary_missing = [
+            col
+            for col in required_cols
+            if missing_counts.get(col, 0) > 0 and df_subset[col].dropna().nunique() <= 2
+        ]
+        if binary_missing:
+            raise ValueError(
+                f"KNN cannot impute binary columns {binary_missing}; use a type-specific model."
+            )
+
+        eligible_cols = [
+            c
+            for c in required_cols
+            if pd.api.types.is_numeric_dtype(df_subset[c]) and c not in protected
+        ]
+
         k_neighbors = strategy_params.get("n_neighbors", strategy_params.get("k", 5))
-        df_clean = impute_knn(df_subset, n_neighbors=k_neighbors, scale=True)
+        df_clean = impute_knn(
+            df_subset, columns=eligible_cols, n_neighbors=k_neighbors, scale=True
+        )
         rows_excluded = 0
 
         if tracker is not None and hasattr(tracker, "record_stage"):

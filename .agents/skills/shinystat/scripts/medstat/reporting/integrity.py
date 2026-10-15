@@ -352,7 +352,7 @@ def verify_report_integrity(doc: ReportDocument) -> IntegrityReport:
                     break
 
         if not matched:
-            if not is_structural:
+            if not is_structural and tn not in IGNORED_NUMBERS:
                 untraced.append(tn)
 
     # 3. Observational Causal Inference & E-value Check

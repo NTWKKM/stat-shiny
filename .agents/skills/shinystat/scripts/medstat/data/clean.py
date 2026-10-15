@@ -794,15 +794,15 @@ def littles_mcar_test(
     # If df <= 0, test cannot be evaluated asymptotically
     if df_stat <= 0:
         return LittlesMCARResult(
-            statistic=0.0,
+            statistic=float("nan"),
             df=max(0, df_stat),
-            p_value=1.0,
-            is_mcar=True,
+            p_value=float("nan"),
+            is_mcar=False,
             n_patterns=len(parsed_patterns),
             n_observations=N,
             n_variables=P,
             pattern_counts=pattern_counts,
-            em_converged=True,
+            em_converged=False,
             em_iterations=0,
             mu_mle={
                 col: float(np.nanmean(Y[:, i])) for i, col in enumerate(target_cols)

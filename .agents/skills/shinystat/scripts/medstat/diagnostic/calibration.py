@@ -70,8 +70,12 @@ def calculate_calibration_curve(
     """
     Compute calibration curve: observed event proportions vs predicted mean probabilities.
     """
-    y_t = np.asarray(y_true, dtype=int).ravel()
-    y_p = np.clip(np.asarray(y_pred, dtype=float).ravel(), 1e-6, 1.0 - 1e-6)
+    raw_y_t = np.asarray(y_true).ravel()
+    raw_y_p = np.asarray(y_pred, dtype=float).ravel()
+
+    valid = ~(pd.isna(raw_y_t) | np.isnan(raw_y_p))
+    y_t = raw_y_t[valid].astype(int)
+    y_p = np.clip(raw_y_p[valid], 1e-6, 1.0 - 1e-6)
 
     prob_true, prob_pred = calibration_curve(y_t, y_p, n_bins=n_bins, strategy=strategy)
 
@@ -92,8 +96,12 @@ def calculate_calibration_slope_and_intercept(
     Calculate calibration intercept (calibration-in-the-large) and calibration slope.
     Ideal: intercept = 0, slope = 1.
     """
-    y_t = np.asarray(y_true, dtype=int).ravel()
-    y_p = np.clip(np.asarray(y_pred, dtype=float).ravel(), 1e-6, 1.0 - 1e-6)
+    raw_y_t = np.asarray(y_true).ravel()
+    raw_y_p = np.asarray(y_pred, dtype=float).ravel()
+
+    valid = ~(pd.isna(raw_y_t) | np.isnan(raw_y_p))
+    y_t = raw_y_t[valid].astype(int)
+    y_p = np.clip(raw_y_p[valid], 1e-6, 1.0 - 1e-6)
 
     # Log-odds of predictions
     log_odds = logit(y_p)
@@ -136,8 +144,12 @@ def calculate_ici(
     Calculate Integrated Calibration Index (ICI), E50, E90, and Emax
     according to Austin & Steyerberg (2019).
     """
-    y_t = np.asarray(y_true, dtype=int).ravel()
-    y_p = np.clip(np.asarray(y_pred, dtype=float).ravel(), 1e-6, 1.0 - 1e-6)
+    raw_y_t = np.asarray(y_true).ravel()
+    raw_y_p = np.asarray(y_pred, dtype=float).ravel()
+
+    valid = ~(pd.isna(raw_y_t) | np.isnan(raw_y_p))
+    y_t = raw_y_t[valid].astype(int)
+    y_p = np.clip(raw_y_p[valid], 1e-6, 1.0 - 1e-6)
 
     # Binning approximation or spline smoothing
     # Sort by predicted probability

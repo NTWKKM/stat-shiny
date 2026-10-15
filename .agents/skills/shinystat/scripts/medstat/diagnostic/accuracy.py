@@ -162,8 +162,15 @@ def calculate_diagnostic_accuracy(
     """
     Calculate 2x2 diagnostic metrics directly from true and predicted binary vectors.
     """
-    y_t = (np.asarray(y_true) == pos_label).astype(int)
-    y_p = (np.asarray(y_pred) == pos_label).astype(int)
+    raw_y_t = np.asarray(y_true)
+    raw_y_p = np.asarray(y_pred)
+
+    valid = ~(pd.isna(raw_y_t) | pd.isna(raw_y_p))
+    raw_y_t = raw_y_t[valid]
+    raw_y_p = raw_y_p[valid]
+
+    y_t = (raw_y_t == pos_label).astype(int)
+    y_p = (raw_y_p == pos_label).astype(int)
 
     tp = int(np.sum((y_t == 1) & (y_p == 1)))
     fp = int(np.sum((y_t == 0) & (y_p == 1)))

@@ -657,12 +657,31 @@ def model_cmd(
     """Fit regression or survival models or execute a pre-specified SAP plan."""
     if spec:
         plan = AnalysisPlan.from_yaml(spec)
-        res = plan.execute()
+        try:
+            res = plan.execute()
+        except (ValueError, NotImplementedError, FileNotFoundError) as e:
+            raise click.ClickException(str(e))
+        for name, fit in res.get("models", {}).items():
+            if isinstance(fit, dict):
+                serial = {}
+                for k, v in fit.items():
+                    if isinstance(v, pd.DataFrame):
+                        serial["coefficients" if k == "summary_df" else k] = (
+                            _serialize_summary_df(v)
+                        )
+                    elif (
+                        isinstance(v, (dict, list, str, int, float, bool)) or v is None
+                    ):
+                        serial[k] = v
+                res["models"][name] = serial
+        sanitized = _sanitize_for_json(res)
         if output:
             Path(output).parent.mkdir(parents=True, exist_ok=True)
             with open(output, "w") as f:
-                json.dump(res, f, indent=2, default=str)
+                json.dump(sanitized, f, indent=2, default=str, allow_nan=False)
             click.echo(f"Analysis Plan executed successfully: {output}")
+        else:
+            click.echo(json.dumps(sanitized, indent=2, default=str))
         return
 
     if not data or not outcome:
@@ -1585,8 +1604,9 @@ def psm_cmd(
             click.echo(f"Causal balance diagnostics saved: {output}")
         else:
             matched_df.to_csv(output, index=False)
+            n_treated = int((matched_df[treatment] == 1).sum())
             click.echo(
-                f"Matched cohort saved to: {output} (Matched pairs: {len(matched_df) // 2})"
+                f"Matched cohort saved to: {output} (Matched treated: {n_treated}, total rows: {len(matched_df)}, ratio 1:{ratio})"
             )
 
 
@@ -1829,8 +1849,12 @@ def sample_size_cmd(
         "ttest",
         "means",
         "proportions",
+        "proportion",
         "survival",
+        "logrank",
+        "log-rank",
         "correlation",
+        "pearson",
     )
     if tt_lower not in valid_types:
         raise click.ClickException(

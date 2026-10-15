@@ -270,6 +270,8 @@ class AnalysisPlan:
                     "n_imputations": int(model_spec.options.get("n_imputations", 5))
                 },
                 tracker=model_tracker,
+                outcome_cols=[model_spec.outcome]
+                + ([model_spec.time] if model_spec.time else []),
             )
             results["model_flow"][model_spec.name] = model_tracker.get_flow_summary()
 
@@ -587,7 +589,10 @@ class AnalysisPlan:
                             )
                         )
             else:
-                fit_res = {"error": f"Unsupported model type: {mod_type}"}
+                raise ValueError(
+                    f"Unsupported model type '{mod_type}' in model '{model_spec.name}'. "
+                    "Supported: logistic, binary, linear, ols, cox, cox_ph, survival."
+                )
 
             results["models"][model_spec.name] = fit_res
 
