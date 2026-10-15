@@ -256,6 +256,57 @@
             transform: none !important;
         }
         
+        /* AI Agent Skills Showcase & Sidebar Promotion */
+        .skill-promo-banner {
+            background: #FFFFFF !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 24px !important;
+            margin-bottom: 28px !important;
+            box-shadow: none !important;
+        }
+        
+        .skill-terminal-box {
+            background: #0F172A !important;
+            border: 1px solid #1E293B !important;
+            border-radius: var(--radius-md) !important;
+            padding: 10px 14px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            margin-bottom: 16px !important;
+            gap: 12px !important;
+            flex-wrap: wrap !important;
+        }
+        
+        .skill-terminal-code {
+            color: #38BDF8 !important;
+            font-family: var(--font-family-mono) !important;
+            font-size: 13px !important;
+            word-break: break-all !important;
+        }
+        
+        .skill-card-sub {
+            background: #FFFFFF !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: var(--radius-md) !important;
+            padding: 18px !important;
+            height: 100% !important;
+            transition: border-color var(--transition-normal) !important;
+        }
+        
+        .skill-card-sub:hover {
+            border-color: #0F172A !important;
+        }
+        
+        .sidebar-promo-card {
+            background: #FFFFFF !important;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: var(--radius-md) !important;
+            padding: 14px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        }
+        
         .card-header {
             background: #FAFAFA; /* Transparent fallback appeal */
             border: none;

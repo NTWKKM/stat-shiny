@@ -66,6 +66,44 @@ def data_ui() -> ui.TagChild:
                     ),
                     class_="d-grid gap-2",
                 ),
+                # 🤖 AI Agent Skills Promotion in Sidebar
+                ui.div(
+                    ui.hr(style="margin: 16px 0 12px 0; border-color: #CBD5E1;"),
+                    ui.div(
+                        ui.span(
+                            "✨ AI AGENT SKILLS",
+                            class_="badge",
+                            style="background-color: #0F172A; color: #FFFFFF; font-size: 10px; font-weight: 700; border-radius: 12px; padding: 2px 8px; margin-bottom: 6px; display: inline-block; letter-spacing: 0.04em;",
+                        ),
+                        ui.h5(
+                            "🤖 Shinystat for AI Agents",
+                            style="font-size: 13px; font-weight: 700; color: #0F172A; margin-bottom: 4px; line-height: 1.3;",
+                        ),
+                        ui.p(
+                            "Run this app's statistical intelligence in Antigravity, Claude Code, Cursor & Claude Web.",
+                            style="font-size: 11px; color: #64748B; margin-bottom: 8px; line-height: 1.4;",
+                        ),
+                        ui.code(
+                            "npx skills add https://github.com/ntwkkm/shinystat-skills",
+                            style="font-size: 10px; background: #0F172A; color: #38BDF8; padding: 6px 8px; border-radius: 5px; display: block; word-break: break-all; margin-bottom: 8px; font-family: monospace; border: 1px solid #1E293B;",
+                        ),
+                        ui.tags.button(
+                            "📋 Copy Install Command",
+                            class_="btn btn-sm btn-outline-primary w-100 mb-2",
+                            style="font-size: 11px; padding: 4px 6px; font-weight: 600;",
+                            onclick="navigator.clipboard.writeText('npx skills add https://github.com/ntwkkm/shinystat-skills'); this.innerText='✅ Copied!'; var b=this; setTimeout(function(){b.innerText='📋 Copy Install Command';}, 2000);",
+                        ),
+                        ui.tags.a(
+                            "⭐ View on GitHub →",
+                            href="https://github.com/ntwkkm/shinystat-skills",
+                            target="_blank",
+                            rel="noopener noreferrer",
+                            class_="btn btn-sm btn-outline-secondary w-100",
+                            style="font-size: 11px; padding: 4px 6px; text-decoration: none; font-weight: 500;",
+                        ),
+                        class_="sidebar-promo-card",
+                    ),
+                ),
                 class_="p-2",
             ),
             width=320,

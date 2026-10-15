@@ -19,10 +19,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-# Update OS packages to fix system vulnerabilities
+# Update OS packages to fix system vulnerabilities and install build tools
 RUN apt-get update && \
   apt-get upgrade -y && \
-  apt-get install -y --no-install-recommends gcc && \
+  apt-get install -y --no-install-recommends build-essential && \
   rm -rf /var/lib/apt/lists/*
 
 # Pre-install latest security tools into the target directory (ensuring fresh install)
